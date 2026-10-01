@@ -2,9 +2,9 @@
 
 ## What this project is
 
-Sentient Sands is a Kenshi mod that uses LLMs to drive NPC dialogue, character profiles, and world events. A C++ plugin (`src/`, built to `SentientSands.dll`) loads through RE_Kenshi, reads and changes game state through KenshiLib, and draws the in-game windows. The plugin sends HTTP requests to a local Python Flask server (`server/scripts/kenshi_llm_server.py`) on port 5000. The server sends commands back through the named pipe `\\.\pipe\SentientSands`, which the plugin hosts.
+Sentient Sands is a Kenshi mod that uses LLMs to drive NPC dialogue, character profiles, and world events. It has three parts: a C++ plugin (`plugin/`, built to `SentientSands.dll`) that runs inside the game through RE_Kenshi and KenshiLib, a local Python Flask server (`server/`) that builds prompts and calls an OpenAI-compatible provider, and the Kenshi mod files (`mod/`). `scripts/package_release.py` builds the release zip, which ships an embedded Python runtime, so players install nothing else.
 
-The server builds prompts from `server/templates/` and calls any OpenAI-compatible provider that `server/config/providers.json` and `models.json` define. Players add providers and models without code changes. The server keeps per-campaign state (character JSON, event history, logs) under `server/campaigns/`. `SentientSands_Mod/` holds the files that ship in the Kenshi `mods/` folder.
+[docs/architecture.md](docs/architecture.md) holds the layout, the path and transport contracts between the plugin and the server, and the threading rule. Read it before you change how the two sides find or talk to each other. [docs/development.md](docs/development.md) covers building, running, and releasing.
 
 The C++ plugin is Windows-only, and the repo has no build project, so you cannot build it in the dev container. The container has `python3` but no `pip`, and its firewall blocks PyPI, so the server's dependencies (`flask`, `requests`) are not installed there either.
 

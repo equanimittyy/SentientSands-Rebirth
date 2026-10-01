@@ -1,12 +1,12 @@
 #include "LauncherWindow.h"
 #include "CampaignsWindow.h"
-#include "Comm.h"
+#include "../core/Comm.h"
 #include "EventsWindow.h"
-#include "Globals.h"
+#include "../core/Globals.h"
 #include "LibraryWindow.h"
 #include "ProfileEditorWindow.h"
 #include "SettingsWindow.h"
-#include "Utils.h"
+#include "../core/Utils.h"
 #include "WelcomeWindow.h"
 #include <mygui/MyGUI_Button.h>
 #include <mygui/MyGUI_Delegate.h>

@@ -14,9 +14,6 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-// 🚨 AGENT PROTOCOL: Before editing this file, you MUST read PROJECT_CONTEXT.md
-// 🚨 This project has strict threading and memory safety rules.
-
 #ifdef _WIN64
 // Linker aliases to cover all common entry point names for Kenshi mod loaders.
 // ?startPlugin@@YAXXZ is the C++ mangled name for void startPlugin(void)
@@ -29,38 +26,37 @@
 #include <vector>
 #include <windows.h>
 
-#include "Comm.h"
-#include "Context.h"
-// 🚨 AGENT PROTOCOL: Before editing this file, you MUST read PROJECT_CONTEXT.md
-// 🚨 Kenshi engine writes MUST occur on the main thread inside hooks.
-#include "../RE_Kenshi_Source/KenshiLib/Include/core/Functions.h"
-#include "CampaignsWindow.h"
-#include "GameActions.h"
-#include "Globals.h"
-#include "ProfileEditorWindow.h"
-#include "Utils.h"
+#include "core/Comm.h"
+#include "game/Context.h"
+// Kenshi engine writes must happen on the main thread, inside hooks.
+#include <core/Functions.h>
+#include "ui/CampaignsWindow.h"
+#include "game/GameActions.h"
+#include "core/Globals.h"
+#include "ui/ProfileEditorWindow.h"
+#include "core/Utils.h"
 
-#include "../RE_Kenshi_Source/KenshiLib/Include/kenshi/CharStats.h"
-#include "../RE_Kenshi_Source/KenshiLib/Include/kenshi/Character.h"
-#include "../RE_Kenshi_Source/KenshiLib/Include/kenshi/Dialogue.h"
-#include "../RE_Kenshi_Source/KenshiLib/Include/kenshi/Faction.h"
-#include "../RE_Kenshi_Source/KenshiLib/Include/kenshi/GameData.h"
-#include "../RE_Kenshi_Source/KenshiLib/Include/kenshi/GameWorld.h"
-#include "../RE_Kenshi_Source/KenshiLib/Include/kenshi/Inventory.h"
-#include "../RE_Kenshi_Source/KenshiLib/Include/kenshi/Item.h"
-#include "../RE_Kenshi_Source/KenshiLib/Include/kenshi/Kenshi.h"
-#include "../RE_Kenshi_Source/KenshiLib/Include/kenshi/MedicalSystem.h"
-#include "../RE_Kenshi_Source/KenshiLib/Include/kenshi/Platoon.h"
-#include "../RE_Kenshi_Source/KenshiLib/Include/kenshi/PlayerInterface.h"
-#include "../RE_Kenshi_Source/KenshiLib/Include/kenshi/util/hand.h"
+#include <kenshi/CharStats.h>
+#include <kenshi/Character.h>
+#include <kenshi/Dialogue.h>
+#include <kenshi/Faction.h>
+#include <kenshi/GameData.h>
+#include <kenshi/GameWorld.h>
+#include <kenshi/Inventory.h>
+#include <kenshi/Item.h>
+#include <kenshi/Kenshi.h>
+#include <kenshi/MedicalSystem.h>
+#include <kenshi/Platoon.h>
+#include <kenshi/PlayerInterface.h>
+#include <kenshi/util/hand.h>
 #include <kenshi/Damages.h>
 
-#include "../RE_Kenshi_Source/KenshiLib/Include/kenshi/FactionWarMgr.h"
-#include "../RE_Kenshi_Source/KenshiLib/Include/kenshi/RaceData.h"
-#include "../RE_Kenshi_Source/KenshiLib/Include/kenshi/RootObject.h"
-#include "../RE_Kenshi_Source/KenshiLib/Include/kenshi/RootObjectBase.h"
-#include "../RE_Kenshi_Source/KenshiLib/Include/kenshi/Town.h"
-#include "../RE_Kenshi_Source/KenshiLib/Include/kenshi/WorldEventStateQuery.h"
+#include <kenshi/FactionWarMgr.h>
+#include <kenshi/RaceData.h>
+#include <kenshi/RootObject.h>
+#include <kenshi/RootObjectBase.h>
+#include <kenshi/Town.h>
+#include <kenshi/WorldEventStateQuery.h>
 
 // Helper to safely get faction names for logging
 inline std::string SafeFaction(RootObjectBase *obj) {
@@ -103,7 +99,7 @@ void (*setChainedMode_orig)(Character *, bool, const hand &) = nullptr;
 #include <mygui/MyGUI_TextBox.h>
 #include <mygui/MyGUI_Window.h>
 
-#include "ChatUI.h"
+#include "ui/ChatUI.h"
 
 // --- Main Hook Core ---
 // List of generic name prefixes to detect and replace

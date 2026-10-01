@@ -50,22 +50,15 @@ def resolve_mod_file(filename):
     """
     Helper to find a file in the mod directory.
     Normally files are in KENSHI_MOD_DIR (the root of the mod).
-    During development they might be in a 'SentientSands_Mod' subdirectory.
+    In the source repo they are in the 'mod' subdirectory.
     """
-    # 1. Primary: Mod Root (Deployed state)
     path = os.path.join(KENSHI_MOD_DIR, filename)
     if os.path.exists(path):
         return path
         
-    # 2. Secondary: Development Subfolder
-    dev_path = os.path.join(KENSHI_MOD_DIR, "SentientSands_Mod", filename)
+    dev_path = os.path.join(KENSHI_MOD_DIR, "mod", filename)
     if os.path.exists(dev_path):
         return dev_path
-        
-    # 3. Tertiary: Sibling project folder (Source layout)
-    alt_path = os.path.join(os.path.dirname(KENSHI_MOD_DIR), "SentientSands_Mod", filename)
-    if os.path.exists(alt_path):
-        return alt_path
 
     return path
 

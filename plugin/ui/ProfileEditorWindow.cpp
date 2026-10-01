@@ -1,8 +1,8 @@
 #include "ProfileEditorWindow.h"
 #include "ChatUIGlobals.h"
-#include "Comm.h"
-#include "Globals.h"
-#include "Utils.h"
+#include "../core/Comm.h"
+#include "../core/Globals.h"
+#include "../core/Utils.h"
 #include <mygui/MyGUI_Button.h>
 #include <mygui/MyGUI_Delegate.h>
 #include <mygui/MyGUI_EditBox.h>

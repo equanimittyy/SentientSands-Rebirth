@@ -23,10 +23,12 @@ Before installing Sentient Sands, you must have the following dependencies insta
    *(Expected path: `...\Kenshi\mods\KenshiLib\KenshiLib.mod`)*
 
 ### Step 3: Install Sentient Sands
-1. Download the Sentient Sands release package.
-2. Copy the entire `SentientSands` folder into your `Kenshi/mods/` directory.
+1. Download the Sentient Sands release zip.
+2. Extract it so that the `SentientSands` folder is inside your `Kenshi/mods/` directory.
    *(Expected path: `...\Kenshi\mods\SentientSands\SentientSands.mod`)*
 3. Ensure that `SentientSands.dll` is present in your `Kenshi\mods\SentientSands\` directory. Our `RE_Kenshi.json` file will automatically instruct RE_Kenshi to load it from here.
+
+The release includes its own Python runtime (`server\python\`), so you do not need to install Python or any packages.
 
 ### Step 4: Launching the Game
 🚨 **CRITICAL REQUIREMENT** 🚨
@@ -83,3 +85,9 @@ Edit `models.json`. This file links a user-friendly name (which appears in the g
 
 ### Selecting Your Model In-Game
 Once you have added models to your config, launch the game, open the Sentient Sands **Settings Window**, and select your desired model from the dropdown menu!
+
+---
+
+## Development
+
+See [docs/architecture.md](docs/architecture.md) for how the plugin, the server, and the mod files fit together, and [docs/development.md](docs/development.md) for building, running, and releasing.

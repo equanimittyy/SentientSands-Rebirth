@@ -1,20 +1,20 @@
 #include "ChatWindow.h"
-#include "Comm.h"
-#include "Context.h"
-#include "Globals.h"
-#include "Utils.h"
+#include "../core/Comm.h"
+#include "../game/Context.h"
+#include "../core/Globals.h"
+#include "../core/Utils.h"
 
-#include "../RE_Kenshi_Source/KenshiLib/Include/kenshi/Character.h"
-#include "../RE_Kenshi_Source/KenshiLib/Include/kenshi/Faction.h"
-#include "../RE_Kenshi_Source/KenshiLib/Include/kenshi/GameData.h"
-#include "../RE_Kenshi_Source/KenshiLib/Include/kenshi/GameWorld.h"
-#include "../RE_Kenshi_Source/KenshiLib/Include/kenshi/Kenshi.h"
-#include "../RE_Kenshi_Source/KenshiLib/Include/kenshi/PlayerInterface.h"
-#include "../RE_Kenshi_Source/KenshiLib/Include/kenshi/RaceData.h"
-#include "../RE_Kenshi_Source/KenshiLib/Include/kenshi/RootObject.h"
-#include "../RE_Kenshi_Source/KenshiLib/Include/kenshi/RootObjectBase.h"
-#include "../RE_Kenshi_Source/KenshiLib/Include/kenshi/util/OgreUnordered.h"
-#include "../RE_Kenshi_Source/KenshiLib/Include/kenshi/util/hand.h"
+#include <kenshi/Character.h>
+#include <kenshi/Faction.h>
+#include <kenshi/GameData.h>
+#include <kenshi/GameWorld.h>
+#include <kenshi/Kenshi.h>
+#include <kenshi/PlayerInterface.h>
+#include <kenshi/RaceData.h>
+#include <kenshi/RootObject.h>
+#include <kenshi/RootObjectBase.h>
+#include <kenshi/util/OgreUnordered.h>
+#include <kenshi/util/hand.h>
 
 #include <mygui/MyGUI_Button.h>
 #include <mygui/MyGUI_ComboBox.h>

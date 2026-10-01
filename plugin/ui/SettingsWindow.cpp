@@ -1,8 +1,8 @@
 #include "SettingsWindow.h"
 #include "CampaignsWindow.h"
-#include "Comm.h"
-#include "Globals.h"
-#include "Utils.h"
+#include "../core/Comm.h"
+#include "../core/Globals.h"
+#include "../core/Utils.h"
 #include "WelcomeWindow.h"
 
 #include <shellapi.h>

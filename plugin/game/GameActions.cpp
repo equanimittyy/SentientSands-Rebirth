@@ -1,7 +1,7 @@
 #include "GameActions.h"
 #include "Context.h"
-#include "Globals.h"
-#include "Utils.h"
+#include "../core/Globals.h"
+#include "../core/Utils.h"
 #include <algorithm>
 #include <core/Functions.h>
 #include <kenshi/Character.h>

@@ -1,6 +1,6 @@
 #include "Context.h"
-#include "Globals.h"
-#include "Utils.h"
+#include "../core/Globals.h"
+#include "../core/Utils.h"
 #include <fstream>
 #include <kenshi/Building.h>
 #include <kenshi/CharStats.h>

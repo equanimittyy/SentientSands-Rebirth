@@ -1,5 +1,5 @@
 #include "Utils.h"
-#include "ChatUIGlobals.h"
+#include "../ui/ChatUIGlobals.h"
 #include "Globals.h"
 #include <fstream>
 #include <iomanip>
@@ -314,8 +314,8 @@ void StartPythonServer() {
           NULL,
           "Sentient Sands requires a Python engine to connect to AI "
           "models, but no Python installation was found!\n\n"
-          "Please go to your mod directory and run 'Install_Python.bat' "
-          "to download the local engine, then restart the game.",
+          "The release package ships it in server\\python. Reinstall "
+          "Sentient Sands from the release zip, then restart the game.",
           "Sentient Sands - Python Missing", MB_ICONERROR | MB_OK);
     }
   }
@@ -349,7 +349,7 @@ void LogGameEvent(const std::string &type, const std::string &actor,
   Log(logMsg);
 }
 
-#include "../RE_Kenshi_Source/KenshiLib/Include/kenshi/GameWorld.h"
+#include <kenshi/GameWorld.h>
 void SleepIfPaused(DWORD ms) {
   DWORD start = GetTickCount();
   while (GetTickCount() - start < ms) {

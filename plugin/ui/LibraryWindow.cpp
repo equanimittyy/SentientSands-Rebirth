@@ -1,7 +1,7 @@
 #include "LibraryWindow.h"
-#include "Comm.h"
-#include "Globals.h"
-#include "Utils.h"
+#include "../core/Comm.h"
+#include "../core/Globals.h"
+#include "../core/Utils.h"
 #include <algorithm>
 #include <mygui/MyGUI_Button.h>
 #include <mygui/MyGUI_Delegate.h>

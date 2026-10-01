@@ -61,12 +61,11 @@ def build_world_index():
     mod_dir = os.path.dirname(os.path.dirname(script_dir))
     
     # Check for active campaign if possible, otherwise use root (legacy)
-    # Since save_reader doesn't know about campaigns, we'll try to find SentientSands_Mod first
     registry_dir = os.path.join(mod_dir, "sentient_sands_registry")
     
     # Dev environment support
     if not os.path.exists(registry_dir):
-        dev_reg = os.path.join(mod_dir, "SentientSands_Mod", "sentient_sands_registry")
+        dev_reg = os.path.join(mod_dir, "mod", "sentient_sands_registry")
         if os.path.exists(dev_reg):
             registry_dir = dev_reg
     
