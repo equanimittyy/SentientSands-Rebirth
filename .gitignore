@@ -8,7 +8,7 @@ dist/
 server/python/
 *.dll
 
-# Server runtime output: logs and per-player campaign state
+# Server runtime output: logs, per-player campaign state, and the player's API keys
 *.log
 *.log.[0-9]
 server/campaigns/
@@ -16,6 +16,7 @@ server/characters/
 server/world_events.txt
 server/event_history.json
 sentient_sands_registry/
+server/config/providers.json
 
 .vs/
 *.user

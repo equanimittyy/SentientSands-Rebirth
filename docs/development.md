@@ -23,11 +23,19 @@ python -m pip install -r server/requirements.txt
 python server/scripts/kenshi_llm_server.py
 ```
 
-From the repo, the server reads `mod/SentientSands_Config.ini` and writes its logs and campaigns under `server/`. Git ignores those runtime files.
+From the repo, the server reads `mod/SentientSands_Config.ini` and writes its logs and campaigns under `server/`. On first start, it also creates `server/config/providers.json` for your API keys. Git ignores all of these files.
 
 `visual_debugger.py` needs Tkinter, which the embedded runtime does not include. Run it with a system Python.
 
 The dev container cannot build the plugin. It also cannot run the server, because it has no `pip` and its firewall blocks PyPI.
+
+## Tests
+
+```
+python -m unittest discover -s server/tests
+```
+
+The tests use only the standard library, so they run in the dev container. Code that imports Flask or `requests` cannot be tested there, so keep testable logic in modules that do not import them.
 
 ## Release
 
@@ -35,7 +43,7 @@ The dev container cannot build the plugin. It also cannot run the server, becaus
 python scripts/package_release.py --dll path/to/SentientSands.dll
 ```
 
-The script writes `dist/SentientSands-<version>.zip` and takes the version from `mod/mod.info`. The zip contains the mod files, the DLL, the server, and an embedded Windows Python runtime with the packages from `server/requirements.txt` already installed. Players unzip it into `Kenshi/mods/` and do not install Python.
+The script writes `dist/SentientSands-<version>.zip` and takes the version from `mod/mod.info`. The zip contains the mod files, the DLL, the server, and an embedded Windows Python runtime with the packages from `server/requirements.txt` already installed. Players unzip it into `Kenshi/mods/` and do not install Python. The zip leaves out `server/config/providers.json`, so it never contains your keys and never replaces a player's keys.
 
 The script runs on any OS. It needs Python 3 with `pip`, and internet access to python.org and PyPI. Downloaded runtimes are cached in `dist/cache/`.
 

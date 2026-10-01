@@ -24,11 +24,31 @@ These facts come from the code. They set the constraints for the design.
 | Model selection | One global model key, `CURRENT_MODEL_KEY`. Every LLM call goes through `call_llm`, which looks up that key in `models.json`. |
 | LLM call sites | `chat`, `ambient_event`, `generate_character_profile`, `generate_batch_profiles`, `regenerate_profile_route`, `generate_global_narrative_thread`. They use different `max_tokens` and `temperature` values. |
 | Retries | `call_llm` tries the same model three times with a 120 s request timeout each. |
-| Plugin wait | `PostToPythonWithResponse` stops waiting after 60 s (`plugin/core/Comm.cpp:101`). A slow LLM call can outlive the plugin's wait, so the reply is lost. |
+| Plugin wait | `PostToPythonWithResponse` stops waiting after 60 s (`plugin/core/Comm.cpp:101`). |
 | In-game settings | `SettingsWindow` holds provider, model, test, restart, radii, radiant timer and toggle, event count, event timer, dialogue delay, bubble life, chat key, and language. |
-| Settings storage | `SentientSands_Config.ini`. Both the plugin (`SavePluginConfig`, `plugin/core/Utils.cpp:248`) and the server (`_save_settings_raw`) write it, with no lock between them. |
-| API keys | `server/config/providers.json`. The release zip ships this file, so unzipping an update over an install resets the player's keys. |
+| Settings storage | `SentientSands_Config.ini`, which the release ships. Both the plugin (`SavePluginConfig`, `plugin/core/Utils.cpp:248`) and the server (`_save_settings_raw`) write it. |
+| API keys | `server/config/providers.json`. The server copies it from `default_providers.json` on first start, and the release does not ship it. |
 | Translations | The plugin loads the UI translation table in `PopulateSettingsUI` (`plugin/ui/SettingsWindow.cpp:539`), which also fills the Campaign Manager. |
+| Request checks | The server rejects requests with a foreign `Host` or `Origin` header (`server/scripts/request_guard.py`). `/test_llm` accepts only POST. |
+
+### 2.1 Known problems
+
+These problems exist in the current code. The plan fixes each one in the phase named here.
+
+| Problem | Fix |
+|---|---|
+| A slow LLM call can outlive the plugin's 60 s wait. The plugin then loses the reply, and the second and third attempts in `call_llm` cannot reach it. | W2: the route deadline (section 6.3) |
+| The plugin and the server write the INI with no lock between them, so one write can undo the other. | W3: the server as the only writer (section 7.2) |
+| The release ships the INI, so an update resets the player's gameplay settings. | Open question 1 |
+| The plugin, the server, and the shipped INI disagree on defaults (table below). A default applies only when the INI has no value, so the defaults must agree before the INI stops shipping. | W3 |
+| The shipped INI holds `ProximityRadius` and `DialogueSpeedSeconds`, which nothing reads. The readers use `TalkRadius` and `DialogueSpeed`. | W3 |
+
+| INI key | Plugin default | Server default | Shipped INI |
+|---|---|---|---|
+| `TalkRadius` | 40 | 100 | 100 |
+| `YellRadius` | 100 | 200 | 200 |
+| `GlobalEventsCount` | 10 | 5 | 10 |
+| `SynthesisIntervalMinutes` | Not read | 15 | 5 |
 
 ## 3. Goals and non-goals
 
@@ -40,7 +60,7 @@ These facts come from the code. They set the constraints for the design.
 4. A configuration change applies at once, with no server or game restart.
 5. Domain editors for the SQLite store that keep its derived tables consistent.
 6. A lean in-game GUI that holds only what play needs.
-7. Player configuration, API keys included, survives a release update.
+7. Player configuration survives a release update.
 
 ### Non-goals
 
@@ -83,12 +103,9 @@ New modules must not import `kenshi_llm_server`. The server runs as `__main__`, 
 
 ### 4.2 Request security
 
-Any web page that the player opens can send requests to `127.0.0.1:5000`. A cross-site form POST needs no CORS preflight, and DNS rebinding lets a page read the responses too. With the web app, such a request could point a provider's base URL at an attacker's server, and the next LLM call would then send the API key there. The server applies two checks to every route, plugin routes included:
+The server already rejects requests from other sites ([architecture.md](architecture.md#runtime-flow)). The web app depends on this check. Without it, a page on any site could point a provider's base URL at its own server, and the next LLM call would send the API key there. The web app's own requests pass, because they come from `http://127.0.0.1:5000`.
 
-1. It rejects a request whose `Host` header is not `127.0.0.1:5000` or `localhost:5000`. This stops DNS rebinding. The plugin uses both host names (`plugin/core/Comm.cpp:58` and `:101`).
-2. It rejects a request that changes state if the request has an `Origin` header other than `http://127.0.0.1:5000` or `http://localhost:5000`. Browsers send `Origin` on cross-origin POST requests. WinHTTP sends none, so the plugin is not affected.
-
-GET requests must not change state. `/test_llm` accepts GET and spends tokens today, so it becomes POST only.
+A GET route in `/api/` must not change state. A page on another site can send a GET with no `Origin` header, for example through an image tag, so the Origin check does not stop it.
 
 The API never returns a stored API key. A read returns only the last four characters. A save with an empty key field keeps the stored key.
 
@@ -147,11 +164,11 @@ The server keeps the LLM configuration in `server/user/llm_config.json`. It writ
 
 On the first start without `server/user/llm_config.json`, the server builds it:
 
-1. One provider from each entry of the old `server/config/providers.json`, keys included.
+1. One provider from each entry of `server/config/providers.json`, keys included.
 2. One profile from each entry of `models.json`.
 3. One route for each task, with the old `CurrentModel` profile as the only entry and the defaults from section 6.2.
 
-This reproduces today's behavior. The release then ships its provider and model seeds under new names (`default_providers.json`, `default_models.json`), so the first update that contains this change does not overwrite the old `providers.json` before the migration reads it.
+This reproduces today's behavior. The release does not ship `providers.json`, so the migration finds the player's keys after an update. The release that contains the migration ships its model seeds as `default_models.json`, so that it does not overwrite a player's edited `models.json` before the migration reads it.
 
 ## 7. Settings move and the lean in-game GUI
 
@@ -170,7 +187,7 @@ This reproduces today's behavior. The release then ships its provider and model 
 
 ### 7.2 Settings ownership
 
-The server becomes the only writer of `SentientSands_Config.ini`. The plugin reads the INI at start, because it starts before the server, and after that it takes changes only through the pipe. This removes the unlocked double write from section 2.
+The server becomes the only writer of `SentientSands_Config.ini`. The plugin reads the INI at start, because it starts before the server, and after that it takes changes only through the pipe. This removes the unlocked double write from section 2.1.
 
 The plugin gets these changes:
 
@@ -206,9 +223,9 @@ The editor works on the template database and the active campaign database. Camp
 
 | Phase | Deliverable | Depends on | Acceptance criteria |
 |---|---|---|---|
-| W1. Shell | `/` serves the web app; the Host and Origin checks; `--open-browser`; "Open Web Panel" in the launcher | None | The browser opens once on Kenshi start and not on an in-game restart. A cross-origin POST gets 403. All plugin routes still work. |
+| W1. Shell | `/` serves the web app; `--open-browser`; "Open Web Panel" in the launcher | None | The browser opens once on Kenshi start and not on an in-game restart. All plugin routes still work. |
 | W2. LLM config | Providers, profiles, and routes pages; `llm_router.py`; `server/user/llm_config.json` and its migration; a test button per profile | W1 | A migrated install sends every task to the old `CurrentModel`. A failing first profile falls through to the next inside the deadline. Keys survive a release update. |
-| W3. Settings move | All settings in the web app; the server as the only INI writer; the new `SET_CONFIG` keys; the AI Settings and Profile Editor windows removed | W2 | A setting changed in the web app takes effect in game without a restart. The launcher shows only the windows from section 7.1. |
+| W3. Settings move | All settings in the web app; the server as the only INI writer; the new `SET_CONFIG` keys; the AI Settings and Profile Editor windows removed; aligned defaults and no unread INI keys (section 2.1) | W2 | A setting changed in the web app takes effect in game without a restart. The launcher shows only the windows from section 7.1. Without an INI, the plugin and the server start with the same values. |
 | W4. Data editor | The pages from section 8.1 on the SQLite store | SQLite phase 2 | An entity edit appears in the next prompt that retrieves it. A stale save is rejected. A search finds a renamed entity. |
 
 W1 to W3 do not need the SQLite store. They can run before or alongside SQLite phases 0 and 1.
@@ -216,8 +233,7 @@ W1 to W3 do not need the SQLite store. They can run before or alongside SQLite p
 ## 10. Verification
 
 - `llm_router.py`: unit tests with a fake HTTP call, for chain order, the fall-through conditions, and the deadline. These tests run in the dev container.
-- Request checks: Flask test-client tests for a foreign `Host`, a foreign `Origin`, no `Origin` (the plugin case), and a same-origin request. These tests need Flask, so they run outside the dev container.
-- Migration: an install with the old `providers.json`, `models.json`, and `CurrentModel`, upgraded with a release zip, keeps its keys and routes every task to the old model.
+- Migration: an install with `providers.json`, `models.json`, and `CurrentModel`, upgraded with a release zip, keeps its keys and routes every task to the old model.
 - Plugin: the dev container cannot build the plugin, so a Windows build checks the launcher, the new `SET_CONFIG` keys, the hotkey and language changes, and the auto-open flag in game.
 
 ## 11. Risks
@@ -228,9 +244,9 @@ W1 to W3 do not need the SQLite store. They can run before or alongside SQLite p
 | A malicious page sends requests to the server | Stolen API key or changed settings | Host and Origin checks on every route |
 | A fallback chain outlives the plugin's wait | The player gets no reply | Route deadline under 60 s |
 | A web edit and a game write hit the same record | One change is lost without notice | `updated_at` check; `busy_timeout` |
-| A release update overwrites player files | Lost keys | `server/user/` is not shipped; seeds renamed |
+| A release update overwrites player files | Lost LLM settings | `server/user/` is not shipped; model seeds renamed |
 
 ## 12. Open questions
 
-1. Should the release stop shipping `SentientSands_Config.ini`? Today an update resets the player's gameplay settings in the same way that it resets the keys.
+1. Should the release stop shipping `SentientSands_Config.ini`, so that an update keeps the player's gameplay settings? The defaults in section 2.1 must agree first.
 2. Does the player need the Profile Editor during play? This proposal moves it to the web app.

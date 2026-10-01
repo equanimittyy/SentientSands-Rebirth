@@ -19,6 +19,7 @@ import ctypes
 import json
 import logging
 import subprocess
+import shutil
 import requests
 import re
 import time
@@ -26,6 +27,7 @@ import threading
 import random
 import configparser
 from flask import Flask, request, jsonify
+from werkzeug.exceptions import HTTPException
 import sys
 import logging.handlers
 import traceback
@@ -40,6 +42,7 @@ if SCRIPT_DIR not in sys.path:
     sys.path.insert(0, SCRIPT_DIR)
 
 from save_reader import build_world_index
+from request_guard import is_request_allowed
 
 def resolve_mod_file(filename):
     """Falls back to the repo's mod/ subdirectory when run from a source checkout."""
@@ -56,6 +59,7 @@ def resolve_mod_file(filename):
 INI_PATH = resolve_mod_file("SentientSands_Config.ini")
 MODELS_PATH = os.path.join(KENSHI_SERVER_DIR, "config", "models.json")
 PROVIDERS_PATH = os.path.join(KENSHI_SERVER_DIR, "config", "providers.json")
+DEFAULT_PROVIDERS_PATH = os.path.join(KENSHI_SERVER_DIR, "config", "default_providers.json")
 NAMES_PATH = os.path.join(KENSHI_SERVER_DIR, "config", "names.json")
 GENERIC_NAMES_PATH = os.path.join(KENSHI_SERVER_DIR, "config", "generic_names.json")
 LOCALIZATION_PATH = os.path.join(KENSHI_SERVER_DIR, "config", "localization.json")
@@ -296,6 +300,8 @@ app.json.ensure_ascii = True
 
 @app.errorhandler(Exception)
 def handle_exception(e):
+    if isinstance(e, HTTPException):
+        return jsonify({"error": e.description, "status": "error"}), e.code
     logging.error(f"UNHANDLED SERVER EXCEPTION: {str(e)}")
     debug_logger.error(f"UNHANDLED SERVER EXCEPTION STACK:\n{traceback.format_exc()}")
     try:
@@ -304,6 +310,14 @@ def handle_exception(e):
     except:
         pass
     return jsonify({"error": str(e), "status": "error"}), 500
+
+@app.before_request
+def reject_foreign_requests():
+    host = request.headers.get("Host")
+    origin = request.headers.get("Origin")
+    if not is_request_allowed(host, origin):
+        logging.warning(f"Rejected request to {request.path}: Host={host}, Origin={origin}")
+        return jsonify({"status": "error", "message": "Forbidden"}), 403
 
 def load_configs():
     global MODELS_CONFIG, PROVIDERS_CONFIG, NAMES_CONFIG
@@ -320,7 +334,11 @@ def load_configs():
             logging.debug(f"Loaded {len(MODELS_CONFIG)} models.")
         except Exception as e:
             logging.error(f"Failed to load models.json: {e}")
-            
+
+    # The release ships only the default, so an update cannot overwrite the player's keys
+    if not os.path.exists(PROVIDERS_PATH) and os.path.exists(DEFAULT_PROVIDERS_PATH):
+        shutil.copyfile(DEFAULT_PROVIDERS_PATH, PROVIDERS_PATH)
+
     if os.path.exists(PROVIDERS_PATH):
         try:
             with open(PROVIDERS_PATH, "r") as f:
@@ -2039,7 +2057,7 @@ INSTRUCTIONS:
     
     return jsonify({"status": "none"})
 
-@app.route('/test_llm', methods=['GET', 'POST'])
+@app.route('/test_llm', methods=['POST'])
 def test_llm():
     try:
         messages = [{"role": "user", "content": "Keep your response extremely short. Reply with the word: Success"}]

@@ -34,11 +34,12 @@ def stage_files(stage, dll):
     # Skip what local test runs leave behind; the DLL comes from --dll instead.
     shutil.copytree(REPO / "mod", stage, ignore=shutil.ignore_patterns("*.dll", "*.log", "sentient_sands_registry"))
     # Copy named folders only, so logs and campaigns from a local server run stay out.
+    # providers.json holds local API keys, and leaving it out keeps a player's keys through an update.
     for name in SERVER_DIRS:
         shutil.copytree(
             REPO / "server" / name,
             stage / "server" / name,
-            ignore=shutil.ignore_patterns("__pycache__", "*.pyc"),
+            ignore=shutil.ignore_patterns("__pycache__", "*.pyc", "providers.json"),
         )
     shutil.copy2(dll, stage / "SentientSands.dll")
 
