@@ -3,7 +3,6 @@ from tkinter import ttk, scrolledtext, messagebox
 import sys
 import os
 import requests
-import json
 import threading
 import time
 import ctypes
@@ -16,8 +15,6 @@ if os.name == 'nt' and not sys.executable.lower().endswith('pythonw.exe'):
 SCRIPT_PATH = os.path.abspath(__file__)
 SCRIPT_DIR = os.path.dirname(SCRIPT_PATH)
 KENSHI_SERVER_DIR = os.path.dirname(SCRIPT_DIR)
-KENSHI_MOD_DIR = os.path.dirname(KENSHI_SERVER_DIR)
-KENSHI_ROOT = os.path.dirname(os.path.dirname(KENSHI_MOD_DIR))
 
 print(f"[DEBUGGER] SCRIPT_PATH: {SCRIPT_PATH}")
 print(f"[DEBUGGER] KENSHI_SERVER_DIR: {KENSHI_SERVER_DIR}")
@@ -29,7 +26,6 @@ class VisualDebugger:
         self.root.geometry("1000x950")
         self.root.configure(bg="#0F0F0F")
         
-        self.last_sync = 0
         self.running = True
         self.current_npc_faction = "Neutral"
         self.current_campaign = "Default"
@@ -496,7 +492,6 @@ class VisualDebugger:
         if campaign != self.current_campaign:
             self.current_campaign = campaign
             self.campaign_lbl.config(text=f"CAMPAIGN: {campaign}")
-            base_dir = os.path.dirname(os.path.abspath(__file__))
             self._EVENTS_LOG_PATH = os.path.join(KENSHI_SERVER_DIR, "campaigns", campaign, "logs", "global_events.log")
             self._append_server_log(f"\n[DEBUGGER] Switched to campaign: {campaign}\n")
             self._append_server_log(f"[DEBUGGER] Tailing: {self._EVENTS_LOG_PATH}\n")

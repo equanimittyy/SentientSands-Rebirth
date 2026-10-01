@@ -1,9 +1,6 @@
 #pragma once
 #include "ChatUIGlobals.h"
 
-class GameWorld;
-class Character;
-
 namespace SentientSands {
 namespace UI {
 
@@ -19,11 +16,6 @@ extern size_t g_lastChatModeIndex;
 void CreateChatUI(const std::string &npcName, const std::string &playerName,
                   const std::string &handleStr);
 void CloseChatUI();
-void SendChatToPython(GameWorld *world, Character *sel,
-                      const std::string &npcName, const std::string &playerName,
-                      const std::string &text, const std::string &mode,
-                      const std::string &npcsJson,
-                      const std::string &nearbyFullJson);
 
 DWORD WINAPI ChatResponseThread(LPVOID lpParam);
 void OnChatInputChange(MyGUI::EditBox *sender);

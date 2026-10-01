@@ -1,5 +1,4 @@
 #include "ProfileEditorWindow.h"
-#include "ChatUIGlobals.h"
 #include "../core/Comm.h"
 #include "../core/Globals.h"
 #include "../core/Utils.h"

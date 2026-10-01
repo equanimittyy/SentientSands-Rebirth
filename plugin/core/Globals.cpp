@@ -26,13 +26,8 @@ int g_worldEventIntervalDays = 3;
 int g_dialogueSpeedSeconds = 5;
 float g_speechBubbleLife = 5.0f;
 
-std::string g_activeInventoryJson = "[]";
-hand g_lastInventoryHand;
-std::string g_activeCharName = "";
 hand g_lastSelectionHand;
 hand g_lastChattingPlayerHand;
-std::string g_playerInventoryJson = "[]";
-hand g_playerHand;
 CRITICAL_SECTION g_stateMutex;
 
 std::deque<GameEvent> g_gameEvents;

@@ -217,7 +217,6 @@ void ProcessMessageQueue(GameWorld *thisptr) {
       bool isNPCSay = (msg.find("NPC_SAY: ") == 0);
       bool isNotify = (msg.find("NOTIFY:") == 0);
       bool isCmd = (msg.find("CMD:") == 0);
-      bool isHistory = (msg.find("SHOW_HISTORY: ") == 0);
       bool isRename = (msg.find("NPC_RENAME: ") == 0);
 
       hand targetHand = g_talkTargetHand;
@@ -238,11 +237,6 @@ void ProcessMessageQueue(GameWorld *thisptr) {
 
           if (command == "TRIGGER_AMBIENT") {
             g_triggerAmbient = true;
-          } else if (command == "RESET_RENAMER") {
-            EnterCriticalSection(&g_nameCheckMutex);
-            g_renamedSerials.clear();
-            LeaveCriticalSection(&g_nameCheckMutex);
-            Log("HOOK_MSG_PROC: Renamer cache cleared.");
           } else if (command == "POPULATE_WELCOME") {
             PopulateSettingsUI(data);
           } else if (command == "POPULATE_LIBRARY") {
@@ -365,13 +359,6 @@ void ProcessMessageQueue(GameWorld *thisptr) {
             }
           }
         }
-      } else if (isHistory) {
-        size_t pipePos = msg.find("| ");
-        if (pipePos != std::string::npos) {
-          std::string name = msg.substr(14, pipePos - 14);
-          std::string content = msg.substr(pipePos + 2);
-          CreateHistoryUI(name, content);
-        }
       } else if (isNotify) {
         std::string text = msg.substr(7);
         EnterCriticalSection(&g_uiMutex);
@@ -424,7 +411,6 @@ void ProcessMessageQueue(GameWorld *thisptr) {
           targetHand = g_lastSelectionHand;
         }
 
-        std::string content = "";
         bool found = false;
         bool header_processed = false;
 
@@ -989,8 +975,6 @@ void ProcessMessageQueue(GameWorld *thisptr) {
               act.taskValue = 110;
             } else if (tName == "BREAKOUT_PRISONER") {
               act.taskValue = 111;
-            } else if (tName == "MOVE_ON_FREE_WILL") {
-              act.taskValue = 1;
             } else if (tName == "MOVE_ON_FREE_WILL_FAST") {
               act.taskValue = 67;
             } else if (tName == "GO_HOMEBUILDING") {
@@ -1235,12 +1219,10 @@ void playerUpdate_hook(PlayerInterface *thisptr) {
   bool selectionChanged = false;
   if (sel && (uintptr_t)sel > 0x1000) {
     if (sel->getHandle() != g_lastSelectionHand) {
-      g_activeCharName = sel->getName();
       g_lastSelectionHand = sel->getHandle();
       selectionChanged = true;
     }
   } else if (g_lastSelectionHand.isValid()) {
-    g_activeCharName = "";
     g_lastSelectionHand = hand();
     selectionChanged = true;
   }
@@ -1465,7 +1447,7 @@ void playerUpdate_hook(PlayerInterface *thisptr) {
   }
 
   if ((GetAsyncKeyState(g_chatHotkey) & 0x8000) && !g_chatWindow &&
-      !g_historyWindow && !g_libraryWindow) {
+      !g_libraryWindow) {
     static DWORD lastTalkTick = 0;
     if (GetTickCount() - lastTalkTick > 500) {
       lastTalkTick = GetTickCount();
@@ -1547,7 +1529,6 @@ DWORD WINAPI NameAssignThread(LPVOID lpParam) {
     if (resp.empty() || resp == "[]" || resp[0] != '[')
       continue;
 
-    int assignedCount = 0;
     size_t pos = 0;
     while ((pos = resp.find("{", pos)) != std::string::npos) {
       size_t endPos = resp.find("}", pos);
@@ -1567,7 +1548,6 @@ DWORD WINAPI NameAssignThread(LPVOID lpParam) {
           EnterCriticalSection(&g_msgMutex);
           g_messageQueue.push_back(renameMsg);
           LeaveCriticalSection(&g_msgMutex);
-          assignedCount++;
         }
       }
 

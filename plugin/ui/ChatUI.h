@@ -3,7 +3,6 @@
 #include "ChatUIGlobals.h"
 #include "ChatWindow.h"
 #include "EventsWindow.h"
-#include "HistoryWindow.h"
 #include "LauncherWindow.h"
 #include "LibraryWindow.h"
 #include "SettingsWindow.h"

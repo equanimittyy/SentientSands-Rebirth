@@ -19,7 +19,6 @@ import ctypes
 import json
 import logging
 import subprocess
-import signal
 import requests
 import re
 import time
@@ -30,13 +29,11 @@ from flask import Flask, request, jsonify
 import sys
 import logging.handlers
 import traceback
-import collections
 
 SCRIPT_PATH = os.path.abspath(__file__)
 SCRIPT_DIR = os.path.dirname(SCRIPT_PATH)
 KENSHI_SERVER_DIR = os.path.dirname(SCRIPT_DIR)
 KENSHI_MOD_DIR = os.path.dirname(KENSHI_SERVER_DIR)
-KENSHI_ROOT = os.path.dirname(os.path.dirname(KENSHI_MOD_DIR))
 
 # The embedded runtime's ._pth file runs Python isolated, which leaves the script dir off sys.path
 if SCRIPT_DIR not in sys.path:
@@ -73,16 +70,12 @@ ACTIVE_CAMPAIGN = "Default"
 CAMPAIGNS_DIR = os.path.join(KENSHI_SERVER_DIR, "campaigns")
 TEMPLATES_DIR = os.path.join(KENSHI_SERVER_DIR, "templates")
 CHARACTERS_DIR = os.path.join(KENSHI_SERVER_DIR, "characters")
-CURRENT_CAMPAIGN = "Default"
-LAST_GENERATE_TIME = 0
-GLOBAL_SYNTHESIS_INTERVAL = 60
 
 EVENT_HISTORY = []
 PROFILES_IN_PROGRESS = set()
 PROGRESS_LOCK = threading.Lock()
 LIVE_CONTEXTS = {}
 PLAYER_CONTEXT = {}
-LAST_NPC_NAME = None
 PLAYER2_SESSION_KEY = None
 EVENT_THROTTLE = {} 
 THROTTLE_LOCK = threading.Lock()
@@ -297,9 +290,9 @@ def kill_old_servers():
 
 kill_old_servers()
 
-app = Flask(__name__, template_folder=os.path.join(KENSHI_SERVER_DIR, "templates"))
+app = Flask(__name__)
 # ASCII-only responses: the plugin's UnescapeJSON decodes the \u escapes
-app.config['JSON_AS_ASCII'] = True
+app.json.ensure_ascii = True
 
 @app.errorhandler(Exception)
 def handle_exception(e):
@@ -362,8 +355,6 @@ def load_configs():
             logging.debug(f"Loaded {len(LOCALIZATION_CONFIG)} language localizations.")
         except Exception as e:
             logging.error(f"Failed to load localization.json: {e}")
-
-GLOBAL_EVENT_COUNTER = 0
 
 def get_campaign_dir():
     if not os.path.exists(CAMPAIGNS_DIR):
@@ -481,7 +472,7 @@ def load_campaign_config():
 
 def send_to_pipe(cmd):
     """The plugin dispatches on these prefixes; anything else is sent as a "CMD: " command."""
-    if not (cmd.startswith("CMD:") or cmd.startswith("NPC_") or cmd.startswith("PLAYER_") or cmd.startswith("SHOW_HISTORY") or cmd.startswith("NOTIFY:")):
+    if not (cmd.startswith("CMD:") or cmd.startswith("NPC_") or cmd.startswith("PLAYER_") or cmd.startswith("NOTIFY:")):
         cmd = "CMD: " + cmd
         
     try:
@@ -678,7 +669,6 @@ def build_detailed_context_string(npc_name, char_data=None):
     lines = [f"CURRENT CONDITION of {npc_name}:"]
 
     char_state = ctx.get("character_state", "normal")
-    is_incapacitated = ctx.get("is_incapacitated", False)
     state_labels = {
         "imprisoned":     f"CRITICAL: {npc_name} is currently IMPRISONED. They are locked up and cannot move freely. They should speak with desperation, resignation, or defiance.",
         "enslaved":       f"CRITICAL: {npc_name} is ENSLAVED and wearing shackles. They are bound to a master. They should speak with fear, exhaustion, or suppressed rage.",
@@ -1165,8 +1155,6 @@ RESPONSE FORMAT RULES:
 {language_instruction}"""
     return prompt.strip()
 
-
-SYSTEM_PROMPT = build_system_prompt()
 
 WORLD_INDEX = {}
 def update_world_index():
@@ -1785,64 +1773,6 @@ def extract_id_from_context(context_json):
     return None
 
 
-@app.route('/log', methods=['POST'])
-def log_dialogue():
-    data = request.json
-    if not data: return jsonify({"status": "error"}), 400
-        
-    npc_name = data.get('npc', 'Someone')
-    player_name = data.get('player', 'Drifter')
-    player_message = data.get('message', '')
-    npc_response = data.get('response', '')
-    context = data.get('context', '')
-    npc_id = extract_id_from_context(context)
-
-    char_data = get_character_data(npc_name, context, char_id=npc_id)
-    
-    # CRITICAL FIX: Use the stable ID from char_data, NOT the volatile serial ID
-    storage_id = char_data.get("ID") or npc_name
-    
-    time_prefix = get_current_time_prefix()
-    
-    if player_message:
-        char_data["ConversationHistory"].append(f"{time_prefix}{player_name}: {player_message}")
-        record_event_to_history("DIALOGUE", player_name, npc_name, player_message)
-
-    if npc_response:
-        char_data["ConversationHistory"].append(f"{time_prefix}{npc_name}: {npc_response}")
-        record_event_to_history("DIALOGUE", npc_name, player_name, npc_response)
-        
-    # Limit history to 250 lines to prevent massive file sizes and UI lag
-    if len(char_data["ConversationHistory"]) > 250:
-        char_data["ConversationHistory"] = char_data["ConversationHistory"][-250:]
-    
-    if should_save_profile(npc_name, storage_id, char_data):
-        save_character_data(storage_id, char_data)
-    logging.info(f"LOG [{npc_name} ({storage_id})]: {npc_response}")
-    return jsonify({"status": "ok"})
-
-@app.route('/get_unique_identity', methods=['POST'])
-def get_unique_identity():
-    data = request.json
-    if not data: return jsonify({"status": "error"}), 400
-    
-    current_name = data.get('name', 'Someone')
-    race = data.get('race', 'Human')
-    gender = data.get('gender', 'Neutral')
-    
-    # Check if this name is generic
-    is_generic = is_npc_name_generic(current_name)
-    
-    if is_generic:
-        new_name = generate_unique_lore_name(gender=gender)
-        logging.info(f"IDENTITY: Assigning unique {gender} name '{new_name}' to generic NPC '{current_name}'")
-        return jsonify({
-            "status": "rename",
-            "new_name": new_name
-        })
-    
-    return jsonify({"status": "ok", "name": current_name})
-
 @app.route('/get_batch_identities', methods=['POST'])
 def get_batch_identities():
     batch = request.json # Plugin sends [{serial, name, gender, race, is_generic}]
@@ -2109,10 +2039,6 @@ INSTRUCTIONS:
     
     return jsonify({"status": "none"})
 
-@app.route('/ping', methods=['GET', 'POST'])
-def ping():
-    return jsonify({"status": "ok"})
-
 @app.route('/test_llm', methods=['GET', 'POST'])
 def test_llm():
     try:
@@ -2273,7 +2199,7 @@ def chat():
         except Exception as e:
             logging.error(f"Error registering primary context: {e}")
     
-    whisper_radius, talk_radius, yell_radius = get_config_radii()
+    _, talk_radius, yell_radius = get_config_radii()
     
     npcs_in_radius = []
     nearby_data = data.get('nearby', [])
@@ -2837,7 +2763,7 @@ You MUST write your final response exclusively in {language_str}.
 
 
 def record_event_to_history(etype, actor, target, msg, actor_faction="None", target_faction="None"):
-    global EVENT_HISTORY, GLOBAL_EVENT_COUNTER, EVENT_THROTTLE, LAST_STATE_LOG
+    global EVENT_HISTORY, EVENT_THROTTLE, LAST_STATE_LOG
     if not msg: return
     
     p_fact = PLAYER_CONTEXT.get('faction', 'Nameless')
@@ -2900,7 +2826,6 @@ def record_event_to_history(etype, actor, target, msg, actor_faction="None", tar
 
     if evt_str not in EVENT_HISTORY:
         EVENT_HISTORY.append(evt_str)
-        GLOBAL_EVENT_COUNTER += 1
         save_campaign_history()
             
 
@@ -3102,7 +3027,7 @@ def events_content():
 
 @app.route('/context', methods=['POST'])
 def update_context():
-    global PLAYER_CONTEXT, LAST_NPC_NAME
+    global PLAYER_CONTEXT
     data = request.json
     if not data: return jsonify({"status": "error"}), 400
     
@@ -3121,8 +3046,6 @@ def update_context():
                 actor_faction=e.get("actor_faction", "None"),
                 target_faction=e.get("target_faction", "None")
             )
-    elif is_paused:
-        pass
 
     if data.get("type") == "player":
         prev_paused = PLAYER_CONTEXT.get("is_paused")
@@ -3133,7 +3056,6 @@ def update_context():
         name = data.get("name")
         if name:
             LIVE_CONTEXTS[name] = data
-            LAST_NPC_NAME = name
             with STATE_LOCK:
                 LAST_STATE_LOG["npc"] = data
     return jsonify({"status": "ok"})
@@ -3315,19 +3237,6 @@ def settings_endpoint():
         return jsonify({"status": "ok", **changes})
 
     return jsonify({"status": "error", "message": "No valid settings provided"}), 400
-
-@app.route('/campaigns/list', methods=['GET'])
-def list_campaigns_route():
-    logging.info("ROUTE: /campaigns/list [GET]")
-    if not os.path.exists(CAMPAIGNS_DIR):
-        os.makedirs(CAMPAIGNS_DIR)
-    
-    # Ensure Default exists
-    d_dir = os.path.join(CAMPAIGNS_DIR, "Default")
-    if not os.path.exists(d_dir): os.makedirs(d_dir)
-        
-    camps = [d for d in os.listdir(CAMPAIGNS_DIR) if os.path.isdir(os.path.join(CAMPAIGNS_DIR, d))]
-    return jsonify({"status": "ok", "campaigns": camps, "current": ACTIVE_CAMPAIGN})
 
 @app.route('/campaigns/create', methods=['POST'])
 def create_campaign_route():
@@ -3727,33 +3636,6 @@ def player_profile_route():
         logging.info("PROMPT: Player profile updated via UI.")
         return jsonify({"status": "ok"})
 
-@app.route('/test_connection', methods=['POST'])
-def test_connection():
-    logging.info("Testing LLM connection...")
-    test_prompt = [{"role": "user", "content": "You are a Kenshi NPC. Say 'Connection Successful!' in a very short way."}]
-    try:
-        response = call_llm(test_prompt, max_tokens=20)
-        if response:
-            logging.info(f"Test Successful: {response}")
-            return f"NOTIFY: Connection Successful! AI says: {response}", 200
-        else:
-            return "NOTIFY: ERROR: No response from AI. Check your API key and Provider settings.", 200
-    except Exception as e:
-        logging.error(f"Test Failed: {e}")
-        return f"NOTIFY: ERROR: {str(e)}", 200
-
-@app.route('/reset', methods=['POST'])
-def reset_server():
-    logging.info("Resetting server state...")
-    try:
-        LIVE_CONTEXTS.clear()
-        load_configs()
-        build_world_index() 
-        logging.info("Server reset complete (Cache cleared, configs reloaded).")
-        return "NOTIFY: Server Reset Complete (Identity cache cleared and configs reloaded).", 200
-    except Exception as e:
-        return f"NOTIFY: Reset failed: {str(e)}", 200
-
 def synthesis_loop():
     logging.info("NARRATIVE: Synthesis background loop started.")
     elapsed_minutes = 0
@@ -3774,8 +3656,6 @@ def synthesis_loop():
 
             for _ in range(6):
                 time.sleep(10)
-                speed = PLAYER_CONTEXT.get("gamespeed", 1.0)
-                is_paused = PLAYER_CONTEXT.get("is_paused", False)
             
             speed = PLAYER_CONTEXT.get("gamespeed", 1.0)
             
@@ -3883,66 +3763,6 @@ def monitor_kenshi_process():
 
 threading.Thread(target=monitor_kenshi_process, daemon=True).start()
 
-
-# --- WEB DEBUGGER ROUTES (v2.0) ---
-from flask import render_template, send_from_directory
-
-@app.route('/debugger')
-def serve_debugger():
-    """Serve the modern web-based visual debugger."""
-    return render_template('debugger.html')
-
-@app.route('/models', methods=['GET'])
-def get_models_alias():
-    """Alias for settings endpoint to satisfy web debugger."""
-    return settings_endpoint()
-
-@app.route('/api/command', methods=['POST'])
-def web_command():
-    """Relay commands from the web UI to the Kenshi pipe."""
-    data = request.json or {}
-    cmd = data.get('command')
-    if not cmd:
-        return jsonify({"status": "error", "message": "Missing command"}), 400
-    
-    # Handle specialized web commands
-    if cmd == "MANUAL_SYNTHESIZE":
-        generate_global_narrative_thread()
-        return jsonify({"status": "ok", "message": "Synthesis triggered"})
-    elif cmd == "RESCAN_SAVES":
-        update_world_index()
-        return jsonify({"status": "ok", "message": "Save index updated"})
-    elif cmd == "RESET_SERVER":
-        LIVE_CONTEXTS.clear()
-        LAST_STATE_LOG.clear()
-        EVENT_THROTTLE.clear()
-        return jsonify({"status": "ok", "message": "Server state reset"})
-    
-    # Standard pipe relay
-    send_to_pipe(cmd)
-    logging.info(f"WEB_CMD: Relayed command: {cmd}")
-    return jsonify({"status": "ok"})
-
-@app.route('/api/logs/<path:log_name>')
-def stream_logs(log_name):
-    """Serve log files for the real-time event feed."""
-    if ".." in log_name:
-        return "Access Denied", 403
-        
-    # Priority 1: server.log or llm_debug.log (the main tool/app logs)
-    if log_name in ["server.log", "llm_debug.log"]:
-        log_path = os.path.join(KENSHI_SERVER_DIR, "logs", log_name)
-        if os.path.exists(log_path):
-            return send_from_directory(os.path.dirname(log_path), os.path.basename(log_path))
-
-    # Priority 2: campaign-specific logs
-    log_dir = os.path.join(get_campaign_dir(), "logs")
-    if os.path.exists(os.path.join(log_dir, log_name)):
-        return send_from_directory(log_dir, log_name)
-        
-    # Priority 3: general logs fallback
-    fallback_dir = os.path.join(KENSHI_SERVER_DIR, "logs")
-    return send_from_directory(fallback_dir, log_name)
 
 if __name__ == '__main__':
     logging.info("Kenshi LLM Server Starting on port 5000...")

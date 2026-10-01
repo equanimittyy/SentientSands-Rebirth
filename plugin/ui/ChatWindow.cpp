@@ -13,7 +13,6 @@
 #include <kenshi/RaceData.h>
 #include <kenshi/RootObject.h>
 #include <kenshi/RootObjectBase.h>
-#include <kenshi/util/OgreUnordered.h>
 #include <kenshi/util/hand.h>
 
 #include <mygui/MyGUI_Button.h>
@@ -494,53 +493,6 @@ void UpdateModeButtons() {
       g_chatModeBtns[i]->setCaption(Utf8ToWide(T(btnLabelKeys[i])).c_str());
     }
   }
-}
-
-void SendChatToPython(GameWorld *world, Character *sel,
-                      const std::string &npcName, const std::string &playerName,
-                      const std::string &text, const std::string &mode,
-                      const std::string &npcsJson,
-                      const std::string &nearbyFullJson) {
-  Character *targetNpc = nullptr;
-  if (world) {
-    const ogre_unordered_set<Character *>::type &chars =
-        world->getCharacterUpdateList();
-    for (auto it = chars.begin(); it != chars.end(); ++it) {
-      if ((*it)) {
-        std::string cn = (*it)->getName();
-        if (cn == npcName) {
-          targetNpc = *it;
-          break;
-        }
-        size_t p = npcName.find('|');
-        if (p != std::string::npos && cn == npcName.substr(0, p)) {
-          targetNpc = *it;
-          break;
-        }
-        if (cn.empty() || cn == "Unknown Entity") {
-          std::string dn = (*it)->displayName;
-          if (!dn.empty() && (dn == npcName || (p != std::string::npos &&
-                                                dn == npcName.substr(0, p)))) {
-            targetNpc = *it;
-            break;
-          }
-        }
-      }
-    }
-  }
-
-  std::string detailedContext = "{}";
-  if (targetNpc)
-    detailedContext = GetDetailedContext(targetNpc);
-  else if (sel && sel->getName() == npcName)
-    detailedContext = GetDetailedContext(sel);
-
-  std::string json =
-      "{\"npc\": \"" + EscapeJSON(npcName) + "\", \"npcs\": [" + npcsJson +
-      "], \"nearby\": [" + nearbyFullJson + "], \"message\": \"" +
-      EscapeJSON(text) + "\", \"player\": \"" + EscapeJSON(playerName) +
-      "\", \"mode\": \"" + mode + "\", \"context\": " + detailedContext + "}";
-  AsyncPostToPython(L"/chat", json);
 }
 
 } // namespace UI

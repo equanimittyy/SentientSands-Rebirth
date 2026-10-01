@@ -22,12 +22,6 @@
 #include <ogre/OgreColourValue.h>
 #include <vector>
 
-namespace SentientSands {
-namespace UI {
-extern std::string g_chatPlayerNameStr;
-}
-} // namespace SentientSands
-
 void PerformLeaveSquad(Character *npc, GameWorld *world,
                        const std::string &originFaction) {
   if (!npc || !world)
@@ -680,7 +674,7 @@ void ExecuteQueuedActions(GameWorld *thisptr, int &inventoryTimer) {
               std::string msg =
                   npc->getName() + " gave you " +
                   (given > 1 ? ToString(given) + "x " : "") +
-                  (given > 1 ? originalTargetName : originalTargetName);
+                  originalTargetName;
               thisptr->showPlayerAMessage_withLog(msg, true);
               npc->reThinkCurrentAIAction();
               inventoryTimer = 999;
@@ -691,7 +685,7 @@ void ExecuteQueuedActions(GameWorld *thisptr, int &inventoryTimer) {
             Log("ACTION_EXEC: Skipping GIVE_CATS due to previous transaction failure (" + failureReason + ")");
             continue;
           }
-          if (npc && thisptr->player &&
+          if (thisptr->player &&
                    thisptr->player->playerCharacters.size() > 0) {
             int amt = act.taskValue;
             if (amt > 0) {
@@ -699,8 +693,8 @@ void ExecuteQueuedActions(GameWorld *thisptr, int &inventoryTimer) {
 
               // Skip player-faction characters: the transfer would be a no-op
               bool alreadyPlayer =
-                  (npc && npc->getFaction() && npc->getFaction()->isThePlayer());
-              if (npc && !alreadyPlayer)
+                  (npc->getFaction() && npc->getFaction()->isThePlayer());
+              if (!alreadyPlayer)
                 npc->takeMoney(amt);
 
               thisptr->showPlayerAMessage_withLog(
@@ -744,9 +738,9 @@ void ExecuteQueuedActions(GameWorld *thisptr, int &inventoryTimer) {
             }
 
             bool alreadyPlayer =
-                (npc && npc->getFaction() && npc->getFaction()->isThePlayer());
+                (npc->getFaction() && npc->getFaction()->isThePlayer());
 
-            if (npc && !beingRecruited && !alreadyPlayer) {
+            if (!beingRecruited && !alreadyPlayer) {
               npc->takeMoney(-amt);
             } else {
               Log("ACTION_EXEC: Recruitment fee or sign-on bonus. Money spent "
@@ -763,7 +757,7 @@ void ExecuteQueuedActions(GameWorld *thisptr, int &inventoryTimer) {
                   true);
             }
           }
-        } else if (act.type == ACT_RELEASE && npc && target) {
+        } else if (act.type == ACT_RELEASE && target) {
           // IN_PRISON is enum value 2
           bool inCage = (target->inSomething == 2);
           bool shackled = target->isChained || target->isChainedMode();
@@ -804,8 +798,6 @@ void ExecuteQueuedActions(GameWorld *thisptr, int &inventoryTimer) {
               tt = BREAKOUT_PRISONER; // 111
               if (shackled && !inCage)
                 tt = (TaskType)201; // PICK_LOCK_ON_SHACKLES
-            } else if (shackled && !inCage) {
-              tt = RELEASE_PRISONER; // Usually handles legal unshackling
             }
 
             Log("ACTION_EXEC: Assigning task: " + GetTaskName(tt) + " (" +
@@ -870,14 +862,13 @@ void ExecuteQueuedActions(GameWorld *thisptr, int &inventoryTimer) {
               payload = payload.substr(first);
           }
 
-          std::string templateName, itemName, itemDesc;
+          std::string templateName, itemName;
           size_t pipe1 = payload.find('|');
           if (pipe1 != std::string::npos) {
             templateName = payload.substr(0, pipe1);
             size_t pipe2 = payload.find('|', pipe1 + 1);
             if (pipe2 != std::string::npos) {
               itemName = payload.substr(pipe1 + 1, pipe2 - pipe1 - 1);
-              itemDesc = payload.substr(pipe2 + 1);
             } else {
               itemName = payload.substr(pipe1 + 1);
             }
@@ -908,7 +899,6 @@ void ExecuteQueuedActions(GameWorld *thisptr, int &inventoryTimer) {
           };
           trim(templateName);
           trim(itemName);
-          trim(itemDesc);
 
           itemType types[] = {ITEM,      WEAPON,           ARMOUR,  CROSSBOW,
                               BLUEPRINT, LIMB_REPLACEMENT, MAP_ITEM};

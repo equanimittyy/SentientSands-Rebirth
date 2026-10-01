@@ -29,11 +29,6 @@ struct ChatTask {
   std::string handleStr;
 };
 
-struct HistoryTask {
-  std::string npcName;
-  std::string json;
-};
-
 struct LibraryTask {
   std::string npcName;
   std::string json;

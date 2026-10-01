@@ -10,8 +10,6 @@ extern MyGUI::ComboBox *g_settingsModel;
 extern MyGUI::EditBox *g_settingsRadii[3];
 extern MyGUI::EditBox *g_settingsEventsCount;
 extern MyGUI::Button *g_settingsAmbientToggle;
-extern MyGUI::ComboBox *g_settingsCampaign;
-extern MyGUI::EditBox *g_settingsNewCampaignName;
 extern MyGUI::ComboBox *g_settingsHotkey;
 extern MyGUI::ComboBox *g_settingsLanguage;
 

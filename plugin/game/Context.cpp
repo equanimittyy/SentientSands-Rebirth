@@ -1,7 +1,6 @@
 #include "Context.h"
 #include "../core/Globals.h"
 #include "../core/Utils.h"
-#include <fstream>
 #include <kenshi/Building.h>
 #include <kenshi/CharStats.h>
 #include <kenshi/Character.h>
@@ -618,10 +617,6 @@ std::string GetDetailedContext(Character *npc, const std::string &type) {
       }
     }
     json += "],";
-  } else if (npc->getHandle() == g_lastInventoryHand) {
-    json += g_activeInventoryJson + ",";
-  } else if (type == "player" && !g_playerInventoryJson.empty()) {
-    json += g_playerInventoryJson + ",";
   } else {
     json += "[],";
   }
@@ -680,14 +675,4 @@ std::string GetDetailedContext(Character *npc, const std::string &type) {
 
   json += "}";
   return json;
-}
-
-std::string GetWorldEventsContext() {
-  std::ifstream file("mods/SentientSands/world_events.txt");
-  if (file.is_open()) {
-    std::string content((std::istreambuf_iterator<char>(file)),
-                        std::istreambuf_iterator<char>());
-    return EscapeJSON(content);
-  }
-  return "No major world events reported.";
 }

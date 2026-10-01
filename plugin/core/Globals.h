@@ -49,13 +49,8 @@ extern int g_worldEventIntervalDays;
 extern int g_dialogueSpeedSeconds;
 extern float g_speechBubbleLife;
 
-extern std::string g_activeInventoryJson;
-extern hand g_lastInventoryHand;
-extern std::string g_activeCharName;
 extern hand g_lastSelectionHand;
 extern hand g_lastChattingPlayerHand;
-extern std::string g_playerInventoryJson;
-extern hand g_playerHand;
 extern CRITICAL_SECTION g_stateMutex;
 extern int g_chatHotkey;
 extern std::string g_chatHotkeyStr;

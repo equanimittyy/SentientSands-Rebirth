@@ -1,6 +1,5 @@
 #include "LauncherWindow.h"
 #include "CampaignsWindow.h"
-#include "../core/Comm.h"
 #include "EventsWindow.h"
 #include "../core/Globals.h"
 #include "LibraryWindow.h"

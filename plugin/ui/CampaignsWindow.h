@@ -4,8 +4,6 @@
 namespace SentientSands {
 namespace UI {
 
-extern MyGUI::Window *g_campaignWindow;
-
 void CreateCampaignsUI();
 void CloseCampaignsUI();
 void PopulateCampaignsUI(const std::string &json);

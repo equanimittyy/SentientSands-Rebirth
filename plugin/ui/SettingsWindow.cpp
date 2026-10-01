@@ -3,7 +3,6 @@
 #include "../core/Comm.h"
 #include "../core/Globals.h"
 #include "../core/Utils.h"
-#include "WelcomeWindow.h"
 
 #include <shellapi.h>
 #include <windows.h>
@@ -59,11 +58,6 @@ void OnSettingsWindowButtonPressed(MyGUI::Window *sender,
 void OnSettingsSaveClick(MyGUI::Widget *sender) {
   if (!g_settingsWindow)
     return;
-
-  std::string provider = "";
-  if (g_settingsProvider->getIndexSelected() != MyGUI::ITEM_NONE)
-    provider = g_settingsProvider->getItemNameAt(
-        g_settingsProvider->getIndexSelected());
 
   if (g_settingsHotkey &&
       g_settingsHotkey->getIndexSelected() != MyGUI::ITEM_NONE) {
@@ -228,7 +222,6 @@ void CreateSettingsUI() {
   MyGUI::Widget *client = g_settingsWindow->getClientWidget();
 
   float y = 0.05f;
-  float yDelta = 0.11f;
 
   client
       ->createWidgetReal<MyGUI::TextBox>("Kenshi_TextboxStandardText", 0.05f, y,
