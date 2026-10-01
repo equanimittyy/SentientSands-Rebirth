@@ -6,7 +6,7 @@ Sentient Sands has three parts: a C++ plugin that runs inside Kenshi, a local Py
 
 | Path | Contents |
 |---|---|
-| `deps/` | Not in git. The KenshiLib and Boost files that the plugin build needs. See [development.md](development.md#plugin). |
+| `deps/` | Not in git. The KenshiLib and Boost files that the plugin build needs. See [plugin_build_setup.md](plugin_build_setup.md#3-fill-deps). |
 | `plugin/SentientSands.vcxproj` | The Visual Studio project that builds `SentientSands.dll`. See [development.md](development.md#plugin). |
 | `plugin/main.cpp` | The entry point (`startPlugin`), the game hooks, and the message-queue dispatcher. |
 | `plugin/core/` | Shared state and mutexes (`Globals`), logging, INI settings, and server start-up (`Utils`), and the transport to the server (`Comm`). |

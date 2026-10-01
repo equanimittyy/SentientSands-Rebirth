@@ -4,25 +4,20 @@ Welcome to Sentient Sands, a mod that brings the world of Kenshi to life using A
 
 ## 🛠️ Requirements
 
-Before installing Sentient Sands, you must have the following dependencies installed:
+Before installing Sentient Sands, you must have the following installed:
 
-1. **[RE_Kenshi](https://github.com/BFrizzleFoShizzle/RE_Kenshi/releases)**: The core script extender required to inject custom C++ code into the Kenshi engine.
-2. **[KenshiLib](https://github.com/KenshiReclaimer/KenshiLib/releases)**: A generic library for Kenshi required by our C++ hooks. 
+1. **[RE_Kenshi](https://github.com/BFrizzleFoShizzle/RE_Kenshi/releases) v0.3.5 or later**: The script extender that loads our C++ plugin into Kenshi. Its installer also installs KenshiLib, the library that our C++ hooks use, so you do not install KenshiLib separately.
 
 ---
 
 ## 🚀 Installation Guide
 
 ### Step 1: Install RE_Kenshi
-1. Download the latest release of `RE_Kenshi`.
-2. Extract the contents (`RE_Kenshi.exe`, `RE_Kenshi.dll`, etc.) directly into your **root Kenshi folder** (the one containing `kenshi_x64.exe`).
+1. Download the standard `RE_Kenshi_vX.X.X.zip` archive from the releases page. Do not use the `_loose` archive.
+2. Extract the complete archive and run the `RE_Kenshi_vX.X.X.exe` installer inside it.
+3. Start Kenshi normally. The main menu must show the RE_Kenshi version. If it does not, RE_Kenshi is not installed.
 
-### Step 2: Install KenshiLib
-1. Download the latest release of `KenshiLib`.
-2. Extract the `KenshiLib` folder into your **root Kenshi folder**.
-   *(Expected path: `...\Kenshi\mods\KenshiLib\KenshiLib.mod`)*
-
-### Step 3: Install Sentient Sands
+### Step 2: Install Sentient Sands
 1. Download the Sentient Sands release zip.
 2. Extract it so that the `SentientSands` folder is inside your `Kenshi/mods/` directory.
    *(Expected path: `...\Kenshi\mods\SentientSands\SentientSands.mod`)*
@@ -30,11 +25,9 @@ Before installing Sentient Sands, you must have the following dependencies insta
 
 The release includes its own Python runtime (`server\python\`), so you do not need to install Python or any packages.
 
-### Step 4: Launching the Game
-🚨 **CRITICAL REQUIREMENT** 🚨
-You **MUST** launch the game using **`RE_Kenshi.exe`**. If you launch the game using the standard Kenshi launcher or through Steam directly (without pointing it to RE_Kenshi), the mod will fail to load, and the AI server will not start.
-
-Ensure **Sentient Sands** and **KenshiLib** are both checked in the Kenshi mod launcher.
+### Step 3: Launching the Game
+1. In the Kenshi mod launcher, check **Sentient Sands**.
+2. Start Kenshi normally. RE_Kenshi loads the plugin, and the plugin starts the AI server.
 
 ---
 
