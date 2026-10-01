@@ -51,7 +51,6 @@ void OnCampaignCreateClick(MyGUI::Widget *sender) {
   g_campaignStatus->setCaption(Utf8ToWide(T("Creating Campaign...")).c_str());
   g_campaignStatus->setTextColour(MyGUI::Colour(0.9f, 0.9f, 0.9f));
 
-  // Request creation
   std::string json = "{\"name\": \"" + name + "\"}";
   std::string response = PostToPythonWithResponse(L"/campaigns/create", json);
 
@@ -59,7 +58,6 @@ void OnCampaignCreateClick(MyGUI::Widget *sender) {
     g_campaignStatus->setCaption(
         Utf8ToWide(T("Campaign Created! Switching...")).c_str());
     g_campaignStatus->setTextColour(MyGUI::Colour(0.4f, 1.0f, 0.4f));
-    // Re-fetch to update list and active campaign UI
     CreateThread(NULL, 0, CampaignsResponseThread, NULL, 0, NULL);
     g_campaignNewName->setCaption("");
   } else {
@@ -87,7 +85,6 @@ void OnCampaignSwitchClick(MyGUI::Widget *sender) {
   if (response.find("\"status\":\"ok\"") != std::string::npos) {
     g_campaignStatus->setCaption(Utf8ToWide(T("Switched to ") + name).c_str());
     g_campaignStatus->setTextColour(MyGUI::Colour(0.4f, 1.0f, 0.4f));
-    // Trigger world reload on server and update local UI status
     CreateThread(NULL, 0, CampaignsResponseThread, NULL, 0, NULL);
   } else {
     g_campaignStatus->setCaption(
@@ -112,7 +109,6 @@ void OnCampaignCullClick(MyGUI::Widget *sender) {
     return;
   }
 
-  // Reset state
   g_cullConfirmed = false;
   btn->setCaption(Utf8ToWide(T("CULL")).c_str());
   btn->setTextColour(MyGUI::Colour::White);
@@ -162,7 +158,6 @@ void CreateCampaignsUI() {
 
   MyGUI::Widget *client = g_campaignWindow->getClientWidget();
 
-  // Active Campaign (Always visible)
   g_campaignActiveLabel = client->createWidgetReal<MyGUI::TextBox>(
       "Kenshi_TextboxStandardText", 0.05f, 0.02f, 0.9f, 0.08f,
       MyGUI::Align::Top, "SentientSands_CampActiveLabel");
@@ -170,7 +165,6 @@ void CreateCampaignsUI() {
       Utf8ToWide(T("Active Campaign: ") + T("None")).c_str());
   g_campaignActiveLabel->setTextColour(MyGUI::Colour(1.0f, 0.8f, 0.4f));
 
-  // Existing Campaigns
   MyGUI::TextBox *label = client->createWidgetReal<MyGUI::TextBox>(
       "Kenshi_TextboxStandardText", 0.05f, 0.10f, 0.9f, 0.08f,
       MyGUI::Align::Top, "SentientSands_CampLabel");
@@ -187,7 +181,6 @@ void CreateCampaignsUI() {
   switchBtn->setCaption(Utf8ToWide(T("LOAD")).c_str());
   switchBtn->eventMouseButtonClick += MyGUI::newDelegate(OnCampaignSwitchClick);
 
-  // New Campaign
   MyGUI::TextBox *nLabel = client->createWidgetReal<MyGUI::TextBox>(
       "Kenshi_TextboxStandardText", 0.05f, 0.34f, 0.9f, 0.08f,
       MyGUI::Align::Top, "SentientSands_CampNewLabel");
@@ -203,7 +196,6 @@ void CreateCampaignsUI() {
   createBtn->setCaption(Utf8ToWide(T("NEW")).c_str());
   createBtn->eventMouseButtonClick += MyGUI::newDelegate(OnCampaignCreateClick);
 
-  // Cull Button (Dangerous)
   MyGUI::TextBox *cullDesc = client->createWidgetReal<MyGUI::TextBox>(
       "Kenshi_TextboxStandardText", 0.05f, 0.54f, 0.9f, 0.08f,
       MyGUI::Align::Top, "SentientSands_CampCullDesc");
@@ -219,14 +211,12 @@ void CreateCampaignsUI() {
   cullBtn->setCaption(Utf8ToWide(T("CULL FUTURE DATA")).c_str());
   cullBtn->eventMouseButtonClick += MyGUI::newDelegate(OnCampaignCullClick);
 
-  // Status
   g_campaignStatus = client->createWidgetReal<MyGUI::TextBox>(
       "Kenshi_TextboxStandardText", 0.05f, 0.74f, 0.9f, 0.2f, MyGUI::Align::Top,
       "SentientSands_CampStatus");
   g_campaignStatus->setCaption(Utf8ToWide(T("Fetching campaigns...")).c_str());
   g_campaignStatus->setTextAlign(MyGUI::Align::Center);
 
-  // Initial fetch — also populates the active campaign display
   CreateThread(NULL, 0, CampaignsResponseThread, NULL, 0, NULL);
 }
 
@@ -261,7 +251,6 @@ void PopulateCampaignsUI(const std::string &json) {
           Utf8ToWide(last.substr(q1 + 1, q2 - q1 - 1)).c_str());
   }
 
-  // Select Current
   if (!currentCampaign.empty()) {
     for (size_t i = 0; i < g_campaignList->getItemCount(); ++i) {
       if (g_campaignList->getItemNameAt(i) == currentCampaign) {

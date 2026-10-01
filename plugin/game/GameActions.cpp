@@ -22,7 +22,6 @@
 #include <ogre/OgreColourValue.h>
 #include <vector>
 
-// Forward-declared access to the chat player name stored by the UI layer
 namespace SentientSands {
 namespace UI {
 extern std::string g_chatPlayerNameStr;
@@ -72,13 +71,10 @@ void PerformLeaveSquad(Character *npc, GameWorld *world,
 
     Faction *targetFaction = fm->getFactionByName(targetFactionName);
 
-    // If Drifters requested or origin is missing, try to find the character's
-    // original faction but exclude the player faction.
     if ((factionPart.empty() || factionPart == "Unknown" ||
          targetFactionName == "Drifters") &&
         npc->getGameData()) {
       GameData *characterData = npc->getGameData();
-      // Try to find the original faction link in the character's template data
       const Ogre::vector<GameDataReference>::type *refs =
           characterData->getReferenceListIfExists("faction");
       if (refs && !refs->empty()) {
@@ -90,7 +86,6 @@ void PerformLeaveSquad(Character *npc, GameWorld *world,
       }
     }
 
-    // Give fallback if origin doesn't exist (e.g. invalid string)
     if (!targetFaction || targetFaction->isThePlayer() ||
         targetFaction->isNotARealFaction()) {
       targetFactionName = "Drifters";
@@ -118,7 +113,6 @@ void PerformLeaveSquad(Character *npc, GameWorld *world,
 
       ActivePlatoon *ap = NULL;
 
-      // Attempt to find existing platoon if requested
       if (!platoonPart.empty()) {
         const lektor<Platoon *> *activePlats =
             targetFaction->getActivePlatoons();
@@ -138,7 +132,6 @@ void PerformLeaveSquad(Character *npc, GameWorld *world,
         }
       }
 
-      // Fallback: Create a new platoon if no existing one found/active
       if (!ap) {
         Platoon *newPlat = targetFaction->createNewEmptyActivePlatoon(
             NULL, true, npc->getPosition());
@@ -151,22 +144,20 @@ void PerformLeaveSquad(Character *npc, GameWorld *world,
       if (ap) {
         npc->setFaction(targetFaction, ap);
 
-        // Ensure the platoon has a leader if it was just created
         if (ap->getSquadSize() == 1 || !ap->getSquadLeader()) {
           ap->setSquadLeader(npc);
         }
 
-        // --- RESTORE NPC DATA PACKAGES ---
-        // Restore standard NPC AI systems (was using Player AI)
+        // Squad members run on player AI; reinstall the NPC AI
         npc->setupAI();
         npc->setupPlatoonAI();
 
-        // Stabilize home town if currently in one (recruits often lose this)
+        // Recruits often lose their home town, so adopt the current one
         TownBase *currentTown = npc->getCurrentTownLocation();
         if (currentTown) {
           Ownerships *own = npc->getOwnerships();
           if (own)
-            own->setHomeTown(currentTown, SQ_RESIDENT); // Use RESIDENT in town
+            own->setHomeTown(currentTown, SQ_RESIDENT);
         }
 
         npc->reThinkCurrentAIAction();
@@ -178,8 +169,6 @@ void PerformLeaveSquad(Character *npc, GameWorld *world,
   }
 }
 
-// Helper to convert internal TaskType enums to human-readable strings for
-// UI/Logging
 std::string GetTaskName(TaskType tt) {
   switch ((int)tt) {
   case 1:
@@ -257,18 +246,11 @@ void ExecuteQueuedActions(GameWorld *thisptr, int &inventoryTimer) {
         Log("ACTION_EXEC: SAY [" + npc->getName() + "]: " + act.message +
             (isPC ? " (PC)" : " (NPC)"));
         try {
-          // 🚨 FIX: Removed endDialogue(true) and setInDialog(false).
-          // Calling these resets the character's AI state and clears goals.
-          // Since actions now fire before speech, calling this would
-          // immediately cancel the task the NPC just received (e.g., Follow
-          // Player). sayALine handles its own visual state.
-
-          // Primary method: sayALine (supports multiple lines/delays)
+          // No endDialogue/setInDialog(false): they clear AI goals, killing the task just queued
           npc->sayALine(act.message, true);
 
-          // 🚨 FIX: Speech bubbles disappear too fast at high game speeds.
-          // Scale the timer by game speed to keep it visible for ~5s real-time.
-          // We set both timers to ensure the engine honors our duration.
+          // Scaled by game speed, else bubbles vanish too fast at high speeds.
+          // Both timers are set so the engine honors the duration.
           if (npc->dialogue && (uintptr_t)npc->dialogue > 0x1000) {
             float speed = thisptr->getFrameSpeedMultiplier();
             if (speed < 1.0f)
@@ -277,8 +259,6 @@ void ExecuteQueuedActions(GameWorld *thisptr, int &inventoryTimer) {
             npc->dialogue->speechTextTimer = duration;
             npc->dialogue->speechTextTimer_forced = duration;
           } else {
-            // Secondary fallback: say (force floating text bubble)
-            // ONLY if dialogue system failed to initialize for this character
             npc->say(act.message);
           }
 
@@ -296,13 +276,10 @@ void ExecuteQueuedActions(GameWorld *thisptr, int &inventoryTimer) {
           npc->reThinkCurrentAIAction();
           thisptr->showPlayerAMessage(npc->getName() + " is attacking!", false);
         } else if (act.type == ACT_JOIN_PARTY && thisptr->player) {
-          // 🚨 STORE PREVIOUS JOBS AND HOME BEFORE RECRUITMENT
-          // This allows them to go back to their original behavior upon
-          // dismissal.
+          // Saved before recruiting so dismissal can restore the original jobs and home
           unsigned int serial = npc->getHandle().serial;
           OriginState state;
 
-          // Store Home context if available
           Ownerships *own = npc->getOwnerships();
           if (own) {
             state.homeTown =
@@ -314,7 +291,7 @@ void ExecuteQueuedActions(GameWorld *thisptr, int &inventoryTimer) {
           for (int i = 0; i < jobCount; ++i) {
             OriginJob oj;
             oj.type = npc->getPermajob(i);
-            // Default to null, we rely on home building for specific tasks
+            // No target saved: restore uses the home building for shopkeeper jobs
             oj.target = hand();
             oj.location = npc->getPosition();
             state.jobs.push_back(oj);
@@ -330,12 +307,10 @@ void ExecuteQueuedActions(GameWorld *thisptr, int &inventoryTimer) {
           npc->clearAllAIGoals();
           PerformLeaveSquad(npc, thisptr, act.message);
 
-          // Restore stored original jobs if they exist
           unsigned int serial = npc->getHandle().serial;
           if (g_originJobs.count(serial)) {
             const OriginState &state = g_originJobs[serial];
 
-            // Restore Home context
             Ownerships *own = npc->getOwnerships();
             if (own) {
               TownBase *town = state.homeTown.getTown();
@@ -349,8 +324,6 @@ void ExecuteQueuedActions(GameWorld *thisptr, int &inventoryTimer) {
             for (size_t i = 0; i < state.jobs.size(); ++i) {
               RootObject *subject = state.jobs[i].target.getRootObject();
 
-              // Special case for shopkeepers: use home building as subject if
-              // target is missing
               if (!subject && state.jobs[i].type == STAND_AT_SHOPKEEPER_NODE) {
                 subject = (RootObject *)state.homeBuilding.getBuilding();
               }
@@ -360,7 +333,7 @@ void ExecuteQueuedActions(GameWorld *thisptr, int &inventoryTimer) {
             }
           }
 
-          // Clear limiting orders (Passive/Hold) that might prevent movement
+          // Passive/Hold standing orders can stop the dismissed NPC from moving
           npc->setStandingOrder((MessageForB::StandingOrder)13 /* PASSIVE */,
                                 false);
           npc->setStandingOrder((MessageForB::StandingOrder)12 /* HOLD */,
@@ -386,11 +359,9 @@ void ExecuteQueuedActions(GameWorld *thisptr, int &inventoryTimer) {
               ToString(act.taskValue) +
               (target ? " (Target: " + target->getName() + ")" : ""));
 
-          // 🚨 DO NOT call endDialogue here — it kills the speech bubble that
-          // the NPC just displayed. The dialogue system will clear naturally.
+          // No endDialogue here: it kills the speech bubble the NPC just displayed
 
-          // Clear limiting orders (Passive/Hold) that might prevent task
-          // execution Matches enum values in MessageForB::StandingOrder
+          // Passive/Hold standing orders can block the new task
           npc->setStandingOrder((MessageForB::StandingOrder)13 /* PASSIVE */,
                                 false);
           npc->setStandingOrder((MessageForB::StandingOrder)12 /* HOLD */,
@@ -401,12 +372,10 @@ void ExecuteQueuedActions(GameWorld *thisptr, int &inventoryTimer) {
           TaskType tt = (TaskType)act.taskValue;
           RootObject *taskTarget = (RootObject *)target;
 
-          // SPECIAL HANDLING: If told to travel or raid a specific town
           if ((tt == TRAVEL_TO_TARGET_TOWN || tt == ATTACK_TOWN ||
                (int)tt == 18) &&
               !act.message.empty()) {
             std::string tName = act.message;
-            // Cleanup quotes and whitespace
             size_t fnot = tName.find_first_not_of(" \t\n\r\"'");
             if (fnot != std::string::npos) {
               tName.erase(0, fnot);
@@ -431,7 +400,6 @@ void ExecuteQueuedActions(GameWorld *thisptr, int &inventoryTimer) {
                 std::transform(tbName.begin(), tbName.end(), tbName.begin(),
                                ::tolower);
 
-                // Try exact match or contains
                 if (tbName == tLow || tbName.find(tLow) != std::string::npos) {
                   taskTarget = (RootObject *)tb;
                   Log("ACTION_EXEC: Found town match: " +
@@ -446,9 +414,6 @@ void ExecuteQueuedActions(GameWorld *thisptr, int &inventoryTimer) {
             }
           }
 
-          // SPECIAL HANDLING: If told to patrol/wander/attack town, ensure use
-          // town target not player target (only if we didn't just find a
-          // specific one above)
           if ((tt == PATROL_TOWN || tt == WANDER_TOWN || tt == ATTACK_TOWN ||
                tt == GO_HOMEBUILDING || tt == STAND_AT_SHOPKEEPER_NODE) &&
               !taskTarget) {
@@ -457,8 +422,7 @@ void ExecuteQueuedActions(GameWorld *thisptr, int &inventoryTimer) {
               taskTarget = (RootObject *)town;
           } else if (tt == IDLE || tt == WANDERER || tt == RUN_AWAY ||
                      tt == MOVE_ON_FREE_WILL || tt == MOVE_ON_FREE_WILL_FAST) {
-            // These tasks shouldn't have the player as a target or they walk
-            // into the player. Medic/Rescue should have a target to follow.
+            // A player target makes these tasks walk the NPC into the player
             taskTarget = NULL;
           }
 
@@ -479,9 +443,7 @@ void ExecuteQueuedActions(GameWorld *thisptr, int &inventoryTimer) {
 
           if (tt == JOB_MEDIC || tt == FIND_AND_RESCUE ||
               tt == JOB_REPAIR_ROBOT) {
-            // Bundle caregiver tasks: Rescue (lower priority) then Medic
-            // (higher priority) Using shift=false with addJob prepends, so the
-            // LAST one added becomes the current top priority.
+            // addJob with shift=false prepends, so the last job added becomes top priority
             npc->addJob(FIND_AND_RESCUE, taskTarget, false, true,
                         npc->getPosition());
             npc->addJob(JOB_MEDIC, taskTarget, false, true, npc->getPosition());
@@ -505,7 +467,6 @@ void ExecuteQueuedActions(GameWorld *thisptr, int &inventoryTimer) {
           std::vector<Item *> items;
           GetAllCharacterItems(npc, items);
           std::string targetName = act.message;
-          // Cleanup quotes and whitespace
           size_t fnot = targetName.find_first_not_of(" \t\n\r\"'");
           if (fnot != std::string::npos) {
             targetName.erase(0, fnot);
@@ -555,8 +516,7 @@ void ExecuteQueuedActions(GameWorld *thisptr, int &inventoryTimer) {
             Log("ACTION_EXEC: NPC " + npc->getName() + " attempting to take " +
                 ToString(count) + "x '" + targetName + "'");
 
-            // Robust loop: Scan for one item at a time since removals can
-            // reorganize inventory
+            // Rescan per item: removals reorder the inventory
             while (taken < count) {
               std::vector<Item *> pItems;
               GetAllCharacterItems(player, pItems);
@@ -592,10 +552,9 @@ void ExecuteQueuedActions(GameWorld *thisptr, int &inventoryTimer) {
                 } else {
                   Log("ACTION_EXEC: NPC " + npc->getName() + " inventory full! Returning item to player.");
                   player->giveItem(detached ? detached : found, true, false);
-                  break; // Stop taking items if we hit a full inventory
+                  break;
                 }
               } else {
-                // No more items matching this name
                 break;
               }
             }
@@ -738,7 +697,7 @@ void ExecuteQueuedActions(GameWorld *thisptr, int &inventoryTimer) {
             if (amt > 0) {
               thisptr->player->playerCharacters[0]->takeMoney(-amt);
 
-              // Avoid no-op transfers to characters already in player faction
+              // Skip player-faction characters: the transfer would be a no-op
               bool alreadyPlayer =
                   (npc && npc->getFaction() && npc->getFaction()->isThePlayer());
               if (npc && !alreadyPlayer)
@@ -774,9 +733,7 @@ void ExecuteQueuedActions(GameWorld *thisptr, int &inventoryTimer) {
                 ", Bank: " + ToString(pMoney) + ")");
             p->takeMoney(amt);
 
-            // 🚨 RECRUITMENT FEE PROTECTION
-            // If the NPC is also being recruited in this same batch, do NOT
-            // give the refund to their new player pocket.
+            // Don't pay a recruit from this batch: the fee would land back in the player's pocket
             bool beingRecruited = false;
             for (size_t i = 0; i < localQueue.size(); ++i) {
               if (localQueue[i].type == ACT_JOIN_PARTY &&
@@ -817,9 +774,7 @@ void ExecuteQueuedActions(GameWorld *thisptr, int &inventoryTimer) {
               ", Shackled: " + ToString(shackled) +
               ", Dist: " + ToString(dist));
 
-          // FORCE EXECUTION IF CLOSE
-          // This bypasses the engine task clearing (crouch & clear) for
-          // recruits/friends.
+          // Free directly when close: for recruits/friends the engine cancels the release task
           if (dist < 4.0f && (inCage || shackled)) {
             Log("ACTION_EXEC: Proximity force-release triggered.");
             if (shackled) {
@@ -828,8 +783,7 @@ void ExecuteQueuedActions(GameWorld *thisptr, int &inventoryTimer) {
             }
             if (inCage) {
               target->setPrisonMode(false, nullptr);
-              // Manually clear the enclosure state if setPrisonMode isn't
-              // enough
+              // setPrisonMode may not reset inSomething, so clear it directly
               target->inSomething = (UseStuffState)0; // IN_NOTHING
             }
             thisptr->showPlayerAMessage("You have been freed!", true);
@@ -837,7 +791,6 @@ void ExecuteQueuedActions(GameWorld *thisptr, int &inventoryTimer) {
 
           bool didSomething = false;
 
-          // 1. Handle Carrying (Drop first)
           if (npc->isCarryingSomething &&
               npc->carryingObject == target->getHandle()) {
             Log("ACTION_EXEC: NPC is carrying target. Dropping.");
@@ -845,10 +798,8 @@ void ExecuteQueuedActions(GameWorld *thisptr, int &inventoryTimer) {
             didSomething = true;
           }
 
-          // 2. Handle Imprisonment (Cage/Shackles)
           if (inCage || shackled) {
-            // Identify the best task
-            TaskType tt = RELEASE_PRISONER; // Default 110
+            TaskType tt = RELEASE_PRISONER; // 110
             if (act.taskValue == 111) {
               tt = BREAKOUT_PRISONER; // 111
               if (shackled && !inCage)
@@ -860,8 +811,7 @@ void ExecuteQueuedActions(GameWorld *thisptr, int &inventoryTimer) {
             Log("ACTION_EXEC: Assigning task: " + GetTaskName(tt) + " (" +
                 ToString((int)tt) + ")");
 
-            // Use addOrder (immediate override) instead of addJob
-            // The clear=true flag stops background AI like "Staying home"
+            // addOrder overrides at once, unlike addJob; clear=true halts background AI (staying home)
             npc->clearAllAIGoals();
             npc->addOrder(nullptr, tt, (RootObject *)target, false, true,
                           target->getPosition());
@@ -910,13 +860,9 @@ void ExecuteQueuedActions(GameWorld *thisptr, int &inventoryTimer) {
             }
           }
         } else if (act.type == ACT_SPAWN_ITEM) {
-          // 🚨 NOTE: ACT_SPAWN_ITEM does NOT require npc to be valid.
-          // It only needs thisptr (GameWorld). This block is intentionally
-          // at this level, not nested inside 'else if (npc)'.
           std::string payload = act.message;
 
-          // 🚨 SAFETY: Some LLM responses or test commands might double-up the
-          // prefix. Strip redundant "SPAWN_ITEM:" from the payload if present.
+          // LLM replies and test commands sometimes repeat the SPAWN_ITEM: prefix
           if (payload.find("SPAWN_ITEM:") == 0) {
             payload = payload.substr(11);
             size_t first = payload.find_first_not_of(" \t\r\n");
@@ -950,13 +896,10 @@ void ExecuteQueuedActions(GameWorld *thisptr, int &inventoryTimer) {
             if (last != std::string::npos)
               s.erase(last + 1);
 
-            // Normalize internal whitespace (e.g. \n or multiple spaces) to a
-            // single space
             for (size_t i = 0; i < s.length(); ++i) {
               if (s[i] == '\r' || s[i] == '\n' || s[i] == '\t')
                 s[i] = ' ';
             }
-            // Collapse multiple spaces
             size_t p = s.find("  ");
             while (p != std::string::npos) {
               s.erase(p, 1);
@@ -967,8 +910,6 @@ void ExecuteQueuedActions(GameWorld *thisptr, int &inventoryTimer) {
           trim(itemName);
           trim(itemDesc);
 
-          // --- ROBUST LOOKUP ---
-          // Try direct, then plural, then substring
           itemType types[] = {ITEM,      WEAPON,           ARMOUR,  CROSSBOW,
                               BLUEPRINT, LIMB_REPLACEMENT, MAP_ITEM};
           GameData *gd = nullptr;
@@ -980,7 +921,6 @@ void ExecuteQueuedActions(GameWorld *thisptr, int &inventoryTimer) {
               if (found)
                 return found;
             }
-            // Case-insensitive fallback pass
             std::string lowerName = name;
             std::transform(lowerName.begin(), lowerName.end(),
                            lowerName.begin(), ::tolower);
@@ -1009,7 +949,6 @@ void ExecuteQueuedActions(GameWorld *thisptr, int &inventoryTimer) {
             gd = findInSource(thisptr->gamedata, templateName);
 
           if (!gd) {
-            // Try plural
             std::string plural = templateName + "s";
             gd = findInSource(thisptr->leveldata, plural);
             if (!gd)
@@ -1017,7 +956,6 @@ void ExecuteQueuedActions(GameWorld *thisptr, int &inventoryTimer) {
           }
 
           if (!gd) {
-            // Substring search (slow fallback)
             std::string lowerTemplate = templateName;
             std::transform(lowerTemplate.begin(), lowerTemplate.end(),
                            lowerTemplate.begin(), ::tolower);
@@ -1031,7 +969,6 @@ void ExecuteQueuedActions(GameWorld *thisptr, int &inventoryTimer) {
                 std::transform(lowerName.begin(), lowerName.end(),
                                lowerName.begin(), ::tolower);
                 if (lowerName.find(lowerTemplate) != std::string::npos) {
-                  // Ensure it's an item type
                   for (int t = 0; t < 7; t++) {
                     if (check->type == types[t]) {
                       gd = check;
@@ -1067,14 +1004,12 @@ void ExecuteQueuedActions(GameWorld *thisptr, int &inventoryTimer) {
                     ToString(c + 1) + "/" + ToString(count) + ") for " +
                     p->getName());
 
-                // 🛠️ FIX: Weapons, Armor, and Crossbows need specific
-                // manufacturer/material data.
+                // Weapons, armour, and crossbows need material and manufacturer data
                 GameData *meshData = nullptr;
                 GameData *materialData = nullptr;
 
                 if (gd->type == WEAPON || gd->type == ARMOUR ||
                     gd->type == CROSSBOW) {
-                  // 1. Try to find references in the item template itself
                   auto getRef = [&](const std::string &refName) -> GameData * {
                     const Ogre::vector<GameDataReference>::type *refs =
                         gd->getReferenceListIfExists(refName);
@@ -1095,9 +1030,7 @@ void ExecuteQueuedActions(GameWorld *thisptr, int &inventoryTimer) {
                   else if (gd->type == ARMOUR)
                     requiredMeshType = MATERIAL_SPECS_CLOTHING;
 
-                  // 🛠️ FIX: Weapons use "material" for the grade/quality,
-                  // while "mesh" is visual. The factory's 3rd arg expects the
-                  // grade data (MATERIAL_SPECS_WEAPON or CLOTHING).
+                  // createItem's 3rd arg is grade data (MATERIAL_SPECS_*): "material", not the visual "mesh"
                   meshData = getRef("material");
                   if (!meshData ||
                       (requiredMeshType && meshData->type != requiredMeshType))
@@ -1108,9 +1041,6 @@ void ExecuteQueuedActions(GameWorld *thisptr, int &inventoryTimer) {
 
                   materialData = getRef("manufacturer");
 
-                  // 2. Fallback: Search global gamedata for "Standard" versions
-                  // if template lacks them OR if the resolved ref is the wrong
-                  // type.
                   bool needsMesh =
                       !meshData ||
                       (requiredMeshType && meshData->type != requiredMeshType);
@@ -1152,8 +1082,6 @@ void ExecuteQueuedActions(GameWorld *thisptr, int &inventoryTimer) {
                         break;
                     }
 
-                    // Final Fail-safe: If preferred name not found, take the
-                    // first one
                     if (needsMesh && !meshData)
                       meshData = firstMesh;
                     if (needsMat && !materialData)
@@ -1166,7 +1094,6 @@ void ExecuteQueuedActions(GameWorld *thisptr, int &inventoryTimer) {
                 if (item) {
                   item->quantity = 1;
                   item->quality = 1.0f;
-                  // Ensure food is full
                   item->chargesLeft = item->originalFullChargeAmount;
                   if (item->chargesLeft <= 0.0f)
                     item->chargesLeft = 1.0f;
@@ -1214,11 +1141,10 @@ void ExecuteQueuedActions(GameWorld *thisptr, int &inventoryTimer) {
               }
             } else {
               Log("ACTION_EXEC: No character found to give item to.");
-              // No player found — drop item at NPC position as fallback
               Ogre::Vector3 dropPos = (npc && (uintptr_t)npc > 0x1000)
                                           ? npc->getPosition()
                                           : Ogre::Vector3::ZERO;
-              dropPos.y += 2.0f; // Raise drop height
+              dropPos.y += 2.0f;
 
               Log("ACTION_EXEC: No player character found, dropping item at "
                   "NPC/Origin.");

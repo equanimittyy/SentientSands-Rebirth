@@ -44,13 +44,11 @@ struct EventTask {
   std::string json;
 };
 
-// Shared across modules (e.g., Welcome and Settings share these)
 extern std::string g_allModelsJson;
 extern bool g_welcomeShown;
 extern bool g_enableWelcome;
 extern MyGUI::Button *g_welcomeCheckbox;
 
-// Campaigns Window
 extern MyGUI::Window *g_campaignWindow;
 extern MyGUI::ComboBox *g_campaignList;
 extern MyGUI::EditBox *g_campaignNewName;

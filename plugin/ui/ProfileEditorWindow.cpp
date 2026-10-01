@@ -78,7 +78,6 @@ DWORD WINAPI ProfileSaveThread(LPVOID lpParam) {
   PostToPythonWithResponse(L"/player_profile", task->json);
   delete task;
 
-  // Re-fetch to update the previews
   CreateThread(NULL, 0, ProfileEditorResponseThread, NULL, 0, NULL);
   return 0;
 }
@@ -111,7 +110,6 @@ void CreateProfileEditorUI() {
   if (g_profileEditorWindow)
     CloseProfileEditorUI();
 
-  // Shrunk window height from 0.85f to 0.65f to eliminate dead space
   g_profileEditorWindow = gui->createWidgetReal<MyGUI::Window>(
       "Kenshi_WindowCX", 0.20f, 0.15f, 0.60f, 0.65f, MyGUI::Align::Center,
       "Popup", "SentientSands_ProfileEditorWindow");
@@ -124,7 +122,6 @@ void CreateProfileEditorUI() {
 
   float y = 0.02f;
 
-  // --- Character Bio Section ---
   client
       ->createWidgetReal<MyGUI::TextBox>(
           "Kenshi_TextboxStandardText", 0.05f, y, 0.9f, 0.04f,
@@ -157,7 +154,6 @@ void CreateProfileEditorUI() {
   g_profileBioEdit->setTextColour(MyGUI::Colour::White);
   y += 0.10f;
 
-  // --- Faction Description Section ---
   client
       ->createWidgetReal<MyGUI::TextBox>(
           "Kenshi_TextboxStandardText", 0.05f, y, 0.9f, 0.04f,
@@ -190,14 +186,12 @@ void CreateProfileEditorUI() {
   g_profileFactionEdit->setTextColour(MyGUI::Colour::White);
   y += 0.08f;
 
-  // Save Button: Moved up to 0.88f to close the gap
   MyGUI::Button *saveBtn = client->createWidgetReal<MyGUI::Button>(
       "Kenshi_Button1", 0.35f, 0.88f, 0.3f, 0.07f, MyGUI::Align::Bottom,
       "SaveBtn");
   saveBtn->setCaption(Utf8ToWide(T("SAVE CHANGES")).c_str());
   saveBtn->eventMouseButtonClick += MyGUI::newDelegate(OnProfileSaveClick);
 
-  // Fetch data
   CreateThread(NULL, 0, ProfileEditorResponseThread, NULL, 0, NULL);
 }
 

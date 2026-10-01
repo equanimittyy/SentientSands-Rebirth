@@ -15,28 +15,19 @@ def get_latest_save():
     if not saves:
         return None
         
-    # Sort by modification time
     saves.sort(key=lambda x: os.path.getmtime(x), reverse=True)
     return saves[0]
 
 def scan_platoon_for_characters(platoon_path):
-    """
-    Scans a .platoon file for character names and serials.
-    Kenshi .platoon format is complex, but we can extract names and nearby IDs.
-    """
+    """Heuristic scan, not a parse of the .platoon layout: any capitalised ASCII run in the binary is a candidate name, so results include junk."""
     try:
         with open(platoon_path, 'rb') as f:
             data = f.read()
             
-        # This is a heuristic scan. In Kenshi, names are often followed by their IDs or types.
-        # We look for common character types: CHARACTER, HUMAN_CHARACTER, ANIMAL_CHARACTER (Type IDs 1, 81, 82)
-        # But for now, let's just find all alphanumeric strings that look like names.
-        # Strict regex: Start with Upper, follow with 2-15 lowercase letters
         matches = re.findall(b'([A-Z][a-z]{2,15})', data)
         names = []
         for m in matches:
             name = m.decode('utf-8')
-            # Filter out common junk words
             if name in ['The', 'And', 'But', 'For', 'With', 'From', 'This']: continue
             names.append(name)
         return list(set(names))
@@ -55,15 +46,11 @@ def build_world_index():
     if not os.path.exists(platoon_dir):
         return {}
         
-    # Determine mod directory relative to this script
     script_dir = os.path.dirname(os.path.abspath(__file__))
-    # script_dir is server/scripts, so mod_dir is root
     mod_dir = os.path.dirname(os.path.dirname(script_dir))
     
-    # Check for active campaign if possible, otherwise use root (legacy)
     registry_dir = os.path.join(mod_dir, "sentient_sands_registry")
     
-    # Dev environment support
     if not os.path.exists(registry_dir):
         dev_reg = os.path.join(mod_dir, "mod", "sentient_sands_registry")
         if os.path.exists(dev_reg):
@@ -81,8 +68,6 @@ def build_world_index():
                     index[name] = []
                 index[name].append(f)
                 
-                # Fulfill requirement: "Attach a file during initialization"
-                # For characters found in save, create their registry entry
                 clean_name = re.sub(r'[^\w\s-]', '', name).strip()
                 if not clean_name: continue
                 reg_file = os.path.join(registry_dir, f"{clean_name.replace(' ', '_')}_init.txt")

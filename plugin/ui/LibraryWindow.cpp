@@ -59,7 +59,6 @@ void OnLibraryFavoriteClick(MyGUI::Widget *sender) {
 
   std::string sid = g_libraryStorageIds[index];
 
-  // Send favorite toggle task
   LibraryTask *t = new LibraryTask();
   t->npcName = g_libraryList->getItemNameAt(index);
   t->json = "{\"sid\":\"" + EscapeJSON(sid) + "\"}";
@@ -69,7 +68,6 @@ void OnLibraryFavoriteClick(MyGUI::Widget *sender) {
       LibraryTask *lt = (LibraryTask *)lpParam;
       PostToPythonWithResponse(L"/favorite", lt->json);
       delete lt;
-      // Refresh list to show favorite on top
       CreateThread(NULL, 0, LibraryListThread, NULL, 0, NULL);
       return 0;
     }
@@ -108,13 +106,11 @@ void OnLibraryRegenerateClick(MyGUI::Widget *sender) {
 
       std::string status = GetJsonValue(response, "status");
       if (status == "ok") {
-        // Success: Refresh the history display to show new bio/backstory
         LibraryTask *t2 = new LibraryTask();
         t2->npcName = lt->npcName;
         t2->json = "{\"npc\":\"" + GetJsonValue(lt->json, "sid") + "\"}";
         LibraryHistoryThread(t2);
       } else {
-        // Error: Show feedback in the text area
         std::string msg = GetJsonValue(response, "message");
         if (msg.empty())
           msg = "Unknown error during synthesis.";
@@ -142,7 +138,6 @@ void PopulateLibraryUI(const std::string &dataInput) {
   if (!g_libraryList)
     return;
 
-  // Selection restoration
   size_t selIndex = g_libraryList->getIndexSelected();
   std::string selSid = "";
   if (selIndex != MyGUI::ITEM_NONE && selIndex < g_libraryStorageIds.size()) {
@@ -156,7 +151,7 @@ void PopulateLibraryUI(const std::string &dataInput) {
   std::string data = dataInput;
   std::string favsPart = "";
   size_t mainPipe = std::string::npos;
-  // Manual reverse search for the pipe that opens the favorites section
+  // "name|sid,...|[favs]": entries contain '|' too, so split at the last '|' followed by '['
   for (int i = (int)strlen(data.c_str()) - 1; i >= 0; i--) {
     if (data[i] == '|') {
       if (data.find('[', i) != std::string::npos) {
@@ -165,15 +160,12 @@ void PopulateLibraryUI(const std::string &dataInput) {
       }
     }
   }
-  // Check if this pipe is likely the favorites separator (it will be followed
-  // by brackets)
   if (mainPipe != std::string::npos &&
       data.find("[", mainPipe) != std::string::npos) {
     favsPart = data.substr(mainPipe + 1);
     data = data.substr(0, mainPipe);
   }
 
-  // Parse favorites list
   if (!favsPart.empty()) {
     size_t cur = 0, next;
     while ((next = favsPart.find("\"", cur)) != std::string::npos) {
@@ -185,7 +177,6 @@ void PopulateLibraryUI(const std::string &dataInput) {
     }
   }
 
-  // Clean brackets/quotes if present from characters part
   if (!data.empty() && data[0] == '[')
     data = data.substr(1);
   if (!data.empty() && data[data.length() - 1] == ']')
@@ -215,7 +206,6 @@ void PopulateLibraryUI(const std::string &dataInput) {
           sid = entry.substr(pipePos + 1);
         }
 
-        // Add star to favorite display
         bool isFav = false;
         for (size_t f = 0; f < g_libraryFavorites.size(); f++) {
           if (g_libraryFavorites[f] == sid) {
@@ -260,7 +250,6 @@ void PopulateLibraryUI(const std::string &dataInput) {
     }
   }
 
-  // Restore selection
   if (!selSid.empty()) {
     for (size_t i = 0; i < g_libraryStorageIds.size(); i++) {
       if (g_libraryStorageIds[i] == selSid) {
@@ -289,14 +278,12 @@ void OnLibraryNPCSelect(MyGUI::ListBox *sender, size_t index) {
     return;
   std::string displayName = sender->getItemNameAt(index);
 
-  // Use storage_id for file lookup if available, otherwise fall back to display
-  // name
+  // Server loads profiles by file name (storage_id), which can differ from the display name
   std::string storageId = displayName;
   if (index < g_libraryStorageIds.size()) {
     storageId = g_libraryStorageIds[index];
   }
 
-  // Update favorite button state
   if (g_libraryFavBtn) {
     bool isFav = false;
     for (size_t f = 0; f < g_libraryFavorites.size(); f++) {
@@ -309,14 +296,12 @@ void OnLibraryNPCSelect(MyGUI::ListBox *sender, size_t index) {
         Utf8ToWide(isFav ? T("Fav: [YES]") : T("Fav: [NO]")).c_str());
   }
 
-  // Show loading indicator
   if (g_libraryText) {
     g_libraryText->removeAllItems();
     g_libraryText->addItem(
         Utf8ToWide(T("Loading profile for ") + displayName + "...").c_str());
   }
 
-  // Fetch history using storage_id for reliable file lookup
   LibraryTask *t = new LibraryTask();
   t->npcName = displayName;
   t->json = "{\"npc\":\"" + EscapeJSON(storageId) + "\"}";
@@ -384,7 +369,6 @@ void CreateLibraryUI() {
 
   MyGUI::Widget *client = g_libraryWindow->getClientWidget();
 
-  // Sorting/Favorite Buttons
   g_libraryLatestBtn = client->createWidgetReal<MyGUI::Button>(
       "Kenshi_Button1", 0.02f, 0.015f, 0.09f, 0.05f, MyGUI::Align::Left,
       "SentientSands_LibLatestBtn");
@@ -405,7 +389,6 @@ void CreateLibraryUI() {
   g_libraryFavBtn->eventMouseButtonClick +=
       MyGUI::newDelegate(OnLibraryFavoriteClick);
 
-  // NPC List (Left 30%) - Moved down to y=0.07f
   g_libraryList = client->createWidgetReal<MyGUI::ListBox>(
       "Kenshi_ListBox", 0.02f, 0.07f, 0.28f, 0.91f,
       MyGUI::Align::Left | MyGUI::Align::VStretch, "SentientSands_LibraryList");
@@ -421,7 +404,6 @@ void CreateLibraryUI() {
   g_libraryRegenBtn->eventMouseButtonClick +=
       MyGUI::newDelegate(OnLibraryRegenerateClick);
 
-  // Log View (Right 70%) - Moved down to y=0.07f to avoid covering buttons
   g_libraryText = client->createWidgetReal<MyGUI::ListBox>(
       "Kenshi_ListBox", 0.32f, 0.07f, 0.66f, 0.91f, MyGUI::Align::Default,
       "SentientSands_LibraryText");
@@ -430,7 +412,6 @@ void CreateLibraryUI() {
           T("Select an NPC from the list to view their raw profile data."))
           .c_str());
 
-  // Fetch character list
   CreateThread(NULL, 0, LibraryListThread, NULL, 0, NULL);
 }
 

@@ -8,21 +8,17 @@ import threading
 import time
 import ctypes
 
-# Hide the console window on startup if not running via pythonw
 if os.name == 'nt' and not sys.executable.lower().endswith('pythonw.exe'):
     hwnd = ctypes.windll.kernel32.GetConsoleWindow()
     if hwnd:
         ctypes.windll.user32.ShowWindow(hwnd, 0)
 
-# --- PATH DEFINITIONS ---
-# Calculated relative to the script's location (server/scripts/visual_debugger.py)
 SCRIPT_PATH = os.path.abspath(__file__)
 SCRIPT_DIR = os.path.dirname(SCRIPT_PATH)
 KENSHI_SERVER_DIR = os.path.dirname(SCRIPT_DIR)
 KENSHI_MOD_DIR = os.path.dirname(KENSHI_SERVER_DIR)
 KENSHI_ROOT = os.path.dirname(os.path.dirname(KENSHI_MOD_DIR))
 
-# Verification - Print to console for debugging
 print(f"[DEBUGGER] SCRIPT_PATH: {SCRIPT_PATH}")
 print(f"[DEBUGGER] KENSHI_SERVER_DIR: {KENSHI_SERVER_DIR}")
 
@@ -41,7 +37,6 @@ class VisualDebugger:
         self.setup_styles()
         self.setup_ui()
         
-        # Start polling thread
         self.poll_thread = threading.Thread(target=self.poll_server, daemon=True)
         self.poll_thread.start()
 
@@ -57,16 +52,13 @@ class VisualDebugger:
         style = ttk.Style()
         style.theme_use('clam')
         
-        # Base Dark Theme
         style.configure("TFrame", background="#0F0F0F")
         style.configure("TLabel", foreground="#BBBBBB", background="#0F0F0F", font=("Consolas", 9))
         style.configure("Header.TLabel", foreground="#FFFFFF", background="#1A1A1A", font=("Segoe UI", 10, "bold"))
         
-        # Frame and Tooltip Headers
         style.configure("TLabelframe", background="#0F0F0F", borderwidth=1, relief="flat")
         style.configure("TLabelframe.Label", background="#0F0F0F", foreground="#00D2FF", font=("Segoe UI", 9, "bold"))
         
-        # Premium Button Aesthetics
         style.configure("TButton", 
                         foreground="#E0E0E0", 
                         background="#262626", 
@@ -79,7 +71,6 @@ class VisualDebugger:
                   background=[("active", "#333333"), ("pressed", "#1A1A1A")],
                   foreground=[("active", "#FFFFFF")])
 
-        # Color Variations
         style.configure("Danger.TButton", background="#4A1515")
         style.map("Danger.TButton", background=[("active", "#6A2525")])
         
@@ -88,17 +79,14 @@ class VisualDebugger:
         
         style.configure("Money.TButton", foreground="#FFD700")
         
-        # Stat highlighting
         style.configure("Stat.TLabel", foreground="#00D2FF", background="#0F0F0F", font=("Consolas", 9, "bold"))
         style.configure("Health.TLabel", foreground="#FF5555", background="#0F0F0F", font=("Consolas", 9, "bold"))
         style.configure("Money.TLabel", foreground="#FFD700", background="#0F0F0F", font=("Consolas", 9, "bold"))
 
-        # Input Fields
         style.configure("TCombobox", fieldbackground="#1A1A1A", background="#0F0F0F", foreground="white")
         style.map("TCombobox", fieldbackground=[("readonly", "#1A1A1A")])
 
     def setup_ui(self):
-        # Status Bar
         status_frame = ttk.Frame(self.root)
         status_frame.pack(side="bottom", fill="x", padx=5, pady=1)
         
@@ -108,7 +96,6 @@ class VisualDebugger:
         self.campaign_lbl = ttk.Label(status_frame, text="CAMPAIGN: Default", font=("Consolas", 7, "bold"), foreground="#00D2FF")
         self.campaign_lbl.pack(side="right")
 
-        # Notebook tabs
         self.notebook = ttk.Notebook(self.root)
         self.notebook.pack(fill="both", expand=True, padx=4, pady=4)
 
@@ -117,21 +104,17 @@ class VisualDebugger:
         self.notebook.add(tab1, text="  Debugger  ")
         self.notebook.add(tab2, text="  Logs & Hooks  ")
 
-        # Build logs tab immediately so widgets exist before threads start
         self._build_logs_tab(tab2)
 
-        # Main Layout (tab1)
         main_container = ttk.Frame(tab1)
         main_container.pack(fill="both", expand=True, padx=3, pady=3)
 
-        # Two column layout
         left_col = ttk.Frame(main_container)
         left_col.pack(side="left", fill="both", expand=True, padx=2)
 
         right_col = ttk.Frame(main_container)
         right_col.pack(side="right", fill="both", expand=True, padx=2)
 
-        # --- LEFT COLUMN: STATE & INV ---
         self.player_frame = ttk.LabelFrame(left_col, text=" PLAYER ", padding=5)
         self.player_frame.pack(fill="x", pady=2)
         self.player_stats = self.create_simple_stat_grid(self.player_frame)
@@ -153,8 +136,6 @@ class VisualDebugger:
         self.inv_scroll.pack(side="right", fill="y")
         self.inv_list_frame.bind("<Configure>", lambda e: self.inv_canvas.configure(scrollregion=self.inv_canvas.bbox("all")))
 
-        # --- RIGHT COLUMN: ACTIONS ---
-        # Dialogue & Broadcast (Combined)
         actions_top = ttk.LabelFrame(right_col, text=" DIALOGUE & BROADCAST ", padding=5)
         actions_top.pack(fill="x", pady=2)
         
@@ -171,7 +152,6 @@ class VisualDebugger:
         btn_row2.pack(fill="x", pady=2)
         ttk.Button(btn_row2, text="NOTIFY", command=lambda: self.send_pipe(f"NOTIFY: {self.msg_entry.get('1.0', tk.END).strip()}")).pack(fill="x", expand=True)
 
-        # Combat & Actions
         actions_frame = ttk.LabelFrame(right_col, text=" ACTIONS & SQUAD ", padding=5)
         actions_frame.pack(fill="x", pady=2)
         ttk.Button(actions_frame, text="RECRUIT", style="Success.TButton", command=lambda: self.send_action("[ACTION: JOIN_PARTY]")).pack(fill="x", pady=1)
@@ -186,7 +166,6 @@ class VisualDebugger:
                 
         ttk.Button(actions_frame, text="DISMISS", command=safe_dismiss).pack(fill="x", pady=1)
         
-        # New specialized behavior buttons
         btn_behavior = ttk.Frame(actions_frame)
         btn_behavior.pack(fill="x", pady=2)
         ttk.Button(btn_behavior, text="FOLLOW", style="Success.TButton", command=lambda: self.send_action("[ACTION: FOLLOW_PLAYER]")).pack(side="left", fill="x", expand=True, padx=(0, 1))
@@ -197,7 +176,6 @@ class VisualDebugger:
         btn_behavior2.pack(fill="x", pady=2)
         ttk.Button(btn_behavior2, text="RELEASE PLAYER", command=lambda: self.send_action("[ACTION: RELEASE_PLAYER]")).pack(fill="x")
 
-        # Money
         cats_frame = ttk.LabelFrame(right_col, text=" CATS ", padding=5)
         cats_frame.pack(fill="x", pady=2)
         self.cat_entry = tk.Entry(cats_frame, bg="#1A1A1A", fg="#FFD700", font=("Consolas", 9), insertbackground="white")
@@ -208,7 +186,6 @@ class VisualDebugger:
         ttk.Button(btn_row3, text="GIVE", style="Money.TButton", command=lambda: self.send_action(f"[ACTION: GIVE_CATS: {self.cat_entry.get()}]")).pack(side="left", fill="x", expand=True)
         ttk.Button(btn_row3, text="TAKE", style="Money.TButton", command=lambda: self.send_action(f"[ACTION: TAKE_CATS: {self.cat_entry.get()}]")).pack(side="right", fill="x", expand=True)
 
-        # AI Goals
         task_frame = ttk.LabelFrame(right_col, text=" NPC GOAL ", padding=5)
         task_frame.pack(fill="x", pady=2)
         self.task_var = tk.StringVar()
@@ -218,7 +195,6 @@ class VisualDebugger:
         self.task_combo.pack(fill="x", pady=2)
         ttk.Button(task_frame, text="SET GOAL", command=self.send_task).pack(fill="x")
 
-        # Faction Relations
         faction_frame = ttk.LabelFrame(right_col, text=" FACTION RELATIONS ", padding=5)
         faction_frame.pack(fill="x", pady=2)
         
@@ -230,7 +206,6 @@ class VisualDebugger:
         btn_row_f.pack(fill="x")
         ttk.Button(btn_row_f, text="SET RELATION", style="Success.TButton", command=self.send_faction_rel).pack(fill="x")
 
-        # Spawn Item Section
         spawn_frame = ttk.LabelFrame(right_col, text=" SPAWN ITEM ", padding=5)
         spawn_frame.pack(fill="x", pady=2)
         self.spawn_template = tk.Entry(spawn_frame, bg="#1A1A1A", fg="#BBBBBB", font=("Consolas", 8))
@@ -247,7 +222,6 @@ class VisualDebugger:
         
         ttk.Button(spawn_frame, text="SPAWN", command=self.send_spawn).pack(fill="x")
 
-        # Take Item Section
         take_item_frame = ttk.LabelFrame(right_col, text=" TAKE ITEM FROM PLAYER ", padding=5)
         take_item_frame.pack(fill="x", pady=2)
         self.take_item_name = tk.Entry(take_item_frame, bg="#1A1A1A", fg="#BBBBBB", font=("Consolas", 8))
@@ -255,7 +229,6 @@ class VisualDebugger:
         self.take_item_name.insert(0, "Raw Meat")
         ttk.Button(take_item_frame, text="TAKE", command=lambda: self.send_action(f"[ACTION: TAKE_ITEM: {self.take_item_name.get()}]")).pack(side="right")
         
-        # --- TIMERS SECTION ---
         timer_frame = ttk.LabelFrame(right_col, text=" AI TIMERS ", padding=5)
         timer_frame.pack(fill="x", pady=2)
         
@@ -274,28 +247,24 @@ class VisualDebugger:
         self.speech_progress = ttk.Progressbar(timer_frame, length=100, mode='determinate')
         self.speech_progress.pack(fill="x", pady=(0, 2))
 
-        # System Backend
         system_frame = ttk.LabelFrame(right_col, text=" SYSTEM ", padding=5)
         system_frame.pack(fill="x", pady=2)
         
-        # Provider Selection
         self.provider_var = tk.StringVar()
         self.provider_combo = ttk.Combobox(system_frame, textvariable=self.provider_var, state="readonly", font=("Segoe UI", 8))
         self.provider_combo.pack(fill="x", pady=2)
         self.provider_combo.bind("<<ComboboxSelected>>", self.on_provider_change)
 
-        # Model Selection
         self.model_var = tk.StringVar()
         self.model_combo = ttk.Combobox(system_frame, textvariable=self.model_var, state="readonly", font=("Segoe UI", 8))
         self.model_combo.pack(fill="x", pady=1)
         self.model_combo.bind("<<ComboboxSelected>>", self.change_model)
         
-        # Radiant Dialogue Toggle
         self.ambient_var = tk.BooleanVar(value=True)
         self.ambient_check = ttk.Checkbutton(system_frame, text="Radiant Dialogue", variable=self.ambient_var, command=self.toggle_ambient)
         self.ambient_check.pack(fill="x", pady=2)
 
-        self.all_models_data = {} # Full dict from server
+        self.all_models_data = {}
 
         debug_frame = ttk.Frame(system_frame)
         debug_frame.pack(fill="x", pady=2)
@@ -303,12 +272,9 @@ class VisualDebugger:
         ttk.Button(debug_frame, text="TRACE", command=lambda: self.send_pipe("CMD: TRACE_CONTEXT")).pack(side="right", fill="x", expand=True)
 
     def _build_logs_tab(self, parent):
-        """Full-height Logs tab: Server Log + Events Log side-by-side, hooks below."""
-        # Top half: Server Log (left) + Events Log (right)
         top = ttk.Frame(parent)
         top.pack(fill="both", expand=True, padx=4, pady=4)
 
-        # --- LLM Server Log ---
         log_frame = ttk.LabelFrame(top, text=" LLM SERVER LOG ", padding=4)
         log_frame.pack(side="left", fill="both", expand=True, padx=(0, 3))
 
@@ -329,7 +295,6 @@ class VisualDebugger:
         self.server_log.tag_configure("debug", foreground="#555566")
         self.server_log.pack(fill="both", expand=True)
 
-        # --- Actions / Global Events Log ---
         evt_frame = ttk.LabelFrame(top, text=" TRACKED ACTIONS & EVENTS ", padding=4)
         evt_frame.pack(side="right", fill="both", expand=True, padx=(3, 0))
 
@@ -351,7 +316,6 @@ class VisualDebugger:
         self.events_log.tag_configure("default",  foreground="#BBBBBB")
         self.events_log.pack(fill="both", expand=True)
 
-        # --- Engine Hooks table (bottom strip, full width) ---
         hooks_frame = ttk.LabelFrame(parent, text=" ENGINE HOOKS (ACTIVE) ", padding=4)
         hooks_frame.pack(fill="x", padx=4, pady=(0, 4))
         self.hooks_text = scrolledtext.ScrolledText(
@@ -372,7 +336,6 @@ class VisualDebugger:
         widgets['money'] = ttk.Label(header_frame, text="0c", style="Money.TLabel")
         widgets['money'].pack(side="right")
         
-        # New: Faction and Relation labels
         fact_frame = ttk.Frame(parent)
         fact_frame.pack(fill="x")
         widgets['faction'] = ttk.Label(fact_frame, text="Neutral", foreground="#4FB0FF", font=("Segoe UI", 9, "italic"))
@@ -416,11 +379,9 @@ class VisualDebugger:
                 pass
             time.sleep(0.5)
 
-    # ---- Server Log File Tail ----
     _LOG_PATH = os.path.join(KENSHI_SERVER_DIR, "logs", "server.log")
 
     def poll_log_file(self):
-        """Tail server.log from disk. No HTTP endpoint required."""
         last_size = 0
         while self.running:
             try:
@@ -429,14 +390,13 @@ class VisualDebugger:
                     if size != last_size:
                         with open(self._LOG_PATH, 'r', encoding='utf-8', errors='replace') as f:
                             if size > last_size:
-                                f.seek(last_size)      # only read new bytes
+                                f.seek(last_size)
                             else:
-                                f.seek(0)              # file was rotated/truncated
+                                f.seek(0)
                             new_text = f.read()
                         last_size = size
                         if new_text:
                             self.root.after(0, self._append_server_log, new_text)
-                    # Update status dot based on whether file exists and is recent
                     mtime = os.path.getmtime(self._LOG_PATH)
                     alive = (time.time() - mtime) < 30
                     dot = "● ONLINE" if alive else "● IDLE"
@@ -457,7 +417,6 @@ class VisualDebugger:
             elif " - WARNING - " in line: tag = "warn"
             elif " - DEBUG - " in line:  tag = "debug"
             self.server_log.insert(tk.END, line + "\n", tag)
-        # Keep only last 200 visible lines
         line_count = int(self.server_log.index(tk.END).split('.')[0])
         if line_count > 210:
             self.server_log.delete("1.0", f"{line_count - 200}.0")
@@ -469,11 +428,9 @@ class VisualDebugger:
         self.server_log.delete("1.0", tk.END)
         self.server_log.config(state="disabled")
 
-    # ---- Global Events Log (tails global_events.log) ----
     _EVENTS_LOG_PATH = os.path.join(KENSHI_SERVER_DIR, "campaigns", "Default", "logs", "global_events.log")
 
     def poll_events_file(self):
-        """Tail global_events.log which the server writes on every engine hook trigger."""
         last_size = 0
         while self.running:
             try:
@@ -512,7 +469,6 @@ class VisualDebugger:
         self.events_log.delete("1.0", tk.END)
         self.events_log.config(state="disabled")
 
-    # ---- Engine Hooks Table ----
     HOOKS = [
         ("attackingYou_hook",    "0x9266E0", "Combat Initiation"),
         ("applyDamage_hook",     "0x4DA9C0", "Damage Detection"),
@@ -540,33 +496,27 @@ class VisualDebugger:
         if campaign != self.current_campaign:
             self.current_campaign = campaign
             self.campaign_lbl.config(text=f"CAMPAIGN: {campaign}")
-            # Update log path to campaign-specific log
             base_dir = os.path.dirname(os.path.abspath(__file__))
             self._EVENTS_LOG_PATH = os.path.join(KENSHI_SERVER_DIR, "campaigns", campaign, "logs", "global_events.log")
             self._append_server_log(f"\n[DEBUGGER] Switched to campaign: {campaign}\n")
             self._append_server_log(f"[DEBUGGER] Tailing: {self._EVENTS_LOG_PATH}\n")
 
-        # Update Timers
         def update_timers(data):
-            # Try to get timer data from player or npc context if not at top level
             ctx = data.get("player", {}) or data.get("npc", {})
             
-            # Radiant Timer
             rad_now = ctx.get("radiant_timer_ms", 0)
-            rad_total = ctx.get("radiant_interval_ms", 120000) # Default 120s if missing
+            rad_total = ctx.get("radiant_interval_ms", 120000)
             self.radiant_timer_lbl.config(text=f"Radiant Banter: {rad_now//1000}s / {rad_total//1000}s")
             self.radiant_progress['value'] = min(100, (rad_now / rad_total) * 100)
 
-            # Synthesis Timer (Python side, top level)
             synth = data.get("synthesis", {})
             syn_now = synth.get("elapsed", 0)
             syn_total = synth.get("interval", 60)
             self.synthesis_timer_lbl.config(text=f"Narrative Synthesis: {syn_now}m / {syn_total}m")
             self.synthesis_progress['value'] = min(100, (syn_now / syn_total) * 100)
 
-            # Speech Delay Timer (NPC speech spacing)
             speech_now = ctx.get("speech_delay_ms", 0)
-            speech_total = ctx.get("speech_interval_ms", 5000) # Default 5s if missing
+            speech_total = ctx.get("speech_interval_ms", 5000)
             self.speech_timer_lbl.config(text=f"Speech Delay: {speech_now/1000:.1f}s / {speech_total/1000:.1f}s")
             self.speech_progress['value'] = min(100, (speech_now / speech_total) * 100)
 
@@ -577,7 +527,6 @@ class VisualDebugger:
             widgets['race'].config(text=f"[{ctx.get('race', '--')}]")
             widgets['money'].config(text=f"{ctx.get('money', 0)} cats")
             
-            # Update Faction and Relation
             widgets['faction'].config(text=ctx.get("faction", "Neutral"))
             rel = ctx.get("relation", "--")
             if isinstance(rel, (int, float)):
@@ -614,7 +563,6 @@ class VisualDebugger:
                 ttk.Button(item_row, text="DROP", width=6, command=lambda n=name: self.send_action(f"[ACTION: DROP_ITEM: {n}]")).pack(side="right", padx=2)
 
     def load_models(self):
-        """Fetch model/provider list from server asynchronously."""
         def _fetch(attempt=1):
             try:
                 resp = requests.get("http://localhost:5000/models", timeout=3)
@@ -624,7 +572,7 @@ class VisualDebugger:
                     return
             except Exception:
                 pass
-            # Retry once after 3s if server wasn't ready
+            # Retry: the server may still be starting when the debugger launches.
             if attempt == 1:
                 time.sleep(3)
                 _fetch(attempt=2)
@@ -635,7 +583,7 @@ class VisualDebugger:
         threading.Thread(target=_fetch, daemon=True).start()
 
     def _apply_models(self, data):
-        """Apply fetched model data to UI controls (must run on main thread)."""
+        """Must run on the Tk main thread."""
         self.all_models_data = data.get("models", {})
         providers = data.get("providers", [])
         current = data.get("current", "")
@@ -644,7 +592,6 @@ class VisualDebugger:
         self.provider_combo['values'] = providers
         self.ambient_var.set(enable_ambient)
 
-        # Determine current provider from current model key
         current_provider = ""
         if current in self.all_models_data:
             current_provider = self.all_models_data[current].get("provider", "")
@@ -652,11 +599,9 @@ class VisualDebugger:
             current_provider = providers[0]
 
         if current_provider:
-            # Must call set() THEN manually call on_provider_change because
-            # programmatic set() on a readonly Combobox doesn't fire <<ComboboxSelected>>
+            # set() doesn't fire <<ComboboxSelected>>, so the model list is refreshed by hand.
             self.provider_var.set(current_provider)
             self.update_model_list(current_provider)
-            # Now set the specific model
             models = self.model_combo['values']
             if current in models:
                 self.model_var.set(current)
@@ -670,7 +615,6 @@ class VisualDebugger:
     def on_provider_change(self, event=None):
         provider = self.provider_var.get()
         self.update_model_list(provider)
-        # Select first model in list automatically
         models = self.model_combo['values']
         if models:
             self.model_var.set(models[0])
@@ -708,7 +652,6 @@ class VisualDebugger:
 
     def send_pipe(self, msg):
         try:
-            # Inject identity header for NPC actions/speech if we have a target
             if msg.startswith("NPC_") and hasattr(self, 'current_npc_name') and self.current_npc_name != "Unknown":
                 header = f"{self.current_npc_name}|{self.current_npc_id}: "
                 if msg.startswith("NPC_SAY: "):
@@ -729,9 +672,8 @@ if __name__ == "__main__":
     except Exception as e:
         import traceback
         err_msg = traceback.format_exc()
-        print(err_msg) # Print to console if it's still alive
+        print(err_msg)
         
-        # Try to show a GUI error if tkinter initialized
         try:
             root = tk.Tk()
             root.withdraw()

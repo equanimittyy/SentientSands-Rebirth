@@ -122,7 +122,6 @@ static std::string GetHealthStatus(Character *npc) {
     crippled = true;
 
   bool injured = false;
-  // Check major parts
   MedicalSystem::HealthPartStatus *parts[6] = {med->getPart(0), med->getPart(1),
                                                med->leftArm,    med->rightArm,
                                                med->leftLeg,    med->rightLeg};
@@ -171,8 +170,7 @@ static std::string GetVisibleEquipment(Character *npc) {
 
 std::string GetStorageIDFor(Character *npc, const std::string &name,
                             const std::string &factionName) {
-  // PERSISTENCE UPGRADE: Use name-only storage IDs.
-  // This solves the "Faction Change" problem and provides a cleaner filesystem.
+  // Name only, so saved data survives the NPC changing faction
   return name;
 }
 
@@ -209,7 +207,6 @@ std::string GetIdentityFaction(Character *npc) {
     return cached;
   }
 
-  // If they are in the player squad, try to find their true origin
   if (faction && faction->isThePlayer()) {
     GameData *characterData = npc->getGameData();
     if (characterData && ppWorld && *ppWorld && (*ppWorld)->factionMgr) {
@@ -225,14 +222,11 @@ std::string GetIdentityFaction(Character *npc) {
         }
       }
     }
-    // If we still didn't find an origin, use a generic label to avoid
-    // volatile player faction names (which change if the player renames their
-    // squad)
+    // Player faction names change when the squad is renamed, so use a stable label
     if (identityFaction == factionName || identityFaction == "Nameless") {
       identityFaction = "Drifters";
     }
   } else {
-    // For non-player NPCs, their current faction is their stable identity
     if (!factionName.empty() && factionName != "Unknown" &&
         factionName != "Neutral") {
       EnterCriticalSection(&g_stateMutex);
@@ -248,13 +242,9 @@ std::string GetDetailedContext(Character *npc, const std::string &type) {
     return "{}";
 
   std::string json = "{";
-  // Write 'type' first so Python can route player vs NPC contexts correctly
   json += "\"type\": \"" + type + "\",";
   if (ppWorld && *ppWorld) {
     TimeOfDay tod = (*ppWorld)->getTimeStamp_inGameHours();
-    // Kenshi Time tracking:
-    // getTotalDays() usually matches game clock days
-    // we use total hours/minutes for the remainder of the clock
     int day = (int)tod.getTotalDays();
     int hour = (int)fmod(tod.getTotalHours(), 24.0);
     int minute = (int)fmod(tod.getTotalMinutes(), 60.0);
@@ -268,7 +258,6 @@ std::string GetDetailedContext(Character *npc, const std::string &type) {
     json += "\"is_paused\": " +
             std::string((*ppWorld)->isPaused() ? "true" : "false") + ",";
 
-    // AI Timers for Debugger
     DWORD now = GetTickCount();
     DWORD elapsed = now - g_lastAmbientTick;
     json += "\"radiant_timer_ms\": " + ToString((int)elapsed) + ",";
@@ -281,7 +270,6 @@ std::string GetDetailedContext(Character *npc, const std::string &type) {
             ToString((int)(g_dialogueSpeedSeconds * 1000)) + ",";
   }
 
-  // --- Character State (before name, so Python can gate early on dead/KO) ---
   std::string charState = "normal";
   bool isDead = false;
   bool isUnconcious = false;
@@ -296,12 +284,11 @@ std::string GetDetailedContext(Character *npc, const std::string &type) {
       } else if (npc->inSomething == IN_PRISON) {
         charState = "imprisoned";
       } else {
-        // Enslaved: currently assigned as a slave
         try {
           SlaveStateEnum slaveState = npc->isSlave();
           bool chained = npc->isChainedMode();
           if (slaveState != 0) { // 0 == not a slave
-            // Escaped slave: has slave status but no chains/owner
+            // Slave status but unchained means escaped
             charState = chained ? "enslaved" : "escaped-slave";
           }
         } catch (...) {
@@ -334,7 +321,6 @@ std::string GetDetailedContext(Character *npc, const std::string &type) {
     json += "\"id\": \"hand_" + ToString((int)npc->getHandle().serial) + "\",";
   }
 
-  // Robust Race Name
   RaceData *race = nullptr;
   try {
     race = npc->getRace() ? npc->getRace() : npc->myRace;
@@ -350,7 +336,6 @@ std::string GetDetailedContext(Character *npc, const std::string &type) {
   }
   json += "\"race\": \"" + EscapeJSON(raceName) + "\",";
 
-  // Robust Gender
   std::string gender = "male";
   try {
     gender = npc->isFemale() ? "female" : "male";
@@ -360,7 +345,6 @@ std::string GetDetailedContext(Character *npc, const std::string &type) {
     gender = npc->sex;
   json += "\"gender\": \"" + gender + "\",";
 
-  // Robust Faction Name
   Faction *faction = nullptr;
   try {
     faction = npc->getFaction() ? npc->getFaction() : npc->owner;
@@ -384,7 +368,6 @@ std::string GetDetailedContext(Character *npc, const std::string &type) {
   json += "\"faction\": \"" + EscapeJSON(factionName) + "\",";
   json += "\"factionID\": \"" + EscapeJSON(factionID) + "\",";
 
-  // Job / Assigned Tasks
   std::string job = "None";
   try {
     int jobCount = npc->getPermajobCount();
@@ -405,16 +388,12 @@ std::string GetDetailedContext(Character *npc, const std::string &type) {
   }
   json += "\"job\": \"" + EscapeJSON(job) + "\",";
 
-  // IDENTITY STABILITY
   std::string identityFaction = GetIdentityFaction(npc);
   json += "\"origin_faction\": \"" + EscapeJSON(identityFaction) + "\",";
 
-  // Stable Storage ID: Prioritize InstanceID (UUID) or the stable Identity
-  // Faction.
   std::string stableID = GetStorageIDFor(npc, name, identityFaction);
   json += "\"storage_id\": \"" + EscapeJSON(stableID) + "\",";
 
-  // Relation to Player Faction
   if (ppWorld && *ppWorld && (*ppWorld)->player &&
       (*ppWorld)->player->getFaction() && faction) {
     Faction *playerFaction = (*ppWorld)->player->getFaction();
@@ -442,7 +421,6 @@ std::string GetDetailedContext(Character *npc, const std::string &type) {
   }
   json += "\"is_leader\": " + std::string(isLeader ? "true" : "false") + ",";
 
-  // Building Context
   bool indoors = false;
   std::string buildingName = "Unknown";
   bool inAShop = false;
@@ -471,8 +449,6 @@ std::string GetDetailedContext(Character *npc, const std::string &type) {
     for (uint32_t i = 0; i < results.size(); ++i) {
       Character *other = (Character *)results.stuff[i];
       if (other && (uintptr_t)other > 0x1000) {
-        // ONLY exclude the primary player character (typically the first char
-        // in first squad)
         if ((*ppWorld)->player &&
             (*ppWorld)->player->playerCharacters.size() > 0) {
           if (other == (*ppWorld)->player->playerCharacters[0])
@@ -484,7 +460,6 @@ std::string GetDetailedContext(Character *npc, const std::string &type) {
 
         std::string o_name = other->getName();
 
-        // Robust Race Name
         RaceData *o_race = other->getRace() ? other->getRace() : other->myRace;
         std::string o_rn = "Unknown";
         if (o_race && (uintptr_t)o_race > 0x1000) {
@@ -494,7 +469,6 @@ std::string GetDetailedContext(Character *npc, const std::string &type) {
             o_rn = o_race->data->stringID;
         }
 
-        // Robust Faction Name
         Faction *o_fact =
             other->getFaction() ? other->getFaction() : other->owner;
         std::string o_fn = "Neutral";
@@ -511,7 +485,6 @@ std::string GetDetailedContext(Character *npc, const std::string &type) {
         std::string o_gender = other->isFemale() ? "female" : "male";
         float dist = npc->getPosition().distance(other->getPosition());
 
-        // IDENTITY STABILITY: Use the origin-faction cache for overhearers too!
         std::string o_sid_fact = o_fn;
         unsigned int o_serial = other->getHandle().serial;
 
@@ -519,16 +492,13 @@ std::string GetDetailedContext(Character *npc, const std::string &type) {
         if (g_originFactions.count(o_serial)) {
           o_sid_fact = g_originFactions[o_serial];
         } else if (o_fact && !o_fact->isThePlayer()) {
-          // For non-player characters, cache their current faction as origin
           g_originFactions[o_serial] = o_fn;
           o_sid_fact = o_fn;
         }
         LeaveCriticalSection(&g_stateMutex);
 
-        // Include storage_id for perfect overhearer-to-participant mapping
         std::string o_sid = GetStorageIDFor(other, o_name, o_sid_fact);
 
-        // Sensory details for "looking" around
         std::string o_health = GetHealthStatus(other);
         std::string o_equip = GetVisibleEquipment(other);
 
@@ -584,8 +554,7 @@ std::string GetDetailedContext(Character *npc, const std::string &type) {
     json += "\"blood\": " + ToString((int)med->blood) + ",";
     json += "\"max_blood\": " + ToString((int)med->getMaxBlood()) + ",";
     json += "\"blood_rate\": " + ToString(med->currentBleedRate) + ",";
-    // Hunger is stored as deficit (0 when full, 300 when starving)
-    // We add 'fed' to account for food currently being digested.
+    // hunger is a deficit (0 full, 300 starving); fed is food still being digested
     float hungerVal = (300.0f - med->hunger) + med->fed;
     if (hungerVal < 0)
       hungerVal = 0;
@@ -633,7 +602,6 @@ std::string GetDetailedContext(Character *npc, const std::string &type) {
         if (i > 0)
           json += ",";
         
-        // Get the real price using the engine's internal valuation logic
         int price = 0;
         try {
             price = allItems[i]->getValueSingle(false);

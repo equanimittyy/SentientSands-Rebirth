@@ -66,7 +66,6 @@ void CreateWelcomeUI() {
   if (g_welcomeWindow)
     CloseWelcomeUI();
 
-  // Smaller window: 45% height, positioned higher up
   g_welcomeWindow = gui->createWidgetReal<MyGUI::Window>(
       "Kenshi_WindowCX", 0.32f, 0.10f, 0.36f, 0.45f, MyGUI::Align::Center,
       "Popup", "SentientSands_WelcomeWindow");
@@ -122,7 +121,6 @@ void CreateWelcomeUI() {
   l4->setTextAlign(MyGUI::Align::Center);
   l4->setTextColour(MyGUI::Colour(1.0f, 0.9f, 0.5f));
 
-  // Instructions
   MyGUI::TextBox *instructions = client->createWidgetReal<MyGUI::TextBox>(
       "Kenshi_TextboxStandardText", 0.05f, 0.40f, 0.9f, 0.1f,
       MyGUI::Align::Top | MyGUI::Align::HStretch, "SentientSands_WelcomeKeys");
@@ -132,7 +130,6 @@ void CreateWelcomeUI() {
   instructions->setTextAlign(MyGUI::Align::Center);
   instructions->setTextColour(MyGUI::Colour(0.6f, 1.0f, 0.6f));
 
-  // Startup Toggle
   g_welcomeCheckbox = client->createWidgetReal<MyGUI::Button>(
       "Kenshi_Button1", 0.05f, 0.55f, 0.9f, 0.12f,
       MyGUI::Align::Top | MyGUI::Align::HStretch,
@@ -144,7 +141,6 @@ void CreateWelcomeUI() {
   g_welcomeCheckbox->eventMouseButtonClick +=
       MyGUI::newDelegate(OnWelcomeToggleClick);
 
-  // Close Button
   MyGUI::Button *saveBtn = client->createWidgetReal<MyGUI::Button>(
       "Kenshi_Button1", 0.05f, 0.75f, 0.42f, 0.18f,
       MyGUI::Align::Bottom | MyGUI::Align::Left,
@@ -152,7 +148,6 @@ void CreateWelcomeUI() {
   saveBtn->setCaption(Utf8ToWide(T("CLOSE")).c_str());
   saveBtn->eventMouseButtonClick += MyGUI::newDelegate(OnWelcomeSaveClick);
 
-  // Discord Button
   MyGUI::Button *discordBtn = client->createWidgetReal<MyGUI::Button>(
       "Kenshi_Button1", 0.53f, 0.75f, 0.42f, 0.18f,
       MyGUI::Align::Bottom | MyGUI::Align::Right,
@@ -161,7 +156,6 @@ void CreateWelcomeUI() {
   discordBtn->eventMouseButtonClick +=
       MyGUI::newDelegate(OnWelcomeDiscordClick);
 
-  // Initial fetch for background
   CreateThread(NULL, 0, WelcomeResponseThread, NULL, 0, NULL);
 }
 

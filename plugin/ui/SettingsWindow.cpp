@@ -110,8 +110,7 @@ void OnSettingsSaveClick(MyGUI::Widget *sender) {
   json += ",\"language\": \"" + EscapeJSON(g_language) + "\"";
   json += "}";
 
-  // Use synchronous post to ensure server updates before window closes
-  // and we get the fresh translation map back.
+  // Synchronous so the server applies the settings before the window closes.
   std::string response = PostToPythonWithResponse(L"/settings", json);
   if (!response.empty()) {
     PopulateSettingsUI(response);
@@ -133,7 +132,6 @@ void OnSettingsOpenConfigClick(MyGUI::Widget *sender) {
 
 static DWORD WINAPI TestPingThread(LPVOID lp) {
   MyGUI::Button *btn = (MyGUI::Button *)lp;
-  // Test both server and LLM connectivity
   std::string response = PostToPythonWithResponse(L"/test_llm", "{}");
 
   if (response.empty()) {
@@ -169,7 +167,6 @@ void OnSettingsProviderChange(MyGUI::ComboBox *sender, size_t index) {
   std::string provider = sender->getItemNameAt(index);
   g_settingsModel->removeAllItems();
 
-  // Parse models for this provider from g_allModelsJson
   // Format: {"provider1": ["model1", "model2"], "provider2": [...]}
   size_t pPos = g_allModelsJson.find("\"" + provider + "\":");
   if (pPos != std::string::npos) {
@@ -233,7 +230,6 @@ void CreateSettingsUI() {
   float y = 0.05f;
   float yDelta = 0.11f;
 
-  // Provider
   client
       ->createWidgetReal<MyGUI::TextBox>("Kenshi_TextboxStandardText", 0.05f, y,
                                          0.3f, 0.08f, MyGUI::Align::Left,
@@ -247,7 +243,6 @@ void CreateSettingsUI() {
       MyGUI::newDelegate(OnSettingsProviderChange);
   y += 0.09f;
 
-  // Model
   client
       ->createWidgetReal<MyGUI::TextBox>("Kenshi_TextboxStandardText", 0.05f, y,
                                          0.3f, 0.08f, MyGUI::Align::Left,
@@ -259,7 +254,6 @@ void CreateSettingsUI() {
   g_settingsModel->setComboModeDrop(true);
   y += 0.09f;
 
-  // Radii
   const char *labelKeys[] = {"Radiant Range:", "Talk Range:", "Yell Range:"};
   const char *ids[] = {"0", "1", "2"};
   for (int i = 0; i < 3; i++) {
@@ -286,7 +280,6 @@ void CreateSettingsUI() {
   }
   y += 0.04f;
 
-  // Timer
   client
       ->createWidgetReal<MyGUI::TextBox>("Kenshi_TextboxStandardText", 0.05f, y,
                                          0.3f, 0.08f, MyGUI::Align::Left,
@@ -307,7 +300,6 @@ void CreateSettingsUI() {
 
   y += 0.09f;
 
-  // Global Events Count
   client
       ->createWidgetReal<MyGUI::TextBox>("Kenshi_TextboxStandardText", 0.05f, y,
                                          0.3f, 0.08f, MyGUI::Align::Left,
@@ -317,7 +309,6 @@ void CreateSettingsUI() {
       "Kenshi_EditBox", 0.4f, y, 0.2f, 0.06f, MyGUI::Align::Top,
       "SentientSands_SetEventsEdit");
 
-  // Synthesis Timer
   client
       ->createWidgetReal<MyGUI::TextBox>("Kenshi_TextboxStandardText", 0.61f, y,
                                          0.24f, 0.08f, MyGUI::Align::Left,
@@ -329,7 +320,6 @@ void CreateSettingsUI() {
 
   y += 0.08f;
 
-  // Dialogue Speed
   client
       ->createWidgetReal<MyGUI::TextBox>("Kenshi_TextboxStandardText", 0.05f, y,
                                          0.3f, 0.08f, MyGUI::Align::Left,
@@ -339,7 +329,6 @@ void CreateSettingsUI() {
       "Kenshi_EditBox", 0.4f, y, 0.2f, 0.06f, MyGUI::Align::Top,
       "SentientSands_SetDiagSpeedEdit");
 
-  // Bubble Life
   client
       ->createWidgetReal<MyGUI::TextBox>("Kenshi_TextboxStandardText", 0.61f, y,
                                          0.24f, 0.08f, MyGUI::Align::Left,
@@ -351,7 +340,6 @@ void CreateSettingsUI() {
 
   y += 0.08f;
 
-  // Hotkey
   client
       ->createWidgetReal<MyGUI::TextBox>("Kenshi_TextboxStandardText", 0.05f, y,
                                          0.3f, 0.08f, MyGUI::Align::Left,
@@ -369,7 +357,6 @@ void CreateSettingsUI() {
     }
   }
 
-  // Language
   client
       ->createWidgetReal<MyGUI::TextBox>("Kenshi_TextboxStandardText", 0.61f, y,
                                          0.24f, 0.08f, MyGUI::Align::Left,
@@ -379,9 +366,8 @@ void CreateSettingsUI() {
       "Kenshi_ComboBox", 0.86f, y, 0.1f, 0.06f, MyGUI::Align::Top,
       "SentientSands_SetLanguageCombo");
   g_settingsLanguage->setComboModeDrop(true);
-  g_settingsLanguage->removeAllItems(); // Will be populated by server data
+  g_settingsLanguage->removeAllItems();
 
-  // Footer Row: Test | Save | Restart
   MyGUI::Button *testBtn = client->createWidgetReal<MyGUI::Button>(
       "Kenshi_Button1", 0.05f, 0.88f, 0.25f, 0.07f, MyGUI::Align::Bottom,
       "SentientSands_SettingsTestBtn");
@@ -401,7 +387,6 @@ void CreateSettingsUI() {
   restartBtn->eventMouseButtonClick +=
       MyGUI::newDelegate(OnSettingsRestartClick);
 
-  // Initial fetch using response thread
   CreateThread(NULL, 0, SettingsResponseThread, NULL, 0, NULL);
 }
 
@@ -427,7 +412,6 @@ void PopulateSettingsUI(const std::string &json) {
 
   g_allModelsJson = GetJsonValue(json, "models");
 
-  // Route campaign data to Campaigns Window
   PopulateCampaignsUI(json);
 
   if (providerCombo) {
@@ -454,8 +438,6 @@ void PopulateSettingsUI(const std::string &json) {
             Utf8ToWide(last.substr(q1 + 1, q2 - q1 - 1)).c_str());
     }
 
-    // Use currentProvider from server if available, otherwise lookup in
-    // all_models
     std::string currentProvider = GetJsonValue(json, "current_provider");
     if (currentProvider.empty()) {
       std::string allModelsInfo = GetJsonValue(json, "all_models");
@@ -561,12 +543,10 @@ void PopulateSettingsUI(const std::string &json) {
               .c_str());
     }
 
-    // Parse ui_translation
     std::string uiTransJson = GetJsonValue(json, "ui_translation");
     if (!uiTransJson.empty()) {
       g_uiTranslation.clear();
-      // Simple JSON object parser for translation map
-      size_t pos = 1; // skip {
+      size_t pos = 1;
       while (pos < uiTransJson.length() - 1) {
         size_t q1 = uiTransJson.find('"', pos);
         if (q1 == std::string::npos)
@@ -592,7 +572,6 @@ void PopulateSettingsUI(const std::string &json) {
         pos = v2 + 1;
       }
 
-      // If windows are open, refresh their main captions immediately
       if (g_settingsWindow) {
         g_settingsWindow->setCaption(Utf8ToWide(T("AI Settings")).c_str());
       }

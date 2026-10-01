@@ -92,14 +92,10 @@ DWORD WINAPI ChatResponseThread(LPVOID lpParam) {
     }
   }
 
-  // 🚨 FIX: Fire actions FIRST so the engine state is already set correctly
-  // before the speech bubble appears. This avoids any race condition where the
-  // AI state change (FOLLOW_PLAYER, JOIN_PARTY, etc.) interrupts or clears the
-  // dialogue system after the bubble was queued.
+  // Queue actions before speech so an AI state change cannot clear an already-queued bubble.
   for (size_t i = 0; i < actions.size(); i++) {
     std::string actLine;
-    // Check if the action already has a speaker attribution (e.g. "Name:
-    // [ACTION: X]")
+    // Action may already name its speaker, e.g. "Name: [ACTION: X]"
     if (actions[i].find(':') != std::string::npos &&
         actions[i].find('[') != std::string::npos &&
         actions[i].find(':') < actions[i].find('[')) {
@@ -112,10 +108,9 @@ DWORD WINAPI ChatResponseThread(LPVOID lpParam) {
     EnterCriticalSection(&g_msgMutex);
     g_messageQueue.push_back(actLine);
     LeaveCriticalSection(&g_msgMutex);
-    Sleep(50); // Small gap between multiple actions
+    Sleep(50);
   }
 
-  // Then queue speech lines AFTER actions are submitted
   if (!npcText.empty()) {
     std::stringstream ss(npcText);
     std::string line;
@@ -128,7 +123,6 @@ DWORD WINAPI ChatResponseThread(LPVOID lpParam) {
       size_t colonPos = line.find(':');
       if (colonPos != std::string::npos && colonPos < 64 && colonPos > 0) {
         std::string speakerName = line.substr(0, colonPos);
-        // Trim
         speakerName.erase(0, speakerName.find_first_not_of(" "));
         speakerName.erase(speakerName.find_last_not_of(" ") + 1);
 
@@ -141,8 +135,6 @@ DWORD WINAPI ChatResponseThread(LPVOID lpParam) {
           pipeLine =
               "NPC_SAY: " + speakerName + "|" + t->handleStr + ": " + speech;
         } else {
-          // Cross-reference nearby NPCs for a handle? For now, let main.cpp
-          // resolve by name.
           pipeLine = "NPC_SAY: " + speakerName + ": " + speech;
         }
       } else {
@@ -190,9 +182,7 @@ void OnChatInputChange(MyGUI::EditBox *sender) {
     return;
   }
 
-  // Support sending on Enter while in multi-line mode
   if (!text.empty() && (text.back() == '\n' || text.back() == '\r')) {
-    // Strip trailing newline and trigger send
     while (!text.empty() && (text.back() == '\n' || text.back() == '\r'))
       text.pop_back();
 
@@ -226,10 +216,8 @@ void OnChatSendClick(MyGUI::Widget *sender) {
   std::string playerName = g_chatPlayerNameStr;
   std::string handleStr = g_chatTargetHandleStr;
 
-  // COMMAND SUPPORT: /name newName
   if (text.substr(0, 6) == "/name " && text.length() > 6) {
     std::string newName = text.substr(6);
-    // Trim
     newName.erase(0, newName.find_first_not_of(" \t\r\n"));
     newName.erase(newName.find_last_not_of(" \t\r\n") + 1);
 
@@ -253,7 +241,6 @@ void OnChatSendClick(MyGUI::Widget *sender) {
           Log("RENAME: " + npcName + " is now " + newName);
           g_chatTargetNameStr = newName;
 
-          // Notify Python
           std::string renJson =
               "{\"old_name\": \"" + EscapeJSON(npcName) + "\", ";
           renJson += "\"new_name\": \"" + EscapeJSON(newName) + "\", ";
@@ -282,7 +269,6 @@ void OnChatSendClick(MyGUI::Widget *sender) {
   std::string npcsJson = "\"" + EscapeJSON(primaryId) + "\"";
   std::string nearbyFullJson = "";
 
-  // Dynamic radius based on mode
   float searchRadius = g_proximityRadius;
   if (mode == "whisper")
     searchRadius = g_visionRange; // NPCs can see you even if you whisper
@@ -328,8 +314,6 @@ void OnChatSendClick(MyGUI::Widget *sender) {
                 factionName = faction->data->stringID;
             }
 
-            // IDENTITY STABILITY: Use the the Origin Faction for stable storage
-            // ID
             std::string o_sid_fact = factionName;
             if (g_originFactions.count(o_serial)) {
               o_sid_fact = g_originFactions[o_serial];
@@ -371,7 +355,6 @@ void OnChatSendClick(MyGUI::Widget *sender) {
             targetNpc = *it;
             break;
           }
-          // Also check clean name match if npcName contains a pipe
           size_t p = npcName.find('|');
           if (p != std::string::npos && name == npcName.substr(0, p)) {
             targetNpc = *it;
@@ -425,8 +408,7 @@ void CreateChatUI(const std::string &npcName, const std::string &playerName,
   g_chatJustOpened = true;
 
   std::string actualNpcName = npcName;
-  // Note: Auto-renaming is handled by a background thread (NameAssignThread),
-  // not here, so CreateChatUI never blocks on an HTTP request.
+  // Auto-renaming runs on NameAssignThread so CreateChatUI never blocks on HTTP.
   g_chatWindow = gui->createWidgetReal<MyGUI::Window>(
       "Kenshi_WindowCX", 0.1875f, 0.4f, 0.625f, 0.18f, MyGUI::Align::Center,
       "Popup", "SentientSands_ChatWindow");
@@ -445,7 +427,6 @@ void CreateChatUI(const std::string &npcName, const std::string &playerName,
       "Kenshi_EditBox", 0.05f, 0.35f, 0.9f, 0.25f,
       MyGUI::Align::Top | MyGUI::Align::HStretch, "SentientSands_ChatInput");
 
-  // Single-line setup
   g_chatInput->setEditMultiLine(false);
   g_chatInput->setEditWordWrap(false);
   g_chatInput->setVisibleVScroll(false);
@@ -531,7 +512,6 @@ void SendChatToPython(GameWorld *world, Character *sel,
           targetNpc = *it;
           break;
         }
-        // Handle piped names
         size_t p = npcName.find('|');
         if (p != std::string::npos && cn == npcName.substr(0, p)) {
           targetNpc = *it;

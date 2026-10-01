@@ -1,6 +1,5 @@
 #pragma once
 
-// Aggregate header for the new modular UI system
 #include "ChatUIGlobals.h"
 #include "ChatWindow.h"
 #include "EventsWindow.h"
@@ -11,5 +10,4 @@
 #include "WelcomeWindow.h"
 
 
-// Compatibility aliases if needed
 using namespace SentientSands::UI;

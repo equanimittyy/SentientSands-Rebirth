@@ -28,7 +28,6 @@
 
 #include "core/Comm.h"
 #include "game/Context.h"
-// Kenshi engine writes must happen on the main thread, inside hooks.
 #include <core/Functions.h>
 #include "ui/CampaignsWindow.h"
 #include "game/GameActions.h"
@@ -58,7 +57,6 @@
 #include <kenshi/Town.h>
 #include <kenshi/WorldEventStateQuery.h>
 
-// Helper to safely get faction names for logging
 inline std::string SafeFaction(RootObjectBase *obj) {
   if (!obj || (uintptr_t)obj < 0x1000)
     return "None";
@@ -79,7 +77,6 @@ bool (*applyFirstAid_orig)(MedicalSystem *, float, Item *, float,
                            Character *) = nullptr;
 Item *(*buyItem_orig)(Inventory *, Item *, RootObject *) = nullptr;
 
-// New World Event Hooks
 void (*triggerCampaign_orig)(FactionWarMgr *, RootObjectBase *, GameData *,
                              float, float, TownBase *, bool,
                              Faction *) = nullptr;
@@ -101,8 +98,6 @@ void (*setChainedMode_orig)(Character *, bool, const hand &) = nullptr;
 
 #include "ui/ChatUI.h"
 
-// --- Main Hook Core ---
-// List of generic name prefixes to detect and replace
 static const char *GENERIC_NAME_PREFIXES[] = {"Hungry Bandit",
                                               "Dust Bandit",
                                               "Starving Vagrant",
@@ -170,21 +165,16 @@ static bool IsGenericName(Character *npc, const std::string &name) {
   if (!npc || (uintptr_t)npc < 0x1000)
     return true;
 
-  // 1. Safety check: Never rename unique NPCs
   if (npc->isUnique())
     return false;
 
-  // 2. Multi-language/Default coverage: Check if name matches template name
-  // Template names are often what's used for generic NPCs (e.g., "Hungry
-  // Bandit") and this works regardless of the game language.
+  // Generic NPCs usually carry their template's name, whatever the game language.
   if (npc->getGameData() && !npc->getGameData()->name.empty()) {
     if (name == npc->getGameData()->name)
       return true;
   }
 
-  // 3. Prefix/Keyword fallbacks (useful for custom mods or variants)
-  // We expect g_genericPrefixes/Keywords to be pre-lowercased in
-  // POPULATE_GENERIC
+  // g_genericPrefixes/Keywords arrive lowercased from the POPULATE_GENERIC handler.
   if (!g_genericPrefixes.empty() || !g_genericKeywords.empty()) {
     std::string lowerName = name;
     std::transform(lowerName.begin(), lowerName.end(), lowerName.begin(),
@@ -201,7 +191,6 @@ static bool IsGenericName(Character *npc, const std::string &name) {
     }
   }
 
-  // 4. Legacy hardcoded list as a final safety net
   std::string lowerName = name;
   std::transform(lowerName.begin(), lowerName.end(), lowerName.begin(),
                  ::tolower);
@@ -215,6 +204,7 @@ static bool IsGenericName(Character *npc, const std::string &name) {
   return false;
 }
 
+// Kenshi engine writes must happen on the main thread, inside hooks.
 void ProcessMessageQueue(GameWorld *thisptr) {
   if (TryEnterCriticalSection(&g_msgMutex)) {
     while (!g_messageQueue.empty()) {
@@ -231,24 +221,20 @@ void ProcessMessageQueue(GameWorld *thisptr) {
       bool isRename = (msg.find("NPC_RENAME: ") == 0);
 
       hand targetHand = g_talkTargetHand;
-      hand speakerHand = hand(); // Used specifically for player SAY bubbles
-
-      // Do not fall back to selection yet; handles inside the branches
+      hand speakerHand = hand();
 
       if (isCmd) {
-        size_t firstColon = msg.find(":", 4); // skip "CMD: "
+        size_t firstColon = msg.find(":", 4); // skip "CMD:"
         if (firstColon != std::string::npos) {
           std::string command = msg.substr(4, firstColon - 4);
           std::string data = msg.substr(firstColon + 1);
 
-          // Trim command and data
           auto trim = [](std::string &s) {
             s.erase(0, s.find_first_not_of(" \t\r\n"));
             s.erase(s.find_last_not_of(" \t\r\n") + 1);
           };
           trim(command);
-          // Do not trim data, it may contain multiline blocks we want to keep
-          // exactly
+          // Leave data untrimmed: multiline blocks in it must arrive exactly as sent.
 
           if (command == "TRIGGER_AMBIENT") {
             g_triggerAmbient = true;
@@ -271,7 +257,6 @@ void ProcessMessageQueue(GameWorld *thisptr) {
               std::string var = data.substr(0, colon);
               std::string val = data.substr(colon + 1);
 
-              // Trim var and val
               auto trimInternal = [](std::string &s) {
                 s.erase(0, s.find_first_not_of(" \t\r\n"));
                 s.erase(s.find_last_not_of(" \t\r\n") + 1);
@@ -281,11 +266,11 @@ void ProcessMessageQueue(GameWorld *thisptr) {
 
               if (var == "g_enableAmbient") {
                 g_enableAmbient = (val == "1");
-                g_lastAmbientTick = GetTickCount(); // Reset timer on toggle
+                g_lastAmbientTick = GetTickCount();
               } else if (var == "g_ambientIntervalSeconds") {
                 g_ambientIntervalSeconds = atoi(val.c_str());
                 g_lastAmbientTick =
-                    GetTickCount(); // Reset timer on frequency change
+                    GetTickCount();
               } else if (var == "g_proximityRadius")
                 g_proximityRadius = (float)atof(val.c_str());
               else if (var == "g_radiantRange")
@@ -299,7 +284,7 @@ void ProcessMessageQueue(GameWorld *thisptr) {
               else if (var == "g_dialogueSpeedSeconds") {
                 g_dialogueSpeedSeconds = atoi(val.c_str());
                 g_lastDialogueTick =
-                    GetTickCount(); // Reset timer on speed change
+                    GetTickCount();
               } else if (var == "g_speechBubbleLife") {
                 g_speechBubbleLife = (float)atof(val.c_str());
               }
@@ -325,7 +310,6 @@ void ProcessMessageQueue(GameWorld *thisptr) {
               g_genericPrefixes.clear();
               g_genericKeywords.clear();
 
-              // Parse prefixes
               size_t cur = 0, next;
               while ((next = pList.find(",", cur)) != std::string::npos) {
                 std::string p = pList.substr(cur, next - cur);
@@ -339,7 +323,6 @@ void ProcessMessageQueue(GameWorld *thisptr) {
                 g_genericPrefixes.push_back(p);
               }
 
-              // Parse keywords
               cur = 0;
               while ((next = kList.find(",", cur)) != std::string::npos) {
                 std::string k = kList.substr(cur, next - cur);
@@ -403,30 +386,12 @@ void ProcessMessageQueue(GameWorld *thisptr) {
       } else if (isPlayerSay || isNPCAction || isNPCSay) {
         g_lastAmbientTick = GetTickCount();
 
-        // 🚨 FIX: For PLAYER_SAY, ensure the bubble appears over the player,
-        // not the target NPC.
-        // The original `isPlayerSay` is derived from `msg.find("PLAYER_SAY:
-        // ")`. The user's snippet seems to be for a different message format or
-        // a different part of the message processing. Assuming the user wants
-        // to replace the existing player-say logic with the new one, and that
-        // `type` and `sender` are derived from `msg` in a preceding step not
-        // shown. For now, I'll integrate the logic assuming `isPlayerSay` (from
-        // `msg`) is the trigger, and the `sender` and `type` variables would
-        // need to be parsed from `msg` if this new logic is to be fully
-        // functional. Given the instruction "Track the last chatting player", I
-        // will adapt the provided snippet to use the existing `isPlayerSay`
-        // flag and parse the player name from the message if it's a PLAYER_SAY.
-
-        // Use the global speakerHand for SAY bubbles
-
         if (isPlayerSay) {
           if (thisptr->player && thisptr->player->playerCharacters.size() > 0) {
 
-            // Unconditionally use the first player character as the speaker
             speakerHand = thisptr->player->playerCharacters[0]->getHandle();
             g_lastChattingPlayerHand = speakerHand;
 
-            // Check if there's a specific name tag to strip
             size_t nameStart = 12; // length of "PLAYER_SAY: "
             size_t nameEnd = msg.find(":", nameStart);
             if (nameEnd != std::string::npos && nameEnd < 64) {
@@ -455,7 +420,6 @@ void ProcessMessageQueue(GameWorld *thisptr) {
           }
         }
 
-        // Ensure targetHand continues to point to the NPC or default target
         if (!targetHand.isValid()) {
           targetHand = g_lastSelectionHand;
         }
@@ -465,12 +429,8 @@ void ProcessMessageQueue(GameWorld *thisptr) {
         bool header_processed = false;
 
         if (isNPCSay || isNPCAction) {
-          // AI responses should try to resolve the specific speaker if
-          // possible, but if no header is found, we fall back to the current
-          // talk target.
           hand fallbackHand = targetHand;
-          // targetHand = hand(); // 🚨 BUG: Resetting here kills bubbles for
-          // single-target talk.
+          // Do not reset targetHand here: that kills bubbles for single-target talk.
 
           size_t startPos = isNPCSay ? 9 : 12;
           std::string remainder = msg.substr(startPos);
@@ -521,9 +481,9 @@ void ProcessMessageQueue(GameWorld *thisptr) {
                     score = 400;
                   else if (cLow.find(nLow) == 0)
                     score =
-                        200; // Prefix match (e.g. "Mu" -> "Mu the Wanderer")
+                        200;
                   else if (cLow.find(nLow) != std::string::npos)
-                    score = 100; // Substring match (e.g. "Mu" -> "Murphy")
+                    score = 100;
                 }
               }
 
@@ -531,7 +491,7 @@ void ProcessMessageQueue(GameWorld *thisptr) {
                 bestScore = score;
                 bestMatch = c;
                 if (score == 1000)
-                  break; // Serial match is absolute
+                  break;
               }
             }
 
@@ -540,8 +500,6 @@ void ProcessMessageQueue(GameWorld *thisptr) {
               found = true;
             }
 
-            // Fallback sphere check if not found in update list or Score too
-            // low
             if (!found && thisptr->player &&
                 thisptr->player->playerCharacters.size() > 0) {
               Character *p = thisptr->player->playerCharacters[0];
@@ -586,8 +544,6 @@ void ProcessMessageQueue(GameWorld *thisptr) {
               }
             }
 
-            // Final fallback: If name matches current talk target or is empty,
-            // use it
             if (!found && fallbackHand.isValid()) {
               Character *fc = fallbackHand.getCharacter();
               if (fc && (uintptr_t)fc > 0x1000) {
@@ -607,15 +563,12 @@ void ProcessMessageQueue(GameWorld *thisptr) {
             }
           }
 
-          // Strip header if we found the NPC (or if we have a fallback and it's
-          // 1-on-1 talk)
           if (found || (header_processed && !found && fallbackHand.isValid())) {
             msg = (isNPCSay ? "NPC_SAY: " : "NPC_ACTION: ") +
                   remainder.substr(colon + 1);
             if (msg.length() > startPos && msg[startPos] == ' ')
               msg.erase(startPos, 1);
 
-            // If we didn't find specific NPC but stripped header, use fallback
             if (!found && fallbackHand.isValid()) {
               targetHand = fallbackHand;
             }
@@ -653,25 +606,20 @@ void ProcessMessageQueue(GameWorld *thisptr) {
               msg.substr(startBracket, endBracket - startBracket + 1);
           searchPos = endBracket + 1;
 
-          // Process this specific tag
           std::string actStr = fullTag;
 
-          // Helpful lambda to skip "ACTION:" or other prefixes and trim
           auto getPayload = [](const std::string &str,
                                const std::string &prefix) -> std::string {
             size_t p = str.find(prefix);
             if (p == std::string::npos)
               return "";
             std::string res = str.substr(p + prefix.length());
-            // Trim all trailing whitespace and the final closing bracket of the
-            // tag
             size_t lnot = res.find_last_not_of(" \t\n\r");
             if (lnot != std::string::npos) {
               res.erase(lnot + 1);
               if (!res.empty() && res.back() == ']')
                 res.pop_back();
             }
-            // Now do a full trim
             size_t f = res.find_first_not_of(" \t\n\r");
             if (f != std::string::npos)
               res.erase(0, f);
@@ -701,7 +649,6 @@ void ProcessMessageQueue(GameWorld *thisptr) {
           } else if (actStr.find("GIVE_ITEM:") != std::string::npos) {
             std::string payload = getPayload(actStr, "GIVE_ITEM:");
             int count = 1;
-            // Find colon for count, skipping anything inside brackets
             size_t colon = std::string::npos;
             int depth = 0;
             for (int i = (int)payload.length() - 1; i >= 0; --i) {
@@ -737,7 +684,6 @@ void ProcessMessageQueue(GameWorld *thisptr) {
           } else if (actStr.find("TAKE_ITEM:") != std::string::npos) {
             std::string payload = getPayload(actStr, "TAKE_ITEM:");
             int count = 1;
-            // Find colon for count, skipping anything inside brackets
             size_t colon = std::string::npos;
             int depth = 0;
             for (int i = (int)payload.length() - 1; i >= 0; --i) {
@@ -811,7 +757,6 @@ void ProcessMessageQueue(GameWorld *thisptr) {
             size_t colon = payload.find(':');
             if (colon != std::string::npos) {
               std::string fName = payload.substr(0, colon);
-              // Trim fName
               size_t f = fName.find_first_not_of(" ");
               if (f != std::string::npos)
                 fName.erase(0, f);
@@ -919,7 +864,7 @@ void ProcessMessageQueue(GameWorld *thisptr) {
                      actStr.find("BREAKOUT_PLAYER") != std::string::npos) {
             EnterCriticalSection(&g_uiMutex);
             QueuedAction act;
-            act.type = ACT_RELEASE; // Unified type
+            act.type = ACT_RELEASE;
             act.actor = targetHand;
             act.taskValue = 111; // BREAKOUT_PRISONER
             if (thisptr->player && thisptr->player->playerCharacters.size() > 0)
@@ -976,7 +921,7 @@ void ProcessMessageQueue(GameWorld *thisptr) {
             QueuedAction act;
             act.type = ACT_SET_TASK;
             act.actor = targetHand;
-            act.taskValue = 18; // RAID_TOWN from Enums.h
+            act.taskValue = 18; // RAID_TOWN
             act.message = tName;
             g_uiActionQueue.push_back(act);
             LeaveCriticalSection(&g_uiMutex);
@@ -987,8 +932,8 @@ void ProcessMessageQueue(GameWorld *thisptr) {
             QueuedAction act;
             act.type = ACT_SET_TASK;
             act.actor = targetHand;
-            act.message = tName; // Store town name for resolution
-            act.taskValue = 53;  // TRAVEL_TO_TARGET_TOWN
+            act.message = tName;
+            act.taskValue = 53; // TRAVEL_TO_TARGET_TOWN
             g_uiActionQueue.push_back(act);
             LeaveCriticalSection(&g_uiMutex);
           } else if (actStr.find("JOB_MEDIC") != std::string::npos) {
@@ -1022,12 +967,10 @@ void ProcessMessageQueue(GameWorld *thisptr) {
             act.type = ACT_SET_TASK;
             act.actor = targetHand;
 
-            // Set default target to player for player-given orders
             if (thisptr->player && thisptr->player->playerCharacters.size() > 0)
               act.target = thisptr->player->playerCharacters[0]->getHandle();
 
-            // Correct mapping for TaskType (NULL_TASK = 0)
-            act.taskValue = 24; // Default to WANDERER
+            act.taskValue = 24; // WANDERER
             if (tName == "IDLE")
               act.taskValue = 14;
             else if (tName == "PATROL_TOWN")
@@ -1074,16 +1017,13 @@ void ProcessMessageQueue(GameWorld *thisptr) {
         }
       }
 
-      // 🚨 FIX: Allow both ACTION and SAY to trigger from the same message.
-      // This ensures dialogue bubbles appear even when an action is triggered.
+      // Not an else-if: a message that triggers an action must still show its bubble.
       if (isPlayerSay || isNPCSay || isNPCAction) {
-        // Normal dialogue bubble
         std::string bubbleContent =
             isPlayerSay ? msg.substr(12)
                         : (isNPCSay ? msg.substr(9)
                                     : (isNPCAction ? msg.substr(12) : ""));
 
-        // Suppress bubbles for test commands
         if (!bubbleContent.empty()) {
           if (isPlayerSay && bubbleContent[0] == '/')
             bubbleContent = "";
@@ -1091,7 +1031,6 @@ void ProcessMessageQueue(GameWorld *thisptr) {
             bubbleContent = "";
         }
 
-        // Clean up action tags from displayed text
         if (!bubbleContent.empty() && (isNPCSay || isNPCAction)) {
           size_t searchPos = 0;
           while (true) {
@@ -1120,7 +1059,6 @@ void ProcessMessageQueue(GameWorld *thisptr) {
               break;
             }
           }
-          // Trim whitespace that might have been left around the tags
           size_t f = bubbleContent.find_first_not_of(" \t\r\n");
           if (f != std::string::npos)
             bubbleContent.erase(0, f);
@@ -1132,7 +1070,6 @@ void ProcessMessageQueue(GameWorld *thisptr) {
             bubbleContent.erase(l + 1);
         }
 
-        // Pick the correct entity to anchor the bubble to
         hand bubbleAnchor = isPlayerSay ? speakerHand : targetHand;
 
         if (!bubbleContent.empty() && bubbleAnchor.isValid()) {
@@ -1143,7 +1080,7 @@ void ProcessMessageQueue(GameWorld *thisptr) {
           QueuedAction act;
           act.type = ACT_SAY;
           act.actor = bubbleAnchor;
-          act.target = targetHand; // Keep target as the NPC they are talking to
+          act.target = targetHand;
           act.message = bubbleContent;
           g_uiActionQueue.push_back(act);
           LeaveCriticalSection(&g_uiMutex);
@@ -1219,7 +1156,6 @@ void setFaction_hook(TownBase *town, Faction *faction, ActivePlatoon *_a2) {
     std::string oldName = old ? old->getName() : "None";
     std::string newName = faction->getName();
 
-    // Only log if the faction actually changed
     if (oldName != newName) {
       LogGameEvent("city_transfer", oldName, oldName, newName, newName,
                    "Town " + town->getName() + " changed ownership");
@@ -1281,24 +1217,20 @@ void playerUpdate_hook(PlayerInterface *thisptr) {
   if (playerUpdate_orig)
     playerUpdate_orig(thisptr);
 
-  // Show Welcome UI once MyGUI is ready
   if (!g_welcomeShown && g_enableWelcome && MyGUI::Gui::getInstancePtr()) {
     CreateWelcomeUI();
     CreateLauncherUI();
     g_welcomeShown = true;
   }
 
-  // 1. Core Selection Tracking
   Character *sel = nullptr;
   try {
-    // Priority: target selected by the player
     sel = thisptr->selectedObject.getCharacter();
     if (!sel)
       sel = thisptr->selectedCharacter.getCharacter();
   } catch (...) {
   }
 
-  // Detect Selection Change for Immediate Debugger Update
   EnterCriticalSection(&g_stateMutex);
   bool selectionChanged = false;
   if (sel && (uintptr_t)sel > 0x1000) {
@@ -1314,16 +1246,13 @@ void playerUpdate_hook(PlayerInterface *thisptr) {
   }
   LeaveCriticalSection(&g_stateMutex);
 
-  // 2. Main System Update (Moved to playerUpdate for responsiveness while
-  // paused)
+  // Driven from playerUpdate because it keeps ticking while the game is paused.
   GameWorld *world = *ppWorld;
   if (world) {
-    // Process incoming messages (chat bubbles/notifications) immediately
     ProcessMessageQueue(world);
     static int invTimer = 0;
     ExecuteQueuedActions(world, invTimer);
 
-    // Periodic Context Push for Visual Debugger + Immediate on Selection Change
     static DWORD lastContextTick = 0;
     DWORD now = GetTickCount();
     if (selectionChanged || (now - lastContextTick > 1500)) {
@@ -1340,16 +1269,14 @@ void playerUpdate_hook(PlayerInterface *thisptr) {
       }
     }
 
-    // 3. Radiant Banter Trigger
-    static DWORD lastFrameTickForAmbient = GetTickCount(); // Initialize to current tick
+    static DWORD lastFrameTickForAmbient = GetTickCount();
     DWORD deltaTick = now >= lastFrameTickForAmbient ? (now - lastFrameTickForAmbient) : 0;
     lastFrameTickForAmbient = now;
 
     if (g_enableAmbient) {
       float currentSpeed = world->getFrameSpeedMultiplier();
       
-      // If paused or game speed is basically 0, push the timer forward so we don't 
-      // accumulate real-time while the user is paused in the menus.
+      // Shift the timer so paused time does not count toward the banter interval.
       if (currentSpeed <= 0.1f || world->isPaused()) {
           g_lastAmbientTick += deltaTick;
       } else {
@@ -1365,15 +1292,14 @@ void playerUpdate_hook(PlayerInterface *thisptr) {
                                              g_radiantRange, 0.0f, 0.0f, 16, 0,
                                              player);
 
-            if (results.size() >= 2) { // Need at least 2 NPCs for banter
+            if (results.size() >= 2) {
               std::string npcData = "[";
               bool first = true;
               int count = 0;
               for (uint32_t i = 0; i < results.size() && count < 5; ++i) {
                 Character *other = (Character *)results.stuff[i];
                 if (other && (uintptr_t)other > 0x1000 && other != player) {
-                  // Skip dead or unconscious — they cannot produce speech
-                  // bubbles
+                  // Dead or unconscious NPCs cannot show speech bubbles.
                   try {
                     if (other->isDead() || other->isUnconcious())
                       continue;
@@ -1382,7 +1308,6 @@ void playerUpdate_hook(PlayerInterface *thisptr) {
                   if (!first)
                     npcData += ",";
 
-                  // Improved extraction
                   RaceData *o_race =
                       other->getRace() ? other->getRace() : other->myRace;
                   std::string o_rn = "Unknown";
@@ -1441,19 +1366,14 @@ void playerUpdate_hook(PlayerInterface *thisptr) {
     }
   }
 
-  // 4. Periodic Generic-Name Scan -> populate g_nameCheckQueue for
-  // NameAssignThread
   if (world && world->player) {
     static DWORD lastNameScanTick = 0;
     if (GetTickCount() - lastNameScanTick > 2000) {
       lastNameScanTick = GetTickCount();
 
-      // We gather characters from two sources to ensure we don't miss anyone:
-      // 1. The active update list (characters currently 'thinking')
-      // 2. A sphere search around ALL player-controlled characters
+      // The update list skips dormant NPCs, so also sweep a sphere around each player character.
       std::vector<Character *> candidates;
 
-      // Source 1: Update List
       const ogre_unordered_set<Character *>::type &upList =
           world->getCharacterUpdateList();
       for (auto it = upList.begin(); it != upList.end(); ++it) {
@@ -1461,7 +1381,6 @@ void playerUpdate_hook(PlayerInterface *thisptr) {
           candidates.push_back(*it);
       }
 
-      // Source 2: Sphere Search (catch 'sleeping' NPCs near player)
       const lektor<Character *> &players =
           world->player->getAllPlayerCharacters();
       for (uint32_t pi = 0; pi < players.size(); ++pi) {
@@ -1478,7 +1397,6 @@ void playerUpdate_hook(PlayerInterface *thisptr) {
         }
       }
 
-      // Remove duplicates using serials
       std::set<unsigned int> uniqueSerials;
       std::vector<Character *> uniqueCandidates;
       for (size_t ci = 0; ci < candidates.size(); ++ci) {
@@ -1494,7 +1412,6 @@ void playerUpdate_hook(PlayerInterface *thisptr) {
         Character *other = uniqueCandidates[ui];
         unsigned int s = other->getHandle().serial;
 
-        // Skip if already processed
         EnterCriticalSection(&g_nameCheckMutex);
         bool alreadyDone = (g_renamedSerials.count(s) > 0);
         LeaveCriticalSection(&g_nameCheckMutex);
@@ -1511,7 +1428,6 @@ void playerUpdate_hook(PlayerInterface *thisptr) {
         if (oName.empty())
           continue;
 
-        // If generic, queue for renaming
         if (IsGenericName(other, oName)) {
           std::string oGender = other->isFemale() ? "Female" : "Male";
           RaceData *oRace = other->getRace() ? other->getRace() : other->myRace;
@@ -1526,7 +1442,7 @@ void playerUpdate_hook(PlayerInterface *thisptr) {
           ncItem.gender = oGender;
           ncItem.race = oRaceName;
           ncItem.is_generic =
-              true; // If we're here, IsGenericName returned true
+              true;
 
           EnterCriticalSection(&g_nameCheckMutex);
           bool alreadyQueued = false;
@@ -1540,7 +1456,6 @@ void playerUpdate_hook(PlayerInterface *thisptr) {
             g_nameCheckQueue.push_back(ncItem);
           LeaveCriticalSection(&g_nameCheckMutex);
         } else {
-          // Not generic, mark as done
           EnterCriticalSection(&g_nameCheckMutex);
           g_renamedSerials.insert(s);
           LeaveCriticalSection(&g_nameCheckMutex);
@@ -1549,16 +1464,13 @@ void playerUpdate_hook(PlayerInterface *thisptr) {
     }
   }
 
-  // 3. Input Handling
-  // Chat window hotkey
   if ((GetAsyncKeyState(g_chatHotkey) & 0x8000) && !g_chatWindow &&
       !g_historyWindow && !g_libraryWindow) {
     static DWORD lastTalkTick = 0;
     if (GetTickCount() - lastTalkTick > 500) {
       lastTalkTick = GetTickCount();
       if (sel && (uintptr_t)sel > 0x1000) {
-        // Prevent talking to yourself (the main leader in Slot 1).
-        // Squadmates (recruits) are now valid talking targets.
+        // Only the slot-1 leader is excluded; squadmates are valid talk targets.
         bool isMainPlayer = false;
         const lektor<Character *> &pc = thisptr->getAllPlayerCharacters();
         if (pc.size() > 0 && pc[0] == sel) {
@@ -1568,7 +1480,7 @@ void playerUpdate_hook(PlayerInterface *thisptr) {
         if (!isMainPlayer) {
           g_talkTargetHand = sel->getHandle();
 
-          // Suppress vanilla dialogue state to prevent "double dialogue"
+          // End vanilla dialogue, or it runs alongside the AI chat ("double dialogue").
           if (sel->dialogue && (uintptr_t)sel->dialogue > 0x1000) {
             try {
               sel->dialogue->endDialogue(true);
@@ -1587,7 +1499,6 @@ void playerUpdate_hook(PlayerInterface *thisptr) {
     }
   }
 
-  // AI Hub Launcher (F8)
   if ((GetAsyncKeyState(VK_F8) & 0x8000)) {
     static DWORD lastLaunchTick = 0;
     if (GetTickCount() - lastLaunchTick > 500) {
@@ -1597,10 +1508,8 @@ void playerUpdate_hook(PlayerInterface *thisptr) {
   }
 }
 
-// Redundant hooks removed since playerUpdate handles real-time needs now.
-
 DWORD WINAPI NameAssignThread(LPVOID lpParam) {
-  // Wait for server to be fully ready
+  // Give the Python server a head start before the first batch request.
   Sleep(8000);
   Log("NAME_ASSIGN: Background name-assignment thread started.");
 
@@ -1620,7 +1529,6 @@ DWORD WINAPI NameAssignThread(LPVOID lpParam) {
       continue;
     }
 
-    // Build batch request JSON
     std::string reqJson = "[";
     for (size_t i = 0; i < batch.size(); ++i) {
       reqJson += "{\"serial\": " + ToString(batch[i].serial) +
@@ -1663,20 +1571,10 @@ DWORD WINAPI NameAssignThread(LPVOID lpParam) {
         }
       }
 
-      // Mark as done even if status is "ok"
       EnterCriticalSection(&g_nameCheckMutex);
       g_renamedSerials.insert(serial);
       LeaveCriticalSection(&g_nameCheckMutex);
     }
-
-    /*
-    if (assignedCount > 0) {
-      EnterCriticalSection(&g_msgMutex);
-      g_messageQueue.push_back("NOTIFY:Assigned " + ToString(assignedCount) +
-                               " unique names to local NPCs.");
-      LeaveCriticalSection(&g_msgMutex);
-    }
-    */
   }
   return 0;
 }
@@ -1726,8 +1624,7 @@ extern "C" __declspec(dllexport) void startPlugin() {
   InitializeCriticalSection(&g_nameCheckMutex);
   g_mainThreadId = GetCurrentThreadId();
 
-  // Resolve the mod root from the DLL's own location so this works for both
-  // regular mods/ installs and Steam Workshop numeric-ID folders.
+  // Derive the mod root from the DLL path so Steam Workshop numeric-ID folders work too.
   if (g_modRoot.empty()) {
     char dllPath[MAX_PATH] = {};
     GetModuleFileNameA(g_hModule, dllPath, MAX_PATH);
@@ -1738,14 +1635,12 @@ extern "C" __declspec(dllexport) void startPlugin() {
   Log("SYSTEM: Mod root resolved to: " + g_modRoot);
 
   HMODULE hLib = GetModuleHandleA("KenshiLib.dll");
-  // Hook Player Update for Input and Real-time State
   void *thunkPlayer =
       (void *)GetProcAddress(hLib, "?update@PlayerInterface@@QEAAXXZ");
   if (thunkPlayer)
     KenshiLib::AddHook((void *)KenshiLib::GetRealAddress(thunkPlayer),
                        (void *)playerUpdate_hook, (void **)&playerUpdate_orig);
 
-  // Hook Combat, Healing, and Trade
   void *thunkAttack =
       (void *)GetProcAddress(hLib, "?attackingYou@Character@@QEAAXPEAV1@_N1@Z");
   if (thunkAttack)
@@ -1773,7 +1668,6 @@ extern "C" __declspec(dllexport) void startPlugin() {
     KenshiLib::AddHook((void *)KenshiLib::GetRealAddress(thunkBuy),
                        (void *)buyItem_hook, (void **)&buyItem_orig);
 
-  // World Event Hooks (Using mangled names for stability across versions)
   void *thunkRaid = (void *)GetProcAddress(
       hLib,
       "?triggerCampaign@FactionWarMgr@@QEAAXPEAVRootObjectBase@@PEAVGameData"

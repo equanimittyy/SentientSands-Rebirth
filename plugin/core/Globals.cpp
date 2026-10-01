@@ -1,6 +1,5 @@
 #include "Globals.h"
 
-// Global Definitions
 GameWorld **ppWorld = nullptr;
 CRITICAL_SECTION g_LogMutex;
 std::deque<std::string> g_messageQueue;
@@ -54,7 +53,6 @@ std::string T(const std::string &key) {
   return key;
 }
 
-// Background Name Assignment system
 std::deque<NameCheckItem> g_nameCheckQueue;
 CRITICAL_SECTION g_nameCheckMutex;
 std::set<unsigned int> g_renamedSerials;

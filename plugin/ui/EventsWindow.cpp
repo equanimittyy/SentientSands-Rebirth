@@ -35,7 +35,7 @@ void PopulateEventsUI(const std::string &data) {
   size_t cur = 0;
   // JSON Format: [{"id": "...", "title": "..."}, ...]
   while ((cur = data.find("\"id\":", cur)) != std::string::npos) {
-    cur = data.find("\"", cur + 5); // start of id value
+    cur = data.find("\"", cur + 5);
     if (cur == std::string::npos)
       break;
     size_t idEnd = data.find("\"", cur + 1);
@@ -83,7 +83,6 @@ DWORD WINAPI SynthesizeThread(LPVOID lpParam) {
     std::string rumor = GetJsonValue(response, "rumor");
     if (!rumor.empty()) {
       Log("EVENTS_THREAD: Synthesis successful: " + rumor);
-      // Refresh the list to show the new rumor entry
       CreateThread(NULL, 0, EventsResponseThread, NULL, 0, NULL);
     } else {
       std::string error = GetJsonValue(response, "message");
@@ -168,21 +167,18 @@ void CreateEventsUI() {
 
   MyGUI::Widget *client = g_eventsWindow->getClientWidget();
 
-  // List (Left 30%)
   g_eventsList = client->createWidgetReal<MyGUI::ListBox>(
       "Kenshi_ListBox", 0.02f, 0.02f, 0.28f, 0.82f,
       MyGUI::Align::Left | MyGUI::Align::VStretch, "SentientSands_EventsList");
   g_eventsList->eventListSelectAccept += MyGUI::newDelegate(OnEventsSelect);
   g_eventsList->eventListChangePosition += MyGUI::newDelegate(OnEventsSelect);
 
-  // Synthesize Button
   MyGUI::Button *btnSync = client->createWidgetReal<MyGUI::Button>(
       "Kenshi_Button1", 0.02f, 0.86f, 0.28f, 0.08f,
       MyGUI::Align::Left | MyGUI::Align::Bottom, "SentientSands_SyncButton");
   btnSync->setCaption(Utf8ToWide(T("Generate World Event")).c_str());
   btnSync->eventMouseButtonClick += MyGUI::newDelegate(OnSynthesizeClick);
 
-  // Text (Right 70%)
   g_eventsText = client->createWidgetReal<MyGUI::ListBox>(
       "Kenshi_ListBox", 0.32f, 0.02f, 0.66f, 0.96f, MyGUI::Align::Default,
       "SentientSands_EventsText");

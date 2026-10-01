@@ -78,7 +78,6 @@ std::string UnescapeJSON(const std::string &s) {
         res += '\\';
         i++;
       } else if (s[i + 1] == 'u' && i + 5 < s.length()) {
-        // Handle \uXXXX hex sequence
         unsigned int cp = 0;
         bool valid = true;
         for (int j = 0; j < 4; ++j) {
@@ -97,7 +96,6 @@ std::string UnescapeJSON(const std::string &s) {
         }
 
         if (valid) {
-          // Convert Unicode codepoint to UTF-8
           if (cp <= 0x7F) {
             res += (char)cp;
           } else if (cp <= 0x7FF) {
@@ -110,7 +108,7 @@ std::string UnescapeJSON(const std::string &s) {
           }
           i += 5; // skip uXXXX
         } else {
-          res += s[i]; // Not a valid hex sequence, just append the backslash
+          res += s[i];
         }
       } else {
         res += s[i];
@@ -126,7 +124,6 @@ std::string GetJsonValue(const std::string &json, const std::string &key) {
   std::string keyQuery = "\"" + key + "\":";
   size_t pos = json.find(keyQuery);
   if (pos == std::string::npos) {
-    // try without quotes in case it's non-standard but that's unlikely
     return "";
   }
 
@@ -135,7 +132,6 @@ std::string GetJsonValue(const std::string &json, const std::string &key) {
     return "";
 
   if (json[valStart] == '\"') {
-    // String value
     valStart++;
     std::string res = "";
     for (size_t i = valStart; i < json.length(); ++i) {
@@ -172,7 +168,6 @@ std::string GetJsonValue(const std::string &json, const std::string &key) {
       return json.substr(valStart, i - valStart + 1);
     }
   } else {
-    // Number or bool
     size_t end = json.find_first_of(",}", valStart);
     if (end != std::string::npos) {
       return json.substr(valStart, end - valStart);
@@ -223,7 +218,7 @@ void LoadPluginConfig() {
   g_yellRadius = (float)GetPrivateProfileIntA("Settings", "YellRadius", 100,
                                               iniPath.c_str());
 
-  g_visionRange = 100.0f; // Standard vision range for NPC awareness
+  g_visionRange = 100.0f;
   g_ambientIntervalSeconds =
       GetPrivateProfileIntA("Settings", "RadiantDelay", 240, iniPath.c_str());
 
@@ -246,8 +241,7 @@ void LoadPluginConfig() {
       ", EnableAmbient=" + (g_enableAmbient ? "true" : "false") +
       ", EnableWelcome=" + (g_enableWelcome ? "true" : "false"));
 
-  // Ensure the INI file exists with all default values if launched for the
-  // first time
+  // Writes every key back so a first launch creates a complete INI
   SavePluginConfig();
 }
 
@@ -287,8 +281,6 @@ void SavePluginConfig() {
 void StartPythonServer() {
   Log("SYSTEM: Starting Python server...");
 
-  // Use g_modRoot (the DLL's own directory) so this works for both regular
-  // mods/SentientSands/ installs and Steam Workshop numeric-ID folders.
   std::string localPython = g_modRoot + "\\server\\python\\python.exe";
   std::string serverScript =
       g_modRoot + "\\server\\scripts\\kenshi_llm_server.py";
@@ -303,7 +295,6 @@ void StartPythonServer() {
     std::string cmd = "\"" + localPython + "\" \"" + serverScript + "\"";
     WinExec(cmd.c_str(), SW_HIDE);
   } else {
-    // Check if python is in system PATH
     int result = system("python --version >nul 2>&1");
     if (result == 0) {
       Log("SYSTEM: Local Python not found, falling back to global 'python'.");
@@ -356,7 +347,7 @@ void SleepIfPaused(DWORD ms) {
     if (ppWorld && *ppWorld && (*ppWorld)->isPaused()) {
       Sleep(100);
       start +=
-          100; // Shift start so the actual message delay remains consistent
+          100; // Paused time doesn't count toward the delay
       continue;
     }
     Sleep(100);

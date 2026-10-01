@@ -5,7 +5,6 @@
 #include <vector>
 #include <windows.h>
 
-// Forward declarations for Kenshi types
 class GameWorld;
 namespace Ogre {
 class Vector3;
@@ -26,7 +25,6 @@ struct OriginState {
   hand homeBuilding;
 };
 
-// Global communication state
 extern GameWorld **ppWorld;
 extern CRITICAL_SECTION g_LogMutex;
 extern std::deque<std::string> g_messageQueue;
@@ -38,7 +36,6 @@ extern DWORD g_lastDialogueTick;
 extern std::map<unsigned int, std::string> g_originFactions;
 extern std::map<unsigned int, OriginState> g_originJobs;
 
-// Configuration variables
 extern float g_radiantRange;
 extern float g_proximityRadius;
 extern float g_yellRadius;
@@ -52,7 +49,6 @@ extern int g_worldEventIntervalDays;
 extern int g_dialogueSpeedSeconds;
 extern float g_speechBubbleLife;
 
-// State tracking for inventory/debugger
 extern std::string g_activeInventoryJson;
 extern hand g_lastInventoryHand;
 extern std::string g_activeCharName;
@@ -67,12 +63,10 @@ extern std::string g_language;
 extern std::map<std::string, std::string> g_uiTranslation;
 std::string T(const std::string &key);
 
-// Mod root directory (resolved at startup from DLL's own path — works for both
-// regular mods/ installs and Steam Workshop numeric-ID folders)
+// Resolved from the DLL's own path so Steam Workshop numeric-ID folders work too
 extern std::string g_modRoot;
 extern HMODULE g_hModule;
 
-// UI Task queue (for thread-safe UI access)
 enum ActionType {
   ACT_SAY,
   ACT_ATTACK,
@@ -110,14 +104,13 @@ struct QueuedAction {
   ActionType type;
   hand actor;
   hand target;
-  std::string message; // Item name, notification message, or Faction Name
-  int taskValue;       // For ACT_SET_TASK, money amounts, or Relation Change
+  std::string message; // Text, item, faction, or town name, depending on type
+  int taskValue;       // Task ID, item count, cats, or relation delta, depending on type
 };
 
 extern std::deque<QueuedAction> g_uiActionQueue;
 extern CRITICAL_SECTION g_uiMutex;
 
-// Background Name Assignment system
 struct NameCheckItem {
   unsigned int serial;
   std::string name;
@@ -130,6 +123,5 @@ extern CRITICAL_SECTION g_nameCheckMutex;
 extern std::set<unsigned int> g_renamedSerials;
 extern DWORD g_lastContextPushTick;
 
-// Centralized generic name lists (loaded from config)
 extern std::vector<std::string> g_genericPrefixes;
 extern std::vector<std::string> g_genericKeywords;

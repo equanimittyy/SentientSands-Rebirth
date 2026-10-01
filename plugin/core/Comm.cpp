@@ -177,7 +177,7 @@ DWORD WINAPI AmbientPollThread(LPVOID lpParam) {
     return 0;
   }
 
-  // Ensure we don't spam if server is slow
+  // Restart the interval on reply so a slow server doesn't shorten the gap between banters
   g_lastAmbientTick = GetTickCount();
 
   std::string content = GetJsonValue(response, "text");
