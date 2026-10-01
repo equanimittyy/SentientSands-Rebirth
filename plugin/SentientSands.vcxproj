@@ -1,0 +1,91 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Builds only Release|x64 with toolset v100. The plugin shares C++ types with Kenshi,
+  which was built with Visual C++ 2010, so any other toolset breaks the ABI. KenshiLib
+  does not support Debug builds. The paths come from the environment variables that
+  Setup.bat in KenshiLib_Examples_deps sets.
+-->
+<Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <PropertyGroup>
+    <Configuration Condition="'$(Configuration)' == ''">Release</Configuration>
+    <Platform Condition="'$(Platform)' == ''">x64</Platform>
+  </PropertyGroup>
+  <ItemGroup Label="ProjectConfigurations">
+    <ProjectConfiguration Include="Release|x64">
+      <Configuration>Release</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+  </ItemGroup>
+  <PropertyGroup Label="Globals">
+    <ProjectGuid>{FB554ADE-EFC6-4815-ABE0-9289D7243BCC}</ProjectGuid>
+    <Keyword>Win32Proj</Keyword>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
+  <PropertyGroup Label="Configuration">
+    <ConfigurationType>DynamicLibrary</ConfigurationType>
+    <PlatformToolset>v100</PlatformToolset>
+    <UseDebugLibraries>false</UseDebugLibraries>
+    <WholeProgramOptimization>true</WholeProgramOptimization>
+    <CharacterSet>Unicode</CharacterSet>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
+  <PropertyGroup>
+    <OutDir>$(MSBuildProjectDirectory)\x64\Release\</OutDir>
+    <IntDir>$(MSBuildProjectDirectory)\x64\Release\obj\</IntDir>
+    <LinkIncremental>false</LinkIncremental>
+    <IncludePath>$(KENSHILIB_DEPS_DIR);$(KENSHILIB_DIR)\Include;$(BOOST_INCLUDE_PATH);$(IncludePath)</IncludePath>
+    <LibraryPath>$(KENSHILIB_DIR)\Libraries;$(BOOST_ROOT)\stage\lib;$(LibraryPath)</LibraryPath>
+  </PropertyGroup>
+  <ItemDefinitionGroup>
+    <ClCompile>
+      <WarningLevel>Level3</WarningLevel>
+      <FunctionLevelLinking>true</FunctionLevelLinking>
+      <IntrinsicFunctions>true</IntrinsicFunctions>
+      <PreprocessorDefinitions>NDEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+    </ClCompile>
+    <Link>
+      <EnableCOMDATFolding>true</EnableCOMDATFolding>
+      <OptimizeReferences>true</OptimizeReferences>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+      <AdditionalDependencies>KenshiLib.lib;MyGUIEngine_x64.lib;OgreMain_x64.lib;winhttp.lib;%(AdditionalDependencies)</AdditionalDependencies>
+    </Link>
+  </ItemDefinitionGroup>
+  <ItemGroup>
+    <ClCompile Include="core\Comm.cpp" />
+    <ClCompile Include="core\Globals.cpp" />
+    <ClCompile Include="core\Utils.cpp" />
+    <ClCompile Include="game\Context.cpp" />
+    <ClCompile Include="game\GameActions.cpp" />
+    <ClCompile Include="main.cpp" />
+    <ClCompile Include="ui\CampaignsWindow.cpp" />
+    <ClCompile Include="ui\ChatUIGlobals.cpp" />
+    <ClCompile Include="ui\ChatWindow.cpp" />
+    <ClCompile Include="ui\EventsWindow.cpp" />
+    <ClCompile Include="ui\LauncherWindow.cpp" />
+    <ClCompile Include="ui\LibraryWindow.cpp" />
+    <ClCompile Include="ui\ProfileEditorWindow.cpp" />
+    <ClCompile Include="ui\SettingsWindow.cpp" />
+    <ClCompile Include="ui\WelcomeWindow.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="core\Comm.h" />
+    <ClInclude Include="core\Globals.h" />
+    <ClInclude Include="core\Utils.h" />
+    <ClInclude Include="game\Context.h" />
+    <ClInclude Include="game\GameActions.h" />
+    <ClInclude Include="ui\CampaignsWindow.h" />
+    <ClInclude Include="ui\ChatUI.h" />
+    <ClInclude Include="ui\ChatUIGlobals.h" />
+    <ClInclude Include="ui\ChatWindow.h" />
+    <ClInclude Include="ui\EventsWindow.h" />
+    <ClInclude Include="ui\LauncherWindow.h" />
+    <ClInclude Include="ui\LibraryWindow.h" />
+    <ClInclude Include="ui\ProfileEditorWindow.h" />
+    <ClInclude Include="ui\SettingsWindow.h" />
+    <ClInclude Include="ui\WelcomeWindow.h" />
+  </ItemGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
+  <Target Name="CopyToInstalledMod" AfterTargets="Build" Condition="'$(SENTIENT_SANDS_MOD_DIR)' != ''">
+    <Copy SourceFiles="$(TargetPath)" DestinationFolder="$(SENTIENT_SANDS_MOD_DIR)" />
+  </Target>
+</Project>

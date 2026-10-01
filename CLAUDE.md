@@ -6,7 +6,7 @@ Sentient Sands is a Kenshi mod that uses LLMs to drive NPC dialogue, character p
 
 [docs/architecture.md](docs/architecture.md) holds the layout, the path and transport contracts between the plugin and the server, and the threading rule. Read it before you change how the two sides find or talk to each other. [docs/development.md](docs/development.md) covers building, running, and releasing.
 
-The C++ plugin is Windows-only, and the repo has no build project, so you cannot build it in the dev container. The container has `python3` but no `pip`, and its firewall blocks PyPI, so the server's dependencies (`flask`, `requests`) are not installed there either.
+The C++ plugin builds only on Windows with the Visual C++ 2010 toolset (`plugin/SentientSands.vcxproj`), so you cannot build it in the dev container. The container has `python3` but no `pip`, and its firewall blocks PyPI, so the server's dependencies (`flask`, `requests`) are not installed there either.
 
 ## Working method
 

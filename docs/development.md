@@ -4,15 +4,29 @@
 
 ## Plugin
 
-The repo does not contain a build project for the plugin. To build `SentientSands.dll`, set up a 64-bit Windows DLL project as follows:
+`plugin/SentientSands.vcxproj` builds `SentientSands.dll`. It builds only Release|x64 with the Visual C++ 2010 toolset (`v100`). The plugin shares C++ types with the game, which was built with Visual C++ 2010, so a different toolset breaks the ABI.
 
-- Compile every `.cpp` file under `plugin/`.
-- Put the KenshiLib `Include` directory on the include path. The sources include `<kenshi/...>` and `<core/...>` from it, and `<mygui/...>` and `<ogre/...>` from the KenshiLib dependencies.
-- Link against KenshiLib, and use the compiler toolset that [KenshiLib](https://github.com/KenshiReclaimer/KenshiLib) documents. The plugin shares C++ types with the game, so a different toolset breaks the ABI.
+Set up each build machine once:
+
+1. Install Visual Studio 2019 or later with the "Desktop development with C++" workload.
+2. Install the Visual C++ 2010 x64 compiler, so that the `v100` toolset is available. Visual Studio 2010 Professional includes it. Visual Studio 2010 Express needs the Windows SDK 7.1 for x64.
+3. Install Git LFS, then clone [KenshiLib_Examples_deps](https://github.com/BFrizzleFoShizzle/KenshiLib_Examples_deps) with git. A .zip download does not contain the LFS files.
+4. Run `Setup.bat` in the clone. It unpacks Boost and sets `KENSHILIB_DIR`, `KENSHILIB_DEPS_DIR`, `BOOST_INCLUDE_PATH`, and `BOOST_ROOT`, which the project reads. These variables reach only programs that start after it, so restart Visual Studio and any open command prompt.
+5. Optional: set `SENTIENT_SANDS_MOD_DIR` to an installed mod folder, for example `Kenshi\mods\SentientSands`. Each build then copies the DLL there.
+
+To build, open the project in Visual Studio and build it, or run this in a Developer Command Prompt:
+
+```
+msbuild plugin\SentientSands.vcxproj
+```
+
+The DLL goes to `plugin\x64\Release\SentientSands.dll`. Kenshi locks the DLL while it runs, so close the game before a build that copies it.
+
+The project lists each source file, because the Visual Studio IDE does not support wildcards in project items. A new file that you add through Solution Explorer goes into the list. A new file that you create outside Visual Studio must be added to the project, or the link fails.
 
 Includes between plugin files are relative (`../core/Utils.h`), so the plugin folders need no include path entry.
 
-To test a build, copy the DLL into an installed `Kenshi/mods/SentientSands/` folder and start the game through `RE_Kenshi.exe`.
+To test a build, start the game through `RE_Kenshi.exe` with the DLL in the installed mod folder. The plugin writes `SentientSands_SDK.log` in the Kenshi folder.
 
 ## Server
 
@@ -40,7 +54,7 @@ The tests use only the standard library, so they run in the dev container. Code 
 ## Release
 
 ```
-python scripts/package_release.py --dll path/to/SentientSands.dll
+python scripts/package_release.py --dll plugin/x64/Release/SentientSands.dll
 ```
 
 The script writes `dist/SentientSands-<version>.zip` and takes the version from `mod/mod.info`. The zip contains the mod files, the DLL, the server, and an embedded Windows Python runtime with the packages from `server/requirements.txt` already installed. Players unzip it into `Kenshi/mods/` and do not install Python. The zip leaves out `server/config/providers.json`, so it never contains your keys and never replaces a player's keys.
