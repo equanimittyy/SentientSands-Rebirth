@@ -1,0 +1,28 @@
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# Server runtime output: logs and per-player campaign state
+*.log
+*.log.[0-9]
+server/campaigns/
+server/characters/
+server/world_events.txt
+server/event_history.json
+sentient_sands_registry/
+
+.vs/
+*.user
+[Bb]uild/
+x64/
+[Dd]ebug/
+[Rr]elease/
+*.obj
+*.pdb
+*.ilk
+
+# Claude Code personal settings (may hold API keys)
+.claude/settings.local.json
+
+temp
