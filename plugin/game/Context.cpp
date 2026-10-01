@@ -1,7 +1,7 @@
 #include "Context.h"
 #include "../core/Globals.h"
 #include "../core/Utils.h"
-#include <kenshi/Building.h>
+#include <kenshi/Building/Building.h>
 #include <kenshi/CharStats.h>
 #include <kenshi/Character.h>
 #include <kenshi/Faction.h>
