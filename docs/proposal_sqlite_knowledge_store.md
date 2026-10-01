@@ -1,6 +1,5 @@
 # Proposal: SQLite Knowledge Store for SentientSands-Rebirth (Kayak-Compatible)
 
-Date: 2026-10-01
 Status: Draft for review
 Target repo: `SentientSands-Rebirth` (fork of `harvicusdev-glitch/SentientSands`)
 
@@ -18,6 +17,8 @@ This proposal is to re-create Kayak's knowledge system on top of SQLite:
 - Integrate the result as an in-process Python module in Rebirth's existing Flask server.
 
 The C++ plugin (`SentientSands.dll`) is not expected to change. All work is on the Python server side.
+
+[proposal_web_app.md](proposal_web_app.md) adds a browser editor for this store.
 
 ## 2. Background and findings
 
