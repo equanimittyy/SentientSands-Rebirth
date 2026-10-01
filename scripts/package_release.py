@@ -18,7 +18,8 @@ from pathlib import Path
 REPO = Path(__file__).resolve().parent.parent
 MOD_NAME = "SentientSands"
 SERVER_DIRS = ("scripts", "config", "templates")
-DEFAULT_PYTHON = "3.13.3"
+# Change only together with server/requirements.txt: its pins are checked against this runtime's wheels.
+PYTHON_VERSION = "3.13.3"
 
 
 def read_mod_version():
@@ -95,7 +96,6 @@ def make_zip(stage, out_zip):
 def main():
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--dll", required=True, type=Path, help="path to the built SentientSands.dll")
-    parser.add_argument("--python-version", default=DEFAULT_PYTHON, help=f"embedded Python version (default {DEFAULT_PYTHON})")
     parser.add_argument("--out", type=Path, default=REPO / "dist", help="output directory (default dist/)")
     args = parser.parse_args()
 
@@ -108,9 +108,9 @@ def main():
     stage_files(stage, args.dll)
 
     python_dir = stage / "server" / "python"
-    embed_zip = fetch_embedded_python(args.python_version, args.out / "cache")
-    install_python(embed_zip, args.python_version, python_dir)
-    install_dependencies(args.python_version, python_dir / "Lib" / "site-packages")
+    embed_zip = fetch_embedded_python(PYTHON_VERSION, args.out / "cache")
+    install_python(embed_zip, PYTHON_VERSION, python_dir)
+    install_dependencies(PYTHON_VERSION, python_dir / "Lib" / "site-packages")
 
     out_zip = args.out / f"{MOD_NAME}-{read_mod_version()}.zip"
     make_zip(stage, out_zip)

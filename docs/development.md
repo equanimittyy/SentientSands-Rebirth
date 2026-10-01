@@ -37,4 +37,6 @@ python scripts/package_release.py --dll path/to/SentientSands.dll
 
 The script writes `dist/SentientSands-<version>.zip` and takes the version from `mod/mod.info`. The zip contains the mod files, the DLL, the server, and an embedded Windows Python runtime with the packages from `server/requirements.txt` already installed. Players unzip it into `Kenshi/mods/` and do not install Python.
 
-The script runs on any OS. It needs Python 3 with `pip`, and internet access to python.org and PyPI. `--python-version` selects the embedded runtime version. Downloaded runtimes are cached in `dist/cache/`.
+The script runs on any OS. It needs Python 3 with `pip`, and internet access to python.org and PyPI. Downloaded runtimes are cached in `dist/cache/`.
+
+Each release must ship the same runtime and packages unless a commit changes them. `PYTHON_VERSION` in `scripts/package_release.py` sets the embedded runtime, and `server/requirements.txt` pins every package, the transitive ones included. Some pinned packages ship a separate wheel for each Python version, so change `PYTHON_VERSION` and the pins in the same commit, and run the script once to confirm that pip finds a wheel for each pin.
