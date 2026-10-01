@@ -3,7 +3,7 @@
   Builds only Release|x64 with toolset v100. The plugin shares C++ types with Kenshi,
   which was built with Visual C++ 2010, so any other toolset breaks the ABI. KenshiLib
   does not support Debug builds. The headers and libraries come from deps\, which
-  docs/development.md describes.
+  docs/info/plugin_build_setup.md describes.
 -->
 <Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <PropertyGroup>

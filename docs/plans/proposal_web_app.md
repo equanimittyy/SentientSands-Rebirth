@@ -103,7 +103,7 @@ New modules must not import `kenshi_llm_server`. The server runs as `__main__`, 
 
 ### 4.2 Request security
 
-The server already rejects requests from other sites ([architecture.md](architecture.md#runtime-flow)). The web app depends on this check. Without it, a page on any site could point a provider's base URL at its own server, and the next LLM call would send the API key there. The web app's own requests pass, because they come from `http://127.0.0.1:5000`.
+The server already rejects requests from other sites ([architecture.md](../info/architecture.md#runtime-flow)). The web app depends on this check. Without it, a page on any site could point a provider's base URL at its own server, and the next LLM call would send the API key there. The web app's own requests pass, because they come from `http://127.0.0.1:5000`.
 
 A GET route in `/api/` must not change state. A page on another site can send a GET with no `Origin` header, for example through an image tag, so the Origin check does not stop it.
 
@@ -194,7 +194,7 @@ The plugin gets these changes:
 1. `SavePluginConfig` and its callers go.
 2. `SET_CONFIG` gets `g_chatHotkey` and `g_language`. The web app offers only the hotkeys that `SetHotkeyFromString` can parse.
 3. `PopulateSettingsUI` also fills the Campaign Manager, so that part moves out of `SettingsWindow.cpp` before the file goes.
-4. The plugin loads the translation table once the server answers at start, not in `PopulateSettingsUI`. After a `g_language` change, it loads the table again on a worker thread and hands the result to the game thread through `g_messageQueue`, as the threading rule in [architecture.md](architecture.md#threading) requires.
+4. The plugin loads the translation table once the server answers at start, not in `PopulateSettingsUI`. After a `g_language` change, it loads the table again on a worker thread and hands the result to the game thread through `g_messageQueue`, as the threading rule in [architecture.md](../info/architecture.md#threading) requires.
 5. The plugin stops reading the model fields of the `/settings` response. `visual_debugger.py` still reads `/models` and posts `current_model` to switch the model, so the debugger moves to routes or drops its model switch.
 
 ## 8. Data editor

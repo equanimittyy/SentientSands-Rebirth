@@ -83,4 +83,4 @@ Once you have added models to your config, launch the game, open the Sentient Sa
 
 ## Development
 
-See [docs/architecture.md](docs/architecture.md) for how the plugin, the server, and the mod files fit together, and [docs/development.md](docs/development.md) for building, running, and releasing.
+See [docs/info/architecture.md](docs/info/architecture.md) for how the plugin, the server, and the mod files fit together, and [docs/info/development.md](docs/info/development.md) for building, running, and releasing.
