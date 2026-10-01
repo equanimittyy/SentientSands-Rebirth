@@ -2,8 +2,8 @@
 <!--
   Builds only Release|x64 with toolset v100. The plugin shares C++ types with Kenshi,
   which was built with Visual C++ 2010, so any other toolset breaks the ABI. KenshiLib
-  does not support Debug builds. The paths come from the environment variables that
-  Setup.bat in KenshiLib_Examples_deps sets.
+  does not support Debug builds. The headers and libraries come from deps\, which
+  docs/development.md describes.
 -->
 <Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <PropertyGroup>
@@ -34,8 +34,9 @@
     <OutDir>$(MSBuildProjectDirectory)\x64\Release\</OutDir>
     <IntDir>$(MSBuildProjectDirectory)\x64\Release\obj\</IntDir>
     <LinkIncremental>false</LinkIncremental>
-    <IncludePath>$(KENSHILIB_DEPS_DIR);$(KENSHILIB_DIR)\Include;$(BOOST_INCLUDE_PATH);$(IncludePath)</IncludePath>
-    <LibraryPath>$(KENSHILIB_DIR)\Libraries;$(BOOST_ROOT)\stage\lib;$(LibraryPath)</LibraryPath>
+    <DepsDir>$(MSBuildProjectDirectory)\..\deps</DepsDir>
+    <IncludePath>$(DepsDir)\KenshiLib\Include;$(DepsDir)\boost_1_60_0;$(IncludePath)</IncludePath>
+    <LibraryPath>$(DepsDir)\KenshiLib\Libraries;$(DepsDir)\KenshiLib\Libraries\mygui;$(DepsDir)\KenshiLib\Libraries\ogre;$(DepsDir)\boost_1_60_0\lib64-msvc-10.0;$(LibraryPath)</LibraryPath>
   </PropertyGroup>
   <ItemDefinitionGroup>
     <ClCompile>

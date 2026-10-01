@@ -8,6 +8,9 @@ dist/
 server/python/
 *.dll
 
+# KenshiLib and Boost files for the plugin build, set up on each machine
+deps/
+
 # Server runtime output: logs, per-player campaign state, and the player's API keys
 *.log
 *.log.[0-9]

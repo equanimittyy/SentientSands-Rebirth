@@ -9,9 +9,18 @@
 Set up each build machine once:
 
 1. Install Visual Studio 2019 or later with the "Desktop development with C++" workload.
-2. Install the Visual C++ 2010 x64 compiler, so that the `v100` toolset is available. Visual Studio 2010 Professional includes it. Visual Studio 2010 Express needs the Windows SDK 7.1 for x64.
-3. Install Git LFS, then clone [KenshiLib_Examples_deps](https://github.com/BFrizzleFoShizzle/KenshiLib_Examples_deps) with git. A .zip download does not contain the LFS files.
-4. Run `Setup.bat` in the clone. It unpacks Boost and sets `KENSHILIB_DIR`, `KENSHILIB_DEPS_DIR`, `BOOST_INCLUDE_PATH`, and `BOOST_ROOT`, which the project reads. These variables reach only programs that start after it, so restart Visual Studio and any open command prompt.
+2. Install the Visual C++ 2010 x64 compiler. Use one of these routes, which give the same compiler:
+   - Visual Studio 2010 Professional, then Visual Studio 2010 SP1. The project's `v100` toolset uses this compiler.
+   - Visual Studio 2010 Express, the Windows SDK 7.1, Visual Studio 2010 SP1, and the Visual C++ 2010 SP1 Compiler Update for the Windows SDK 7.1, in that order. SP1 removes the SDK's x64 compilers, and the update puts them back. Add `-p:PlatformToolset=Windows7.1SDK` to the build command.
+3. Choose the KenshiLib release that the current RE_Kenshi release ships. The KenshiLib release notes name it, for example "KenshiLib v0.5.0 - this is the version shipped in RE_Kenshi 0.3.5". A plugin built against that release runs on every RE_Kenshi install of that version, with no separate KenshiLib download.
+4. Fill `deps/` at the repo root. Git ignores it.
+
+   | Path | Source |
+   |---|---|
+   | `deps\KenshiLib\` | The "Source code (zip)" of the chosen [KenshiLib release](https://github.com/BFrizzleFoShizzle/KenshiLib/releases), unpacked so that `Include\` and `Libraries\` are directly inside. |
+   | `deps\KenshiLib\Libraries\KenshiLib.lib` | `KenshiLib.lib` from the `KenshiLib_v<version>.zip` asset of the same release. The headers and the `.lib` must come from the same release. |
+   | `deps\boost_1_60_0\` | The install folder of `boost_1_60_0-msvc-10.0-64.exe` from the [Boost binaries on SourceForge](https://sourceforge.net/projects/boost/files/boost-binaries/1.60.0/). It holds the `boost\` headers and the `lib64-msvc-10.0\` libraries. |
+
 5. Optional: set `SENTIENT_SANDS_MOD_DIR` to an installed mod folder, for example `Kenshi\mods\SentientSands`. Each build then copies the DLL there.
 
 To build, open the project in Visual Studio and build it, or run this in a Developer Command Prompt:
@@ -26,7 +35,7 @@ The project lists each source file, because the Visual Studio IDE does not suppo
 
 Includes between plugin files are relative (`../core/Utils.h`), so the plugin folders need no include path entry.
 
-To test a build, start the game through `RE_Kenshi.exe` with the DLL in the installed mod folder. The plugin writes `SentientSands_SDK.log` in the Kenshi folder.
+To test a build, put the DLL in the installed mod folder and start the game normally, with RE_Kenshi installed. The plugin writes `SentientSands_SDK.log` in the Kenshi folder.
 
 ## Server
 
