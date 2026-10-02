@@ -22,7 +22,6 @@ const message = document.getElementById("llm-message");
 let state = null;
 let tasks = [];
 let providerTypes = [];
-let presets = [];
 let savedProviders = new Set();
 const openCards = new Set();
 const testResults = new Map();
@@ -31,6 +30,8 @@ let listCount = 0;
 const fieldErrors = new Map();
 const checks = new WeakMap();
 let focusCard = null;
+let renaming = null;
+let renameText = "";
 
 const withHelp = (label, help) => el("span", { className: "label-text" }, label, el("span", { className: "help", tabIndex: 0 }, "?", el("span", { className: "tip" }, help)));
 
@@ -125,7 +126,7 @@ function addForm(placeholder, onAdd, ...controls) {
       const value = name.value.trim();
       if (value) onAdd(value, event.target);
     },
-  }, ...controls, name, el("button", { type: "submit" }, "Add"));
+  }, name, ...controls, el("button", { type: "submit" }, "Add"));
 }
 
 function collapsible(key, summary, ...children) {
@@ -156,23 +157,56 @@ function renameKey(object, from, to) {
   return Object.fromEntries(Object.entries(object).map(([key, value]) => [key === from ? to : key, value]));
 }
 
-function askNewName(kind, collection, name) {
-  const answer = prompt(`New name for the ${kind} ${name}:`, name)?.trim();
-  if (!answer || answer === name) return null;
-  if (answer in collection) {
-    showMessage(message, `A ${kind} named ${answer} already exists.`, true);
-    return null;
+function finishRename(kind, collection, name, rename, apply) {
+  if (renaming !== cardKey(kind, name)) return;
+  renaming = null;
+  const to = renameText.trim();
+  if (apply && to && to !== name) {
+    if (!(to in collection)) return rename(name, to);
+    showMessage(message, `A ${kind} named ${to} already exists.`, true);
   }
-  return answer;
+  render();
+}
+
+// Not prompt(): the VS Code browser has no prompt box, so the name is edited in place.
+function cardName(kind, collection, name, rename) {
+  const key = cardKey(kind, name);
+  if (renaming !== key) {
+    const edit = el("button", {
+      type: "button",
+      className: "edit",
+      onclick: (event) => {
+        event.preventDefault();
+        renaming = key;
+        renameText = name;
+        render();
+        editor.querySelector("input.rename").select();
+      },
+    }, icon("pencil"));
+    edit.setAttribute("aria-label", `Rename ${name}`);
+    return [el("strong", { className: "name" }, name), edit];
+  }
+  const input = control("input", ["rename", key], {
+    className: "rename",
+    value: renameText,
+    oninput: (event) => { renameText = event.target.value; },
+    onclick: (event) => event.preventDefault(),
+    onkeydown: (event) => {
+      if (event.key !== "Enter" && event.key !== "Escape") return;
+      event.preventDefault();
+      finishRename(kind, collection, name, rename, event.key === "Enter");
+    },
+    onblur: () => finishRename(kind, collection, name, rename, true),
+  });
+  input.setAttribute("aria-label", `New name for ${name}`);
+  return [input];
 }
 
 function moveOpenCard(kind, from, to) {
   if (openCards.delete(cardKey(kind, from))) openCards.add(cardKey(kind, to));
 }
 
-function renameProvider(name) {
-  const to = askNewName("provider", state.providers, name);
-  if (!to) return;
+function renameProvider(name, to) {
   const provider = state.providers[name];
   if (savedProviders.has(name)) provider.previous_name ??= name;
   if (provider.previous_name === to) delete provider.previous_name;
@@ -182,9 +216,7 @@ function renameProvider(name) {
   changed();
 }
 
-function renameProfile(name) {
-  const to = askNewName("profile", state.profiles, name);
-  if (!to) return;
+function renameProfile(name, to) {
   state.profiles = renameKey(state.profiles, name, to);
   if (state.default_profile === name) state.default_profile = to;
   for (const route of Object.values(state.routes)) route.profiles = route.profiles.map((entry) => (entry === name ? to : entry));
@@ -251,21 +283,14 @@ function keyInput(provider, path) {
   return el("span", { className: "inline" }, input, toggle);
 }
 
-function presetSelect() {
-  const select = el("select", {
-    onchange: (event) => {
-      const name = event.target.form.querySelector("input");
-      if (!name.value || presets.some((preset) => preset.name === name.value)) name.value = event.target.value;
-    },
-  });
-  select.append(new Option("Custom", ""), ...presets.map((preset) => new Option(preset.name, preset.name)));
-  select.setAttribute("aria-label", "Provider preset");
+function typeSelect() {
+  const select = el("select", {}, ...providerTypes.map((type) => new Option(TYPE_LABELS[type] ?? type, type)));
+  select.setAttribute("aria-label", "Provider type");
   return select;
 }
 
 function addProvider(name, form) {
-  const preset = presets.find((candidate) => candidate.name === form.querySelector("select").value);
-  addNamed("provider", state.providers, name, { type: preset?.type ?? "openai", base_url: preset?.base_url ?? "", api_key: "" });
+  addNamed("provider", state.providers, name, { type: form.querySelector("select").value, base_url: "", api_key: "" });
 }
 
 function renderProviders() {
@@ -274,7 +299,7 @@ function renderProviders() {
     const profiles = Object.entries(state.profiles).filter(([, profile]) => profile.provider === name);
     return collapsible(cardKey("provider", name),
       [
-        el("strong", { className: "name" }, name),
+        ...cardName("provider", state.providers, name, renameProvider),
         el("span", { className: "detail" }, `${TYPE_LABELS[provider.type] ?? provider.type} · ${host(provider.base_url)}`),
         keyBadge(provider),
       ],
@@ -283,7 +308,6 @@ function renderProviders() {
       field("API key", keyInput(provider, path("api_key")), null, "The page never shows a stored key. Leave this field empty to keep the stored key. A local server, for example Ollama, needs no key."),
       provider.type === "player2" ? field("Game key", textInput(provider, "game_key", path("game_key")), null, "The game ID that you register with Player2.") : null,
       el("div", { className: "card-actions" },
-        button("Rename", () => renameProvider(name), `Rename ${name}`),
         button("Remove", () => removeProvider(name), `Remove ${name}`)),
       el("fieldset", {},
         el("legend", {}, "Profiles (Models)"),
@@ -297,7 +321,7 @@ function renderProviders() {
     el("legend", {}, "Providers"),
     el("p", { className: "hint" }, "A provider is one AI service, for example OpenRouter or a local Ollama. It holds the address that the server sends requests to and the API key for that service."),
     ...cards,
-    addForm("New provider name", addProvider, presetSelect()));
+    addForm("New provider name", addProvider, typeSelect()));
 }
 
 function testBadge(name) {
@@ -389,14 +413,13 @@ function renderProfile(name, profile) {
   const path = (key) => ["profiles", name, key];
   const result = testResults.get(name);
   return collapsible(cardKey("profile", name),
-    [el("strong", { className: "name" }, name), el("span", { className: "detail" }, profile.model || "no model ID"), testBadge(name)],
+    [...cardName("profile", state.profiles, name, renameProfile), el("span", { className: "detail" }, profile.model || "no model ID"), testBadge(name)],
     field("Model ID", modelInput(profile, path("model")), modelStatus(profile.provider), "The exact model ID that the provider expects, for example anthropic/claude-3.5-sonnet. List models gets the IDs from the provider."),
     field("Timeout (s)", numberInput(profile, "timeout", path("timeout"), { step: 1, min: 1 }), null, "The longest that this profile waits for a reply. When the task deadline is shorter, the deadline wins."),
     field("Extra request parameters (JSON)", textInput(profile, "paramsText", path("params"), { tag: "textarea", className: "mono", rows: 3 }, paramsError), null, 'Optional model settings as JSON, for example {"top_p": 0.9}. They replace the same settings of the task.'),
     el("div", { className: "card-actions" },
       button("Test", () => testProfile(name), `Test ${name}`),
       el("span", { className: `message${result && !result.ok && !result.pending ? " error" : ""}` }, result?.text ?? ""),
-      button("Rename", () => renameProfile(name), `Rename ${name}`),
       button("Remove", () => removeProfile(name), `Remove ${name}`)));
 }
 
@@ -513,7 +536,6 @@ function load(config) {
   state = { providers: config.providers, profiles: config.profiles, default_profile: config.default_profile, routes: config.routes };
   tasks = config.tasks;
   providerTypes = config.provider_types;
-  presets = config.presets;
   savedProviders = new Set(Object.keys(config.providers));
   modelLists.clear();
   fieldErrors.clear();
@@ -555,7 +577,7 @@ async function resetToDefaults() {
     el("b", { className: "warning" }, "Reset takes effect immediately and is irreversible!")))) return;
   try {
     load(await sendJson("POST", "/api/llm/reset", {}));
-    showMessage(message, "Reset to the defaults.");
+    showMessage(message, "");
   } catch (error) {
     showMessage(message, `Reset failed: ${error.message}`, true);
   }

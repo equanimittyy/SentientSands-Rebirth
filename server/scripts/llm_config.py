@@ -188,10 +188,6 @@ def model_ids(listing):
     return sorted({entry["id"] for entry in entries or [] if isinstance(entry, dict) and isinstance(entry.get("id"), str)})
 
 
-def presets(providers):
-    return [{"name": name, "type": _provider_type(name), "base_url": provider["base_url"]} for name, provider in providers.items()]
-
-
 def player2_providers_in_use(config):
     names = set()
     for route in config["routes"].values():

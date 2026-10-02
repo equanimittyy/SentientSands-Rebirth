@@ -2901,7 +2901,6 @@ def get_llm_config():
         "status": "ok",
         "tasks": list(llm_config.TASKS),
         "provider_types": list(llm_config.PROVIDER_TYPES),
-        "presets": llm_config.presets(llm_config.load(DEFAULT_PROVIDERS_PATH)),
         **llm_config.masked(LLM_CONFIG)
     })
 

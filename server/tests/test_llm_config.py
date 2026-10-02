@@ -206,14 +206,6 @@ class ModelIdsTest(unittest.TestCase):
         self.assertEqual(llm_config.model_ids(["a"]), [])
 
 
-class PresetsTest(unittest.TestCase):
-    def test_presets_carry_type_and_base_url_but_no_key(self):
-        presets = llm_config.presets(PROVIDERS)
-        self.assertEqual([preset["name"] for preset in presets], ["openrouter", "player2"])
-        self.assertEqual(presets[1], {"name": "player2", "type": "player2", "base_url": "http://127.0.0.1:4315/v1"})
-        self.assertNotIn("sk-or-secret-1234", repr(presets))
-
-
 class Player2InUseTest(unittest.TestCase):
     def test_lists_player2_providers_only_when_a_route_uses_them(self):
         config = built()

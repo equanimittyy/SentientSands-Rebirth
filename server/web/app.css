@@ -340,8 +340,10 @@ button.danger {
   gap: 1rem;
 }
 
+/* A masked icon or a faded button paints in its own layer, above a sticky bar that has no z-index. */
 .save-bar {
   position: sticky;
+  z-index: 1;
   top: 0;
   margin-bottom: 1.5rem;
   padding: 0.75rem 0;
@@ -393,6 +395,27 @@ details.card > summary > * + * {
 
 details.card[open] > summary {
   margin-bottom: 0.5rem;
+}
+
+details.card > summary > .edit {
+  margin-left: 0.3rem;
+  padding: 0 0.25rem;
+  border: none;
+  background: none;
+  color: var(--muted);
+}
+
+details.card > summary > .edit:hover {
+  color: var(--accent);
+}
+
+details:not([open]) > summary > .edit {
+  display: none;
+}
+
+details.card > summary > .rename {
+  width: 16rem;
+  max-width: 100%;
 }
 
 details.card > summary > .blurb {
