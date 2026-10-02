@@ -6,7 +6,7 @@ The problems below are known and not fixed. Each section gives the failure, the 
 |---|---|---|
 | A relation change is lost when two chats overlap | One judgment is lost | About 10 lines and a test |
 | `/chat` fails when the context has no ID | The chat returns 500 and no reply | 1 line |
-| Stand-in profiles are stored with `_transient` | `/rename` does not rename the NPC | A few lines and a cleanup of stored rows |
+| Stand-in profiles are stored with `_transient` | `/rename` does not rename the NPC | A few lines |
 | The "SKIP SAVE" branch in `/chat` is dead | None | 3 lines |
 | A player cannot edit an NPC profile by hand | A bad profile cannot be fixed in a text editor | None to medium, by option |
 
@@ -30,7 +30,7 @@ For an NPC with no stored profile, `get_character_data(..., skip_generate=True)`
 
 `/rename` then reads the stored profile, finds the key, and answers "No profile to rename". The NPC keeps its old name in the database.
 
-Fix: drop the keys that start with `_` before `campaign_db` stores a profile. Remove the key from the rows that already have it, for example with one `json_remove` update when a campaign opens.
+Fix: drop the keys that start with `_` before `campaign_db` stores a profile.
 
 ## The "SKIP SAVE" branch in `/chat` is dead
 

@@ -273,7 +273,7 @@ CREATE VIRTUAL TABLE entity_fts USING fts5(
 - `POST /campaigns/create` takes an optional `template`, and uses Vanilla Kenshi without one. The in-game Campaign Manager sends no template, so the plugin does not change. The web app's Templates page creates a campaign from any template.
 - The server loads the template into the new campaign database in one transaction: the entities with their fields, aliases, children, and access rules, the history entries, the links, the FTS index, the figure profiles, and the overview.
 - After creation, the campaign does not depend on its template. A template edit, a new template version, or a deleted template does not change the campaign.
-- An existing campaign without knowledge tables gets Vanilla Kenshi on its first load. Today every campaign uses the vanilla `world_lore.txt`, so its prompts keep their lore.
+- A campaign database of an earlier schema version is not upgraded. `open_campaign` refuses it and logs that the player must start a new campaign.
 - The prompt takes the overview from `meta`. The campaign folder no longer overrides it ([section 3.3](#33-system-prompts)).
 - Gameplay writes only the campaign database, never a template.
 - Rejected: reading the template live through `ATTACH` at query time. A template edit would then change the lore of running campaigns, and each FTS query would span two databases.
@@ -377,7 +377,7 @@ Known differences to handle: Kayak uses its own stemming (`stem_key`) and tokeni
 |---|---|---|
 | 0. Prep | README credit section; the official English Kayak release | Attribution text in place; source release chosen |
 | 1. Settings, prompts, and player characters | `SETTINGS_DEFAULTS`; the settings, LLM, and prompt routes; the reset buttons; the Prompts page; `render`; `prompt_system.txt`; the `SET_CONFIG` push at start; the speaker picker; the player faction description in `meta`; tests | A reset gives the shipped values; the plugin receives them through `SET_CONFIG`; stored keys of default providers survive the LLM reset; a prompt override survives an update; an override whose shipped default changed is marked; an override with an unknown placeholder is rejected; on a first start, the plugin holds the values of `SETTINGS_DEFAULTS`; a prompt with a stray brace renders; a chat uses the bio and context of the picked speaker; a speaker with no profile gets a generated one |
-| 2. Templates and campaigns | `world_template.py`; a vanilla template with only `overview.txt`; campaign creation from a template | New and existing campaigns build the same prompts as today |
+| 2. Templates and campaigns | `world_template.py`; a vanilla template with only `overview.txt`; campaign creation from a template | New campaigns build the same prompts as today |
 | 3. Import and export | The template routes; the Templates page | A template exported from one install imports on another with the same files; each unsafe zip in the tests is rejected |
 | 4. Vanilla content | `convert_kayak.py`; the converted template; the licence review | All 405 entities convert; the converter lists each dropped field |
 | 5. Retrieval | `knowledge_retrieve.py`; the prompt wiring; the INI limits | Retrieval matches Kayak on a fixed set of queries within documented differences; chat prompts include the retrieved entities |
