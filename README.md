@@ -39,7 +39,7 @@ You can add your own custom providers and models without modifying any code. Bot
 `Kenshi/mods/SentientSands/server/config/`
 
 ### Adding a New Provider
-Edit `providers.json`. The server creates it from `default_providers.json` on its first start, and a mod update does not replace it, so your keys stay. A provider strictly requires an `api_key` and a `base_url`.
+Edit `providers.json`. The server creates it from `default_providers.json` on its first start, and a mod update does not replace it, so your keys stay. A provider strictly requires an `api_key` and a `base_url`. The `player2` provider also needs a `game_key`, the game ID that you register with Player2.
 
 **Example `providers.json`:**
 ```json

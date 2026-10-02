@@ -5,7 +5,8 @@
     },
     "player2": {
         "api_key": "sk-player2-local",
-        "base_url": "http://127.0.0.1:4315/v1"
+        "base_url": "http://127.0.0.1:4315/v1",
+        "game_key": ""
     },
     "nanogpt": {
         "api_key": "YOUR_NANOGPT_KEY",

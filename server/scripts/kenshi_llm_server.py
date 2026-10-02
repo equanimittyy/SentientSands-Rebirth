@@ -1232,7 +1232,7 @@ def call_llm(messages, max_tokens=2048, temperature=0.8):
         headers["HTTP-Referer"] = "https://github.com/equanimittyy/SentientSands-Rebirth"
 
     if provider_name == "player2":
-        headers["player2-game-key"] = "019c93fc-7a93-7ac4-8c6e-df0fd09bec01"
+        headers["player2-game-key"] = provider_config.get("game_key", "")
 
     payload = {
         "model": model_entry["model"],
@@ -1304,7 +1304,7 @@ def call_llm(messages, max_tokens=2048, temperature=0.8):
                 last_error = f"API ERROR 401: Unauthorized - attempting local token refresh"
                 logging.warning(f"Player2 token expired/invalid (401). Attempting re-auth...")
                 try:
-                    auth_url = f"http://localhost:4315/v1/login/web/019c93fc-7a93-7ac4-8c6e-df0fd09bec01"
+                    auth_url = f"http://localhost:4315/v1/login/web/{provider_config.get('game_key', '')}"
                     auth_resp = requests.post(auth_url, timeout=5)
                     if auth_resp.status_code == 200:
                         new_key = auth_resp.json().get("p2Key")
@@ -3698,15 +3698,15 @@ threading.Thread(target=synthesis_loop, daemon=True).start()
 def player2_ping_loop():
     global PLAYER2_SESSION_KEY
     logging.debug("HEALTH: Player2 background thread initialized.")
-    game_id = "019c93fc-7a93-7ac4-8c6e-df0fd09bec01"
     
     while True:
         try:
             model_entry = MODELS_CONFIG.get(CURRENT_MODEL_KEY)
             if model_entry and model_entry.get("provider") == "player2":
+                game_key = PROVIDERS_CONFIG.get("player2", {}).get("game_key", "")
                 if not PLAYER2_SESSION_KEY:
                     try:
-                        auth_url = f"http://localhost:4315/v1/login/web/{game_id}"
+                        auth_url = f"http://localhost:4315/v1/login/web/{game_key}"
                         auth_resp = requests.post(auth_url, timeout=5)
                         if auth_resp.status_code == 200:
                             new_key = auth_resp.json().get("p2Key")
@@ -3723,7 +3723,7 @@ def player2_ping_loop():
                     base_url = provider_config.get("base_url").rstrip("/")
                     try:
                         h = {
-                            "player2-game-key": game_id,
+                            "player2-game-key": game_key,
                             "Authorization": f"Bearer {PLAYER2_SESSION_KEY}" if PLAYER2_SESSION_KEY else ""
                         }
                         resp = requests.get(f"{base_url}/health", headers=h, timeout=5)
