@@ -346,19 +346,14 @@ void OnChatSendClick(MyGUI::Widget *sender) {
   Character *targetNpc = nullptr;
   if (world) {
     try {
+      // By serial, because name assignment can give two loaded NPCs one name
+      unsigned int targetSerial = std::stoul(handleStr);
       const auto &chars = world->getCharacterUpdateList();
       for (auto it = chars.begin(); it != chars.end(); ++it) {
-        if ((*it) && (uintptr_t)(*it) > 0x1000) {
-          std::string name = (*it)->getName();
-          if (name == npcName) {
-            targetNpc = *it;
-            break;
-          }
-          size_t p = npcName.find('|');
-          if (p != std::string::npos && name == npcName.substr(0, p)) {
-            targetNpc = *it;
-            break;
-          }
+        if ((*it) && (uintptr_t)(*it) > 0x1000 &&
+            (*it)->getHandle().serial == targetSerial) {
+          targetNpc = *it;
+          break;
         }
       }
     } catch (...) {
