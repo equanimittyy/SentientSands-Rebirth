@@ -27,7 +27,7 @@ RE_Kenshi loads the plugin into the game. Its installer also installs `KenshiLib
 
 ## 3. Fill deps/
 
-The build reads KenshiLib and Boost from `deps/` at the repo root. Git ignores this folder. It holds exactly three items: the KenshiLib `Include\` folder, the KenshiLib `Libraries\` folder, and Boost.
+The build reads KenshiLib and Boost from `deps/` at the repo root. Git ignores this folder. It holds exactly four folders: `Include\` and `Libraries\` from KenshiLib, and `boost\` and `lib64-msvc-10.0\` from Boost.
 
 1. Choose the KenshiLib version that the installed RE_Kenshi ships. On the [KenshiLib releases page](https://github.com/BFrizzleFoShizzle/KenshiLib/releases), the notes of that release say so, for example "KenshiLib v0.5.0 - this is the version shipped in RE_Kenshi 0.3.5". The requirements in `README.md` give the matching minimum RE_Kenshi version for players. When you change the KenshiLib version, change that minimum too.
 2. Download two archives of that release:
@@ -41,8 +41,20 @@ The build reads KenshiLib and Boost from `deps/` at the repo root. Git ignores t
 
 3. From the source archive, copy the `Include\` and `Libraries\` folders into `deps\KenshiLib\`.
 4. From the release asset, copy `KenshiLib.lib` into `deps\KenshiLib\Libraries\`.
-5. Download [`boost_1_60_0-msvc-10.0-64.exe`](https://sourceforge.net/projects/boost/files/boost-binaries/1.60.0/boost_1_60_0-msvc-10.0-64.exe/download). Run it, and set the install folder to `deps\boost_1_60_0` in the repo.
-6. Check that `deps\` matches this layout. `deps\KenshiLib\` contains the two folders and nothing else.
+5. Get Boost 1.60.0 built with the Visual C++ 2010 x64 compiler. boost.org offers only source archives, so use the prebuilt installer that the Boost project publishes on SourceForge:
+   1. Download [`boost_1_60_0-msvc-10.0-64.exe`](https://sourceforge.net/projects/boost/files/boost-binaries/1.60.0/boost_1_60_0-msvc-10.0-64.exe/download) and run it. Any install folder works, for example the default `C:\local\boost_1_60_0`.
+   2. From the install folder, copy the `boost\` and `lib64-msvc-10.0\` folders into `deps\boost_1_60_0\`.
+
+   If the installer is not available, build the libraries from the boost.org source archive instead. This needs the compiler from section 2. In the extracted `boost_1_60_0\` folder, run:
+
+   ```
+   bootstrap.bat
+   b2 toolset=msvc-10.0 address-model=64 variant=release threading=multi link=static runtime-link=shared --with-thread --with-filesystem --with-system --with-chrono --with-date_time stage
+   ```
+
+   Then copy `boost\` into `deps\boost_1_60_0\`, and copy the contents of `stage\lib\` into `deps\boost_1_60_0\lib64-msvc-10.0\`.
+
+6. Check that `deps\` matches this layout. `deps\KenshiLib\` and `deps\boost_1_60_0\` each contain their two folders and nothing else.
 
    ```
    deps\
@@ -52,9 +64,9 @@ The build reads KenshiLib and Boost from `deps/` at the repo root. Git ignores t
          KenshiLib.lib
          mygui\MyGUIEngine_x64.lib
          ogre\OgreMain_x64.lib
-     boost_1_60_0\                the Boost install folder
-       boost\
-       lib64-msvc-10.0\
+     boost_1_60_0\
+       boost\                     the Boost headers
+       lib64-msvc-10.0\           the built Boost libraries
    ```
 
 These are all the libraries that the plugin needs. The Ogre and MyGUI files in KenshiLib match the game, so the build uses those. The plugin hooks game functions through `KenshiLib::AddHook`, so it needs no MinHook.
