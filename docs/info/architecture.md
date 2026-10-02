@@ -62,7 +62,7 @@ The server serves `server/web/` at `/` and `/web/<file>`. The files are plain HT
 | Page | Route | Storage |
 |---|---|---|
 | Settings | `/settings` | `SentientSands_Config.ini` |
-| LLM | `/api/llm`, `/api/llm/test` | `server/user/llm_config.json` |
+| Models | `/api/llm`, `/api/llm/test` | `server/user/llm_config.json` |
 | Player profile | `/player_profile` | `character_bio.txt` and `player_faction_description.txt` in the active campaign |
 
 A GET route must not change state. A page on another site can send a GET with no `Origin` header, for example through an image tag, so the Origin check from step 4 of the runtime flow does not stop it. The presence stream below is the only exception, because EventSource sends only GET requests. A page on another site that holds the stream open can only stop a new tab from opening.
@@ -89,7 +89,7 @@ The plugin re-creates its pipe instance after each message, so a message sent im
 
 ## LLM routing
 
-Each LLM call names a task: `chat`, `ambient`, `profile`, `profile_batch`, or `synthesis`. `server/user/llm_config.json` holds three parts, and the web app's LLM page edits all of them through `/api/llm`.
+Each LLM call names a task: `chat`, `ambient`, `profile`, `profile_batch`, or `synthesis`. `server/user/llm_config.json` holds three parts, and the web app's Models page edits all of them through `/api/llm`.
 
 | Part | Contents |
 |---|---|

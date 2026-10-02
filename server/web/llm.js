@@ -1,4 +1,4 @@
-import { getJson, reportUnsaved, sendJson, showMessage } from "./api.js";
+import { getJson, reportUnsaved, sendJson, setFieldError, showMessage } from "./api.js";
 
 const TASK_LABELS = {
   chat: "Chat",
@@ -7,6 +7,7 @@ const TASK_LABELS = {
   profile_batch: "NPC profiles in a batch",
   synthesis: "World events",
 };
+const GAME_WAIT_S = 60;
 
 const editor = document.getElementById("llm-editor");
 const message = document.getElementById("llm-message");
@@ -14,6 +15,10 @@ let state = null;
 let tasks = [];
 let providerTypes = [];
 let dirty = false;
+const openCards = new Set();
+const testResults = new Map();
+const checks = new WeakMap();
+let focusCard = null;
 
 function el(tag, props = {}, ...children) {
   const element = document.createElement(tag);
@@ -25,7 +30,11 @@ function el(tag, props = {}, ...children) {
   return element;
 }
 
-const field = (label, input) => el("label", {}, label, input);
+const field = (label, input, hint) => el("label", {}, label, input, hint ? el("span", { className: "hint" }, hint) : null);
+
+function joinNames(names) {
+  return names.length < 3 ? names.join(" and ") : `${names.slice(0, -1).join(", ")}, and ${names.at(-1)}`;
+}
 
 function markDirty() {
   dirty = true;
@@ -38,112 +47,205 @@ function changed() {
   render();
 }
 
-function textInput(object, key, props = {}) {
-  return el("input", {
+function checkInput(input) {
+  setFieldError(input, input.validationMessage || checks.get(input)?.(input.value) || "");
+}
+
+// The path names the field across renders, so the focus can return to it.
+function control(tag, path, props, check) {
+  const element = el(tag, props);
+  element.dataset.field = JSON.stringify(path);
+  if (check) checks.set(element, check);
+  return element;
+}
+
+function textInput(object, key, path, { tag = "input", ...props } = {}, check) {
+  return control(tag, path, {
     ...props,
     value: object[key] ?? "",
     oninput: (event) => {
       object[key] = event.target.value;
+      checkInput(event.target);
       markDirty();
     },
-  });
+  }, check);
 }
 
-function numberInput(object, key, step) {
-  return el("input", {
+function numberInput(object, key, path, props, check) {
+  return control("input", path, {
     type: "number",
-    step,
-    min: 0,
     required: true,
+    ...props,
     value: object[key],
     oninput: (event) => {
       object[key] = Number(event.target.value);
+      checkInput(event.target);
       markDirty();
     },
-  });
+  }, check);
 }
 
-function selectInput(values, current, onChange) {
-  const choices = values.includes(current) ? values : [current, ...values];
-  const select = el("select", { onchange: (event) => onChange(event.target.value) });
-  select.append(...choices.map((value) => new Option(value, value, false, value === current)));
+function selectInput(values, current, path, onChange) {
+  const missing = !values.includes(current);
+  const select = control("select", path, { onchange: (event) => onChange(event.target.value) });
+  if (missing) select.append(new Option(`${current} (missing)`, current, false, true));
+  select.append(...values.map((value) => new Option(value, value, false, value === current)));
+  select.classList.toggle("invalid", missing);
   return select;
 }
 
-const button = (label, onClick) => el("button", { type: "button", disabled: !onClick, onclick: onClick || null }, label);
+function button(label, onClick, ariaLabel) {
+  const element = el("button", { type: "button", disabled: !onClick, onclick: onClick || null }, label);
+  if (ariaLabel) element.setAttribute("aria-label", ariaLabel);
+  return element;
+}
 
 function addForm(placeholder, onAdd) {
-  const name = el("input", { placeholder });
-  return el("div", { className: "add" }, name, button("Add", () => {
-    const value = name.value.trim();
-    if (value) onAdd(value);
-  }));
+  const name = el("input", { placeholder, required: true });
+  return el("form", {
+    className: "add",
+    onsubmit: (event) => {
+      event.preventDefault();
+      const value = name.value.trim();
+      if (value) onAdd(value);
+    },
+  }, name, el("button", { type: "submit" }, "Add"));
 }
 
-function card(title, onRemove, ...children) {
-  return el("div", { className: "card" },
-    el("div", { className: "card-head" }, el("strong", {}, title), onRemove ? button("Remove", onRemove) : null),
-    ...children);
+function collapsible(key, summary, ...children) {
+  const details = el("details", {
+    className: "card",
+    open: openCards.has(key),
+    ontoggle: () => {
+      if (details.open) openCards.add(key);
+      else openCards.delete(key);
+    },
+  }, el("summary", {}, ...summary), ...children);
+  details.dataset.card = key;
+  return details;
 }
 
-function addNamed(collection, kind, name, value) {
+function addNamed(kind, collection, name, value) {
   if (name in collection) {
-    showMessage(message, `A ${kind} named ${name} already exists.`, true);
+    showMessage(message, `A ${kind.slice(0, -1)} named ${name} already exists.`, true);
     return;
   }
   collection[name] = value;
+  const key = `${kind}/${name}`;
+  openCards.add(key);
+  focusCard = key;
   changed();
 }
 
+function dropProfile(name) {
+  delete state.profiles[name];
+  for (const route of Object.values(state.routes)) route.profiles = route.profiles.filter((entry) => entry !== name);
+}
+
+function removeProvider(name) {
+  const users = Object.keys(state.profiles).filter((profile) => state.profiles[profile].provider === name);
+  const one = users.length === 1;
+  if (users.length > 0 && !confirm(`The profile${one ? "" : "s"} ${joinNames(users)} use${one ? "s" : ""} this provider. Remove ${one ? "it" : "them"} too?`)) return;
+  users.forEach(dropProfile);
+  delete state.providers[name];
+  changed();
+}
+
+function removeProfile(name) {
+  const users = tasks.filter((task) => state.routes[task].profiles.includes(name)).map((task) => TASK_LABELS[task] ?? task);
+  const one = users.length === 1;
+  if (users.length > 0 && !confirm(`${joinNames(users)} use${one ? "s" : ""} this profile. Remove it from ${one ? "that task" : "them"} too?`)) return;
+  dropProfile(name);
+  changed();
+}
+
+function host(url) {
+  try {
+    return new URL(url).host || url;
+  } catch {
+    return url;
+  }
+}
+
 function renderProviders() {
-  const cards = Object.entries(state.providers).map(([name, provider]) => card(name,
-    () => { delete state.providers[name]; changed(); },
-    field("Type", selectInput(providerTypes, provider.type, (value) => { provider.type = value; changed(); })),
-    field("Base URL", textInput(provider, "base_url")),
-    field("API key", textInput(provider, "api_key", {
-      type: "password",
-      autocomplete: "off",
-      placeholder: provider.api_key_hint ? `Stored key ends in ${provider.api_key_hint}. Leave empty to keep it.` : "Leave empty to keep the stored key.",
-    })),
-    provider.type === "player2" ? field("Game key", textInput(provider, "game_key")) : null));
+  const cards = Object.entries(state.providers).map(([name, provider]) => {
+    const path = (key) => ["providers", name, key];
+    return collapsible(`providers/${name}`,
+      [el("strong", { className: "name" }, name), el("span", { className: "detail" }, `${provider.type} · ${host(provider.base_url)}`)],
+      field("Type", selectInput(providerTypes, provider.type, path("type"), (value) => { provider.type = value; changed(); })),
+      field("Base URL", textInput(provider, "base_url", path("base_url"))),
+      field("API key", textInput(provider, "api_key", path("api_key"), {
+        type: "password",
+        autocomplete: "off",
+        placeholder: provider.api_key_hint ? `Stored key ends in ${provider.api_key_hint}. Leave empty to keep it.` : "Leave empty to keep the stored key.",
+      })),
+      provider.type === "player2" ? field("Game key", textInput(provider, "game_key", path("game_key"))) : null,
+      el("div", { className: "card-actions" }, button("Remove", () => removeProvider(name), `Remove ${name}`)));
+  });
   return el("fieldset", {},
     el("legend", {}, "Providers"),
     ...cards,
-    addForm("New provider name", (name) => addNamed(state.providers, "provider", name, { type: "openai", base_url: "https://", api_key: "" })));
+    addForm("New provider name", (name) => addNamed("providers", state.providers, name, { type: "openai", base_url: "https://", api_key: "" })));
 }
 
-async function testProfile(name, result) {
+function testBadge(name) {
+  const result = testResults.get(name);
+  if (!result) return null;
+  if (result.pending) return el("span", { className: "badge" }, "Testing");
+  return el("span", { className: `badge ${result.ok ? "ok" : "fail"}` }, result.ok ? `OK ${result.seconds} s` : "Failed");
+}
+
+async function testProfile(name) {
   if (dirty) {
-    showMessage(result, "Save first. The test uses the saved profile.", true);
+    testResults.set(name, { ok: false, text: "Save first. The test uses the saved profile." });
+    render();
     return;
   }
-  showMessage(result, "Testing...");
+  testResults.set(name, { pending: true, text: "Testing..." });
+  render();
+  const start = performance.now();
   try {
     const reply = await sendJson("POST", "/api/llm/test", { profile: name });
-    showMessage(result, `OK: ${reply.response}`);
+    testResults.set(name, { ok: true, seconds: ((performance.now() - start) / 1000).toFixed(1), text: `OK: ${reply.response}` });
   } catch (error) {
-    showMessage(result, `Failed: ${error.message}`, true);
+    testResults.set(name, { ok: false, text: `Failed: ${error.message}` });
+  }
+  render();
+}
+
+function paramsError(text) {
+  try {
+    const value = JSON.parse(text || "{}");
+    return value && typeof value === "object" && !Array.isArray(value) ? "" : 'Enter a JSON object, for example {"top_p": 0.9}.';
+  } catch (error) {
+    return `This is not valid JSON: ${error.message}`;
   }
 }
+
+const profileDetail = (profile) => `${profile.provider} · ${profile.model || "no model ID"}`;
 
 function renderProfiles() {
   const providerNames = Object.keys(state.providers);
   const cards = Object.entries(state.profiles).map(([name, profile]) => {
     profile.paramsText ??= JSON.stringify(profile.params ?? {});
-    const result = el("span", { className: "message" });
-    return card(name,
-      () => { delete state.profiles[name]; changed(); },
-      field("Provider", selectInput(providerNames, profile.provider, (value) => { profile.provider = value; markDirty(); })),
-      field("Model ID", textInput(profile, "model")),
-      field("Timeout (s)", numberInput(profile, "timeout", 1)),
-      field("Extra request parameters (JSON)", textInput(profile, "paramsText", { className: "mono" })),
-      el("div", { className: "actions" }, button("Test", () => testProfile(name, result)), result));
+    const path = (key) => ["profiles", name, key];
+    const result = testResults.get(name);
+    return collapsible(`profiles/${name}`,
+      [el("strong", { className: "name" }, name), el("span", { className: "detail" }, profileDetail(profile)), testBadge(name)],
+      field("Provider", selectInput(providerNames, profile.provider, path("provider"), (value) => { profile.provider = value; changed(); })),
+      field("Model ID", textInput(profile, "model", path("model"), { required: true })),
+      field("Timeout (s)", numberInput(profile, "timeout", path("timeout"), { step: 1, min: 1 }), "The task deadline can stop a profile before its timeout."),
+      field("Extra request parameters (JSON)", textInput(profile, "paramsText", path("params"), { tag: "textarea", className: "mono", rows: 3 }, paramsError)),
+      el("div", { className: "card-actions" },
+        button("Test", () => testProfile(name), `Test ${name}`),
+        el("span", { className: `message${result && !result.ok && !result.pending ? " error" : ""}` }, result?.text ?? ""),
+        button("Remove", () => removeProfile(name), `Remove ${name}`)));
   });
   return el("fieldset", {},
     el("legend", {}, "Profiles"),
     el("p", { className: "hint" }, "A profile is one model on one provider. Several tasks can use the same profile."),
     ...cards,
-    addForm("New profile name", (name) => addNamed(state.profiles, "profile", name, {
+    addForm("New profile name", (name) => addNamed("profiles", state.profiles, name, {
       provider: providerNames[0] ?? "", model: "", timeout: 120, params: {},
     })));
 }
@@ -153,32 +255,65 @@ function move(list, index, offset) {
   changed();
 }
 
+function addProfileSelect(route, label, profileNames) {
+  const select = el("select", {
+    onchange: (event) => {
+      route.profiles.push(event.target.value);
+      changed();
+    },
+  });
+  const placeholder = new Option(route.profiles.length > 0 ? "Add a fallback…" : "Add a profile…", "", true, true);
+  placeholder.disabled = true;
+  select.append(placeholder, ...profileNames.map((name) => new Option(name, name)));
+  select.setAttribute("aria-label", `Add a profile to ${label}`);
+  return select;
+}
+
+function deadlineWarning(value) {
+  return Number(value) >= GAME_WAIT_S ? `The game stops waiting after ${GAME_WAIT_S} s, so a reply after that comes too late.` : "";
+}
+
 function renderRoutes() {
   const profileNames = Object.keys(state.profiles);
   const cards = tasks.map((task) => {
     const route = state.routes[task];
+    const label = TASK_LABELS[task] ?? task;
+    const path = (...keys) => ["routes", task, ...keys];
     const chain = route.profiles.map((name, index) => el("li", {},
-      selectInput(profileNames, name, (value) => { route.profiles[index] = value; markDirty(); }),
-      button("Up", index > 0 && (() => move(route.profiles, index, -1))),
-      button("Down", index < route.profiles.length - 1 && (() => move(route.profiles, index, 1))),
-      button("Remove", () => { route.profiles.splice(index, 1); changed(); })));
-    return card(TASK_LABELS[task] ?? task, null,
+      selectInput(profileNames, name, path("profiles", index), (value) => { route.profiles[index] = value; changed(); }),
+      el("span", { className: "detail" }, state.profiles[name] ? profileDetail(state.profiles[name]) : ""),
+      testBadge(name),
+      el("span", { className: "chain-buttons" },
+        button("Up", index > 0 && (() => move(route.profiles, index, -1)), `Move ${name} up`),
+        button("Down", index < route.profiles.length - 1 && (() => move(route.profiles, index, 1)), `Move ${name} down`),
+        button("Remove", () => { route.profiles.splice(index, 1); changed(); }, `Remove ${name} from ${label}`))));
+    return el("div", { className: "card" },
+      el("div", { className: "card-head" }, el("strong", {}, label)),
       el("ol", { className: "chain" }, ...chain),
-      button("Add a profile", profileNames.length > 0 && (() => { route.profiles.push(profileNames[0]); changed(); })),
-      field("Max tokens", numberInput(route, "max_tokens", 1)),
-      field("Temperature", numberInput(route, "temperature", 0.05)),
-      field("Deadline (s)", numberInput(route, "deadline", 1)));
+      profileNames.length > 0 ? addProfileSelect(route, label, profileNames) : el("p", { className: "hint" }, "Add a profile below first."),
+      field("Max tokens", numberInput(route, "max_tokens", path("max_tokens"), { step: 1, min: 1 })),
+      field("Temperature", numberInput(route, "temperature", path("temperature"), { step: 0.05, min: 0, max: 2 })),
+      field("Deadline (s)", numberInput(route, "deadline", path("deadline"), { step: 1, min: 1 }, deadlineWarning)));
   });
   return el("fieldset", {},
     el("legend", {}, "Tasks"),
     el("p", { className: "hint" },
       "Each task tries its profiles in order and moves to the next one after an error, a timeout, or an empty reply. " +
-      "List a profile twice to retry it. The game stops waiting after 60 s, so keep the deadline under that."),
+      `List a profile twice to retry it. The game stops waiting after ${GAME_WAIT_S} s, so keep the deadline under that.`),
     ...cards);
 }
 
 function render() {
-  editor.replaceChildren(renderProviders(), renderProfiles(), renderRoutes());
+  const focused = document.activeElement?.dataset?.field;
+  editor.replaceChildren(renderRoutes(), renderProfiles(), renderProviders());
+  for (const input of editor.querySelectorAll("input, textarea")) if (input.value !== "") checkInput(input);
+  if (focused) [...editor.querySelectorAll("[data-field]")].find((element) => element.dataset.field === focused)?.focus();
+  if (focusCard) {
+    const card = [...editor.querySelectorAll("[data-card]")].find((element) => element.dataset.card === focusCard);
+    card?.querySelector("input, select")?.focus();
+    card?.scrollIntoView({ block: "center" });
+    focusCard = null;
+  }
 }
 
 function buildPayload() {

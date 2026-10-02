@@ -16,6 +16,7 @@
   --muted: #777;
   --border: #8884;
   --error: #c33;
+  --ok: #3a8a3a;
   --accent: #b5762a;
 }
 
@@ -118,7 +119,8 @@ button {
 input,
 select,
 textarea,
-.card-head strong {
+.name,
+.detail {
   font-family: system-ui, sans-serif;
 }
 
@@ -177,6 +179,49 @@ label > .field-error {
   align-items: center;
 }
 
+details.card > summary {
+  cursor: pointer;
+}
+
+details.card > summary > * + * {
+  margin-left: 0.6rem;
+}
+
+details.card[open] > summary {
+  margin-bottom: 0.5rem;
+}
+
+.card-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+}
+
+.card-actions .message {
+  flex: 1;
+}
+
+.detail {
+  color: var(--muted);
+  overflow-wrap: anywhere;
+}
+
+.badge {
+  padding: 0 0.4rem;
+  border: 1px solid currentColor;
+  border-radius: 999px;
+  font-size: 0.85em;
+}
+
+.badge.ok {
+  color: var(--ok);
+}
+
+.badge.fail {
+  color: var(--error);
+}
+
 .chain {
   margin: 0.5rem 0;
   padding-left: 1.5rem;
@@ -184,12 +229,14 @@ label > .field-error {
 
 .chain li {
   display: flex;
+  flex-wrap: wrap;
+  align-items: center;
   gap: 0.4rem;
   margin: 0.3rem 0;
 }
 
 .chain select {
-  flex: 1;
+  flex: 1 1 12rem;
 }
 
 .add {
@@ -201,6 +248,11 @@ label > .field-error {
 .hint {
   color: var(--muted);
   margin: 0.25rem 0 0.5rem;
+}
+
+label > .hint {
+  grid-column: -2 / -1;
+  margin: 0;
 }
 
 .mono {

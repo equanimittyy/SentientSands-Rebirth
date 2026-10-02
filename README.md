@@ -41,7 +41,7 @@ Sentient Sands Rebirth connects to an embedded Python server running alongside y
 You configure the mod in the web panel at `http://127.0.0.1:5000/`. It opens in your default browser when Kenshi starts, unless a tab of it is already open. You can also open it with **Open Web Panel** in the in-game SSR HUB (F8). When the panel is already open, this button brings its browser window to the front instead of opening a second tab. If the panel is not the active tab of that window, the game tells you that the panel is open. To stop it from opening on start, clear **Open this web panel on start** on its Settings page.
 
 ### Providers
-On the **LLM** page, a provider is one OpenAI-compatible endpoint: a base URL and an API key. Add a provider by name, then fill in its fields. The page never shows a stored key, only its last four characters. Leave the key field empty to keep the stored key. The `player2` type also needs a game key, the game ID that you register with Player2.
+On the **Models** page, a provider is one OpenAI-compatible endpoint: a base URL and an API key. Add a provider by name, then fill in its fields. The page never shows a stored key, only its last four characters. Leave the key field empty to keep the stored key. The `player2` type also needs a game key, the game ID that you register with Player2.
 
 ### Profiles
 A profile is one model on one provider. It holds the provider, the exact model ID that the provider expects (for example `anthropic/claude-3.5-sonnet`), a timeout, and optional extra request parameters as JSON. After you save, **Test** sends a short request to the profile.
