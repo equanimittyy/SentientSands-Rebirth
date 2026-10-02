@@ -588,7 +588,8 @@ def build_detailed_context_string(npc_name, char_data=None):
     lines.append(f"- MONEY: {money} cats")
 
     player_faction = PLAYER_CONTEXT.get('faction', 'Nameless')
-    if faction == player_faction or ctx.get("factionID") == "Nameless":
+    player_faction_id = PLAYER_CONTEXT.get("factionID")
+    if faction == player_faction or (player_faction_id and ctx.get("factionID") == player_faction_id):
         lines.append(f"CRITICAL CONTEXT: {npc_name} is a member of the PLAYER'S FACTION ({player_faction}).")
         lines.append(f"THE PLAYER IS THE LEADER of this group. {npc_name} understand that they and the player are cooperating, this can take many forms such as direct leadership, partnership, or even just individuals traveling together.")
     elif any(f.lower() in faction.lower() for f in MAJOR_FACTIONS):
