@@ -39,7 +39,6 @@ KENSHI_MOD_DIR = os.path.dirname(KENSHI_SERVER_DIR)
 if SCRIPT_DIR not in sys.path:
     sys.path.insert(0, SCRIPT_DIR)
 
-from save_reader import build_world_index
 from request_guard import is_request_allowed
 from browser_launch import PanelTabs, open_when_ready
 import llm_config
@@ -980,33 +979,6 @@ def build_system_prompt(player_name="Drifter"):
     return prompt.strip()
 
 
-WORLD_INDEX = {}
-def update_world_index():
-    global WORLD_INDEX
-    try:
-        WORLD_INDEX = build_world_index()
-        logging.info(f"WORLD: Indexed {len(WORLD_INDEX)} names from the latest save.")
-    except Exception as e:
-        logging.error(f"WORLD: Cannot index the latest save: {e}")
-
-update_world_index()
-
-def populate_initial_registry():
-    registry_dir = os.path.join(get_campaign_dir(), "sentient_sands_registry")
-    if not os.path.exists(registry_dir):
-        os.makedirs(registry_dir)
-    
-    for name, platoons in WORLD_INDEX.items():
-        clean_name = re.sub(r'[^\w\s-]', '', name).strip().replace(' ', '_')
-        if not clean_name: continue
-        reg_file = os.path.join(registry_dir, f"{clean_name}_init.txt")
-        if not os.path.exists(reg_file):
-             with open(reg_file, "w", encoding="utf-8") as f:
-                 f.write(f"Registry: {name} initialized. Location: {platoons[0]}\n")
-
-populate_initial_registry()
-
-
 def default_llm_config():
     return llm_config.build(llm_config.load(DEFAULT_PROVIDERS_PATH), llm_config.load(DEFAULT_MODELS_PATH), "player2-default")
 
@@ -1442,9 +1414,6 @@ def get_character_data(name, context="", skip_generate=False):
                 if storage_id in PROFILES_IN_PROGRESS:
                     PROFILES_IN_PROGRESS.remove(storage_id)
     
-    if name in WORLD_INDEX:
-        data["SourcePlatoons"] = WORLD_INDEX[name]
-
     if should_save_profile(name, storage_id, data):
         # Only the changed keys, so the write cannot undo a change that another request made since the read
         changes = {k: v for k, v in data.items() if stored.get(k) != v}
@@ -2851,7 +2820,6 @@ def switch_campaign(name):
         save_settings({"current_campaign": name})
         LIVE_CONTEXTS.clear()
         load_campaign_config()
-        update_world_index()
         return True
     return False
 

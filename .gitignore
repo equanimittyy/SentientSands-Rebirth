@@ -15,7 +15,6 @@ deps/
 *.log
 *.log.[0-9]
 server/campaigns/
-sentient_sands_registry/
 server/user/
 mod/SentientSands_Config.ini
 
