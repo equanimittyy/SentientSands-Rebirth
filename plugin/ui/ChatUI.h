@@ -5,7 +5,6 @@
 #include "EventsWindow.h"
 #include "LauncherWindow.h"
 #include "LibraryWindow.h"
-#include "SettingsWindow.h"
 #include "WelcomeWindow.h"
 
 

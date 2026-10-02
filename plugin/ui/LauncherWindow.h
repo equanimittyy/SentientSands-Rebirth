@@ -8,10 +8,10 @@ extern MyGUI::Window *g_launcherWindow;
 
 void CreateLauncherUI();
 void CloseLauncherUI();
+void RefreshLauncherUI();
 
 void OnLauncherLibraryClick(MyGUI::Widget *sender);
 void OnLauncherEventsClick(MyGUI::Widget *sender);
-void OnLauncherSettingsClick(MyGUI::Widget *sender);
 void OnLauncherWindowButtonPressed(MyGUI::Window *sender,
                                    const std::string &name);
 

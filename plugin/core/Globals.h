@@ -54,7 +54,6 @@ extern hand g_lastChattingPlayerHand;
 extern CRITICAL_SECTION g_stateMutex;
 extern int g_chatHotkey;
 extern std::string g_chatHotkeyStr;
-extern std::string g_language;
 extern std::map<std::string, std::string> g_uiTranslation;
 std::string T(const std::string &key);
 

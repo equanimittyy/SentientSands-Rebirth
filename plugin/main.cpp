@@ -32,7 +32,6 @@
 #include "ui/CampaignsWindow.h"
 #include "game/GameActions.h"
 #include "core/Globals.h"
-#include "ui/ProfileEditorWindow.h"
 #include "core/Utils.h"
 
 #include <kenshi/CharStats.h>
@@ -237,8 +236,10 @@ void ProcessMessageQueue(GameWorld *thisptr) {
 
           if (command == "TRIGGER_AMBIENT") {
             g_triggerAmbient = true;
-          } else if (command == "POPULATE_WELCOME") {
-            PopulateSettingsUI(data);
+          } else if (command == "APPLY_TRANSLATION") {
+            LoadUITranslation(data);
+            RefreshLauncherUI();
+            RefreshWelcomeUI();
           } else if (command == "POPULATE_LIBRARY") {
             PopulateLibraryUI(data);
           } else if (command == "SET_LIBRARY_TEXT") {
@@ -290,14 +291,10 @@ void ProcessMessageQueue(GameWorld *thisptr) {
           } else if (command == "ENABLE_REGEN_BTN") {
             if (g_libraryRegenBtn)
               g_libraryRegenBtn->setEnabled(true);
-          } else if (command == "POPULATE_SETTINGS") {
-            PopulateSettingsUI(data);
           } else if (command == "POPULATE_CAMPAIGNS") {
             PopulateCampaignsUI(data);
           } else if (command == "POPULATE_EVENTS") {
             PopulateEventsUI(data);
-          } else if (command == "POPULATE_PROFILE") {
-            PopulateProfileEditorUI(data);
           } else if (command == "POPULATE_GENERIC") {
             // Format: "prefix1,prefix2|keyword1,keyword2"
             size_t pipe = data.find("|");

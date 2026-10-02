@@ -38,7 +38,6 @@ CRITICAL_SECTION g_uiMutex;
 
 int g_chatHotkey = VK_OEM_5; // '\' by default
 std::string g_chatHotkeyStr = "\\";
-std::string g_language = "English";
 std::map<std::string, std::string> g_uiTranslation;
 
 std::string T(const std::string &key) {

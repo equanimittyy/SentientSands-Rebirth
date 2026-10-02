@@ -13,5 +13,6 @@ std::wstring Utf8ToWide(const std::string &str);
 std::string GetJsonValue(const std::string &json, const std::string &key);
 void LoadPluginConfig();
 void SetHotkeyFromString(const std::string &keyStr);
+void LoadUITranslation(const std::string &json);
 void StartPythonServer(bool openBrowser);
 void SleepIfPaused(DWORD ms);

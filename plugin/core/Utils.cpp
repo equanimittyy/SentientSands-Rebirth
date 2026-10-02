@@ -198,6 +198,39 @@ void SetHotkeyFromString(const std::string &keyStr) {
   }
 }
 
+void LoadUITranslation(const std::string &json) {
+  std::string uiTransJson = GetJsonValue(json, "ui_translation");
+  if (uiTransJson.empty())
+    return;
+
+  g_uiTranslation.clear();
+  size_t pos = 1;
+  while (pos < uiTransJson.length() - 1) {
+    size_t q1 = uiTransJson.find('"', pos);
+    if (q1 == std::string::npos)
+      break;
+    size_t q2 = uiTransJson.find('"', q1 + 1);
+    if (q2 == std::string::npos)
+      break;
+    std::string key = uiTransJson.substr(q1 + 1, q2 - q1 - 1);
+
+    size_t colon = uiTransJson.find(':', q2);
+    if (colon == std::string::npos)
+      break;
+
+    size_t v1 = uiTransJson.find('"', colon);
+    if (v1 == std::string::npos)
+      break;
+    size_t v2 = uiTransJson.find('"', v1 + 1);
+    if (v2 == std::string::npos)
+      break;
+    std::string val = uiTransJson.substr(v1 + 1, v2 - v1 - 1);
+
+    g_uiTranslation[UnescapeJSON(key)] = UnescapeJSON(val);
+    pos = v2 + 1;
+  }
+}
+
 void LoadPluginConfig() {
   std::string iniPath = g_modRoot + "\\SentientSands_Config.ini";
 
@@ -205,11 +238,6 @@ void LoadPluginConfig() {
   GetPrivateProfileStringA("Settings", "ChatHotkey", "\\", hotkeyBuf, 32,
                            iniPath.c_str());
   SetHotkeyFromString(hotkeyBuf);
-
-  char langBuf[64];
-  GetPrivateProfileStringA("Settings", "Language", "English", langBuf, 64,
-                           iniPath.c_str());
-  g_language = langBuf;
 
   g_radiantRange = (float)GetPrivateProfileIntA("Settings", "RadiantRange", 100,
                                                 iniPath.c_str());

@@ -49,7 +49,7 @@ DWORD WINAPI WelcomeResponseThread(LPVOID lpParam) {
     return 0;
   }
 
-  std::string pipeMsg = "CMD: POPULATE_WELCOME: " + response;
+  std::string pipeMsg = "CMD: APPLY_TRANSLATION: " + response;
   EnterCriticalSection(&g_msgMutex);
   g_messageQueue.push_back(pipeMsg);
   LeaveCriticalSection(&g_msgMutex);

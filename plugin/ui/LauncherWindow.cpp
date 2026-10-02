@@ -3,8 +3,6 @@
 #include "EventsWindow.h"
 #include "../core/Globals.h"
 #include "LibraryWindow.h"
-#include "ProfileEditorWindow.h"
-#include "SettingsWindow.h"
 #include "../core/Utils.h"
 #include "WelcomeWindow.h"
 #include <shellapi.h>
@@ -29,14 +27,13 @@ void CloseLauncherUI() {
 
 void OnLauncherLibraryClick(MyGUI::Widget *sender) { CreateLibraryUI(); }
 void OnLauncherEventsClick(MyGUI::Widget *sender) { CreateEventsUI(); }
-void OnLauncherSettingsClick(MyGUI::Widget *sender) { CreateSettingsUI(); }
 void OnLauncherCampaignsClick(MyGUI::Widget *sender) { CreateCampaignsUI(); }
 void OnLauncherWelcomeClick(MyGUI::Widget *sender) { CreateWelcomeUI(); }
-void OnLauncherProfileClick(MyGUI::Widget *sender) { CreateProfileEditorUI(); }
 void OnLauncherWebPanelClick(MyGUI::Widget *sender) {
   ShellExecuteA(NULL, "open", "http://127.0.0.1:5000/", NULL, NULL,
                 SW_SHOWNORMAL);
 }
+void OnLauncherRestartClick(MyGUI::Widget *sender) { StartPythonServer(false); }
 
 void OnLauncherWindowButtonPressed(MyGUI::Window *sender,
                                    const std::string &name) {
@@ -59,9 +56,9 @@ void CreateLauncherUI() {
       MyGUI::newDelegate(OnLauncherWindowButtonPressed);
 
   MyGUI::Widget *client = g_launcherWindow->getClientWidget();
-  float yDelta = 0.14f;
+  float yDelta = 0.16f;
   float yPos = 0.02f;
-  float bH = 0.12f;
+  float bH = 0.14f;
 
   MyGUI::Button *libBtn = client->createWidgetReal<MyGUI::Button>(
       "Kenshi_Button1", 0.05f, yPos, 0.9f, bH,
@@ -79,14 +76,6 @@ void CreateLauncherUI() {
   evtBtn->eventMouseButtonClick += MyGUI::newDelegate(OnLauncherEventsClick);
   yPos += yDelta;
 
-  MyGUI::Button *setBtn = client->createWidgetReal<MyGUI::Button>(
-      "Kenshi_Button1", 0.05f, yPos, 0.9f, bH,
-      MyGUI::Align::Top | MyGUI::Align::HStretch,
-      "SentientSands_LauncherSetBtn");
-  setBtn->setCaption(Utf8ToWide(T("AI Settings")).c_str());
-  setBtn->eventMouseButtonClick += MyGUI::newDelegate(OnLauncherSettingsClick);
-  yPos += yDelta;
-
   MyGUI::Button *campBtn = client->createWidgetReal<MyGUI::Button>(
       "Kenshi_Button1", 0.05f, yPos, 0.9f, bH,
       MyGUI::Align::Top | MyGUI::Align::HStretch,
@@ -96,20 +85,21 @@ void CreateLauncherUI() {
       MyGUI::newDelegate(OnLauncherCampaignsClick);
   yPos += yDelta;
 
-  MyGUI::Button *profBtn = client->createWidgetReal<MyGUI::Button>(
-      "Kenshi_Button1", 0.05f, yPos, 0.9f, bH,
-      MyGUI::Align::Top | MyGUI::Align::HStretch,
-      "SentientSands_LauncherProfBtn");
-  profBtn->setCaption(Utf8ToWide(T("Profile Editor")).c_str());
-  profBtn->eventMouseButtonClick += MyGUI::newDelegate(OnLauncherProfileClick);
-  yPos += yDelta;
-
   MyGUI::Button *webBtn = client->createWidgetReal<MyGUI::Button>(
       "Kenshi_Button1", 0.05f, yPos, 0.9f, bH,
       MyGUI::Align::Top | MyGUI::Align::HStretch,
       "SentientSands_LauncherWebBtn");
   webBtn->setCaption(Utf8ToWide(T("Open Web Panel")).c_str());
   webBtn->eventMouseButtonClick += MyGUI::newDelegate(OnLauncherWebPanelClick);
+  yPos += yDelta;
+
+  MyGUI::Button *restartBtn = client->createWidgetReal<MyGUI::Button>(
+      "Kenshi_Button1", 0.05f, yPos, 0.9f, bH,
+      MyGUI::Align::Top | MyGUI::Align::HStretch,
+      "SentientSands_LauncherRestartBtn");
+  restartBtn->setCaption(Utf8ToWide(T("Restart Server")).c_str());
+  restartBtn->eventMouseButtonClick +=
+      MyGUI::newDelegate(OnLauncherRestartClick);
   yPos += yDelta;
 
   MyGUI::Button *welBtn = client->createWidgetReal<MyGUI::Button>(
@@ -134,10 +124,9 @@ void RefreshLauncherUI() {
   };
   RefreshMap items[] = {{"SentientSands_LauncherLibBtn", "Dialogue Library"},
                         {"SentientSands_LauncherEvtBtn", "World Event Log"},
-                        {"SentientSands_LauncherSetBtn", "AI Settings"},
                         {"SentientSands_LauncherCampBtn", "Campaign Manager"},
-                        {"SentientSands_LauncherProfBtn", "Profile Editor"},
                         {"SentientSands_LauncherWebBtn", "Open Web Panel"},
+                        {"SentientSands_LauncherRestartBtn", "Restart Server"},
                         {"SentientSands_LauncherWelBtn", "Welcome Popup"}};
 
   for (int i = 0; i < sizeof(items) / sizeof(items[0]); ++i) {

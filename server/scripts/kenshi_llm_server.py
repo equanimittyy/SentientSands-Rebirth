@@ -2036,22 +2036,6 @@ INSTRUCTIONS:
 def web_app():
     return app.send_static_file("index.html")
 
-@app.route('/test_llm', methods=['POST'])
-def test_llm():
-    try:
-        messages = [{"role": "user", "content": "Keep your response extremely short. Reply with the word: Success"}]
-        response = call_llm("chat", messages)
-        if response:
-            logging.info(f"TEST_LLM: Success! Response: {response}")
-            # Hand-built: the plugin string-matches "llm":"ok" rather than parsing the JSON
-            return '{"status":"ok","llm":"ok","response":"' + response.replace('"', "'") + '"}'
-        else:
-            logging.error("TEST_LLM: call_llm returned None.")
-            return '{"status":"ok","llm":"error","message":"Global LLM call failed."}'
-    except Exception as e:
-        logging.error(f"TEST_LLM: Exception during test: {e}")
-        return jsonify({"status": "error", "message": str(e)})
-
 @app.route('/chat', methods=['POST'])
 def chat():
     data = request.json
@@ -3160,7 +3144,7 @@ def settings_endpoint():
     lang = data.get("language")
     if lang is not None:
         changes["language"] = lang
-        send_to_pipe("POPULATE_WELCOME: " + json.dumps({"ui_translation": LOCALIZATION_CONFIG.get(lang, {})}))
+        send_to_pipe("APPLY_TRANSLATION: " + json.dumps({"ui_translation": LOCALIZATION_CONFIG.get(lang, {})}))
         logging.info(f"Language set to: {lang}")
 
     hotkey = data.get("chat_hotkey")

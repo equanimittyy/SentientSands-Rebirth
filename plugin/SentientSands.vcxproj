@@ -65,8 +65,6 @@
     <ClCompile Include="ui\EventsWindow.cpp" />
     <ClCompile Include="ui\LauncherWindow.cpp" />
     <ClCompile Include="ui\LibraryWindow.cpp" />
-    <ClCompile Include="ui\ProfileEditorWindow.cpp" />
-    <ClCompile Include="ui\SettingsWindow.cpp" />
     <ClCompile Include="ui\WelcomeWindow.cpp" />
   </ItemGroup>
   <ItemGroup>
@@ -82,8 +80,6 @@
     <ClInclude Include="ui\EventsWindow.h" />
     <ClInclude Include="ui\LauncherWindow.h" />
     <ClInclude Include="ui\LibraryWindow.h" />
-    <ClInclude Include="ui\ProfileEditorWindow.h" />
-    <ClInclude Include="ui\SettingsWindow.h" />
     <ClInclude Include="ui\WelcomeWindow.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

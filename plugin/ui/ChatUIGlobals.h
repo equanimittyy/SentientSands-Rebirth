@@ -39,7 +39,6 @@ struct EventTask {
   std::string json;
 };
 
-extern std::string g_allModelsJson;
 extern bool g_welcomeShown;
 extern bool g_enableWelcome;
 extern MyGUI::Button *g_welcomeCheckbox;
