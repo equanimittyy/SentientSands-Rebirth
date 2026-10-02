@@ -71,6 +71,26 @@ class NpcTest(CampaignTestCase):
             t.join()
         self.assertEqual(sorted(campaign_db.get_npc("Beep")["ConversationHistory"]), [f"line {i}" for i in range(8)])
 
+    def test_concurrent_relation_changes_keep_every_change(self):
+        campaign_db.upsert_profile("Beep", BEEP)
+        threads = [threading.Thread(target=campaign_db.change_relation, args=("Beep", 1)) for _ in range(20)]
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join()
+        self.assertEqual(campaign_db.get_npc("Beep")["Relation"], 25)
+
+    def test_relation_change_clamps_and_skips_a_missing_npc(self):
+        campaign_db.upsert_profile("Beep", BEEP)
+        self.assertEqual(campaign_db.change_relation("Beep", 200), 100)
+        self.assertEqual(campaign_db.change_relation("Beep", -300), -100)
+        self.assertIsNone(campaign_db.change_relation("Nobody", 1))
+
+    def test_underscore_keys_are_not_stored(self):
+        campaign_db.append_dialogue("Beep", ["a"], {"Name": "Beep", "_transient": True})
+        campaign_db.upsert_profile("Beep", {"Relation": 1, "_transient": True})
+        self.assertEqual(campaign_db.get_npc("Beep"), {"Name": "Beep", "Relation": 1, "ConversationHistory": ["a"]})
+
     def test_append_stores_the_profile_only_when_missing(self):
         campaign_db.append_dialogue("Beep", ["a"], {"Name": "Beep"})
         campaign_db.append_dialogue("Beep", ["b"], {"Name": "Other"})

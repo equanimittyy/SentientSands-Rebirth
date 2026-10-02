@@ -91,8 +91,19 @@ def upsert_profile(storage_id, fields):
             return
         profile = json.loads(row[1])
         profile.update(fields)
-        profile.pop("ConversationHistory", None)
+        conn.execute("UPDATE npc SET profile = ?, updated_at = ? WHERE id = ?", (json.dumps(_stored(profile)), _now(), row[0]))
+
+
+def change_relation(storage_id, delta):
+    """Returns the new Relation, clamped to -100..100, or None if the NPC is not stored."""
+    with _connect(write=True) as conn:
+        row = conn.execute("SELECT id, profile FROM npc WHERE storage_id = ?", (_key(storage_id),)).fetchone()
+        if not row:
+            return None
+        profile = json.loads(row[1])
+        profile["Relation"] = max(-100, min(100, int(profile.get("Relation", 0)) + delta))
         conn.execute("UPDATE npc SET profile = ?, updated_at = ? WHERE id = ?", (json.dumps(profile), _now(), row[0]))
+        return profile["Relation"]
 
 
 def append_dialogue(storage_id, lines, profile):
@@ -213,8 +224,12 @@ def _create(folder):
 
 
 def _insert_npc(conn, storage_id, profile):
-    profile = {k: v for k, v in profile.items() if k != "ConversationHistory"}
-    return conn.execute("INSERT INTO npc (storage_id, profile, updated_at) VALUES (?, ?, ?)", (_key(storage_id), json.dumps(profile), _now())).lastrowid
+    return conn.execute("INSERT INTO npc (storage_id, profile, updated_at) VALUES (?, ?, ?)", (_key(storage_id), json.dumps(_stored(profile)), _now())).lastrowid
+
+
+def _stored(profile):
+    # A stored "_transient" would block /rename and make /ambient regenerate the profile on every call
+    return {k: v for k, v in profile.items() if k != "ConversationHistory" and not k.startswith("_")}
 
 
 def _key(storage_id):

@@ -1981,9 +1981,6 @@ def chat():
     else:
         npcs = [primary_npc]
 
-    if not primary_id and live_ctx:
-        primary_id = live_ctx.get("id")
-
     # One batch LLM call for every listener missing a profile, instead of one call each
     missing_for_batch = []
     checked_ids = set()
@@ -2292,7 +2289,7 @@ def chat():
                 
                 actions.append(final_tag)
 
-        changed_relations = set()
+        relation_deltas = {}
         if not is_ambient:
             judges = speaker_judgments if speaker_judgments else {primary_npc: global_judgment}
             
@@ -2303,15 +2300,8 @@ def chat():
                 if not j_data: 
                     continue
 
-                current_rel = j_data.get("Relation", 0)
-                try: current_rel = int(current_rel)
-                except: current_rel = 0
-                
-                new_rel = max(-100, min(100, current_rel + j_val))
-                if new_rel != current_rel:
-                    j_data["Relation"] = new_rel
-                    changed_relations.add(judge_name)
-                    logging.info(f"RELATION: {judge_name} personal relation updated {current_rel} -> {new_rel} (judgment={j_val})")
+                # Applied as a delta at save time: the profile read before the LLM call can be stale by then
+                relation_deltas[judge_name] = j_val
 
                 f_delta = 0
                 if j_val >= 5: f_delta = 2
@@ -2465,13 +2455,11 @@ def chat():
                 record_event_to_history("CHAT", primary_npc, player_name, content, actor_faction=primary_faction, target_faction=player_faction)
 
             storage_id = char_datas[name].get("ID", name)
-            has_history = len(char_datas[name].get("ConversationHistory", [])) > 0
-            if char_datas[name].get("_transient") and not has_history:
-                logging.warning(f"SKIP SAVE: {name} is using a transient fallback profile with no history. Blocking disk override.")
-            elif should_save_profile(name, storage_id, char_datas[name]):
+            if should_save_profile(name, storage_id, char_datas[name]):
                 campaign_db.append_dialogue(storage_id, char_datas[name]["ConversationHistory"][stored_lines:], char_datas[name])
-                if name in changed_relations:
-                    campaign_db.upsert_profile(storage_id, {"Relation": char_datas[name]["Relation"]})
+                if name in relation_deltas:
+                    new_rel = campaign_db.change_relation(storage_id, relation_deltas[name])
+                    logging.info(f"RELATION: {name} personal relation is now {new_rel} (judgment={relation_deltas[name]})")
 
         logging.info(f"AI RESPONSE: {content} | ACTIONS: {actions}")
         return jsonify({"text": content, "actions": actions})

@@ -106,6 +106,8 @@ On a start without `llm_config.json`, the server builds it from `default_provide
 `server/scripts/campaign_db.py` keeps the NPC profiles, the dialogue, the event history, and the rumors of a campaign in one SQLite file, `campaign.db`, in the campaign folder. The plugin reaches this data only through the server's routes, which keep their request and response shapes. The player profile and the prompt overrides stay text files in the campaign folder, because `load_prompt_component` reads any prompt file from there before `server/prompts/`.
 
 - Each write runs in one `BEGIN IMMEDIATE` transaction. A profile write merges only the keys that the caller passes, and the dialogue lines are rows of their own. A route that waits for the LLM must write only the keys that it changed, so that it cannot undo a change that another request made during the wait.
+- `/chat` changes the Relation through `change_relation`, which adds the judgment to the stored value in one transaction. Two overlapping chats with the same NPC therefore keep both changes.
+- A profile key that starts with `_` is not stored. Such a key describes only the copy of one request, for example `_transient` on a stand-in profile.
 - Each operation opens a connection with a 5 s busy timeout and closes it. A campaign switch changes only the database path that `open_campaign` sets.
 - The database uses the default rollback journal, not WAL. The campaign folder therefore has no `-wal` or `-shm` file, and a player can copy it while the server is idle.
 - A storage ID is the NPC name with only its letters, digits, spaces, `_`, and `-`, and it ignores case.
