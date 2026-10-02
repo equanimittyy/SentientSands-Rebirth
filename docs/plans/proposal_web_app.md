@@ -4,9 +4,9 @@ Status: Draft for review
 
 ## 1. Summary
 
-The web app ([architecture.md](../info/architecture.md#web-app)) holds the gameplay settings, the LLM routing, the prompts, and the player profile. This proposal adds domain editors for the campaign database ([architecture.md](../info/architecture.md#campaign-storage)) and the world templates from [proposal_data_layers.md](proposal_data_layers.md).
+The web app ([architecture.md](../info/architecture.md#web-app)) holds the gameplay settings, the LLM routing, and the prompts. This proposal adds domain editors for the campaign database ([architecture.md](../info/architecture.md#campaign-storage)) and the world templates from [proposal_data_layers.md](proposal_data_layers.md).
 
-The World events page needs only the campaign database, which exists. The Factions page depends on phase 1 of the data layers proposal, the Characters page on phase 2, the Templates page on phase 3, and the Entities page on phase 5. The Player profile page goes away: the Factions page edits the player's faction ([data layers proposal, section 6.2](proposal_data_layers.md#62-factions)), and the Characters page edits the bio of each player character ([section 6.1](proposal_data_layers.md#61-player-characters)).
+The World events page needs only the campaign database, which exists. The Factions page depends on phase 1 of the data layers proposal, the Characters page on phase 2, the Templates page on phase 3, and the Entities page on phase 5. The Factions page edits the player's faction ([data layers proposal, section 6.2](proposal_data_layers.md#62-factions)), and the Characters page edits the bio of each player character ([section 6.1](proposal_data_layers.md#61-player-characters)).
 
 ## 2. Scope
 

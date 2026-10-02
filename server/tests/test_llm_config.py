@@ -24,11 +24,13 @@ def built():
 
 
 class BuildTest(unittest.TestCase):
-    def test_routes_every_task_to_the_first_profile(self):
+    def test_routes_every_task_to_the_default_profile(self):
         config = built()
+        self.assertEqual(config["default_profile"], "kimi")
         self.assertEqual(set(config["routes"]), set(llm_config.TASKS))
         for route in config["routes"].values():
-            self.assertEqual(route["profiles"], ["kimi"])
+            self.assertEqual(route["profiles"], [llm_config.DEFAULT_SLOT])
+            self.assertEqual(llm_config.route_profiles(config, route), ["kimi"])
             self.assertEqual(route["deadline"], llm_config.DEFAULT_DEADLINE)
         self.assertEqual(config["routes"]["profile"]["max_tokens"], 1500)
 
@@ -44,7 +46,7 @@ class BuildTest(unittest.TestCase):
 
     def test_falls_back_to_the_first_model_for_an_unknown_first_profile(self):
         config = llm_config.build(PROVIDERS, MODELS, "gone")
-        self.assertEqual(config["routes"]["chat"]["profiles"], ["kimi"])
+        self.assertEqual(config["default_profile"], "kimi")
 
     def test_built_config_is_valid(self):
         self.assertEqual(llm_config.validate(built()), [])
@@ -60,10 +62,23 @@ class ValidateTest(unittest.TestCase):
 
     def test_rejects_route_with_missing_profile(self):
         config = built()
-        config["routes"]["chat"]["profiles"] = ["kimi", "gone"]
+        config["routes"]["chat"]["profiles"] = [llm_config.DEFAULT_SLOT, "gone"]
         errors = llm_config.validate(config)
         self.assertTrue(any("gone" in error["message"] for error in errors))
         self.assertEqual([error["field"] for error in errors], [["routes", "chat", "profiles", 1]])
+
+    def test_route_needs_the_default_slot_once(self):
+        config = built()
+        config["routes"]["chat"]["profiles"] = ["kimi"]
+        config["routes"]["ambient"]["profiles"] = [llm_config.DEFAULT_SLOT, llm_config.DEFAULT_SLOT]
+        fields = [error["field"] for error in llm_config.validate(config)]
+        self.assertEqual(fields, [["routes", "chat", "profiles"], ["routes", "ambient", "profiles"]])
+
+    def test_rejects_missing_or_malformed_default_profile(self):
+        for default in ("gone", None, ["kimi"]):
+            config = built()
+            config["default_profile"] = default
+            self.assertEqual([error["field"] for error in llm_config.validate(config)], [["default_profile"]])
 
     def test_rejects_missing_task_and_bad_numbers(self):
         config = built()
@@ -96,8 +111,7 @@ class KeyHandlingTest(unittest.TestCase):
     def test_masked_config_holds_no_api_key(self):
         config = built()
         result = llm_config.masked(config)
-        self.assertNotIn("sk-or-secret-1234", repr(result))
-        self.assertEqual(result["providers"]["openrouter"]["api_key_hint"], "1234")
+        self.assertNotIn("1234", repr(result))
         self.assertTrue(result["providers"]["openrouter"]["api_key_set"])
         self.assertEqual(config["providers"]["openrouter"]["api_key"], "sk-or-secret-1234")
 
@@ -106,14 +120,12 @@ class KeyHandlingTest(unittest.TestCase):
         config["providers"]["openrouter"]["api_key"] = "YOUR_OPENROUTER_KEY"
         provider = llm_config.masked(config)["providers"]["openrouter"]
         self.assertFalse(provider["api_key_set"])
-        self.assertEqual(provider["api_key_hint"], "")
 
     def test_empty_key_field_keeps_stored_key(self):
         old = built()
         new = llm_config.masked(old)
         result = llm_config.with_stored_keys(new, old)
         self.assertEqual(result["providers"]["openrouter"]["api_key"], "sk-or-secret-1234")
-        self.assertNotIn("api_key_hint", result["providers"]["openrouter"])
 
     def test_new_key_replaces_stored_key(self):
         old = built()
@@ -207,6 +219,11 @@ class Player2InUseTest(unittest.TestCase):
         config = built()
         self.assertEqual(llm_config.player2_providers_in_use(config), [])
         config["routes"]["ambient"]["profiles"].append("player2-default")
+        self.assertEqual(llm_config.player2_providers_in_use(config), ["player2"])
+
+    def test_default_slot_counts_as_its_profile(self):
+        config = built()
+        config["default_profile"] = "player2-default"
         self.assertEqual(llm_config.player2_providers_in_use(config), ["player2"])
 
 

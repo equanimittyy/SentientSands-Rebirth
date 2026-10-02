@@ -7,6 +7,13 @@ const TASK_LABELS = {
   profile_batch: "NPC profiles in a batch",
   synthesis: "World events",
 };
+const TASK_HINTS = {
+  chat: "The reply of an NPC when you talk to it.",
+  ambient: "A conversation between NPCs near you, on the radiant timer.",
+  profile: "The personality and backstory of one NPC, written the first time SSR needs them.",
+  profile_batch: "The profiles of several new NPCs in one call, before they speak.",
+  synthesis: "A new world event or rumor from the recent events, on the event timer.",
+};
 const TYPE_LABELS = { openai: "OpenAI-compatible", player2: "Player2" };
 const GAME_WAIT_S = 60;
 
@@ -24,10 +31,12 @@ let listCount = 0;
 const fieldErrors = new Map();
 const checks = new WeakMap();
 let focusCard = null;
+let showTasks = false;
 
-function field(label, input, hint) {
-  const note = typeof hint === "string" ? el("span", { className: "hint" }, hint) : hint;
-  return el("label", {}, label, note ?? null, input);
+const withHelp = (label, help) => el("span", { className: "label-text" }, label, el("span", { className: "help", tabIndex: 0 }, "?", el("span", { className: "tip" }, help)));
+
+function field(label, input, status, help) {
+  return el("label", {}, help ? withHelp(label, help) : label, status ?? null, input);
 }
 const cardKey = (kind, name) => `${kind}s/${name}`;
 
@@ -87,7 +96,7 @@ function numberInput(object, key, path, props, check) {
   }, check);
 }
 
-function selectInput(values, current, path, onChange, labels = {}) {
+function selectInput(values, current, path, onChange, labels = {}, groups = null) {
   const missing = !values.includes(current);
   const select = control("select", path, {
     onchange: (event) => {
@@ -96,7 +105,7 @@ function selectInput(values, current, path, onChange, labels = {}) {
     },
   }, () => (missing ? `${current} does not exist.` : ""));
   if (missing) select.append(new Option(`${current} (missing)`, current, false, true));
-  select.append(...values.map((value) => new Option(labels[value] ?? value, value, false, value === current)));
+  select.append(...(groups ?? values.map((value) => new Option(labels[value] ?? value, value, false, value === current))));
   return select;
 }
 
@@ -176,6 +185,7 @@ function renameProfile(name) {
   const to = askNewName("profile", state.profiles, name);
   if (!to) return;
   state.profiles = renameKey(state.profiles, name, to);
+  if (state.default_profile === name) state.default_profile = to;
   for (const route of Object.values(state.routes)) route.profiles = route.profiles.map((entry) => (entry === name ? to : entry));
   if (testResults.has(name)) testResults.set(to, testResults.get(name));
   testResults.delete(name);
@@ -189,6 +199,10 @@ function dropProfile(name) {
 }
 
 function removeProvider(name) {
+  if (state.profiles[state.default_profile]?.provider === name) {
+    showMessage(message, `The default profile ${state.default_profile} uses this provider. Choose another default first.`, true);
+    return;
+  }
   const users = Object.keys(state.profiles).filter((profile) => state.profiles[profile].provider === name);
   const one = users.length === 1;
   if (users.length > 0 && !confirm(`The profile${one ? "" : "s"} ${joinNames(users)} use${one ? "s" : ""} this provider. Remove ${one ? "it" : "them"} too?`)) return;
@@ -198,6 +212,10 @@ function removeProvider(name) {
 }
 
 function removeProfile(name) {
+  if (name === state.default_profile) {
+    showMessage(message, `${name} is the default profile. Choose another default first.`, true);
+    return;
+  }
   const users = tasks.filter((task) => state.routes[task].profiles.includes(name)).map((task) => TASK_LABELS[task] ?? task);
   const one = users.length === 1;
   if (users.length > 0 && !confirm(`${joinNames(users)} use${one ? "s" : ""} this profile. Remove it from ${one ? "that task" : "them"} too?`)) return;
@@ -215,7 +233,7 @@ function host(url) {
 
 function keyBadge(provider) {
   if (!provider.api_key_set) return el("span", { className: "badge" }, "No key");
-  return el("span", { className: "badge ok" }, "Key set", provider.api_key_hint ? el("span", { className: "name" }, ` …${provider.api_key_hint}`) : null);
+  return el("span", { className: "badge ok" }, "Key set");
 }
 
 function keyInput(provider, path) {
@@ -250,24 +268,33 @@ function addProvider(name, form) {
 }
 
 function renderProviders() {
-  const cards = Object.entries(state.providers).map(([name, provider]) => {
+  const cards = Object.entries(state.providers).sort(([a], [b]) => a.localeCompare(b)).map(([name, provider]) => {
     const path = (key) => ["providers", name, key];
+    const profiles = Object.entries(state.profiles).filter(([, profile]) => profile.provider === name);
     return collapsible(cardKey("provider", name),
       [
         el("strong", { className: "name" }, name),
         el("span", { className: "detail" }, `${TYPE_LABELS[provider.type] ?? provider.type} · ${host(provider.base_url)}`),
         keyBadge(provider),
       ],
-      field("Type", selectInput(providerTypes, provider.type, path("type"), (value) => { provider.type = value; changed(); }, TYPE_LABELS)),
-      field("Base URL", textInput(provider, "base_url", path("base_url"), { required: true, placeholder: "https://example.com/v1" })),
-      field("API key", keyInput(provider, path("api_key"))),
-      provider.type === "player2" ? field("Game key", textInput(provider, "game_key", path("game_key"))) : null,
+      field("Type", selectInput(providerTypes, provider.type, path("type"), (value) => { provider.type = value; changed(); }, TYPE_LABELS), null, "The kind of API that the service uses. Most services use OpenAI-compatible."),
+      field("Base URL", textInput(provider, "base_url", path("base_url"), { required: true, placeholder: "https://example.com/v1" }), null, "The API address from the docs of the service, for example https://example.com/v1."),
+      field("API key", keyInput(provider, path("api_key")), null, "The page never shows a stored key. Leave this field empty to keep the stored key. A local server, for example Ollama, needs no key."),
+      provider.type === "player2" ? field("Game key", textInput(provider, "game_key", path("game_key")), null, "The game ID that you register with Player2.") : null,
       el("div", { className: "card-actions" },
         button("Rename", () => renameProvider(name), `Rename ${name}`),
-        button("Remove", () => removeProvider(name), `Remove ${name}`)));
+        button("Remove", () => removeProvider(name), `Remove ${name}`)),
+      el("fieldset", {},
+        el("legend", {}, "Profiles (Models)"),
+        el("p", { className: "hint" }, "A profile is one model from this provider, with its own timeout and settings. Several tasks can use the same profile."),
+        ...profiles.map(([profileName, profile]) => renderProfile(profileName, profile)),
+        addForm("New profile name", (profileName) => addNamed("profile", state.profiles, profileName, {
+          provider: name, model: "", timeout: 120, params: {},
+        }))));
   });
   return el("fieldset", {},
     el("legend", {}, "Providers"),
+    el("p", { className: "hint" }, "A provider is one AI service, for example OpenRouter or a local Ollama. It holds the address that the server sends requests to and the API key for that service."),
     ...cards,
     addForm("New provider name", addProvider, presetSelect()));
 }
@@ -320,11 +347,6 @@ async function testProfile(name) {
   render();
 }
 
-// One at a time, so a provider does not get a burst of requests.
-async function testAll() {
-  for (const name of Object.keys(state.profiles)) if (state.profiles[name]) await testProfile(name);
-}
-
 function paramsError(text) {
   try {
     const value = JSON.parse(text || "{}");
@@ -361,34 +383,20 @@ function modelStatus(providerName) {
   return list ? el("span", { className: `hint${list.error ? " error" : ""}` }, list.text) : null;
 }
 
-const profileDetail = (profile) => `${profile.provider} · ${profile.model || "no model ID"}`;
-
-function renderProfiles() {
-  const providerNames = Object.keys(state.providers);
-  const cards = Object.entries(state.profiles).map(([name, profile]) => {
-    profile.paramsText ??= JSON.stringify(profile.params ?? {});
-    const path = (key) => ["profiles", name, key];
-    const result = testResults.get(name);
-    return collapsible(cardKey("profile", name),
-      [el("strong", { className: "name" }, name), el("span", { className: "detail" }, profileDetail(profile)), testBadge(name)],
-      field("Provider", selectInput(providerNames, profile.provider, path("provider"), (value) => { profile.provider = value; changed(); })),
-      field("Model ID", modelInput(profile, path("model")), modelStatus(profile.provider)),
-      field("Timeout (s)", numberInput(profile, "timeout", path("timeout"), { step: 1, min: 1 }), "The task deadline can stop a profile before its timeout."),
-      field("Extra request parameters (JSON)", textInput(profile, "paramsText", path("params"), { tag: "textarea", className: "mono", rows: 3 }, paramsError)),
-      el("div", { className: "card-actions" },
-        button("Test", () => testProfile(name), `Test ${name}`),
-        el("span", { className: `message${result && !result.ok && !result.pending ? " error" : ""}` }, result?.text ?? ""),
-        button("Rename", () => renameProfile(name), `Rename ${name}`),
-        button("Remove", () => removeProfile(name), `Remove ${name}`)));
-  });
-  return el("fieldset", {},
-    el("legend", {}, "Profiles"),
-    el("p", { className: "hint" }, "A profile is one model on one provider. Several tasks can use the same profile."),
-    cards.length > 0 ? el("div", { className: "actions" }, button("Test all", testAll)) : null,
-    ...cards,
-    addForm("New profile name", (name) => addNamed("profile", state.profiles, name, {
-      provider: providerNames[0] ?? "", model: "", timeout: 120, params: {},
-    })));
+function renderProfile(name, profile) {
+  profile.paramsText ??= JSON.stringify(profile.params ?? {});
+  const path = (key) => ["profiles", name, key];
+  const result = testResults.get(name);
+  return collapsible(cardKey("profile", name),
+    [el("strong", { className: "name" }, name), el("span", { className: "detail" }, profile.model || "no model ID"), testBadge(name)],
+    field("Model ID", modelInput(profile, path("model")), modelStatus(profile.provider), "The exact model ID that the provider expects, for example anthropic/claude-3.5-sonnet. List models gets the IDs from the provider."),
+    field("Timeout (s)", numberInput(profile, "timeout", path("timeout"), { step: 1, min: 1 }), null, "The longest that this profile waits for a reply. When the task deadline is shorter, the deadline wins."),
+    field("Extra request parameters (JSON)", textInput(profile, "paramsText", path("params"), { tag: "textarea", className: "mono", rows: 3 }, paramsError), null, 'Optional model settings as JSON, for example {"top_p": 0.9}. They replace the same settings of the task.'),
+    el("div", { className: "card-actions" },
+      button("Test", () => testProfile(name), `Test ${name}`),
+      el("span", { className: `message${result && !result.ok && !result.pending ? " error" : ""}` }, result?.text ?? ""),
+      button("Rename", () => renameProfile(name), `Rename ${name}`),
+      button("Remove", () => removeProfile(name), `Remove ${name}`)));
 }
 
 function move(list, index, offset) {
@@ -396,16 +404,25 @@ function move(list, index, offset) {
   changed();
 }
 
-function addProfileSelect(route, label, profileNames) {
+const byName = (a, b) => a.localeCompare(b);
+
+function profileGroups(current) {
+  return Object.keys(state.providers).sort(byName).map((provider) => {
+    const names = Object.keys(state.profiles).filter((name) => state.profiles[name].provider === provider).sort(byName);
+    return names.length > 0 ? el("optgroup", { label: provider }, ...names.map((name) => new Option(name, name, false, name === current))) : null;
+  }).filter(Boolean);
+}
+
+function addProfileSelect(route, label) {
   const select = el("select", {
     onchange: (event) => {
       route.profiles.push(event.target.value);
       changed();
     },
   });
-  const placeholder = new Option(route.profiles.length > 0 ? "Add a fallback…" : "Add a profile…", "", true, true);
+  const placeholder = new Option("Add a fallback…", "", true, true);
   placeholder.disabled = true;
-  select.append(placeholder, ...profileNames.map((name) => new Option(name, name)));
+  select.append(placeholder, ...profileGroups());
   select.setAttribute("aria-label", `Add a profile to ${label}`);
   return select;
 }
@@ -420,18 +437,25 @@ function renderRoutes() {
     const route = state.routes[task];
     const label = TASK_LABELS[task] ?? task;
     const path = (...keys) => ["routes", task, ...keys];
-    const chain = route.profiles.map((name, index) => el("li", {},
-      selectInput(profileNames, name, path("profiles", index), (value) => { route.profiles[index] = value; changed(); }),
-      el("span", { className: "detail" }, state.profiles[name] ? profileDetail(state.profiles[name]) : ""),
-      testBadge(name),
-      el("span", { className: "chain-buttons" },
-        button("Up", index > 0 && (() => move(route.profiles, index, -1)), `Move ${name} up`),
-        button("Down", index < route.profiles.length - 1 && (() => move(route.profiles, index, 1)), `Move ${name} down`),
-        button("Remove", () => { route.profiles.splice(index, 1); changed(); }, `Remove ${name} from ${label}`))));
+    const chain = route.profiles.map((entry, index) => {
+      const isDefault = entry === null;
+      const name = isDefault ? state.default_profile : entry;
+      return el("li", {},
+        isDefault
+          ? el("strong", { className: "name" }, `${name} (default)`)
+          : selectInput(profileNames, name, path("profiles", index), (value) => { route.profiles[index] = value; changed(); }, {}, profileGroups(name)),
+        el("span", { className: "detail" }, state.profiles[name]?.provider ?? ""),
+        testBadge(name),
+        el("span", { className: "chain-buttons" },
+          button("↑", index > 0 && (() => move(route.profiles, index, -1)), `Move ${name} up`),
+          button("↓", index < route.profiles.length - 1 && (() => move(route.profiles, index, 1)), `Move ${name} down`),
+          isDefault ? null : button("🗑", () => { route.profiles.splice(index, 1); changed(); }, `Remove ${name} from ${label}`)));
+    });
     return el("div", { className: "card" },
       el("div", { className: "card-head" }, el("strong", {}, label)),
+      TASK_HINTS[task] ? el("p", { className: "hint" }, TASK_HINTS[task]) : null,
       el("ol", { className: "chain" }, ...chain),
-      profileNames.length > 0 ? addProfileSelect(route, label, profileNames) : el("p", { className: "hint" }, "Add a profile below first."),
+      profileNames.length > 0 ? addProfileSelect(route, label) : el("p", { className: "hint" }, "Add a profile to a provider first."),
       field("Max tokens", numberInput(route, "max_tokens", path("max_tokens"), { step: 1, min: 1 })),
       field("Temperature", numberInput(route, "temperature", path("temperature"), { step: 0.05, min: 0, max: 2 })),
       field("Deadline (s)", numberInput(route, "deadline", path("deadline"), { step: 1, min: 1 }, deadlineWarning)));
@@ -439,14 +463,27 @@ function renderRoutes() {
   return el("fieldset", {},
     el("legend", {}, "Tasks"),
     el("p", { className: "hint" },
-      "Each task tries its profiles in order and moves to the next one after an error, a timeout, or an empty reply. " +
-      `List a profile twice to retry it. The game stops waiting after ${GAME_WAIT_S} s, so keep the deadline under that.`),
-    ...cards);
+      "Each task is one kind of LLM call that SSR makes, with its own settings. It tries its profiles in order until one replies. " +
+      `The game waits only ${GAME_WAIT_S} s, so keep the deadline under that.`),
+    el("div", { className: "card-grid" }, ...cards));
+}
+
+function renderDefault() {
+  return el("fieldset", {},
+    el("legend", {}, "Default LLM Profile"),
+    el("p", { className: "hint" }, "Every LLM call of Sentient Sands Rebirth (SSR) uses this profile. Advanced task config can add other profiles before or after it."),
+    field("Profile", selectInput(Object.keys(state.profiles), state.default_profile, ["default_profile"], (value) => { state.default_profile = value; changed(); }, {}, profileGroups(state.default_profile))));
+}
+
+function tasksToggle() {
+  return el("label", { className: "check warning" },
+    el("input", { type: "checkbox", checked: showTasks, onchange: (event) => { showTasks = event.target.checked; render(); } }),
+    el("b", {}, "Enable Advanced Task Config"));
 }
 
 function render() {
   const focused = document.activeElement?.dataset?.field;
-  editor.replaceChildren(renderRoutes(), renderProfiles(), renderProviders());
+  editor.replaceChildren(renderDefault(), renderProviders(), tasksToggle(), ...(showTasks ? [renderRoutes()] : []));
   for (const element of editor.querySelectorAll("[data-field]")) {
     if (element.value !== "" || fieldErrors.has(element.dataset.field)) checkInput(element);
   }
@@ -464,11 +501,11 @@ function buildPayload() {
   for (const [name, provider] of Object.entries(state.providers)) providers[name] = providerPayload(provider);
   const profiles = {};
   for (const [name, profile] of Object.entries(state.profiles)) profiles[name] = profilePayload(name, profile);
-  return { providers, profiles, routes: state.routes };
+  return { providers, profiles, default_profile: state.default_profile, routes: state.routes };
 }
 
 function load(config) {
-  state = { providers: config.providers, profiles: config.profiles, routes: config.routes };
+  state = { providers: config.providers, profiles: config.profiles, default_profile: config.default_profile, routes: config.routes };
   tasks = config.tasks;
   providerTypes = config.provider_types;
   presets = config.presets;
@@ -484,6 +521,8 @@ function showFieldErrors(errors) {
   for (const { field: path, message: text } of errors) {
     fieldErrors.set(JSON.stringify(path), text);
     if (path[0] === "providers" || path[0] === "profiles") openCards.add(`${path[0]}/${path[1]}`);
+    if (path[0] === "profiles") openCards.add(cardKey("provider", state.profiles[path[1]].provider));
+    if (path[0] === "routes") showTasks = true;
   }
   render();
 }

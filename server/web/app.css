@@ -169,14 +169,60 @@ label {
   margin: 0.5rem 0;
 }
 
-/* The label text is a bare text node, so it alone stays in the first column. */
+/* Bare label text is no element, so it alone stays in the first column. */
 label > * {
   grid-column: -2 / -1;
 }
 
-.stacked label {
-  grid-template-columns: minmax(0, 1fr);
-  gap: 0.25rem;
+label > .label-text {
+  grid-column: 1;
+  position: relative;
+  display: flex;
+  align-items: baseline;
+  gap: 0.35em;
+}
+
+.help {
+  flex: none;
+  display: inline-grid;
+  place-items: center;
+  width: 1.3em;
+  height: 1.3em;
+  border: 1px solid var(--muted);
+  border-radius: 50%;
+  color: var(--muted);
+  font-size: 0.75em;
+  cursor: help;
+}
+
+.help:hover,
+.help:focus {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+/* The tip anchors to the label text, not to the medallion, so it starts at the left edge of the field and stays on a narrow screen. */
+.tip {
+  display: none;
+  position: absolute;
+  z-index: 2;
+  top: 100%;
+  left: 0;
+  width: max-content;
+  max-width: min(18rem, 80vw);
+  margin-top: 0.25rem;
+  padding: 0.4rem 0.6rem;
+  border: 1px solid var(--field-border);
+  border-radius: 6px;
+  background: var(--bg);
+  box-shadow: 0 2px 8px rgb(0 0 0 / 0.25);
+  color: var(--text);
+  font-size: 1rem;
+}
+
+.help:hover > .tip,
+.help:focus > .tip {
+  display: block;
 }
 
 label.check {
@@ -282,8 +328,20 @@ label > .field-error {
 .card {
   border: 1px solid var(--border);
   border-radius: 6px;
+  background: var(--surface);
   padding: 0.5rem 0.75rem;
   margin: 0.75rem 0;
+}
+
+.card-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.75rem;
+  margin: 0.75rem 0;
+}
+
+.card-grid > .card {
+  margin: 0;
 }
 
 .card-head {
@@ -302,6 +360,29 @@ details.card > summary > * + * {
 
 details.card[open] > summary {
   margin-bottom: 0.5rem;
+}
+
+details.card > summary > .blurb {
+  display: block;
+  margin: 0.25rem 0 0;
+  color: var(--muted);
+}
+
+.chip {
+  display: inline-block;
+  margin: 0.15rem 0.25rem 0 0;
+  padding: 0 0.35rem;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--bg);
+  color: var(--text);
+  font-family: ui-monospace, monospace;
+  font-size: 0.85em;
+}
+
+.card > fieldset {
+  margin: 0.75rem 0 0.25rem;
+  background: var(--bg);
 }
 
 .card-actions {
@@ -358,8 +439,18 @@ details.card[open] > summary {
   margin: 0.3rem 0;
 }
 
-.chain select {
-  flex: 1 1 12rem;
+.chain select,
+.chain .name {
+  flex: 1 1 10rem;
+}
+
+.chain-buttons {
+  display: flex;
+  gap: 0.25rem;
+}
+
+.chain-buttons button {
+  padding: 0.35rem 0.5rem;
 }
 
 .add {
@@ -393,9 +484,17 @@ label > .hint {
   color: var(--error);
 }
 
+.warning {
+  color: var(--error);
+}
+
 @media (max-width: 56rem) {
   .columns {
     display: block;
+  }
+
+  .card-grid {
+    grid-template-columns: minmax(0, 1fr);
   }
 }
 

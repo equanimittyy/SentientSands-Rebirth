@@ -7,6 +7,8 @@ without requests.
 import logging
 import time
 
+from llm_config import route_profiles
+
 
 def build_body(route, profile, messages):
     body = {"model": profile["model"], "messages": messages, "top_p": 0.9}
@@ -26,7 +28,7 @@ def run_route(config, task, messages, send, clock=time.monotonic):
     start = clock()
     deadline = start + route["deadline"]
     failures = []
-    for name in route["profiles"]:
+    for name in route_profiles(config, route):
         remaining = deadline - clock()
         if remaining <= 0:
             failures.append(f"{name}: the {route['deadline']} s deadline passed")

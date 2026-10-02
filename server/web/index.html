@@ -16,51 +16,12 @@
     <p id="status">Connecting...</p>
     <p id="offline" role="alert" hidden>The server is not running. Start Kenshi, or press Restart Server in the SSR HUB.</p>
     <nav>
-      <a href="#settings">Settings</a>
       <a href="#llm">Models</a>
       <a href="#prompts">Prompts</a>
-      <a href="#profile">Player profile</a>
+      <a href="#settings">Settings</a>
     </nav>
   </header>
   <main>
-    <section id="settings" hidden>
-      <form id="settings-form">
-        <div class="actions save-bar">
-          <button type="submit" class="save" disabled>Save</button>
-          <button type="button" class="discard" disabled>Discard</button>
-          <button type="button" id="settings-reset">Reset to defaults</button>
-          <span class="message" id="settings-message" role="status"></span>
-        </div>
-        <fieldset>
-          <legend>Interface</legend>
-          <label>Language <span class="hint">The language of the in-game windows and of the NPC replies.</span> <select name="language"></select></label>
-          <label>Chat key <span class="hint">The key that opens the chat window.</span> <select name="chat_hotkey"></select></label>
-          <label class="check"><input type="checkbox" name="enable_welcome"> Show the welcome popup on start</label>
-          <label class="check"><input type="checkbox" name="open_web_panel_on_start"> Open this web panel on start</label>
-        </fieldset>
-        <fieldset>
-          <legend>Conversations</legend>
-          <label class="check"><input type="checkbox" name="enable_ambient"> <b>Radiant conversations</b></label>
-          <div class="columns">
-            <label>Talk range <span class="hint">NPCs within this distance hear what you say in talk mode.</span> <input type="number" name="radii.talk" min="1" required></label>
-            <label>Yell range <span class="hint">NPCs within this distance hear what you say in yell mode.</span> <input type="number" name="radii.yell" min="1" required></label>
-            <label>Radiant range <span class="hint">A radiant conversation starts only between NPCs within this distance of you.</span> <input type="number" name="radii.radiant" min="1" required></label>
-            <label>Radiant timer (s) <span class="hint">The time between two radiant conversations. Paused time does not count.</span> <input type="number" name="ambient_timer" min="1" required></label>
-            <label>Dialogue delay (s) <span class="hint">The time between two lines of a conversation.</span> <input type="number" name="dialogue_speed" min="1" required></label>
-            <label>Bubble life (s) <span class="hint">How long a speech bubble stays. It grows with the game speed.</span> <input type="number" name="bubble_life" min="1" step="0.5" required></label>
-          </div>
-        </fieldset>
-        <fieldset>
-          <legend>World events</legend>
-          <label>Events in prompt <span class="hint">How many recent world events and rumors each chat prompt holds.</span> <input type="number" name="global_events_count" min="0" required></label>
-          <label>Event timer (min) <span class="hint">The time between two new world events.</span> <input type="number" name="synthesis_timer" min="1" required></label>
-        </fieldset>
-        <fieldset>
-          <legend>Diagnostics</legend>
-          <label>Log level <span class="hint">The lowest level that the plugin and the server write to their logs.</span> <select name="log_level"></select></label>
-        </fieldset>
-      </form>
-    </section>
     <section id="llm" hidden>
       <div class="actions save-bar">
         <button type="button" id="llm-save" class="save" disabled>Save</button>
@@ -77,18 +38,47 @@
         <button type="button" id="prompts-reset">Reset all to defaults</button>
         <span class="message" id="prompts-message" role="status"></span>
       </div>
-      <p class="hint">An edit is saved as your own copy of the prompt, which a mod update keeps. Use default and Save to go back to the shipped text and get its later updates.</p>
+      <p class="hint">These prompts are the instructions that the mod sends to the AI model. Edit them to change how NPCs talk and act, how their profiles are written, and how world events read. A mod update keeps your edits. To go back to the shipped text and get its later updates, press Use default, then Save.</p>
       <div id="prompts-list"></div>
     </section>
-    <section id="profile" hidden>
-      <form id="profile-form" class="stacked">
+    <section id="settings" hidden>
+      <form id="settings-form">
         <div class="actions save-bar">
           <button type="submit" class="save" disabled>Save</button>
           <button type="button" class="discard" disabled>Discard</button>
-          <span class="message" id="profile-message" role="status"></span>
+          <button type="button" id="settings-reset">Reset to defaults</button>
+          <span class="message" id="settings-message" role="status"></span>
         </div>
-        <label>Player backstory <textarea name="character_bio"></textarea> <span class="hint length"></span></label>
-        <label>Faction description <textarea name="player_faction"></textarea> <span class="hint length"></span></label>
+        <p class="hint">All settings on this page are global for Sentient Sands Rebirth (SSR). They apply to every campaign.</p>
+        <fieldset>
+          <legend>Interface</legend>
+          <label><span class="label-text">Language<span class="help" tabindex="0">?<span class="tip">The language of the in-game windows and of the NPC replies.</span></span></span> <select name="language"></select></label>
+          <label><span class="label-text">Chat key<span class="help" tabindex="0">?<span class="tip">The key that opens the chat window.</span></span></span> <select name="chat_hotkey"></select></label>
+          <label class="check"><input type="checkbox" name="enable_welcome"> Show the welcome popup on start</label>
+          <label class="check"><input type="checkbox" name="open_web_panel_on_start"> Open this web panel on start</label>
+        </fieldset>
+        <fieldset>
+          <legend>Conversations</legend>
+          <label class="check"><input type="checkbox" name="enable_ambient"> <b>Radiant conversations</b></label>
+          <div class="columns">
+            <label><span class="label-text">Talk range<span class="help" tabindex="0">?<span class="tip">NPCs within this distance hear what you say in talk mode.</span></span></span> <input type="number" name="radii.talk" min="1" required></label>
+            <label><span class="label-text">Yell range<span class="help" tabindex="0">?<span class="tip">NPCs within this distance hear what you say in yell mode.</span></span></span> <input type="number" name="radii.yell" min="1" required></label>
+            <label><span class="label-text">Radiant range<span class="help" tabindex="0">?<span class="tip">A radiant conversation starts only between NPCs within this distance of you.</span></span></span> <input type="number" name="radii.radiant" min="1" required></label>
+            <label><span class="label-text">Radiant timer (s)<span class="help" tabindex="0">?<span class="tip">The time between two radiant conversations. Paused time does not count.</span></span></span> <input type="number" name="ambient_timer" min="1" required></label>
+            <label><span class="label-text">Dialogue delay (s)<span class="help" tabindex="0">?<span class="tip">The time between two lines of a conversation.</span></span></span> <input type="number" name="dialogue_speed" min="1" required></label>
+            <label><span class="label-text">Bubble life (s)<span class="help" tabindex="0">?<span class="tip">How long a speech bubble stays. It grows with the game speed.</span></span></span> <input type="number" name="bubble_life" min="1" step="0.5" required></label>
+          </div>
+        </fieldset>
+        <fieldset>
+          <legend>World events</legend>
+          <label><span class="label-text">Events in prompt<span class="help" tabindex="0">?<span class="tip">How many recent world events and rumors each chat prompt holds.</span></span></span> <input type="number" name="global_events_count" min="0" required></label>
+          <label><span class="label-text">Event timer (min)<span class="help" tabindex="0">?<span class="tip">The time between two new world events.</span></span></span> <input type="number" name="synthesis_timer" min="1" required></label>
+        </fieldset>
+        <fieldset>
+          <legend>Diagnostics</legend>
+          <label><span class="label-text">Log level<span class="help" tabindex="0">?<span class="tip">The lowest level that the plugin and the server write to their logs.</span></span></span> <select name="log_level"></select></label>
+        </fieldset>
+      </form>
     </section>
   </main>
 </body>

@@ -1,6 +1,5 @@
 import { getJson, watchConnection } from "./api.js";
 import { loadLlm } from "./llm.js";
-import { loadProfile, profileCampaign } from "./profile.js";
 import { loadPrompts } from "./prompts.js";
 import { loadSettings } from "./settings.js";
 
@@ -20,7 +19,7 @@ showPage();
 
 const status = document.getElementById("status");
 const offline = document.getElementById("offline");
-const loaders = { settings: loadSettings, llm: loadLlm, prompts: loadPrompts, profile: loadProfile };
+const loaders = { settings: loadSettings, llm: loadLlm, prompts: loadPrompts };
 const loaded = new Set();
 const unsaved = new Set();
 let online = true;
@@ -57,7 +56,6 @@ async function poll() {
   try {
     const { campaign } = await getJson("/context");
     status.textContent = `Campaign: ${campaign}`;
-    if (loaded.has("profile") && profileCampaign() !== campaign) load("profile");
   } catch {
     // The offline banner reports a lost server.
   }

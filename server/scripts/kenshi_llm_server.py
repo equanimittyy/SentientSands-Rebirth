@@ -2909,7 +2909,7 @@ def get_llm_config():
 def save_llm_config():
     global LLM_CONFIG
     data = request.get_json(silent=True) or {}
-    new_config = {part: data.get(part) for part in ("providers", "profiles", "routes")}
+    new_config = {part: data.get(part) for part in ("providers", "profiles", "default_profile", "routes")}
     errors = llm_config.validate(new_config)
     if errors:
         return jsonify({"status": "error", "errors": errors}), 400
@@ -3104,38 +3104,6 @@ def toggle_favorite():
         return jsonify({"status": "error", "message": "Profile not found"}), 404
 
     return jsonify({"status": "ok", "state": "added" if is_fav else "removed"})
-@app.route('/player_profile', methods=['GET', 'POST'])
-def player_profile_route():
-    if request.method == 'GET':
-        logging.debug("PROFILE: Loading the player profile.")
-        campaign = ACTIVE_CAMPAIGN
-        bio = load_campaign_text("character_bio.txt")
-        faction = load_campaign_text("player_faction_description.txt")
-        return jsonify({
-            "status": "ok",
-            "campaign": campaign,
-            "character_bio": bio,
-            "player_faction": faction
-        })
-    else:
-        data = request.get_json(silent=True) or {}
-        # The page can hold the text of a campaign that the player left in game
-        if data.get("campaign") != ACTIVE_CAMPAIGN:
-            return jsonify({"status": "error", "message": f"The active campaign is now {ACTIVE_CAMPAIGN}."}), 409
-
-        bio = data.get("character_bio")
-        faction = data.get("player_faction")
-        
-        cdir = get_campaign_dir()
-        if bio is not None:
-            with open(os.path.join(cdir, "character_bio.txt"), "w", encoding="utf-8") as f:
-                f.write(bio)
-        if faction is not None:
-            with open(os.path.join(cdir, "player_faction_description.txt"), "w", encoding="utf-8") as f:
-                f.write(faction)
-        
-        logging.info("PROFILE: Saved the player profile from the web app.")
-        return jsonify({"status": "ok"})
 
 def synthesis_loop():
     logging.info("NARRATIVE: Synthesis background loop started.")

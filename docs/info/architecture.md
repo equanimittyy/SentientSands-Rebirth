@@ -64,7 +64,6 @@ The server serves `server/web/` at `/` and `/web/<file>`. The files are plain HT
 | Settings | `/settings`, `/settings/defaults` | `SentientSands_Config.ini` |
 | Models | `/api/llm`, `/api/llm/test`, `/api/llm/models`, `/api/llm/reset` | `server/user/llm_config.json` |
 | Prompts | `/api/prompts` | `server/user/prompts/` |
-| Player profile | `/player_profile` | `character_bio.txt` and `player_faction_description.txt` in the active campaign |
 
 A GET route must not change state. A page on another site can send a GET with no `Origin` header, for example through an image tag, so the Origin check from step 4 of the runtime flow does not stop it. The presence stream below is the only exception, because EventSource sends only GET requests. A page on another site that holds the stream open can only stop a new tab from opening.
 
@@ -76,7 +75,7 @@ Each tab holds `GET /web_panel/presence` open. This event stream sends a heartbe
 
 **Open Web Panel** in the SSR HUB always opens the web app in a new tab of the default browser. The button does not check for an open tab. A version that brought the browser window of an open tab to the front left an empty box on the game screen in exclusive fullscreen.
 
-The player can switch the campaign in game while the web app is open. The poll shows the active campaign and reloads the player profile when the campaign changes. `POST /player_profile` must name the campaign that the text was loaded from, and the server rejects the save with 409 when that campaign is no longer active. This stops the text of one campaign from being written into another.
+The player can switch the campaign in game while the web app is open, so the poll also shows the active campaign.
 
 ## Settings
 
@@ -98,7 +97,7 @@ The Prompts page of the web app reads `GET /api/prompts` and saves each changed 
 
 - A route takes only the name of a shipped `.txt` file, never a path, so a request cannot write outside `server/user/prompts/`. The two player profile files are not prompts, so the page does not list them.
 - A save equal to the shipped text, or an empty save, deletes the override, so the prompt gets later default updates again. **Use default** and **Reset all to defaults** fill the form with the shipped text, and the next save deletes the overrides.
-- Each save of an override stores the SHA-256 of the shipped text in `server/user/prompts/base_hashes.json`. When an update changes the shipped text, the hash no longer matches, and the page marks the override and shows the shipped text. An override with no stored hash, for example one made by hand, is marked as unknown.
+- Each save of an override stores the SHA-256 of the shipped text in `server/user/prompts/base_hashes.json`. When an update changes the shipped text, the hash no longer matches, and the page marks the override. An override with no stored hash, for example one made by hand, is marked as unknown.
 - An override and `base_hashes.json` are written to a temporary file and then renamed, as `llm_config.save` does.
 
 A placeholder is a `{name}` in a prompt. `prompt_store.render` replaces each placeholder that its caller fills and leaves every other brace as text. A stray brace in an edited prompt therefore cannot fail the LLM call, as it could with `str.format`, and a JSON example in a prompt needs no escaped braces.
@@ -111,13 +110,14 @@ A placeholder is a `{name}` in a prompt. `prompt_store.render` replaces each pla
 
 ## LLM routing
 
-Each LLM call names a task: `chat`, `ambient`, `profile`, `profile_batch`, or `synthesis`. `server/user/llm_config.json` holds three parts, and the web app's Models page edits all of them through `/api/llm`.
+Each LLM call names a task: `chat`, `ambient`, `profile`, `profile_batch`, or `synthesis`. `server/user/llm_config.json` holds four parts, and the web app's Models page edits all of them through `/api/llm`.
 
 | Part | Contents |
 |---|---|
 | Providers | An OpenAI-compatible endpoint: type (`openai` or `player2`), base URL, API key, and the Player2 game key. |
 | Profiles | One model on one provider, with a per-attempt timeout and extra request parameters. |
-| Routes | For each task, an ordered list of profiles, `max_tokens`, `temperature`, and a deadline. |
+| Default profile | The profile that every route uses at the place of its `null` entry. |
+| Routes | For each task, an ordered list of profiles, `max_tokens`, `temperature`, and a deadline. Each list holds `null` once, which stands for the default profile (`llm_config.route_profiles`), so a change of the default reaches every task. |
 
 `llm_router.run_route` tries the profiles of the route in order, one attempt each. It moves to the next profile after an exception, a non-200 status, or an empty completion. Each attempt gets the smaller of the profile's timeout and the time left before the deadline. The default deadline is 55 s, because the plugin stops waiting for a reply after 60 s (`plugin/core/Comm.cpp`).
 
@@ -125,7 +125,7 @@ The request body starts with `model`, `messages`, and `top_p` 0.9. The route's `
 
 A Player2 provider uses a session key from the local Player2 app. On a 401, `send_completion` gets a new session key and tries the same profile once more.
 
-`/api/llm` never returns a stored API key. It returns only whether a key is set and the last four characters of the key. A key that starts with `YOUR_`, like the placeholders in `default_providers.json`, counts as not set. A save with an empty key field keeps the stored key, so the web app can send back what it received. A renamed provider sends its old name as `previous_name`, so it keeps its stored key (`llm_config.with_stored_keys`). The server writes the file to a temporary name and then renames it, so a crash during a save cannot leave a half-written key file.
+`/api/llm` never returns a stored API key. It returns only whether a key is set. A key that starts with `YOUR_`, like the placeholders in `default_providers.json`, counts as not set. A save with an empty key field keeps the stored key, so the web app can send back what it received. A renamed provider sends its old name as `previous_name`, so it keeps its stored key (`llm_config.with_stored_keys`). The server writes the file to a temporary name and then renames it, so a crash during a save cannot leave a half-written key file.
 
 A rejected save returns each error with the path of its field, for example `["profiles", "kimi", "model"]`, and the web app marks that field.
 

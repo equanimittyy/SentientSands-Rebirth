@@ -1,4 +1,4 @@
-"""The LLM configuration: providers, profiles, and the route that each task takes.
+"""The LLM configuration: providers, profiles, the default profile, and the route that each task takes.
 
 The server keeps it in server/user/llm_config.json, which the release does not
 ship, so an update keeps the player's API keys. The web app gets it only
@@ -22,6 +22,8 @@ PROVIDER_TYPES = ("openai", "player2")
 # The plugin stops waiting for a reply after 60 s, so a whole fallback chain must end before that
 DEFAULT_DEADLINE = 55
 DEFAULT_TIMEOUT = 120
+# Marks the place of the default profile in a route, so a new default reaches every task without an edit of the routes
+DEFAULT_SLOT = None
 
 
 def _provider_type(name):
@@ -29,7 +31,7 @@ def _provider_type(name):
 
 
 def build(providers, models, first_profile):
-    config = {"providers": {}, "profiles": {}, "routes": {}}
+    config = {"providers": {}, "profiles": {}, "default_profile": None, "routes": {}}
     for name, provider in providers.items():
         config["providers"][name] = dict(provider, type=_provider_type(name))
     for name, model in models.items():
@@ -40,10 +42,14 @@ def build(providers, models, first_profile):
                 "timeout": DEFAULT_TIMEOUT,
                 "params": {},
             }
-    first = first_profile if first_profile in config["profiles"] else next(iter(config["profiles"]), None)
+    config["default_profile"] = first_profile if first_profile in config["profiles"] else next(iter(config["profiles"]), None)
     for task, sampling in TASKS.items():
-        config["routes"][task] = dict(sampling, profiles=[first] if first else [], deadline=DEFAULT_DEADLINE)
+        config["routes"][task] = dict(sampling, profiles=[DEFAULT_SLOT], deadline=DEFAULT_DEADLINE)
     return config
+
+
+def route_profiles(config, route):
+    return [config["default_profile"] if name is DEFAULT_SLOT else name for name in route["profiles"]]
 
 
 def _is_number(value):
@@ -98,6 +104,9 @@ def validate(config):
         errors += provider_errors(name, provider)
     for name, profile in profiles.items():
         errors += profile_errors(name, profile, providers)
+    default = config.get("default_profile")
+    if not isinstance(default, str) or default not in profiles:
+        errors.append(_error(["default_profile"], "Choose a default profile."))
 
     for task in TASKS:
         if task not in routes:
@@ -111,8 +120,10 @@ def validate(config):
         if not isinstance(chain, list):
             errors.append(_error(where + ["profiles"], f"Route {task}: the profiles must be a list."))
         else:
+            if chain.count(DEFAULT_SLOT) != 1:
+                errors.append(_error(where + ["profiles"], f"Route {task}: the default profile must be in the list once."))
             for index, name in enumerate(chain):
-                if name not in profiles:
+                if name is not DEFAULT_SLOT and name not in profiles:
                     errors.append(_error(where + ["profiles", index], f"Route {task}: the profile {name} does not exist."))
         max_tokens = route.get("max_tokens")
         if not isinstance(max_tokens, int) or isinstance(max_tokens, bool) or max_tokens <= 0:
@@ -134,7 +145,6 @@ def masked(config):
     for provider in result["providers"].values():
         key = provider.pop("api_key", "")
         provider["api_key_set"] = is_key_set(key)
-        provider["api_key_hint"] = key[-4:] if is_key_set(key) and len(key) > 4 else ""
     return result
 
 
@@ -147,7 +157,6 @@ def with_stored_keys(new, old):
     """Keeps the stored API key of each provider that the web app sends with an empty key field."""
     result = copy.deepcopy(new)
     for name, provider in result.get("providers", {}).items():
-        provider.pop("api_key_hint", None)
         provider.pop("api_key_set", None)
         if not provider.get("api_key"):
             provider["api_key"] = _saved_provider(name, provider, old).get("api_key", "")
@@ -186,7 +195,7 @@ def presets(providers):
 def player2_providers_in_use(config):
     names = set()
     for route in config["routes"].values():
-        for profile_name in route["profiles"]:
+        for profile_name in route_profiles(config, route):
             provider_name = config["profiles"].get(profile_name, {}).get("provider")
             if config["providers"].get(provider_name, {}).get("type") == "player2":
                 names.add(provider_name)

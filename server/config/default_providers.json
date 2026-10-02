@@ -4,7 +4,7 @@
         "base_url": "https://openrouter.ai/api/v1"
     },
     "player2": {
-        "api_key": "sk-player2-local",
+        "api_key": "",
         "base_url": "http://127.0.0.1:4315/v1",
         "game_key": ""
     },
@@ -13,7 +13,7 @@
         "base_url": "https://nano-gpt.com/api/subscription/v1"
     },
     "ollama": {
-        "api_key": "ollama",
+        "api_key": "",
         "base_url": "http://localhost:11434/v1"
     }
 }
