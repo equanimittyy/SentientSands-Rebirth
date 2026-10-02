@@ -1,0 +1,10 @@
+{
+  "game_id": "18000-gamedata.base",
+  "name": "Western Hive",
+  "aliases": [],
+  "major": true,
+  "fields": {
+    "leader": "The Hive Queen"
+  },
+  "description": "A reclusive insectoid society focused on industrious trade and pheromone-driven loyalty to their Queen."
+}

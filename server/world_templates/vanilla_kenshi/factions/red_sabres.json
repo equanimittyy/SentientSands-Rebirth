@@ -1,0 +1,10 @@
+{
+  "game_id": "51652-rebirth.mod",
+  "name": "Red Sabres",
+  "aliases": [],
+  "major": false,
+  "fields": {
+    "leader": "Red Sabre Leader"
+  },
+  "description": "Desperate bandits and deserters who raid travelers in the Swamp."
+}

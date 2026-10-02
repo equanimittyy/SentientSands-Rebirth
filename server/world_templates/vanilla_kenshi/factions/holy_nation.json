@@ -1,0 +1,10 @@
+{
+  "game_id": "1083-gamedata.base",
+  "name": "The Holy Nation",
+  "aliases": [],
+  "major": true,
+  "fields": {
+    "leader": "Holy Lord Phoenix LXII"
+  },
+  "description": "A xenophobic, religious group worshipping Okran. They value human purity and despise Skeletons and non-humans."
+}

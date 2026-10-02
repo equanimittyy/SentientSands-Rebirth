@@ -12,11 +12,12 @@ Sentient Sands Rebirth has three parts: a C++ plugin that runs inside Kenshi, a 
 | `plugin/core/` | Shared state and mutexes (`Globals`), logging, INI settings, and server start-up (`Utils`), and the transport to the server (`Comm`). |
 | `plugin/game/` | Reads game state into JSON for prompts (`Context`) and applies queued NPC actions to the world (`GameActions`). |
 | `plugin/ui/` | The in-game MyGUI windows. `LauncherWindow` is the hub that opens the others. `ChatUIGlobals` holds the shared widget pointers. |
-| `server/scripts/` | The Flask server (`kenshi_llm_server.py`), the campaign database (`campaign_db.py`), the request checks (`request_guard.py`), the browser auto-open (`browser_launch.py`), the LLM configuration (`llm_config.py`) and fallback chain (`llm_router.py`), the prompt overrides and placeholders (`prompt_store.py`), the log files and the log level (`log_setup.py`), and a Tkinter debug tool (`visual_debugger.py`). |
+| `server/scripts/` | The Flask server (`kenshi_llm_server.py`), the campaign database (`campaign_db.py`), the world templates (`world_template.py`), the request checks (`request_guard.py`), the browser auto-open (`browser_launch.py`), the LLM configuration (`llm_config.py`) and fallback chain (`llm_router.py`), the prompt overrides and placeholders (`prompt_store.py`), the log files and the log level (`log_setup.py`), and a Tkinter debug tool (`visual_debugger.py`). |
 | `server/web/` | The web app: plain HTML, CSS, JavaScript, fonts, and images, which the server serves at `http://127.0.0.1:5000/`. |
 | `server/tests/` | Unit tests that run with the standard library only. See [development.md](development.md#tests). |
 | `server/config/` | The default providers and models that seed the LLM configuration, and the name and localization JSON. |
-| `server/prompts/` | The system prompts, the world lore, and the default player profile of a new campaign. |
+| `server/prompts/` | The system prompts, and the default player profile of a new campaign. |
+| `server/world_templates/` | The shipped world templates. See [World templates](#world-templates). |
 | `mod/` | The files at the root of the installed mod folder: `mod.info`, `SentientSandsRebirth.mod`, and `RE_Kenshi.json`. A server that runs from the repo also writes its `SentientSands_Config.ini` here, which git ignores. |
 | `scripts/` | Release tooling. See [development.md](development.md#release). |
 | `package_release.cmd` | A Windows menu that builds the plugin, runs `scripts/package_release.py`, or does both. |
@@ -33,7 +34,7 @@ SentientSandsRebirth/
   SentientSandsRebirth.mod
   SentientSands_Config.ini   settings, created by the server on first start
   server/
-    scripts/  config/  prompts/  web/
+    scripts/  config/  prompts/  web/  world_templates/
     python/                  embedded runtime, added by scripts/package_release.py
     campaigns/  logs/  user/ created at runtime
 ```
@@ -95,7 +96,7 @@ Each file in `server/prompts/` is a shipped default, and an update replaces it. 
 
 The Prompts page of the web app reads `GET /api/prompts` and saves each changed prompt through `POST /api/prompts` (`server/scripts/prompt_store.py`).
 
-- A route takes only the name of a shipped `.txt` file, never a path, so a request cannot write outside `server/user/prompts/`. The two player profile files are not prompts, so the page does not list them.
+- A route takes only the name of a shipped `.txt` file, never a path, so a request cannot write outside `server/user/prompts/`. The player profile file `character_bio.txt` is not a prompt, so the page does not list it.
 - A save equal to the shipped text, or an empty save, deletes the override, so the prompt gets later default updates again. **Use default** and **Reset to defaults** fill the form with the shipped text, and the next save deletes the overrides.
 - Each save of an override stores the SHA-256 of the shipped text in `server/user/prompts/base_hashes.json`. When an update changes the shipped text, the hash no longer matches, and the page marks the override. An override with no stored hash, for example one made by hand, is marked as unknown.
 - An override and `base_hashes.json` are written to a temporary file and then renamed, as `llm_config.save` does.
@@ -106,7 +107,7 @@ A placeholder is a `{name}` in a prompt. `prompt_store.render` replaces each pla
 - A hand-made override can still hold a wrong placeholder. `fill_prompt` then leaves it as text and logs a warning.
 - Rejected: Jinja2. Flask already bundles it, but template logic lets one edit break the whole prompt, and a syntax error fails the call.
 
-`prompt_system.txt` is the skeleton of the chat system prompt: its headings, the order of its sections, and the rules on what an NPC can see of the player. `build_system_prompt` fills it. A block that appears only with data, such as the events or the player faction description, keeps its heading in the code, because a placeholder has no conditions.
+`prompt_system.txt` is the skeleton of the chat system prompt: its headings, the order of its sections, and the rules on what an NPC can see of the player. `build_system_prompt` fills it. A block that appears only with data, such as the events or the player faction description, keeps its heading in the code, because a placeholder has no conditions. The `{world_lore}` placeholder takes the overview of the campaign (see [Campaign storage](#campaign-storage)).
 
 ## LLM routing
 
@@ -137,7 +138,7 @@ On a start without `llm_config.json`, the server builds it from `default_provide
 
 ## Campaign storage
 
-`server/scripts/campaign_db.py` keeps the NPC profiles, the dialogue, the event history, and the rumors of a campaign in one SQLite file, `campaign.db`, in the campaign folder. The plugin reaches this data only through the server's routes, which keep their request and response shapes. The player profile stays two text files in the campaign folder, `character_bio.txt` and `player_faction_description.txt` (`load_campaign_text`). A new campaign gets a copy of the shipped files of the same names in `server/prompts/`.
+`server/scripts/campaign_db.py` keeps the NPC profiles, the dialogue, the factions, the overview, the event history, and the rumors of a campaign in one SQLite file, `campaign.db`, in the campaign folder. The plugin reaches this data only through the server's routes, which keep their request and response shapes. The player bio stays a text file in the campaign folder, `character_bio.txt` (`load_campaign_text`). A new campaign gets a copy of the shipped file of the same name in `server/prompts/`.
 
 - Each write runs in one `BEGIN IMMEDIATE` transaction. A profile write merges only the keys that the caller passes, and the dialogue lines are rows of their own. A route that waits for the LLM must write only the keys that it changed, so that it cannot undo a change that another request made during the wait.
 - `/chat` changes the Relation through `change_relation`, which adds the judgment to the stored value in one transaction. Two overlapping chats with the same NPC therefore keep both changes.
@@ -148,7 +149,55 @@ On a start without `llm_config.json`, the server builds it from `default_provide
 - Each NPC keeps its newest 250 dialogue lines, and the campaign keeps its newest 500 events. An event that the table already holds is not added again.
 - Favorites belong to each campaign.
 
-`open_campaign` creates `campaign.db` in a campaign folder that has none. It builds the database in `campaign.db.tmp` and then renames it to `campaign.db`. A crash before the rename leaves no database, so the next start creates it again.
+A new campaign is a copy of a world template (see [World templates](#world-templates)): its overview, its factions, and the name, version, and content hash of the template. After the copy, the campaign does not depend on the template, so a template edit or a deleted template does not change it. `/campaigns/create`, which the in-game Campaign Manager calls, takes an optional `template` and uses Vanilla Kenshi without one.
+
+`open_campaign` creates `campaign.db` in a campaign folder that has none, from the Vanilla Kenshi template. It builds the database in `campaign.db.tmp` and then renames it to `campaign.db`. A crash before the rename leaves no database, so the next start creates it again. A database of an earlier schema version is not upgraded: `open_campaign` refuses it, and each later operation fails with the reason until the player switches to another campaign.
+
+### Factions
+
+Each campaign holds its own copy of the factions, keyed by the string ID of the faction in the game data. The prompt describes a faction from this copy: its name, its fields, and its description (`describe_faction`).
+
+- The server finds a faction by the `factionID` of a context, or by name or alias when only a name is known, for example the origin faction in a profile. The name match ignores case and is exact, so Holy Nation Outlaws never takes the description of The Holy Nation.
+- The loyalty note for members of a major world power reads the `major` flag.
+- A faction that a context reports and the copy lacks gets a row with the name that the game gives and an empty description (`note_faction`). The plugin sends the name, or `Neutral`, as the ID of a faction with no string ID, and the server records no row for those.
+- The player's faction is the row of the `factionID` of the player's context. Its name follows the game, because the player can rename the faction in game. Its description is the player faction block of the chat prompt, and an empty description leaves the block out.
+- The server records each reported faction once per campaign in memory (`SEEN_FACTIONS`), because the plugin posts the player's context every 5 s.
+
+### Campaign routes of the web app
+
+| Route | Behavior |
+|---|---|
+| `GET /api/campaigns` | Each campaign with its template, and whether an earlier version of SSR made it |
+| `POST /api/campaigns` | Create a campaign from a template. Only the in-game Campaign Manager switches campaigns, so this route does not switch. |
+| `GET /api/campaign` | The active campaign: its template, overview, factions, events, and rumors. A refused campaign gives status 409 with the reason. |
+| `POST /api/campaign/overview`, `.../factions`, `.../rumors`, `.../rumors/delete`, `.../events/delete` | Edit the active campaign |
+
+- Each edit names the campaign that the page loaded. The player can switch the campaign in game while the page is open, so the server refuses an edit for another campaign instead of writing it into the active one.
+- A faction edit carries the `updated_at` that the page loaded, and the server refuses it when the row changed after that, for example when the game renamed the player's faction. The name of the player's faction is not editable, because the next context would undo it.
+- A rumor edit replaces only the text of its `[RUMOR: ...]` tag and keeps its game time. Brackets in the text become parentheses, because the prompt reads the rumor up to the first `]`.
+
+## World templates
+
+A world template is a folder that describes a world: `manifest.json` (format version, name, version, authors, credits), `overview.txt` (the lore that goes into every prompt), `history.json`, `factions/<id>.json`, `characters/<id>.json`, and `entities/<category>/<id>.json`. The format is in [proposal_data_layers.md](../plans/proposal_data_layers.md#3-world-template-format). A campaign copies only the overview and the factions so far.
+
+| Template | Location | Edits |
+|---|---|---|
+| Vanilla Kenshi | `server/world_templates/vanilla_kenshi/`, shipped | None. An update replaces it, so the player duplicates it first. |
+| User templates | `server/user/world_templates/<name>/` | The web app, or by hand |
+
+`server/scripts/world_template.py` reads, validates, and writes templates, and imports only the standard library.
+
+- One validator runs before each write and each campaign creation. It rejects an unknown `format_version`, a JSON file that does not parse, a faction or an entity without a name, a faction or a character without `game_id`, two factions or two characters with one `game_id`, and a character without a `Name` in its profile. A child that names no entity is a warning.
+- A faction binds to the game by `game_id`, the string ID of the faction in the game data, so a rename in game does not break the link. The IDs of the vanilla factions come from the `FACTION_PROBE` lines of an in-game test ([development.md](development.md#probes)).
+- A route takes a template name, a record kind, a category, and a record ID, never a path. Each must match a fixed pattern, so a request cannot write outside the template folders. A new record takes its ID from its name.
+- A duplicate copies every file of the template, its credit and licence files included, so a derived template keeps its attribution.
+
+| Route | Behavior |
+|---|---|
+| `GET /api/templates` | The name, title, and record counts of each template |
+| `GET /api/templates/<name>` | The whole template, with its errors and warnings |
+| `POST /api/templates/<name>/records`, `.../records/delete` | Save or delete one record of a user template |
+| `POST /api/templates/<name>/duplicate`, `.../delete` | Copy a template as a user template, or delete a user template |
 
 ## Logging
 
@@ -184,7 +233,8 @@ The plugin and the server write their logs in the same format, so one tool can r
 
 | Location | Contents |
 |---|---|
-| `server/campaigns/<name>/` | One campaign: `campaign.db` (see [Campaign storage](#campaign-storage)), `character_bio.txt`, and `player_faction_description.txt`. |
+| `server/campaigns/<name>/` | One campaign: `campaign.db` (see [Campaign storage](#campaign-storage)) and `character_bio.txt`. |
 | `server/logs/` | `server.log` and `llm.log` (see [Logging](#logging)). |
 | `server/user/prompts/` | The player's prompt overrides and `base_hashes.json` (see [Prompts](#prompts)). The release does not ship it, so an update keeps the overrides. |
+| `server/user/world_templates/` | The player's world templates (see [World templates](#world-templates)). The release does not ship it, so an update keeps them. |
 | `server/user/llm_config.json` | The LLM providers with the player's API keys, the profiles, and the routes (see [LLM routing](#llm-routing)). The release does not ship it, so an update keeps the keys. |

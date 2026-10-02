@@ -1,0 +1,10 @@
+{
+  "game_id": "56777-Dialogue.mod",
+  "name": "Southern Hive",
+  "aliases": [],
+  "major": false,
+  "fields": {
+    "leader": "The Queen of the South"
+  },
+  "description": "A territorial and aggressive Hive variant that views all outsiders as food for their King."
+}

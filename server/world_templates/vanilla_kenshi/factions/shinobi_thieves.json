@@ -1,0 +1,10 @@
+{
+  "game_id": "14491-rebirth.mod",
+  "name": "Shinobi Thieves",
+  "aliases": [],
+  "major": false,
+  "fields": {
+    "leader": "The Big Boss"
+  },
+  "description": "A global network of spies, smugglers, and fences with safehouses in most major cities."
+}

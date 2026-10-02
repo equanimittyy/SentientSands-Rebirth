@@ -11,7 +11,6 @@ const OTHER = "Other prompts";
 const PROMPT_INFO = {
   "prompt_system.txt": { group: "Conversations", title: "System prompt", blurb: "The frame of every chat and radiant conversation. It places the prompts below, the location, the player, and the recent world events." },
   "npc_base.txt": { group: "Conversations", title: "NPC persona", blurb: "Who every NPC is at heart: a weary survivor of Kenshi who stays in character." },
-  "world_lore.txt": { group: "Conversations", title: "World lore", blurb: "The history, factions, and races of Kenshi that every NPC knows." },
   "response_rules.txt": { group: "Conversations", title: "Reply rules", blurb: "How an NPC writes a reply: spoken words only, short, with no formatting or modern slang." },
   "prompt_action_tags.txt": { group: "Conversations", title: "Action tags", blurb: "The game actions that an NPC can take from a reply, such as attack, join your squad, or give an item." },
   "prompt_chat_template.txt": { group: "Conversations", title: "Chat template", blurb: "How a chat request is put together: the system prompt, the NPC profiles, the conversation so far, and the final instruction." },

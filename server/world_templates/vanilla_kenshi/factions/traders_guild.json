@@ -1,0 +1,10 @@
+{
+  "game_id": "1088-gamedata.base",
+  "name": "Traders Guild",
+  "aliases": [],
+  "major": true,
+  "fields": {
+    "leader": "Longen"
+  },
+  "description": "A powerful commercial alliance that controls much of the world's economy through slave labor and trade."
+}

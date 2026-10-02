@@ -1,0 +1,10 @@
+{
+  "game_id": "defaultEmpireFactionSID",
+  "name": "United Cities",
+  "aliases": [],
+  "major": true,
+  "fields": {
+    "leader": "Emperor Tengu"
+  },
+  "description": "A vast, corrupt empire where wealth is law. They rely on slavery and the Traders Guild."
+}

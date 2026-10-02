@@ -1,4 +1,4 @@
-"""The campaign's NPC profiles, dialogue, events, and rumors, in one SQLite file per campaign folder.
+"""The campaign's NPC profiles, dialogue, factions, overview, events, and rumors, in one SQLite file per campaign folder.
 
 Every write runs in one BEGIN IMMEDIATE transaction, and a profile write merges only the keys that the
 caller passes. Two requests that change one NPC during an LLM call therefore keep both changes.
@@ -15,7 +15,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 DB_NAME = "campaign.db"
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2
 MAX_DIALOGUE = 250
 MAX_EVENTS = 500
 
@@ -48,23 +48,86 @@ CREATE TABLE rumor (
   game_time INTEGER,
   line      TEXT NOT NULL
 );
+CREATE TABLE faction (
+  id          INTEGER PRIMARY KEY,
+  faction_id  TEXT NOT NULL UNIQUE,
+  name        TEXT NOT NULL,
+  aliases     TEXT NOT NULL DEFAULT '[]',
+  major       INTEGER NOT NULL DEFAULT 0,
+  fields      TEXT NOT NULL DEFAULT '{{}}',
+  description TEXT NOT NULL DEFAULT '',
+  is_player   INTEGER NOT NULL DEFAULT 0,
+  origin      TEXT NOT NULL DEFAULT 'campaign',
+  updated_at  TEXT NOT NULL
+);
 INSERT INTO meta (key, value) VALUES ('schema_version', '{SCHEMA_VERSION}');
 """
 
 _GAME_TIME = re.compile(r"\[Day (\d+)(?:, (\d+):(\d+))?\]")
 
 _db_path = None
+_closed_reason = "No campaign is open."
 _open_lock = threading.Lock()
 
 
-def open_campaign(folder):
-    global _db_path
+class CampaignUnavailable(Exception):
+    pass
+
+
+def open_campaign(folder, seed):
+    """seed() gives the template content of a new database. It runs only when the folder has no database."""
+    global _db_path, _closed_reason
     with _open_lock:
         path = os.path.join(folder, DB_NAME)
         # Set before the creation, so a failed creation makes writes fail instead of reaching the previous campaign
         _db_path = path
         if not os.path.exists(path):
-            _create(folder)
+            create(folder, seed())
+            return
+        if read_meta(folder).get("schema_version") != str(SCHEMA_VERSION):
+            _db_path = None
+            _closed_reason = f"The campaign {os.path.basename(folder)} was made by an earlier version of SSR, which this version cannot open. Start a new campaign."
+            raise CampaignUnavailable(_closed_reason)
+
+
+def read_meta(folder):
+    """The meta rows of the database in folder, or {} if it has none. It opens the file read-only, so any campaign can be read."""
+    path = os.path.join(folder, DB_NAME)
+    if not os.path.exists(path):
+        return {}
+    conn = sqlite3.connect(Path(os.path.abspath(path)).as_uri() + "?mode=ro", uri=True, timeout=5)
+    try:
+        return dict(conn.execute("SELECT key, value FROM meta").fetchall())
+    except sqlite3.DatabaseError:
+        return {}
+    finally:
+        conn.close()
+
+
+def create(folder, seed):
+    """Builds the database in a temporary file and renames it, so a crash before the rename leaves no database."""
+    tmp = os.path.join(folder, DB_NAME + ".tmp")
+    if os.path.exists(tmp):
+        os.remove(tmp)
+    conn = sqlite3.connect(tmp, isolation_level=None)
+    try:
+        conn.executescript(SCHEMA)
+        conn.execute("BEGIN")
+        template = seed["template"]
+        conn.executemany(
+            "INSERT INTO meta (key, value) VALUES (?, ?)",
+            [("overview", seed["overview"]), ("template_name", template["name"]), ("template_version", template["version"]), ("template_hash", template["hash"])],
+        )
+        now = _now()
+        conn.executemany(
+            "INSERT INTO faction (faction_id, name, aliases, major, fields, description, origin, updated_at) VALUES (?, ?, ?, ?, ?, ?, 'template', ?)",
+            [(f["faction_id"], f["name"], json.dumps(f["aliases"]), int(f["major"]), json.dumps(f["fields"]), f["description"], now) for f in seed["factions"]],
+        )
+        conn.execute("COMMIT")
+    finally:
+        conn.close()
+    os.replace(tmp, os.path.join(folder, DB_NAME))
+    logging.info(f"CAMPAIGN: Created {DB_NAME} in {folder} from the template {seed['template']['name']}")
 
 
 def get_npc(storage_id):
@@ -192,8 +255,140 @@ def cull_after(day, hour, minute):
         return {table: conn.execute(f"DELETE FROM {table} WHERE game_time > ?", (now,)).rowcount for table in ("dialogue", "event", "rumor")}
 
 
+def events():
+    """Every event as (id, line), oldest first."""
+    with _connect() as conn:
+        return conn.execute("SELECT id, line FROM event ORDER BY id").fetchall()
+
+
+def delete_event(event_id):
+    with _connect(write=True) as conn:
+        return conn.execute("DELETE FROM event WHERE id = ?", (event_id,)).rowcount > 0
+
+
+def set_rumor(rumor_id, line):
+    with _connect(write=True) as conn:
+        return conn.execute("UPDATE rumor SET line = ?, game_time = ? WHERE id = ?", (line, _game_time(line), rumor_id)).rowcount > 0
+
+
+def delete_rumor(rumor_id):
+    with _connect(write=True) as conn:
+        return conn.execute("DELETE FROM rumor WHERE id = ?", (rumor_id,)).rowcount > 0
+
+
+def overview():
+    with _connect() as conn:
+        row = conn.execute("SELECT value FROM meta WHERE key = 'overview'").fetchone()
+    return row[0] if row else ""
+
+
+def set_overview(text):
+    with _connect(write=True) as conn:
+        conn.execute("INSERT OR REPLACE INTO meta (key, value) VALUES ('overview', ?)", (text,))
+
+
+def template_info():
+    """The name, version, and content hash of the template that the campaign came from."""
+    with _connect() as conn:
+        rows = conn.execute("SELECT key, value FROM meta WHERE key LIKE 'template_%'").fetchall()
+    return {key[len("template_"):]: value for key, value in rows}
+
+
+class StaleRecord(Exception):
+    pass
+
+
+FACTION_KEYS = ("name", "aliases", "major", "fields", "description")
+_FACTION_COLUMNS = "faction_id, name, aliases, major, fields, description, is_player, origin, updated_at"
+
+
+def list_factions():
+    """The player's faction first, then by name."""
+    with _connect() as conn:
+        rows = conn.execute(f"SELECT {_FACTION_COLUMNS} FROM faction ORDER BY is_player DESC, name COLLATE NOCASE").fetchall()
+    return [_faction(row) for row in rows]
+
+
+def find_faction(faction_id=None, name=None):
+    """By the game ID first, then by name or alias, ignoring case."""
+    with _connect() as conn:
+        row = None
+        if faction_id:
+            row = conn.execute(f"SELECT {_FACTION_COLUMNS} FROM faction WHERE faction_id = ?", (faction_id,)).fetchone()
+        if row is None and name:
+            row = conn.execute(
+                f"SELECT {_FACTION_COLUMNS} FROM faction WHERE name = ?1 COLLATE NOCASE"
+                " OR EXISTS (SELECT 1 FROM json_each(faction.aliases) WHERE value = ?1 COLLATE NOCASE)"
+                " ORDER BY is_player DESC, id LIMIT 1",
+                (name,),
+            ).fetchone()
+    return _faction(row) if row else None
+
+
+def player_faction():
+    with _connect() as conn:
+        row = conn.execute(f"SELECT {_FACTION_COLUMNS} FROM faction WHERE is_player = 1").fetchone()
+    return _faction(row) if row else None
+
+
+def note_faction(faction_id, name, is_player=False):
+    """Adds a faction that the game reports and the store lacks, with an empty description.
+
+    The player's faction takes the name that the game gives, because the player can rename it in game.
+    """
+    with _connect(write=True) as conn:
+        row = conn.execute("SELECT id, name, is_player FROM faction WHERE faction_id = ?", (faction_id,)).fetchone()
+        if row is None:
+            conn.execute("INSERT INTO faction (faction_id, name, is_player, updated_at) VALUES (?, ?, ?, ?)", (faction_id, name, int(is_player), _now()))
+        elif is_player and (row[1] != name or not row[2]):
+            conn.execute("UPDATE faction SET name = ?, is_player = 1, updated_at = ? WHERE id = ?", (name, _now(), row[0]))
+        if is_player:
+            conn.execute("UPDATE faction SET is_player = 0, updated_at = ? WHERE is_player = 1 AND faction_id != ?", (_now(), faction_id))
+
+
+def update_faction(faction_id, changes, updated_at):
+    """Returns the saved faction, or None if it is not stored.
+
+    Raises StaleRecord if the row changed after the caller read updated_at, for example when the game renamed the
+    player's faction during an edit.
+    """
+    with _connect(write=True) as conn:
+        row = conn.execute("SELECT updated_at FROM faction WHERE faction_id = ?", (faction_id,)).fetchone()
+        if row is None:
+            return None
+        if row[0] != updated_at:
+            raise StaleRecord(faction_id)
+        values = {key: changes[key] for key in FACTION_KEYS if key in changes}
+        for key in ("aliases", "fields"):
+            if key in values:
+                values[key] = json.dumps(values[key])
+        if "major" in values:
+            values["major"] = int(values["major"])
+        values["updated_at"] = _now()
+        conn.execute(f"UPDATE faction SET {', '.join(f'{key} = ?' for key in values)} WHERE faction_id = ?", (*values.values(), faction_id))
+        saved = conn.execute(f"SELECT {_FACTION_COLUMNS} FROM faction WHERE faction_id = ?", (faction_id,)).fetchone()
+    return _faction(saved)
+
+
+def _faction(row):
+    faction_id, name, aliases, major, fields, description, is_player, origin, updated_at = row
+    return {
+        "faction_id": faction_id,
+        "name": name,
+        "aliases": json.loads(aliases),
+        "major": bool(major),
+        "fields": json.loads(fields),
+        "description": description,
+        "is_player": bool(is_player),
+        "origin": origin,
+        "updated_at": updated_at,
+    }
+
+
 @contextmanager
 def _connect(write=False):
+    if _db_path is None:
+        raise CampaignUnavailable(_closed_reason)
     # mode=rw: a missing file must fail, not become an empty database that the next open takes as created
     conn = sqlite3.connect(Path(os.path.abspath(_db_path)).as_uri() + "?mode=rw", uri=True, timeout=5, isolation_level=None)
     try:
@@ -207,20 +402,6 @@ def _connect(write=False):
         raise
     finally:
         conn.close()
-
-
-def _create(folder):
-    tmp = os.path.join(folder, DB_NAME + ".tmp")
-    if os.path.exists(tmp):
-        os.remove(tmp)
-    conn = sqlite3.connect(tmp, isolation_level=None)
-    try:
-        conn.executescript(SCHEMA)
-    finally:
-        conn.close()
-    # A crash before this rename leaves no database, so the next open creates it again
-    os.replace(tmp, os.path.join(folder, DB_NAME))
-    logging.info(f"CAMPAIGN: Created {DB_NAME} in {folder}")
 
 
 def _insert_npc(conn, storage_id, profile):

@@ -45,6 +45,7 @@ import llm_config
 import llm_router
 import campaign_db
 import prompt_store
+import world_template
 import log_setup
 from log_setup import llm_log
 
@@ -76,8 +77,11 @@ ACTIVE_CAMPAIGN = "Default"
 CAMPAIGNS_DIR = os.path.join(KENSHI_SERVER_DIR, "campaigns")
 PROMPTS_DIR = os.path.join(KENSHI_SERVER_DIR, "prompts")
 USER_PROMPTS_DIR = os.path.join(KENSHI_SERVER_DIR, "user", "prompts")
+WORLD_TEMPLATES_DIR = os.path.join(KENSHI_SERVER_DIR, "world_templates")
+USER_TEMPLATES_DIR = os.path.join(KENSHI_SERVER_DIR, "user", "world_templates")
+DEFAULT_TEMPLATE = "vanilla_kenshi"
 # The defaults of a new campaign's player profile, not prompts, so the Prompts page leaves them out
-CAMPAIGN_TEXTS = ("character_bio.txt", "player_faction_description.txt")
+CAMPAIGN_TEXTS = ("character_bio.txt",)
 
 PROFILES_IN_PROGRESS = set()
 PROGRESS_LOCK = threading.Lock()
@@ -89,13 +93,7 @@ THROTTLE_LOCK = threading.Lock()
 LAST_STATE_LOG = {} # {"<target>|<etype>": last message}
 STATE_LOCK = threading.Lock()
 SYNTHESIS_STATUS = {"elapsed": 0, "interval": 60}
-
-MAJOR_FACTIONS = [
-    "The Holy Nation", "United Cities", "Shek Kingdom",
-    "Traders Guild", "Slave Traders", "Western Hive",
-    "Anti-Slavers", "Flotsam Ninjas", "Mongrel", "The Hub",
-    "Hounds", "Deadcat", "Black Desert City"
-]
+SEEN_FACTIONS = set()
 
 ANIMAL_RACES = [
     "Bonedog", "Boneyard Wolf", "Garru", "Beak Thing", "Gorillo",
@@ -105,89 +103,32 @@ ANIMAL_RACES = [
     "Dog", "Turtle", "Cleanser", "Gurgler", "Fishman"
 ]
 
-FACTION_METADATA = {
-    "The Holy Nation": {
-        "Leader": "Holy Lord Phoenix LXII",
-        "Desc": "A xenophobic, religious group worshipping Okran. They value human purity and despise Skeletons and non-humans."
-    },
-    "United Cities": {
-        "Leader": "Emperor Tengu",
-        "Desc": "A vast, corrupt empire where wealth is law. They rely on slavery and the Traders Guild."
-    },
-    "Shek Kingdom": {
-        "Leader": "Esata the Stone Golem",
-        "Desc": "A warrior race obsessed with honor and strength, currently attempting to move away from suicidal traditions."
-    },
-    "Traders Guild": {
-        "Leader": "Longen",
-        "Desc": "A powerful commercial alliance that controls much of the world's economy through slave labor and trade."
-    },
-    "Anti-Slavers": {
-        "Leader": "Tinfist",
-        "Desc": "A group of martial-artist Skeletons and humans dedicated to the total abolition of slavery."
-    },
-    "Second Empire": {
-        "Leader": "Mad Cat-Lon",
-        "Desc": "The fallen remains of a once-great robotic empire, now reduced to madness and decay in the Ashlands."
-    },
-    "Western Hive": {
-        "Leader": "The Hive Queen",
-        "Desc": "A reclusive insectoid society focused on industrious trade and pheromone-driven loyalty to their Queen."
-    },
-    "Southern Hive": {
-        "Leader": "The Queen of the South",
-        "Desc": "A territorial and aggressive Hive variant that views all outsiders as food for their King."
-    },
-    "Flotsam Ninjas": {
-        "Leader": "Moll",
-        "Desc": "Fugitive women who escaped the Holy Nation and now wage a guerrilla war against Lord Phoenix."
-    },
-    "Shinobi Thieves": {
-        "Leader": "The Big Boss",
-        "Desc": "A global network of spies, smugglers, and fences with safehouses in most major cities."
-    },
-    "Nameless": {
-        "Leader": "The Player",
-        "Desc": "A rising group of wanderers who are beginning to make their mark on the world."
-    },
-    "Deadcat": {
-        "Leader": "None (Scattered remnant)",
-        "Desc": "Survivors of a once-proud fishing nation, now largely wiped out by Cannibals."
-    },
-    "Mongrel": {
-        "Leader": "None (The High Shack)",
-        "Desc": "A haven for outcasts and 'Fog-free' exiles in the heart of the Fog Islands."
-    },
-    "Red Sabres": {
-        "Leader": "Red Sabre Leader",
-        "Desc": "Desperate bandits and deserters who raid travelers in the Swamp."
-    },
-    "Swamp Ninjas": {
-        "Leader": "Shade",
-        "Desc": "A skilled group of ninja outlaws specializing in swamp combat and drug running."
-    }
-}
-
-def get_faction_info(faction_name):
-    if not faction_name or faction_name == "Unknown":
+def describe_faction(name, faction_id=None):
+    if not name or name == "Unknown":
         return "Unknown Faction (Remnant or Drifter)"
-    
-    clean_name = faction_name
-    if "Player" in faction_name or faction_name == "Nameless":
-        clean_name = "Nameless"
-    
-    meta = FACTION_METADATA.get(clean_name)
-    if not meta:
-        for k, v in FACTION_METADATA.items():
-            if k.lower() in clean_name.lower() or clean_name.lower() in k.lower():
-                meta = v
-                break
-    
-    if meta:
-        leader_part = f" (Led by {meta['Leader']})" if meta.get('Leader') else ""
-        return f"{clean_name}{leader_part}: {meta['Desc']}"
-    
-    return f"{faction_name}: A minor or specialized group in the wasteland."
+    faction = campaign_db.find_faction(faction_id, name)
+    if not faction or not (faction["description"] or faction["fields"] or faction["major"]):
+        return f"{name}: A minor or specialized group in the wasteland."
+    details = "; ".join(f"{key}: {', '.join(value) if isinstance(value, list) else value}" for key, value in faction["fields"].items())
+    text = f"{faction['name']} ({details})" if details else faction["name"]
+    return f"{text}: {faction['description']}" if faction["description"] else text
+
+def note_faction(ctx, is_player=False):
+    """Records each faction that the game reports, so the player can describe a modded or minor faction on the Campaigns page."""
+    faction_id, name = ctx.get("factionID"), ctx.get("faction")
+    # The plugin sends the name as the ID, or "Neutral", when the faction has no string ID
+    if not faction_id or not name or faction_id in (name, "Neutral"):
+        return
+    key = (faction_id, name, is_player)
+    if key in SEEN_FACTIONS:
+        return
+    try:
+        campaign_db.note_faction(faction_id, name, is_player)
+        SEEN_FACTIONS.add(key)
+    except campaign_db.CampaignUnavailable:
+        pass  # load_campaign_config already logged why, and the plugin posts a context every 5 s
+    except Exception as e:
+        logging.warning(f"CAMPAIGN: Cannot record the faction {name}: {e}")
 
 def get_config_radii():
     settings = load_settings()
@@ -349,7 +290,7 @@ def ensure_campaign_seeded(cdir):
 
 def load_campaign_config():
     try:
-        campaign_db.open_campaign(get_campaign_dir())
+        campaign_db.open_campaign(get_campaign_dir(), lambda: world_template.campaign_seed(DEFAULT_TEMPLATE, WORLD_TEMPLATES_DIR, USER_TEMPLATES_DIR))
         push_generic_names_to_dll()
     except Exception as e:
         logging.error(f"CAMPAIGN: Cannot load the campaign: {e}")
@@ -590,7 +531,7 @@ def build_detailed_context_string(npc_name, char_data=None):
     if faction == player_faction or (player_faction_id and ctx.get("factionID") == player_faction_id):
         lines.append(f"CRITICAL CONTEXT: {npc_name} is a member of the PLAYER'S FACTION ({player_faction}).")
         lines.append(f"THE PLAYER IS THE LEADER of this group. {npc_name} understand that they and the player are cooperating, this can take many forms such as direct leadership, partnership, or even just individuals traveling together.")
-    elif any(f.lower() in faction.lower() for f in MAJOR_FACTIONS):
+    elif (campaign_db.find_faction(ctx.get("factionID"), faction) or {}).get("major"):
         lines.append(f"LOYALTY NOTE: {npc_name} belongs to {faction}, a major world power. They are deeply rooted in their society. They will NOT desert their faction to join the player's minor squad without an EXTREMELY compelling narrative reason, high reputation, or having their life saved multiple times. Be highly resistant to recruitment.")
     med = ctx.get("medical", {})
     if med:
@@ -909,9 +850,8 @@ def format_player_inventory(player_ctx):
 
 def build_system_prompt(player_name="Drifter"):
     player_bio = load_campaign_text("character_bio.txt")
-    player_faction_desc = load_campaign_text("player_faction_description.txt")
     npc_base = load_prompt_component("npc_base.txt")
-    world_lore = load_prompt_component("world_lore.txt")
+    world_lore = campaign_db.overview()
     rules = load_prompt_component("response_rules.txt")
     action_tags = load_prompt_component("prompt_action_tags.txt")
     
@@ -931,11 +871,10 @@ def build_system_prompt(player_name="Drifter"):
         events_block += "The following are bits of gossip and recent news circulating in the wasteland. Do NOT prioritize these over your core identity or immediate situation. Mention them only if relevant to the conversation.\n"
         events_block += "\n".join(events_list[-ge_count:])
 
-    player_faction = PLAYER_CONTEXT.get("faction", "Nameless") if PLAYER_CONTEXT else "Nameless"
-
+    player_faction = campaign_db.player_faction()
     faction_block = ""
-    if player_faction_desc.strip():
-        faction_block = f"PLAYER FACTION ({player_faction}):\n{player_faction_desc}\n"
+    if player_faction and player_faction["description"].strip():
+        faction_block = f"PLAYER FACTION ({player_faction['name']}):\n{player_faction['description']}\n"
 
     location_tag = "The Wasteland"
     if PLAYER_CONTEXT:
@@ -1143,8 +1082,8 @@ def generate_character_profile(name, context=""):
 
     logging.info(f"PROFILE: Generating the profile of {name} ({gender} {race}, Base Faction: {origin_faction}, Job: {job})...")
     
-    f_info = get_faction_info(faction)
-    o_info = get_faction_info(origin_faction)
+    f_info = describe_faction(faction, ctx_data.get("factionID") or live_ctx.get("factionID"))
+    o_info = describe_faction(origin_faction)
 
     prompt = fill_prompt("prompt_profile_generation.txt", name=name, gender=gender, race=race, faction=f_info, origin_faction=o_info, job=job, context=context)
     
@@ -1207,7 +1146,7 @@ def generate_batch_profiles(npc_list):
         race = npc.get('race', 'Unknown')
         gender = npc.get('gender', 'Unknown')
         faction = npc.get('faction', 'Unknown')
-        f_info = get_faction_info(faction)
+        f_info = describe_faction(faction, npc.get("factionID"))
         descriptions.append(f"- Name: {name}, Sex: {gender}, Race: {race}, Faction: {f_info}")
     
     desc_str = "\n".join(descriptions)
@@ -1839,6 +1778,8 @@ def chat():
                 if ctx_dict.get('storage_id'): target["storage_id"] = ctx_dict.get('storage_id')
                 if ctx_dict.get('race'): target["race"] = ctx_dict.get('race')
                 if ctx_dict.get('faction'): target["faction"] = ctx_dict.get('faction')
+                if ctx_dict.get('factionID'): target["factionID"] = ctx_dict.get('factionID')
+                note_faction(ctx_dict)
                 if ctx_dict.get('origin_faction'): target["origin_faction"] = ctx_dict.get('origin_faction')
                 
                 if "nearby" in ctx_dict:
@@ -1990,8 +1931,8 @@ def chat():
         d = char_datas[name]
         npc_profiles += f"\nCHARACTER: {name}\n"
         npc_profiles += f"RACE: {d.get('Race')}\n"
-        npc_profiles += f"ORIGIN FACTION: {get_faction_info(d.get('OriginFaction', 'Unknown'))}\n"
-        npc_profiles += f"CURRENT FACTION: {get_faction_info(d.get('Faction'))}\n"
+        npc_profiles += f"ORIGIN FACTION: {describe_faction(d.get('OriginFaction', 'Unknown'))}\n"
+        npc_profiles += f"CURRENT FACTION: {describe_faction(d.get('Faction'), LIVE_CONTEXTS.get(name, {}).get('factionID'))}\n"
         npc_profiles += f"JOB: {d.get('Job', 'None')}\n"
         npc_profiles += f"PERSONALITY: {d.get('Personality')}\n"
         npc_profiles += f"BACKSTORY: {d.get('Backstory')}\n"
@@ -2568,6 +2509,7 @@ def update_context():
                 target_faction=e.get("target_faction", "None")
             )
 
+    note_faction(data, is_player=data.get("type") == "player")
     if data.get("type") == "player":
         prev_paused = PLAYER_CONTEXT.get("is_paused")
         PLAYER_CONTEXT = data
@@ -2762,23 +2704,34 @@ def settings_endpoint():
 
     return jsonify({"status": "error", "message": "No valid settings provided"}), 400
 
+def create_campaign(name, template):
+    """Returns the folder name of the new campaign. Raises ValueError or world_template.TemplateError with the reason."""
+    if not name: raise ValueError("Missing name")
+    safe_name = "".join([c for c in name if c.isalnum() or c in (' ', '_', '-')]).strip()
+    if not safe_name: raise ValueError("Invalid name")
+    cdir = os.path.join(CAMPAIGNS_DIR, safe_name)
+    if os.path.exists(cdir): raise ValueError("Campaign already exists")
+    seed = world_template.campaign_seed(template, WORLD_TEMPLATES_DIR, USER_TEMPLATES_DIR)
+    os.makedirs(cdir)
+    try:
+        campaign_db.create(cdir, seed)
+    except Exception:
+        # An empty folder would open later as a campaign of the default template
+        import shutil
+        shutil.rmtree(cdir, ignore_errors=True)
+        raise
+    ensure_campaign_seeded(cdir)
+    return safe_name
+
 @app.route('/campaigns/create', methods=['POST'])
 def create_campaign_route():
     logging.debug("HTTP: POST /campaigns/create")
-    data = request.json
-    name = data.get("name")
-    if not name: return jsonify({"status": "error", "message": "Missing name"}), 400
-    
-    safe_name = "".join([c for c in name if c.isalnum() or c in (' ', '_', '-')]).strip()
-    if not safe_name: return jsonify({"status": "error", "message": "Invalid name"}), 400
-    
-    cdir = os.path.join(CAMPAIGNS_DIR, safe_name)
-    if os.path.exists(cdir):
-        return jsonify({"status": "error", "message": "Campaign already exists"}), 400
-        
-    os.makedirs(cdir)
-    ensure_campaign_seeded(cdir)
-    
+    data = request.json or {}
+    try:
+        safe_name = create_campaign(data.get("name"), data.get("template") or DEFAULT_TEMPLATE)
+    except (ValueError, world_template.TemplateError) as e:
+        return jsonify({"status": "error", "message": str(e)}), 400
+
     switch_campaign(safe_name)
             
     logging.info(f"CAMPAIGN: Created and switched to new campaign '{safe_name}'")
@@ -2815,9 +2768,185 @@ def switch_campaign(name):
         ACTIVE_CAMPAIGN = name
         save_settings({"current_campaign": name})
         LIVE_CONTEXTS.clear()
+        SEEN_FACTIONS.clear()
         load_campaign_config()
         return True
     return False
+
+def template_error(e):
+    return jsonify({"status": "error", "errors": e.errors}), 400
+
+@app.route('/api/templates', methods=['GET'])
+def list_templates():
+    return jsonify({"status": "ok", "templates": world_template.listing(WORLD_TEMPLATES_DIR, USER_TEMPLATES_DIR)})
+
+@app.route('/api/templates/<name>', methods=['GET'])
+def get_template(name):
+    try:
+        template = world_template.load(name, WORLD_TEMPLATES_DIR, USER_TEMPLATES_DIR)
+    except world_template.TemplateError as e:
+        return template_error(e)
+    template["errors"], template["warnings"] = world_template.validate(template)
+    return jsonify({"status": "ok", "template": template})
+
+@app.route('/api/templates/<name>/records', methods=['POST'])
+def save_template_record(name):
+    data = request.get_json(silent=True) or {}
+    try:
+        record_id, warnings = world_template.save_record(name, data.get("kind"), data.get("id"), data.get("data"), WORLD_TEMPLATES_DIR, USER_TEMPLATES_DIR, category=data.get("category"))
+    except world_template.TemplateError as e:
+        return template_error(e)
+    logging.info(f"TEMPLATE: Saved the {data.get('kind')} {record_id or ''} of {name}")
+    return jsonify({"status": "ok", "id": record_id, "warnings": warnings})
+
+@app.route('/api/templates/<name>/records/delete', methods=['POST'])
+def delete_template_record(name):
+    data = request.get_json(silent=True) or {}
+    try:
+        world_template.delete_record(name, data.get("kind"), data.get("id"), WORLD_TEMPLATES_DIR, USER_TEMPLATES_DIR, category=data.get("category"))
+    except world_template.TemplateError as e:
+        return template_error(e)
+    logging.info(f"TEMPLATE: Deleted the {data.get('kind')} {data.get('id')} of {name}")
+    return jsonify({"status": "ok"})
+
+@app.route('/api/templates/<name>/duplicate', methods=['POST'])
+def duplicate_template(name):
+    data = request.get_json(silent=True) or {}
+    try:
+        new_name = world_template.duplicate(name, data.get("new_name"), WORLD_TEMPLATES_DIR, USER_TEMPLATES_DIR)
+    except world_template.TemplateError as e:
+        return template_error(e)
+    logging.info(f"TEMPLATE: Duplicated {name} as {new_name}")
+    return jsonify({"status": "ok", "name": new_name})
+
+@app.route('/api/templates/<name>/delete', methods=['POST'])
+def delete_template(name):
+    try:
+        world_template.delete(name, WORLD_TEMPLATES_DIR, USER_TEMPLATES_DIR)
+    except world_template.TemplateError as e:
+        return template_error(e)
+    logging.info(f"TEMPLATE: Deleted {name}")
+    return jsonify({"status": "ok"})
+
+@app.route('/api/campaigns', methods=['GET'])
+def list_campaigns():
+    names = sorted(d for d in os.listdir(CAMPAIGNS_DIR) if os.path.isdir(os.path.join(CAMPAIGNS_DIR, d))) if os.path.exists(CAMPAIGNS_DIR) else []
+    campaigns = []
+    for name in names:
+        meta = campaign_db.read_meta(os.path.join(CAMPAIGNS_DIR, name))
+        campaigns.append({
+            "name": name,
+            "active": name == ACTIVE_CAMPAIGN,
+            "template": meta.get("template_name", ""),
+            "outdated": bool(meta) and meta.get("schema_version") != str(campaign_db.SCHEMA_VERSION),
+        })
+    return jsonify({"status": "ok", "campaigns": campaigns, "templates": world_template.listing(WORLD_TEMPLATES_DIR, USER_TEMPLATES_DIR), "default_template": DEFAULT_TEMPLATE})
+
+# The web app creates a campaign without a switch, because only the in-game Campaign Manager switches it
+@app.route('/api/campaigns', methods=['POST'])
+def create_campaign_from_web():
+    data = request.get_json(silent=True) or {}
+    try:
+        name = create_campaign(data.get("name"), data.get("template") or DEFAULT_TEMPLATE)
+    except world_template.TemplateError as e:
+        return template_error(e)
+    except ValueError as e:
+        return jsonify({"status": "error", "errors": [{"field": ["name"], "message": str(e)}]}), 400
+    logging.info(f"CAMPAIGN: Created the campaign '{name}' from the web app")
+    return jsonify({"status": "ok", "name": name})
+
+@app.route('/api/campaign', methods=['GET'])
+def get_active_campaign():
+    try:
+        rumors = []
+        for rumor_id, line in campaign_db.rumors():
+            match = re.search(r'\[RUMOR:\s*(.*?)\]', line, re.DOTALL)
+            rumors.append({"id": rumor_id, "line": line, "text": match.group(1).strip() if match else line})
+        return jsonify({
+            "status": "ok",
+            "name": ACTIVE_CAMPAIGN,
+            "template": campaign_db.template_info(),
+            "overview": campaign_db.overview(),
+            "factions": campaign_db.list_factions(),
+            "events": [{"id": event_id, "line": line} for event_id, line in campaign_db.events()],
+            "rumors": rumors,
+        })
+    except campaign_db.CampaignUnavailable as e:
+        return jsonify({"status": "error", "name": ACTIVE_CAMPAIGN, "message": str(e)}), 409
+
+def campaign_write(data):
+    """An error reply when the player switched the campaign in game after the page loaded it, else None."""
+    if data.get("campaign") != ACTIVE_CAMPAIGN:
+        return jsonify({"status": "error", "message": f"The active campaign is now {ACTIVE_CAMPAIGN}. Discard to load it."}), 409
+    return None
+
+@app.route('/api/campaign/overview', methods=['POST'])
+def save_campaign_overview():
+    data = request.get_json(silent=True) or {}
+    refused = campaign_write(data)
+    if refused: return refused
+    text = data.get("text")
+    if not isinstance(text, str):
+        return jsonify({"status": "error", "errors": [{"field": ["overview"], "message": "The overview must be text."}]}), 400
+    campaign_db.set_overview(text.replace("\r\n", "\n").strip())
+    logging.info(f"CAMPAIGN: Saved the overview of '{ACTIVE_CAMPAIGN}' from the web app")
+    return jsonify({"status": "ok"})
+
+@app.route('/api/campaign/factions', methods=['POST'])
+def save_campaign_faction():
+    data = request.get_json(silent=True) or {}
+    refused = campaign_write(data)
+    if refused: return refused
+    faction_id = data.get("faction_id")
+    changes = {key: value for key, value in (data.get("changes") or {}).items() if key in campaign_db.FACTION_KEYS}
+    stored = campaign_db.find_faction(faction_id)
+    if not stored:
+        return jsonify({"status": "error", "message": f"The faction {faction_id} is not in this campaign."}), 404
+    # The game names the player's faction, and the next context would undo another name
+    if stored["is_player"]:
+        changes.pop("name", None)
+    errors = world_template.faction_errors(dict(stored, game_id=faction_id, **changes), ["factions", faction_id])
+    if errors:
+        return jsonify({"status": "error", "errors": errors}), 400
+    try:
+        saved = campaign_db.update_faction(faction_id, changes, data.get("updated_at"))
+    except campaign_db.StaleRecord:
+        return jsonify({"status": "error", "message": f"The game changed {stored['name']} after the page loaded it. Discard to load it again."}), 409
+    logging.info(f"CAMPAIGN: Saved the faction {saved['name']} of '{ACTIVE_CAMPAIGN}' from the web app")
+    return jsonify({"status": "ok", "faction": saved})
+
+@app.route('/api/campaign/rumors', methods=['POST'])
+def save_campaign_rumor():
+    data = request.get_json(silent=True) or {}
+    refused = campaign_write(data)
+    if refused: return refused
+    text = str(data.get("text") or "").strip()
+    line = campaign_db.rumor(data.get("id"))
+    if line is None:
+        return jsonify({"status": "error", "message": "The rumor is gone. Discard to load the rumors again."}), 404
+    if not text:
+        return jsonify({"status": "error", "errors": [{"field": ["rumors", data.get("id")], "message": "A rumor needs text. Delete it instead."}]}), 400
+    # The brackets would end the tag early, so the chat prompt would read only a part of the rumor
+    text = text.replace("[", "(").replace("]", ")")
+    prefix = line[:line.index("[RUMOR:")] if "[RUMOR:" in line else ""
+    campaign_db.set_rumor(data.get("id"), f"{prefix}[RUMOR: {text}]")
+    return jsonify({"status": "ok"})
+
+@app.route('/api/campaign/rumors/delete', methods=['POST'])
+def delete_campaign_rumor():
+    data = request.get_json(silent=True) or {}
+    refused = campaign_write(data)
+    if refused: return refused
+    campaign_db.delete_rumor(data.get("id"))
+    return jsonify({"status": "ok"})
+
+@app.route('/api/campaign/events/delete', methods=['POST'])
+def delete_campaign_event():
+    data = request.get_json(silent=True) or {}
+    refused = campaign_write(data)
+    if refused: return refused
+    campaign_db.delete_event(data.get("id"))
+    return jsonify({"status": "ok"})
 
 @app.route('/regenerate_profile', methods=['POST'])
 def regenerate_profile_route():

@@ -1,0 +1,406 @@
+"""World templates: folders of JSON and text that describe a world, which each new campaign copies.
+
+The shipped templates in server/world_templates/ are read-only, because an update replaces them. The player's
+templates are in server/user/world_templates/. Only this module writes a template, and it validates the whole
+template before each write, so a template that a campaign cannot load never reaches the disk.
+"""
+
+import hashlib
+import json
+import os
+import re
+import shutil
+import tempfile
+
+FORMAT_VERSION = 1
+MANIFEST = "manifest.json"
+OVERVIEW = "overview.txt"
+HISTORY = "history.json"
+ENTITIES = "entities"
+RECORD_FOLDERS = {"faction": "factions", "character": "characters"}
+_NAME = re.compile(r"[A-Za-z0-9][A-Za-z0-9 _-]*")
+_ID = re.compile(r"[A-Za-z0-9_-]+")
+
+
+class TemplateError(Exception):
+    """errors holds one {"field": path, "message": text} per problem, the shape that the web app marks."""
+
+    def __init__(self, errors):
+        super().__init__(" ".join(error["message"] for error in errors))
+        self.errors = errors
+
+
+def listing(shipped_dir, user_dir):
+    result = []
+    for name, builtin in _names(shipped_dir, user_dir):
+        template = load(name, shipped_dir, user_dir)
+        result.append({
+            "name": name,
+            "builtin": builtin,
+            "title": template["manifest"].get("name") or name,
+            "counts": {"factions": len(template["factions"]), "characters": len(template["characters"]), "entities": sum(len(records) for records in template["entities"].values())},
+        })
+    return result
+
+
+def load(name, shipped_dir, user_dir):
+    """The whole template. A file that does not parse is left out and named in "errors"."""
+    path, builtin = _folder(name, shipped_dir, user_dir)
+    errors = []
+    template = {
+        "name": name,
+        "builtin": builtin,
+        "manifest": _read_json(path, MANIFEST, {}, errors),
+        "overview": _read_text(os.path.join(path, OVERVIEW)),
+        "history": _read_json(path, HISTORY, [], errors),
+        "factions": _read_records(path, "factions", errors),
+        "characters": _read_records(path, "characters", errors),
+        "entities": {},
+    }
+    entities_dir = os.path.join(path, ENTITIES)
+    if os.path.isdir(entities_dir):
+        for category in sorted(os.listdir(entities_dir)):
+            if os.path.isdir(os.path.join(entities_dir, category)):
+                template["entities"][category] = _read_records(path, os.path.join(ENTITIES, category), errors)
+    template["errors"] = errors
+    return template
+
+
+def validate(template):
+    """Returns (errors, warnings). An error stops a save and a campaign creation; a warning does not."""
+    errors = list(template.get("errors", []))
+    warnings = []
+
+    def error(field, message):
+        errors.append({"field": field, "message": message})
+
+    manifest = template["manifest"]
+    if not isinstance(manifest, dict):
+        error(["manifest"], f"{MANIFEST} must hold a JSON object.")
+        manifest = {}
+    if manifest.get("format_version") != FORMAT_VERSION:
+        error(["manifest", "format_version"], f"The format version must be {FORMAT_VERSION}. This template was made for another version of SSR.")
+    if not _is_text(manifest.get("name")):
+        error(["manifest", "name"], "Give the template a name.")
+    for key in ("authors", "credits"):
+        if key in manifest and not _is_text_list(manifest[key]):
+            error(["manifest", key], f"The {key} must be a list of names.")
+
+    if not isinstance(template["overview"], str):
+        error(["overview"], "The overview must be text.")
+
+    history = template["history"]
+    if not isinstance(history, list):
+        error(["history"], f"{HISTORY} must hold a list of entries.")
+        history = []
+    for index, entry in enumerate(history):
+        if not isinstance(entry, dict) or not _is_text(entry.get("title")) or not isinstance(entry.get("text"), str):
+            error(["history", index], f"History entry {index + 1} needs a title and a text.")
+
+    game_ids = {}
+    for record_id, faction in template["factions"].items():
+        _check_faction(faction, ["factions", record_id], game_ids, error)
+
+    game_ids = {}
+    for record_id, character in template["characters"].items():
+        field = ["characters", record_id]
+        if not _check_object(character, field, error):
+            continue
+        _check_game_id(character, field, "character", game_ids, error)
+        profile = character.get("profile")
+        if not isinstance(profile, dict) or not _is_text(profile.get("Name")):
+            error(field + ["profile", "Name"], "Give the character a name.")
+        elif not all(isinstance(value, (str, int, float)) and not isinstance(value, bool) for value in profile.values()):
+            error(field + ["profile"], "Each profile value must be text or a number.")
+
+    names = set()
+    for records in template["entities"].values():
+        for entity in records.values():
+            if isinstance(entity, dict):
+                names.update(_norm(name) for name in [entity.get("name")] + list(entity.get("aliases") or []) if isinstance(name, str))
+    for category, records in template["entities"].items():
+        for record_id, entity in records.items():
+            field = ["entities", category, record_id]
+            if not _check_object(entity, field, error):
+                continue
+            if not _is_text(entity.get("name")):
+                error(field + ["name"], "Give the entry a name.")
+            _check_aliases(entity, field, error)
+            if "weight" in entity and not _is_number(entity["weight"]):
+                error(field + ["weight"], "The weight must be a number.")
+            _check_fields(entity.get("fields", {}), field + ["fields"], error)
+            prose = entity.get("prose", {})
+            if not isinstance(prose, dict) or not all(isinstance(value, str) for value in prose.values()):
+                error(field + ["prose"], "Each prose value must be text.")
+            children = entity.get("children", [])
+            if not isinstance(children, list) or not all(isinstance(child, dict) and _is_text(child.get("name")) and _is_number(child.get("weight", 1)) for child in children):
+                error(field + ["children"], "Each child needs a name and a number as its weight.")
+            else:
+                for child in children:
+                    if _norm(child["name"]) not in names:
+                        warnings.append({"field": field + ["children"], "message": f"The child {child['name']} of {entity.get('name', record_id)} names no entry."})
+            access = entity.get("access", [])
+            if not isinstance(access, list) or not all(isinstance(rule, dict) for rule in access):
+                error(field + ["access"], "The access rules must be a list of objects.")
+    return errors, warnings
+
+
+def faction_errors(faction, field):
+    """The errors of one faction outside a template, for example the copy in a campaign."""
+    errors = []
+    _check_faction(faction, field, {}, lambda path, message: errors.append({"field": path, "message": message}))
+    return errors
+
+
+def campaign_seed(name, shipped_dir, user_dir):
+    """The parts of a template that a new campaign copies. Raises TemplateError if the template has an error."""
+    template = load(name, shipped_dir, user_dir)
+    errors, _ = validate(template)
+    if errors:
+        raise TemplateError(errors)
+    path, _ = _folder(name, shipped_dir, user_dir)
+    return {
+        "template": {"name": name, "version": template["manifest"].get("version", ""), "hash": _content_hash(path)},
+        "overview": template["overview"],
+        "factions": [
+            {
+                "faction_id": faction["game_id"],
+                "name": faction["name"],
+                "aliases": faction.get("aliases", []),
+                "major": faction.get("major", False),
+                "fields": faction.get("fields", {}),
+                "description": faction.get("description", ""),
+            }
+            for faction in template["factions"].values()
+        ],
+    }
+
+
+def save_record(name, kind, record_id, data, shipped_dir, user_dir, category=None):
+    """Writes one record of a user template and returns (record_id, warnings).
+
+    kind is manifest, overview, history, faction, character, or entity. A faction, character, or entity with no
+    record_id is new, and its ID comes from its name.
+    """
+    template = _editable(name, shipped_dir, user_dir)
+    path, _ = _folder(name, shipped_dir, user_dir)
+    if kind in ("manifest", "overview", "history"):
+        template[kind] = data
+        file_path, text = os.path.join(path, {"manifest": MANIFEST, "overview": OVERVIEW, "history": HISTORY}[kind]), data
+    else:
+        records, folder = _records(template, kind, category)
+        if record_id is None:
+            record_id = _new_id(data, records)
+        elif not _ID.fullmatch(str(record_id)):
+            raise TemplateError([{"field": [kind], "message": "An ID may hold only letters, digits, _ and -."}])
+        records[record_id] = data
+        file_path, text = os.path.join(path, folder, f"{record_id}.json"), data
+    errors, warnings = validate(template)
+    if errors:
+        raise TemplateError(errors)
+    _write(file_path, text if isinstance(text, str) else json.dumps(text, indent=2, ensure_ascii=False) + "\n")
+    return record_id, warnings
+
+
+def delete_record(name, kind, record_id, shipped_dir, user_dir, category=None):
+    template = _editable(name, shipped_dir, user_dir)
+    path, _ = _folder(name, shipped_dir, user_dir)
+    records, folder = _records(template, kind, category)
+    if record_id not in records:
+        raise TemplateError([{"field": [kind], "message": f"{record_id} is not in {name}."}])
+    os.remove(os.path.join(path, folder, f"{record_id}.json"))
+
+
+def duplicate(name, new_name, shipped_dir, user_dir):
+    """Copies every file, the credit and licence files included, so a derived template keeps its attribution."""
+    path, _ = _folder(name, shipped_dir, user_dir)
+    new_name = _check_new_name(new_name, shipped_dir, user_dir)
+    target = os.path.join(user_dir, new_name)
+    os.makedirs(user_dir, exist_ok=True)
+    shutil.copytree(path, target)
+    manifest = _read_json(target, MANIFEST, {}, [])
+    if isinstance(manifest, dict):
+        manifest["name"] = new_name
+        _write(os.path.join(target, MANIFEST), json.dumps(manifest, indent=2, ensure_ascii=False) + "\n")
+    return new_name
+
+
+def delete(name, shipped_dir, user_dir):
+    path, builtin = _folder(name, shipped_dir, user_dir)
+    if builtin:
+        raise TemplateError([{"field": ["name"], "message": f"{name} ships with SSR, so it cannot be deleted."}])
+    shutil.rmtree(path)
+
+
+def _names(shipped_dir, user_dir):
+    seen = set()
+    result = []
+    for root, builtin in ((shipped_dir, True), (user_dir, False)):
+        if not os.path.isdir(root):
+            continue
+        for name in sorted(os.listdir(root)):
+            if name not in seen and _NAME.fullmatch(name) and os.path.isfile(os.path.join(root, name, MANIFEST)):
+                seen.add(name)
+                result.append((name, builtin))
+    return result
+
+
+def _folder(name, shipped_dir, user_dir):
+    for template_name, builtin in _names(shipped_dir, user_dir):
+        if template_name == name:
+            return os.path.join(shipped_dir if builtin else user_dir, name), builtin
+    raise TemplateError([{"field": ["name"], "message": f"There is no template named {name}."}])
+
+
+def _editable(name, shipped_dir, user_dir):
+    template = load(name, shipped_dir, user_dir)
+    if template["builtin"]:
+        raise TemplateError([{"field": ["name"], "message": f"{name} ships with SSR, and an update replaces it. Duplicate it, and edit the copy."}])
+    return template
+
+
+def _records(template, kind, category):
+    if kind in RECORD_FOLDERS:
+        return template[RECORD_FOLDERS[kind]], RECORD_FOLDERS[kind]
+    if kind == "entity":
+        if not category or not _ID.fullmatch(category):
+            raise TemplateError([{"field": ["category"], "message": "A category may hold only letters, digits, _ and -."}])
+        return template["entities"].setdefault(category, {}), os.path.join(ENTITIES, category)
+    raise TemplateError([{"field": ["kind"], "message": f"{kind} is not a kind of record."}])
+
+
+def _new_id(data, records):
+    name = data.get("name") or (data.get("profile") or {}).get("Name") if isinstance(data, dict) else None
+    base = re.sub(r"[^a-z0-9]+", "_", str(name or "").lower()).strip("_") or "entry"
+    record_id = base
+    number = 2
+    while record_id in records:
+        record_id = f"{base}_{number}"
+        number += 1
+    return record_id
+
+
+def _check_new_name(new_name, shipped_dir, user_dir):
+    new_name = str(new_name or "").strip()
+    if not _NAME.fullmatch(new_name):
+        raise TemplateError([{"field": ["new_name"], "message": "A template name may hold only letters, digits, spaces, _ and -."}])
+    if any(name.lower() == new_name.lower() for name, _ in _names(shipped_dir, user_dir)) or os.path.exists(os.path.join(user_dir, new_name)):
+        raise TemplateError([{"field": ["new_name"], "message": f"A template named {new_name} already exists."}])
+    return new_name
+
+
+def _read_text(path):
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            return f.read().replace("\r\n", "\n").strip()
+    except FileNotFoundError:
+        return ""
+
+
+def _read_json(folder, relative, default, errors):
+    try:
+        with open(os.path.join(folder, relative), "r", encoding="utf-8") as f:
+            return json.load(f)
+    except FileNotFoundError:
+        return default
+    except (OSError, UnicodeDecodeError, ValueError) as e:
+        errors.append({"field": [relative.replace(os.sep, "/")], "message": f"{relative.replace(os.sep, '/')} cannot be read: {e}"})
+        return default
+
+
+def _read_records(folder, relative, errors):
+    directory = os.path.join(folder, relative)
+    if not os.path.isdir(directory):
+        return {}
+    records = {}
+    for file_name in sorted(os.listdir(directory)):
+        record_id, extension = os.path.splitext(file_name)
+        if extension == ".json" and _ID.fullmatch(record_id):
+            failed = len(errors)
+            record = _read_json(folder, os.path.join(relative, file_name), None, errors)
+            if len(errors) == failed:
+                records[record_id] = record
+    return records
+
+
+def _content_hash(path):
+    digest = hashlib.sha256()
+    for root, dirs, files in os.walk(path):
+        dirs.sort()
+        for file_name in sorted(files):
+            file_path = os.path.join(root, file_name)
+            digest.update(os.path.relpath(file_path, path).replace(os.sep, "/").encode("utf-8") + b"\0")
+            with open(file_path, "rb") as f:
+                digest.update(f.read())
+    return digest.hexdigest()
+
+
+def _check_faction(faction, field, game_ids, error):
+    if not _check_object(faction, field, error):
+        return
+    if not _is_text(faction.get("name")):
+        error(field + ["name"], "Give the faction a name.")
+    _check_game_id(faction, field, "faction", game_ids, error)
+    _check_aliases(faction, field, error)
+    if "major" in faction and not isinstance(faction["major"], bool):
+        error(field + ["major"], "Major must be true or false.")
+    _check_fields(faction.get("fields", {}), field + ["fields"], error)
+    if not isinstance(faction.get("description", ""), str):
+        error(field + ["description"], "The description must be text.")
+
+
+def _check_object(record, field, error):
+    if isinstance(record, dict):
+        return True
+    error(field, "The file must hold a JSON object.")
+    return False
+
+
+def _check_game_id(record, field, kind, seen, error):
+    game_id = record.get("game_id")
+    if not _is_text(game_id):
+        error(field + ["game_id"], f"Give the {kind} its game ID.")
+    elif game_id in seen:
+        error(field + ["game_id"], f"The {kind}s {seen[game_id]} and {field[-1]} have the same game ID.")
+    else:
+        seen[game_id] = field[-1]
+
+
+def _check_aliases(record, field, error):
+    if "aliases" in record and not _is_text_list(record["aliases"]):
+        error(field + ["aliases"], "The aliases must be a list of names.")
+
+
+def _check_fields(fields, field, error):
+    if not isinstance(fields, dict) or not all(isinstance(value, str) or _is_text_list(value) for value in fields.values()):
+        error(field, "Each field value must be text or a list of text.")
+
+
+def _is_text(value):
+    return isinstance(value, str) and value.strip() != ""
+
+
+def _is_text_list(value):
+    return isinstance(value, list) and all(isinstance(item, str) for item in value)
+
+
+def _is_number(value):
+    return isinstance(value, (int, float)) and not isinstance(value, bool)
+
+
+def _norm(name):
+    return name.strip().casefold()
+
+
+def _write(path, text):
+    """Writes to a temporary file first, so a crash during a save cannot leave a half-written file."""
+    folder = os.path.dirname(path)
+    os.makedirs(folder, exist_ok=True)
+    fd, temp_path = tempfile.mkstemp(dir=folder, suffix=".tmp")
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as f:
+            f.write(text)
+        os.replace(temp_path, path)
+    except BaseException:
+        os.unlink(temp_path)
+        raise
