@@ -44,14 +44,14 @@ Two pieces of data move to their class:
 
 ### 3.1 Gameplay settings
 
-- The defaults move from inside `load_settings` (`kenshi_llm_server.py:838`) to a module-level `SETTINGS_DEFAULTS`, so the load and the reset use one table.
-- `POST /settings/reset` sets each key of `SETTINGS_DEFAULTS` except `current_campaign` and the legacy `current_model`. It then runs the save path of `POST /settings`: it writes the INI, sends each value that the plugin holds through `SET_CONFIG`, and sends `APPLY_TRANSLATION` if the language changes.
+- The defaults move from inside `load_settings` (`kenshi_llm_server.py:777`) to a module-level `SETTINGS_DEFAULTS`, so the load and the reset use one table.
+- `POST /settings/reset` sets each key of `SETTINGS_DEFAULTS` except `current_campaign`. It then runs the save path of `POST /settings`: it writes the INI, sends each value that the plugin holds through `SET_CONFIG`, and sends `APPLY_TRANSLATION` if the language changes.
 - The Settings page gets a "Reset to defaults" button with a confirmation.
 - The defaults in the plugin's `LoadPluginConfig` must still agree with `SETTINGS_DEFAULTS` ([architecture.md](../info/architecture.md#settings)).
 
 ### 3.2 LLM configuration
 
-- `POST /api/llm/reset` builds a configuration with `llm_config.migrate` from `default_providers.json`, `default_models.json`, and the default model `player2-default`. It reads only these shipped files, never the legacy `providers.json` and `models.json`. It saves with `llm_config.save`, which replaces the file in one step.
+- `POST /api/llm/reset` builds a configuration with `default_llm_config` (`kenshi_llm_server.py:1049`), which also builds the file on a first start. It saves with `llm_config.save`, which replaces the file in one step.
 - The reset keeps the stored API key of each provider whose name is in the defaults. The placeholder keys in `default_providers.json`, for example `YOUR_OPENROUTER_KEY`, never replace a stored key. `with_stored_keys` alone does not do this, because it keeps a stored key only when the new key is empty.
 - The reset removes the providers and profiles that the player added, with their keys. The confirmation on the LLM page says so.
 
@@ -59,7 +59,7 @@ Two pieces of data move to their class:
 
 Each file in `server/prompts/` is a shipped default: the system prompts, and the two seeds of a new campaign's player profile (`character_bio.txt`, `player_faction_description.txt`). An update replaces these files, so a player who edits them today loses the edit. A player's override goes into `server/user/prompts/` under the same file name. The release does not ship `server/user/`, so an update keeps it.
 
-`load_prompt_component` (`kenshi_llm_server.py:923`) takes the first file that exists and is not empty:
+`load_prompt_component` (`kenshi_llm_server.py:854`) takes the first file that exists and is not empty:
 
 1. The campaign folder, as today.
 2. `server/user/prompts/`, the player's override.
@@ -245,7 +245,7 @@ CREATE VIRTUAL TABLE entity_fts USING fts5(
 - The server loads the template into the new campaign database in one transaction: the entities with their fields, aliases, children, and access rules, the history entries, the links, the FTS index, the figure profiles, and the overview.
 - After creation, the campaign does not depend on its template. A template edit, a new template version, or a deleted template does not change the campaign.
 - An existing campaign without knowledge tables gets Vanilla Kenshi on its first load. Today every campaign uses the vanilla `world_lore.txt`, so its prompts keep their lore.
-- The prompt takes the overview from `meta`. A `world_lore.txt` in the campaign folder still overrides it, as `load_prompt_component` does today (`kenshi_llm_server.py:923`).
+- The prompt takes the overview from `meta`. A `world_lore.txt` in the campaign folder still overrides it, as `load_prompt_component` does today (`kenshi_llm_server.py:854`).
 - Gameplay writes only the campaign database, never a template.
 - Rejected: reading the template live through `ATTACH` at query time. A template edit would then change the lore of running campaigns, and each FTS query would span two databases.
 - Rejected: one database for all campaigns, with a `campaign_id` column. A missing filter would leak data between campaigns.

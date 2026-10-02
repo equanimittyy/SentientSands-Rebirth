@@ -24,8 +24,7 @@ DEFAULT_DEADLINE = 55
 DEFAULT_TIMEOUT = 120
 
 
-def migrate(providers, models, current_model):
-    """Builds a configuration that sends every task to the model that the old CurrentModel setting selected."""
+def build(providers, models, first_profile):
     config = {"providers": {}, "profiles": {}, "routes": {}}
     for name, provider in providers.items():
         config["providers"][name] = dict(provider, type="player2" if name == "player2" else "openai")
@@ -37,7 +36,7 @@ def migrate(providers, models, current_model):
                 "timeout": DEFAULT_TIMEOUT,
                 "params": {},
             }
-    first = current_model if current_model in config["profiles"] else next(iter(config["profiles"]), None)
+    first = first_profile if first_profile in config["profiles"] else next(iter(config["profiles"]), None)
     for task, sampling in TASKS.items():
         config["routes"][task] = dict(sampling, profiles=[first] if first else [], deadline=DEFAULT_DEADLINE)
     return config

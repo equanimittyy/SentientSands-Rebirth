@@ -49,7 +49,7 @@ A profile is one model on one provider. It holds the provider, the exact model I
 ### Tasks
 Each task (chat, radiant conversations, NPC profiles, and world events) has an ordered list of profiles. The server tries them in order, and moves to the next profile after an error, a timeout, or an empty reply. List a profile twice to retry it. The game stops waiting after 60 s, so keep each deadline below that.
 
-The server keeps this configuration in `server/user/llm_config.json`. A mod update does not replace it, so your keys stay. On its first start, the server copies your providers and models from the `providers.json` and `models.json` of an earlier release, if you have them.
+The server keeps this configuration in `server/user/llm_config.json`. A mod update does not replace it, so your keys stay.
 
 ---
 

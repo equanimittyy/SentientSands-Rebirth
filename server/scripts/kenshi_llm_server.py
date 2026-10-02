@@ -63,10 +63,7 @@ def resolve_mod_file(filename):
 
 INI_PATH = resolve_mod_file("SentientSands_Config.ini")
 LLM_CONFIG_PATH = os.path.join(KENSHI_SERVER_DIR, "user", "llm_config.json")
-# The migration to llm_config.json reads these: the player's own files from an earlier release, else the shipped defaults
-MODELS_PATH = os.path.join(KENSHI_SERVER_DIR, "config", "models.json")
 DEFAULT_MODELS_PATH = os.path.join(KENSHI_SERVER_DIR, "config", "default_models.json")
-PROVIDERS_PATH = os.path.join(KENSHI_SERVER_DIR, "config", "providers.json")
 DEFAULT_PROVIDERS_PATH = os.path.join(KENSHI_SERVER_DIR, "config", "default_providers.json")
 NAMES_PATH = os.path.join(KENSHI_SERVER_DIR, "config", "names.json")
 GENERIC_NAMES_PATH = os.path.join(KENSHI_SERVER_DIR, "config", "generic_names.json")
@@ -385,66 +382,9 @@ def ensure_campaign_seeded(cdir):
     except Exception as e:
         logging.error(f"Failed to seed campaign directory {cdir}: {e}")
 
-def migrate_to_campaigns():
-    try:
-        if not os.path.exists(CAMPAIGNS_DIR):
-            os.makedirs(CAMPAIGNS_DIR)
-            
-        default_dir = os.path.join(CAMPAIGNS_DIR, "Default")
-        is_new_default = not os.path.exists(default_dir)
-        
-        if is_new_default:
-            os.makedirs(default_dir)
-            logging.info("MIGRATION: Created Default campaign folder")
-            
-        import shutil
-        old_chars = os.path.join(KENSHI_SERVER_DIR, "characters")
-        new_chars = os.path.join(default_dir, "characters")
-        if os.path.exists(old_chars) and not os.path.exists(new_chars):
-            try:
-                shutil.move(old_chars, new_chars)
-                logging.info("MIGRATION: Moved legacy characters to campaigns/Default")
-            except Exception as e:
-                logging.error(f"MIGRATION ERROR (Characters): {e}")
-            
-        old_reg = os.path.join(KENSHI_MOD_DIR, "kenshi_ai_registry")
-        if not os.path.exists(old_reg):
-            old_reg = os.path.join(KENSHI_MOD_DIR, "sentient_sands_registry")
-        
-        new_reg = os.path.join(default_dir, "sentient_sands_registry")
-        if os.path.exists(old_reg) and not os.path.exists(new_reg):
-            try:
-                shutil.move(old_reg, new_reg)
-                logging.info("MIGRATION: Moved legacy registry to campaigns/Default")
-            except Exception as e:
-                logging.error(f"MIGRATION ERROR (Registry): {e}")
-
-        old_events = os.path.join(KENSHI_SERVER_DIR, "world_events.txt")
-        new_events = os.path.join(default_dir, "world_events.txt")
-        if os.path.exists(old_events) and not os.path.exists(new_events):
-            try:
-                shutil.move(old_events, new_events)
-                logging.info("MIGRATION: Moved legacy world_events.txt to campaigns/Default")
-            except Exception as e:
-                logging.error(f"MIGRATION ERROR (World Events): {e}")
-
-        old_hist = os.path.join(KENSHI_SERVER_DIR, "event_history.json")
-        new_hist = os.path.join(default_dir, "event_history.json")
-        if os.path.exists(old_hist) and not os.path.exists(new_hist):
-            try:
-                shutil.move(old_hist, new_hist)
-                logging.info("MIGRATION: Moved legacy event_history.json to campaigns/Default")
-            except Exception as e:
-                logging.error(f"MIGRATION ERROR (History): {e}")
-
-        ensure_campaign_seeded(default_dir)
-            
-    except Exception as e:
-        logging.error(f"MIGRATION: Critical failure in migration logic: {e}")
-
 def load_campaign_config():
     try:
-        campaign_db.open_campaign(get_campaign_dir(), load_legacy_favorites())
+        campaign_db.open_campaign(get_campaign_dir())
         push_generic_names_to_dll()
     except Exception as e:
         logging.error(f"CAMPAIGN: Critical failure loading config: {e}")
@@ -794,7 +734,6 @@ CHAT_HOTKEYS = ["\\", "[", "P", "T", "J", "U", "K"]
 
 # The plugin reads the same [Settings] keys, so renaming one breaks it
 INI_KEY_MAP = {
-    "current_model": "CurrentModel",
     "current_campaign": "ActiveCampaign",
     "enable_ambient": "EnableAmbientConversations",
     "radiant_delay": "RadiantDelay",
@@ -837,7 +776,6 @@ def _save_settings_raw(settings):
 
 def load_settings():
     defaults = {
-        "current_model": "player2-default",
         "current_campaign": "Default",
         "enable_ambient": True,
         "radiant_delay": 240,
@@ -897,12 +835,6 @@ def save_settings(new_settings):
 
 load_configs()
 
-def load_legacy_favorites():
-    """Favorites now live in each campaign database; the INI keeps the old list for campaigns that migrate later."""
-    config = configparser.ConfigParser()
-    config.read(INI_PATH)
-    return [x.strip() for x in config.get("Settings", "Favorites", fallback="").split(",") if x.strip()]
-
 def init_server_state():
     global ACTIVE_CAMPAIGN
     try:
@@ -913,7 +845,6 @@ def init_server_state():
         # Backfills missing keys into the INI with defaults
         _save_settings_raw(settings)
         
-        migrate_to_campaigns()
         load_campaign_config()
     except Exception as e:
         logging.error(f"INIT: Critical state init failure: {e}")
@@ -1115,24 +1046,21 @@ def populate_initial_registry():
 populate_initial_registry()
 
 
-def migrate_llm_config():
-    def read(path, default_path):
-        with open(path if os.path.exists(path) else default_path, "r", encoding="utf-8") as f:
-            return json.load(f)
-    return llm_config.migrate(read(PROVIDERS_PATH, DEFAULT_PROVIDERS_PATH), read(MODELS_PATH, DEFAULT_MODELS_PATH), load_settings()["current_model"])
+def default_llm_config():
+    return llm_config.build(llm_config.load(DEFAULT_PROVIDERS_PATH), llm_config.load(DEFAULT_MODELS_PATH), "player2-default")
 
 def load_llm_config():
     if not os.path.exists(LLM_CONFIG_PATH):
-        config = migrate_llm_config()
+        config = default_llm_config()
         llm_config.save(LLM_CONFIG_PATH, config)
-        logging.info("LLM: Built llm_config.json from providers.json, models.json, and CurrentModel.")
+        logging.info("LLM: Built llm_config.json from the default providers and models.")
         return config
     try:
         config = llm_config.load(LLM_CONFIG_PATH)
     except Exception as e:
         # Not saved over, so a hand-edited file with a typo keeps its keys until the player fixes it
-        logging.error(f"LLM: Cannot read {LLM_CONFIG_PATH}: {e}. Using the migrated configuration until a save from the web app.")
-        return migrate_llm_config()
+        logging.error(f"LLM: Cannot read {LLM_CONFIG_PATH}: {e}. Using the default configuration until a save from the web app.")
+        return default_llm_config()
     for error in llm_config.validate(config):
         logging.warning(f"LLM: {error}")
     return config

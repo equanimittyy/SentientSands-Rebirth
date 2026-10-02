@@ -1,4 +1,3 @@
-import json
 import os
 import sqlite3
 import sys
@@ -21,21 +20,6 @@ BEEP = {
 }
 
 
-def write_legacy_campaign(folder):
-    chars = os.path.join(folder, "characters")
-    os.makedirs(chars)
-    with open(os.path.join(chars, "Beep.json"), "w", encoding="utf-8") as f:
-        json.dump(BEEP, f)
-    with open(os.path.join(chars, "Ruka_Shek.json"), "w", encoding="utf-8") as f:
-        json.dump({"ID": "Ruka", "Name": "Ruka"}, f)
-    with open(os.path.join(chars, "Broken.json"), "w", encoding="utf-8") as f:
-        f.write('{"Name": "Bro')
-    with open(os.path.join(folder, "event_history.json"), "w", encoding="utf-8") as f:
-        json.dump(["[Day 1, 08:00] [CHAT] Drifter -> Beep: Hello", "[Day 3, 10:00] [CHAT] Beep -> Drifter: Bye"], f)
-    with open(os.path.join(folder, "world_events.txt"), "w", encoding="utf-8") as f:
-        f.write("# Dynamic rumors generated for this campaign\n\n- [Day 2, 12:00] [RUMOR: Beep was seen in the Hub.]\n")
-
-
 class CampaignTestCase(unittest.TestCase):
     def setUp(self):
         self._tmp = tempfile.TemporaryDirectory()
@@ -45,48 +29,20 @@ class CampaignTestCase(unittest.TestCase):
         self._tmp.cleanup()
 
 
-class MigrationTest(CampaignTestCase):
-    def test_imports_the_files_and_moves_them_into_legacy(self):
-        write_legacy_campaign(self.folder)
+class OpenTest(CampaignTestCase):
+    def test_a_new_campaign_gets_an_empty_database(self):
         campaign_db.open_campaign(self.folder)
+        self.assertEqual(campaign_db.list_npcs(), [])
 
-        self.assertEqual(campaign_db.get_npc("Beep"), BEEP)
-        self.assertEqual(sorted(n["storage_id"] for n in campaign_db.list_npcs()), ["Beep", "Ruka_Shek"])
-        self.assertEqual(campaign_db.recent_events(10), ["[Day 1, 08:00] [CHAT] Drifter -> Beep: Hello", "[Day 3, 10:00] [CHAT] Beep -> Drifter: Bye"])
-        self.assertEqual([line for _, line in campaign_db.rumors()], ["- [Day 2, 12:00] [RUMOR: Beep was seen in the Hub.]"])
-        for name in campaign_db.LEGACY_NAMES:
-            self.assertFalse(os.path.exists(os.path.join(self.folder, name)))
-            self.assertTrue(os.path.exists(os.path.join(self.folder, "legacy", name)))
-        self.assertTrue(os.path.exists(os.path.join(self.folder, "legacy", "characters", "Broken.json")))
-
-    def test_a_migration_that_stops_before_the_rename_runs_again(self):
-        write_legacy_campaign(self.folder)
+    def test_a_creation_that_stops_before_the_rename_runs_again(self):
         with mock.patch.object(campaign_db.os, "replace", side_effect=OSError("crash")):
             with self.assertRaises(OSError):
                 campaign_db.open_campaign(self.folder)
         self.assertFalse(os.path.exists(os.path.join(self.folder, campaign_db.DB_NAME)))
-        self.assertTrue(os.path.exists(os.path.join(self.folder, "characters", "Beep.json")))
 
-        campaign_db.open_campaign(self.folder)
-        self.assertEqual(campaign_db.get_npc("Beep"), BEEP)
-        self.assertFalse(os.path.exists(os.path.join(self.folder, campaign_db.DB_NAME + ".tmp")))
-
-    def test_marks_the_ini_favorites_in_each_campaign_that_holds_them(self):
-        second = os.path.join(self.folder, "Second")
-        first = os.path.join(self.folder, "First")
-        for folder in (first, second):
-            write_legacy_campaign(folder)
-        os.remove(os.path.join(second, "characters", "Ruka_Shek.json"))
-
-        for folder in (first, second):
-            campaign_db.open_campaign(folder, ["Beep", "Ruka_Shek"])
-            favorites = sorted(n["storage_id"] for n in campaign_db.list_npcs() if n["favorite"])
-            self.assertEqual(favorites, ["Beep", "Ruka_Shek"] if folder == first else ["Beep"])
-
-    def test_a_new_campaign_gets_an_empty_database(self):
         campaign_db.open_campaign(self.folder)
         self.assertEqual(campaign_db.list_npcs(), [])
-        self.assertFalse(os.path.exists(os.path.join(self.folder, "legacy")))
+        self.assertFalse(os.path.exists(os.path.join(self.folder, campaign_db.DB_NAME + ".tmp")))
 
     def test_a_missing_database_fails_instead_of_being_created(self):
         campaign_db.open_campaign(self.folder)

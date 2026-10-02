@@ -8,10 +8,8 @@ import json
 import logging
 import os
 import re
-import shutil
 import sqlite3
 import threading
-import time
 from contextlib import contextmanager
 from datetime import datetime, timezone
 from pathlib import Path
@@ -20,9 +18,7 @@ DB_NAME = "campaign.db"
 SCHEMA_VERSION = 1
 MAX_DIALOGUE = 250
 MAX_EVENTS = 500
-LEGACY_NAMES = ("characters", "event_history.json", "world_events.txt")
 
-# storage_id is NOCASE because Windows file names, the profile key before this database, ignore case
 SCHEMA = f"""
 CREATE TABLE meta (
   key   TEXT PRIMARY KEY,
@@ -61,15 +57,14 @@ _db_path = None
 _open_lock = threading.Lock()
 
 
-def open_campaign(folder, favorites=()):
-    """favorites holds the storage IDs of the INI's old Favorites list, which the migration marks."""
+def open_campaign(folder):
     global _db_path
     with _open_lock:
         path = os.path.join(folder, DB_NAME)
-        # Set before the migration, so a failed migration makes writes fail instead of reaching the previous campaign
+        # Set before the creation, so a failed creation makes writes fail instead of reaching the previous campaign
         _db_path = path
         if not os.path.exists(path):
-            _migrate(folder, favorites)
+            _create(folder)
 
 
 def get_npc(storage_id):
@@ -92,7 +87,7 @@ def upsert_profile(storage_id, fields):
     with _connect(write=True) as conn:
         row = conn.execute("SELECT id, profile FROM npc WHERE storage_id = ?", (_key(storage_id),)).fetchone()
         if not row:
-            _insert_npc(conn, storage_id, fields, _now())
+            _insert_npc(conn, storage_id, fields)
             return
         profile = json.loads(row[1])
         profile.update(fields)
@@ -108,8 +103,12 @@ def append_dialogue(storage_id, lines, profile):
             npc_id = row[0]
             conn.execute("UPDATE npc SET updated_at = ? WHERE id = ?", (_now(), npc_id))
         else:
-            npc_id = _insert_npc(conn, storage_id, profile, _now())
-        _append_lines(conn, npc_id, lines)
+            npc_id = _insert_npc(conn, storage_id, profile)
+        conn.executemany("INSERT INTO dialogue (npc_id, game_time, line) VALUES (?, ?, ?)", [(npc_id, _game_time(line), line) for line in lines])
+        conn.execute(
+            "DELETE FROM dialogue WHERE npc_id = ? AND id <= (SELECT id FROM dialogue WHERE npc_id = ? ORDER BY id DESC LIMIT 1 OFFSET ?)",
+            (npc_id, npc_id, MAX_DIALOGUE),
+        )
 
 
 def rename_npc(old_id, new_id, name):
@@ -145,7 +144,10 @@ def toggle_favorite(storage_id):
 
 def add_event(line):
     with _connect(write=True) as conn:
-        _add_event(conn, line)
+        if conn.execute("SELECT 1 FROM event WHERE line = ?", (line,)).fetchone():
+            return
+        conn.execute("INSERT INTO event (game_time, line) VALUES (?, ?)", (_game_time(line), line))
+        conn.execute("DELETE FROM event WHERE id <= (SELECT id FROM event ORDER BY id DESC LIMIT 1 OFFSET ?)", (MAX_EVENTS,))
 
 
 def recent_events(n):
@@ -181,7 +183,7 @@ def cull_after(day, hour, minute):
 
 @contextmanager
 def _connect(write=False):
-    # mode=rw: a missing file must fail, not become an empty database that the next open takes as migrated
+    # mode=rw: a missing file must fail, not become an empty database that the next open takes as created
     conn = sqlite3.connect(Path(os.path.abspath(_db_path)).as_uri() + "?mode=rw", uri=True, timeout=5, isolation_level=None)
     try:
         conn.execute("PRAGMA foreign_keys = ON")
@@ -196,97 +198,26 @@ def _connect(write=False):
         conn.close()
 
 
-def _migrate(folder, favorites):
+def _create(folder):
     tmp = os.path.join(folder, DB_NAME + ".tmp")
     if os.path.exists(tmp):
         os.remove(tmp)
     conn = sqlite3.connect(tmp, isolation_level=None)
     try:
         conn.executescript(SCHEMA)
-        conn.execute("BEGIN")
-        _import_files(conn, folder)
-        conn.executemany("UPDATE npc SET favorite = 1 WHERE storage_id = ?", [(_key(sid),) for sid in favorites])
-        counts = [conn.execute(f"SELECT COUNT(*) FROM {table}").fetchone()[0] for table in ("npc", "event", "rumor")]
-        conn.execute("COMMIT")
     finally:
         conn.close()
-    # A crash before this rename leaves no database, so the next open runs the migration again
+    # A crash before this rename leaves no database, so the next open creates it again
     os.replace(tmp, os.path.join(folder, DB_NAME))
-    logging.info(f"CAMPAIGN DB: Created {DB_NAME} in {folder} with {counts[0]} NPCs, {counts[1]} events, and {counts[2]} rumors")
-
-    legacy = os.path.join(folder, "legacy")
-    for name in LEGACY_NAMES:
-        src = os.path.join(folder, name)
-        if not os.path.exists(src):
-            continue
-        dst = os.path.join(legacy, name)
-        if os.path.exists(dst):
-            logging.warning(f"CAMPAIGN DB: {dst} already exists, so {src} stays in place")
-            continue
-        os.makedirs(legacy, exist_ok=True)
-        shutil.move(src, dst)
+    logging.info(f"CAMPAIGN DB: Created {DB_NAME} in {folder}")
 
 
-def _import_files(conn, folder):
-    chars = os.path.join(folder, "characters")
-    if os.path.isdir(chars):
-        for name in sorted(os.listdir(chars)):
-            if not name.endswith(".json"):
-                continue
-            path = os.path.join(chars, name)
-            try:
-                with open(path, "r", encoding="utf-8") as f:
-                    profile = json.load(f)
-                if not isinstance(profile, dict):
-                    raise ValueError("the file does not hold a JSON object")
-                npc_id = _insert_npc(conn, name[:-len(".json")], profile, _utc(os.path.getmtime(path)))
-            except (ValueError, sqlite3.IntegrityError) as e:
-                logging.warning(f"CAMPAIGN DB: Skipped {path}: {e}")
-                continue
-            _append_lines(conn, npc_id, profile.get("ConversationHistory", []))
-
-    hist = os.path.join(folder, "event_history.json")
-    if os.path.exists(hist):
-        try:
-            with open(hist, "r", encoding="utf-8") as f:
-                lines = json.load(f)
-            for line in lines:
-                _add_event(conn, line)
-        except ValueError as e:
-            logging.warning(f"CAMPAIGN DB: Skipped {hist}: {e}")
-
-    world = os.path.join(folder, "world_events.txt")
-    if os.path.exists(world):
-        # replace: a player can edit this file in an editor that saves another encoding
-        with open(world, "r", encoding="utf-8", errors="replace") as f:
-            for line in f:
-                line = line.strip()
-                if line and not line.startswith("#"):
-                    conn.execute("INSERT INTO rumor (game_time, line) VALUES (?, ?)", (_game_time(line), line))
-
-
-def _insert_npc(conn, storage_id, profile, updated_at):
+def _insert_npc(conn, storage_id, profile):
     profile = {k: v for k, v in profile.items() if k != "ConversationHistory"}
-    return conn.execute("INSERT INTO npc (storage_id, profile, updated_at) VALUES (?, ?, ?)", (_key(storage_id), json.dumps(profile), updated_at)).lastrowid
-
-
-def _append_lines(conn, npc_id, lines):
-    conn.executemany("INSERT INTO dialogue (npc_id, game_time, line) VALUES (?, ?, ?)", [(npc_id, _game_time(line), line) for line in lines])
-    conn.execute(
-        "DELETE FROM dialogue WHERE npc_id = ? AND id <= (SELECT id FROM dialogue WHERE npc_id = ? ORDER BY id DESC LIMIT 1 OFFSET ?)",
-        (npc_id, npc_id, MAX_DIALOGUE),
-    )
-
-
-def _add_event(conn, line):
-    if conn.execute("SELECT 1 FROM event WHERE line = ?", (line,)).fetchone():
-        return
-    conn.execute("INSERT INTO event (game_time, line) VALUES (?, ?)", (_game_time(line), line))
-    conn.execute("DELETE FROM event WHERE id <= (SELECT id FROM event ORDER BY id DESC LIMIT 1 OFFSET ?)", (MAX_EVENTS,))
+    return conn.execute("INSERT INTO npc (storage_id, profile, updated_at) VALUES (?, ?, ?)", (_key(storage_id), json.dumps(profile), _now())).lastrowid
 
 
 def _key(storage_id):
-    """The sanitizing of the profile file names, kept so that old storage IDs and favorites still match."""
     return "".join(c for c in str(storage_id) if c.isalnum() or c in (" ", "_", "-")).strip()
 
 
@@ -299,9 +230,5 @@ def _game_time(line):
 
 
 def _now():
-    return _utc(time.time())
-
-
-def _utc(seconds):
     # Fixed width, so updated_at sorts as text
-    return datetime.fromtimestamp(seconds, timezone.utc).isoformat(timespec="milliseconds")
+    return datetime.now(timezone.utc).isoformat(timespec="milliseconds")

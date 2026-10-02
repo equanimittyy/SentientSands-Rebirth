@@ -99,7 +99,7 @@ A Player2 provider uses a session key from the local Player2 app. On a 401, `sen
 
 `/api/llm` never returns a stored API key, only its last four characters. A save with an empty key field keeps the stored key, so the web app can send back what it received. The server writes the file to a temporary name and then renames it, so a crash during a save cannot leave a half-written key file.
 
-On a start without `llm_config.json`, the server builds it with one route per task that holds only the profile of the old `CurrentModel` setting. It reads `providers.json` and `models.json` from `server/config/` if an earlier release left them there, else `default_providers.json` and `default_models.json`.
+On a start without `llm_config.json`, the server builds it from `default_providers.json` and `default_models.json` in `server/config/`. Each task gets one route that holds only the `player2-default` profile.
 
 ## Campaign storage
 
@@ -108,17 +108,17 @@ On a start without `llm_config.json`, the server builds it with one route per ta
 - Each write runs in one `BEGIN IMMEDIATE` transaction. A profile write merges only the keys that the caller passes, and the dialogue lines are rows of their own. A route that waits for the LLM must write only the keys that it changed, so that it cannot undo a change that another request made during the wait.
 - Each operation opens a connection with a 5 s busy timeout and closes it. A campaign switch changes only the database path that `open_campaign` sets.
 - The database uses the default rollback journal, not WAL. The campaign folder therefore has no `-wal` or `-shm` file, and a player can copy it while the server is idle.
-- A storage ID is the NPC name with the sanitizing of the old profile file names, and it ignores case, as the Windows file names did.
+- A storage ID is the NPC name with only its letters, digits, spaces, `_`, and `-`, and it ignores case.
 - Each NPC keeps its newest 250 dialogue lines, and the campaign keeps its newest 500 events. An event that the table already holds is not added again.
-- Favorites belong to each campaign. The server no longer writes the INI's `Favorites` list, and it keeps the old list in the file for campaigns that migrate later.
+- Favorites belong to each campaign.
 
-`open_campaign` migrates a campaign folder that has no `campaign.db`. It builds the database in `campaign.db.tmp`, renames it to `campaign.db`, and then moves `characters/`, `event_history.json`, and `world_events.txt` into `legacy/`. A crash before the rename leaves no database, so the next start runs the migration again. The migration skips a profile file that does not parse, and the file moves into `legacy/` with the others.
+`open_campaign` creates `campaign.db` in a campaign folder that has none. It builds the database in `campaign.db.tmp` and then renames it to `campaign.db`. A crash before the rename leaves no database, so the next start creates it again.
 
 ## Server state
 
 | Location | Contents |
 |---|---|
-| `server/campaigns/<name>/` | One campaign: `campaign.db` (see [Campaign storage](#campaign-storage)), `character_bio.txt`, `player_faction_description.txt`, `logs/`, and `sentient_sands_registry/`. `legacy/` holds the files from before the migration to `campaign.db`. |
+| `server/campaigns/<name>/` | One campaign: `campaign.db` (see [Campaign storage](#campaign-storage)), `character_bio.txt`, `player_faction_description.txt`, `logs/`, and `sentient_sands_registry/`. |
 | `server/logs/server.log` | The main server log, rotated at 512 KB. |
 | `server/debug.log` | The debug log, rotated at 1 MB. |
 | `server/user/llm_config.json` | The LLM providers with the player's API keys, the profiles, and the routes (see [LLM routing](#llm-routing)). The release does not ship it, so an update keeps the keys. |
