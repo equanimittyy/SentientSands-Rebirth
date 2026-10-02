@@ -83,8 +83,22 @@
         </fieldset>
       </form>
     </section>
-    <section id="campaigns" hidden></section>
-    <section id="editor" hidden></section>
+    <section id="campaigns" hidden>
+      <div class="actions save-bar">
+        <button type="button" id="campaigns-save" class="save" disabled>Save</button>
+        <button type="button" class="discard" disabled>Discard</button>
+        <span class="message" id="campaigns-message" role="status"></span>
+      </div>
+      <div id="campaigns-page"></div>
+    </section>
+    <section id="editor" hidden>
+      <div class="actions save-bar">
+        <button type="button" id="editor-save" class="save" disabled>Save</button>
+        <button type="button" class="discard" disabled>Discard</button>
+        <span class="message" id="editor-message" role="status"></span>
+      </div>
+      <div id="editor-page"></div>
+    </section>
     <section id="tutorial" hidden></section>
   </main>
   <dialog id="confirm">

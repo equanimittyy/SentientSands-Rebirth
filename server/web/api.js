@@ -56,6 +56,14 @@ export function el(tag, props = {}, ...children) {
   return element;
 }
 
+export const withHelp = (label, help) => el("span", { className: "label-text" }, label, el("span", { className: "help", tabIndex: 0 }, "?", el("span", { className: "tip" }, help)));
+
+export function field(label, input, status, help) {
+  return el("label", {}, help ? withHelp(label, help) : label, status ?? null, input);
+}
+
+export const icon = (name) => el("span", { className: "icon", style: `--icon: url(/web/images/lucide/${name}.svg)` });
+
 export function showMessage(element, text, isError = false) {
   element.textContent = text;
   element.classList.toggle("error", isError);

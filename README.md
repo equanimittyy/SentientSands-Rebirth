@@ -54,6 +54,11 @@ Each task (chat, radiant conversations, NPC profiles, and world events) has an o
 
 The server keeps this configuration in `server/user/llm_config.json`. A mod update does not replace it, so your keys stay.
 
+### Campaigns and world templates
+The **Campaigns** page lists your campaigns and creates a new one from a world template. It also edits the current campaign: the overview that every NPC knows, the factions, and the rumors and events of the world. To switch campaigns, use the Campaign Manager in the SSR HUB.
+
+The **Editor** page edits world templates: the overview, history, factions, characters, and world entries, such as towns and zones, of a world. Vanilla Kenshi ships with the mod and is read-only, so duplicate it to make your own. A new campaign copies its template, so a template edit changes only the campaigns that you create later. The server keeps your templates in `server/user/world_templates/`, and a mod update keeps them.
+
 ---
 
 ## Credits

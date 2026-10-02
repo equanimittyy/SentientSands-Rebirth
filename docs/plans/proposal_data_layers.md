@@ -268,15 +268,7 @@ The player picks which squad member speaks in a chat. Today the speaker is alway
 
 ### 6.2 Factions
 
-Each campaign holds its own copy of the factions, and the player edits that copy. `FACTION_METADATA` and `MAJOR_FACTIONS` leave the code.
-
-- The prompt describes a faction from the faction store: its name, its fields, and its description. The server finds a faction by its ID, or by name or alias when only a name is known, for example the origin faction of an NPC.
-- The loyalty note for members of a major world power reads the `major` flag.
-- A faction that the game reports and the store lacks gets a row with the name that the game gives and an empty description, so the player can describe a modded or minor faction.
-- The player's faction is the row whose `faction_id` is the faction ID of the player's context. It gets `is_player` when the server first sees it. Its name follows the game, because the player can rename the faction in game.
-- The description of the player's faction replaces `player_faction_description.txt`. An empty description leaves the faction block out of the prompt, as `build_system_prompt` does today for an empty file.
-- The Factions page of the web app edits each faction of the active campaign, the player's included ([proposal_web_app.md](proposal_web_app.md)).
-- The shipped `player_faction_description.txt` is deleted, and a new campaign no longer gets a copy.
+Built. Each campaign holds its own copy of the factions, and the player edits that copy on the Campaigns tab of the web app. [architecture.md](../info/architecture.md#factions) describes the faction store.
 
 ## 7. Vanilla Kenshi template
 
@@ -358,7 +350,7 @@ Known differences to handle: Kayak uses its own stemming (`stem_key`) and tokeni
 | Phase | Deliverable | Acceptance criteria |
 |---|---|---|
 | 0. Prep | README credit section; the official English Kayak release | Attribution text in place; source release chosen |
-| 1. Templates and factions | `world_template.py` with the validator and the loader for the overview and the factions; a vanilla template with `overview.txt` and the factions; the faction store; campaign creation from a template; the Factions page; tests | A new campaign holds the vanilla factions; a faction edit appears in the next prompt of an NPC of that faction; a faction that the template lacks gets a row when the game first reports it; the player's faction description is edited on the Factions page; `FACTION_METADATA` and `MAJOR_FACTIONS` are gone from the code |
+| 1. Templates and factions | Built ([architecture.md](../info/architecture.md#world-templates)) | |
 | 2. Characters | The character store keyed by game ID ([proposal_npc_ids.md](proposal_npc_ids.md)); canon characters from the template; the speaker picker; the Characters page; tests | The acceptance criteria of the NPC ID proposal; a canon character file gives that NPC its canon profile in a new campaign; a chat uses the bio and context of the picked speaker; a speaker with no profile gets a generated one |
 | 3. Import and export | The template routes; the Templates page | A template exported from one install imports on another with the same files; each unsafe zip in the tests is rejected |
 | 4. Vanilla content | `convert_kayak.py`; the converted template; the licence review | All 405 entities convert; the converter lists each dropped field |

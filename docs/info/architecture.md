@@ -65,6 +65,8 @@ The server serves `server/web/` at `/` and `/web/<file>`. The files are plain HT
 | Settings | `/settings`, `/settings/defaults` | `SentientSands_Config.ini` |
 | Models | `/api/llm`, `/api/llm/test`, `/api/llm/models`, `/api/llm/reset` | `server/user/llm_config.json` |
 | Prompts | `/api/prompts` | `server/user/prompts/` |
+| Campaigns | `/api/campaigns`, `/api/campaign` (see [Campaign routes of the web app](#campaign-routes-of-the-web-app)) | `campaign.db` of each campaign |
+| Editor | `/api/templates` (see [World templates](#world-templates)) | `server/user/world_templates/` |
 
 A GET route must not change state. A page on another site can send a GET with no `Origin` header, for example through an image tag, so the Origin check from step 4 of the runtime flow does not stop it. The presence stream below is the only exception, because EventSource sends only GET requests. A page on another site that holds the stream open can only stop a new tab from opening.
 
@@ -76,7 +78,9 @@ Each tab holds `GET /web_panel/presence` open. This event stream sends a heartbe
 
 **Open Web Panel** in the SSR HUB always opens the web app in a new tab of the default browser. The button does not check for an open tab. A version that brought the browser window of an open tab to the front left an empty box on the game screen in exclusive fullscreen.
 
-The player can switch the campaign in game while the web app is open, so the poll also shows the active campaign.
+The player can switch the campaign in game while the web app is open, so the poll also shows the active campaign. When the poll sees another campaign, it sends a `campaignchange` event, and the Campaigns page loads the new campaign unless it has unsaved changes.
+
+The Campaigns and Editor pages hold many records. Save sends one request for each changed record, and a record that the server rejects keeps its draft and shows the reason. A delete takes effect at once, after a confirmation. The Editor opens one template at a time, and a shipped template is read-only, so the page offers a duplicate.
 
 ## Settings
 

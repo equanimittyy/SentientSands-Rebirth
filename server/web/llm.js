@@ -1,4 +1,4 @@
-import { ask, confirmReset, el, getJson, reportUnsaved, sendJson, setFieldError, showMessage } from "./api.js";
+import { ask, confirmReset, el, field, getJson, icon, reportUnsaved, sendJson, setFieldError, showMessage } from "./api.js";
 
 const TASK_LABELS = {
   chat: "Chat",
@@ -33,11 +33,6 @@ let focusCard = null;
 let renaming = null;
 let renameText = "";
 
-const withHelp = (label, help) => el("span", { className: "label-text" }, label, el("span", { className: "help", tabIndex: 0 }, "?", el("span", { className: "tip" }, help)));
-
-function field(label, input, status, help) {
-  return el("label", {}, help ? withHelp(label, help) : label, status ?? null, input);
-}
 const cardKey = (kind, name) => `${kind}s/${name}`;
 
 function joinNames(names) {
@@ -108,8 +103,6 @@ function selectInput(values, current, path, onChange, labels = {}, groups = null
   select.append(...(groups ?? values.map((value) => new Option(labels[value] ?? value, value, false, value === current))));
   return select;
 }
-
-const icon = (name) => el("span", { className: "icon", style: `--icon: url(/web/images/lucide/${name}.svg)` });
 
 function button(label, onClick, ariaLabel) {
   const element = el("button", { type: "button", disabled: !onClick, onclick: onClick || null }, label);

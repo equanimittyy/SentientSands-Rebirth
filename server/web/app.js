@@ -1,4 +1,6 @@
 import { getJson, watchConnection } from "./api.js";
+import { loadCampaigns } from "./campaigns.js";
+import { loadEditor } from "./editor.js";
 import { loadLlm } from "./llm.js";
 import { loadPrompts } from "./prompts.js";
 import { loadSettings } from "./settings.js";
@@ -19,11 +21,12 @@ showPage();
 
 const status = document.getElementById("status");
 const offline = document.getElementById("offline");
-const loaders = { settings: loadSettings, llm: loadLlm, prompts: loadPrompts };
+const loaders = { settings: loadSettings, llm: loadLlm, prompts: loadPrompts, campaigns: loadCampaigns, editor: loadEditor };
 const editors = pages.filter((page) => page.id in loaders);
 const loaded = new Set();
 const unsaved = new Set();
 let online = true;
+let campaign = null;
 
 // A page that did not load has empty fields, and its Save would write them over the stored values.
 function updateButtons() {
@@ -55,8 +58,10 @@ window.addEventListener("beforeunload", (event) => {
 
 async function poll() {
   try {
-    const { campaign } = await getJson("/context");
-    status.textContent = `Current Campaign: ${campaign}`;
+    const context = await getJson("/context");
+    status.textContent = `Current Campaign: ${context.campaign}`;
+    if (campaign !== null && context.campaign !== campaign) document.dispatchEvent(new CustomEvent("campaignchange", { detail: context.campaign }));
+    campaign = context.campaign;
   } catch {
     // The offline banner reports a lost server.
   }

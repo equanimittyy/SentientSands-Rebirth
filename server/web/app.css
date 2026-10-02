@@ -579,6 +579,105 @@ dialog .actions {
   gap: 0.5rem;
 }
 
+textarea.tall {
+  height: 60vh;
+}
+
+input[type="search"] {
+  margin-bottom: 0.5rem;
+}
+
+.plain-list {
+  margin: 0.5rem 0;
+  padding: 0;
+  list-style: none;
+}
+
+.plain-list li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.6rem;
+  margin: 0.3rem 0;
+}
+
+.row {
+  align-items: flex-start;
+  margin: 0.4rem 0;
+}
+
+.row > input,
+.row > textarea {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+}
+
+.row > input.short {
+  flex: 0 0 6rem;
+}
+
+.icon-button {
+  flex: none;
+  padding: 0.35rem 0.5rem;
+}
+
+.editor-layout {
+  display: grid;
+  grid-template-columns: 17rem minmax(0, 1fr);
+  gap: 1rem;
+  align-items: start;
+}
+
+/* Below the sticky save bar, so the list stays in view beside a long entry. */
+.record-panel {
+  position: sticky;
+  top: 4.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.record-list {
+  max-height: 55vh;
+  overflow-y: auto;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface);
+}
+
+.record-list .record {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.5rem;
+  width: 100%;
+  border: none;
+  border-bottom: 1px solid var(--border);
+  border-radius: 0;
+  background: none;
+  text-align: left;
+}
+
+.record-list .record[aria-current] {
+  background: var(--bg);
+  box-shadow: inset 3px 0 var(--accent);
+}
+
+.record.unsaved .name::after {
+  content: " \2022";
+  color: var(--accent);
+}
+
+.record.failed .name {
+  color: var(--error);
+}
+
+.new-record {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
 @media (max-width: 56rem) {
   .columns {
     display: block;
@@ -586,6 +685,14 @@ dialog .actions {
 
   .card-grid {
     grid-template-columns: minmax(0, 1fr);
+  }
+
+  .editor-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .record-panel {
+    position: static;
   }
 }
 
