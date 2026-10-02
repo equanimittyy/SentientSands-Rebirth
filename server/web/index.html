@@ -16,6 +16,8 @@
     <p id="status">Connecting...</p>
     <p id="offline" role="alert" hidden>The server is not running. Start Kenshi, or press Restart Server in the SSR HUB.</p>
     <nav>
+      <a href="#campaigns">Campaigns</a>
+      <a href="#editor">Editor</a>
       <a href="#llm">Models</a>
       <a href="#prompts">Prompts</a>
       <a href="#settings">Settings</a>
@@ -38,7 +40,7 @@
         <button type="button" id="prompts-reset">Reset to defaults</button>
         <span class="message" id="prompts-message" role="status"></span>
       </div>
-      <p class="hint">These prompts are the instructions that the mod sends to the AI model. Edit them to change how NPCs talk and act, how their profiles are written, and how world events read. A mod update keeps your edits. To go back to the shipped text and get its later updates, press Use default, then Save.</p>
+      <p class="hint">These are the instructions that the mod sends to the AI model. Edit them to change how NPCs talk and act, how their profiles are written, and how world events read.</p>
       <div id="prompts-list"></div>
     </section>
     <section id="settings" hidden>
@@ -80,6 +82,8 @@
         </fieldset>
       </form>
     </section>
+    <section id="campaigns" hidden></section>
+    <section id="editor" hidden></section>
   </main>
   <dialog id="confirm">
     <form method="dialog">

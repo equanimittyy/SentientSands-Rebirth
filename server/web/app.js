@@ -20,13 +20,14 @@ showPage();
 const status = document.getElementById("status");
 const offline = document.getElementById("offline");
 const loaders = { settings: loadSettings, llm: loadLlm, prompts: loadPrompts };
+const editors = pages.filter((page) => page.id in loaders);
 const loaded = new Set();
 const unsaved = new Set();
 let online = true;
 
 // A page that did not load has empty fields, and its Save would write them over the stored values.
 function updateButtons() {
-  for (const page of pages) {
+  for (const page of editors) {
     page.querySelector(".save").disabled = !online || !loaded.has(page.id);
     page.querySelector(".discard").disabled = !online || !unsaved.has(page.id);
   }
@@ -46,7 +47,7 @@ document.querySelector("main").addEventListener("unsaved", (event) => {
   updateButtons();
 });
 
-for (const page of pages) page.querySelector(".discard").addEventListener("click", () => load(page.id));
+for (const page of editors) page.querySelector(".discard").addEventListener("click", () => load(page.id));
 
 window.addEventListener("beforeunload", (event) => {
   if (unsaved.size > 0) event.preventDefault();
@@ -55,7 +56,7 @@ window.addEventListener("beforeunload", (event) => {
 async function poll() {
   try {
     const { campaign } = await getJson("/context");
-    status.textContent = `Campaign: ${campaign}`;
+    status.textContent = `Current Campaign: ${campaign}`;
   } catch {
     // The offline banner reports a lost server.
   }
@@ -65,10 +66,10 @@ watchConnection((value) => {
   online = value;
   offline.hidden = online;
   updateButtons();
-  if (online) for (const page of pages) if (!loaded.has(page.id)) load(page.id);
+  if (online) for (const page of editors) if (!loaded.has(page.id)) load(page.id);
 });
 
-for (const page of pages) load(page.id);
+for (const page of editors) load(page.id);
 poll();
 setInterval(poll, POLL_MS);
 

@@ -116,7 +116,9 @@ h1 span {
 
 #status {
   margin: 0 0 1rem;
-  color: var(--muted);
+  color: var(--error);
+  font-size: 1.2rem;
+  font-weight: bold;
 }
 
 #offline {
