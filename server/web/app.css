@@ -273,6 +273,10 @@ textarea {
   resize: vertical;
 }
 
+#prompts-list textarea {
+  height: 70vh;
+}
+
 button {
   padding: 0.35rem 0.9rem;
   border: 1px solid var(--field-border);

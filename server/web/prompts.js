@@ -48,7 +48,6 @@ function setDraft(textarea, text) {
 function card(prompt) {
   const textarea = el("textarea", {
     className: "mono",
-    rows: 12,
     value: drafts.get(prompt.name),
     oninput: (event) => {
       setDraft(event.target, event.target.value);
