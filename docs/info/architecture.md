@@ -67,6 +67,10 @@ The server serves `server/web/` at `/` and `/web/<file>`. The files are plain HT
 
 A GET route must not change state. A page on another site can send a GET with no `Origin` header, for example through an image tag, so the Origin check from step 4 of the runtime flow does not stop it.
 
+The server stops when the game closes, and it restarts when the player presses Restart Server, so an open tab can lose the server at any time. The web app reads `GET /context` every 3 s (`poll` in `server/web/app.js`). While its requests get no response, it shows a banner and disables its Save buttons, so the player keeps unsaved changes until the server is back. A page that did not load keeps its Save button disabled, and the web app loads it again when the server is back.
+
+The player can switch the campaign in game while the web app is open. The poll shows the active campaign and reloads the player profile when the campaign changes. `POST /player_profile` must name the campaign that the text was loaded from, and the server rejects the save with 409 when that campaign is no longer active. This stops the text of one campaign from being written into another.
+
 ## Settings
 
 The server is the only writer of `SentientSands_Config.ini`. The plugin reads the INI once at start, because it starts before the server. After that, it takes changes only through `SET_CONFIG` on the pipe. Two writers with no lock between them would undo each other's changes.

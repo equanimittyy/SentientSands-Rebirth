@@ -3606,14 +3606,20 @@ def player_profile_route():
     
     if request.method == 'GET' or not data:
         logging.info("PROMPT: Loading player profile (GUI request).")
+        campaign = ACTIVE_CAMPAIGN
         bio = load_prompt_component("character_bio.txt", "A mysterious drifter.")
         faction = load_prompt_component("player_faction_description.txt", "")
         return jsonify({
             "status": "ok",
+            "campaign": campaign,
             "character_bio": bio,
             "player_faction": faction
         })
     else:
+        # The page can hold the text of a campaign that the player left in game
+        if data.get("campaign") != ACTIVE_CAMPAIGN:
+            return jsonify({"status": "error", "message": f"The active campaign is now {ACTIVE_CAMPAIGN}."}), 409
+
         bio = data.get("character_bio")
         faction = data.get("player_faction")
         

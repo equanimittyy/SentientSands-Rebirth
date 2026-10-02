@@ -11,6 +11,7 @@
   <header>
     <h1>Sentient Sands Rebirth</h1>
     <p id="status">Connecting...</p>
+    <p id="offline" role="alert" hidden>The server is not running. Start Kenshi, or press Restart Server in the AI panel.</p>
     <nav>
       <a href="#settings">Settings</a>
       <a href="#llm">LLM</a>
@@ -43,7 +44,7 @@
           <label>Event timer (min) <input type="number" name="synthesis_timer" min="1" required></label>
         </fieldset>
         <div class="actions">
-          <button type="submit">Save</button>
+          <button type="submit" class="save" disabled>Save</button>
           <span class="message" id="settings-message" role="status"></span>
         </div>
       </form>
@@ -51,7 +52,7 @@
     <section id="llm" hidden>
       <div id="llm-editor"></div>
       <div class="actions">
-        <button type="button" id="llm-save">Save</button>
+        <button type="button" id="llm-save" class="save" disabled>Save</button>
         <span class="message" id="llm-message" role="status"></span>
       </div>
     </section>
@@ -60,7 +61,7 @@
         <label>Player backstory <textarea name="character_bio"></textarea></label>
         <label>Faction description <textarea name="player_faction"></textarea></label>
         <div class="actions">
-          <button type="submit">Save</button>
+          <button type="submit" class="save" disabled>Save</button>
           <span class="message" id="profile-message" role="status"></span>
         </div>
       </form>

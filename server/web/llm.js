@@ -223,11 +223,15 @@ async function save() {
   }
 }
 
-export async function initLlm() {
+export async function loadLlm() {
   try {
     load(await getJson("/api/llm"));
-    document.getElementById("llm-save").addEventListener("click", save);
+    showMessage(message, "");
+    return true;
   } catch (error) {
     showMessage(message, `Could not load the LLM settings: ${error.message}`, true);
+    return false;
   }
 }
+
+document.getElementById("llm-save").addEventListener("click", save);

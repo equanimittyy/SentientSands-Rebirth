@@ -52,7 +52,7 @@ async function save(event) {
   }
 }
 
-export async function initSettings() {
+export async function loadSettings() {
   try {
     const settings = await getJson("/settings");
     fillOptions(form.elements.language, settings.supported_languages);
@@ -61,8 +61,12 @@ export async function initSettings() {
       setValue(input, input.name.split(".").reduce((object, key) => object?.[key], settings));
     }
     saved = snapshot();
-    form.addEventListener("submit", save);
+    showMessage(message, "");
+    return true;
   } catch (error) {
     showMessage(message, `Could not load the settings: ${error.message}`, true);
+    return false;
   }
 }
+
+form.addEventListener("submit", save);

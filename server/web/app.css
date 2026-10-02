@@ -28,6 +28,14 @@ h1 {
   color: var(--muted);
 }
 
+#offline {
+  margin: 0 0 1rem;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid var(--error);
+  border-radius: 6px;
+  color: var(--error);
+}
+
 nav {
   display: flex;
   gap: 0.25rem;

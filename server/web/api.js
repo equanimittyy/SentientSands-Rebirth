@@ -1,9 +1,35 @@
+let online = true;
+let onConnectionChange = () => {};
+
+function setOnline(value) {
+  if (value === online) return;
+  online = value;
+  onConnectionChange(online);
+}
+
+// fetch rejects only when no response arrives, so a rejection means the server is down or restarting.
+async function request(url, options) {
+  let response;
+  try {
+    response = await fetch(url, options);
+  } catch {
+    setOnline(false);
+    throw new Error("The server is not running.");
+  }
+  setOnline(true);
+  return response;
+}
+
+export function watchConnection(listener) {
+  onConnectionChange = listener;
+}
+
 export async function getJson(url) {
-  return readJson(await fetch(url));
+  return readJson(await request(url));
 }
 
 export async function sendJson(method, url, body) {
-  const response = await fetch(url, {
+  const response = await request(url, {
     method,
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
