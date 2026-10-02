@@ -2984,7 +2984,7 @@ def test_llm_profile():
     errors = llm_config.provider_errors(provider_name, provider) + llm_config.profile_errors(data.get("name", ""), profile, {provider_name: provider})
     if errors:
         return jsonify({"status": "error", "errors": errors}), 400
-    provider = llm_config.provider_for_test(provider_name, provider, LLM_CONFIG)
+    provider = llm_config.provider_from_form(provider_name, provider, LLM_CONFIG)
     messages = [{"role": "user", "content": "Keep your response extremely short. Reply with the word: Success"}]
     body = llm_router.build_body({"max_tokens": 200, "temperature": 0.7}, profile, messages)
     try:
@@ -2994,6 +2994,26 @@ def test_llm_profile():
     if not text:
         return jsonify({"status": "error", "message": "The model returned an empty completion."}), 502
     return jsonify({"status": "ok", "response": text})
+
+# POST, because the provider in the form may not be saved.
+@app.route('/api/llm/models', methods=['POST'])
+def list_llm_models():
+    data = request.get_json(silent=True) or {}
+    name, provider = data.get("name", ""), data.get("provider")
+    if not isinstance(provider, dict):
+        return jsonify({"status": "error", "message": "The request needs a provider."}), 400
+    errors = llm_config.provider_errors(name, provider)
+    if errors:
+        return jsonify({"status": "error", "errors": errors}), 400
+    provider = llm_config.provider_from_form(name, provider, LLM_CONFIG)
+    try:
+        response = requests.get(f"{provider['base_url'].rstrip('/')}/models", headers={"Authorization": f"Bearer {provider.get('api_key', '')}"}, timeout=15)
+        if response.status_code != 200:
+            raise RuntimeError(f"HTTP {response.status_code}: {response.text[:200]}")
+        models = llm_config.model_ids(response.json())
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 502
+    return jsonify({"status": "ok", "models": models})
 
 
 @app.route('/history', methods=['POST'])

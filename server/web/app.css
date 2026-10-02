@@ -265,6 +265,10 @@ label > .hint {
   margin: 0;
 }
 
+.hint.error {
+  color: var(--error);
+}
+
 .mono {
   font-family: ui-monospace, monospace;
 }

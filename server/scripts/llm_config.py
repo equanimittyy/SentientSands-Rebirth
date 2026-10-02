@@ -155,13 +155,18 @@ def with_stored_keys(new, old):
     return result
 
 
-def provider_for_test(name, provider, old):
-    """Uses the stored key only with the saved base URL, so a test cannot send it to a mistyped host."""
+def provider_from_form(name, provider, old):
+    """Uses the stored key only with the saved base URL, so a request from the form cannot send it to a mistyped host."""
     result = {key: provider[key] for key in ("type", "base_url", "api_key", "game_key") if key in provider}
     saved = _saved_provider(name, provider, old)
     if not result.get("api_key") and saved.get("base_url") == result.get("base_url"):
         result["api_key"] = saved.get("api_key", "")
     return result
+
+
+def model_ids(listing):
+    entries = listing.get("data") if isinstance(listing, dict) else None
+    return sorted({entry["id"] for entry in entries or [] if isinstance(entry, dict) and isinstance(entry.get("id"), str)})
 
 
 def presets(providers):

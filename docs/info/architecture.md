@@ -62,7 +62,7 @@ The server serves `server/web/` at `/` and `/web/<file>`. The files are plain HT
 | Page | Route | Storage |
 |---|---|---|
 | Settings | `/settings` | `SentientSands_Config.ini` |
-| Models | `/api/llm`, `/api/llm/test` | `server/user/llm_config.json` |
+| Models | `/api/llm`, `/api/llm/test`, `/api/llm/models` | `server/user/llm_config.json` |
 | Player profile | `/player_profile` | `character_bio.txt` and `player_faction_description.txt` in the active campaign |
 
 A GET route must not change state. A page on another site can send a GET with no `Origin` header, for example through an image tag, so the Origin check from step 4 of the runtime flow does not stop it. The presence stream below is the only exception, because EventSource sends only GET requests. A page on another site that holds the stream open can only stop a new tab from opening.
@@ -107,7 +107,7 @@ A Player2 provider uses a session key from the local Player2 app. On a 401, `sen
 
 A rejected save returns each error with the path of its field, for example `["profiles", "kimi", "model"]`, and the web app marks that field.
 
-`POST /api/llm/test` tests the profile and the provider as the web app holds them, so the player can test before a save. It fills an empty key field with the stored key only when the base URL is the saved one (`llm_config.provider_for_test`). A test with a mistyped base URL therefore cannot send the stored key to another host.
+`POST /api/llm/test` tests the profile and the provider as the web app holds them, so the player can test before a save. `POST /api/llm/models` lists the model IDs of a provider in the same way, through the provider's OpenAI-compatible `GET /models`. Both fill an empty key field with the stored key only when the base URL is the saved one (`llm_config.provider_from_form`). A request with a mistyped base URL therefore cannot send the stored key to another host.
 
 On a start without `llm_config.json`, the server builds it from `default_providers.json` and `default_models.json` in `server/config/`. Each task gets one route that holds only the `player2-default` profile.
 

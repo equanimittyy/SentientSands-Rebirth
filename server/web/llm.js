@@ -19,6 +19,8 @@ let presets = [];
 let savedProviders = new Set();
 const openCards = new Set();
 const testResults = new Map();
+const modelLists = new Map();
+let listCount = 0;
 const fieldErrors = new Map();
 const checks = new WeakMap();
 let focusCard = null;
@@ -33,7 +35,10 @@ function el(tag, props = {}, ...children) {
   return element;
 }
 
-const field = (label, input, hint) => el("label", {}, label, input, hint ? el("span", { className: "hint" }, hint) : null);
+function field(label, input, hint) {
+  const note = typeof hint === "string" ? el("span", { className: "hint" }, hint) : hint;
+  return el("label", {}, label, input, note ?? null);
+}
 const cardKey = (kind, name) => `${kind}s/${name}`;
 
 function joinNames(names) {
@@ -339,6 +344,33 @@ function paramsError(text) {
   }
 }
 
+async function listModels(providerName) {
+  const provider = state.providers[providerName];
+  if (!provider) return;
+  modelLists.set(providerName, { text: "Listing the models..." });
+  render();
+  try {
+    const reply = await sendJson("POST", "/api/llm/models", { name: providerName, provider: providerPayload(provider) });
+    modelLists.set(providerName, { models: reply.models, text: `${reply.models.length} models from ${providerName}. Type to filter them.` });
+  } catch (error) {
+    modelLists.set(providerName, { error: true, text: `Could not list the models: ${error.message}` });
+  }
+  render();
+}
+
+function modelInput(profile, path) {
+  const input = textInput(profile, "model", path, { required: true });
+  const list = modelLists.get(profile.provider);
+  const options = el("datalist", { id: `model-list-${++listCount}` }, ...(list?.models ?? []).map((id) => new Option(id, id)));
+  input.setAttribute("list", options.id);
+  return el("span", { className: "inline" }, input, options, button("List models", state.providers[profile.provider] && (() => listModels(profile.provider))));
+}
+
+function modelStatus(providerName) {
+  const list = modelLists.get(providerName);
+  return list ? el("span", { className: `hint${list.error ? " error" : ""}` }, list.text) : null;
+}
+
 const profileDetail = (profile) => `${profile.provider} · ${profile.model || "no model ID"}`;
 
 function renderProfiles() {
@@ -350,7 +382,7 @@ function renderProfiles() {
     return collapsible(cardKey("profile", name),
       [el("strong", { className: "name" }, name), el("span", { className: "detail" }, profileDetail(profile)), testBadge(name)],
       field("Provider", selectInput(providerNames, profile.provider, path("provider"), (value) => { profile.provider = value; changed(); })),
-      field("Model ID", textInput(profile, "model", path("model"), { required: true })),
+      field("Model ID", modelInput(profile, path("model")), modelStatus(profile.provider)),
       field("Timeout (s)", numberInput(profile, "timeout", path("timeout"), { step: 1, min: 1 }), "The task deadline can stop a profile before its timeout."),
       field("Extra request parameters (JSON)", textInput(profile, "paramsText", path("params"), { tag: "textarea", className: "mono", rows: 3 }, paramsError)),
       el("div", { className: "card-actions" },
@@ -451,6 +483,7 @@ function load(config) {
   providerTypes = config.provider_types;
   presets = config.presets;
   savedProviders = new Set(Object.keys(config.providers));
+  modelLists.clear();
   fieldErrors.clear();
   reportUnsaved(editor, false);
   render();

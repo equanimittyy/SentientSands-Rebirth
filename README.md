@@ -44,7 +44,7 @@ You configure the mod in the web panel at `http://127.0.0.1:5000/`. It opens in 
 On the **Models** page, a provider is one OpenAI-compatible endpoint: a base URL and an API key. Add a provider from a preset, or pick **Custom** and give it a name, then fill in its fields. The page never shows a stored key, only whether a key is set and its last four characters. Leave the key field empty to keep the stored key. **Rename** keeps the key and updates the profiles that use the provider. The `player2` type also needs a game key, the game ID that you register with Player2.
 
 ### Profiles
-A profile is one model on one provider. It holds the provider, the exact model ID that the provider expects (for example `anthropic/claude-3.5-sonnet`), a timeout, and optional extra request parameters as JSON. **Test** sends a short request to the profile as the page shows it, so you can test before you save. **Test all** tests each profile in turn.
+A profile is one model on one provider. It holds the provider, the exact model ID that the provider expects (for example `anthropic/claude-3.5-sonnet`), a timeout, and optional extra request parameters as JSON. **List models** gets the model IDs from the provider, so the Model ID field can suggest them as you type. **Test** sends a short request to the profile as the page shows it, so you can test before you save. **Test all** tests each profile in turn.
 
 ### Tasks
 Each task (chat, radiant conversations, NPC profiles, and world events) has an ordered list of profiles. The server tries them in order, and moves to the next profile after an error, a timeout, or an empty reply. List a profile twice to retry it. The game stops waiting after 60 s, so keep each deadline below that.

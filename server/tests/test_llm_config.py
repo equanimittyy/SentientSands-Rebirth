@@ -136,24 +136,34 @@ class KeyHandlingTest(unittest.TestCase):
         self.assertNotIn("previous_name", result)
 
 
-class ProviderForTestTest(unittest.TestCase):
+class ProviderFromFormTest(unittest.TestCase):
     def test_empty_key_uses_stored_key_with_saved_base_url(self):
         provider = {"type": "openai", "base_url": "https://openrouter.ai/api/v1", "api_key": ""}
-        self.assertEqual(llm_config.provider_for_test("openrouter", provider, built())["api_key"], "sk-or-secret-1234")
+        self.assertEqual(llm_config.provider_from_form("openrouter", provider, built())["api_key"], "sk-or-secret-1234")
 
     def test_changed_base_url_gets_no_stored_key(self):
         provider = {"type": "openai", "base_url": "https://openrouter.ai.typo/api/v1", "api_key": ""}
-        self.assertEqual(llm_config.provider_for_test("openrouter", provider, built())["api_key"], "")
+        self.assertEqual(llm_config.provider_from_form("openrouter", provider, built())["api_key"], "")
 
     def test_typed_key_wins(self):
         provider = {"type": "openai", "base_url": "https://elsewhere.example/v1", "api_key": "sk-typed"}
-        self.assertEqual(llm_config.provider_for_test("openrouter", provider, built())["api_key"], "sk-typed")
+        self.assertEqual(llm_config.provider_from_form("openrouter", provider, built())["api_key"], "sk-typed")
 
     def test_renamed_provider_uses_key_of_previous_name(self):
         provider = {"type": "openai", "base_url": "https://openrouter.ai/api/v1", "api_key": "", "previous_name": "openrouter"}
-        result = llm_config.provider_for_test("or", provider, built())
+        result = llm_config.provider_from_form("or", provider, built())
         self.assertEqual(result["api_key"], "sk-or-secret-1234")
         self.assertNotIn("previous_name", result)
+
+
+class ModelIdsTest(unittest.TestCase):
+    def test_reads_sorted_unique_ids(self):
+        listing = {"object": "list", "data": [{"id": "b"}, {"id": "a"}, {"id": "b"}, {"name": "no id"}, "text"]}
+        self.assertEqual(llm_config.model_ids(listing), ["a", "b"])
+
+    def test_reply_without_data_has_no_ids(self):
+        self.assertEqual(llm_config.model_ids({"error": "nope"}), [])
+        self.assertEqual(llm_config.model_ids(["a"]), [])
 
 
 class PresetsTest(unittest.TestCase):
