@@ -4,14 +4,14 @@ Status: Draft for review
 
 ## 1. Summary
 
-The server mixes player settings, world lore, and play state. For example, the INI holds the campaign's favorite NPCs, and the Vanilla Kenshi lore is a shared prompt file that every campaign uses. This proposal puts all server data into four separate classes:
+The server mixes player settings, world lore, and play state. For example, the Vanilla Kenshi lore is a shared prompt file that every campaign uses. This proposal puts all server data into four separate classes:
 
 - **App data** ships with the release as defaults, and each update replaces it. A player can override each system prompt. The override survives an update, and a reset restores the shipped default.
 - **Settings** belong to the player. Both the gameplay settings and the LLM configuration get a reset to the shipped defaults.
 - **World templates** describe a world: entities, a lore timeline, figure profiles, and an overview. The release ships a Vanilla Kenshi template. Players export and import templates to share worlds for modded playthroughs, with custom factions and figures.
 - **Campaigns** hold one playthrough. Each campaign starts as a copy of a world template, and then only play changes it.
 
-The proposal builds on the campaign database from [proposal_sqlite_campaign_storage.md](proposal_sqlite_campaign_storage.md). The C++ plugin does not change. [proposal_web_app.md](proposal_web_app.md) adds the browser pages for templates and entities.
+The proposal builds on the campaign database ([architecture.md](../info/architecture.md#campaign-storage)). The C++ plugin does not change. [proposal_web_app.md](proposal_web_app.md) adds the browser pages for templates and entities.
 
 Non-goals:
 
@@ -33,19 +33,18 @@ Non-goals:
 
 The INI stays in the mod root, because the plugin reads it from there at start ([architecture.md](../info/architecture.md#settings)).
 
-Three pieces of data move to their class:
+Two pieces of data move to their class:
 
 | Data | From | To | Reason |
 |---|---|---|---|
 | World lore | `server/prompts/world_lore.txt` | `overview.txt` of the vanilla template | It describes the world, so a modded template must be able to replace it. |
-| Favorites | `Favorites` in the INI | `npc.favorite` in the campaign database ([campaign storage proposal, section 8](proposal_sqlite_campaign_storage.md#8-migration)) | A storage ID belongs to one campaign. |
 | Retrieval limits | Kayak's `core_config.txt` | The INI | They tune the server, not the world. |
 
 ## 3. Defaults and resets
 
 ### 3.1 Gameplay settings
 
-- The defaults move from inside `load_settings` (`kenshi_llm_server.py:897`) to a module-level `SETTINGS_DEFAULTS`, so the load and the reset use one table.
+- The defaults move from inside `load_settings` (`kenshi_llm_server.py:838`) to a module-level `SETTINGS_DEFAULTS`, so the load and the reset use one table.
 - `POST /settings/reset` sets each key of `SETTINGS_DEFAULTS` except `current_campaign` and the legacy `current_model`. It then runs the save path of `POST /settings`: it writes the INI, sends each value that the plugin holds through `SET_CONFIG`, and sends `APPLY_TRANSLATION` if the language changes.
 - The Settings page gets a "Reset to defaults" button with a confirmation.
 - The defaults in the plugin's `LoadPluginConfig` must still agree with `SETTINGS_DEFAULTS` ([architecture.md](../info/architecture.md#settings)).
@@ -60,7 +59,7 @@ Three pieces of data move to their class:
 
 Each file in `server/prompts/` is a shipped default: the system prompts, and the two seeds of a new campaign's player profile (`character_bio.txt`, `player_faction_description.txt`). An update replaces these files, so a player who edits them today loses the edit. A player's override goes into `server/user/prompts/` under the same file name. The release does not ship `server/user/`, so an update keeps it.
 
-`load_prompt_component` (`kenshi_llm_server.py:999`) takes the first file that exists and is not empty:
+`load_prompt_component` (`kenshi_llm_server.py:923`) takes the first file that exists and is not empty:
 
 1. The campaign folder, as today.
 2. `server/user/prompts/`, the player's override.
@@ -145,7 +144,7 @@ A figure file, `entities/figures/<id>.json`, can also hold a `profile`:
 - The entity ID is the file name without `.json`. The category is the folder name. A modded template can add a category.
 - The values in `fields` feed link expansion. The values in `prose` are retrieved text and never feed link expansion, the same as Kayak's `$` fields.
 - `children` are weighted links to other entities by name. `access` holds the rules that decide which NPCs know the entity. The converter sets its schema when it parses Kayak's `[RULE]` blocks ([section 11](#not-yet-verified)).
-- Only a `figures` entity can hold a `profile`. Its keys are the keys of an NPC profile ([campaign storage proposal, section 5](proposal_sqlite_campaign_storage.md#5-schema)). Chat uses this profile instead of generating one.
+- Only a `figures` entity can hold a `profile`. Its keys are the keys of an NPC profile in the campaign database ([architecture.md](../info/architecture.md#campaign-storage)). Chat uses this profile instead of generating one.
 - The order of `history.json` is the timeline order. The loader stores each entry as an entity of category `history`, so retrieval finds it like any entity.
 - One validator runs on each load, import, and edit. It rejects an unknown `format_version`, a JSON file that does not parse, an entity without `name`, and a `profile` outside `figures`. A child that names no entity is a warning, not an error.
 
@@ -246,7 +245,7 @@ CREATE VIRTUAL TABLE entity_fts USING fts5(
 - The server loads the template into the new campaign database in one transaction: the entities with their fields, aliases, children, and access rules, the history entries, the links, the FTS index, the figure profiles, and the overview.
 - After creation, the campaign does not depend on its template. A template edit, a new template version, or a deleted template does not change the campaign.
 - An existing campaign without knowledge tables gets Vanilla Kenshi on its first load. Today every campaign uses the vanilla `world_lore.txt`, so its prompts keep their lore.
-- The prompt takes the overview from `meta`. A `world_lore.txt` in the campaign folder still overrides it, as `load_prompt_component` does today (`kenshi_llm_server.py:999`).
+- The prompt takes the overview from `meta`. A `world_lore.txt` in the campaign folder still overrides it, as `load_prompt_component` does today (`kenshi_llm_server.py:923`).
 - Gameplay writes only the campaign database, never a template.
 - Rejected: reading the template live through `ATTACH` at query time. A template edit would then change the lore of running campaigns, and each FTS query would span two databases.
 - Rejected: one database for all campaigns, with a `campaign_id` column. A missing filter would leak data between campaigns.
