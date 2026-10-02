@@ -350,7 +350,7 @@ Tests:
 
 ## 12. Open questions
 
-1. Should the name pools (`names.json`, `generic_names.json`, `titles.json`) be customizable? The options are a player override, as for the system prompts, or a part of each world template, so that a modded template can add its own generic NPC types and names.
+1. Should the name pools (`names.json`, `generic_names.json`) be customizable? The options are a player override, as for the system prompts, or a part of each world template, so that a modded template can add its own generic NPC types and names.
 2. Should an existing campaign be able to take a newer version of its template, and how does that merge with `origin = 'campaign'` changes?
 3. Should the release include the Kayak converter, so that players can convert Kayak content packs?
 

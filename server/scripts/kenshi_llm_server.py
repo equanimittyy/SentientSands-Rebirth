@@ -462,7 +462,6 @@ KENSHI_NAME_POOL = [
 ]
 
 def get_used_names():
-    # Storage IDs are Name or Name_Faction
     return {npc["storage_id"].split("_")[0].lower() for npc in campaign_db.list_npcs()}
 
 def generate_unique_lore_name(gender="Neutral"):
@@ -1116,23 +1115,6 @@ def call_llm(task, messages):
 
 LLM_CONFIG = load_llm_config()
 
-CANON_CHARACTERS_PATH = os.path.join(SCRIPT_DIR, "..", "config", "canon_characters.json")
-CANON_CHARACTERS = {}
-
-def load_canon_characters():
-    global CANON_CHARACTERS
-    if os.path.exists(CANON_CHARACTERS_PATH):
-        try:
-            with open(CANON_CHARACTERS_PATH, "r") as f:
-                data = json.load(f)
-                for char in data:
-                    CANON_CHARACTERS[char["Name"].lower()] = char
-            logging.info(f"CONFIG: Loaded {len(CANON_CHARACTERS)} canon characters.")
-        except Exception as e:
-            logging.error(f"CONFIG: Cannot load canon_characters.json: {e}")
-
-load_canon_characters()
-
 def generate_character_profile(name, context=""):
     lower_name = name.lower()
     if "your squad" in lower_name or "squad" == lower_name:
@@ -1145,10 +1127,6 @@ def generate_character_profile(name, context=""):
             "Faction": player_faction,
             "Sex": "Mixed"
         }
-
-    if lower_name in CANON_CHARACTERS:
-        logging.debug(f"PROFILE: Canon profile for {name}")
-        return CANON_CHARACTERS[lower_name]
 
     live_ctx = LIVE_CONTEXTS.get(name) or {}
     
@@ -1592,7 +1570,7 @@ def ambient_event():
     for npc in npc_limit:
         if isinstance(npc, dict):
             name = npc.get('name', 'Unknown')
-            if name.lower() in CANON_CHARACTERS or "your squad" in name.lower():
+            if "your squad" in name.lower():
                 continue
             
             # skip_generate defers missing profiles to one batch LLM call
