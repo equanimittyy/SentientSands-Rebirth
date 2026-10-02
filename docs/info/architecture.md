@@ -16,7 +16,7 @@ Sentient Sands Rebirth has three parts: a C++ plugin that runs inside Kenshi, a 
 | `server/tests/` | Unit tests that run with the standard library only. See [development.md](development.md#tests). |
 | `server/config/` | Provider, model, name, title, and localization JSON. |
 | `server/templates/` | Prompt templates and the world lore. |
-| `mod/` | The files at the root of the installed mod folder: `mod.info`, `SentientSands.mod`, `RE_Kenshi.json`, and the default `SentientSands_Config.ini`. |
+| `mod/` | The files at the root of the installed mod folder: `mod.info`, `SentientSandsRebirth.mod`, `RE_Kenshi.json`, and the default `SentientSands_Config.ini`. |
 | `scripts/` | Release tooling. See [development.md](development.md#release). |
 | `package_release.cmd` | A Windows menu that builds the plugin, runs `scripts/package_release.py`, or does both. |
 
@@ -25,11 +25,11 @@ Sentient Sands Rebirth has three parts: a C++ plugin that runs inside Kenshi, a 
 The release zip unpacks into `Kenshi/mods/` as the tree below. The plugin and the server find each other through these relative paths. Do not change one side without the other.
 
 ```
-SentientSands/
+SentientSandsRebirth/
   SentientSands.dll          built from plugin/
   RE_Kenshi.json             makes RE_Kenshi load the DLL
   mod.info
-  SentientSands.mod
+  SentientSandsRebirth.mod
   SentientSands_Config.ini   settings that the plugin and the server both read
   server/
     scripts/  config/  templates/

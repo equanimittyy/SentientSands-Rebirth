@@ -19,11 +19,13 @@ Before installing Sentient Sands Rebirth, you must have the following installed:
 
 ### Step 2: Install Sentient Sands Rebirth
 1. Download the Sentient Sands Rebirth release zip.
-2. Extract it so that the `SentientSands` folder is inside your `Kenshi/mods/` directory.
-   *(Expected path: `...\Kenshi\mods\SentientSands\SentientSands.mod`)*
-3. Ensure that `SentientSands.dll` is present in your `Kenshi\mods\SentientSands\` directory. Our `RE_Kenshi.json` file will automatically instruct RE_Kenshi to load it from here.
+2. Extract it so that the `SentientSandsRebirth` folder is inside your `Kenshi/mods/` directory.
+   *(Expected path: `...\Kenshi\mods\SentientSandsRebirth\SentientSandsRebirth.mod`)*
+3. Ensure that `SentientSands.dll` is present in your `Kenshi\mods\SentientSandsRebirth\` directory. Our `RE_Kenshi.json` file will automatically instruct RE_Kenshi to load it from here.
 
 The release includes its own Python runtime (`server\python\`), so you do not need to install Python or any packages.
+
+If the original Sentient Sands is also installed, disable it in the mod launcher. Both mods use the same server port and pipe, so only one can run at a time.
 
 ### Step 3: Launching the Game
 1. In the Kenshi mod launcher, check **Sentient Sands Rebirth**.
@@ -36,7 +38,7 @@ The release includes its own Python runtime (`server\python\`), so you do not ne
 Sentient Sands Rebirth connects to an embedded Python server running alongside your game. It supports any API that uses the standard OpenAI-compatible format (OpenRouter, local Ollama servers, LM Studio, etc.).
 
 You can add your own custom providers and models without modifying any code. Both configuration files are located in the mod folder at:
-`Kenshi/mods/SentientSands/server/config/`
+`Kenshi/mods/SentientSandsRebirth/server/config/`
 
 ### Adding a New Provider
 Edit `providers.json`. The server creates it from `default_providers.json` on its first start, and a mod update does not replace it, so your keys stay. A provider strictly requires an `api_key` and a `base_url`. The `player2` provider also needs a `game_key`, the game ID that you register with Player2.

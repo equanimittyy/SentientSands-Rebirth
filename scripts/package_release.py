@@ -18,7 +18,7 @@ from datetime import datetime
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parent.parent
-MOD_NAME = "SentientSands"
+MOD_NAME = "SentientSandsRebirth"
 DEFAULT_DLL = REPO / "plugin" / "x64" / "Release" / "SentientSands.dll"
 SERVER_DIRS = ("scripts", "config", "templates")
 # Change only together with server/requirements.txt: its pins are checked against this runtime's wheels.
