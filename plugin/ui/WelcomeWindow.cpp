@@ -77,10 +77,9 @@ void CreateWelcomeUI() {
   MyGUI::TextBox *l1 = client->createWidgetReal<MyGUI::TextBox>(
       "Kenshi_TextboxStandardText", 0.05f, yProg, 0.9f, 0.06f,
       MyGUI::Align::Top | MyGUI::Align::HStretch, "SentientSands_WelcomeL1");
-  l1->setCaption(
-      Utf8ToWide(T("Welcome to Sentient Sands Rebirth, based on the Kenshi "
-                   "LLM project by Harvicus"))
-          .c_str());
+  l1->setCaption(Utf8ToWide(T("Welcome to Sentient Sands Rebirth, an LLM mod "
+                              "for Kenshi"))
+                     .c_str());
   l1->setTextAlign(MyGUI::Align::Center);
   l1->setTextColour(MyGUI::Colour(0.85f, 0.85f, 0.85f));
   yProg += yDelta;
@@ -96,11 +95,21 @@ void CreateWelcomeUI() {
   l2->setTextColour(MyGUI::Colour(1.0f, 0.6f, 0.6f));
   yProg += yDelta;
 
+  MyGUI::TextBox *l3 = client->createWidgetReal<MyGUI::TextBox>(
+      "Kenshi_TextboxStandardText", 0.05f, yProg, 0.9f, 0.06f,
+      MyGUI::Align::Top | MyGUI::Align::HStretch, "SentientSands_WelcomeL3");
+  l3->setCaption(Utf8ToWide(T("Special thanks to Harvicus, the original "
+                              "author of Sentient Sands,"))
+                     .c_str());
+  l3->setTextAlign(MyGUI::Align::Center);
+  l3->setTextColour(MyGUI::Colour(1.0f, 0.9f, 0.5f));
+  yProg += yDelta;
+
   MyGUI::TextBox *l4 = client->createWidgetReal<MyGUI::TextBox>(
       "Kenshi_TextboxStandardText", 0.05f, yProg, 0.9f, 0.06f,
       MyGUI::Align::Top | MyGUI::Align::HStretch, "SentientSands_WelcomeL4");
-  l4->setCaption(Utf8ToWide(T("Special thanks to BFrizzleFoShizzle and the "
-                              "RE_Kenshi contributors"))
+  l4->setCaption(Utf8ToWide(T("and to BFrizzleFoShizzle and the RE_Kenshi "
+                              "contributors"))
                      .c_str());
   l4->setTextAlign(MyGUI::Align::Center);
   l4->setTextColour(MyGUI::Colour(1.0f, 0.9f, 0.5f));
