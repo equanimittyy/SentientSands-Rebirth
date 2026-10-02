@@ -1154,6 +1154,8 @@ def generate_character_profile(name, context=""):
     race = "Unknown"
     gender = "Unknown"
     faction = "Unknown"
+    origin_faction = "Unknown"
+    job = "None"
     
     ctx_data = {}
     if isinstance(context, dict):
@@ -1169,8 +1171,8 @@ def generate_character_profile(name, context=""):
         faction = ctx_data.get('faction', faction)
         if faction == "Unknown":
             faction = ctx_data.get('factionID', "Unknown")
-        origin_faction = ctx_data.get('origin_faction', "Unknown")
-        job = ctx_data.get('job', "None")
+        origin_faction = ctx_data.get('origin_faction', origin_faction)
+        job = ctx_data.get('job', job)
     
     if race == "Unknown": race = live_ctx.get('race', 'Unknown')
     if gender == "Unknown": gender = live_ctx.get('gender', 'Unknown')
