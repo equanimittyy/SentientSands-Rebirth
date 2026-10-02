@@ -121,7 +121,7 @@ void CreateWelcomeUI() {
       "Kenshi_TextboxStandardText", 0.05f, 0.40f, 0.9f, 0.1f,
       MyGUI::Align::Top | MyGUI::Align::HStretch, "SentientSands_WelcomeKeys");
   std::string keysText =
-      T("Use [ {key} ] to Chat and [ F8 ] to open the AI Panel");
+      T("Use [ {key} ] to Chat and [ F8 ] to open the SSR HUB");
   size_t keySlot = keysText.find("{key}");
   if (keySlot != std::string::npos)
     keysText.replace(keySlot, 5, g_chatHotkeyStr);

@@ -51,7 +51,7 @@ void CreateLauncherUI() {
   g_launcherWindow = gui->createWidgetReal<MyGUI::Window>(
       "Kenshi_WindowCX", 0.82f, 0.1f, 0.15f, 0.62f,
       MyGUI::Align::Right | MyGUI::Align::Top, "Popup", "SentientSands_AIHub");
-  g_launcherWindow->setCaption(Utf8ToWide(T("AI PANEL")).c_str());
+  g_launcherWindow->setCaption(Utf8ToWide(T("SSR HUB")).c_str());
   g_launcherWindow->eventWindowButtonPressed +=
       MyGUI::newDelegate(OnLauncherWindowButtonPressed);
 
@@ -113,7 +113,7 @@ void CreateLauncherUI() {
 void RefreshLauncherUI() {
   if (!g_launcherWindow)
     return;
-  g_launcherWindow->setCaption(Utf8ToWide(T("AI PANEL")).c_str());
+  g_launcherWindow->setCaption(Utf8ToWide(T("SSR HUB")).c_str());
   MyGUI::Widget *client = g_launcherWindow->getClientWidget();
   if (!client)
     return;

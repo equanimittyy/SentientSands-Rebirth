@@ -38,7 +38,7 @@ If the original Sentient Sands is also installed, disable it in the mod launcher
 
 Sentient Sands Rebirth connects to an embedded Python server running alongside your game. It supports any API that uses the standard OpenAI-compatible format (OpenRouter, local Ollama servers, LM Studio, etc.).
 
-You configure the mod in the web panel at `http://127.0.0.1:5000/`. It opens in your default browser when Kenshi starts. You can also open it with **Open Web Panel** in the in-game AI panel (F8). To stop it from opening on start, clear **Open this web panel on start** on its Settings page.
+You configure the mod in the web panel at `http://127.0.0.1:5000/`. It opens in your default browser when Kenshi starts. You can also open it with **Open Web Panel** in the in-game SSR HUB (F8). To stop it from opening on start, clear **Open this web panel on start** on its Settings page.
 
 ### Providers
 On the **LLM** page, a provider is one OpenAI-compatible endpoint: a base URL and an API key. Add a provider by name, then fill in its fields. The page never shows a stored key, only its last four characters. Leave the key field empty to keep the stored key. The `player2` type also needs a game key, the game ID that you register with Player2.

@@ -105,7 +105,7 @@ The plugin starts the Python server from its own mod folder. A test therefore ne
 ## 6. Test in game
 
 1. Start Kenshi normally, and check the RE_Kenshi text on the main menu.
-2. Load a save. Press **F8** to open the AI panel, or press **\\** near an NPC to open the chat.
+2. Load a save. Press **F8** to open the SSR HUB, or press **\\** near an NPC to open the chat.
 3. If something fails, read these logs:
 
    | Log | Contents |
