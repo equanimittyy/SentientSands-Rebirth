@@ -24,11 +24,6 @@ void CloseWelcomeUI() {
   }
 }
 
-void OnWelcomeDiscordClick(MyGUI::Widget *sender) {
-  ShellExecuteA(NULL, "open", "https://discord.gg/B9YgRk8AE8", NULL, NULL,
-                SW_SHOWNORMAL);
-}
-
 void OnWelcomeToggleClick(MyGUI::Widget *sender) {
   g_enableWelcome = !g_enableWelcome;
   ((MyGUI::Button *)sender)
@@ -101,17 +96,6 @@ void CreateWelcomeUI() {
   l2->setTextColour(MyGUI::Colour(1.0f, 0.6f, 0.6f));
   yProg += yDelta;
 
-  MyGUI::TextBox *l3 = client->createWidgetReal<MyGUI::TextBox>(
-      "Kenshi_TextboxStandardText", 0.05f, yProg, 0.9f, 0.06f,
-      MyGUI::Align::Top | MyGUI::Align::HStretch, "SentientSands_WelcomeL3");
-  l3->setCaption(
-      Utf8ToWide(T("Join the discord to report bugs, suggest features, or join "
-                   "the community"))
-          .c_str());
-  l3->setTextAlign(MyGUI::Align::Center);
-  l3->setTextColour(MyGUI::Colour(0.7f, 0.7f, 1.0f));
-  yProg += yDelta;
-
   MyGUI::TextBox *l4 = client->createWidgetReal<MyGUI::TextBox>(
       "Kenshi_TextboxStandardText", 0.05f, yProg, 0.9f, 0.06f,
       MyGUI::Align::Top | MyGUI::Align::HStretch, "SentientSands_WelcomeL4");
@@ -142,19 +126,11 @@ void CreateWelcomeUI() {
       MyGUI::newDelegate(OnWelcomeToggleClick);
 
   MyGUI::Button *saveBtn = client->createWidgetReal<MyGUI::Button>(
-      "Kenshi_Button1", 0.05f, 0.75f, 0.42f, 0.18f,
-      MyGUI::Align::Bottom | MyGUI::Align::Left,
+      "Kenshi_Button1", 0.29f, 0.75f, 0.42f, 0.18f,
+      MyGUI::Align::Bottom | MyGUI::Align::HCenter,
       "SentientSands_WelcomeSaveBtn");
   saveBtn->setCaption(Utf8ToWide(T("CLOSE")).c_str());
   saveBtn->eventMouseButtonClick += MyGUI::newDelegate(OnWelcomeSaveClick);
-
-  MyGUI::Button *discordBtn = client->createWidgetReal<MyGUI::Button>(
-      "Kenshi_Button1", 0.53f, 0.75f, 0.42f, 0.18f,
-      MyGUI::Align::Bottom | MyGUI::Align::Right,
-      "SentientSands_WelcomeDiscordBtn");
-  discordBtn->setCaption(Utf8ToWide(T("JOIN DISCORD")).c_str());
-  discordBtn->eventMouseButtonClick +=
-      MyGUI::newDelegate(OnWelcomeDiscordClick);
 
   CreateThread(NULL, 0, WelcomeResponseThread, NULL, 0, NULL);
 }
