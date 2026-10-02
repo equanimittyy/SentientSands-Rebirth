@@ -1,151 +1,203 @@
-# Proposal: SQLite Knowledge Store for SentientSands-Rebirth (Kayak-Compatible)
+# Proposal: Data Layers: Settings, World Templates, and Campaigns
 
 Status: Draft for review
-Target repo: `SentientSands-Rebirth` (fork of `harvicusdev-glitch/SentientSands`)
-
----
 
 ## 1. Summary
 
-SentientSands-Rebirth currently stores NPC data as flat JSON and text files and injects one fixed block of world lore into every prompt. Kayak (the continuation of SentientSands by Pineaxe and Harvicus) adds a text-based knowledge layer with keyword retrieval and link expansion, but it keeps everything in loose files and rebuilds an in-memory index at runtime.
+The server mixes player settings, world lore, and play state. For example, the INI holds the campaign's favorite NPCs, and the Vanilla Kenshi lore is a shared prompt file that every campaign uses. This proposal puts all server data into four separate classes:
 
-This proposal is to re-create Kayak's knowledge system on top of SQLite:
+- **App data** ships with the release as defaults, and each update replaces it. A player can override each system prompt. The override survives an update, and a reset restores the shipped default.
+- **Settings** belong to the player. Both the gameplay settings and the LLM configuration get a reset to the shipped defaults.
+- **World templates** describe a world: entities, a lore timeline, figure profiles, and an overview. The release ships a Vanilla Kenshi template. Players export and import templates to share worlds for modded playthroughs, with custom factions and figures.
+- **Campaigns** hold one playthrough. Each campaign starts as a copy of a world template, and then only play changes it.
 
-- Import Kayak's starter data (the `KayakDB/Template`) into a SQLite database.
-- Re-implement Kayak's retrieval (keyword match, then layered link expansion) with SQLite FTS5 and recursive queries.
-- Store per-campaign state (NPC profiles, dialogue history, stats, world events) in one database file per campaign.
-- Integrate the result as an in-process Python module in Rebirth's existing Flask server.
+The proposal builds on the campaign database from [proposal_sqlite_campaign_storage.md](proposal_sqlite_campaign_storage.md). The C++ plugin does not change. [proposal_web_app.md](proposal_web_app.md) adds the browser pages for templates and entities.
 
-The C++ plugin (`SentientSands.dll`) is not expected to change. All work is on the Python server side.
+Non-goals:
 
-[proposal_web_app.md](proposal_web_app.md) adds a browser editor for this store.
-
-## 2. Background and findings
-
-These findings come from reading the repositories directly. Items I did not verify are listed in section 11.
-
-### 2.1 Current state of Rebirth
-
-- The fork is currently byte-identical to the original `harvicusdev-glitch/SentientSands` repo (no differences in the Python server or any C++ source).
-- Server dependencies are only `flask` and `requests`.
-- Storage is flat files:
-  - `campaigns/<name>/characters/<id>.json`, one file per NPC
-  - `campaigns/<name>/world_events.txt` and `event_history.json`
-  - `campaigns/<name>/sentient_sands_registry/`
-  - global config as JSON (`providers.json`, `models.json`, `names.json`, `generic_names.json`, `titles.json`, `localization.json`)
-- Lore is a single `templates/world_lore.txt` (about 4.5 KB) that goes into every prompt. There is no retrieval.
-- The server is one file of roughly 4,300 lines (`kenshi_llm_server.py`).
-- The repo has committed `__pycache__` `.pyc` files, which should be removed and git-ignored.
-
-### 2.2 Kayak's design
-
-Kayak stores knowledge as a folder tree (`KayakDB`):
-
-- One folder per entity containing `entity.txt`, `who_knows_me.txt`, `define_children.txt`, and runtime files such as `dialogue.txt`, `stats.txt`, `notes.txt`.
-- The template contains 405 entities: 29 factions, 166 items, 122 locations, 7 races, 64 unique NPCs, 17 world lore entries.
-- Entity fields use a `key = value` format. A leading `$` on a field name marks prose, which is never used for link expansion.
-- Retrieval: Layer 0 matches keywords from the player message against the index. Layers 1 and above open each matched entity and try to match its field values against other entities' names.
-- Retrieval is bounded by `max_keywords`, `max_layers`, `max_matches_per_layer`, `max_files` and `timeout_ms`. Defaults in `core_config.txt` are 3, 1, 3, 4 and 500.
-- Per-NPC knowledge control uses `who_knows_me.txt` (access rules) and `define_children.txt` (weighted links).
-- Campaigns are isolated copies of the template, with their own NPCs, dialogue, logs and prompt files.
-- It runs as a separate local server (port 5001) next to the SentientSands server (port 5000).
-- Neither Kayak nor SentientSands uses a database engine. A search for `sqlite3`, SQLAlchemy, chromadb, faiss and embedding libraries found nothing.
-
-### 2.3 Why SQLite
-
-- Retrieval over a few hundred entities is a good fit for FTS5 plus a precomputed link table, which removes runtime scanning of field values.
-- One `.db` file per campaign makes backup, copying and sharing trivial.
-- Integrity (foreign keys, transactions) replaces hand-managed file consistency, for example the reindex requirements Kayak documents for `entity.txt` changes.
-- SQLite ships with Python, so there is no new dependency.
-
-## 3. Goals and non-goals
-
-### Goals
-
-1. Lossless import of Kayak's `KayakDB` folder format into SQLite, repeatable when upstream changes.
-2. Retrieval behavior that matches Kayak's for the same inputs and limits, verified by tests.
-3. Per-campaign databases with isolation equivalent to Kayak's.
-4. A clean separation between imported upstream data and local modifications.
-5. Export back to the `KayakDB` folder format, so content packs and hand editing still work.
-6. Correct attribution to Kayak's authors.
-
-### Non-goals (for the first release)
-
-- Re-implementing Kayak's prompt token system (`token_resolver.py`) and economy support.
-- Vector search or embeddings.
 - Changes to the C++ plugin.
-- Compatibility with Kayak's HTTP API on port 5001 (see open questions).
+- Kayak's prompt token system, its economy support, and its HTTP API on port 5001.
+- Export to Kayak's folder format. The Kayak converter is one-way.
+- Starting rumors and pre-written dialogue in templates.
+- Saving a campaign as a template. Play state never leaves its campaign.
+- Vector search or embeddings.
 
-## 4. Licence and attribution
+## 2. Data classes
 
-- Kayak and SentientSands are GPLv3. Rebirth is also GPLv3, so combining them is compatible.
-- Kayak adds an attribution condition under GPLv3 section 7(b) (`Kayak/ADDITIONAL_TERMS.md`). It applies when Kayak material, or a work derived from it, is conveyed to others. It does not apply to private use or to implementations that do not copy or derive from Kayak material.
-- Importing Kayak's template data is copying, so for any distribution this project must:
-  - preserve `ADDITIONAL_TERMS.md`
-  - display "SentientSands Kayak by Harvicus and Pineaxe." in the README or credits
-  - list the official project links (Nexus Mods, Steam Workshop, Kayak source repo, Discord) next to it
-- Some lore text paraphrases the Kenshi wiki, and the underlying game content belongs to Lo-Fi Games. The wiki's licence was not checked. This must be reviewed before distribution.
-- This document is not legal advice.
+| Class | Contents | Location | On update | Default |
+|---|---|---|---|---|
+| App data | System prompts and player profile seeds; UI translations, name pools, default LLM providers and models | Defaults in `server/prompts/` and `server/config/`; prompt overrides in `server/user/prompts/` | Defaults replaced; overrides kept | Shipped files, with a reset for prompts |
+| Settings | Gameplay settings; LLM providers, profiles, routes, and API keys | `SentientSands_Config.ini` in the mod root; `server/user/llm_config.json` | Kept | Shipped defaults, with a reset |
+| World templates | Entities, lore timeline, figure profiles, overview | `server/world_templates/vanilla_kenshi/`; `server/user/world_templates/<name>/` | Vanilla replaced; user templates kept | Vanilla Kenshi |
+| Campaigns | NPC profiles, dialogue, events, rumors, favorites, the copied template knowledge, the player profile, logs | `server/campaigns/<name>/` | Kept | Created from a template |
 
-## 5. Architecture
+The INI stays in the mod root, because the plugin reads it from there at start ([architecture.md](../info/architecture.md#settings)).
+
+Three pieces of data move to their class:
+
+| Data | From | To | Reason |
+|---|---|---|---|
+| World lore | `server/prompts/world_lore.txt` | `overview.txt` of the vanilla template | It describes the world, so a modded template must be able to replace it. |
+| Favorites | `Favorites` in the INI | `npc.favorite` in the campaign database ([campaign storage proposal, section 8](proposal_sqlite_campaign_storage.md#8-migration)) | A storage ID belongs to one campaign. |
+| Retrieval limits | Kayak's `core_config.txt` | The INI | They tune the server, not the world. |
+
+## 3. Defaults and resets
+
+### 3.1 Gameplay settings
+
+- The defaults move from inside `load_settings` (`kenshi_llm_server.py:897`) to a module-level `SETTINGS_DEFAULTS`, so the load and the reset use one table.
+- `POST /settings/reset` sets each key of `SETTINGS_DEFAULTS` except `current_campaign` and the legacy `current_model`. It then runs the save path of `POST /settings`: it writes the INI, sends each value that the plugin holds through `SET_CONFIG`, and sends `APPLY_TRANSLATION` if the language changes.
+- The Settings page gets a "Reset to defaults" button with a confirmation.
+- The defaults in the plugin's `LoadPluginConfig` must still agree with `SETTINGS_DEFAULTS` ([architecture.md](../info/architecture.md#settings)).
+
+### 3.2 LLM configuration
+
+- `POST /api/llm/reset` builds a configuration with `llm_config.migrate` from `default_providers.json`, `default_models.json`, and the default model `player2-default`. It reads only these shipped files, never the legacy `providers.json` and `models.json`. It saves with `llm_config.save`, which replaces the file in one step.
+- The reset keeps the stored API key of each provider whose name is in the defaults. The placeholder keys in `default_providers.json`, for example `YOUR_OPENROUTER_KEY`, never replace a stored key. `with_stored_keys` alone does not do this, because it keeps a stored key only when the new key is empty.
+- The reset removes the providers and profiles that the player added, with their keys. The confirmation on the LLM page says so.
+
+### 3.3 System prompts
+
+Each file in `server/prompts/` is a shipped default: the system prompts, and the two seeds of a new campaign's player profile (`character_bio.txt`, `player_faction_description.txt`). An update replaces these files, so a player who edits them today loses the edit. A player's override goes into `server/user/prompts/` under the same file name. The release does not ship `server/user/`, so an update keeps it.
+
+`load_prompt_component` (`kenshi_llm_server.py:999`) takes the first file that exists and is not empty:
+
+1. The campaign folder, as today.
+2. `server/user/prompts/`, the player's override.
+3. `server/prompts/`, the shipped default.
+
+A new campaign copies its player profile seeds in the same order, so a player's own default bio applies to each new campaign.
+
+| Route | Behavior |
+|---|---|
+| `GET /api/prompts` | For each shipped file: the name, the current override, the shipped text, and whether the active campaign has its own copy |
+| `POST /api/prompts` | Saves the override of one file. A text equal to the shipped default deletes the override instead, so the file keeps getting later default updates. |
+| `POST /api/prompts/reset` | Deletes the override of one file, or of every file when the request names none |
+
+- A route takes only a file name that exists in `server/prompts/`, never a path, so a request cannot write outside `server/user/prompts/`.
+- An override is written to a temporary file and then renamed, as `llm_config.save` does.
+- Four prompts are filled with `str.format` (`:1400`, `:1477`, `:2403`, `:2883`). A save is rejected if the text does not parse as a format string or uses a placeholder that the shipped default does not have. A placeholder of the default that the override leaves out is a warning, because the prompt then loses that data.
+- A hand-edited override can still fail at run time. The server then logs the error and uses the shipped default for that call, so chat keeps working.
+- The web app gets a Prompts page. It edits each override, marks each overridden prompt, and resets one prompt or all of them. It also marks a prompt that the active campaign overrides, because the campaign file wins over the player's override.
+
+## 4. World template format
+
+A world template is a folder of JSON and text files. A shared template is the same folder in a zip file.
 
 ```
-Kenshi (C++ plugin, unchanged)
-        |
-        v
-Flask server (Rebirth, port 5000)
-        |
-        |  in-process calls
-        v
-sentient_db/  (new Python package)
-  - schema.py        schema creation and migrations
-  - importer.py      KayakDB folders -> SQLite (lossless)
-  - patches.py       local overrides applied after import
-  - retriever.py     FTS5 + recursive link expansion
-  - access.py        who_knows_me rule evaluation
-  - exporter.py      SQLite -> KayakDB folders
-  - campaigns.py     create/switch/copy campaign databases
-
-data/
-  template.db        imported upstream data plus local patches
-  campaigns/<name>.db   one file per campaign
+<template>/
+  manifest.json          format version, name, version, authors, credits
+  overview.txt           lore that goes into every prompt
+  history.json           the lore timeline, in order
+  entities/
+    <category>/<id>.json
+  *.md, *.txt            licence and credit files, optional
 ```
 
-Running in-process avoids a second server and the extra port that Kayak uses.
+`manifest.json`:
+
+```json
+{
+  "format_version": 1,
+  "name": "Vanilla Kenshi",
+  "version": "1.0.0",
+  "authors": ["Sentient Sands Rebirth"],
+  "credits": ["SentientSands Kayak by Harvicus and Pineaxe."]
+}
+```
+
+An entity file, `entities/factions/holy_nation.json`:
+
+```json
+{
+  "name": "Holy Nation",
+  "aliases": ["Okran's faithful"],
+  "weight": 1,
+  "fields": {"leader": "Phoenix", "capital": "Blister Hill"},
+  "prose": {"description": "A theocracy that worships Okran..."},
+  "children": [{"name": "Phoenix", "weight": 2}],
+  "access": []
+}
+```
+
+A figure file, `entities/figures/<id>.json`, can also hold a `profile`:
+
+```json
+{
+  "name": "...",
+  "fields": {"faction": "..."},
+  "profile": {
+    "Race": "...", "Sex": "...", "Faction": "...", "Job": "...",
+    "Personality": "...", "Backstory": "...", "SpeechQuirks": "..."
+  }
+}
+```
+
+`history.json`:
+
+```json
+[
+  {"title": "The First Empire", "text": "..."},
+  {"title": "The Second Empire", "text": "..."}
+]
+```
+
+- The entity ID is the file name without `.json`. The category is the folder name. A modded template can add a category.
+- The values in `fields` feed link expansion. The values in `prose` are retrieved text and never feed link expansion, the same as Kayak's `$` fields.
+- `children` are weighted links to other entities by name. `access` holds the rules that decide which NPCs know the entity. The converter sets its schema when it parses Kayak's `[RULE]` blocks ([section 11](#not-yet-verified)).
+- Only a `figures` entity can hold a `profile`. Its keys are the keys of an NPC profile ([campaign storage proposal, section 5](proposal_sqlite_campaign_storage.md#5-schema)). Chat uses this profile instead of generating one.
+- The order of `history.json` is the timeline order. The loader stores each entry as an entity of category `history`, so retrieval finds it like any entity.
+- One validator runs on each load, import, and edit. It rejects an unknown `format_version`, a JSON file that does not parse, an entity without `name`, and a `profile` outside `figures`. A child that names no entity is a warning, not an error.
+
+## 5. Templates on disk
+
+| Template | Location | Edits |
+|---|---|---|
+| Vanilla Kenshi | `server/world_templates/vanilla_kenshi/`, shipped | None. An update replaces it, so the player duplicates it first. |
+| User templates | `server/user/world_templates/<name>/` | The web app, or by hand |
+
+The release does not ship `server/user/`, so an update keeps the user templates.
+
+`server/scripts/world_template.py` imports only the standard library. It holds the validator, the loader into a campaign database, and the operations below.
+
+| Operation | Route | Behavior |
+|---|---|---|
+| List | `GET /api/templates` | The manifest and the entity count of each template |
+| Export | `GET /api/templates/<name>/export` | A zip of the template folder |
+| Import | `POST /api/templates/import` | A zip upload, with the checks below |
+| Duplicate | `POST /api/templates/<name>/duplicate` | A copy as a new user template, with its credits and licence files |
+| Delete | `POST /api/templates/<name>/delete` | User templates only. Campaigns made from it keep their copy. |
+
+An imported zip comes from another player, so the import treats it as untrusted:
+
+1. Reject an entry with an absolute path, a `..` part, or a path outside the layout in section 4.
+2. Reject a zip with an uncompressed size above 50 MB or more than 10,000 entries.
+3. Extract into a temporary folder in `server/user/world_templates/`, run the validator, and then rename the folder to the template name. A failed import leaves nothing behind.
+4. Refuse a name that already exists. The player deletes or renames the old template first.
 
 ## 6. Data model
 
-Illustrative schema. Final column names will follow the importer's needs.
+The knowledge tables are version 2 of the campaign schema that `campaign_db.py` owns. Illustrative schema:
 
 ```sql
-PRAGMA journal_mode = WAL;
-PRAGMA foreign_keys = ON;
-
-CREATE TABLE meta (
-  key   TEXT PRIMARY KEY,
-  value TEXT NOT NULL            -- schema_version, source_version, import_hash
-);
-
 CREATE TABLE entity (
-  id            INTEGER PRIMARY KEY,
-  category      TEXT NOT NULL,   -- factions, items, locations, races, unique_npcs, ...
-  subpath       TEXT,            -- e.g. locations/cities
-  name          TEXT NOT NULL,   -- Kayak folder name
-  ext_id        TEXT,            -- "Id" header
-  persistent_id TEXT,            -- stable across saves
-  runtime_id    TEXT,            -- session scoped
-  weight        REAL NOT NULL DEFAULT 1,
-  origin        TEXT NOT NULL DEFAULT 'template',  -- template | patch | campaign
-  UNIQUE (category, name)
+  id         INTEGER PRIMARY KEY,
+  category   TEXT NOT NULL,      -- factions, figures, locations, items, races, history, ...
+  ext_id     TEXT NOT NULL,      -- the entity ID in the template
+  name       TEXT NOT NULL,
+  weight     REAL NOT NULL DEFAULT 1,
+  seq        INTEGER,            -- timeline order of a history entry
+  origin     TEXT NOT NULL DEFAULT 'template',  -- template | campaign
+  updated_at TEXT NOT NULL,
+  UNIQUE (category, ext_id)
 );
 
 CREATE TABLE field (
-  entity_id  INTEGER NOT NULL REFERENCES entity(id) ON DELETE CASCADE,
-  key        TEXT NOT NULL,      -- stored without the leading $
-  seq        INTEGER NOT NULL DEFAULT 0,
-  value      TEXT NOT NULL,
-  is_prose   INTEGER NOT NULL DEFAULT 0,   -- 1 if the source key started with $
-  expandable INTEGER NOT NULL DEFAULT 1,   -- 0 for non_expand_fields
+  entity_id INTEGER NOT NULL REFERENCES entity(id) ON DELETE CASCADE,
+  key       TEXT NOT NULL,
+  seq       INTEGER NOT NULL DEFAULT 0,  -- a list value gives one row per item
+  value     TEXT NOT NULL,
+  is_prose  INTEGER NOT NULL DEFAULT 0,
   PRIMARY KEY (entity_id, key, seq)
 );
 
@@ -156,7 +208,7 @@ CREATE TABLE alias (
   PRIMARY KEY (entity_id, alias_norm)
 );
 
--- Precomputed at import: field value matches another entity's name or alias.
+-- Precomputed at load: a field value matches another entity's name or alias.
 CREATE TABLE link (
   src_id  INTEGER NOT NULL REFERENCES entity(id) ON DELETE CASCADE,
   dst_id  INTEGER NOT NULL REFERENCES entity(id) ON DELETE CASCADE,
@@ -164,43 +216,16 @@ CREATE TABLE link (
   PRIMARY KEY (src_id, dst_id, via_key)
 );
 
-CREATE TABLE knows (             -- who_knows_me.txt
-  entity_id INTEGER NOT NULL REFERENCES entity(id) ON DELETE CASCADE,
-  rule_raw  TEXT NOT NULL        -- raw [RULE] block, parsed by access.py
-);
-
-CREATE TABLE child (             -- define_children.txt
+CREATE TABLE child (
   parent_id  INTEGER NOT NULL REFERENCES entity(id) ON DELETE CASCADE,
   child_name TEXT NOT NULL,
   child_id   INTEGER REFERENCES entity(id) ON DELETE SET NULL,
   weight     REAL NOT NULL
 );
 
-CREATE TABLE dialogue (          -- replaces dialogue.txt
-  id        INTEGER PRIMARY KEY,
-  npc_id    INTEGER NOT NULL REFERENCES entity(id) ON DELETE CASCADE,
-  ts        TEXT NOT NULL,
-  speaker   TEXT NOT NULL,
-  line      TEXT NOT NULL,
-  archived  INTEGER NOT NULL DEFAULT 0
-);
-
-CREATE TABLE stats (             -- replaces stats.txt
-  entity_id  INTEGER NOT NULL REFERENCES entity(id) ON DELETE CASCADE,
-  key        TEXT NOT NULL,
-  value      TEXT NOT NULL,
-  updated_at TEXT NOT NULL,
-  PRIMARY KEY (entity_id, key)
-);
-
-CREATE TABLE config (key TEXT PRIMARY KEY, value TEXT NOT NULL);  -- core_config.txt
-
-CREATE TABLE patch (             -- local overrides, see section 7
-  id         INTEGER PRIMARY KEY,
-  op         TEXT NOT NULL,      -- set_field | add_entity | remove_entity | ...
-  target     TEXT NOT NULL,
-  payload    TEXT NOT NULL,      -- JSON
-  applied_at TEXT
+CREATE TABLE access_rule (
+  entity_id INTEGER NOT NULL REFERENCES entity(id) ON DELETE CASCADE,
+  rule      TEXT NOT NULL        -- one JSON object from the entity's access list
 );
 
 CREATE VIRTUAL TABLE entity_fts USING fts5(
@@ -209,45 +234,59 @@ CREATE VIRTUAL TABLE entity_fts USING fts5(
 );                               -- rowid = entity.id
 ```
 
-Later phases add a `prompt_part` table for the mandatory prompt files (Chat, Biography, Loremaster, Speak) and tables for economy data.
+- `meta` holds the overview and the name, version, and content hash of the template that the campaign came from.
+- The loader inserts the figure profiles into `npc` with `INSERT OR IGNORE`. A profile that the campaign already has, with its dialogue, stays.
+- Generated NPCs stay in `npc` and do not become entities. If they did, every generated NPC would enter FTS and link expansion, and retrieval would return generated NPCs in place of lore.
+- `npc` does not reference `entity`. When the player talks to a figure, the retriever finds its entity by name or alias.
+- `updated_at` lets the web app reject a stale save ([proposal_web_app.md](proposal_web_app.md#3-consistency)).
 
-## 7. Import design
+## 7. Campaign model
 
-The import is split in two so upstream updates and local edits do not collide.
+- `POST /campaigns/create` takes an optional `template`, and uses Vanilla Kenshi without one. The in-game Campaign Manager sends no template, so the plugin does not change. The web app's Templates page creates a campaign from any template.
+- The server loads the template into the new campaign database in one transaction: the entities with their fields, aliases, children, and access rules, the history entries, the links, the FTS index, the figure profiles, and the overview.
+- After creation, the campaign does not depend on its template. A template edit, a new template version, or a deleted template does not change the campaign.
+- An existing campaign without knowledge tables gets Vanilla Kenshi on its first load. Today every campaign uses the vanilla `world_lore.txt`, so its prompts keep their lore.
+- The prompt takes the overview from `meta`. A `world_lore.txt` in the campaign folder still overrides it, as `load_prompt_component` does today (`kenshi_llm_server.py:999`).
+- Gameplay writes only the campaign database, never a template.
+- Rejected: reading the template live through `ATTACH` at query time. A template edit would then change the lore of running campaigns, and each FTS query would span two databases.
+- Rejected: one database for all campaigns, with a `campaign_id` column. A missing filter would leak data between campaigns.
 
-### 7.1 Step 1: lossless import
+## 8. Vanilla Kenshi template
 
-The importer reads Kayak files without altering their content and writes them to SQLite. It must preserve Kayak's conventions, because the retriever depends on them:
+The vanilla template is a conversion of Kayak's English `KayakDB/Template` (405 entities: 29 factions, 166 items, 122 locations, 7 races, 64 unique NPCs, 17 world lore entries).
 
-| Convention | Handling |
+- `scripts/convert_kayak.py` is a development tool, not part of the release. It converts a Kayak template folder into a world template folder, and reports each field that it drops.
+- The converted template is committed under `server/world_templates/vanilla_kenshi/`. For a newer Kayak release, the converter runs again on a branch, and git merges the result with the local fixes.
+- `overview.txt` starts as today's `world_lore.txt`.
+- The import source is the official English Kayak release. The inspected copy came from a Russian fork and has Russian `display_name` values.
+
+| Kayak | World template |
 |---|---|
-| `$` prefix on a field name | `is_prose = 1`, never used for expansion |
-| `non_expand_fields` in `core_config.txt` (id, persistent_id, runtime_id, weight, display_name, aliases, average_price, base_price_cats, price_modifier) | `expandable = 0` |
-| `IGN_` prefixed files and folders | skipped |
-| `ph_` placeholder prompt files | skipped |
-| `[RULE]` blocks in `who_knows_me.txt` | stored raw, parsed by a real parser |
-| `W = <weight> <name>` lines in `define_children.txt` | parsed into `child` |
-| Comment prefixes `#`, `;`, `//` | ignored |
-| `persistent_id` / `runtime_id` | stored in their own columns |
+| Entity folder name, `display_name` | `name` |
+| `aliases`, `weight` | The keys of the same name |
+| Other `entity.txt` fields | `fields` |
+| Fields with a leading `$` | `prose` |
+| Price fields (`average_price`, `base_price_cats`, `price_modifier`) | Dropped, because economy is a non-goal |
+| `id`, `persistent_id`, `runtime_id` | The file name comes from `id`. The other two are dropped ([section 11](#not-yet-verified)). |
+| `who_knows_me.txt` `[RULE]` blocks | `access` |
+| `define_children.txt` `W = <weight> <name>` lines | `children` |
+| The unique NPC category | `figures`. The Kayak fields that match profile keys fill `profile`. |
+| World lore entries | `history.json`, in Kayak's order |
+| `IGN_` files, `ph_` prompt files, runtime files, comments | Skipped |
+| `core_config.txt` retrieval limits | The INI defaults |
 
-The import records a hash of the source tree in `meta`, so it is deterministic and re-runnable.
+## 9. Retrieval design
 
-Source selection matters. The template I inspected came from a Russian fork and contains Russian `display_name` values. The import source should be the official English Kayak release.
+The retriever, `server/scripts/knowledge_retrieve.py`, follows the algorithm of Kayak's `indexer.py` and `retriever.py` on the campaign database:
 
-### 7.2 Step 2: local patch layer
-
-Translations, lore fixes, new entities and removals go in the `patch` table (or a patch file in JSON) and are applied after import. This lets the importer be re-run against a newer Kayak release without losing local changes. Conflicts (a patch targeting a field that upstream removed) are reported instead of silently dropped.
-
-## 8. Retrieval design
-
-The retriever replaces Kayak's `indexer.py` and `retriever.py` logic:
-
-1. Extract keywords from the player message using Kayak's stop-word approach, limited by `max_keywords`.
-2. Layer 0: FTS5 match against name, aliases and non-prose fields.
+1. Extract keywords from the player message with Kayak's stop-word approach, limited by `max_keywords`.
+2. Layer 0: FTS5 match against the name, the aliases, and the fields.
 3. Layers 1 to N: follow the precomputed `link` table, up to `max_layers`.
 4. Rank by layer, then entity weight, then FTS rank. Apply `max_matches_per_layer` and `max_files`.
-5. Apply access rules from `knows` for the speaking NPC.
+5. Apply the access rules for the speaking NPC.
 6. Honor `timeout_ms` as a hard ceiling.
+
+The limits are INI settings with Kayak's defaults: `max_keywords` 3, `max_layers` 1, `max_matches_per_layer` 3, `max_files` 4, and `timeout_ms` 500. The retrieved entities go into the prompt after the overview.
 
 Illustrative query for steps 2 and 3:
 
@@ -272,67 +311,73 @@ ORDER BY layer, e.weight DESC
 LIMIT :max_files;
 ```
 
-Known differences to handle: Kayak uses its own stemming (`stem_key`) and tokenizer, and FTS5's `porter` tokenizer will not match it exactly. `max_matches_per_layer` is a per-source-entity limit and needs a window function or Python-side handling. Priority entities such as the target NPC sit on top of the file limit, per Kayak's documented behavior.
+Known differences to handle: Kayak uses its own stemming (`stem_key`) and tokenizer, and FTS5's `porter` tokenizer does not match it exactly. `max_matches_per_layer` is a per-source-entity limit and needs a window function or Python-side handling. Priority entities, such as the target NPC, sit on top of the file limit, per Kayak's documented behavior.
 
-## 9. Campaign model
+## 10. Licence and attribution
 
-- `template.db` holds upstream data plus patches.
-- Creating a campaign copies `template.db` to `campaigns/<name>.db`.
-- Runtime data (generated NPCs, dialogue, stats, rumors, world events) lives only in the campaign database. Template data is never modified by gameplay.
-- Switching campaigns closes one connection and opens another. No index reload is needed because FTS tables are part of the database.
-- A one-time migration reads Rebirth's per-character JSON files, `world_events.txt` and `event_history.json` into the new tables.
-- Alternative considered: a single database with a `campaign_id` column. Rejected for now because a missing filter would leak data between campaigns, and per-file databases are easier to back up and share.
+- Kayak and SentientSands are GPLv3. Rebirth is also GPLv3, so combining them is compatible.
+- Kayak adds an attribution condition under GPLv3 section 7(b) (`Kayak/ADDITIONAL_TERMS.md`). It applies when Kayak material, or a work derived from it, is conveyed to others.
+- The vanilla template is derived from Kayak material, so:
+  - its `manifest.json` carries the credit line "SentientSands Kayak by Harvicus and Pineaxe."
+  - its folder holds a copy of `ADDITIONAL_TERMS.md`
+  - a duplicate keeps both, so an exported template that derives from vanilla carries them
+  - the README shows the credit line with the official project links (Nexus Mods, Steam Workshop, Kayak source repo, Discord)
+- Some lore text paraphrases the Kenshi wiki, and the underlying game content belongs to Lo-Fi Games. The wiki's licence was not checked. This must be reviewed before the vanilla content ships.
+- This document is not legal advice.
 
-## 10. Phases
+## 11. Phases and verification
 
 | Phase | Deliverable | Acceptance criteria |
 |---|---|---|
-| 0. Prep | Remove `__pycache__` from the repo, add `.gitignore`, add README credit section, obtain the official English Kayak release | Repo clean, attribution text in place |
-| 1. Core store | `schema.py`, `importer.py`, `retriever.py`, `exporter.py`, test suite | Import of all 405 entities succeeds; export then re-import round-trips; retrieval results match Kayak on a fixed set of queries within documented differences |
-| 2. Rebirth integration | Replace flat JSON character and event storage with the database; campaign create, switch and migrate commands | Existing campaigns migrate without data loss; chat prompts include retrieved entities; in-game F8 hub campaign switching works |
-| 3. Prompt layer | Port prompt files and the token system (`<target_npc_context>` and others) | Prompts match Kayak's output for the same inputs |
-| 4. Economy and extras | Price modifiers, trader inventory injection, dialogue archiving limits | Behavior matches Kayak's documented formulas |
+| 0. Prep | README credit section; the official English Kayak release | Attribution text in place; source release chosen |
+| 1. Settings and prompts | `SETTINGS_DEFAULTS`; the settings, LLM, and prompt routes; the reset buttons; the Prompts page; tests | A reset gives the shipped values; the plugin receives them through `SET_CONFIG`; stored keys of default providers survive the LLM reset; a prompt override survives an update; an override with an unknown placeholder is rejected |
+| 2. Templates and campaigns | `world_template.py`; a vanilla template with only `overview.txt`; campaign creation from a template | New and existing campaigns build the same prompts as today |
+| 3. Import and export | The template routes; the Templates page | A template exported from one install imports on another with the same files; each unsafe zip in the tests is rejected |
+| 4. Vanilla content | `convert_kayak.py`; the converted template; the licence review | All 405 entities convert; the converter lists each dropped field |
+| 5. Retrieval | `knowledge_retrieve.py`; the prompt wiring; the INI limits | Retrieval matches Kayak on a fixed set of queries within documented differences; chat prompts include the retrieved entities |
 
-Phases 3 and 4 are the largest. In Kayak, `token_resolver.py` is about 1,850 lines, `prompt_builder.py` about 700, and the SentientSands bridge about 1,900, compared with roughly 600 and 430 lines for the indexer and retriever.
+Import and export come before the vanilla content, so modded templates do not wait for the licence review.
 
-## 11. Verification plan
+Tests:
 
-- Golden tests: a fixed list of player messages run through Kayak's own retriever (from the bundled Python code) and through the new retriever, comparing returned entity sets and order.
-- Round-trip test: `KayakDB` folder, to SQLite, back to folder, with a diff of normalized content.
-- Migration test: a real Rebirth campaign folder migrated and then compared field by field.
-- Performance check against the 500 ms `timeout_ms` default on a campaign with thousands of generated NPCs.
+- Golden tests: a fixed list of player messages runs through Kayak's own retriever and through the new retriever on the converted template, and the tests compare the returned entity sets and their order.
+- Template round trip: a template folder, exported to a zip and imported again, gives the same files.
+- Unsafe zips: an entry with `..`, an absolute path, an oversized archive, and invalid JSON are all rejected, and nothing is left on disk.
+- Performance check against the 500 ms `timeout_ms` default on the full vanilla template.
 
 ### Not yet verified
 
-- The full retrieval logic in Kayak was not traced end to end. Only file layouts, headers, configuration and keyword searches were read.
+- The full retrieval logic in Kayak was not traced end to end. Only the file layouts, headers, configuration, and keyword searches were read.
+- The grammar of Kayak's `[RULE]` blocks, so the `access` schema is not set yet.
+- What Kayak uses `persistent_id` and `runtime_id` for.
+- Which Kayak fields of a unique NPC match the keys of an NPC profile.
 - The official English template and release were not inspected, only the Russian fork's copy.
-- The C++ plugin was not compiled or run. The assumption that it needs no changes depends on the server API it calls staying the same.
-- The official `Starswimmer/Kayak` repository contained only a README and licence when checked, so Kayak's current server code was read from the Russian fork's bundle, which may include that author's modifications.
-- The licence of the Kenshi wiki text paraphrased in lore entries.
+- The official `Starswimmer/Kayak` repository contained only a README and a licence when checked, so Kayak's server code was read from the Russian fork's bundle, which can include that author's changes.
+- The licence of the Kenshi wiki text that the lore entries paraphrase.
+- FTS5 in the embedded Windows Python runtime. The dev container's SQLite has it, but the Windows build was not checked.
 
 ## 12. Risks
 
 | Risk | Impact | Mitigation |
 |---|---|---|
+| A prompt override hides a newer shipped default | The player misses prompt fixes | The Prompts page marks each override and shows the shipped text; a save equal to the default removes the override |
+| Lore licensing | The vanilla content cannot ship | Phases 1 to 3 do not depend on it; the vanilla template ships with only its overview until the review passes |
+| A shared template carries text that steers the LLM | NPCs act against the player's intent, for example through action tags | The same trust as a Kenshi mod; the Templates page shows the authors and credits before an import |
+| An unsafe zip | Files written outside the template folder, or a full disk | The import checks in section 5 |
+| Attribution lost in a derived template | Licence non-compliance | A duplicate keeps the credits and the licence files; an export includes them |
+| A format change | Older templates do not load | `format_version`; the loader reads each earlier version |
 | Retrieval drift from Kayak (stemming, ranking) | Different prompt context than upstream | Golden tests, documented differences |
-| Upstream format changes (Kayak v0.4 already broke older campaigns) | Importer breaks on new releases | Version field in `meta`, importer tests per Kayak version |
-| Lore licensing | Cannot distribute some data | Review wiki and game content terms before release; keep data import optional |
-| Large single-file server (4,300 lines) | Hard to integrate cleanly | Keep `sentient_db` self-contained, change the server only at storage call sites |
-| Missed Kayak semantics (access rules, child weights) | Silent behavior differences | Real parsers, not line splitting; dedicated tests |
-| Attribution omitted | Licence non-compliance | Phase 0 deliverable, checked in release checklist |
 
 ## 13. Open questions
 
-1. Which source is the baseline: the official English Kayak release, or another version?
-2. Should the project keep Kayak's HTTP API (port 5001) for compatibility with external tools, or run only in-process?
-3. Should the exporter target the exact Kayak folder format so Kayak-compatible content packs keep working?
-4. Is distributing the imported lore planned, or will users run the importer against their own Kayak copy? The second option reduces licensing exposure.
-5. Where should local modifications live: the `patch` table, versioned JSON files, or both?
+1. Should the name pools (`names.json`, `generic_names.json`, `titles.json`) be customizable? The options are a player override, as for the system prompts, or a part of each world template, so that a modded template can add its own generic NPC types and names.
+2. Should an existing campaign be able to take a newer version of its template, and how does that merge with `origin = 'campaign'` changes?
+3. Should the release include the Kayak converter, so that players can convert Kayak content packs?
 
 ## 14. References
 
 - Original mod: `github.com/harvicusdev-glitch/SentientSands` (GPL-3.0, includes the C++ `src/` folder)
-- Kayak source repo listed in project links: `github.com/Starswimmer/Kayak`
+- Kayak source repo listed in the project links: `github.com/Starswimmer/Kayak`
 - Kayak on Nexus Mods: `nexusmods.com/kenshi/mods/2067`
 - SentientSands on Nexus Mods: `nexusmods.com/kenshi/mods/1872`
 - SentientSands on Steam Workshop: item `3675880187`

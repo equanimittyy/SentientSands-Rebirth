@@ -4,20 +4,20 @@ Status: Draft for review
 
 ## 1. Summary
 
-The web app ([architecture.md](../info/architecture.md#web-app)) holds the gameplay settings, the LLM routing, and the player profile. This proposal adds domain editors for the SQLite knowledge store from [proposal_sqlite_knowledge_store.md](proposal_sqlite_knowledge_store.md).
+The web app ([architecture.md](../info/architecture.md#web-app)) holds the gameplay settings, the LLM routing, and the player profile. This proposal adds domain editors for the campaign database from [proposal_sqlite_campaign_storage.md](proposal_sqlite_campaign_storage.md) and the world templates from [proposal_data_layers.md](proposal_data_layers.md).
 
-The editor depends on phases 1 and 2 of the SQLite proposal. Until then, the web app edits the player profile over the per-campaign text files.
+The NPCs and World events pages depend on the campaign storage proposal. The Templates page depends on phase 3 of the data layers proposal, and the Entities page on phase 5. The player profile stays in the per-campaign text files, and its page already exists.
 
 ## 2. Scope
 
-The editor works on the template database and the active campaign database. Campaign switching stays in the in-game Campaign Manager. The web app shows the name of the active campaign and reloads its data when the campaign changes.
+The editor works on the user world templates and the active campaign database. Campaign switching stays in the in-game Campaign Manager. The web app shows the name of the active campaign and reloads its data when the campaign changes.
 
 | Page | Edits |
 |---|---|
-| Entities | Search and filter by category. Fields, aliases, children with weights, and access rules. |
+| Templates | List, import, export, duplicate, and delete world templates. Create a campaign from a template. Show the authors and credits before an import. |
+| Entities | Search and filter by category. Fields, prose, aliases, children with weights, access rules, and figure profiles. |
 | NPCs | Profile, dialogue history, and stats of the active campaign. |
-| World events | The event history of the active campaign. |
-| Player profile | Player backstory and faction description. |
+| World events | The event history and the rumors of the active campaign. |
 
 Non-goals:
 
@@ -26,17 +26,19 @@ Non-goals:
 
 ## 3. Consistency
 
-- The API writes only through `sentient_db` functions, never through SQL built in a route. The `link` table and the `entity_fts` index derive from fields and aliases ([SQLite proposal, section 6](proposal_sqlite_knowledge_store.md#6-data-model)), and only `sentient_db` keeps them in step.
-- An edit to the template becomes a patch ([SQLite proposal, section 7.2](proposal_sqlite_knowledge_store.md#72-step-2-local-patch-layer)), so a re-import of upstream data keeps it. An edit to a campaign writes the campaign database directly.
-- The game changes the same records during play, for example "Regen Bio" in the Dialogue Library. Each editable record carries `updated_at`, and a save with an older value is rejected so that the web app reloads the record. The `entity` table needs this column added.
-- Each request thread opens its own SQLite connection, with WAL mode and a `busy_timeout`. A web save then waits for a game write in progress instead of failing.
+- The API writes only through the functions of `campaign_db` and `world_template`, never through SQL or file paths built in a route. The `link` table and the `entity_fts` index derive from fields and aliases ([data layers proposal, section 6](proposal_data_layers.md#6-data-model)), and only those modules keep them in step.
+- An edit to a user template writes its JSON file after the template validator accepts it ([data layers proposal, section 5](proposal_data_layers.md#5-templates-on-disk)). The vanilla template is read-only, because an update replaces it, so the page offers to duplicate it first. An edit to a campaign writes the campaign database directly.
+- The game changes the same records during play, for example "Regen Bio" in the Dialogue Library. Each editable record carries `updated_at`, and a save with an older value is rejected so that the web app reloads the record.
+- Each operation opens its own connection with a busy timeout ([campaign storage proposal, section 7](proposal_sqlite_campaign_storage.md#7-connections)). A web save then waits for a game write in progress instead of failing.
 - The new routes follow the web app's rules in [architecture.md](../info/architecture.md#web-app): a GET route does not change state.
 
 ## 4. Acceptance criteria
 
 | Depends on | Criteria |
 |---|---|
-| SQLite phase 2 | An entity edit appears in the next prompt that retrieves it. A stale save is rejected. A search finds a renamed entity. |
+| Campaign storage | An NPC profile edit appears in the next chat prompt for that NPC. A stale save is rejected. |
+| Data layers phase 3 | A template exported from the page imports on another install with the same content. |
+| Data layers phase 5 | An entity edit in a campaign appears in the next prompt that retrieves it. A search finds a renamed entity. |
 
 ## 5. Risks
 
