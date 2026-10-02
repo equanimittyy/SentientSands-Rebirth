@@ -40,8 +40,8 @@ export async function sendJson(method, url, body) {
 async function readJson(response) {
   const data = await response.json().catch(() => ({}));
   if (!response.ok) {
-    const detail = data.errors?.join(" ") || data.message || data.error;
-    throw new Error(detail || `HTTP ${response.status}`);
+    const detail = data.errors?.map((error) => error.message).join(" ") || data.message || data.error;
+    throw Object.assign(new Error(detail || `HTTP ${response.status}`), { fieldErrors: data.errors ?? [] });
   }
   return data;
 }
@@ -58,6 +58,7 @@ export function reportUnsaved(element, unsaved) {
 export function setFieldError(input, text) {
   input.classList.toggle("invalid", Boolean(text));
   const label = input.closest("label");
+  if (!label) return;
   let note = label.querySelector(".field-error");
   if (!note && text) note = label.appendChild(Object.assign(document.createElement("span"), { className: "field-error" }));
   if (note) note.textContent = text;

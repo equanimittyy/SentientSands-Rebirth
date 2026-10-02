@@ -103,7 +103,11 @@ The request body starts with `model`, `messages`, and `top_p` 0.9. The route's `
 
 A Player2 provider uses a session key from the local Player2 app. On a 401, `send_completion` gets a new session key and tries the same profile once more.
 
-`/api/llm` never returns a stored API key, only its last four characters. A save with an empty key field keeps the stored key, so the web app can send back what it received. The server writes the file to a temporary name and then renames it, so a crash during a save cannot leave a half-written key file.
+`/api/llm` never returns a stored API key. It returns only whether a key is set and the last four characters of the key. A key that starts with `YOUR_`, like the placeholders in `default_providers.json`, counts as not set. A save with an empty key field keeps the stored key, so the web app can send back what it received. A renamed provider sends its old name as `previous_name`, so it keeps its stored key (`llm_config.with_stored_keys`). The server writes the file to a temporary name and then renames it, so a crash during a save cannot leave a half-written key file.
+
+A rejected save returns each error with the path of its field, for example `["profiles", "kimi", "model"]`, and the web app marks that field.
+
+`POST /api/llm/test` tests the profile and the provider as the web app holds them, so the player can test before a save. It fills an empty key field with the stored key only when the base URL is the saved one (`llm_config.provider_for_test`). A test with a mistyped base URL therefore cannot send the stored key to another host.
 
 On a start without `llm_config.json`, the server builds it from `default_providers.json` and `default_models.json` in `server/config/`. Each task gets one route that holds only the `player2-default` profile.
 

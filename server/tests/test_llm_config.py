@@ -54,12 +54,16 @@ class ValidateTest(unittest.TestCase):
     def test_rejects_profile_with_missing_provider(self):
         config = built()
         config["profiles"]["kimi"]["provider"] = "gone"
-        self.assertTrue(any("gone" in error for error in llm_config.validate(config)))
+        errors = llm_config.validate(config)
+        self.assertTrue(any("gone" in error["message"] for error in errors))
+        self.assertEqual([error["field"] for error in errors], [["profiles", "kimi", "provider"]])
 
     def test_rejects_route_with_missing_profile(self):
         config = built()
-        config["routes"]["chat"]["profiles"] = ["gone"]
-        self.assertTrue(any("gone" in error for error in llm_config.validate(config)))
+        config["routes"]["chat"]["profiles"] = ["kimi", "gone"]
+        errors = llm_config.validate(config)
+        self.assertTrue(any("gone" in error["message"] for error in errors))
+        self.assertEqual([error["field"] for error in errors], [["routes", "chat", "profiles", 1]])
 
     def test_rejects_missing_task_and_bad_numbers(self):
         config = built()
@@ -69,6 +73,7 @@ class ValidateTest(unittest.TestCase):
         config["profiles"]["kimi"]["timeout"] = True
         errors = llm_config.validate(config)
         self.assertEqual(len(errors), 4)
+        self.assertIn(["routes", "chat", "temperature"], [error["field"] for error in errors])
 
     def test_rejects_bad_provider_url_and_type(self):
         config = built()
@@ -93,7 +98,15 @@ class KeyHandlingTest(unittest.TestCase):
         result = llm_config.masked(config)
         self.assertNotIn("sk-or-secret-1234", repr(result))
         self.assertEqual(result["providers"]["openrouter"]["api_key_hint"], "1234")
+        self.assertTrue(result["providers"]["openrouter"]["api_key_set"])
         self.assertEqual(config["providers"]["openrouter"]["api_key"], "sk-or-secret-1234")
+
+    def test_placeholder_key_counts_as_missing(self):
+        config = built()
+        config["providers"]["openrouter"]["api_key"] = "YOUR_OPENROUTER_KEY"
+        provider = llm_config.masked(config)["providers"]["openrouter"]
+        self.assertFalse(provider["api_key_set"])
+        self.assertEqual(provider["api_key_hint"], "")
 
     def test_empty_key_field_keeps_stored_key(self):
         old = built()
@@ -113,6 +126,42 @@ class KeyHandlingTest(unittest.TestCase):
         new = copy.deepcopy(old)
         new["providers"]["local"] = {"type": "openai", "base_url": "http://localhost:11434/v1"}
         self.assertEqual(llm_config.with_stored_keys(new, old)["providers"]["local"]["api_key"], "")
+
+    def test_renamed_provider_keeps_stored_key(self):
+        old = built()
+        new = llm_config.masked(old)
+        new["providers"]["or"] = dict(new["providers"].pop("openrouter"), previous_name="openrouter")
+        result = llm_config.with_stored_keys(new, old)["providers"]["or"]
+        self.assertEqual(result["api_key"], "sk-or-secret-1234")
+        self.assertNotIn("previous_name", result)
+
+
+class ProviderForTestTest(unittest.TestCase):
+    def test_empty_key_uses_stored_key_with_saved_base_url(self):
+        provider = {"type": "openai", "base_url": "https://openrouter.ai/api/v1", "api_key": ""}
+        self.assertEqual(llm_config.provider_for_test("openrouter", provider, built())["api_key"], "sk-or-secret-1234")
+
+    def test_changed_base_url_gets_no_stored_key(self):
+        provider = {"type": "openai", "base_url": "https://openrouter.ai.typo/api/v1", "api_key": ""}
+        self.assertEqual(llm_config.provider_for_test("openrouter", provider, built())["api_key"], "")
+
+    def test_typed_key_wins(self):
+        provider = {"type": "openai", "base_url": "https://elsewhere.example/v1", "api_key": "sk-typed"}
+        self.assertEqual(llm_config.provider_for_test("openrouter", provider, built())["api_key"], "sk-typed")
+
+    def test_renamed_provider_uses_key_of_previous_name(self):
+        provider = {"type": "openai", "base_url": "https://openrouter.ai/api/v1", "api_key": "", "previous_name": "openrouter"}
+        result = llm_config.provider_for_test("or", provider, built())
+        self.assertEqual(result["api_key"], "sk-or-secret-1234")
+        self.assertNotIn("previous_name", result)
+
+
+class PresetsTest(unittest.TestCase):
+    def test_presets_carry_type_and_base_url_but_no_key(self):
+        presets = llm_config.presets(PROVIDERS)
+        self.assertEqual([preset["name"] for preset in presets], ["openrouter", "player2"])
+        self.assertEqual(presets[1], {"name": "player2", "type": "player2", "base_url": "http://127.0.0.1:4315/v1"})
+        self.assertNotIn("sk-or-secret-1234", repr(presets))
 
 
 class Player2InUseTest(unittest.TestCase):

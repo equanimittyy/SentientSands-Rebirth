@@ -83,7 +83,7 @@ Each page uses these patterns.
 | Part | Change |
 |---|---|
 | `llm_config.validate` | Splits into one check for a provider and one for a profile, which the test route also uses. Each error carries the path of its field, for example `{"field": ["profiles", "kimi", "model"], "message": "The model ID is empty."}`. Only the web app reads `/api/llm`, so the plugin does not change. |
-| `llm_config.masked` | Adds `api_key_state`, which is `set` or `missing`. |
+| `llm_config.masked` | Adds `api_key_set`, which is false for an empty key or a key that starts with `YOUR_`. |
 | `llm_config.with_stored_keys` | Takes the stored key from `previous_name` when the provider has one. Without this, a renamed provider loses its stored key, because the function finds the key by the new name. |
 | `GET /api/llm` | Adds `presets`: the name, type, and base URL of each provider in `default_providers.json`, with no keys. |
 | `POST /api/llm/test` | Takes the profile, the provider, and the provider name from the form. An empty key field uses the stored key of that provider name, but only when the base URL is the saved one. |

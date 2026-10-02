@@ -1028,7 +1028,7 @@ def load_llm_config():
         logging.error(f"LLM: Cannot read {LLM_CONFIG_PATH}: {e}. Using the default configuration until a save from the web app.")
         return default_llm_config()
     for error in llm_config.validate(config):
-        logging.warning(f"LLM: {error}")
+        logging.warning(f"LLM: {error['message']}")
     return config
 
 def refresh_player2_session(provider):
@@ -2955,6 +2955,7 @@ def get_llm_config():
         "status": "ok",
         "tasks": list(llm_config.TASKS),
         "provider_types": list(llm_config.PROVIDER_TYPES),
+        "presets": llm_config.presets(llm_config.load(DEFAULT_PROVIDERS_PATH)),
         **llm_config.masked(LLM_CONFIG)
     })
 
@@ -2974,11 +2975,16 @@ def save_llm_config():
 
 @app.route('/api/llm/test', methods=['POST'])
 def test_llm_profile():
-    name = (request.get_json(silent=True) or {}).get("profile")
-    profile = LLM_CONFIG["profiles"].get(name)
-    if not profile:
-        return jsonify({"status": "error", "message": f"The profile {name} does not exist."}), 404
-    provider = LLM_CONFIG["providers"][profile["provider"]]
+    """Tests the profile and the provider as the web app holds them, so the player can test before a save."""
+    data = request.get_json(silent=True) or {}
+    profile, provider = data.get("profile"), data.get("provider")
+    if not isinstance(profile, dict) or not isinstance(provider, dict):
+        return jsonify({"status": "error", "message": "The test needs a profile and its provider."}), 400
+    provider_name = profile.get("provider", "")
+    errors = llm_config.provider_errors(provider_name, provider) + llm_config.profile_errors(data.get("name", ""), profile, {provider_name: provider})
+    if errors:
+        return jsonify({"status": "error", "errors": errors}), 400
+    provider = llm_config.provider_for_test(provider_name, provider, LLM_CONFIG)
     messages = [{"role": "user", "content": "Keep your response extremely short. Reply with the word: Success"}]
     body = llm_router.build_body({"max_tokens": 200, "temperature": 0.7}, profile, messages)
     try:
