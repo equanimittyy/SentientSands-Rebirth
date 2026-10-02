@@ -20,7 +20,7 @@ from pathlib import Path
 REPO = Path(__file__).resolve().parent.parent
 MOD_NAME = "SentientSandsRebirth"
 DEFAULT_DLL = REPO / "plugin" / "x64" / "Release" / "SentientSands.dll"
-SERVER_DIRS = ("scripts", "config", "templates", "web")
+SERVER_DIRS = ("scripts", "config", "prompts", "web")
 # Change only together with server/requirements.txt: its pins are checked against this runtime's wheels.
 PYTHON_VERSION = "3.13.3"
 

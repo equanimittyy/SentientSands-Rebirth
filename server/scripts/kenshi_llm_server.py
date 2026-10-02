@@ -77,7 +77,7 @@ GENERIC_CONFIG = {}
 ACTIVE_CAMPAIGN = "Default"
 
 CAMPAIGNS_DIR = os.path.join(KENSHI_SERVER_DIR, "campaigns")
-TEMPLATES_DIR = os.path.join(KENSHI_SERVER_DIR, "templates")
+PROMPTS_DIR = os.path.join(KENSHI_SERVER_DIR, "prompts")
 CHARACTERS_DIR = os.path.join(KENSHI_SERVER_DIR, "characters")
 
 EVENT_HISTORY = []
@@ -378,9 +378,9 @@ def ensure_campaign_seeded(cdir):
         if not os.path.exists(os.path.join(cdir, "characters")):
             os.makedirs(os.path.join(cdir, "characters"))
             
-        # Only these are per-campaign; rules, lore and other templates stay shared in TEMPLATES_DIR
+        # Only these are per-campaign; rules, lore and other prompts stay shared in PROMPTS_DIR
         for component in ["character_bio.txt", "player_faction_description.txt"]:
-            src = os.path.join(TEMPLATES_DIR, component)
+            src = os.path.join(PROMPTS_DIR, component)
             dst = os.path.join(cdir, component)
             if os.path.exists(src) and not os.path.exists(dst):
                 import shutil
@@ -996,7 +996,7 @@ def init_server_state():
 
 init_server_state()
 
-def load_prompt_component(filename, default_text=""):
+def load_prompt_component(filename):
     path = os.path.join(get_campaign_dir(), filename)
     source = f"campaign:{ACTIVE_CAMPAIGN}"
     
@@ -1010,18 +1010,20 @@ def load_prompt_component(filename, default_text=""):
         except Exception as e:
             logging.error(f"Error reading {filename} from {source}: {e}")
     
-    template_path = os.path.join(TEMPLATES_DIR, filename)
-    if os.path.exists(template_path):
+    default_path = os.path.join(PROMPTS_DIR, filename)
+    if os.path.exists(default_path):
         try:
-            with open(template_path, "r", encoding="utf-8") as f:
+            with open(default_path, "r", encoding="utf-8") as f:
                 content = f.read().strip()
                 if content:
-                    logging.info(f"PROMPT: Loaded {filename} from templates (read-only)")
+                    logging.info(f"PROMPT: Loaded {filename} from prompts (read-only)")
                     return content
         except Exception as e:
-            logging.error(f"Error reading {filename} from templates: {e}")
+            logging.error(f"Error reading {filename} from prompts: {e}")
+    else:
+        logging.error(f"PROMPT: {filename} is missing from {PROMPTS_DIR}")
 
-    return default_text
+    return ""
 
 def format_player_status(player_ctx):
     if not player_ctx: return "No status data."
@@ -1078,12 +1080,12 @@ def format_player_inventory(player_ctx):
     return res
 
 def build_system_prompt(player_name="Drifter"):
-    player_bio = load_prompt_component("character_bio.txt", "A mysterious drifter.")
-    player_faction_desc = load_prompt_component("player_faction_description.txt", "")
-    npc_base = load_prompt_component("npc_base.txt", "You are an NPC in the world of Kenshi. Stay in character.")
-    world_lore = load_prompt_component("world_lore.txt", "The world is a brutal, sword-punk wasteland.")
-    rules = load_prompt_component("response_rules.txt", "Respond naturally to the player.")
-    action_tags = load_prompt_component("prompt_action_tags.txt", "")
+    player_bio = load_prompt_component("character_bio.txt")
+    player_faction_desc = load_prompt_component("player_faction_description.txt")
+    npc_base = load_prompt_component("npc_base.txt")
+    world_lore = load_prompt_component("world_lore.txt")
+    rules = load_prompt_component("response_rules.txt")
+    action_tags = load_prompt_component("prompt_action_tags.txt")
     
     settings = load_settings()
     ge_count = settings.get("global_events_count", 10)
@@ -1379,21 +1381,7 @@ def generate_character_profile(name, context=""):
 
     logging.info(f"Generating rich profile for {name} ({gender} {race}, Base Faction: {origin_faction}, Job: {job})...")
     
-    template = load_prompt_component("prompt_profile_generation.txt", """You are an expert on Kenshi lore.
-Task: Generate a character profile for the NPC named "{name}".
-SEX: {gender}
-RACE: {race}
-ORIGIN FACTION: {origin_faction}
-CURRENT FACTION: {faction}
-JOB: {job}
-DATA: {context}
-
-CRITICAL RULES:
-1. CANON FIRST: If "{name}" is a known Kenshi character (e.g. Beep, Holy Lord Phoenix, Cat-Lon), use exact canon lore.
-2. NON-CANON: If generic (e.g. "Dust Bandit", "Shop Guard"), create a grounded profile fitting the setting.
-3. PERSONALITY: The character MUST speak and behave according to their sex ({gender}) and race ({race}). 
-4. OUTPUT: JSON only with keys: "Personality", "Backstory", "SpeechQuirks".
-""")
+    template = load_prompt_component("prompt_profile_generation.txt")
     f_info = get_faction_info(faction)
     o_info = get_faction_info(origin_faction)
 
@@ -1463,17 +1451,7 @@ def generate_batch_profiles(npc_list):
     
     desc_str = "\n".join(descriptions)
     
-    template = load_prompt_component("prompt_batch_profile_generation.txt", """You are an expert on Kenshi lore. 
-Task: Generate character profiles for several NPCs at once.
-
-NPCS TO GENERATE:
-{desc_str}
-
-CRITICAL RULES:
-1. CANON FIRST: If a name is a known Kenshi character (e.g. Beep, Holy Lord Phoenix), use exact canon lore.
-2. NON-CANON: Generate grounded, cynical, or weary profiles fitting the harsh Kenshi setting.
-3. OUTPUT: Return a JSON object where each key is the NPC's Name, and the value is an object with: "Personality", "Backstory", "SpeechQuirks".
-""")
+    template = load_prompt_component("prompt_batch_profile_generation.txt")
     prompt = template.format(desc_str=desc_str)
     
     settings = load_settings()
@@ -2383,19 +2361,7 @@ def chat():
 
     final_instruction += " Keep it immersive, short, and grounded in the world of Kenshi. Response should be 1-3 sentences maximum."
     
-    template = load_prompt_component("prompt_chat_template.txt", """[SYSTEM CORE]
-{system_prompt}
-
-[CURRENT CHARACTER: {primary_npc}]
-{npc_profiles}
-
-[CONVERSATION HISTORY]
-{history_str}
-
-[FINAL INSTRUCTION]
-{final_instruction}
-You MUST write your final response exclusively in {language_str}.
-""")
+    template = load_prompt_component("prompt_chat_template.txt")
     
     settings = load_settings()
     user_lang = settings.get("language", "English")
@@ -2860,26 +2826,7 @@ def generate_global_narrative_thread():
 
     p_fact = PLAYER_CONTEXT.get("faction", "The Nameless")
     
-    template = load_prompt_component("prompt_world_synthesis.txt", """[KENSHI WORLD SYNERGY]
-The following is a log of recent interactions in the world of Kenshi, grouped by location.
-Your task is to synthesize these events into a single, high-impact 'Global Rumor'.
-
-RECENT LOGS:
-{events_text}
-{past_rumors_block}
-
-INSTRUCTIONS:
-1. Treat the PLAYER and their squad ({p_fact}) as just another group of wanderers. 
-2. DO NOT make the player out to be a hero or legend unless they have performed a truly massive feat (e.g. liberating a city or killing a faction leader).
-3. ONLY attribute events to the player if their name or 'Player's Squad' actually appears as an actor in the logs.
-4. If an actor is 'Unknown', do NOT assume it is the player. Treat it as a mysterious figure or a random incident.
-5. If the player is merely starving, dying, or performing minor trades, either ignore it or mention it as a minor misfortune of another 'unlucky nomad'.
-6. Focus on patterns: frequent battles, faction clashes, or specific NPC actions.
-7. Write one flavorful, cynical rumor — 1 to 3 sentences. Ground it in Kenshi's brutal reality.
-8. Output ONLY the rumor text itself, with no prefix tags or formatting.
-9. DO NOT blow minor scuffles out of proportion; keep it grounded.
-10. VARIETY: Do NOT produce a rumor that is logically identical to the PREVIOUS RUMORS listed above.
-""")
+    template = load_prompt_component("prompt_world_synthesis.txt")
     prompt = template.format(events_text=events_text, past_rumors_block=past_rumors_block, p_fact=p_fact)
 
     language = settings.get("language", "English")
@@ -3599,8 +3546,8 @@ def player_profile_route():
     if request.method == 'GET':
         logging.info("PROMPT: Loading player profile (GUI request).")
         campaign = ACTIVE_CAMPAIGN
-        bio = load_prompt_component("character_bio.txt", "A mysterious drifter.")
-        faction = load_prompt_component("player_faction_description.txt", "")
+        bio = load_prompt_component("character_bio.txt")
+        faction = load_prompt_component("player_faction_description.txt")
         return jsonify({
             "status": "ok",
             "campaign": campaign,

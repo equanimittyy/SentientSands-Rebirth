@@ -16,7 +16,7 @@ Sentient Sands Rebirth has three parts: a C++ plugin that runs inside Kenshi, a 
 | `server/web/` | The web app: plain HTML, CSS, and JavaScript, which the server serves at `http://127.0.0.1:5000/`. |
 | `server/tests/` | Unit tests that run with the standard library only. See [development.md](development.md#tests). |
 | `server/config/` | The default providers and models that seed the LLM configuration, and the name, title, and localization JSON. |
-| `server/templates/` | Prompt templates and the world lore. |
+| `server/prompts/` | The system prompts, the world lore, and the default player profile of a new campaign. |
 | `mod/` | The files at the root of the installed mod folder: `mod.info`, `SentientSandsRebirth.mod`, and `RE_Kenshi.json`. A server that runs from the repo also writes its `SentientSands_Config.ini` here, which git ignores. |
 | `scripts/` | Release tooling. See [development.md](development.md#release). |
 | `package_release.cmd` | A Windows menu that builds the plugin, runs `scripts/package_release.py`, or does both. |
@@ -33,7 +33,7 @@ SentientSandsRebirth/
   SentientSandsRebirth.mod
   SentientSands_Config.ini   settings, created by the server on first start
   server/
-    scripts/  config/  templates/  web/
+    scripts/  config/  prompts/  web/
     python/                  embedded runtime, added by scripts/package_release.py
     campaigns/  logs/  user/ created at runtime
 ```
@@ -49,7 +49,7 @@ SentientSandsRebirth/
 3. If `OpenWebPanelOnStart` in the INI is `1`, this first server start passes `--open-browser`. The server then opens the web app in the default browser when its port accepts connections. A restart from the launcher does not pass the flag, so the player does not get a second tab.
 4. The server listens on `127.0.0.1:5000`. The plugin sends HTTP POST requests to it through WinHTTP (`plugin/core/Comm.cpp`) for chat, history, settings, campaigns, profiles, and events. The server rejects a request whose `Host` header is not `127.0.0.1:5000` or `localhost:5000`, or whose `Origin` header names another site (`server/scripts/request_guard.py`). This stops web pages in the player's browser from using the server. A new caller must use one of these two host names.
 5. The server sends commands back through the named pipe `\\.\pipe\SentientSands`, which the plugin hosts. Examples are `SET_CONFIG`, `NOTIFY`, and `POPULATE_GENERIC`.
-6. The server builds each prompt from `server/templates/` and the campaign state, then sends it down the route of its task (see [LLM routing](#llm-routing)).
+6. The server builds each prompt from `server/prompts/` and the campaign state, then sends it down the route of its task (see [LLM routing](#llm-routing)).
 
 ## Threading
 
