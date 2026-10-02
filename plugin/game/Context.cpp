@@ -15,6 +15,7 @@
 #include <kenshi/Platoon.h>
 #include <kenshi/PlayerInterface.h>
 #include <kenshi/RaceData.h>
+#include <kenshi/ZoneManager.h>
 #include <kenshi/util/hand.h>
 #include <sstream>
 #include <vector>
@@ -218,6 +219,37 @@ void LogNpcIdentity(Character *npc) {
                     " instance=" + instance + " layout=" + layout +
                     " template=" + templateID + " (" + templateName +
                     ") faction=" + factionName);
+}
+
+// Probe: does getBiome give a region such as "Border Zone", or a ground type?
+void LogNpcBiome(Character *npc) {
+  GameWorld *world = ppWorld ? *ppWorld : NULL;
+  if (!world || !world->zoneMgr)
+    return;
+
+  Ogre::Vector3 pos = npc->getPosition();
+  std::string biomeName = "?";
+  std::string biomeID = "?";
+  int biomeCode = -1;
+  try {
+    GameData *biome = world->zoneMgr->getBiome(pos);
+    if (biome) {
+      biomeName = biome->name;
+      biomeID = biome->stringID;
+    }
+    biomeCode = world->zoneMgr->getBiomeCode(pos);
+  } catch (...) {
+  }
+
+  std::string town = "?";
+  TownBase *townBase = npc->getCurrentTownLocation();
+  if (townBase)
+    town = ((RootObjectBase *)townBase)->getName();
+
+  Log(LOG_INFO, "BIOME_PROBE: name=" + npc->getName() + " town=" + town +
+                    " biome=" + biomeName + " (" + biomeID +
+                    ") code=" + ToString(biomeCode) + " pos=" +
+                    ToString(pos.x) + "," + ToString(pos.z));
 }
 
 std::string GetIdentityFaction(Character *npc) {
