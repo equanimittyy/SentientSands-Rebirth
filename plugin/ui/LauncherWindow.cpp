@@ -59,18 +59,13 @@ static bool BringWebPanelToFront() {
 
 DWORD WINAPI OpenWebPanelThread(LPVOID lpParam) {
   std::string response = PostToPythonWithResponse(L"/web_panel", "{}");
-  if (GetJsonValue(response, "open") != "true") {
-    // ShellExecute can hand the URL to a COM handler.
-    CoInitializeEx(NULL, COINIT_APARTMENTTHREADED | COINIT_DISABLE_OLE1DDE);
-    ShellExecuteA(NULL, "open", "http://127.0.0.1:5000/", NULL, NULL,
-                  SW_SHOWNORMAL);
-    CoUninitialize();
-  } else if (!BringWebPanelToFront()) {
-    EnterCriticalSection(&g_msgMutex);
-    g_messageQueue.push_back(
-        "NOTIFY: " + T("The web panel is already open in your browser."));
-    LeaveCriticalSection(&g_msgMutex);
-  }
+  if (GetJsonValue(response, "open") == "true" && BringWebPanelToFront())
+    return 0;
+  // ShellExecute can hand the URL to a COM handler.
+  CoInitializeEx(NULL, COINIT_APARTMENTTHREADED | COINIT_DISABLE_OLE1DDE);
+  ShellExecuteA(NULL, "open", "http://127.0.0.1:5000/", NULL, NULL,
+                SW_SHOWNORMAL);
+  CoUninitialize();
   return 0;
 }
 
