@@ -382,7 +382,7 @@ Tests:
 - The official English template and release were not inspected, only the Russian fork's copy.
 - The official `Starswimmer/Kayak` repository contained only a README and a licence when checked, so Kayak's server code was read from the Russian fork's bundle, which can include that author's changes.
 - The licence of the Kenshi wiki text that the lore entries paraphrase.
-- The game string IDs of the vanilla factions, which the faction files of the vanilla template need. The `FACTION_PROBE` line lists them ([development.md](../info/development.md#probes)). Whether these IDs stay the same when the player changes the mod list.
+- Whether the string IDs of the factions stay the same when the player changes the mod list. The `FACTION_PROBE` line of the first in-game test listed the IDs for one mod list ([development.md](../info/development.md#probes)), and the faction files of the vanilla template take their `game_id` from it.
 - The KenshiLib calls for the current squad and its members (`PlayerInterface::getCurrentPlatoon`, `Character::getPlatoon`). The `SQUAD_PROBE` line checks them ([development.md](../info/development.md#probes)).
 
 ## 11. Risks

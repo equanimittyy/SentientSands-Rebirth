@@ -53,9 +53,9 @@ Some questions of the plans need data from the game. The plugin writes probe lin
 
 | Line | Written | Function | Answers |
 |---|---|---|---|
-| `ID_PROBE` | At each chat, for the target NPC | `LogNpcIdentity` | Which candidate ID of an NPC stays the same, and whether `Character::isUnique` marks the unique NPCs ([proposal_npc_ids.md](../plans/proposal_npc_ids.md#9-not-yet-verified)) |
+| `ID_PROBE` | At each chat, for the target NPC | `LogNpcIdentity` | Which candidate ID of an NPC stays the same ([proposal_npc_ids.md](../plans/proposal_npc_ids.md#9-not-yet-verified)) |
 | `ZONE_PROBE` | At each chat, for the target NPC. The first chat also lists every zone record. | `LogNpcZone` | Which slot of the zone object (`AreaBiomeGroup`) holds its zone record, so that the context can name the zone, for example Stenn Desert. `ZoneManager::getBiome` gives only the ground type, such as Canyonland FlatTop, so it cannot name the zone. |
-| `FACTION_PROBE` | At the first chat of each game, one line for each faction | `LogFactionList` | The string ID of each faction, which the faction files of the vanilla template need ([proposal_data_layers.md](../plans/proposal_data_layers.md#not-yet-verified)) |
+| `FACTION_PROBE` | At the first chat of each game, one line for each faction | `LogFactionList` | Whether the string ID of each faction stays the same when the mod list changes ([proposal_data_layers.md](../plans/proposal_data_layers.md#not-yet-verified)) |
 | `SQUAD_PROBE` | At each chat | `LogCurrentSquad` | Whether `PlayerInterface::getCurrentPlatoon` gives the squad that the player selected, which the speaker picker needs |
 
 One test session gives the data for all of them. The label of each step names the question that it answers.
