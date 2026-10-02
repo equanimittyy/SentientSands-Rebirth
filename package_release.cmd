@@ -5,4 +5,5 @@ if errorlevel 1 (
     echo Packaging failed.
 )
 echo.
-choice /c X /n /m "Press X to close."
+echo Press any key to close.
+pause >nul
