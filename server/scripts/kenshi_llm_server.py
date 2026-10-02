@@ -19,7 +19,6 @@ import ctypes
 import json
 import logging
 import subprocess
-import shutil
 import requests
 import re
 import time

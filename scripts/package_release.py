@@ -49,12 +49,11 @@ def stage_files(stage, dll):
     # Shipping the INI would reset the player's settings on every update.
     shutil.copytree(REPO / "mod", stage, ignore=shutil.ignore_patterns("*.dll", "*.log", "sentient_sands_registry", "SentientSands_Config.ini"))
     # Copy named folders only, so logs and campaigns from a local server run stay out.
-    # providers.json holds local API keys, and leaving it out keeps a player's keys through an update.
     for name in SERVER_DIRS:
         shutil.copytree(
             REPO / "server" / name,
             stage / "server" / name,
-            ignore=shutil.ignore_patterns("__pycache__", "*.pyc", "providers.json"),
+            ignore=shutil.ignore_patterns("__pycache__", "*.pyc"),
         )
     shutil.copy2(dll, stage / "SentientSands.dll")
 
