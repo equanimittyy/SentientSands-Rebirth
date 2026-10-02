@@ -156,6 +156,34 @@ class ProviderFromFormTest(unittest.TestCase):
         self.assertNotIn("previous_name", result)
 
 
+class ResetTest(unittest.TestCase):
+    def setUp(self):
+        self.defaults = llm_config.build(
+            {"openrouter": {"api_key": "YOUR_OPENROUTER_KEY", "base_url": "https://openrouter.ai/api/v1"},
+             "player2": {"api_key": "sk-player2-local", "base_url": "http://127.0.0.1:4315/v1", "game_key": ""}},
+            {"player2-default": {"provider": "player2", "model": "default"}},
+            "player2-default")
+
+    def test_stored_key_of_default_provider_survives(self):
+        self.assertEqual(llm_config.reset(self.defaults, built())["providers"]["openrouter"]["api_key"], "sk-or-secret-1234")
+
+    def test_placeholder_key_never_replaces_stored_key(self):
+        old = built()
+        old["providers"]["openrouter"]["api_key"] = "YOUR_OPENROUTER_KEY"
+        self.assertEqual(llm_config.reset(self.defaults, old)["providers"]["openrouter"]["api_key"], "YOUR_OPENROUTER_KEY")
+
+    def test_key_of_custom_host_is_dropped(self):
+        old = built()
+        old["providers"]["openrouter"]["base_url"] = "https://proxy.example/v1"
+        self.assertEqual(llm_config.reset(self.defaults, old)["providers"]["openrouter"]["api_key"], "YOUR_OPENROUTER_KEY")
+
+    def test_added_providers_and_profiles_go(self):
+        result = llm_config.reset(self.defaults, built())
+        self.assertEqual(set(result["providers"]), {"openrouter", "player2"})
+        self.assertEqual(set(result["profiles"]), {"player2-default"})
+        self.assertEqual(llm_config.validate(result), [])
+
+
 class ModelIdsTest(unittest.TestCase):
     def test_reads_sorted_unique_ids(self):
         listing = {"object": "list", "data": [{"id": "b"}, {"id": "a"}, {"id": "b"}, {"name": "no id"}, "text"]}

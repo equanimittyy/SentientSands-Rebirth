@@ -164,6 +164,16 @@ def provider_from_form(name, provider, old):
     return result
 
 
+def reset(defaults, old):
+    """Keeps the stored key of a default provider only on its stored host, so a key for a custom host never reaches the default one. with_stored_keys cannot do this, because the defaults hold placeholder keys, not empty ones."""
+    result = copy.deepcopy(defaults)
+    for name, provider in result["providers"].items():
+        saved = old.get("providers", {}).get(name, {})
+        if is_key_set(saved.get("api_key", "")) and urlparse(saved.get("base_url", "")).netloc == urlparse(provider["base_url"]).netloc:
+            provider["api_key"] = saved["api_key"]
+    return result
+
+
 def model_ids(listing):
     entries = listing.get("data") if isinstance(listing, dict) else None
     return sorted({entry["id"] for entry in entries or [] if isinstance(entry, dict) and isinstance(entry.get("id"), str)})

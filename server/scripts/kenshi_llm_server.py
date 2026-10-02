@@ -2981,6 +2981,15 @@ def save_llm_config():
     logging.info("LLM: Saved the LLM configuration from the web app.")
     return get_llm_config()
 
+@app.route('/api/llm/reset', methods=['POST'])
+def reset_llm_config():
+    global LLM_CONFIG
+    new_config = llm_config.reset(default_llm_config(), LLM_CONFIG)
+    llm_config.save(LLM_CONFIG_PATH, new_config)
+    LLM_CONFIG = new_config
+    logging.info("LLM: Reset the LLM configuration to the defaults.")
+    return get_llm_config()
+
 @app.route('/api/llm/test', methods=['POST'])
 def test_llm_profile():
     """Tests the profile and the provider as the web app holds them, so the player can test before a save."""

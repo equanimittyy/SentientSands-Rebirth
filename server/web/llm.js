@@ -515,6 +515,17 @@ async function save() {
   }
 }
 
+// The stored keys are not in the page, so the server resets and saves in one step.
+async function resetToDefaults() {
+  if (!confirm("Reset the models to the defaults and save at once? This removes the providers and profiles that you added, with their API keys, and any unsaved changes. The default providers keep their stored keys.")) return;
+  try {
+    load(await sendJson("POST", "/api/llm/reset", {}));
+    showMessage(message, "Reset to the defaults.");
+  } catch (error) {
+    showMessage(message, `Reset failed: ${error.message}`, true);
+  }
+}
+
 export async function loadLlm() {
   try {
     load(await getJson("/api/llm"));
@@ -527,3 +538,4 @@ export async function loadLlm() {
 }
 
 document.getElementById("llm-save").addEventListener("click", save);
+document.getElementById("llm-reset").addEventListener("click", resetToDefaults);

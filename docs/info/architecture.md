@@ -62,7 +62,7 @@ The server serves `server/web/` at `/` and `/web/<file>`. The files are plain HT
 | Page | Route | Storage |
 |---|---|---|
 | Settings | `/settings`, `/settings/defaults` | `SentientSands_Config.ini` |
-| Models | `/api/llm`, `/api/llm/test`, `/api/llm/models` | `server/user/llm_config.json` |
+| Models | `/api/llm`, `/api/llm/test`, `/api/llm/models`, `/api/llm/reset` | `server/user/llm_config.json` |
 | Player profile | `/player_profile` | `character_bio.txt` and `player_faction_description.txt` in the active campaign |
 
 A GET route must not change state. A page on another site can send a GET with no `Origin` header, for example through an image tag, so the Origin check from step 4 of the runtime flow does not stop it. The presence stream below is the only exception, because EventSource sends only GET requests. A page on another site that holds the stream open can only stop a new tab from opening.
@@ -112,6 +112,8 @@ A rejected save returns each error with the path of its field, for example `["pr
 `POST /api/llm/test` tests the profile and the provider as the web app holds them, so the player can test before a save. `POST /api/llm/models` lists the model IDs of a provider in the same way, through the provider's OpenAI-compatible `GET /models`. Both fill an empty key field with the stored key only when the base URL is the saved one (`llm_config.provider_from_form`). A request with a mistyped base URL therefore cannot send the stored key to another host.
 
 On a start without `llm_config.json`, the server builds it from `default_providers.json` and `default_models.json` in `server/config/`. Each task gets one route that holds only the `player2-default` profile.
+
+**Reset to defaults** on the Models page posts to `/api/llm/reset`, which builds the same configuration and saves it at once. The page does not hold the stored keys, so the reset cannot fill the form for a later save as the Settings page does. The reset removes the providers and profiles that the player added, with their keys. A default provider keeps its stored key only when the stored base URL has the same host as the default one (`llm_config.reset`), so a key for a custom host does not go to the default host. A placeholder key of the defaults never replaces a stored key.
 
 ## Campaign storage
 
