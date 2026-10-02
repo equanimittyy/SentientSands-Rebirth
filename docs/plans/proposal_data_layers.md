@@ -305,7 +305,7 @@ The vanilla template is a conversion of Kayak's English `KayakDB/Template` (405 
 
 ## 8. Retrieval design
 
-The retriever, `server/scripts/knowledge_retrieve.py`, follows the algorithm of Kayak's `indexer.py` and `retriever.py` on the campaign database:
+The retriever, `server/scripts/knowledge_retrieve.py`, follows the algorithm of Kayak's `indexer.py` and `retriever.py` on the campaign database. The embedded Windows runtime ships SQLite 3.49.1, which has FTS5 ([development.md](../info/development.md#probes) has the check for a later runtime).
 
 1. Extract keywords from the player message with Kayak's stop-word approach, limited by `max_keywords`.
 2. Layer 0: FTS5 match against the name, the aliases, and the fields.
@@ -382,7 +382,6 @@ Tests:
 - The official English template and release were not inspected, only the Russian fork's copy.
 - The official `Starswimmer/Kayak` repository contained only a README and a licence when checked, so Kayak's server code was read from the Russian fork's bundle, which can include that author's changes.
 - The licence of the Kenshi wiki text that the lore entries paraphrase.
-- FTS5 in the embedded Windows Python runtime. The dev container's SQLite has it, but the Windows build was not checked. [development.md](../info/development.md#probes) has the check.
 - The game string IDs of the vanilla factions, which the faction files of the vanilla template need. The `FACTION_PROBE` line lists them ([development.md](../info/development.md#probes)). Whether these IDs stay the same when the player changes the mod list.
 - The KenshiLib calls for the current squad and its members (`PlayerInterface::getCurrentPlatoon`, `Character::getPlatoon`). The `SQUAD_PROBE` line checks them ([development.md](../info/development.md#probes)).
 
