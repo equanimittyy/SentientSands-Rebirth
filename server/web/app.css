@@ -1,6 +1,18 @@
+@font-face {
+  font-family: "Lacquer";
+  src: url("fonts/Lacquer/Lacquer-Regular.ttf") format("truetype");
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Walter Turncoat";
+  src: url("fonts/WalterTurncoat/WalterTurncoat-Regular.ttf") format("truetype");
+  font-display: swap;
+}
+
 :root {
   color-scheme: light dark;
-  font-family: system-ui, sans-serif;
+  font-family: "Walter Turncoat", system-ui, sans-serif;
   --muted: #777;
   --border: #8884;
   --error: #c33;
@@ -16,6 +28,12 @@ header,
 main {
   max-width: 48rem;
   margin: 0 auto;
+}
+
+h1,
+legend {
+  font-family: "Lacquer", system-ui, sans-serif;
+  font-weight: normal;
 }
 
 h1 {
@@ -63,7 +81,6 @@ fieldset {
 }
 
 legend {
-  font-weight: 600;
   padding: 0 0.25rem;
 }
 
@@ -90,6 +107,14 @@ select,
 textarea,
 button {
   font: inherit;
+}
+
+/* Walter Turncoat has no lowercase and draws 0 like O, so names and typed values would lose their case. */
+input,
+select,
+textarea,
+.card-head strong {
+  font-family: system-ui, sans-serif;
 }
 
 input:not([type="checkbox"]),

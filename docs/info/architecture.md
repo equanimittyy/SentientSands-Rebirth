@@ -13,7 +13,7 @@ Sentient Sands Rebirth has three parts: a C++ plugin that runs inside Kenshi, a 
 | `plugin/game/` | Reads game state into JSON for prompts (`Context`) and applies queued NPC actions to the world (`GameActions`). |
 | `plugin/ui/` | The in-game MyGUI windows. `LauncherWindow` is the hub that opens the others. `ChatUIGlobals` holds the shared widget pointers. |
 | `server/scripts/` | The Flask server (`kenshi_llm_server.py`), the campaign database (`campaign_db.py`), the request checks (`request_guard.py`), the browser auto-open (`browser_launch.py`), the LLM configuration (`llm_config.py`) and fallback chain (`llm_router.py`), the Kenshi save parser (`save_reader.py`), and a Tkinter debug tool (`visual_debugger.py`). |
-| `server/web/` | The web app: plain HTML, CSS, and JavaScript, which the server serves at `http://127.0.0.1:5000/`. |
+| `server/web/` | The web app: plain HTML, CSS, JavaScript, and fonts, which the server serves at `http://127.0.0.1:5000/`. |
 | `server/tests/` | Unit tests that run with the standard library only. See [development.md](development.md#tests). |
 | `server/config/` | The default providers and models that seed the LLM configuration, and the name, title, and localization JSON. |
 | `server/prompts/` | The system prompts, the world lore, and the default player profile of a new campaign. |
@@ -57,7 +57,7 @@ Background threads do not change game objects or MyGUI widgets. The pipe listene
 
 ## Web app
 
-The server serves `server/web/` at `/` and `/web/<file>`. The files are plain HTML, CSS, and JavaScript modules, with no build step, no npm packages, and no assets from a CDN, so the web app works offline and the release needs no extra tools.
+The server serves `server/web/` at `/` and `/web/<file>`. The files are plain HTML, CSS, JavaScript modules, and font files, with no build step, no npm packages, and no assets from a CDN, so the web app works offline and the release needs no extra tools.
 
 | Page | Route | Storage |
 |---|---|---|
