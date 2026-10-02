@@ -82,7 +82,7 @@ The player can switch the campaign in game while the web app is open. The poll s
 
 The server is the only writer of `SentientSands_Config.ini`. The plugin reads the INI once at start, because it starts before the server. After that, it takes changes only through `SET_CONFIG` on the pipe. Two writers with no lock between them would undo each other's changes.
 
-The release does not ship the INI, so an update keeps the player's settings. On the first start, the plugin reads no INI and uses the defaults in `LoadPluginConfig` (`plugin/core/Utils.cpp`). The server then writes the INI with `SETTINGS_DEFAULTS` (`server/scripts/kenshi_llm_server.py`). These two sets of defaults must agree, or the plugin and the server start with different values.
+The release does not ship the INI, so an update keeps the player's settings. On the first start, the plugin reads no INI and uses the defaults in `LoadPluginConfig` (`plugin/core/Utils.cpp`). The server then writes the INI with `SETTINGS_DEFAULTS` (`server/scripts/kenshi_llm_server.py`). At each start, the server sends each value that the plugin holds through `SET_CONFIG` (`push_settings_to_plugin`), so the defaults of `LoadPluginConfig` apply only until the server is up. `OpenWebPanelOnStart` is the exception, because the plugin reads it before it starts the server, so its default in `LoadPluginConfig` must agree with `SETTINGS_DEFAULTS`.
 
 The web app's Settings page posts its changes to `/settings`. The server writes the INI and sends each value that the plugin holds through `SET_CONFIG`. A language change sends the new translation table through the pipe as `APPLY_TRANSLATION`.
 

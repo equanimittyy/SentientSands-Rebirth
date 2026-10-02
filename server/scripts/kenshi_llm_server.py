@@ -372,6 +372,24 @@ def send_to_pipe(cmd):
                 return
             time.sleep(0.01)
 
+def push_settings_to_plugin():
+    """On a first start the plugin finds no INI and runs on the defaults of LoadPluginConfig, so the server sends each value that the plugin holds."""
+    settings = load_settings()
+    for var, value in (
+        ("g_enableAmbient", "1" if settings["enable_ambient"] else "0"),
+        ("g_ambientIntervalSeconds", settings["radiant_delay"]),
+        ("g_radiantRange", settings["radiant_range"]),
+        ("g_proximityRadius", settings["talk_radius"]),
+        ("g_yellRadius", settings["yell_radius"]),
+        ("g_chatHotkey", settings["chat_hotkey"]),
+        ("g_enableWelcome", "1" if settings["enable_welcome"] else "0"),
+        ("g_logLevel", settings["log_level"]),
+        ("g_dialogueSpeedSeconds", settings["dialogue_speed_seconds"]),
+        ("g_speechBubbleLife", settings["bubble_life"]),
+    ):
+        send_to_pipe(f"SET_CONFIG: {var}: {value}")
+    logging.debug("PIPE: Sent the settings to the plugin.")
+
 def push_generic_names_to_dll():
     try:
         prefixes = GENERIC_CONFIG.get("prefixes", [])
@@ -3286,6 +3304,8 @@ threading.Thread(target=monitor_kenshi_process, daemon=True).start()
 
 if __name__ == '__main__':
     logging.info("SYSTEM: Server starting on port 5000.")
+    # A thread, because each message waits up to 0.25 s for a pipe that a closed game never opens
+    threading.Thread(target=push_settings_to_plugin, daemon=True).start()
     if "--open-browser" in sys.argv[1:]:
         threading.Thread(target=open_when_ready, args=("127.0.0.1", 5000, PANEL_TABS), daemon=True).start()
     # Threaded: the plugin's polling must not block chat and settings requests
