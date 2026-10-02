@@ -47,7 +47,16 @@ The tests use only the standard library, so they run in the dev container. Code 
 
 ## Release
 
-On Windows, run `package_release.cmd` in the repo root. On any OS, run:
+On Windows, run `package_release.cmd` in the repo root, and select one of its options:
+
+| Option | Result |
+|---|---|
+| 1. Rebuild and repackage | Builds the plugin, then packages it. It does not package after a failed build. |
+| 2. Rebuild only | Builds the plugin. |
+| 3. Repackage | Packages the DLL that is already built. |
+| 4. Exit | Closes the window. |
+
+The build uses the newest MSBuild that `vswhere.exe` finds. To package a DLL that is already built, you can also run this on any OS:
 
 ```
 python scripts/package_release.py

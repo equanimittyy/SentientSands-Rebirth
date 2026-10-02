@@ -18,7 +18,7 @@ Sentient Sands has three parts: a C++ plugin that runs inside Kenshi, a local Py
 | `server/templates/` | Prompt templates and the world lore. |
 | `mod/` | The files at the root of the installed mod folder: `mod.info`, `SentientSands.mod`, `RE_Kenshi.json`, and the default `SentientSands_Config.ini`. |
 | `scripts/` | Release tooling. See [development.md](development.md#release). |
-| `package_release.cmd` | Runs `scripts/package_release.py` on Windows. |
+| `package_release.cmd` | A Windows menu that builds the plugin, runs `scripts/package_release.py`, or does both. |
 
 ## Installed layout
 
