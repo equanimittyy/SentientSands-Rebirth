@@ -1706,10 +1706,6 @@ PANEL_TABS = PanelTabs()
 def web_panel_presence():
     return Response(PANEL_TABS.stream(), mimetype="text/event-stream")
 
-@app.route('/web_panel', methods=['POST'])
-def web_panel():
-    return jsonify({"status": "ok", "open": PANEL_TABS.is_open()})
-
 @app.route('/chat', methods=['POST'])
 def chat():
     data = request.json

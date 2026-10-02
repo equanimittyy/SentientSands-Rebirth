@@ -1,12 +1,10 @@
 #include "LauncherWindow.h"
 #include "CampaignsWindow.h"
-#include "../core/Comm.h"
 #include "EventsWindow.h"
 #include "../core/Globals.h"
 #include "LibraryWindow.h"
 #include "../core/Utils.h"
 #include "WelcomeWindow.h"
-#include <objbase.h>
 #include <shellapi.h>
 #include <mygui/MyGUI_Button.h>
 #include <mygui/MyGUI_Delegate.h>
@@ -31,46 +29,9 @@ void OnLauncherLibraryClick(MyGUI::Widget *sender) { CreateLibraryUI(); }
 void OnLauncherEventsClick(MyGUI::Widget *sender) { CreateEventsUI(); }
 void OnLauncherCampaignsClick(MyGUI::Widget *sender) { CreateCampaignsUI(); }
 void OnLauncherWelcomeClick(MyGUI::Widget *sender) { CreateWelcomeUI(); }
-
-// Must match the <title> of server/web/index.html.
-static const wchar_t *kWebPanelTitle = L"SSR Web Panel";
-
-static BOOL CALLBACK FindWebPanelWindow(HWND hwnd, LPARAM lParam) {
-  wchar_t title[256];
-  if (!IsWindowVisible(hwnd) || GetWindowTextW(hwnd, title, 256) == 0)
-    return TRUE;
-  // A browser window shows only the title of its active tab, so a panel in
-  // another tab is not found.
-  if (wcsncmp(title, kWebPanelTitle, wcslen(kWebPanelTitle)) != 0)
-    return TRUE;
-  *(HWND *)lParam = hwnd;
-  return FALSE;
-}
-
-static bool BringWebPanelToFront() {
-  HWND hwnd = NULL;
-  EnumWindows(FindWebPanelWindow, (LPARAM)&hwnd);
-  if (!hwnd)
-    return false;
-  if (IsIconic(hwnd))
-    ShowWindow(hwnd, SW_RESTORE);
-  return SetForegroundWindow(hwnd) != FALSE;
-}
-
-DWORD WINAPI OpenWebPanelThread(LPVOID lpParam) {
-  std::string response = PostToPythonWithResponse(L"/web_panel", "{}");
-  if (GetJsonValue(response, "open") == "true" && BringWebPanelToFront())
-    return 0;
-  // ShellExecute can hand the URL to a COM handler.
-  CoInitializeEx(NULL, COINIT_APARTMENTTHREADED | COINIT_DISABLE_OLE1DDE);
+void OnLauncherWebPanelClick(MyGUI::Widget *sender) {
   ShellExecuteA(NULL, "open", "http://127.0.0.1:5000/", NULL, NULL,
                 SW_SHOWNORMAL);
-  CoUninitialize();
-  return 0;
-}
-
-void OnLauncherWebPanelClick(MyGUI::Widget *sender) {
-  CreateThread(NULL, 0, OpenWebPanelThread, NULL, 0, NULL);
 }
 void OnLauncherRestartClick(MyGUI::Widget *sender) { StartPythonServer(false); }
 
