@@ -12,7 +12,7 @@ Sentient Sands Rebirth has three parts: a C++ plugin that runs inside Kenshi, a 
 | `plugin/core/` | Shared state and mutexes (`Globals`), logging, INI settings, and server start-up (`Utils`), and the transport to the server (`Comm`). |
 | `plugin/game/` | Reads game state into JSON for prompts (`Context`) and applies queued NPC actions to the world (`GameActions`). |
 | `plugin/ui/` | The in-game MyGUI windows. `LauncherWindow` is the hub that opens the others. `ChatUIGlobals` holds the shared widget pointers. |
-| `server/scripts/` | The Flask server (`kenshi_llm_server.py`), the campaign database (`campaign_db.py`), the request checks (`request_guard.py`), the browser auto-open (`browser_launch.py`), the LLM configuration (`llm_config.py`) and fallback chain (`llm_router.py`), the Kenshi save parser (`save_reader.py`), the log files and the log level (`log_setup.py`), and a Tkinter debug tool (`visual_debugger.py`). |
+| `server/scripts/` | The Flask server (`kenshi_llm_server.py`), the campaign database (`campaign_db.py`), the request checks (`request_guard.py`), the browser auto-open (`browser_launch.py`), the LLM configuration (`llm_config.py`) and fallback chain (`llm_router.py`), the prompt overrides and placeholders (`prompt_store.py`), the Kenshi save parser (`save_reader.py`), the log files and the log level (`log_setup.py`), and a Tkinter debug tool (`visual_debugger.py`). |
 | `server/web/` | The web app: plain HTML, CSS, JavaScript, fonts, and images, which the server serves at `http://127.0.0.1:5000/`. |
 | `server/tests/` | Unit tests that run with the standard library only. See [development.md](development.md#tests). |
 | `server/config/` | The default providers and models that seed the LLM configuration, and the name, title, and localization JSON. |
@@ -49,7 +49,7 @@ SentientSandsRebirth/
 3. If `OpenWebPanelOnStart` in the INI is `1`, this first server start passes `--open-browser`. The server waits until its port accepts connections, and then 3 s more, so that a tab from an earlier start can reconnect. It opens the web app in the default browser only when no tab is open (see [Web app](#web-app)). A restart from the launcher does not pass the flag, so the player does not get a second tab.
 4. The server listens on `127.0.0.1:5000`. The plugin sends HTTP POST requests to it through WinHTTP (`plugin/core/Comm.cpp`) for chat, history, settings, campaigns, profiles, and events. The server rejects a request whose `Host` header is not `127.0.0.1:5000` or `localhost:5000`, or whose `Origin` header names another site (`server/scripts/request_guard.py`). This stops web pages in the player's browser from using the server. A new caller must use one of these two host names.
 5. The server sends commands back through the named pipe `\\.\pipe\SentientSands`, which the plugin hosts. Examples are `SET_CONFIG`, `NOTIFY`, and `POPULATE_GENERIC`.
-6. The server builds each prompt from `server/prompts/` and the campaign state, then sends it down the route of its task (see [LLM routing](#llm-routing)).
+6. The server builds each prompt from the prompt files (see [Prompts](#prompts)) and the campaign state, then sends it down the route of its task (see [LLM routing](#llm-routing)).
 
 ## Threading
 
@@ -63,6 +63,7 @@ The server serves `server/web/` at `/` and `/web/<file>`. The files are plain HT
 |---|---|---|
 | Settings | `/settings`, `/settings/defaults` | `SentientSands_Config.ini` |
 | Models | `/api/llm`, `/api/llm/test`, `/api/llm/models`, `/api/llm/reset` | `server/user/llm_config.json` |
+| Prompts | `/api/prompts` | `server/user/prompts/` |
 | Player profile | `/player_profile` | `character_bio.txt` and `player_faction_description.txt` in the active campaign |
 
 A GET route must not change state. A page on another site can send a GET with no `Origin` header, for example through an image tag, so the Origin check from step 4 of the runtime flow does not stop it. The presence stream below is the only exception, because EventSource sends only GET requests. A page on another site that holds the stream open can only stop a new tab from opening.
@@ -88,6 +89,25 @@ The web app's Settings page posts its changes to `/settings`. The server writes 
 **Reset to defaults** on the Settings page reads `GET /settings/defaults` and fills the form without a save, so the player can review the values before the usual save sends them. The defaults have a route of their own and are not part of the `/settings` reply. The plugin reads that reply by searching for the first match of each key (`GetJsonValue` in `plugin/core/Utils.cpp`), so a nested copy of the same keys could give it a default instead of the setting.
 
 The plugin re-creates its pipe instance after each message, so a message sent immediately after another can find no instance. `send_to_pipe` retries for 0.25 s for this reason. When the game does not run, each message therefore costs 0.25 s.
+
+## Prompts
+
+Each file in `server/prompts/` is a shipped default, and an update replaces it. The player's edit of a prompt is an override in `server/user/prompts/` under the same file name, so an update keeps it. `load_prompt_component` takes the override when it holds text, and the shipped file otherwise. The campaign folder holds no prompts.
+
+The Prompts page of the web app reads `GET /api/prompts` and saves each changed prompt through `POST /api/prompts` (`server/scripts/prompt_store.py`).
+
+- A route takes only the name of a shipped `.txt` file, never a path, so a request cannot write outside `server/user/prompts/`. The two player profile files are not prompts, so the page does not list them.
+- A save equal to the shipped text, or an empty save, deletes the override, so the prompt gets later default updates again. **Use default** and **Reset all to defaults** fill the form with the shipped text, and the next save deletes the overrides.
+- Each save of an override stores the SHA-256 of the shipped text in `server/user/prompts/base_hashes.json`. When an update changes the shipped text, the hash no longer matches, and the page marks the override and shows the shipped text. An override with no stored hash, for example one made by hand, is marked as unknown.
+- An override and `base_hashes.json` are written to a temporary file and then renamed, as `llm_config.save` does.
+
+A placeholder is a `{name}` in a prompt. `prompt_store.render` replaces each placeholder that its caller fills and leaves every other brace as text. A stray brace in an edited prompt therefore cannot fail the LLM call, as it could with `str.format`, and a JSON example in a prompt needs no escaped braces.
+
+- A save is rejected when the override uses a placeholder that the shipped text does not have. A placeholder of the shipped text that the override leaves out gives a warning, because the prompt then loses that data.
+- A hand-made override can still hold a wrong placeholder. `fill_prompt` then leaves it as text and logs a warning.
+- Rejected: Jinja2. Flask already bundles it, but template logic lets one edit break the whole prompt, and a syntax error fails the call.
+
+`prompt_system.txt` is the skeleton of the chat system prompt: its headings, the order of its sections, and the rules on what an NPC can see of the player. `build_system_prompt` fills it. A block that appears only with data, such as the events or the player faction description, keeps its heading in the code, because a placeholder has no conditions.
 
 ## LLM routing
 
@@ -117,7 +137,7 @@ On a start without `llm_config.json`, the server builds it from `default_provide
 
 ## Campaign storage
 
-`server/scripts/campaign_db.py` keeps the NPC profiles, the dialogue, the event history, and the rumors of a campaign in one SQLite file, `campaign.db`, in the campaign folder. The plugin reaches this data only through the server's routes, which keep their request and response shapes. The player profile and the prompt overrides stay text files in the campaign folder, because `load_prompt_component` reads any prompt file from there before `server/prompts/`.
+`server/scripts/campaign_db.py` keeps the NPC profiles, the dialogue, the event history, and the rumors of a campaign in one SQLite file, `campaign.db`, in the campaign folder. The plugin reaches this data only through the server's routes, which keep their request and response shapes. The player profile stays two text files in the campaign folder, `character_bio.txt` and `player_faction_description.txt` (`load_campaign_text`). A new campaign gets a copy of the shipped files of the same names in `server/prompts/`.
 
 - Each write runs in one `BEGIN IMMEDIATE` transaction. A profile write merges only the keys that the caller passes, and the dialogue lines are rows of their own. A route that waits for the LLM must write only the keys that it changed, so that it cannot undo a change that another request made during the wait.
 - `/chat` changes the Relation through `change_relation`, which adds the judgment to the stored value in one transaction. Two overlapping chats with the same NPC therefore keep both changes.
@@ -166,4 +186,5 @@ The plugin and the server write their logs in the same format, so one tool can r
 |---|---|
 | `server/campaigns/<name>/` | One campaign: `campaign.db` (see [Campaign storage](#campaign-storage)), `character_bio.txt`, `player_faction_description.txt`, and `sentient_sands_registry/`. |
 | `server/logs/` | `server.log` and `llm.log` (see [Logging](#logging)). |
+| `server/user/prompts/` | The player's prompt overrides and `base_hashes.json` (see [Prompts](#prompts)). The release does not ship it, so an update keeps the overrides. |
 | `server/user/llm_config.json` | The LLM providers with the player's API keys, the profiles, and the routes (see [LLM routing](#llm-routing)). The release does not ship it, so an update keeps the keys. |

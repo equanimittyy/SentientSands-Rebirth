@@ -18,6 +18,7 @@
     <nav>
       <a href="#settings">Settings</a>
       <a href="#llm">Models</a>
+      <a href="#prompts">Prompts</a>
       <a href="#profile">Player profile</a>
     </nav>
   </header>
@@ -65,6 +66,16 @@
         <button type="button" class="discard" disabled>Discard</button>
         <button type="button" id="llm-reset">Reset to defaults</button>
         <span class="message" id="llm-message" role="status"></span>
+      </div>
+    </section>
+    <section id="prompts" hidden>
+      <p class="hint">An edit is saved as your own copy of the prompt, which a mod update keeps. Use default and Save to go back to the shipped text and get its later updates.</p>
+      <div id="prompts-list"></div>
+      <div class="actions save-bar">
+        <button type="button" id="prompts-save" class="save" disabled>Save</button>
+        <button type="button" class="discard" disabled>Discard</button>
+        <button type="button" id="prompts-reset">Reset all to defaults</button>
+        <span class="message" id="prompts-message" role="status"></span>
       </div>
     </section>
     <section id="profile" hidden>

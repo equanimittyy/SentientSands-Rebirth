@@ -46,6 +46,16 @@ async function readJson(response) {
   return data;
 }
 
+export function el(tag, props = {}, ...children) {
+  const element = document.createElement(tag);
+  for (const [key, value] of Object.entries(props)) {
+    if (key.startsWith("on")) element.addEventListener(key.slice(2), value);
+    else element[key] = value;
+  }
+  element.append(...children.filter((child) => child !== null && child !== false));
+  return element;
+}
+
 export function showMessage(element, text, isError = false) {
   element.textContent = text;
   element.classList.toggle("error", isError);

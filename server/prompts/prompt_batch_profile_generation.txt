@@ -10,7 +10,7 @@ CRITICAL RULES:
 3. OUTPUT: Return a JSON object where each key is the NPC's Name, and the value is an object with: "Personality", "Backstory", "SpeechQuirks".
 
 Example Output:
-{{
-  "Beep": {{ "Personality": "Enthusiastic and naive...", "Backstory": "A regular hive worker...", "SpeechQuirks": "Beep!" }},
-  "Dust Bandit": {{ "Personality": "Violent and desperate...", "Backstory": "Fled the United Cities...", "SpeechQuirks": "Gruff and aggressive." }}
-}}
+{
+  "Beep": { "Personality": "Enthusiastic and naive...", "Backstory": "A regular hive worker...", "SpeechQuirks": "Beep!" },
+  "Dust Bandit": { "Personality": "Violent and desperate...", "Backstory": "Fled the United Cities...", "SpeechQuirks": "Gruff and aggressive." }
+}

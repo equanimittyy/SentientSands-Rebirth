@@ -45,6 +45,7 @@ from browser_launch import PanelTabs, open_when_ready
 import llm_config
 import llm_router
 import campaign_db
+import prompt_store
 import log_setup
 from log_setup import llm_log
 
@@ -75,6 +76,9 @@ ACTIVE_CAMPAIGN = "Default"
 
 CAMPAIGNS_DIR = os.path.join(KENSHI_SERVER_DIR, "campaigns")
 PROMPTS_DIR = os.path.join(KENSHI_SERVER_DIR, "prompts")
+USER_PROMPTS_DIR = os.path.join(KENSHI_SERVER_DIR, "user", "prompts")
+# The defaults of a new campaign's player profile, not prompts, so the Prompts page leaves them out
+CAMPAIGN_TEXTS = ("character_bio.txt", "player_faction_description.txt")
 
 PROFILES_IN_PROGRESS = set()
 PROGRESS_LOCK = threading.Lock()
@@ -334,8 +338,7 @@ def get_campaign_dir():
 
 def ensure_campaign_seeded(cdir):
     try:
-        # Only these are per-campaign; rules, lore and other prompts stay shared in PROMPTS_DIR
-        for component in ["character_bio.txt", "player_faction_description.txt"]:
+        for component in CAMPAIGN_TEXTS:
             src = os.path.join(PROMPTS_DIR, component)
             dst = os.path.join(cdir, component)
             if os.path.exists(src) and not os.path.exists(dst):
@@ -818,33 +821,20 @@ def init_server_state():
 init_server_state()
 
 def load_prompt_component(filename):
-    path = os.path.join(get_campaign_dir(), filename)
-    source = f"campaign:{ACTIVE_CAMPAIGN}"
-    
-    if os.path.exists(path):
-        try:
-            with open(path, "r", encoding="utf-8") as f:
-                content = f.read().strip()
-                if content:
-                    logging.debug(f"PROMPT: Loaded {filename} from {source}")
-                    return content
-        except Exception as e:
-            logging.error(f"PROMPT: Cannot read {filename} from {source}: {e}")
-    
-    default_path = os.path.join(PROMPTS_DIR, filename)
-    if os.path.exists(default_path):
-        try:
-            with open(default_path, "r", encoding="utf-8") as f:
-                content = f.read().strip()
-                if content:
-                    logging.debug(f"PROMPT: Loaded {filename} from prompts (read-only)")
-                    return content
-        except Exception as e:
-            logging.error(f"PROMPT: Cannot read {filename} from prompts: {e}")
-    else:
-        logging.error(f"PROMPT: {filename} is missing from {PROMPTS_DIR}")
+    text = prompt_store.load(filename, PROMPTS_DIR, USER_PROMPTS_DIR)
+    if not text:
+        logging.error(f"PROMPT: {filename} is missing or empty in {PROMPTS_DIR}")
+    return text
 
-    return ""
+def fill_prompt(filename, **values):
+    template = load_prompt_component(filename)
+    unknown = prompt_store.placeholders(template) - values.keys()
+    if unknown:
+        logging.warning(f"PROMPT: {filename} has placeholders that nothing fills, so they stay as text: {', '.join(sorted(unknown))}")
+    return prompt_store.render(template, values)
+
+def load_campaign_text(filename):
+    return prompt_store.read(os.path.join(get_campaign_dir(), filename)) or prompt_store.read(os.path.join(PROMPTS_DIR, filename))
 
 def format_player_status(player_ctx):
     if not player_ctx: return "No status data."
@@ -901,8 +891,8 @@ def format_player_inventory(player_ctx):
     return res
 
 def build_system_prompt(player_name="Drifter"):
-    player_bio = load_prompt_component("character_bio.txt")
-    player_faction_desc = load_prompt_component("player_faction_description.txt")
+    player_bio = load_campaign_text("character_bio.txt")
+    player_faction_desc = load_campaign_text("player_faction_description.txt")
     npc_base = load_prompt_component("npc_base.txt")
     world_lore = load_prompt_component("world_lore.txt")
     rules = load_prompt_component("response_rules.txt")
@@ -952,36 +942,23 @@ def build_system_prompt(player_name="Drifter"):
     player_race = PLAYER_CONTEXT.get("race", "Unknown") if PLAYER_CONTEXT else "Unknown"
     player_gender = PLAYER_CONTEXT.get("gender", "male") if PLAYER_CONTEXT else "male"
 
-    prompt = f"""{npc_base}
-
-CURRENT LOCATION: {location_tag}
-
-WORLD LORE:
-{world_lore}
-
-{events_block}
-
-PLAYER CHARACTER ({player_name}):
-RACE: {player_race}
-GENDER: {player_gender}
-{player_bio}
-
-{faction_block}
-
---- PLAYER AWARENESS & SENSORY RULES ---
-CRITICAL ROLEPLAY RULE: You can SEE the player's VISIBLE equipment, but you CANNOT see what is inside their BAG/PACK.
-- Do NOT mention or react to items listed under 'CONCEALED' unless the player explicitly grants you permission in the dialogue (e.g., 'look in my bag', 'take a look at my loot').
-- If the player is heavily armed (swords, crossbows WORN), comment on it if appropriate. 
-- If they are starving or injured, reflect that in your tone.
-
-{format_player_status(PLAYER_CONTEXT)}
-{format_player_inventory(PLAYER_CONTEXT)}
-
-RESPONSE FORMAT RULES:
-{rules}
-
-{action_tags}
-{language_instruction}"""
+    prompt = fill_prompt(
+        "prompt_system.txt",
+        npc_base=npc_base,
+        location=location_tag,
+        world_lore=world_lore,
+        events=events_block,
+        player_name=player_name,
+        player_race=player_race,
+        player_gender=player_gender,
+        player_bio=player_bio,
+        player_faction=faction_block,
+        player_status=format_player_status(PLAYER_CONTEXT),
+        player_inventory=format_player_inventory(PLAYER_CONTEXT),
+        rules=rules,
+        action_tags=action_tags,
+        language_instruction=language_instruction
+    )
     return prompt.strip()
 
 
@@ -1195,11 +1172,10 @@ def generate_character_profile(name, context=""):
 
     logging.info(f"PROFILE: Generating the profile of {name} ({gender} {race}, Base Faction: {origin_faction}, Job: {job})...")
     
-    template = load_prompt_component("prompt_profile_generation.txt")
     f_info = get_faction_info(faction)
     o_info = get_faction_info(origin_faction)
 
-    prompt = template.format(name=name, gender=gender, race=race, faction=f_info, origin_faction=o_info, job=job, context=context)
+    prompt = fill_prompt("prompt_profile_generation.txt", name=name, gender=gender, race=race, faction=f_info, origin_faction=o_info, job=job, context=context)
     
     settings = load_settings()
     language = settings.get("language", "English")
@@ -1265,8 +1241,7 @@ def generate_batch_profiles(npc_list):
     
     desc_str = "\n".join(descriptions)
     
-    template = load_prompt_component("prompt_batch_profile_generation.txt")
-    prompt = template.format(desc_str=desc_str)
+    prompt = fill_prompt("prompt_batch_profile_generation.txt", desc_str=desc_str)
     
     settings = load_settings()
     language = settings.get("language", "English")
@@ -2103,12 +2078,11 @@ def chat():
 
     final_instruction += " Keep it immersive, short, and grounded in the world of Kenshi. Response should be 1-3 sentences maximum."
     
-    template = load_prompt_component("prompt_chat_template.txt")
-    
     settings = load_settings()
     user_lang = settings.get("language", "English")
 
-    rich_prompt = template.format(
+    rich_prompt = fill_prompt(
+        "prompt_chat_template.txt",
         system_prompt=dynamic_system_prompt,
         primary_npc=primary_npc,
         npc_profiles=npc_profiles,
@@ -2512,8 +2486,7 @@ def generate_global_narrative_thread():
 
     p_fact = PLAYER_CONTEXT.get("faction", "The Nameless")
     
-    template = load_prompt_component("prompt_world_synthesis.txt")
-    prompt = template.format(events_text=events_text, past_rumors_block=past_rumors_block, p_fact=p_fact)
+    prompt = fill_prompt("prompt_world_synthesis.txt", events_text=events_text, past_rumors_block=past_rumors_block, p_fact=p_fact)
 
     language = settings.get("language", "English")
     if language and language.lower() != "english":
@@ -2990,6 +2963,23 @@ def reset_llm_config():
     logging.info("LLM: Reset the LLM configuration to the defaults.")
     return get_llm_config()
 
+@app.route('/api/prompts', methods=['GET'])
+def get_prompts():
+    return jsonify({"status": "ok", "prompts": prompt_store.listing(PROMPTS_DIR, USER_PROMPTS_DIR, CAMPAIGN_TEXTS)})
+
+@app.route('/api/prompts', methods=['POST'])
+def save_prompt():
+    data = request.get_json(silent=True) or {}
+    name, text = data.get("name"), data.get("text")
+    if not isinstance(name, str) or not isinstance(text, str):
+        return jsonify({"status": "error", "message": "The request needs a prompt name and its text."}), 400
+    try:
+        warnings = prompt_store.save(name, text, PROMPTS_DIR, USER_PROMPTS_DIR, CAMPAIGN_TEXTS)
+    except ValueError as e:
+        return jsonify({"status": "error", "errors": [{"field": [name], "message": str(e)}]}), 400
+    logging.info(f"PROMPT: Saved {name} from the web app.")
+    return jsonify({"status": "ok", "warnings": warnings})
+
 @app.route('/api/llm/test', methods=['POST'])
 def test_llm_profile():
     """Tests the profile and the provider as the web app holds them, so the player can test before a save."""
@@ -3154,8 +3144,8 @@ def player_profile_route():
     if request.method == 'GET':
         logging.debug("PROFILE: Loading the player profile.")
         campaign = ACTIVE_CAMPAIGN
-        bio = load_prompt_component("character_bio.txt")
-        faction = load_prompt_component("player_faction_description.txt")
+        bio = load_campaign_text("character_bio.txt")
+        faction = load_campaign_text("player_faction_description.txt")
         return jsonify({
             "status": "ok",
             "campaign": campaign,

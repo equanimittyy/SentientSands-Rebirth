@@ -1,6 +1,7 @@
 import { getJson, watchConnection } from "./api.js";
 import { loadLlm } from "./llm.js";
 import { loadProfile, profileCampaign } from "./profile.js";
+import { loadPrompts } from "./prompts.js";
 import { loadSettings } from "./settings.js";
 
 const POLL_MS = 3000;
@@ -19,7 +20,7 @@ showPage();
 
 const status = document.getElementById("status");
 const offline = document.getElementById("offline");
-const loaders = { settings: loadSettings, llm: loadLlm, profile: loadProfile };
+const loaders = { settings: loadSettings, llm: loadLlm, prompts: loadPrompts, profile: loadProfile };
 const loaded = new Set();
 const unsaved = new Set();
 let online = true;

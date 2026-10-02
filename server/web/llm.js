@@ -1,4 +1,4 @@
-import { getJson, reportUnsaved, sendJson, setFieldError, showMessage } from "./api.js";
+import { el, getJson, reportUnsaved, sendJson, setFieldError, showMessage } from "./api.js";
 
 const TASK_LABELS = {
   chat: "Chat",
@@ -24,16 +24,6 @@ let listCount = 0;
 const fieldErrors = new Map();
 const checks = new WeakMap();
 let focusCard = null;
-
-function el(tag, props = {}, ...children) {
-  const element = document.createElement(tag);
-  for (const [key, value] of Object.entries(props)) {
-    if (key.startsWith("on")) element.addEventListener(key.slice(2), value);
-    else element[key] = value;
-  }
-  element.append(...children.filter((child) => child !== null && child !== false));
-  return element;
-}
 
 function field(label, input, hint) {
   const note = typeof hint === "string" ? el("span", { className: "hint" }, hint) : hint;
