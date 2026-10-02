@@ -30,6 +30,7 @@ Non-goals:
 
 - A unique NPC has the same ID in every save and every campaign. A canon character of a world template therefore binds to the game character by ID, not by name ([section 7](#7-world-templates)).
 - Many generic NPCs share one template, so a generic NPC has no template ID of its own. Its handle is unique in a save.
+- The instance ID (`getInstanceID()->uid`) and the layout instance ID (`getLayoutInstanceID`) are empty for unique and generic NPCs, so neither can be the ID.
 - The plugin builds the ID, because only the plugin sees the game objects. The server treats the ID as an opaque string.
 
 ## 4. Data model
@@ -70,8 +71,6 @@ The LLM names each speaker by name, for example `Beep: Hello`. The server maps a
 The `ID_PROBE` line answers the questions about the game ([development.md](../info/development.md#probes)).
 
 - Whether `hand::toString()` gives the same text after a save and a load. Kenshi stores handles in its save files.
-- Whether the instance ID gives the same text after a save and a load. If it does, it can replace the handle as the ID of a generic NPC.
-- Whether a generic NPC has a layout instance ID (`getLayoutInstanceID`), and whether it gives the same text after a save and a load.
 - Whether `Character::isUnique` marks exactly the unique characters, so that the plugin can choose between `u:` and `h:`, and whether `npc->data` is the template of a unique character.
 - Whether a recruited NPC keeps its handle when it joins the player's faction.
 - Whether a template `stringID` stays the same when the player changes the mod list.
