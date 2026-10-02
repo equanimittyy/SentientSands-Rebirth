@@ -252,7 +252,7 @@ W3 removes the in-game windows whose fields moved to the web app in W2.
 | AI Settings | Goes. Its fields moved to the web app's Settings and LLM pages in W2. |
 | Profile Editor | Goes. The player backstory and faction description moved to the web app in W2, where long text is easier to paste and edit. |
 
-"Restart Server" starts a new server process, as the RESTART button in AI Settings does today. A server that still holds the port makes the new process exit, so the button revives only a server that has stopped.
+"Restart Server" starts a new server process, as the RESTART button in AI Settings does today. The new process first ends any process that listens on port 5000 (`kill_old_servers`), so the button also replaces a server that runs but does not answer.
 
 ### 8.2 Settings ownership
 
