@@ -25,11 +25,14 @@ RE_Kenshi loads the plugin into the game. Its installer also installs `KenshiLib
 
    On route B, SP1 removes the x64 compilers of the SDK, and the compiler update puts them back. If the SDK 7.1 installer fails, uninstall each newer Microsoft Visual C++ 2010 Redistributable, then try again.
 
-3. Check that the x64 compiler is installed:
+3. Check that the x64 compiler works and has SP1. Open a new Command Prompt, and run these two commands, one per line:
 
    ```
-   dir "C:\Program Files (x86)\Microsoft Visual Studio 10.0\VC\bin\amd64\cl.exe"
+   "%VS100COMNTOOLS%..\..\VC\vcvarsall.bat" amd64
+   cl
    ```
+
+   The first line of the output must be `Microsoft (R) C/C++ Optimizing Compiler Version 16.00.40219.01 for x64`. `16.00` and `for x64` identify the 2010 x64 compiler, and `40219` shows that SP1 is installed. Visual Studio 2010 sets `VS100COMNTOOLS` to its own folder, so the commands work on any install drive. Close the prompt afterwards, because `vcvarsall.bat` changes its environment.
 
 ## 3. Fill deps/
 
