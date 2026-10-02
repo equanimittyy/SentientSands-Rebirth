@@ -284,6 +284,7 @@ void ProcessMessageQueue(GameWorld *thisptr) {
                 g_speechBubbleLife = (float)atof(val.c_str());
               } else if (var == "g_chatHotkey") {
                 SetHotkeyFromString(val);
+                RefreshWelcomeUI();
               } else if (var == "g_enableWelcome") {
                 g_enableWelcome = (val == "1");
               }

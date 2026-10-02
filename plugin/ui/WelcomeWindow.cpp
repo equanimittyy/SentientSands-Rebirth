@@ -120,9 +120,12 @@ void CreateWelcomeUI() {
   MyGUI::TextBox *instructions = client->createWidgetReal<MyGUI::TextBox>(
       "Kenshi_TextboxStandardText", 0.05f, 0.40f, 0.9f, 0.1f,
       MyGUI::Align::Top | MyGUI::Align::HStretch, "SentientSands_WelcomeKeys");
-  instructions->setCaption(
-      Utf8ToWide(T("Use [ \\ ] to Chat and [ F8 ] to open the AI Panel"))
-          .c_str());
+  std::string keysText =
+      T("Use [ {key} ] to Chat and [ F8 ] to open the AI Panel");
+  size_t keySlot = keysText.find("{key}");
+  if (keySlot != std::string::npos)
+    keysText.replace(keySlot, 5, g_chatHotkeyStr);
+  instructions->setCaption(Utf8ToWide(keysText).c_str());
   instructions->setTextAlign(MyGUI::Align::Center);
   instructions->setTextColour(MyGUI::Colour(0.6f, 1.0f, 0.6f));
 
