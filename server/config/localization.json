@@ -29,7 +29,6 @@
         "A-Z": "A-Z",
         "Fav Toggle": "Fav Toggle",
         "Select an NPC from the list to view their raw profile data.": "Select an NPC from the list to view their raw profile data.",
-        "Profile & History: ": "Profile & History: ",
         "AI PANEL": "AI PANEL",
         "Dialogue Library": "Dialogue Library",
         "World Event Log": "World Event Log",
@@ -67,8 +66,7 @@
         "Dynamic World Events Log": "Dynamic World Events Log",
         "Generate World Event": "Generate World Event",
         "Select an entry to view details.": "Select an entry to view details.",
-        "CLOSE": "CLOSE",
-        "Close": "Close"
+        "CLOSE": "CLOSE"
     },
     "Spanish": {
         "Talking to: ": "Hablando con: ",
@@ -100,7 +98,6 @@
         "A-Z": "A-Z",
         "Fav Toggle": "Alternar favorito",
         "Select an NPC from the list to view their raw profile data.": "Selecciona un NPC de la lista para ver sus datos de perfil.",
-        "Profile & History: ": "Perfil e Historial: ",
         "AI PANEL": "PANEL DE IA",
         "Dialogue Library": "Biblioteca de diálogos",
         "World Event Log": "Registro de eventos del mundo",
@@ -138,8 +135,7 @@
         "Dynamic World Events Log": "Registro de eventos dinámicos del mundo",
         "Generate World Event": "Generar evento mundial",
         "Select an entry to view details.": "Selecciona una entrada para ver los detalles.",
-        "CLOSE": "CERRAR",
-        "Close": "Cerrar"
+        "CLOSE": "CERRAR"
     },
     "French": {
         "Talking to: ": "Discussion avec : ",
@@ -171,7 +167,6 @@
         "A-Z": "A-Z",
         "Fav Toggle": "Basculer favoris",
         "Select an NPC from the list to view their raw profile data.": "Sélectionnez un PNJ dans la liste pour voir ses données de profil brutes.",
-        "Profile & History: ": "Profil & Historique : ",
         "AI PANEL": "PANNEAU IA",
         "Dialogue Library": "Bibliothèque de dialogues",
         "World Event Log": "Journal des événements du monde",
@@ -209,8 +204,7 @@
         "Dynamic World Events Log": "Journal des événements dynamiques du monde",
         "Generate World Event": "Générer un événement mondial",
         "Select an entry to view details.": "Sélectionnez une entrée pour afficher les détails.",
-        "CLOSE": "FERMER",
-        "Close": "Fermer"
+        "CLOSE": "FERMER"
     },
     "Japanese": {
         "Talking to: ": "会話相手: ",
@@ -242,7 +236,6 @@
         "A-Z": "名前順",
         "Fav Toggle": "FAV切替",
         "Select an NPC from the list to view their raw profile data.": "リストからNPCを選択してプロフィールデータを表示します。",
-        "Profile & History: ": "プロフィールと履歴: ",
         "AI PANEL": "AIパネル",
         "Dialogue Library": "会話ライブラリー",
         "World Event Log": "ワールドイベントログ",
@@ -280,8 +273,7 @@
         "Dynamic World Events Log": "動的ワールドイベントログ",
         "Generate World Event": "ワールドイベントを生成",
         "Select an entry to view details.": "エントリーを選択して詳細を表示します。",
-        "CLOSE": "閉じる",
-        "Close": "閉じる"
+        "CLOSE": "閉じる"
     },
     "Russian": {
         "Talking to: ": "Разговор с: ",
@@ -313,7 +305,6 @@
         "A-Z": "А-Я",
         "Fav Toggle": "Избранное",
         "Select an NPC from the list to view their raw profile data.": "Выберите НПС из списка для просмотра данных профиля.",
-        "Profile & History: ": "Профиль и история: ",
         "AI PANEL": "ПАНЕЛЬ ИИ",
         "Dialogue Library": "Библиотека диалогов",
         "World Event Log": "Журнал событий мира",
@@ -351,7 +342,6 @@
         "Dynamic World Events Log": "Журнал динамических событий мира",
         "Generate World Event": "Создать мировое событие",
         "Select an entry to view details.": "Выберите запись для просмотра деталей.",
-        "CLOSE": "ЗАКРЫТЬ",
-        "Close": "Закрыть"
+        "CLOSE": "ЗАКРЫТЬ"
     }
 }
