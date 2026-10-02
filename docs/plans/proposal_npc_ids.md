@@ -4,7 +4,7 @@ Status: Draft for review
 
 ## 1. Summary
 
-The campaign database keys each NPC by its name ([architecture.md](../info/architecture.md#campaign-storage)). Two NPCs with one name therefore share one profile and one dialogue history, a rename moves the row to a new key, and a world template can bind a figure profile to a game character only by name. This proposal keys each NPC by an ID that the game gives the character. The name stays only for display and for the LLM.
+The campaign database keys each NPC by its name ([architecture.md](../info/architecture.md#campaign-storage)). Two NPCs with one name therefore share one profile and one dialogue history, a rename moves the row to a new key, and a world template can bind a canon character to a game character only by name. This proposal keys each NPC by an ID that the game gives the character. The name stays only for display and for the LLM.
 
 Non-goals:
 
@@ -28,13 +28,13 @@ Non-goals:
 | A unique NPC, for example Beep | `u:<stringID>` | `npc->data->stringID`, the ID of the character's template in the game data |
 | Every other character, the player's squad included | `h:<handle>` | `npc->getHandle().toString()` |
 
-- A unique NPC has the same ID in every save and every campaign. A figure profile of a world template therefore binds to the game character by ID, not by name ([section 7](#7-world-templates)).
+- A unique NPC has the same ID in every save and every campaign. A canon character of a world template therefore binds to the game character by ID, not by name ([section 7](#7-world-templates)).
 - Many generic NPCs share one template, so a generic NPC has no template ID of its own. Its handle is unique in a save.
 - The plugin builds the ID, because only the plugin sees the game objects. The server treats the ID as an opaque string.
 
 ## 4. Data model
 
-- `npc.storage_id` becomes `npc.npc_id`. It holds the ID of section 3 unchanged, with no sanitizing, and it does not ignore case.
+- The `npc` table becomes the character store, `character`, keyed by `npc_id` ([proposal_data_layers.md](proposal_data_layers.md#5-data-model)). `npc_id` holds the ID of section 3 unchanged, with no sanitizing, and it does not ignore case. A player character is a row like any NPC.
 - The name is only the `Name` key of the profile, so two NPCs with one name keep two rows.
 - A rename changes only `Name`. `campaign_db.rename_npc` goes away.
 - The change raises the schema version.
@@ -53,9 +53,9 @@ The LLM names each speaker by name, for example `Beep: Hello`. The server maps a
 
 ## 7. World templates
 
-- A figure file of a world template gets the key `game_id`, which holds the `stringID` of the character's template.
-- The loader inserts the figure profile into `npc` under `u:<game_id>`, so the profile binds to the game character even when the player renames it.
-- A figure without `game_id` has no profile in `npc`. Its entity is still found by name and alias, as in [proposal_data_layers.md](proposal_data_layers.md#5-data-model).
+- A canon character file of a world template, `characters/<id>.json`, holds `game_id`: the `stringID` of the character's template.
+- The loader copies the canon profile into the character store under `u:<game_id>`, so the profile binds to the game character even when the player renames it.
+- The validator rejects a character file without `game_id`, because its profile could not bind to a game character. Lore about a person whom the game does not have belongs in the world lore entities ([proposal_data_layers.md](proposal_data_layers.md#3-world-template-format)).
 
 ## 8. Acceptance criteria
 
@@ -67,12 +67,12 @@ The LLM names each speaker by name, for example `Beep: Hello`. The server maps a
 
 ## 9. Not yet verified
 
-Each chat message writes one `ID_PROBE` line for the target NPC to `SentientSands_SDK.log` (`LogNpcIdentity` in `plugin/game/Context.cpp`). The line holds the name, the handle text, the serial, the instance ID, the layout instance ID, the template `stringID` and name, and the faction. Compare the lines of one NPC before and after a save and a load, a recruit, a change of the mod list, and a reload of its town. A change of the mod list needs a restart of the game, which moves the earlier lines to `SentientSands_SDK.old.log`.
+The `ID_PROBE` line answers the questions about the game ([development.md](../info/development.md#probes)).
 
 - Whether `hand::toString()` gives the same text after a save and a load. Kenshi stores handles in its save files.
 - Whether the instance ID gives the same text after a save and a load. If it does, it can replace the handle as the ID of a generic NPC.
 - Whether a generic NPC has a layout instance ID (`getLayoutInstanceID`), and whether it gives the same text after a save and a load.
-- Which game data field marks the template of a unique character, and whether `npc->data` is that template.
+- Whether `Character::isUnique` marks exactly the unique characters, so that the plugin can choose between `u:` and `h:`, and whether `npc->data` is the template of a unique character.
 - Whether a recruited NPC keeps its handle when it joins the player's faction.
 - Whether a template `stringID` stays the same when the player changes the mod list.
 - Whether a generic NPC that the game unloads and loads again, for example a town guard, keeps its handle.

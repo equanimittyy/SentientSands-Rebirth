@@ -4,9 +4,9 @@ Status: Draft for review
 
 ## 1. Summary
 
-The web app ([architecture.md](../info/architecture.md#web-app)) holds the gameplay settings, the LLM routing, and the player profile. This proposal adds domain editors for the campaign database ([architecture.md](../info/architecture.md#campaign-storage)) and the world templates from [proposal_data_layers.md](proposal_data_layers.md).
+The web app ([architecture.md](../info/architecture.md#web-app)) holds the gameplay settings, the LLM routing, the prompts, and the player profile. This proposal adds domain editors for the campaign database ([architecture.md](../info/architecture.md#campaign-storage)) and the world templates from [proposal_data_layers.md](proposal_data_layers.md).
 
-The NPCs and World events pages need only the campaign database, which exists. The Templates page depends on phase 3 of the data layers proposal, and the Entities page on phase 5. The Player profile page already exists. It keeps only the player faction description, and the NPCs page edits the profiles of the player characters ([data layers proposal, section 6.1](proposal_data_layers.md#61-player-characters)).
+The World events page needs only the campaign database, which exists. The Factions page depends on phase 1 of the data layers proposal, the Characters page on phase 2, the Templates page on phase 3, and the Entities page on phase 5. The Player profile page goes away: the Factions page edits the player's faction ([data layers proposal, section 6.2](proposal_data_layers.md#62-factions)), and the Characters page edits the bio of each player character ([section 6.1](proposal_data_layers.md#61-player-characters)).
 
 ## 2. Scope
 
@@ -15,8 +15,9 @@ The editor works on the user world templates and the active campaign database. C
 | Page | Edits |
 |---|---|
 | Templates | List, import, export, duplicate, and delete world templates. Create a campaign from a template. Show the authors and credits before an import. |
-| Entities | Search and filter by category. Fields, prose, aliases, children with weights, access rules, and figure profiles. |
-| NPCs | Profile, dialogue history, and stats of the active campaign, for NPCs and player characters. |
+| Entities | Search and filter the world lore by category. Fields, prose, aliases, children with weights, and access rules. |
+| Factions | The factions of the active campaign, the player's faction included: name, aliases, major flag, fields, and description. A faction that came from the template is marked. |
+| Characters | Profile, dialogue history, and favorite of each character of the active campaign, NPCs and player characters alike. |
 | World events | The event history and the rumors of the active campaign. |
 
 Non-goals:
@@ -36,7 +37,9 @@ Non-goals:
 
 | Depends on | Criteria |
 |---|---|
-| Campaign storage | An NPC profile edit appears in the next chat prompt for that NPC. A stale save is rejected. |
+| Campaign storage | An edited rumor appears in the next chat prompt. A stale save is rejected. |
+| Data layers phase 1 | A faction description edit appears in the next prompt of an NPC of that faction. |
+| Data layers phase 2 | A character profile edit appears in the next chat prompt for that character. |
 | Data layers phase 3 | A template exported from the page imports on another install with the same content. |
 | Data layers phase 5 | An entity edit in a campaign appears in the next prompt that retrieves it. A search finds a renamed entity. |
 

@@ -8,14 +8,14 @@ The server mixes player settings, world lore, and play state. For example, the V
 
 - **App data** ships with the release as defaults, and each update replaces it. A player can override each system prompt. The override survives an update, and a reset restores the shipped default.
 - **Settings** belong to the player. Both the gameplay settings and the LLM configuration get a reset to the shipped defaults.
-- **World templates** describe a world: entities, a lore timeline, figure profiles, and an overview. The release ships a Vanilla Kenshi template. Players export and import templates to share worlds for modded playthroughs, with custom factions and figures.
-- **Campaigns** hold one playthrough. Each campaign starts as a copy of a world template, and then only play changes it.
+- **World templates** describe a world: canon factions, canon characters, world lore entities, a lore timeline, and an overview. The release ships a Vanilla Kenshi template. Players export and import templates to share worlds for modded playthroughs, with custom factions and characters.
+- **Campaigns** hold one playthrough in three stores: characters, factions, and world lore. Each campaign starts as a copy of a world template, and then only play and the player's edits change it.
 
-The proposal builds on the campaign database ([architecture.md](../info/architecture.md#campaign-storage)). The C++ plugin changes only for the speaker picker in the chat window ([section 6.1](#61-player-characters)). [proposal_web_app.md](proposal_web_app.md) adds the browser pages for templates and entities.
+The proposal builds on the campaign database ([architecture.md](../info/architecture.md#campaign-storage)). The C++ plugin changes only for the speaker picker in the chat window ([section 6.1](#61-player-characters)) and for the game IDs of [proposal_npc_ids.md](proposal_npc_ids.md). [proposal_web_app.md](proposal_web_app.md) adds the browser pages for templates, factions, characters, and entities.
 
 Non-goals:
 
-- Changes to the C++ plugin other than the speaker picker.
+- Changes to the C++ plugin other than the speaker picker and the game IDs.
 - Kayak's prompt token system, its economy support, and its HTTP API on port 5001.
 - Export to Kayak's folder format. The Kayak converter is one-way.
 - Starting rumors and pre-written dialogue in templates.
@@ -28,17 +28,18 @@ Non-goals:
 |---|---|---|---|---|
 | App data | System prompts; UI translations, name pools, default LLM providers and models | Defaults in `server/prompts/` and `server/config/`; prompt overrides in `server/user/prompts/` | Defaults replaced; overrides kept | Shipped files, with a reset for prompts |
 | Settings | Gameplay settings; LLM providers, profiles, routes, and API keys | `SentientSands_Config.ini` in the mod root; `server/user/llm_config.json` | Kept | Shipped defaults, with a reset |
-| World templates | Entities, lore timeline, figure profiles, overview | `server/world_templates/vanilla_kenshi/`; `server/user/world_templates/<name>/` | Vanilla replaced; user templates kept | Vanilla Kenshi |
-| Campaigns | NPC and player character profiles, dialogue, events, rumors, favorites, the player faction description, the copied template knowledge, logs | `server/campaigns/<name>/` | Kept | Created from a template |
+| World templates | Canon factions, canon characters, world lore entities, lore timeline, overview | `server/world_templates/vanilla_kenshi/`; `server/user/world_templates/<name>/` | Vanilla replaced; user templates kept | Vanilla Kenshi |
+| Campaigns | The character store (NPCs and player characters, with dialogue and favorites), the faction store (the player's faction included), the copied world lore, events, rumors, logs | `server/campaigns/<name>/` | Kept | Created from a template |
 
 The INI stays in the mod root, because the plugin reads it from there at start ([architecture.md](../info/architecture.md#settings)).
 
-Four pieces of data move to their class:
+Five pieces of data move to their class:
 
 | Data | From | To | Reason |
 |---|---|---|---|
-| Player bio | `character_bio.txt` in each campaign | The profile of the speaking player character in `npc` | Each squad member has a bio of its own ([section 6.1](#61-player-characters)). |
-| Player faction description | `player_faction_description.txt` in each campaign | `meta` in the campaign database | It is play state, and prompts are no longer campaign-specific ([section 6.2](#62-player-faction-description)). |
+| Player bio | `character_bio.txt` in each campaign | The profile of the speaking player character in the character store | Each squad member has a bio of its own ([section 6.1](#61-player-characters)). |
+| Player faction description | `player_faction_description.txt` in each campaign | The player's faction in the faction store | The player's faction is a faction like any other ([section 6.2](#62-factions)). |
+| Faction lore | `FACTION_METADATA` and `MAJOR_FACTIONS` in `kenshi_llm_server.py` | `factions/` of the vanilla template | A modded world must be able to replace it, and a campaign must be able to edit its copy. |
 | World lore | `server/prompts/world_lore.txt` | `overview.txt` of the vanilla template | It describes the world, so a modded template must be able to replace it. |
 | Retrieval limits | Kayak's `core_config.txt` | The INI | They tune the server, not the world. |
 
@@ -51,8 +52,10 @@ A world template is a folder of JSON and text files. A shared template is the sa
   manifest.json          format version, name, version, authors, credits
   overview.txt           lore that goes into every prompt
   history.json           the lore timeline, in order
+  factions/<id>.json     canon factions, copied into the faction store
+  characters/<id>.json   canon characters, copied into the character store
   entities/
-    <category>/<id>.json
+    <category>/<id>.json world lore: locations, items, races, ...
   *.md, *.txt            licence and credit files, optional
 ```
 
@@ -68,30 +71,42 @@ A world template is a folder of JSON and text files. A shared template is the sa
 }
 ```
 
-An entity file, `entities/factions/holy_nation.json`:
+A faction file, `factions/holy_nation.json`:
 
 ```json
 {
+  "game_id": "<the faction's string ID in the game data>",
   "name": "Holy Nation",
   "aliases": ["Okran's faithful"],
-  "weight": 1,
+  "major": true,
   "fields": {"leader": "Phoenix", "capital": "Blister Hill"},
-  "prose": {"description": "A theocracy that worships Okran..."},
-  "children": [{"name": "Phoenix", "weight": 2}],
-  "access": []
+  "description": "A theocracy that worships Okran..."
 }
 ```
 
-A figure file, `entities/figures/<id>.json`, can also hold a `profile`:
+A character file, `characters/beep.json`:
 
 ```json
 {
-  "name": "...",
-  "fields": {"faction": "..."},
+  "game_id": "<the string ID of the character's template in the game data>",
   "profile": {
-    "Race": "...", "Sex": "...", "Faction": "...", "Job": "...",
+    "Name": "Beep", "Race": "...", "Sex": "...", "Faction": "...", "Job": "...",
     "Personality": "...", "Backstory": "...", "SpeechQuirks": "..."
   }
+}
+```
+
+A world lore entity file, `entities/locations/blister_hill.json`:
+
+```json
+{
+  "name": "Blister Hill",
+  "aliases": [],
+  "weight": 1,
+  "fields": {"owner": "Holy Nation"},
+  "prose": {"description": "The capital of the Holy Nation..."},
+  "children": [{"name": "...", "weight": 2}],
+  "access": []
 }
 ```
 
@@ -104,12 +119,13 @@ A figure file, `entities/figures/<id>.json`, can also hold a `profile`:
 ]
 ```
 
+- A faction and a canon character bind to the game by `game_id`, not by name, so a rename in the game does not break the link ([proposal_npc_ids.md](proposal_npc_ids.md#7-world-templates)). `major` marks a major world power, whose members resist recruitment.
+- The keys of a character's `profile` are the keys of a profile in the character store ([architecture.md](../info/architecture.md#campaign-storage)). Chat uses the canon profile instead of generating one.
 - The entity ID is the file name without `.json`. The category is the folder name. A modded template can add a category.
 - The values in `fields` feed link expansion. The values in `prose` are retrieved text and never feed link expansion, the same as Kayak's `$` fields.
 - `children` are weighted links to other entities by name. `access` holds the rules that decide which NPCs know the entity. The converter sets its schema when it parses Kayak's `[RULE]` blocks ([section 10](#not-yet-verified)).
-- Only a `figures` entity can hold a `profile`. Its keys are the keys of an NPC profile in the campaign database ([architecture.md](../info/architecture.md#campaign-storage)). Chat uses this profile instead of generating one.
 - The order of `history.json` is the timeline order. The loader stores each entry as an entity of category `history`, so retrieval finds it like any entity.
-- One validator runs on each load, import, and edit. It rejects an unknown `format_version`, a JSON file that does not parse, an entity without `name`, and a `profile` outside `figures`. A child that names no entity is a warning, not an error.
+- One validator runs on each load, import, and edit. It rejects an unknown `format_version`, a JSON file that does not parse, a faction or an entity without `name`, a faction or a character without `game_id`, and a character without a `Name` in its profile. A child that names no entity is a warning, not an error.
 
 ## 4. Templates on disk
 
@@ -139,12 +155,37 @@ An imported zip comes from another player, so the import treats it as untrusted:
 
 ## 5. Data model
 
-The knowledge tables are version 2 of the campaign schema that `campaign_db.py` owns. Illustrative schema:
+Version 2 of the campaign schema that `campaign_db.py` owns has three separate stores: characters, factions, and world lore. Illustrative schema:
 
 ```sql
+-- The character store: NPCs and player characters have one shape.
+CREATE TABLE character (
+  id         INTEGER PRIMARY KEY,
+  npc_id     TEXT NOT NULL UNIQUE,  -- the game ID of proposal_npc_ids.md
+  profile    TEXT NOT NULL,         -- JSON: Name, Race, Sex, Faction, Job, Personality, ...
+  origin     TEXT NOT NULL DEFAULT 'campaign',  -- template | campaign
+  favorite   INTEGER NOT NULL DEFAULT 0,
+  updated_at TEXT NOT NULL
+);
+
+-- The faction store: the template's factions, the player's faction, and factions met in play.
+CREATE TABLE faction (
+  id          INTEGER PRIMARY KEY,
+  faction_id  TEXT NOT NULL UNIQUE,  -- the faction's string ID in the game data
+  name        TEXT NOT NULL,
+  aliases     TEXT NOT NULL DEFAULT '[]',  -- JSON list
+  major       INTEGER NOT NULL DEFAULT 0,
+  fields      TEXT NOT NULL DEFAULT '{}',  -- JSON object, for example the leader
+  description TEXT NOT NULL DEFAULT '',
+  is_player   INTEGER NOT NULL DEFAULT 0,
+  origin      TEXT NOT NULL DEFAULT 'campaign',  -- template | campaign
+  updated_at  TEXT NOT NULL
+);
+
+-- The world lore: retrieval searches only these tables.
 CREATE TABLE entity (
   id         INTEGER PRIMARY KEY,
-  category   TEXT NOT NULL,      -- factions, figures, locations, items, races, history, ...
+  category   TEXT NOT NULL,      -- locations, items, races, history, ...
   ext_id     TEXT NOT NULL,      -- the entity ID in the template
   name       TEXT NOT NULL,
   weight     REAL NOT NULL DEFAULT 1,
@@ -197,15 +238,15 @@ CREATE VIRTUAL TABLE entity_fts USING fts5(
 ```
 
 - `meta` holds the overview and the name, version, and content hash of the template that the campaign came from.
-- The loader inserts the figure profiles into `npc` with `INSERT OR IGNORE`. A profile that the campaign already has, with its dialogue, stays.
-- Generated NPCs stay in `npc` and do not become entities. If they did, every generated NPC would enter FTS and link expansion, and retrieval would return generated NPCs in place of lore.
-- `npc` does not reference `entity`. When the player talks to a figure, the retriever finds its entity by name or alias.
+- The dialogue rows reference `character`, as they reference `npc` today.
+- Characters and factions are not world lore entities. Retrieval searches only the lore, so the many generated NPCs cannot crowd lore out of a prompt.
+- Rejected: one table for characters, factions, and lore, with a flag that keeps generated characters out of retrieval. The three stores have different keys and different editors, and only the lore needs links, children, and access rules.
 - `updated_at` lets the web app reject a stale save ([proposal_web_app.md](proposal_web_app.md#3-consistency)).
 
 ## 6. Campaign model
 
 - `POST /campaigns/create` takes an optional `template`, and uses Vanilla Kenshi without one. The in-game Campaign Manager sends no template, so the plugin does not change. The web app's Templates page creates a campaign from any template.
-- The server loads the template into the new campaign database in one transaction: the entities with their fields, aliases, children, and access rules, the history entries, the links, the FTS index, the figure profiles, and the overview.
+- The server loads the template into the new campaign database in one transaction: the canon factions into the faction store, the canon characters into the character store under `u:<game_id>`, the lore entities with their fields, aliases, children, and access rules, the history entries, the links, the FTS index, and the overview.
 - After creation, the campaign does not depend on its template. A template edit, a new template version, or a deleted template does not change the campaign.
 - A campaign database of an earlier schema version is not upgraded. `open_campaign` refuses it and logs that the player must start a new campaign.
 - The prompt takes the overview from `meta`.
@@ -220,16 +261,22 @@ The player picks which squad member speaks in a chat. Today the speaker is alway
 - The chat window gets a drop-down of the members of the current squad (`PlayerInterface::getCurrentPlatoon`). The talk target is not in the list.
 - The drop-down starts on the last speaker if that character is still in the current squad, else on the first member of the current squad. The plugin keeps the last speaker in memory, so a new game session starts on the first member.
 - The chat request names the speaker in its `player` field, as today (`plugin/ui/ChatWindow.cpp:377`). It also carries the speaker's context from `GetDetailedContext(speaker, "player")`. The prompt then shows the race, gender, status, and equipment of the speaker, not those of squad slot 1 in `PLAYER_CONTEXT` (`plugin/main.cpp:1247`).
-- The bio is the `Personality`, `Backstory`, and `SpeechQuirks` of the speaker's profile in `npc`. A speaker with no profile gets one from the `profile` task, as an NPC does (`get_character_data`). A squad member that the player recruited as an NPC keeps its profile and its dialogue.
-- The NPCs page of the web app edits the profile of a player character like any other profile ([proposal_web_app.md](proposal_web_app.md)).
+- The bio is the `Personality`, `Backstory`, and `SpeechQuirks` of the speaker's profile in the character store. A speaker with no profile gets one from the `profile` task, as an NPC does (`get_character_data`). A squad member that the player recruited as an NPC keeps its profile and its dialogue.
+- The Characters page of the web app edits the profile of a player character like any other profile ([proposal_web_app.md](proposal_web_app.md)).
 - Ambient banter does not change. It still names squad slot 1 as the player.
-- The `character_bio.txt` of an existing campaign is not read and not migrated. The shipped `character_bio.txt` is deleted, and a new campaign no longer gets a copy.
+- The shipped `character_bio.txt` is deleted, and a new campaign no longer gets a copy.
 
-### 6.2 Player faction description
+### 6.2 Factions
 
-- The description is the `meta` key `player_faction_description` in the campaign database. A new campaign has none, and the prompt then leaves out the faction block, as `build_system_prompt` does today for an empty file.
-- The Player profile page edits only this description. `POST /player_profile` keeps its 409 check ([architecture.md](../info/architecture.md#web-app)), because the player can switch the campaign while the page is open.
-- The `player_faction_description.txt` of an existing campaign is not read and not migrated. The shipped `player_faction_description.txt` is deleted, and a new campaign no longer gets a copy.
+Each campaign holds its own copy of the factions, and the player edits that copy. `FACTION_METADATA` and `MAJOR_FACTIONS` leave the code.
+
+- The prompt describes a faction from the faction store: its name, its fields, and its description. The server finds a faction by its ID, or by name or alias when only a name is known, for example the origin faction of an NPC.
+- The loyalty note for members of a major world power reads the `major` flag.
+- A faction that the game reports and the store lacks gets a row with the name that the game gives and an empty description, so the player can describe a modded or minor faction.
+- The player's faction is the row whose `faction_id` is the faction ID of the player's context. It gets `is_player` when the server first sees it. Its name follows the game, because the player can rename the faction in game.
+- The description of the player's faction replaces `player_faction_description.txt`. An empty description leaves the faction block out of the prompt, as `build_system_prompt` does today for an empty file.
+- The Factions page of the web app edits each faction of the active campaign, the player's included ([proposal_web_app.md](proposal_web_app.md)). The Player profile page goes away.
+- The shipped `player_faction_description.txt` is deleted, and a new campaign no longer gets a copy.
 
 ## 7. Vanilla Kenshi template
 
@@ -237,7 +284,7 @@ The vanilla template is a conversion of Kayak's English `KayakDB/Template` (405 
 
 - `scripts/convert_kayak.py` is a development tool, not part of the release. It converts a Kayak template folder into a world template folder, and reports each field that it drops.
 - The converted template is committed under `server/world_templates/vanilla_kenshi/`. For a newer Kayak release, the converter runs again on a branch, and git merges the result with the local fixes.
-- `overview.txt` starts as today's `world_lore.txt`.
+- `overview.txt` starts as today's `world_lore.txt`. Until the conversion, the vanilla template holds only `overview.txt` and the factions of `FACTION_METADATA` and `MAJOR_FACTIONS`.
 - The import source is the official English Kayak release. The inspected copy came from a Russian fork and has Russian `display_name` values.
 
 | Kayak | World template |
@@ -250,7 +297,8 @@ The vanilla template is a conversion of Kayak's English `KayakDB/Template` (405 
 | `id`, `persistent_id`, `runtime_id` | The file name comes from `id`. The other two are dropped ([section 10](#not-yet-verified)). |
 | `who_knows_me.txt` `[RULE]` blocks | `access` |
 | `define_children.txt` `W = <weight> <name>` lines | `children` |
-| The unique NPC category | `figures`. The Kayak fields that match profile keys fill `profile`. |
+| The faction category | `factions/` |
+| The unique NPC category | `characters/`. The Kayak fields that match profile keys fill `profile`. |
 | World lore entries | `history.json`, in Kayak's order |
 | `IGN_` files, `ph_` prompt files, runtime files, comments | Skipped |
 | `core_config.txt` retrieval limits | The INI defaults |
@@ -310,13 +358,13 @@ Known differences to handle: Kayak uses its own stemming (`stem_key`) and tokeni
 | Phase | Deliverable | Acceptance criteria |
 |---|---|---|
 | 0. Prep | README credit section; the official English Kayak release | Attribution text in place; source release chosen |
-| 1. Player characters | The speaker picker; the player faction description in `meta`; tests | A chat uses the bio and context of the picked speaker; a speaker with no profile gets a generated one; the Player profile page edits the faction description in `meta` |
-| 2. Templates and campaigns | `world_template.py`; a vanilla template with only `overview.txt`; campaign creation from a template | New campaigns build the same prompts as today |
+| 1. Templates and factions | `world_template.py` with the validator and the loader for the overview and the factions; a vanilla template with `overview.txt` and the factions; the faction store; campaign creation from a template; the Factions page; tests | A new campaign holds the vanilla factions; a faction edit appears in the next prompt of an NPC of that faction; a faction that the template lacks gets a row when the game first reports it; the player's faction description is edited on the Factions page; `FACTION_METADATA` and `MAJOR_FACTIONS` are gone from the code |
+| 2. Characters | The character store keyed by game ID ([proposal_npc_ids.md](proposal_npc_ids.md)); canon characters from the template; the speaker picker; the Characters page; tests | The acceptance criteria of the NPC ID proposal; a canon character file gives that NPC its canon profile in a new campaign; a chat uses the bio and context of the picked speaker; a speaker with no profile gets a generated one |
 | 3. Import and export | The template routes; the Templates page | A template exported from one install imports on another with the same files; each unsafe zip in the tests is rejected |
 | 4. Vanilla content | `convert_kayak.py`; the converted template; the licence review | All 405 entities convert; the converter lists each dropped field |
 | 5. Retrieval | `knowledge_retrieve.py`; the prompt wiring; the INI limits | Retrieval matches Kayak on a fixed set of queries within documented differences; chat prompts include the retrieved entities |
 
-Import and export come before the vanilla content, so modded templates do not wait for the licence review.
+Phase 2 waits for the in-game checks of the NPC IDs ([proposal_npc_ids.md](proposal_npc_ids.md#9-not-yet-verified)). Import and export come before the vanilla content, so modded templates do not wait for the licence review.
 
 Tests:
 
@@ -334,14 +382,15 @@ Tests:
 - The official English template and release were not inspected, only the Russian fork's copy.
 - The official `Starswimmer/Kayak` repository contained only a README and a licence when checked, so Kayak's server code was read from the Russian fork's bundle, which can include that author's changes.
 - The licence of the Kenshi wiki text that the lore entries paraphrase.
-- FTS5 in the embedded Windows Python runtime. The dev container's SQLite has it, but the Windows build was not checked.
-- The KenshiLib calls for the current squad and its members (`PlayerInterface::getCurrentPlatoon`, `Character::getPlatoon`). The headers declare them, but no plugin code uses them yet.
+- FTS5 in the embedded Windows Python runtime. The dev container's SQLite has it, but the Windows build was not checked. [development.md](../info/development.md#probes) has the check.
+- The game string IDs of the vanilla factions, which the faction files of the vanilla template need. The `FACTION_PROBE` line lists them ([development.md](../info/development.md#probes)). Whether these IDs stay the same when the player changes the mod list.
+- The KenshiLib calls for the current squad and its members (`PlayerInterface::getCurrentPlatoon`, `Character::getPlatoon`). The `SQUAD_PROBE` line checks them ([development.md](../info/development.md#probes)).
 
 ## 11. Risks
 
 | Risk | Impact | Mitigation |
 |---|---|---|
-| Lore licensing | The vanilla content cannot ship | Phases 1 to 3 do not depend on it; the vanilla template ships with only its overview until the review passes |
+| Lore licensing | The vanilla content cannot ship | Phases 1 to 3 do not depend on it; the vanilla template ships with only its overview and factions until the review passes |
 | A shared template carries text that steers the LLM | NPCs act against the player's intent, for example through action tags | The same trust as a Kenshi mod; the Templates page shows the authors and credits before an import |
 | An unsafe zip | Files written outside the template folder, or a full disk | The import checks in section 4 |
 | Attribution lost in a derived template | Licence non-compliance | A duplicate keeps the credits and the licence files; an export includes them |
@@ -353,6 +402,7 @@ Tests:
 1. Should the name pools (`names.json`, `generic_names.json`) be customizable? The options are a player override, as for the system prompts, or a part of each world template, so that a modded template can add its own generic NPC types and names.
 2. Should an existing campaign be able to take a newer version of its template, and how does that merge with `origin = 'campaign'` changes?
 3. Should the release include the Kayak converter, so that players can convert Kayak content packs?
+4. Should retrieval also search the faction and character stores, so that a question about the Holy Nation or Beep brings their records into the prompt? Should a lore field, such as the owner of a town, link to a faction?
 
 ## 13. References
 
