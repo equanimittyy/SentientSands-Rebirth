@@ -19,6 +19,10 @@ function setValue(input, value) {
 
 const snapshot = () => Object.fromEntries(fields().map((input) => [input.name, valueOf(input)]));
 
+function fillFields(values) {
+  for (const input of fields()) setValue(input, input.name.split(".").reduce((object, key) => object?.[key], values));
+}
+
 function fillOptions(select, values) {
   select.replaceChildren(...values.map((value) => new Option(value, value)));
 }
@@ -59,15 +63,23 @@ async function save(event) {
   }
 }
 
+async function resetToDefaults() {
+  try {
+    fillFields(await getJson("/settings/defaults"));
+    fields().forEach(checkField);
+    updateUnsaved();
+  } catch (error) {
+    showMessage(message, `Could not load the defaults: ${error.message}`, true);
+  }
+}
+
 export async function loadSettings() {
   try {
     const settings = await getJson("/settings");
     fillOptions(form.elements.language, settings.supported_languages);
     fillOptions(form.elements.chat_hotkey, settings.chat_hotkeys);
     fillOptions(form.elements.log_level, settings.log_levels);
-    for (const input of fields()) {
-      setValue(input, input.name.split(".").reduce((object, key) => object?.[key], settings));
-    }
+    fillFields(settings);
     saved = snapshot();
     fields().forEach(checkField);
     reportUnsaved(form, false);
@@ -80,6 +92,7 @@ export async function loadSettings() {
 }
 
 form.addEventListener("submit", save);
+document.getElementById("settings-reset").addEventListener("click", resetToDefaults);
 form.addEventListener("input", (event) => {
   checkField(event.target);
   updateUnsaved();

@@ -46,9 +46,6 @@ Four pieces of data move to their class:
 
 ### 3.1 Gameplay settings
 
-- The defaults move from inside `load_settings` (`kenshi_llm_server.py:777`) to a module-level `SETTINGS_DEFAULTS`, so the load and the reset use one table.
-- `POST /settings/reset` sets each key of `SETTINGS_DEFAULTS` except `current_campaign`. It then runs the save path of `POST /settings`: it writes the INI, sends each value that the plugin holds through `SET_CONFIG`, and sends `APPLY_TRANSLATION` if the language changes.
-- The Settings page gets a "Reset to defaults" button with a confirmation.
 - When the server starts, it sends each value that the plugin holds through `SET_CONFIG`. The values of `SETTINGS_DEFAULTS` then win over the defaults of the plugin's `LoadPluginConfig`, which apply only until the server starts ([architecture.md](../info/architecture.md#settings)).
 - `OpenWebPanelOnStart` is the exception, because the plugin reads it before it starts the server. Its default in `LoadPluginConfig` must still agree with `SETTINGS_DEFAULTS`.
 
@@ -56,7 +53,7 @@ Four pieces of data move to their class:
 
 - `POST /api/llm/reset` builds a configuration with `default_llm_config` (`kenshi_llm_server.py:1049`), which also builds the file on a first start. It saves with `llm_config.save`, which replaces the file in one step.
 - The reset keeps the stored API key of each provider whose name is in the defaults. The placeholder keys in `default_providers.json`, for example `YOUR_OPENROUTER_KEY`, never replace a stored key. `with_stored_keys` alone does not do this, because it keeps a stored key only when the new key is empty.
-- The reset removes the providers and profiles that the player added, with their keys. The confirmation on the LLM page says so.
+- The reset removes the providers and profiles that the player added, with their keys. The confirmation on the Models page says so.
 
 ### 3.3 System prompts
 

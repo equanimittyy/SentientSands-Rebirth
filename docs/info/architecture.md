@@ -61,7 +61,7 @@ The server serves `server/web/` at `/` and `/web/<file>`. The files are plain HT
 
 | Page | Route | Storage |
 |---|---|---|
-| Settings | `/settings` | `SentientSands_Config.ini` |
+| Settings | `/settings`, `/settings/defaults` | `SentientSands_Config.ini` |
 | Models | `/api/llm`, `/api/llm/test`, `/api/llm/models` | `server/user/llm_config.json` |
 | Player profile | `/player_profile` | `character_bio.txt` and `player_faction_description.txt` in the active campaign |
 
@@ -81,9 +81,11 @@ The player can switch the campaign in game while the web app is open. The poll s
 
 The server is the only writer of `SentientSands_Config.ini`. The plugin reads the INI once at start, because it starts before the server. After that, it takes changes only through `SET_CONFIG` on the pipe. Two writers with no lock between them would undo each other's changes.
 
-The release does not ship the INI, so an update keeps the player's settings. On the first start, the plugin reads no INI and uses the defaults in `LoadPluginConfig` (`plugin/core/Utils.cpp`). The server then writes the INI with the defaults in `load_settings` (`server/scripts/kenshi_llm_server.py`). These two sets of defaults must agree, or the plugin and the server start with different values.
+The release does not ship the INI, so an update keeps the player's settings. On the first start, the plugin reads no INI and uses the defaults in `LoadPluginConfig` (`plugin/core/Utils.cpp`). The server then writes the INI with `SETTINGS_DEFAULTS` (`server/scripts/kenshi_llm_server.py`). These two sets of defaults must agree, or the plugin and the server start with different values.
 
 The web app's Settings page posts its changes to `/settings`. The server writes the INI and sends each value that the plugin holds through `SET_CONFIG`. A language change sends the new translation table through the pipe as `APPLY_TRANSLATION`.
+
+**Reset to defaults** on the Settings page reads `GET /settings/defaults` and fills the form without a save, so the player can review the values before the usual save sends them. The defaults have a route of their own and are not part of the `/settings` reply. The plugin reads that reply by searching for the first match of each key (`GetJsonValue` in `plugin/core/Utils.cpp`), so a nested copy of the same keys could give it a default instead of the setting.
 
 The plugin re-creates its pipe instance after each message, so a message sent immediately after another can find no instance. `send_to_pipe` retries for 0.25 s for this reason. When the game does not run, each message therefore costs 0.25 s.
 

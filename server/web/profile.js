@@ -9,6 +9,10 @@ export const profileCampaign = () => campaign;
 
 const texts = () => ({ character_bio: form.elements.character_bio.value, player_faction: form.elements.player_faction.value });
 
+function showLengths() {
+  for (const textarea of form.querySelectorAll("textarea")) textarea.closest("label").querySelector(".length").textContent = `${textarea.value.length} characters`;
+}
+
 function updateUnsaved() {
   const current = texts();
   const unsaved = Object.keys(current).some((name) => current[name] !== saved[name]);
@@ -35,6 +39,7 @@ export async function loadProfile() {
     form.elements.character_bio.value = profile.character_bio;
     form.elements.player_faction.value = profile.player_faction;
     saved = texts();
+    showLengths();
     reportUnsaved(form, false);
     const switched = campaign !== null && campaign !== profile.campaign;
     showMessage(message, switched ? `The active campaign changed to ${profile.campaign}, so this page now shows its profile.` : "");
@@ -47,4 +52,7 @@ export async function loadProfile() {
 }
 
 form.addEventListener("submit", save);
-form.addEventListener("input", updateUnsaved);
+form.addEventListener("input", () => {
+  showLengths();
+  updateUnsaved();
+});

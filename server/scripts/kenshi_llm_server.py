@@ -738,44 +738,44 @@ def _save_settings_raw(settings):
     except Exception as e:
         logging.error(f"SETTINGS: Cannot save the INI at {INI_PATH}: {e}")
 
+SETTINGS_DEFAULTS = {
+    "current_campaign": "Default",
+    "enable_ambient": True,
+    "radiant_delay": 240,
+    "global_events_count": 10,
+    "synthesis_interval_minutes": 5,
+    "radiant_range": 100,
+    "talk_radius": 100,
+    "yell_radius": 200,
+    "enable_welcome": True,
+    "dialogue_speed_seconds": 5,
+    "bubble_life": 5.0,
+    "language": "English",
+    "chat_hotkey": "\\",
+    "open_web_panel_on_start": True,
+    "log_level": log_setup.DEFAULT_LEVEL
+}
+
 def load_settings():
-    defaults = {
-        "current_campaign": "Default",
-        "enable_ambient": True,
-        "radiant_delay": 240,
-        "global_events_count": 10,
-        "synthesis_interval_minutes": 5,
-        "radiant_range": 100,
-        "talk_radius": 100,
-        "yell_radius": 200,
-        "enable_welcome": True,
-        "dialogue_speed_seconds": 5,
-        "bubble_life": 5.0,
-        "language": "English",
-        "chat_hotkey": "\\",
-        "open_web_panel_on_start": True,
-        "log_level": log_setup.DEFAULT_LEVEL
-    }
-    
-    settings = defaults.copy()
+    settings = SETTINGS_DEFAULTS.copy()
     if os.path.exists(INI_PATH):
         try:
             config = configparser.ConfigParser()
             config.read(INI_PATH)
             if 'Settings' in config:
-                for k in defaults.keys():
+                for k in SETTINGS_DEFAULTS.keys():
                     ini_key = INI_KEY_MAP.get(k)
                     if ini_key and ini_key in config['Settings']:
                         val = config['Settings'][ini_key]
-                        if isinstance(defaults[k], bool):
+                        if isinstance(SETTINGS_DEFAULTS[k], bool):
                             settings[k] = (val == "1" or val.lower() == "true")
-                        elif isinstance(defaults[k], int):
+                        elif isinstance(SETTINGS_DEFAULTS[k], int):
                             try: settings[k] = int(val)
                             except: pass
-                        elif isinstance(defaults[k], float):
+                        elif isinstance(SETTINGS_DEFAULTS[k], float):
                             try: settings[k] = float(val)
                             except: pass
-                        elif isinstance(defaults[k], list):
+                        elif isinstance(SETTINGS_DEFAULTS[k], list):
                             settings[k] = [x.strip() for x in val.split(",") if x.strip()]
                         else:
                             settings[k] = val
@@ -2664,6 +2664,30 @@ def get_context():
         }
     })
 
+def settings_page_values(settings):
+    return {
+        "enable_ambient": settings["enable_ambient"],
+        "ambient_timer": settings["radiant_delay"],
+        "synthesis_timer": settings["synthesis_interval_minutes"],
+        "global_events_count": settings["global_events_count"],
+        "dialogue_speed": settings["dialogue_speed_seconds"],
+        "bubble_life": settings["bubble_life"],
+        "radii": {
+            "radiant": settings["radiant_range"],
+            "talk": settings["talk_radius"],
+            "yell": settings["yell_radius"]
+        },
+        "language": settings["language"],
+        "chat_hotkey": settings["chat_hotkey"],
+        "enable_welcome": settings["enable_welcome"],
+        "open_web_panel_on_start": settings["open_web_panel_on_start"],
+        "log_level": log_setup.parse_level(settings["log_level"])
+    }
+
+@app.route('/settings/defaults')
+def settings_defaults():
+    return jsonify(settings_page_values(SETTINGS_DEFAULTS))
+
 @app.route('/settings', methods=['GET', 'POST'])
 def settings_endpoint():
     logging.debug(f"HTTP: {request.method} /settings")
@@ -2679,33 +2703,17 @@ def settings_endpoint():
     if not data:
         # An empty-body POST is how the plugin fetches the config
         settings = load_settings()
-        r, t, y = get_config_radii()
         campaigns = [d for d in os.listdir(CAMPAIGNS_DIR) if os.path.isdir(os.path.join(CAMPAIGNS_DIR, d))] if os.path.exists(CAMPAIGNS_DIR) else []
 
         return jsonify({
             "status": "ok",
             "campaigns": campaigns,
             "current_campaign": ACTIVE_CAMPAIGN,
-            "enable_ambient": settings.get("enable_ambient", True),
-            "ambient_timer": settings.get("radiant_delay", 240),
-            "synthesis_timer": settings.get("synthesis_interval_minutes", 5),
-            "global_events_count": settings.get("global_events_count", 10),
-            "dialogue_speed": settings.get("dialogue_speed_seconds", 5),
-            "bubble_life": settings.get("bubble_life", 5),
-            "radii": {
-                "radiant": settings.get("radiant_range", r),
-                "talk": settings.get("talk_radius", t),
-                "yell": settings.get("yell_radius", y)
-            },
-            "language": settings.get("language", "English"),
+            **settings_page_values(settings),
             "supported_languages": list(LOCALIZATION_CONFIG.keys()),
-            "chat_hotkey": settings.get("chat_hotkey", "\\"),
             "chat_hotkeys": CHAT_HOTKEYS,
-            "enable_welcome": settings.get("enable_welcome", True),
-            "open_web_panel_on_start": settings.get("open_web_panel_on_start", True),
-            "log_level": log_setup.parse_level(settings.get("log_level")),
             "log_levels": list(log_setup.LEVELS),
-            "ui_translation": LOCALIZATION_CONFIG.get(settings.get("language", "English"), {})
+            "ui_translation": LOCALIZATION_CONFIG.get(settings["language"], {})
         })
 
     logging.debug(f"SETTINGS: Update request: {json.dumps(data)}")

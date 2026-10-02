@@ -88,14 +88,14 @@ Each page uses these patterns.
 | `GET /api/llm` | Adds `presets`: the name, type, and base URL of each provider in `default_providers.json`, with no keys. |
 | `POST /api/llm/test` | Takes the profile, the provider, and the provider name from the form. An empty key field uses the stored key of that provider name, but only when the base URL is the saved one. |
 | `POST /api/llm/models` | New. Takes the same provider fields as the test, calls `GET <base_url>/models`, and returns the model IDs. It uses POST because the provider in the form is not saved. |
-| `GET /settings` | Adds `defaults`, in the shape of the settings that it returns. The defaults move out of `load_settings` into a module constant. |
+| `GET /settings/defaults` | New. Returns the defaults in the shape of the Settings page. The defaults move out of `load_settings` into `SETTINGS_DEFAULTS`. The `/settings` reply does not carry them, because the plugin reads that reply by searching for the first match of each key. |
 
 Each `llm_config` change gets unit tests in `server/tests/test_llm_config.py`. The routes import Flask, so they cannot be tested in the dev container ([development.md](../info/development.md#tests)).
 
 ## 6. Settings and Player profile pages
 
 - Each Settings field gets a one-line hint that says what it changes.
-- A "Reset to defaults" button fills the form with the defaults from `GET /settings`. It does not save.
+- A "Reset to defaults" button fills the form with the defaults from `GET /settings/defaults`. It does not save.
 - Each Player profile textarea shows its length in characters.
 
 ## 7. Theme
@@ -125,7 +125,7 @@ Each phase is one change that works alone. Phase 4 needs phase 3, because it use
 | 2 | A removal of a profile that Chat uses asks first, and a yes also removes it from the Chat chain. Invalid JSON in the extra parameters shows a field error before a save. |
 | 3 | A test of an unsaved profile works, and `server/user/llm_config.json` does not change. A renamed provider keeps its stored key. A new install shows "No key" for OpenRouter and NanoGPT. A server error marks the field that it names. A test with a changed base URL and an empty key field does not send the stored key. |
 | 4 | "List models" fills the suggestions for OpenRouter. With a wrong base URL, the page shows the reason and the field stays usable. |
-| 5 | "Reset to defaults" fills the defaults of `load_settings` and does not save. |
+| 5 | "Reset to defaults" fills the values of `SETTINGS_DEFAULTS` and does not save. |
 | 6 | Both color schemes keep text contrast at WCAG AA or better. |
 
 `python -m unittest discover -s server/tests` passes after each phase.
