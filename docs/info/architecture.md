@@ -55,6 +55,18 @@ SentientSandsRebirth/
 
 Background threads do not change game objects or MyGUI widgets. The pipe listener, the HTTP response threads, and the UI worker threads push text messages onto `g_messageQueue` under `g_msgMutex` (`plugin/core/Globals.h`). `playerUpdate_hook` runs on the game thread and drains the queue through `ProcessMessageQueue` (`plugin/main.cpp`). New code that produces results off the game thread must hand them over through this queue.
 
+## Web app
+
+The server serves `server/web/` at `/` and `/web/<file>`. The files are plain HTML, CSS, and JavaScript modules, with no build step, no npm packages, and no assets from a CDN, so the web app works offline and the release needs no extra tools.
+
+| Page | Route | Storage |
+|---|---|---|
+| Settings | `/settings` | `SentientSands_Config.ini` |
+| LLM | `/api/llm`, `/api/llm/test` | `server/user/llm_config.json` |
+| Player profile | `/player_profile` | `character_bio.txt` and `player_faction_description.txt` in the active campaign |
+
+A GET route must not change state. A page on another site can send a GET with no `Origin` header, for example through an image tag, so the Origin check from step 4 of the runtime flow does not stop it.
+
 ## Settings
 
 The server is the only writer of `SentientSands_Config.ini`. The plugin reads the INI once at start, because it starts before the server. After that, it takes changes only through `SET_CONFIG` on the pipe. Two writers with no lock between them would undo each other's changes.
