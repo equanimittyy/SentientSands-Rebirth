@@ -1,4 +1,4 @@
-import { checkField, getJson, reportUnsaved, sendJson, showMessage } from "./api.js";
+import { checkField, confirmReset, getJson, reportUnsaved, sendJson, showMessage } from "./api.js";
 
 const form = document.getElementById("settings-form");
 const message = document.getElementById("settings-message");
@@ -64,6 +64,7 @@ async function save(event) {
 }
 
 async function resetToDefaults() {
+  if (!(await confirmReset("Settings"))) return;
   try {
     fillFields(await getJson("/settings/defaults"));
     fields().forEach(checkField);

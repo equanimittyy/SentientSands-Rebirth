@@ -1,4 +1,4 @@
-import { el, getJson, reportUnsaved, sendJson, setFieldError, showMessage } from "./api.js";
+import { confirmReset, el, getJson, reportUnsaved, sendJson, setFieldError, showMessage } from "./api.js";
 
 const list = document.getElementById("prompts-list");
 const message = document.getElementById("prompts-message");
@@ -127,7 +127,8 @@ async function save() {
   else showMessage(message, "Saved. The next LLM call uses the new prompts.");
 }
 
-function resetAll() {
+async function resetAll() {
+  if (!(await confirmReset("Prompts"))) return;
   for (const textarea of list.querySelectorAll("textarea[data-name]")) {
     setDraft(textarea, prompts.find((prompt) => prompt.name === textarea.dataset.name).shipped);
   }

@@ -96,7 +96,7 @@ Each file in `server/prompts/` is a shipped default, and an update replaces it. 
 The Prompts page of the web app reads `GET /api/prompts` and saves each changed prompt through `POST /api/prompts` (`server/scripts/prompt_store.py`).
 
 - A route takes only the name of a shipped `.txt` file, never a path, so a request cannot write outside `server/user/prompts/`. The two player profile files are not prompts, so the page does not list them.
-- A save equal to the shipped text, or an empty save, deletes the override, so the prompt gets later default updates again. **Use default** and **Reset all to defaults** fill the form with the shipped text, and the next save deletes the overrides.
+- A save equal to the shipped text, or an empty save, deletes the override, so the prompt gets later default updates again. **Use default** and **Reset to defaults** fill the form with the shipped text, and the next save deletes the overrides.
 - Each save of an override stores the SHA-256 of the shipped text in `server/user/prompts/base_hashes.json`. When an update changes the shipped text, the hash no longer matches, and the page marks the override. An override with no stored hash, for example one made by hand, is marked as unknown.
 - An override and `base_hashes.json` are written to a temporary file and then renamed, as `llm_config.save` does.
 

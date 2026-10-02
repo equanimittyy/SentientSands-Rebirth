@@ -59,7 +59,8 @@ main {
 }
 
 h1,
-legend {
+legend,
+dialog h2 {
   font-family: "Lacquer", system-ui, sans-serif;
   font-weight: normal;
 }
@@ -296,6 +297,12 @@ button.save {
   color: var(--on-accent);
 }
 
+button.danger {
+  border-color: var(--error);
+  background: var(--error);
+  color: var(--on-accent);
+}
+
 :focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 1px;
@@ -486,6 +493,36 @@ label > .hint {
 
 .warning {
   color: var(--error);
+}
+
+dialog {
+  box-sizing: border-box;
+  width: min(28rem, calc(100vw - 2rem));
+  padding: 1rem 1.25rem;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: 0 8px 24px rgb(0 0 0 / 0.35);
+}
+
+dialog::backdrop {
+  background: rgb(0 0 0 / 0.5);
+}
+
+dialog h2 {
+  margin: 0 0 0.5rem;
+  font-size: 1.4rem;
+}
+
+dialog p {
+  margin: 0 0 1.25rem;
+  white-space: pre-line;
+}
+
+dialog .actions {
+  justify-content: flex-end;
+  gap: 0.5rem;
 }
 
 @media (max-width: 56rem) {

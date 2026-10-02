@@ -35,7 +35,7 @@
       <div class="actions save-bar">
         <button type="button" id="prompts-save" class="save" disabled>Save</button>
         <button type="button" class="discard" disabled>Discard</button>
-        <button type="button" id="prompts-reset">Reset all to defaults</button>
+        <button type="button" id="prompts-reset">Reset to defaults</button>
         <span class="message" id="prompts-message" role="status"></span>
       </div>
       <p class="hint">These prompts are the instructions that the mod sends to the AI model. Edit them to change how NPCs talk and act, how their profiles are written, and how world events read. A mod update keeps your edits. To go back to the shipped text and get its later updates, press Use default, then Save.</p>
@@ -81,5 +81,15 @@
       </form>
     </section>
   </main>
+  <dialog id="confirm">
+    <form method="dialog">
+      <h2></h2>
+      <p></p>
+      <div class="actions">
+        <button value="cancel">Cancel</button>
+        <button value="ok" class="danger"></button>
+      </div>
+    </form>
+  </dialog>
 </body>
 </html>

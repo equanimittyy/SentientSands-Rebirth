@@ -1,4 +1,4 @@
-import { el, getJson, reportUnsaved, sendJson, setFieldError, showMessage } from "./api.js";
+import { ask, confirmReset, el, getJson, reportUnsaved, sendJson, setFieldError, showMessage } from "./api.js";
 
 const TASK_LABELS = {
   chat: "Chat",
@@ -198,27 +198,27 @@ function dropProfile(name) {
   for (const route of Object.values(state.routes)) route.profiles = route.profiles.filter((entry) => entry !== name);
 }
 
-function removeProvider(name) {
+async function removeProvider(name) {
   if (state.profiles[state.default_profile]?.provider === name) {
     showMessage(message, `The default profile ${state.default_profile} uses this provider. Choose another default first.`, true);
     return;
   }
   const users = Object.keys(state.profiles).filter((profile) => state.profiles[profile].provider === name);
   const one = users.length === 1;
-  if (users.length > 0 && !confirm(`The profile${one ? "" : "s"} ${joinNames(users)} use${one ? "s" : ""} this provider. Remove ${one ? "it" : "them"} too?`)) return;
+  if (users.length > 0 && !(await ask(`Remove ${name}`, "Remove", `The profile${one ? "" : "s"} ${joinNames(users)} use${one ? "s" : ""} this provider. Remove ${one ? "it" : "them"} too?`))) return;
   users.forEach(dropProfile);
   delete state.providers[name];
   changed();
 }
 
-function removeProfile(name) {
+async function removeProfile(name) {
   if (name === state.default_profile) {
     showMessage(message, `${name} is the default profile. Choose another default first.`, true);
     return;
   }
   const users = tasks.filter((task) => state.routes[task].profiles.includes(name)).map((task) => TASK_LABELS[task] ?? task);
   const one = users.length === 1;
-  if (users.length > 0 && !confirm(`${joinNames(users)} use${one ? "s" : ""} this profile. Remove it from ${one ? "that task" : "them"} too?`)) return;
+  if (users.length > 0 && !(await ask(`Remove ${name}`, "Remove", `${joinNames(users)} use${one ? "s" : ""} this profile. Remove it from ${one ? "that task" : "them"} too?`))) return;
   dropProfile(name);
   changed();
 }
@@ -546,7 +546,9 @@ async function save() {
 
 // The stored keys are not in the page, so the server resets and saves in one step.
 async function resetToDefaults() {
-  if (!confirm("Reset the models to the defaults and save at once? This removes the providers and profiles that you added, with their API keys, and any unsaved changes. The default providers keep their stored keys.")) return;
+  if (!(await confirmReset("Models",
+    "It removes the providers and profiles that you added, with their API keys, and any unsaved changes. The built-in providers keep their API keys.",
+    el("b", { className: "warning" }, "Reset takes effect immediately and is irreversible!")))) return;
   try {
     load(await sendJson("POST", "/api/llm/reset", {}));
     showMessage(message, "Reset to the defaults.");

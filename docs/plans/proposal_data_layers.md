@@ -275,7 +275,7 @@ Each campaign holds its own copy of the factions, and the player edits that copy
 - A faction that the game reports and the store lacks gets a row with the name that the game gives and an empty description, so the player can describe a modded or minor faction.
 - The player's faction is the row whose `faction_id` is the faction ID of the player's context. It gets `is_player` when the server first sees it. Its name follows the game, because the player can rename the faction in game.
 - The description of the player's faction replaces `player_faction_description.txt`. An empty description leaves the faction block out of the prompt, as `build_system_prompt` does today for an empty file.
-- The Factions page of the web app edits each faction of the active campaign, the player's included ([proposal_web_app.md](proposal_web_app.md)). The Player profile page goes away.
+- The Factions page of the web app edits each faction of the active campaign, the player's included ([proposal_web_app.md](proposal_web_app.md)).
 - The shipped `player_faction_description.txt` is deleted, and a new campaign no longer gets a copy.
 
 ## 7. Vanilla Kenshi template

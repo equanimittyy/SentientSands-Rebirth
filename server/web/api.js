@@ -74,4 +74,18 @@ export function setFieldError(input, text) {
   if (note) note.textContent = text;
 }
 
+// Not confirm(): the host program draws that box, for example as a VS Code dialog, so it cannot match the panel.
+export function ask(title, action, ...text) {
+  const dialog = document.getElementById("confirm");
+  dialog.querySelector("h2").textContent = title;
+  dialog.querySelector("p").replaceChildren(...text);
+  dialog.querySelector(".danger").textContent = action;
+  dialog.returnValue = "";
+  dialog.showModal();
+  return new Promise((resolve) => dialog.addEventListener("close", () => resolve(dialog.returnValue === "ok"), { once: true }));
+}
+
+export const confirmReset = (page, ...notes) =>
+  ask("Reset to defaults", "Reset", "Are you sure you want to reset all settings on ", el("b", {}, page), " to their defaults?", ...notes.flatMap((note) => ["\n\n", note]));
+
 export const checkField = (input) => setFieldError(input, input.validity.valid ? "" : input.validationMessage);
