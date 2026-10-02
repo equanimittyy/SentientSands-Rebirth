@@ -1228,8 +1228,8 @@ def call_llm(messages, max_tokens=2048, temperature=0.8):
 
     # OpenRouter uses these headers for app attribution
     if "openrouter.ai" in target_url:
-        headers["X-Title"] = "Sentient Sands Mod"
-        headers["HTTP-Referer"] = "https://github.com/harvicusdev-glitch/SentientSands"
+        headers["X-Title"] = "Sentient Sands Rebirth"
+        headers["HTTP-Referer"] = "https://github.com/equanimittyy/SentientSands-Rebirth"
 
     if provider_name == "player2":
         headers["player2-game-key"] = "019c93fc-7a93-7ac4-8c6e-df0fd09bec01"

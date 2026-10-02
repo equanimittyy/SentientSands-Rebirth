@@ -22,7 +22,7 @@ print(f"[DEBUGGER] KENSHI_SERVER_DIR: {KENSHI_SERVER_DIR}")
 class VisualDebugger:
     def __init__(self):
         self.root = tk.Tk()
-        self.root.title("Sentient Sands - Visual Debugger")
+        self.root.title("Sentient Sands Rebirth - Visual Debugger")
         self.root.geometry("1000x950")
         self.root.configure(bg="#0F0F0F")
         

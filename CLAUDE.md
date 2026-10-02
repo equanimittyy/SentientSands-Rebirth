@@ -1,8 +1,8 @@
-# Sentient Sands
+# Sentient Sands Rebirth
 
 ## What this project is
 
-Sentient Sands is a Kenshi mod that uses LLMs to drive NPC dialogue, character profiles, and world events. It has three parts: a C++ plugin (`plugin/`, built to `SentientSands.dll`) that runs inside the game through RE_Kenshi and KenshiLib, a local Python Flask server (`server/`) that builds prompts and calls an OpenAI-compatible provider, and the Kenshi mod files (`mod/`). `scripts/package_release.py` builds the release zip, which ships an embedded Python runtime, so players install nothing else.
+Sentient Sands Rebirth is a Kenshi mod that uses LLMs to drive NPC dialogue, character profiles, and world events. It has three parts: a C++ plugin (`plugin/`, built to `SentientSands.dll`) that runs inside the game through RE_Kenshi and KenshiLib, a local Python Flask server (`server/`) that builds prompts and calls an OpenAI-compatible provider, and the Kenshi mod files (`mod/`). `scripts/package_release.py` builds the release zip, which ships an embedded Python runtime, so players install nothing else.
 
 [docs/info/architecture.md](docs/info/architecture.md) holds the layout, the path and transport contracts between the plugin and the server, and the threading rule. Read it before you change how the two sides find or talk to each other. [docs/info/development.md](docs/info/development.md) covers building, running, and releasing.
 

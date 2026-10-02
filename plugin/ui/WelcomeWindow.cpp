@@ -70,7 +70,7 @@ void CreateWelcomeUI() {
       "Kenshi_WindowCX", 0.32f, 0.10f, 0.36f, 0.45f, MyGUI::Align::Center,
       "Popup", "SentientSands_WelcomeWindow");
   g_welcomeWindow->setCaption(
-      Utf8ToWide(T("Welcome to SentientSands")).c_str());
+      Utf8ToWide(T("Welcome to Sentient Sands Rebirth")).c_str());
   g_welcomeWindow->eventWindowButtonPressed +=
       MyGUI::newDelegate(OnWelcomeWindowButtonPressed);
 
@@ -83,8 +83,8 @@ void CreateWelcomeUI() {
       "Kenshi_TextboxStandardText", 0.05f, yProg, 0.9f, 0.06f,
       MyGUI::Align::Top | MyGUI::Align::HStretch, "SentientSands_WelcomeL1");
   l1->setCaption(
-      Utf8ToWide(
-          T("Welcome to SentientSands, the Kenshi LLM project by Harvicus"))
+      Utf8ToWide(T("Welcome to Sentient Sands Rebirth, based on the Kenshi "
+                   "LLM project by Harvicus"))
           .c_str());
   l1->setTextAlign(MyGUI::Align::Center);
   l1->setTextColour(MyGUI::Colour(0.85f, 0.85f, 0.85f));
@@ -94,8 +94,8 @@ void CreateWelcomeUI() {
       "Kenshi_TextboxStandardText", 0.05f, yProg, 0.9f, 0.06f,
       MyGUI::Align::Top | MyGUI::Align::HStretch, "SentientSands_WelcomeL2");
   l2->setCaption(
-      Utf8ToWide(
-          T("SentientSands is a work in progress... you WILL encounter bugs!"))
+      Utf8ToWide(T("Sentient Sands Rebirth is a work in progress... you WILL "
+                   "encounter bugs!"))
           .c_str());
   l2->setTextAlign(MyGUI::Align::Center);
   l2->setTextColour(MyGUI::Colour(1.0f, 0.6f, 0.6f));

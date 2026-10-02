@@ -1,4 +1,4 @@
-"""Build the Sentient Sands release zip.
+"""Build the Sentient Sands Rebirth release zip.
 
 The zip holds everything a player needs: the mod files, the built plugin DLL, the
 Python server, and an embedded Windows Python runtime with the server

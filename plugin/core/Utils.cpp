@@ -303,11 +303,11 @@ void StartPythonServer() {
       Log("ERROR: No Python installation found!");
       MessageBoxA(
           NULL,
-          "Sentient Sands requires a Python engine to connect to AI "
+          "Sentient Sands Rebirth requires a Python engine to connect to AI "
           "models, but no Python installation was found!\n\n"
           "The release package ships it in server\\python. Reinstall "
-          "Sentient Sands from the release zip, then restart the game.",
-          "Sentient Sands - Python Missing", MB_ICONERROR | MB_OK);
+          "Sentient Sands Rebirth from the release zip, then restart the game.",
+          "Sentient Sands Rebirth - Python Missing", MB_ICONERROR | MB_OK);
     }
   }
 }

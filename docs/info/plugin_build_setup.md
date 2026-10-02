@@ -95,7 +95,7 @@ The plugin starts the Python server from its own mod folder. A test therefore ne
 1. Build a release zip that contains your DLL: run `package_release.cmd` in the repo root, and select **1. Rebuild and repackage**. This needs Python 3 with `pip`, and internet access.
 
 2. Extract `dist\SentientSands-<version>.zip` into `Kenshi\mods\`. The result is `Kenshi\mods\SentientSands\`.
-3. In the Kenshi launcher, open the mod list and enable **Sentient Sands**.
+3. In the Kenshi launcher, open the mod list and enable **Sentient Sands Rebirth**.
 4. Set `SENTIENT_SANDS_MOD_DIR` to that mod folder. Then each later build copies the DLL into it. Open a new command prompt after this command:
 
    ```
