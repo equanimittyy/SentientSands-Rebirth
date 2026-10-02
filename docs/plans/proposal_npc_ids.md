@@ -8,7 +8,7 @@ The campaign database keys each NPC by its name ([architecture.md](../info/archi
 
 Non-goals:
 
-- An upgrade of a campaign that is keyed by name. The rule of [proposal_data_layers.md](proposal_data_layers.md#7-campaign-model) applies: a campaign database of an earlier schema version is not upgraded.
+- An upgrade of a campaign that is keyed by name. The rule of [proposal_data_layers.md](proposal_data_layers.md#6-campaign-model) applies: a campaign database of an earlier schema version is not upgraded.
 - Matching a new character to the profile of an earlier one. A character that the game creates again, for example a guard that replaces a dead guard, is a new NPC.
 
 ## 2. Current state
@@ -44,7 +44,7 @@ Non-goals:
 - Each NPC object that the plugin sends carries `npc_id` in place of `storage_id`, and it keeps `name`. This covers the context, the chat request, the ambient request, and the nearby lists.
 - The Dialogue Library (`plugin/ui/LibraryWindow.cpp`) lists the NPCs by `npc_id`, and it sends the `npc_id` in `/history`, `/favorite`, and `/regenerate_profile`.
 - `LIVE_CONTEXTS` is keyed by `npc_id`.
-- The speaker picker ([proposal_data_layers.md](proposal_data_layers.md#71-player-characters)) sends the `npc_id` of the speaker, and the server reads the bio of the speaker by that ID.
+- The speaker picker ([proposal_data_layers.md](proposal_data_layers.md#61-player-characters)) sends the `npc_id` of the speaker, and the server reads the bio of the speaker by that ID.
 - The `Name|serial` text that the server sends back to the plugin does not change, because the plugin finds a live character by its serial.
 
 ## 6. Names in LLM output
@@ -55,7 +55,7 @@ The LLM names each speaker by name, for example `Beep: Hello`. The server maps a
 
 - A figure file of a world template gets the key `game_id`, which holds the `stringID` of the character's template.
 - The loader inserts the figure profile into `npc` under `u:<game_id>`, so the profile binds to the game character even when the player renames it.
-- A figure without `game_id` has no profile in `npc`. Its entity is still found by name and alias, as in [proposal_data_layers.md](proposal_data_layers.md#6-data-model).
+- A figure without `game_id` has no profile in `npc`. Its entity is still found by name and alias, as in [proposal_data_layers.md](proposal_data_layers.md#5-data-model).
 
 ## 8. Acceptance criteria
 

@@ -11,7 +11,7 @@ The server mixes player settings, world lore, and play state. For example, the V
 - **World templates** describe a world: entities, a lore timeline, figure profiles, and an overview. The release ships a Vanilla Kenshi template. Players export and import templates to share worlds for modded playthroughs, with custom factions and figures.
 - **Campaigns** hold one playthrough. Each campaign starts as a copy of a world template, and then only play changes it.
 
-The proposal builds on the campaign database ([architecture.md](../info/architecture.md#campaign-storage)). The C++ plugin changes only for the speaker picker in the chat window ([section 7.1](#71-player-characters)). [proposal_web_app.md](proposal_web_app.md) adds the browser pages for templates and entities.
+The proposal builds on the campaign database ([architecture.md](../info/architecture.md#campaign-storage)). The C++ plugin changes only for the speaker picker in the chat window ([section 6.1](#61-player-characters)). [proposal_web_app.md](proposal_web_app.md) adds the browser pages for templates and entities.
 
 Non-goals:
 
@@ -37,75 +37,12 @@ Four pieces of data move to their class:
 
 | Data | From | To | Reason |
 |---|---|---|---|
-| Player bio | `character_bio.txt` in each campaign | The profile of the speaking player character in `npc` | Each squad member has a bio of its own ([section 7.1](#71-player-characters)). |
-| Player faction description | `player_faction_description.txt` in each campaign | `meta` in the campaign database | It is play state, and prompts are no longer campaign-specific ([section 7.2](#72-player-faction-description)). |
+| Player bio | `character_bio.txt` in each campaign | The profile of the speaking player character in `npc` | Each squad member has a bio of its own ([section 6.1](#61-player-characters)). |
+| Player faction description | `player_faction_description.txt` in each campaign | `meta` in the campaign database | It is play state, and prompts are no longer campaign-specific ([section 6.2](#62-player-faction-description)). |
 | World lore | `server/prompts/world_lore.txt` | `overview.txt` of the vanilla template | It describes the world, so a modded template must be able to replace it. |
 | Retrieval limits | Kayak's `core_config.txt` | The INI | They tune the server, not the world. |
 
-## 3. Defaults and resets
-
-### 3.1 Gameplay settings
-
-- When the server starts, it sends each value that the plugin holds through `SET_CONFIG`. The values of `SETTINGS_DEFAULTS` then win over the defaults of the plugin's `LoadPluginConfig`, which apply only until the server starts ([architecture.md](../info/architecture.md#settings)).
-- `OpenWebPanelOnStart` is the exception, because the plugin reads it before it starts the server. Its default in `LoadPluginConfig` must still agree with `SETTINGS_DEFAULTS`.
-
-### 3.2 LLM configuration
-
-- `POST /api/llm/reset` builds a configuration with `default_llm_config` (`kenshi_llm_server.py:1049`), which also builds the file on a first start. It saves with `llm_config.save`, which replaces the file in one step.
-- The reset keeps the stored API key of each provider whose name is in the defaults. The placeholder keys in `default_providers.json`, for example `YOUR_OPENROUTER_KEY`, never replace a stored key. `with_stored_keys` alone does not do this, because it keeps a stored key only when the new key is empty.
-- The reset removes the providers and profiles that the player added, with their keys. The confirmation on the Models page says so.
-
-### 3.3 System prompts
-
-Each file in `server/prompts/` is a shipped default, and an update replaces it. A player who edits these files today therefore loses the edit. A player's override goes into `server/user/prompts/` under the same file name. The release does not ship `server/user/`, so an update keeps it.
-
-`load_prompt_component` (`kenshi_llm_server.py:854`) takes the first file that exists and is not empty:
-
-1. `server/user/prompts/`, the player's override.
-2. `server/prompts/`, the shipped default.
-
-The campaign folder is no longer read, so no prompt is campaign-specific. The text that belongs to one campaign moves into the campaign database ([section 7.1](#71-player-characters) and [section 7.2](#72-player-faction-description)), and the world lore moves into the world template ([section 7](#7-campaign-model)). The shipped `character_bio.txt` and `player_faction_description.txt` are deleted, and the server no longer seeds them into a new campaign.
-
-| Route | Behavior |
-|---|---|
-| `GET /api/prompts` | For each shipped file: the name, the current override, the shipped text, and whether the shipped text changed after the override was saved |
-| `POST /api/prompts` | Saves the override of one file. A text equal to the shipped default deletes the override instead, so the file keeps getting later default updates. |
-| `POST /api/prompts/reset` | Deletes the override of one file, or of every file when the request names none |
-
-- A route takes only a file name that exists in `server/prompts/`, never a path, so a request cannot write outside `server/user/prompts/`.
-- An override is written to a temporary file and then renamed, as `llm_config.save` does.
-- Each save of an override stores the SHA-256 of the shipped file in `server/user/prompts/base_hashes.json`. When an update changes the shipped file, the stored hash no longer matches, and the Prompts page marks the override. An override with no stored hash, for example one made by hand, is marked as unknown.
-- A save equal to the shipped default and a reset delete the stored hash with the override.
-- The web app gets a Prompts page. It edits each override, marks each overridden prompt, shows the shipped text next to an override whose default changed, and resets one prompt or all of them.
-
-### 3.4 Prompt placeholders
-
-Four prompts are filled with `str.format` today (`kenshi_llm_server.py:1232`, `:1299`, `:2130`, `:2568`). One stray brace in an edited file then raises an error, and that LLM call fails. JSON examples in a prompt must also be written as `{{ }}`.
-
-A function `render(template, values)` replaces `str.format`. It replaces each `{name}` whose name is a key of `values`, and it leaves every other brace unchanged. The placeholder syntax stays the same, so the shipped files change only where they escape a brace as `{{` or `}}`.
-
-- A save is rejected if the override uses a placeholder that the shipped default does not have. A placeholder of the default that the override leaves out is a warning, because the prompt then loses that data.
-- A hand-edited override can still hold a wrong placeholder. `render` then leaves it as text and logs a warning, so chat keeps working.
-- Rejected: Jinja2. Flask already bundles it, but template logic lets one edit break the whole prompt, and a syntax error fails the call.
-
-### 3.5 System prompt skeleton
-
-`build_system_prompt` (`kenshi_llm_server.py:937-1019`) holds the skeleton of the chat system prompt in a Python f-string: the headings, the order of the sections, and the rules on what an NPC can see of the player. A player cannot change this text. The skeleton moves into a shipped prompt, `prompt_system.txt`, and `build_system_prompt` fills it with `render`.
-
-| Placeholder | Contents |
-|---|---|
-| `{npc_base}`, `{world_lore}`, `{rules}`, `{action_tags}` | The prompt files of the same purpose |
-| `{location}` | The town and the biome of the player |
-| `{events}` | The rumors and the recent events with their heading, or empty |
-| `{player_name}`, `{player_race}`, `{player_gender}`, `{player_bio}` | The speaker ([section 7.1](#71-player-characters)) |
-| `{player_faction}` | The player faction description with its heading, or empty |
-| `{player_status}`, `{player_inventory}` | The condition and the equipment of the speaker |
-| `{language_instruction}` | The language rule, or empty for English |
-
-- Each fixed heading and sentence is in the file, so a player can reword, reorder, or remove it.
-- A block that appears only with data, such as the events or the faction description, keeps its heading in the code, because `render` has no conditions.
-
-## 4. World template format
+## 3. World template format
 
 A world template is a folder of JSON and text files. A shared template is the same folder in a zip file.
 
@@ -169,12 +106,12 @@ A figure file, `entities/figures/<id>.json`, can also hold a `profile`:
 
 - The entity ID is the file name without `.json`. The category is the folder name. A modded template can add a category.
 - The values in `fields` feed link expansion. The values in `prose` are retrieved text and never feed link expansion, the same as Kayak's `$` fields.
-- `children` are weighted links to other entities by name. `access` holds the rules that decide which NPCs know the entity. The converter sets its schema when it parses Kayak's `[RULE]` blocks ([section 11](#not-yet-verified)).
+- `children` are weighted links to other entities by name. `access` holds the rules that decide which NPCs know the entity. The converter sets its schema when it parses Kayak's `[RULE]` blocks ([section 10](#not-yet-verified)).
 - Only a `figures` entity can hold a `profile`. Its keys are the keys of an NPC profile in the campaign database ([architecture.md](../info/architecture.md#campaign-storage)). Chat uses this profile instead of generating one.
 - The order of `history.json` is the timeline order. The loader stores each entry as an entity of category `history`, so retrieval finds it like any entity.
 - One validator runs on each load, import, and edit. It rejects an unknown `format_version`, a JSON file that does not parse, an entity without `name`, and a `profile` outside `figures`. A child that names no entity is a warning, not an error.
 
-## 5. Templates on disk
+## 4. Templates on disk
 
 | Template | Location | Edits |
 |---|---|---|
@@ -195,12 +132,12 @@ The release does not ship `server/user/`, so an update keeps the user templates.
 
 An imported zip comes from another player, so the import treats it as untrusted:
 
-1. Reject an entry with an absolute path, a `..` part, or a path outside the layout in section 4.
+1. Reject an entry with an absolute path, a `..` part, or a path outside the layout in section 3.
 2. Reject a zip with an uncompressed size above 50 MB or more than 10,000 entries.
 3. Extract into a temporary folder in `server/user/world_templates/`, run the validator, and then rename the folder to the template name. A failed import leaves nothing behind.
 4. Refuse a name that already exists. The player deletes or renames the old template first.
 
-## 6. Data model
+## 5. Data model
 
 The knowledge tables are version 2 of the campaign schema that `campaign_db.py` owns. Illustrative schema:
 
@@ -265,18 +202,18 @@ CREATE VIRTUAL TABLE entity_fts USING fts5(
 - `npc` does not reference `entity`. When the player talks to a figure, the retriever finds its entity by name or alias.
 - `updated_at` lets the web app reject a stale save ([proposal_web_app.md](proposal_web_app.md#3-consistency)).
 
-## 7. Campaign model
+## 6. Campaign model
 
 - `POST /campaigns/create` takes an optional `template`, and uses Vanilla Kenshi without one. The in-game Campaign Manager sends no template, so the plugin does not change. The web app's Templates page creates a campaign from any template.
 - The server loads the template into the new campaign database in one transaction: the entities with their fields, aliases, children, and access rules, the history entries, the links, the FTS index, the figure profiles, and the overview.
 - After creation, the campaign does not depend on its template. A template edit, a new template version, or a deleted template does not change the campaign.
 - A campaign database of an earlier schema version is not upgraded. `open_campaign` refuses it and logs that the player must start a new campaign.
-- The prompt takes the overview from `meta`. The campaign folder no longer overrides it ([section 3.3](#33-system-prompts)).
+- The prompt takes the overview from `meta`.
 - Gameplay writes only the campaign database, never a template.
 - Rejected: reading the template live through `ATTACH` at query time. A template edit would then change the lore of running campaigns, and each FTS query would span two databases.
 - Rejected: one database for all campaigns, with a `campaign_id` column. A missing filter would leak data between campaigns.
 
-### 7.1 Player characters
+### 6.1 Player characters
 
 The player picks which squad member speaks in a chat. Today the speaker is always squad slot 1 (`playerCharacters[0]`, `plugin/main.cpp:1475`), and one bio serves the whole campaign.
 
@@ -286,15 +223,15 @@ The player picks which squad member speaks in a chat. Today the speaker is alway
 - The bio is the `Personality`, `Backstory`, and `SpeechQuirks` of the speaker's profile in `npc`. A speaker with no profile gets one from the `profile` task, as an NPC does (`get_character_data`). A squad member that the player recruited as an NPC keeps its profile and its dialogue.
 - The NPCs page of the web app edits the profile of a player character like any other profile ([proposal_web_app.md](proposal_web_app.md)).
 - Ambient banter does not change. It still names squad slot 1 as the player.
-- The `character_bio.txt` of an existing campaign is not read and not migrated.
+- The `character_bio.txt` of an existing campaign is not read and not migrated. The shipped `character_bio.txt` is deleted, and a new campaign no longer gets a copy.
 
-### 7.2 Player faction description
+### 6.2 Player faction description
 
 - The description is the `meta` key `player_faction_description` in the campaign database. A new campaign has none, and the prompt then leaves out the faction block, as `build_system_prompt` does today for an empty file.
 - The Player profile page edits only this description. `POST /player_profile` keeps its 409 check ([architecture.md](../info/architecture.md#web-app)), because the player can switch the campaign while the page is open.
-- The `player_faction_description.txt` of an existing campaign is not read and not migrated.
+- The `player_faction_description.txt` of an existing campaign is not read and not migrated. The shipped `player_faction_description.txt` is deleted, and a new campaign no longer gets a copy.
 
-## 8. Vanilla Kenshi template
+## 7. Vanilla Kenshi template
 
 The vanilla template is a conversion of Kayak's English `KayakDB/Template` (405 entities: 29 factions, 166 items, 122 locations, 7 races, 64 unique NPCs, 17 world lore entries).
 
@@ -310,7 +247,7 @@ The vanilla template is a conversion of Kayak's English `KayakDB/Template` (405 
 | Other `entity.txt` fields | `fields` |
 | Fields with a leading `$` | `prose` |
 | Price fields (`average_price`, `base_price_cats`, `price_modifier`) | Dropped, because economy is a non-goal |
-| `id`, `persistent_id`, `runtime_id` | The file name comes from `id`. The other two are dropped ([section 11](#not-yet-verified)). |
+| `id`, `persistent_id`, `runtime_id` | The file name comes from `id`. The other two are dropped ([section 10](#not-yet-verified)). |
 | `who_knows_me.txt` `[RULE]` blocks | `access` |
 | `define_children.txt` `W = <weight> <name>` lines | `children` |
 | The unique NPC category | `figures`. The Kayak fields that match profile keys fill `profile`. |
@@ -318,7 +255,7 @@ The vanilla template is a conversion of Kayak's English `KayakDB/Template` (405 
 | `IGN_` files, `ph_` prompt files, runtime files, comments | Skipped |
 | `core_config.txt` retrieval limits | The INI defaults |
 
-## 9. Retrieval design
+## 8. Retrieval design
 
 The retriever, `server/scripts/knowledge_retrieve.py`, follows the algorithm of Kayak's `indexer.py` and `retriever.py` on the campaign database:
 
@@ -356,7 +293,7 @@ LIMIT :max_files;
 
 Known differences to handle: Kayak uses its own stemming (`stem_key`) and tokenizer, and FTS5's `porter` tokenizer does not match it exactly. `max_matches_per_layer` is a per-source-entity limit and needs a window function or Python-side handling. Priority entities, such as the target NPC, sit on top of the file limit, per Kayak's documented behavior.
 
-## 10. Licence and attribution
+## 9. Licence and attribution
 
 - Kayak and SentientSands are GPLv3. Rebirth is also GPLv3, so combining them is compatible.
 - Kayak adds an attribution condition under GPLv3 section 7(b) (`Kayak/ADDITIONAL_TERMS.md`). It applies when Kayak material, or a work derived from it, is conveyed to others.
@@ -368,12 +305,12 @@ Known differences to handle: Kayak uses its own stemming (`stem_key`) and tokeni
 - Some lore text paraphrases the Kenshi wiki, and the underlying game content belongs to Lo-Fi Games. The wiki's licence was not checked. This must be reviewed before the vanilla content ships.
 - This document is not legal advice.
 
-## 11. Phases and verification
+## 10. Phases and verification
 
 | Phase | Deliverable | Acceptance criteria |
 |---|---|---|
 | 0. Prep | README credit section; the official English Kayak release | Attribution text in place; source release chosen |
-| 1. Settings, prompts, and player characters | `SETTINGS_DEFAULTS`; the settings, LLM, and prompt routes; the reset buttons; the Prompts page; `render`; `prompt_system.txt`; the `SET_CONFIG` push at start; the speaker picker; the player faction description in `meta`; tests | A reset gives the shipped values; the plugin receives them through `SET_CONFIG`; stored keys of default providers survive the LLM reset; a prompt override survives an update; an override whose shipped default changed is marked; an override with an unknown placeholder is rejected; on a first start, the plugin holds the values of `SETTINGS_DEFAULTS`; a prompt with a stray brace renders; a chat uses the bio and context of the picked speaker; a speaker with no profile gets a generated one |
+| 1. Player characters | The speaker picker; the player faction description in `meta`; tests | A chat uses the bio and context of the picked speaker; a speaker with no profile gets a generated one; the Player profile page edits the faction description in `meta` |
 | 2. Templates and campaigns | `world_template.py`; a vanilla template with only `overview.txt`; campaign creation from a template | New campaigns build the same prompts as today |
 | 3. Import and export | The template routes; the Templates page | A template exported from one install imports on another with the same files; each unsafe zip in the tests is rejected |
 | 4. Vanilla content | `convert_kayak.py`; the converted template; the licence review | All 405 entities convert; the converter lists each dropped field |
@@ -400,25 +337,24 @@ Tests:
 - FTS5 in the embedded Windows Python runtime. The dev container's SQLite has it, but the Windows build was not checked.
 - The KenshiLib calls for the current squad and its members (`PlayerInterface::getCurrentPlatoon`, `Character::getPlatoon`). The headers declare them, but no plugin code uses them yet.
 
-## 12. Risks
+## 11. Risks
 
 | Risk | Impact | Mitigation |
 |---|---|---|
-| A prompt override hides a newer shipped default | The player misses prompt fixes | The Prompts page marks each override and each override whose default changed, and shows the shipped text; a save equal to the default removes the override |
 | Lore licensing | The vanilla content cannot ship | Phases 1 to 3 do not depend on it; the vanilla template ships with only its overview until the review passes |
 | A shared template carries text that steers the LLM | NPCs act against the player's intent, for example through action tags | The same trust as a Kenshi mod; the Templates page shows the authors and credits before an import |
-| An unsafe zip | Files written outside the template folder, or a full disk | The import checks in section 5 |
+| An unsafe zip | Files written outside the template folder, or a full disk | The import checks in section 4 |
 | Attribution lost in a derived template | Licence non-compliance | A duplicate keeps the credits and the licence files; an export includes them |
 | A format change | Older templates do not load | `format_version`; the loader reads each earlier version |
 | Retrieval drift from Kayak (stemming, ranking) | Different prompt context than upstream | Golden tests, documented differences |
 
-## 13. Open questions
+## 12. Open questions
 
 1. Should the name pools (`names.json`, `generic_names.json`, `titles.json`) be customizable? The options are a player override, as for the system prompts, or a part of each world template, so that a modded template can add its own generic NPC types and names.
 2. Should an existing campaign be able to take a newer version of its template, and how does that merge with `origin = 'campaign'` changes?
 3. Should the release include the Kayak converter, so that players can convert Kayak content packs?
 
-## 14. References
+## 13. References
 
 - Original mod: `github.com/harvicusdev-glitch/SentientSands` (GPL-3.0, includes the C++ `src/` folder)
 - Kayak source repo listed in the project links: `github.com/Starswimmer/Kayak`
