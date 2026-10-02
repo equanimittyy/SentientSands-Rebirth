@@ -26,7 +26,7 @@ import threading
 import random
 import configparser
 import mimetypes
-from flask import Flask, request, jsonify
+from flask import Flask, Response, request, jsonify
 from werkzeug.exceptions import HTTPException
 import sys
 import logging.handlers
@@ -43,7 +43,7 @@ if SCRIPT_DIR not in sys.path:
 
 from save_reader import build_world_index
 from request_guard import is_request_allowed
-from browser_launch import open_when_ready
+from browser_launch import PanelTabs, open_when_ready
 import llm_config
 import llm_router
 import campaign_db
@@ -1786,6 +1786,17 @@ INSTRUCTIONS:
 def web_app():
     return app.send_static_file("index.html")
 
+PANEL_TABS = PanelTabs()
+
+# A GET, because EventSource sends only GET. A hostile page that holds it open can only stop a new tab from opening.
+@app.route('/web_panel/presence')
+def web_panel_presence():
+    return Response(PANEL_TABS.stream(), mimetype="text/event-stream")
+
+@app.route('/web_panel', methods=['POST'])
+def web_panel():
+    return jsonify({"status": "ok", "open": PANEL_TABS.is_open()})
+
 @app.route('/chat', methods=['POST'])
 def chat():
     data = request.json
@@ -3300,6 +3311,6 @@ threading.Thread(target=monitor_kenshi_process, daemon=True).start()
 if __name__ == '__main__':
     logging.info("Kenshi LLM Server Starting on port 5000...")
     if "--open-browser" in sys.argv[1:]:
-        threading.Thread(target=open_when_ready, args=("127.0.0.1", 5000), daemon=True).start()
+        threading.Thread(target=open_when_ready, args=("127.0.0.1", 5000, PANEL_TABS), daemon=True).start()
     # Threaded: the plugin's polling must not block chat and settings requests
     app.run(host='127.0.0.1', port=5000, threaded=True)

@@ -46,7 +46,7 @@ SentientSandsRebirth/
 
 1. RE_Kenshi loads `SentientSands.dll` and calls `startPlugin`. The plugin installs its KenshiLib hooks and starts `MainThread`.
 2. `MainThread` waits for `KenshiLib.dll`. Then it starts the pipe listener (`PipeThread`) and the name-assignment thread, loads the INI, and starts the server. After that, it posts the player's context to `/context` at most once every 5 seconds.
-3. If `OpenWebPanelOnStart` in the INI is `1`, this first server start passes `--open-browser`. The server then opens the web app in the default browser when its port accepts connections. A restart from the launcher does not pass the flag, so the player does not get a second tab.
+3. If `OpenWebPanelOnStart` in the INI is `1`, this first server start passes `--open-browser`. The server waits until its port accepts connections, and then 3 s more, so that a tab from an earlier start can reconnect. It opens the web app in the default browser only when no tab is open (see [Web app](#web-app)). A restart from the launcher does not pass the flag, so the player does not get a second tab.
 4. The server listens on `127.0.0.1:5000`. The plugin sends HTTP POST requests to it through WinHTTP (`plugin/core/Comm.cpp`) for chat, history, settings, campaigns, profiles, and events. The server rejects a request whose `Host` header is not `127.0.0.1:5000` or `localhost:5000`, or whose `Origin` header names another site (`server/scripts/request_guard.py`). This stops web pages in the player's browser from using the server. A new caller must use one of these two host names.
 5. The server sends commands back through the named pipe `\\.\pipe\SentientSands`, which the plugin hosts. Examples are `SET_CONFIG`, `NOTIFY`, and `POPULATE_GENERIC`.
 6. The server builds each prompt from `server/prompts/` and the campaign state, then sends it down the route of its task (see [LLM routing](#llm-routing)).
@@ -65,9 +65,13 @@ The server serves `server/web/` at `/` and `/web/<file>`. The files are plain HT
 | LLM | `/api/llm`, `/api/llm/test` | `server/user/llm_config.json` |
 | Player profile | `/player_profile` | `character_bio.txt` and `player_faction_description.txt` in the active campaign |
 
-A GET route must not change state. A page on another site can send a GET with no `Origin` header, for example through an image tag, so the Origin check from step 4 of the runtime flow does not stop it.
+A GET route must not change state. A page on another site can send a GET with no `Origin` header, for example through an image tag, so the Origin check from step 4 of the runtime flow does not stop it. The presence stream below is the only exception, because EventSource sends only GET requests. A page on another site that holds the stream open can only stop a new tab from opening.
 
 The server stops when the game closes, and it restarts when the player presses Restart Server, so an open tab can lose the server at any time. The web app reads `GET /context` every 3 s (`poll` in `server/web/app.js`). While its requests get no response, it shows a banner and disables its Save buttons, so the player keeps unsaved changes until the server is back. A page that did not load keeps its Save button disabled, and the web app loads it again when the server is back.
+
+Each tab holds `GET /web_panel/presence` open. This event stream sends a heartbeat every second, and the server counts the open streams. The server finds a closed tab only when a heartbeat write fails, so a tab counts as open for up to 2 s after it closes. The stream tells the browser to reconnect 1 s after it loses the server, so an open tab finds a restarted server within the 3 s that the auto-open waits.
+
+A program cannot switch the browser to an existing tab. **Open Web Panel** in the SSR HUB therefore asks `POST /web_panel` whether a tab is open. If no tab is open, or the server does not answer, the plugin opens the web app in the default browser. If a tab is open, the plugin brings the browser window whose title starts with `SSR Web Panel` to the front. A browser window shows only the title of its active tab, so when no window matches, the plugin shows a notice instead. The `<title>` in `server/web/index.html` and `kWebPanelTitle` in `plugin/ui/LauncherWindow.cpp` must agree.
 
 The player can switch the campaign in game while the web app is open. The poll shows the active campaign and reloads the player profile when the campaign changes. `POST /player_profile` must name the campaign that the text was loaded from, and the server rejects the save with 409 when that campaign is no longer active. This stops the text of one campaign from being written into another.
 

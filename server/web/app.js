@@ -54,3 +54,6 @@ watchConnection((value) => {
 for (const page of pages) load(page.id);
 poll();
 setInterval(poll, POLL_MS);
+
+// The server opens no second tab while this stream is open.
+new EventSource("/web_panel/presence");
