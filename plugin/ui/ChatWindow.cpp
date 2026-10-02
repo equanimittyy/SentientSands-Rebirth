@@ -366,8 +366,10 @@ void OnChatSendClick(MyGUI::Widget *sender) {
   }
 
   std::string detailedContext = "{}";
-  if (targetNpc)
+  if (targetNpc) {
     detailedContext = GetDetailedContext(targetNpc);
+    LogNpcIdentity(targetNpc);
+  }
 
   std::string json =
       "{\"npc\": \"" + EscapeJSON(npcName) + "\", \"npcs\": [" + npcsJson +

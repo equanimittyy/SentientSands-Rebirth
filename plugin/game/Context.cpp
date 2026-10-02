@@ -173,6 +173,44 @@ std::string GetStorageIDFor(Character *npc, const std::string &name,
   return name;
 }
 
+// For in-game checks of which candidate NPC IDs survive a save and load, a recruit, and a reload
+void LogNpcIdentity(Character *npc) {
+  std::string name = "?";
+  try {
+    name = npc->getName();
+  } catch (...) {
+  }
+
+  std::string handle = "?";
+  try {
+    handle = npc->getHandle().toString();
+  } catch (...) {
+  }
+
+  InstanceID *iid = npc->getInstanceID();
+  std::string instance = (iid && !iid->uid.empty()) ? iid->uid : "?";
+
+  std::string templateID = "?";
+  std::string templateName = "?";
+  if (npc->data) {
+    templateID = npc->data->stringID;
+    templateName = npc->data->name;
+  }
+
+  std::string factionName = "?";
+  try {
+    Faction *faction = npc->getFaction();
+    if (faction && (uintptr_t)faction > 0x1000)
+      factionName = faction->getName();
+  } catch (...) {
+  }
+
+  Log("ID_PROBE: name=" + name + " handle=" + handle +
+      " serial=" + ToString(npc->getHandle().serial) +
+      " instance=" + instance + " template=" + templateID + " (" +
+      templateName + ") faction=" + factionName);
+}
+
 std::string GetIdentityFaction(Character *npc) {
   if (!npc || (uintptr_t)npc < 0x1000)
     return "Neutral";

@@ -15,8 +15,8 @@ Non-goals:
 
 | Part | Today |
 |---|---|
-| Plugin | `GetStorageIDFor` (`plugin/game/Context.cpp:170`) returns the name as `storage_id`. The context also carries `id`, which is `hand_<serial>` (`Context.cpp:320`). |
-| Server | `get_character_data` strips a `\|serial` suffix from the name and keys the profile by the name (`kenshi_llm_server.py:1359-1382`). |
+| Plugin | `GetStorageIDFor` (`plugin/game/Context.cpp:170`) returns the name as `storage_id`. The context also carries `id`, which is the instance ID (`getInstanceID()->uid`), or `hand_<serial>` when the instance ID is empty (`Context.cpp:354-359`). |
+| Server | `get_character_data` strips a `\|serial` suffix from the name and keys the profile by the name (`kenshi_llm_server.py:1359-1380`). |
 | Database | `storage_id` holds the name with only its letters, digits, spaces, `_`, and `-` (`campaign_db._key`), and it ignores case. |
 | Rename | `/rename` moves the row to the new name (`campaign_db.rename_npc`). |
 | Name assignment | `/get_batch_identities` gives each generic NPC a unique name, so that the name can work as the key. |
@@ -67,7 +67,10 @@ The LLM names each speaker by name, for example `Beep: Hello`. The server maps a
 
 ## 9. Not yet verified
 
-- Whether `hand::toString()` gives the same text after a save and a load. Kenshi stores handles in its save files, but no plugin code calls `toString()` yet.
+Each chat message writes one `ID_PROBE` line for the target NPC to `SentientSands_SDK.log` (`LogNpcIdentity` in `plugin/game/Context.cpp`). The line holds the name, the handle text, the serial, the instance ID, the template `stringID` and name, and the faction. Compare the lines of one NPC before and after a save and a load, a recruit, a change of the mod list, and a reload of its town.
+
+- Whether `hand::toString()` gives the same text after a save and a load. Kenshi stores handles in its save files.
+- Whether the instance ID gives the same text after a save and a load. If it does, it can replace the handle as the ID of a generic NPC.
 - Which game data field marks the template of a unique character, and whether `npc->data` is that template.
 - Whether a recruited NPC keeps its handle when it joins the player's faction.
 - Whether a template `stringID` stays the same when the player changes the mod list.

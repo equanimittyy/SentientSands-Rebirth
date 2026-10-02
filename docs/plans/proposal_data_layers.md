@@ -83,7 +83,7 @@ The campaign folder is no longer read, so no prompt is campaign-specific. The te
 
 ### 3.4 Prompt placeholders
 
-Four prompts are filled with `str.format` today (`kenshi_llm_server.py:1233`, `:1300`, `:2166`, `:2614`). One stray brace in an edited file then raises an error, and that LLM call fails. JSON examples in a prompt must also be written as `{{ }}`.
+Four prompts are filled with `str.format` today (`kenshi_llm_server.py:1232`, `:1299`, `:2130`, `:2568`). One stray brace in an edited file then raises an error, and that LLM call fails. JSON examples in a prompt must also be written as `{{ }}`.
 
 A function `render(template, values)` replaces `str.format`. It replaces each `{name}` whose name is a key of `values`, and it leaves every other brace unchanged. The placeholder syntax stays the same, so the shipped files change only where they escape a brace as `{{` or `}}`.
 
@@ -285,7 +285,7 @@ The player picks which squad member speaks in a chat. Today the speaker is alway
 
 - The chat window gets a drop-down of the members of the current squad (`PlayerInterface::getCurrentPlatoon`). The talk target is not in the list.
 - The drop-down starts on the last speaker if that character is still in the current squad, else on the first member of the current squad. The plugin keeps the last speaker in memory, so a new game session starts on the first member.
-- The chat request names the speaker in its `player` field, as today (`plugin/ui/ChatWindow.cpp:375`). It also carries the speaker's context from `GetDetailedContext(speaker, "player")`. The prompt then shows the race, gender, status, and equipment of the speaker, not those of squad slot 1 in `PLAYER_CONTEXT` (`plugin/main.cpp:1247`).
+- The chat request names the speaker in its `player` field, as today (`plugin/ui/ChatWindow.cpp:377`). It also carries the speaker's context from `GetDetailedContext(speaker, "player")`. The prompt then shows the race, gender, status, and equipment of the speaker, not those of squad slot 1 in `PLAYER_CONTEXT` (`plugin/main.cpp:1247`).
 - The bio is the `Personality`, `Backstory`, and `SpeechQuirks` of the speaker's profile in `npc`. A speaker with no profile gets one from the `profile` task, as an NPC does (`get_character_data`). A squad member that the player recruited as an NPC keeps its profile and its dialogue.
 - The NPCs page of the web app edits the profile of a player character like any other profile ([proposal_web_app.md](proposal_web_app.md)).
 - Ambient banter does not change. It still names squad slot 1 as the player.
