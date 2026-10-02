@@ -11,6 +11,6 @@ std::string GetIdentityFaction(Character *npc);
 std::string GetStorageIDFor(Character *npc, const std::string &name,
                             const std::string &factionName);
 void LogNpcIdentity(Character *npc);
-void LogNpcBiome(Character *npc);
+void LogNpcZone(Character *npc);
 void LogFactionList();
 void LogCurrentSquad();

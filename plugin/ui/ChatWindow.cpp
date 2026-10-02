@@ -366,7 +366,7 @@ void OnChatSendClick(MyGUI::Widget *sender) {
   if (targetNpc) {
     detailedContext = GetDetailedContext(targetNpc);
     LogNpcIdentity(targetNpc);
-    LogNpcBiome(targetNpc);
+    LogNpcZone(targetNpc);
     LogFactionList();
     LogCurrentSquad();
   }

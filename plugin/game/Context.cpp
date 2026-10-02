@@ -15,8 +15,10 @@
 #include <kenshi/Platoon.h>
 #include <kenshi/PlayerInterface.h>
 #include <kenshi/RaceData.h>
-#include <kenshi/ZoneManager.h>
+#include <kenshi/Town.h>
+#include <kenshi/Weather.h>
 #include <kenshi/util/hand.h>
+#include <set>
 #include <sstream>
 #include <vector>
 
@@ -227,35 +229,46 @@ void LogNpcIdentity(Character *npc) {
                     ") faction=" + factionName + " unique=" + unique);
 }
 
-// Probe: does getBiome give a region such as "Border Zone", or a ground type?
-void LogNpcBiome(Character *npc) {
+// Probe: find the slot of AreaBiomeGroup that holds its zone record.
+// It compares pointers only and never follows an unknown one.
+static std::string ZoneMatches(AreaBiomeGroup *area,
+                               const std::set<GameData *> &zones) {
+  if (!area)
+    return "?";
+  std::ostringstream matches;
+  for (size_t offset = 0; offset < 0x200; offset += sizeof(void *)) {
+    GameData *candidate = *(GameData **)((char *)area + offset);
+    if (zones.count(candidate))
+      matches << " 0x" << std::hex << offset << ":" << candidate->name;
+  }
+  return matches.str().empty() ? "none" : matches.str();
+}
+
+void LogNpcZone(Character *npc) {
+  static std::set<GameData *> zones;
   GameWorld *world = ppWorld ? *ppWorld : NULL;
-  if (!world || !world->zoneMgr)
+  if (!world)
     return;
 
-  Ogre::Vector3 pos = npc->getPosition();
-  std::string biomeName = "?";
-  std::string biomeID = "?";
-  int biomeCode = -1;
-  try {
-    GameData *biome = world->zoneMgr->getBiome(pos);
-    if (biome) {
-      biomeName = biome->name;
-      biomeID = biome->stringID;
+  if (zones.empty()) {
+    lektor<GameData *> list;
+    world->gamedata.getDataOfType(list, BIOME_GROUP);
+    for (uint32_t i = 0; i < list.size(); ++i) {
+      if (!list[i])
+        continue;
+      zones.insert(list[i]);
+      Log(LOG_INFO, "ZONE_PROBE: zone id=" + list[i]->stringID +
+                        " name=" + list[i]->name);
     }
-    biomeCode = world->zoneMgr->getBiomeCode(pos);
-  } catch (...) {
   }
 
-  std::string town = "?";
-  TownBase *townBase = npc->getCurrentTownLocation();
-  if (townBase)
-    town = ((RootObjectBase *)townBase)->getName();
-
-  Log(LOG_INFO, "BIOME_PROBE: name=" + npc->getName() + " town=" + town +
-                    " biome=" + biomeName + " (" + biomeID +
-                    ") code=" + ToString(biomeCode) + " pos=" +
-                    ToString(pos.x) + "," + ToString(pos.z));
+  WeatherSystem *weather = WeatherSystem::getInstance();
+  TownBase *town = npc->getCurrentTownLocation();
+  Log(LOG_INFO,
+      "ZONE_PROBE: name=" + npc->getName() + " active=" +
+          ZoneMatches(weather ? weather->ActiveRegion : NULL, zones) +
+          " town_zone=" +
+          (town ? ZoneMatches(town->getBiome(), zones) : std::string("?")));
 }
 
 // Probe: every faction's string ID, for the vanilla template's faction files
