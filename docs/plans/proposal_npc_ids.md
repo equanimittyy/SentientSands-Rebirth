@@ -67,10 +67,11 @@ The LLM names each speaker by name, for example `Beep: Hello`. The server maps a
 
 ## 9. Not yet verified
 
-Each chat message writes one `ID_PROBE` line for the target NPC to `SentientSands_SDK.log` (`LogNpcIdentity` in `plugin/game/Context.cpp`). The line holds the name, the handle text, the serial, the instance ID, the template `stringID` and name, and the faction. Compare the lines of one NPC before and after a save and a load, a recruit, a change of the mod list, and a reload of its town. A change of the mod list needs a restart of the game, which moves the earlier lines to `SentientSands_SDK.old.log`.
+Each chat message writes one `ID_PROBE` line for the target NPC to `SentientSands_SDK.log` (`LogNpcIdentity` in `plugin/game/Context.cpp`). The line holds the name, the handle text, the serial, the instance ID, the layout instance ID, the template `stringID` and name, and the faction. Compare the lines of one NPC before and after a save and a load, a recruit, a change of the mod list, and a reload of its town. A change of the mod list needs a restart of the game, which moves the earlier lines to `SentientSands_SDK.old.log`.
 
 - Whether `hand::toString()` gives the same text after a save and a load. Kenshi stores handles in its save files.
 - Whether the instance ID gives the same text after a save and a load. If it does, it can replace the handle as the ID of a generic NPC.
+- Whether a generic NPC has a layout instance ID (`getLayoutInstanceID`), and whether it gives the same text after a save and a load.
 - Which game data field marks the template of a unique character, and whether `npc->data` is that template.
 - Whether a recruited NPC keeps its handle when it joins the player's faction.
 - Whether a template `stringID` stays the same when the player changes the mod list.

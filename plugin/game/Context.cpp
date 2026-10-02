@@ -190,6 +190,14 @@ void LogNpcIdentity(Character *npc) {
   InstanceID *iid = npc->getInstanceID();
   std::string instance = (iid && !iid->uid.empty()) ? iid->uid : "?";
 
+  std::string layout = "?";
+  try {
+    const std::string &layoutID = npc->getLayoutInstanceID();
+    if (!layoutID.empty())
+      layout = layoutID;
+  } catch (...) {
+  }
+
   std::string templateID = "?";
   std::string templateName = "?";
   if (npc->data) {
@@ -207,8 +215,9 @@ void LogNpcIdentity(Character *npc) {
 
   Log("ID_PROBE: name=" + name + " handle=" + handle +
       " serial=" + ToString(npc->getHandle().serial) +
-      " instance=" + instance + " template=" + templateID + " (" +
-      templateName + ") faction=" + factionName);
+      " instance=" + instance + " layout=" + layout +
+      " template=" + templateID + " (" + templateName +
+      ") faction=" + factionName);
 }
 
 std::string GetIdentityFaction(Character *npc) {
