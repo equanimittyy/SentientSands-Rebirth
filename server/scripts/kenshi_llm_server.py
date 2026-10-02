@@ -3596,15 +3596,7 @@ def toggle_favorite():
     return jsonify({"status": "ok", "state": status})
 @app.route('/player_profile', methods=['GET', 'POST'])
 def player_profile_route():
-    # The plugin loads the profile with an empty-body POST
-    data = None
-    if request.is_json:
-        try:
-            data = request.get_json(silent=True)
-        except:
-            pass
-    
-    if request.method == 'GET' or not data:
+    if request.method == 'GET':
         logging.info("PROMPT: Loading player profile (GUI request).")
         campaign = ACTIVE_CAMPAIGN
         bio = load_prompt_component("character_bio.txt", "A mysterious drifter.")
@@ -3616,6 +3608,7 @@ def player_profile_route():
             "player_faction": faction
         })
     else:
+        data = request.get_json(silent=True) or {}
         # The page can hold the text of a campaign that the player left in game
         if data.get("campaign") != ACTIVE_CAMPAIGN:
             return jsonify({"status": "error", "message": f"The active campaign is now {ACTIVE_CAMPAIGN}."}), 409
