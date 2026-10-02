@@ -901,8 +901,8 @@ def load_settings():
         "current_campaign": "Default",
         "enable_ambient": True,
         "radiant_delay": 240,
-        "global_events_count": 5,
-        "synthesis_interval_minutes": 15,
+        "global_events_count": 10,
+        "synthesis_interval_minutes": 5,
         "favorites": [],
         "radiant_range": 100,
         "talk_radius": 100,
@@ -1090,7 +1090,7 @@ def build_system_prompt(player_name="Drifter"):
     action_tags = load_prompt_component("prompt_action_tags.txt", "")
     
     settings = load_settings()
-    ge_count = settings.get("global_events_count", 5)
+    ge_count = settings.get("global_events_count", 10)
     events_list = []
     
     world_events_path = os.path.join(get_campaign_dir(), "world_events.txt")
@@ -3089,8 +3089,8 @@ def settings_endpoint():
             "current_campaign": ACTIVE_CAMPAIGN,
             "enable_ambient": settings.get("enable_ambient", True),
             "ambient_timer": settings.get("radiant_delay", 240),
-            "synthesis_timer": settings.get("synthesis_interval_minutes", 15),
-            "global_events_count": settings.get("global_events_count", 5),
+            "synthesis_timer": settings.get("synthesis_interval_minutes", 5),
+            "global_events_count": settings.get("global_events_count", 10),
             "dialogue_speed": settings.get("dialogue_speed_seconds", 5),
             "bubble_life": settings.get("bubble_life", 5),
             "radii": {
@@ -3648,7 +3648,7 @@ def synthesis_loop():
     while True:
         try:
             settings = load_settings()
-            interval = settings.get("synthesis_interval_minutes", 60)
+            interval = settings.get("synthesis_interval_minutes", 5)
             if interval < 1: interval = 1
             
             SYNTHESIS_STATUS["interval"] = interval

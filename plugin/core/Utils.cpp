@@ -8,6 +8,7 @@
 #include <sstream>
 
 #include <algorithm>
+#include <cstdlib>
 #include <windows.h>
 
 using namespace SentientSands::UI;
@@ -241,9 +242,9 @@ void LoadPluginConfig() {
 
   g_radiantRange = (float)GetPrivateProfileIntA("Settings", "RadiantRange", 100,
                                                 iniPath.c_str());
-  g_proximityRadius = (float)GetPrivateProfileIntA("Settings", "TalkRadius", 40,
-                                                   iniPath.c_str());
-  g_yellRadius = (float)GetPrivateProfileIntA("Settings", "YellRadius", 100,
+  g_proximityRadius = (float)GetPrivateProfileIntA("Settings", "TalkRadius",
+                                                   100, iniPath.c_str());
+  g_yellRadius = (float)GetPrivateProfileIntA("Settings", "YellRadius", 200,
                                               iniPath.c_str());
 
   g_visionRange = 100.0f;
@@ -259,6 +260,11 @@ void LoadPluginConfig() {
 
   g_dialogueSpeedSeconds =
       GetPrivateProfileIntA("Settings", "DialogueSpeed", 5, iniPath.c_str());
+
+  char bubbleLifeBuf[32];
+  GetPrivateProfileStringA("Settings", "SpeechBubbleLife", "5.0", bubbleLifeBuf,
+                           32, iniPath.c_str());
+  g_speechBubbleLife = (float)atof(bubbleLifeBuf);
 
   g_openWebPanelOnStart = GetPrivateProfileIntA("Settings",
                                                 "OpenWebPanelOnStart", 1,

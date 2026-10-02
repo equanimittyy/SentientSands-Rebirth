@@ -14,10 +14,10 @@ std::string g_modRoot = "";
 HMODULE g_hModule = nullptr;
 
 float g_radiantRange = 100.0f;
-float g_proximityRadius = 40.0f;
-float g_yellRadius = 100.0f;
+float g_proximityRadius = 100.0f;
+float g_yellRadius = 200.0f;
 float g_visionRange = 100.0f;
-int g_ambientIntervalSeconds = 120;
+int g_ambientIntervalSeconds = 240;
 bool g_enableAmbient = true;
 bool g_triggerAmbient = false;
 float g_minFactionRelation = -100.0f;

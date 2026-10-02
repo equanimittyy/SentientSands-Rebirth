@@ -59,6 +59,8 @@ Background threads do not change game objects or MyGUI widgets. The pipe listene
 
 The server is the only writer of `SentientSands_Config.ini`. The plugin reads the INI once at start, because it starts before the server. After that, it takes changes only through `SET_CONFIG` on the pipe. Two writers with no lock between them would undo each other's changes.
 
+A default applies only when the INI has no value for a key. The defaults in `LoadPluginConfig` (`plugin/core/Utils.cpp`), the defaults in `load_settings` (`server/scripts/kenshi_llm_server.py`), and the values in `mod/SentientSands_Config.ini` must agree, or the plugin and the server start with different values.
+
 The web app's Settings page posts its changes to `/settings`. The server writes the INI and sends each value that the plugin holds through `SET_CONFIG`. A language change sends the new translation table through the pipe as `APPLY_TRANSLATION`.
 
 The plugin re-creates its pipe instance after each message, so a message sent immediately after another can find no instance. `send_to_pipe` retries for 0.25 s for this reason. When the game does not run, each message therefore costs 0.25 s.
