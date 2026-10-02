@@ -861,8 +861,6 @@ INI_KEY_MAP = {
     "radiant_range": "RadiantRange",
     "talk_radius": "TalkRadius",
     "yell_radius": "YellRadius",
-    "min_faction_relation": "MinFactionRelation",
-    "max_faction_relation": "MaxFactionRelation",
     "enable_welcome": "EnableWelcomePopup",
     "dialogue_speed_seconds": "DialogueSpeed",
     "bubble_life": "SpeechBubbleLife",
@@ -907,8 +905,6 @@ def load_settings():
         "radiant_range": 100,
         "talk_radius": 100,
         "yell_radius": 200,
-        "min_faction_relation": -100,
-        "max_faction_relation": 100,
         "enable_welcome": True,
         "dialogue_speed_seconds": 5,
         "bubble_life": 5.0,
@@ -3136,11 +3132,6 @@ def settings_endpoint():
             send_to_pipe(f"SET_CONFIG: g_yellRadius: {y}")
         changes["radii"] = radii
 
-    min_rel = data.get("min_faction_relation")
-    if min_rel is not None:
-        send_to_pipe(f"SET_CONFIG: g_minFactionRelation: {min_rel}")
-        changes["min_faction_relation"] = min_rel
-
     lang = data.get("language")
     if lang is not None:
         changes["language"] = lang
@@ -3161,11 +3152,6 @@ def settings_endpoint():
     open_web_panel = data.get("open_web_panel_on_start")
     if open_web_panel is not None:
         changes["open_web_panel_on_start"] = bool(open_web_panel)
-
-    max_rel = data.get("max_faction_relation")
-    if max_rel is not None:
-        send_to_pipe(f"SET_CONFIG: g_maxFactionRelation: {max_rel}")
-        changes["max_faction_relation"] = max_rel
 
     ge_count = data.get("global_events_count")
     if ge_count is not None:

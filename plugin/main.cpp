@@ -272,10 +272,6 @@ void ProcessMessageQueue(GameWorld *thisptr) {
                 g_radiantRange = (float)atof(val.c_str());
               else if (var == "g_yellRadius")
                 g_yellRadius = (float)atof(val.c_str());
-              else if (var == "g_minFactionRelation")
-                g_minFactionRelation = (float)atof(val.c_str());
-              else if (var == "g_maxFactionRelation")
-                g_maxFactionRelation = (float)atof(val.c_str());
               else if (var == "g_dialogueSpeedSeconds") {
                 g_dialogueSpeedSeconds = atoi(val.c_str());
                 g_lastDialogueTick =
