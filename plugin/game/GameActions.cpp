@@ -56,8 +56,14 @@ void PerformLeaveSquad(Character *npc, GameWorld *world,
   if (world->factionMgr) {
     FactionManager *fm = world->factionMgr;
 
+    Faction *namedFaction = NULL;
+    if (!factionPart.empty() && factionPart != "Unknown")
+      namedFaction = fm->getFactionByName(factionPart);
+    // A profile made after recruitment names the player's own faction
+    bool useNamedFaction = namedFaction && !namedFaction->isThePlayer();
+
     std::string targetFactionName = "Drifters";
-    if (!factionPart.empty() && factionPart != "Unknown") {
+    if (useNamedFaction) {
       targetFactionName = factionPart;
     } else if (g_originFactions.count(npc->getHandle().serial)) {
       targetFactionName = g_originFactions[npc->getHandle().serial];
@@ -65,8 +71,7 @@ void PerformLeaveSquad(Character *npc, GameWorld *world,
 
     Faction *targetFaction = fm->getFactionByName(targetFactionName);
 
-    if ((factionPart.empty() || factionPart == "Unknown" ||
-         targetFactionName == "Drifters") &&
+    if ((!useNamedFaction || targetFactionName == "Drifters") &&
         npc->getGameData()) {
       GameData *characterData = npc->getGameData();
       const Ogre::vector<GameDataReference>::type *refs =

@@ -740,6 +740,7 @@ void ProcessMessageQueue(GameWorld *thisptr) {
             QueuedAction act;
             act.type = ACT_LEAVE;
             act.actor = targetHand;
+            act.message = getPayload(actStr, "LEAVE:");
             g_uiActionQueue.push_back(act);
             LeaveCriticalSection(&g_uiMutex);
           } else if (actStr.find("FACTION_RELATIONS:") != std::string::npos) {

@@ -2219,7 +2219,9 @@ def chat():
                     final_tag = f"[TASK: {matched_ka}{f': {args}' if args else ''}]"
                 else:
                     if matched_ka == "LEAVE" and not args:
-                        origin_faction = primary_data.get("Faction", "Unknown")
+                        origin_faction = primary_data.get("OriginFaction", "Unknown")
+                        if origin_faction == "Unknown":
+                            origin_faction = primary_data.get("Faction", "Unknown")
                         final_tag = f"[ACTION: LEAVE: {origin_faction}]" if origin_faction != "Unknown" else "[ACTION: LEAVE]"
                     else:
                         final_tag = f"[ACTION: {matched_ka}{f': {args}' if args else ''}]"
