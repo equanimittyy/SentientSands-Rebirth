@@ -16,14 +16,20 @@ RE_Kenshi loads the plugin into the game. Its installer also installs `KenshiLib
 ## 2. Install the compilers
 
 1. Install Visual Studio 2019 or later with the **Desktop development with C++** workload. This gives the editor and MSBuild.
-2. Install the Visual C++ 2010 x64 compiler. Use one of these routes. Both give the same compiler.
+2. Install the Visual C++ 2010 x64 compiler. Route A is the recommended route, because the [KenshiLib README](https://github.com/BFrizzleFoShizzle/KenshiLib#compiling) documents it. Both routes give the same compiler.
 
    | Route | Install, in this order | Toolset |
    |---|---|---|
-   | A | Visual Studio 2010 Professional, then Visual Studio 2010 SP1 | `v100`, the project default |
+   | A, recommended | Visual Studio 2010 Professional, Premium, or Ultimate, then Visual Studio 2010 SP1. All three editions contain the same compiler. Get them from the [Wayback Machine](https://archive.org/search?query=visual+studio+2010), where the KenshiLib README points. In the Visual Studio 2010 setup, keep Visual C++ selected, including its x64 compiler tools. | `v100`, the project default |
    | B | Visual Studio 2010 Express, then the Windows SDK 7.1, then Visual Studio 2010 SP1, then the Visual C++ 2010 SP1 Compiler Update for the Windows SDK 7.1 | `Windows7.1SDK` |
 
-   On route B, SP1 removes the x64 compilers of the SDK, and the compiler update puts them back. If the SDK 7.1 installer fails, uninstall each newer Microsoft Visual C++ 2010 Redistributable, then try again. The [KenshiLib README](https://github.com/BFrizzleFoShizzle/KenshiLib#compiling) points to copies of Visual Studio 2010 on the Wayback Machine.
+   On route B, SP1 removes the x64 compilers of the SDK, and the compiler update puts them back. If the SDK 7.1 installer fails, uninstall each newer Microsoft Visual C++ 2010 Redistributable, then try again.
+
+3. Check that the x64 compiler is installed:
+
+   ```
+   dir "C:\Program Files (x86)\Microsoft Visual Studio 10.0\VC\bin\amd64\cl.exe"
+   ```
 
 ## 3. Fill deps/
 
@@ -42,8 +48,9 @@ The build reads KenshiLib and Boost from `deps/` at the repo root. Git ignores t
 3. From the source archive, copy the `Include\` and `Libraries\` folders into `deps\KenshiLib\`.
 4. From the release asset, copy `KenshiLib.lib` into `deps\KenshiLib\Libraries\`.
 5. Get Boost 1.60.0 built with the Visual C++ 2010 x64 compiler. boost.org offers only source archives, so use the prebuilt installer that the Boost project publishes on SourceForge:
-   1. Download [`boost_1_60_0-msvc-10.0-64.exe`](https://sourceforge.net/projects/boost/files/boost-binaries/1.60.0/boost_1_60_0-msvc-10.0-64.exe/download) and run it. Any install folder works, for example the default `C:\local\boost_1_60_0`.
-   2. From the install folder, copy the `boost\` and `lib64-msvc-10.0\` folders into `deps\boost_1_60_0\`.
+   1. Download [`boost_1_60_0-msvc-10.0-64.exe`](https://sourceforge.net/projects/boost/files/boost-binaries/1.60.0/boost_1_60_0-msvc-10.0-64.exe/download) and run it.
+   2. On the folder page of the installer, click **Browse** and select the `deps\` folder of the repo. The installer adds `boost_1_60_0\` to the selected folder itself, so the install folder becomes `deps\boost_1_60_0\`.
+   3. In `deps\boost_1_60_0\`, keep the `boost\` and `lib64-msvc-10.0\` folders, and delete the other files and folders that the installer added.
 
    If the installer is not available, build the libraries from the boost.org source archive instead. This needs the compiler from section 2. In the extracted `boost_1_60_0\` folder, run:
 
@@ -69,7 +76,7 @@ The build reads KenshiLib and Boost from `deps/` at the repo root. Git ignores t
        lib64-msvc-10.0\           the built Boost libraries
    ```
 
-These are all the libraries that the plugin needs. The Ogre and MyGUI files in KenshiLib match the game, so the build uses those. The plugin hooks game functions through `KenshiLib::AddHook`, so it needs no MinHook.
+These are all the libraries that the plugin needs. The Ogre and MyGUI files in KenshiLib match the game, so the build uses those. The KenshiLib README also lists MinHook, but only to compile KenshiLib itself. `KenshiLib.dll` contains MinHook, and the plugin hooks game functions through `KenshiLib::AddHook`, so the plugin build needs no MinHook.
 
 ## 4. Build the plugin
 
@@ -114,7 +121,7 @@ The plugin starts the Python server from its own mod folder. A test therefore ne
 | Symptom | Cause | Fix |
 |---|---|---|
 | `MSB4019: The imported project "...Microsoft.Cpp.Default.props" was not found` | The Visual Studio install has no C++ workload. | Section 2, step 1 |
-| `MSB8020: The build tools for v100 ... cannot be found` | The 2010 x64 compiler is missing, or route B was built without its toolset option. | Section 2, step 2, and section 4, step 2 |
+| `MSB8020: The build tools for v100 ... cannot be found` | The 2010 x64 compiler is missing, or route B was built without its toolset option. | Section 2, steps 2 and 3, and section 4, step 2 |
 | `C1083: Cannot open include file` for a `kenshi/`, `ogre/`, `mygui/`, or `boost/` header | `deps\` is incomplete. | Section 3 |
 | `LNK1104: cannot open file 'KenshiLib.lib'` or `'libboost_...-vc100-mt-1_60.lib'` | A library is not where the project looks. | Section 3, steps 4 to 6 |
 | `MSB3021` or `MSB3027`: unable to copy `SentientSands.dll` | Kenshi is running and locks the DLL. | Close Kenshi, then build again. |
