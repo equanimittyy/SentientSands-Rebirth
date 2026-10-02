@@ -367,6 +367,8 @@ void OnChatSendClick(MyGUI::Widget *sender) {
     detailedContext = GetDetailedContext(targetNpc);
     LogNpcIdentity(targetNpc);
     LogNpcBiome(targetNpc);
+    LogFactionList();
+    LogCurrentSquad();
   }
 
   std::string json =

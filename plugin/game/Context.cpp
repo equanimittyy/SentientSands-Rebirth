@@ -214,11 +214,17 @@ void LogNpcIdentity(Character *npc) {
   } catch (...) {
   }
 
+  std::string unique = "?";
+  try {
+    unique = npc->isUnique() ? "1" : "0";
+  } catch (...) {
+  }
+
   Log(LOG_INFO, "ID_PROBE: name=" + name + " handle=" + handle +
                     " serial=" + ToString(npc->getHandle().serial) +
                     " instance=" + instance + " layout=" + layout +
                     " template=" + templateID + " (" + templateName +
-                    ") faction=" + factionName);
+                    ") faction=" + factionName + " unique=" + unique);
 }
 
 // Probe: does getBiome give a region such as "Border Zone", or a ground type?
@@ -250,6 +256,56 @@ void LogNpcBiome(Character *npc) {
                     " biome=" + biomeName + " (" + biomeID +
                     ") code=" + ToString(biomeCode) + " pos=" +
                     ToString(pos.x) + "," + ToString(pos.z));
+}
+
+// Probe: every faction's string ID, for the vanilla template's faction files
+void LogFactionList() {
+  static bool logged = false;
+  GameWorld *world = ppWorld ? *ppWorld : NULL;
+  if (logged || !world || !world->factionMgr)
+    return;
+  const lektor<Faction *> *all = world->factionMgr->getAllFactions();
+  if (!all)
+    return;
+  logged = true;
+
+  for (uint32_t i = 0; i < all->count; ++i) {
+    Faction *faction = all->stuff[i];
+    if (!faction || !faction->data)
+      continue;
+    Log(LOG_INFO, "FACTION_PROBE: id=" + faction->data->stringID +
+                      " name=" + faction->getName() +
+                      " data_name=" + faction->data->name +
+                      (faction->isThePlayer() ? " player" : "") +
+                      (faction->isNotARealFaction() ? " not_real" : ""));
+  }
+}
+
+// Probe: is getCurrentPlatoon the selected squad, for the speaker picker?
+void LogCurrentSquad() {
+  GameWorld *world = ppWorld ? *ppWorld : NULL;
+  if (!world || !world->player)
+    return;
+
+  Platoon *platoon = world->player->getCurrentPlatoon();
+  ActivePlatoon *active = platoon ? platoon->getActivePlatoon() : NULL;
+  std::string members;
+  std::string others;
+  lektor<Character *> &characters = world->player->playerCharacters;
+  for (uint32_t i = 0; i < characters.size(); ++i) {
+    Character *character = characters[i];
+    if (!character)
+      continue;
+    std::string &list =
+        (active && character->getPlatoon() == active) ? members : others;
+    if (!list.empty())
+      list += ",";
+    list += character->getName();
+  }
+
+  Log(LOG_INFO, "SQUAD_PROBE: current=" +
+                    (platoon ? platoon->getName() : std::string("?")) +
+                    " members=" + members + " others=" + others);
 }
 
 std::string GetIdentityFaction(Character *npc) {

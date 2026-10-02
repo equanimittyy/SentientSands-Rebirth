@@ -47,6 +47,33 @@ python -m unittest discover -s server/tests
 
 The tests use only the standard library, so they run in the dev container. Code that imports Flask or `requests` cannot be tested there, so keep testable logic in modules that do not import them.
 
+## Probes
+
+Some questions of the plans need data from the game. The plugin writes probe lines to `SentientSands_SDK.log` for them. All probe functions are in `plugin/game/Context.cpp`, and `OnChatSendClick` (`plugin/ui/ChatWindow.cpp`) calls them. A probe is removed when the change that needs its answer is built.
+
+| Line | Written | Function | Answers |
+|---|---|---|---|
+| `ID_PROBE` | At each chat, for the target NPC | `LogNpcIdentity` | Which candidate ID of an NPC stays the same, and whether `Character::isUnique` marks the unique NPCs ([proposal_npc_ids.md](../plans/proposal_npc_ids.md#9-not-yet-verified)) |
+| `BIOME_PROBE` | At each chat, for the target NPC | `LogNpcBiome` | Whether `ZoneManager::getBiome` gives a region name, such as Border Zone, or only a ground type. The server reads a `biome` from the context, but the plugin does not send one. |
+| `FACTION_PROBE` | At the first chat of each game, one line for each faction | `LogFactionList` | The string ID of each faction, which the faction files of the vanilla template need ([proposal_data_layers.md](../plans/proposal_data_layers.md#not-yet-verified)) |
+| `SQUAD_PROBE` | At each chat | `LogCurrentSquad` | Whether `PlayerInterface::getCurrentPlatoon` gives the squad that the player selected, which the speaker picker needs |
+
+One test session gives the data for all of them:
+
+1. Build the plugin, and load a save that has two squads.
+2. Chat with a unique NPC, for example Beep, and with a generic NPC. Do this in a town and outside a town.
+3. Select the other squad, and chat again.
+4. Save, load the save, and chat with the same NPCs again.
+5. Travel far from the town until it unloads, come back, and chat with the same generic NPC again.
+6. Recruit an NPC, and chat with it again.
+7. Optional: change the mod list, start the game again, and chat with the same NPCs. The restart moves the earlier lines to `SentientSands_SDK.old.log`.
+8. Copy `SentientSands_SDK.log` and `SentientSands_SDK.old.log` from the Kenshi folder into `temp/` in the repo, which git ignores.
+
+Two questions need no probe:
+
+- FTS5 in the embedded runtime, which retrieval needs. In an installed release, run `server\python\python.exe -c "import sqlite3; sqlite3.connect(':memory:').execute('CREATE VIRTUAL TABLE t USING fts5(x)'); print(sqlite3.sqlite_version)"`. A version number means that FTS5 is available. An error means that it is not.
+- Whether the local Player2 API lists its models. Press **List models** on a profile of a Player2 provider on the Models page.
+
 ## Release
 
 On Windows, run `package_release.cmd` in the repo root, and select one of its options:
