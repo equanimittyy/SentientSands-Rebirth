@@ -1,4 +1,4 @@
-import { getJson, sendJson, showMessage } from "./api.js";
+import { checkField, getJson, reportUnsaved, sendJson, showMessage } from "./api.js";
 
 const form = document.getElementById("settings-form");
 const message = document.getElementById("settings-message");
@@ -35,6 +35,12 @@ function changedSettings(current) {
   return changes;
 }
 
+function updateUnsaved() {
+  const unsaved = Object.keys(changedSettings(snapshot())).length > 0;
+  reportUnsaved(form, unsaved);
+  showMessage(message, unsaved ? "Unsaved changes." : "");
+}
+
 async function save(event) {
   event.preventDefault();
   const current = snapshot();
@@ -46,6 +52,7 @@ async function save(event) {
   try {
     await sendJson("POST", "/settings", changes);
     saved = current;
+    reportUnsaved(form, false);
     showMessage(message, "Saved.");
   } catch (error) {
     showMessage(message, `Save failed: ${error.message}`, true);
@@ -62,6 +69,8 @@ export async function loadSettings() {
       setValue(input, input.name.split(".").reduce((object, key) => object?.[key], settings));
     }
     saved = snapshot();
+    fields().forEach(checkField);
+    reportUnsaved(form, false);
     showMessage(message, "");
     return true;
   } catch (error) {
@@ -71,3 +80,7 @@ export async function loadSettings() {
 }
 
 form.addEventListener("submit", save);
+form.addEventListener("input", (event) => {
+  checkField(event.target);
+  updateUnsaved();
+});

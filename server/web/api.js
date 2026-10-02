@@ -50,3 +50,17 @@ export function showMessage(element, text, isError = false) {
   element.textContent = text;
   element.classList.toggle("error", isError);
 }
+
+export function reportUnsaved(element, unsaved) {
+  element.dispatchEvent(new CustomEvent("unsaved", { bubbles: true, detail: unsaved }));
+}
+
+export function setFieldError(input, text) {
+  input.classList.toggle("invalid", Boolean(text));
+  const label = input.closest("label");
+  let note = label.querySelector(".field-error");
+  if (!note && text) note = label.appendChild(Object.assign(document.createElement("span"), { className: "field-error" }));
+  if (note) note.textContent = text;
+}
+
+export const checkField = (input) => setFieldError(input, input.validity.valid ? "" : input.validationMessage);

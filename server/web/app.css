@@ -73,6 +73,11 @@ nav a[aria-current] {
   font-weight: 600;
 }
 
+nav a.unsaved::after {
+  content: " \2022";
+  color: var(--accent);
+}
+
 fieldset {
   border: 1px solid var(--border);
   border-radius: 6px;
@@ -139,6 +144,24 @@ button {
   display: flex;
   align-items: center;
   gap: 1rem;
+}
+
+.save-bar {
+  position: sticky;
+  bottom: 0;
+  padding: 0.75rem 0;
+  border-top: 1px solid var(--border);
+  background: Canvas;
+}
+
+.invalid {
+  outline: 2px solid var(--error);
+  outline-offset: 1px;
+}
+
+label > .field-error {
+  grid-column: -2 / -1;
+  color: var(--error);
 }
 
 .card {

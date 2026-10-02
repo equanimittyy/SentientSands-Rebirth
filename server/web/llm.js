@@ -1,4 +1,4 @@
-import { getJson, sendJson, showMessage } from "./api.js";
+import { getJson, reportUnsaved, sendJson, showMessage } from "./api.js";
 
 const TASK_LABELS = {
   chat: "Chat",
@@ -29,6 +29,7 @@ const field = (label, input) => el("label", {}, label, input);
 
 function markDirty() {
   dirty = true;
+  reportUnsaved(editor, true);
   showMessage(message, "Unsaved changes.");
 }
 
@@ -204,6 +205,7 @@ function load(config) {
   tasks = config.tasks;
   providerTypes = config.provider_types;
   dirty = false;
+  reportUnsaved(editor, false);
   render();
 }
 

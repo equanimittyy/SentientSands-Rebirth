@@ -47,16 +47,18 @@
           <legend>Diagnostics</legend>
           <label>Log level <select name="log_level"></select></label>
         </fieldset>
-        <div class="actions">
+        <div class="actions save-bar">
           <button type="submit" class="save" disabled>Save</button>
+          <button type="button" class="discard" disabled>Discard</button>
           <span class="message" id="settings-message" role="status"></span>
         </div>
       </form>
     </section>
     <section id="llm" hidden>
       <div id="llm-editor"></div>
-      <div class="actions">
+      <div class="actions save-bar">
         <button type="button" id="llm-save" class="save" disabled>Save</button>
+        <button type="button" class="discard" disabled>Discard</button>
         <span class="message" id="llm-message" role="status"></span>
       </div>
     </section>
@@ -64,8 +66,9 @@
       <form id="profile-form" class="stacked">
         <label>Player backstory <textarea name="character_bio"></textarea></label>
         <label>Faction description <textarea name="player_faction"></textarea></label>
-        <div class="actions">
+        <div class="actions save-bar">
           <button type="submit" class="save" disabled>Save</button>
+          <button type="button" class="discard" disabled>Discard</button>
           <span class="message" id="profile-message" role="status"></span>
         </div>
       </form>
