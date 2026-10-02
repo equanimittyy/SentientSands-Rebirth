@@ -12,7 +12,6 @@ std::string UnescapeJSON(const std::string &s);
 std::wstring Utf8ToWide(const std::string &str);
 std::string GetJsonValue(const std::string &json, const std::string &key);
 void LoadPluginConfig();
-void SavePluginConfig();
 void SetHotkeyFromString(const std::string &keyStr);
 void StartPythonServer(bool openBrowser);
 void SleepIfPaused(DWORD ms);

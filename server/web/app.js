@@ -1,14 +1,24 @@
-const show = (id, text) => {
-  document.getElementById(id).textContent = text;
-};
+import { getJson } from "./api.js";
+import { initSettings } from "./settings.js";
 
-try {
-  const response = await fetch("/settings");
-  if (!response.ok) throw new Error(`HTTP ${response.status}`);
-  const settings = await response.json();
-  show("server-status", "Running");
-  show("campaign", settings.current_campaign);
-  show("model", settings.current);
-} catch (error) {
-  show("server-status", `Not responding (${error.message})`);
+const pages = [...document.querySelectorAll("main > section")];
+const links = [...document.querySelectorAll("nav a")];
+
+function showPage() {
+  const id = pages.some((page) => `#${page.id}` === location.hash) ? location.hash.slice(1) : pages[0].id;
+  for (const page of pages) page.hidden = page.id !== id;
+  for (const link of links) link.toggleAttribute("aria-current", link.hash === `#${id}`);
 }
+
+window.addEventListener("hashchange", showPage);
+showPage();
+
+const status = document.getElementById("status");
+try {
+  const settings = await getJson("/settings");
+  status.textContent = `Campaign: ${settings.current_campaign} | Model: ${settings.current}`;
+} catch (error) {
+  status.textContent = `The server is not responding (${error.message}).`;
+}
+
+initSettings();

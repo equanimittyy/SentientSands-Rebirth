@@ -8,16 +8,44 @@
   <script type="module" src="/web/app.js"></script>
 </head>
 <body>
-  <main>
+  <header>
     <h1>Sentient Sands Rebirth</h1>
-    <dl>
-      <dt>Server</dt>
-      <dd id="server-status">Connecting...</dd>
-      <dt>Campaign</dt>
-      <dd id="campaign">-</dd>
-      <dt>Model</dt>
-      <dd id="model">-</dd>
-    </dl>
+    <p id="status">Connecting...</p>
+    <nav>
+      <a href="#settings">Settings</a>
+    </nav>
+  </header>
+  <main>
+    <section id="settings" hidden>
+      <form id="settings-form">
+        <fieldset>
+          <legend>Interface</legend>
+          <label>Language <select name="language"></select></label>
+          <label>Chat key <select name="chat_hotkey"></select></label>
+          <label class="check"><input type="checkbox" name="enable_welcome"> Show the welcome popup on start</label>
+          <label class="check"><input type="checkbox" name="open_web_panel_on_start"> Open this web panel on start</label>
+        </fieldset>
+        <fieldset>
+          <legend>Conversations</legend>
+          <label>Talk range <input type="number" name="radii.talk" min="1" required></label>
+          <label>Yell range <input type="number" name="radii.yell" min="1" required></label>
+          <label>Radiant range <input type="number" name="radii.radiant" min="1" required></label>
+          <label class="check"><input type="checkbox" name="enable_ambient"> Radiant conversations</label>
+          <label>Radiant timer (s) <input type="number" name="ambient_timer" min="1" required></label>
+          <label>Dialogue delay (s) <input type="number" name="dialogue_speed" min="1" required></label>
+          <label>Bubble life (s) <input type="number" name="bubble_life" min="1" step="0.5" required></label>
+        </fieldset>
+        <fieldset>
+          <legend>World events</legend>
+          <label>Events in prompt <input type="number" name="global_events_count" min="0" required></label>
+          <label>Event timer (min) <input type="number" name="synthesis_timer" min="1" required></label>
+        </fieldset>
+        <div class="actions">
+          <button type="submit">Save</button>
+          <span class="message" id="settings-message" role="status"></span>
+        </div>
+      </form>
+    </section>
   </main>
 </body>
 </html>

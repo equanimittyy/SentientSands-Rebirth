@@ -281,6 +281,10 @@ void ProcessMessageQueue(GameWorld *thisptr) {
                     GetTickCount();
               } else if (var == "g_speechBubbleLife") {
                 g_speechBubbleLife = (float)atof(val.c_str());
+              } else if (var == "g_chatHotkey") {
+                SetHotkeyFromString(val);
+              } else if (var == "g_enableWelcome") {
+                g_enableWelcome = (val == "1");
               }
             }
           } else if (command == "ENABLE_REGEN_BTN") {

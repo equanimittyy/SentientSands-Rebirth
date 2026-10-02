@@ -30,6 +30,9 @@ void OnWelcomeToggleClick(MyGUI::Widget *sender) {
       ->setCaption(g_enableWelcome
                        ? Utf8ToWide(T("Show on Startup: [ON]")).c_str()
                        : Utf8ToWide(T("Show on Startup: [OFF]")).c_str());
+  AsyncPostToPython(L"/settings", std::string("{\"enable_welcome\": ") +
+                                      (g_enableWelcome ? "true" : "false") +
+                                      "}");
 }
 
 void OnWelcomeWindowButtonPressed(MyGUI::Window *sender,
@@ -147,10 +150,7 @@ void RefreshWelcomeUI() {
     CreateWelcomeUI();
 }
 
-void OnWelcomeSaveClick(MyGUI::Widget *sender) {
-  SavePluginConfig();
-  CloseWelcomeUI();
-}
+void OnWelcomeSaveClick(MyGUI::Widget *sender) { CloseWelcomeUI(); }
 
 } // namespace UI
 } // namespace SentientSands

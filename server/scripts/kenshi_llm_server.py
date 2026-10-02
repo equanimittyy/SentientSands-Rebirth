@@ -497,12 +497,18 @@ def send_to_pipe(cmd):
     """The plugin dispatches on these prefixes; anything else is sent as a "CMD: " command."""
     if not (cmd.startswith("CMD:") or cmd.startswith("NPC_") or cmd.startswith("PLAYER_") or cmd.startswith("NOTIFY:")):
         cmd = "CMD: " + cmd
-        
-    try:
-        with open(r'\\.\pipe\SentientSands', 'wb') as f:
-            f.write(cmd.encode('utf-8'))
-    except:
-        pass
+
+    # The plugin re-creates its only pipe instance after each message, so a send right after another one can find no instance for a moment
+    deadline = time.monotonic() + 0.25
+    while True:
+        try:
+            with open(r'\\.\pipe\SentientSands', 'wb') as f:
+                f.write(cmd.encode('utf-8'))
+            return
+        except OSError:
+            if time.monotonic() >= deadline:
+                return
+            time.sleep(0.01)
 
 def push_generic_names_to_dll():
     try:
@@ -858,6 +864,9 @@ def build_detailed_context_string(npc_name, char_data=None):
 
     return "\n".join(lines)
 
+# SetHotkeyFromString in the plugin parses only these keys
+CHAT_HOTKEYS = ["\\", "[", "P", "T", "J", "U", "K"]
+
 # The plugin reads the same [Settings] keys, so renaming one breaks it
 INI_KEY_MAP = {
     "current_model": "CurrentModel",
@@ -875,7 +884,9 @@ INI_KEY_MAP = {
     "enable_welcome": "EnableWelcomePopup",
     "dialogue_speed_seconds": "DialogueSpeed",
     "bubble_life": "SpeechBubbleLife",
-    "language": "Language"
+    "language": "Language",
+    "chat_hotkey": "ChatHotkey",
+    "open_web_panel_on_start": "OpenWebPanelOnStart"
 }
 
 def _save_settings_raw(settings):
@@ -919,7 +930,9 @@ def load_settings():
         "enable_welcome": True,
         "dialogue_speed_seconds": 5,
         "bubble_life": 5.0,
-        "language": "English"
+        "language": "English",
+        "chat_hotkey": "\\",
+        "open_web_panel_on_start": True
     }
     
     settings = defaults.copy()
@@ -3162,6 +3175,10 @@ def settings_endpoint():
             },
             "language": settings.get("language", "English"),
             "supported_languages": list(LOCALIZATION_CONFIG.keys()),
+            "chat_hotkey": settings.get("chat_hotkey", "\\"),
+            "chat_hotkeys": CHAT_HOTKEYS,
+            "enable_welcome": settings.get("enable_welcome", True),
+            "open_web_panel_on_start": settings.get("open_web_panel_on_start", True),
             "ui_translation": LOCALIZATION_CONFIG.get(settings.get("language", "English"), {})
         })
 
@@ -3208,7 +3225,23 @@ def settings_endpoint():
     lang = data.get("language")
     if lang is not None:
         changes["language"] = lang
+        send_to_pipe("POPULATE_WELCOME: " + json.dumps({"ui_translation": LOCALIZATION_CONFIG.get(lang, {})}))
         logging.info(f"Language set to: {lang}")
+
+    hotkey = data.get("chat_hotkey")
+    if hotkey in CHAT_HOTKEYS:
+        changes["chat_hotkey"] = hotkey
+        send_to_pipe(f"SET_CONFIG: g_chatHotkey: {hotkey}")
+        logging.info(f"Chat hotkey set to: {hotkey}")
+
+    enable_welcome = data.get("enable_welcome")
+    if enable_welcome is not None:
+        changes["enable_welcome"] = bool(enable_welcome)
+        send_to_pipe(f"SET_CONFIG: g_enableWelcome: {'1' if enable_welcome else '0'}")
+
+    open_web_panel = data.get("open_web_panel_on_start")
+    if open_web_panel is not None:
+        changes["open_web_panel_on_start"] = bool(open_web_panel)
 
     max_rel = data.get("max_faction_relation")
     if max_rel is not None:

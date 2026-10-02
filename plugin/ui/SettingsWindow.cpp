@@ -64,14 +64,12 @@ void OnSettingsSaveClick(MyGUI::Widget *sender) {
       g_settingsHotkey->getIndexSelected() != MyGUI::ITEM_NONE) {
     SetHotkeyFromString(
         g_settingsHotkey->getItemNameAt(g_settingsHotkey->getIndexSelected()));
-    SavePluginConfig();
   }
 
   if (g_settingsLanguage &&
       g_settingsLanguage->getIndexSelected() != MyGUI::ITEM_NONE) {
     g_language = g_settingsLanguage->getItemNameAt(
         g_settingsLanguage->getIndexSelected());
-    SavePluginConfig();
   }
 
   std::string model = "";
@@ -103,6 +101,7 @@ void OnSettingsSaveClick(MyGUI::Widget *sender) {
   json += "\"enable_ambient\": ";
   json += (g_enableAmbient ? "true" : "false");
   json += ",\"language\": \"" + EscapeJSON(g_language) + "\"";
+  json += ",\"chat_hotkey\": \"" + EscapeJSON(g_chatHotkeyStr) + "\"";
   json += "}";
 
   // Synchronous so the server applies the settings before the window closes.

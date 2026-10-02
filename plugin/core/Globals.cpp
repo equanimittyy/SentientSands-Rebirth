@@ -22,7 +22,6 @@ bool g_enableAmbient = true;
 bool g_triggerAmbient = false;
 float g_minFactionRelation = -100.0f;
 float g_maxFactionRelation = 100.0f;
-int g_worldEventIntervalDays = 3;
 int g_dialogueSpeedSeconds = 5;
 float g_speechBubbleLife = 5.0f;
 bool g_openWebPanelOnStart = true;

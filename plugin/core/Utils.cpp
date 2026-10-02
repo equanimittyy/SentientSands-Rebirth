@@ -222,9 +222,6 @@ void LoadPluginConfig() {
   g_ambientIntervalSeconds =
       GetPrivateProfileIntA("Settings", "RadiantDelay", 240, iniPath.c_str());
 
-  g_worldEventIntervalDays = GetPrivateProfileIntA(
-      "Settings", "GlobalEventsCount", 10, iniPath.c_str());
-
   g_enableAmbient =
       GetPrivateProfileIntA("Settings", "EnableAmbientConversations", 1,
                             iniPath.c_str()) != 0;
@@ -244,42 +241,6 @@ void LoadPluginConfig() {
       ", AmbientInterval=" + ToString(g_ambientIntervalSeconds) + "s" +
       ", EnableAmbient=" + (g_enableAmbient ? "true" : "false") +
       ", EnableWelcome=" + (g_enableWelcome ? "true" : "false"));
-
-  // Writes every key back so a first launch creates a complete INI
-  SavePluginConfig();
-}
-
-void SavePluginConfig() {
-  std::string iniPath = g_modRoot + "\\SentientSands_Config.ini";
-
-  WritePrivateProfileStringA("Settings", "ChatHotkey", g_chatHotkeyStr.c_str(),
-                             iniPath.c_str());
-  WritePrivateProfileStringA("Settings", "Language", g_language.c_str(),
-                             iniPath.c_str());
-  WritePrivateProfileStringA("Settings", "RadiantRange",
-                             ToString((int)g_radiantRange).c_str(),
-                             iniPath.c_str());
-  WritePrivateProfileStringA("Settings", "TalkRadius",
-                             ToString((int)g_proximityRadius).c_str(),
-                             iniPath.c_str());
-  WritePrivateProfileStringA("Settings", "YellRadius",
-                             ToString((int)g_yellRadius).c_str(),
-                             iniPath.c_str());
-  WritePrivateProfileStringA("Settings", "RadiantDelay",
-                             ToString(g_ambientIntervalSeconds).c_str(),
-                             iniPath.c_str());
-  WritePrivateProfileStringA("Settings", "EnableAmbientConversations",
-                             g_enableAmbient ? "1" : "0", iniPath.c_str());
-  WritePrivateProfileStringA("Settings", "EnableWelcomePopup",
-                             g_enableWelcome ? "1" : "0", iniPath.c_str());
-  WritePrivateProfileStringA("Settings", "GlobalEventsCount",
-                             ToString(g_worldEventIntervalDays).c_str(),
-                             iniPath.c_str());
-  WritePrivateProfileStringA("Settings", "DialogueSpeed",
-                             ToString(g_dialogueSpeedSeconds).c_str(),
-                             iniPath.c_str());
-
-  Log("CONFIG: Saved full settings state to INI.");
 }
 
 void StartPythonServer(bool openBrowser) {

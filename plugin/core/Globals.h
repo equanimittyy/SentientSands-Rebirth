@@ -45,7 +45,6 @@ extern bool g_enableAmbient;
 extern bool g_triggerAmbient;
 extern float g_minFactionRelation;
 extern float g_maxFactionRelation;
-extern int g_worldEventIntervalDays;
 extern int g_dialogueSpeedSeconds;
 extern float g_speechBubbleLife;
 extern bool g_openWebPanelOnStart;
