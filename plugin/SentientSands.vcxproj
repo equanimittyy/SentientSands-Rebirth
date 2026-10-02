@@ -35,7 +35,7 @@
     <IntDir>$(MSBuildProjectDirectory)\x64\Release\obj\</IntDir>
     <LinkIncremental>false</LinkIncremental>
     <DepsDir>$(MSBuildProjectDirectory)\..\deps</DepsDir>
-    <IncludePath>$(DepsDir)\KenshiLib\Include;$(DepsDir)\boost_1_60_0;$(IncludePath)</IncludePath>
+    <IncludePath>$(DepsDir)\KenshiLib\Include;$(DepsDir)\KenshiLib\Include\ogre;$(DepsDir)\boost_1_60_0;$(IncludePath)</IncludePath>
     <LibraryPath>$(DepsDir)\KenshiLib\Libraries;$(DepsDir)\KenshiLib\Libraries\mygui;$(DepsDir)\KenshiLib\Libraries\ogre;$(DepsDir)\boost_1_60_0\lib64-msvc-10.0;$(LibraryPath)</LibraryPath>
   </PropertyGroup>
   <ItemDefinitionGroup>
