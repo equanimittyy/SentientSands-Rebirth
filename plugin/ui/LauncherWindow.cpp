@@ -7,6 +7,7 @@
 #include "SettingsWindow.h"
 #include "../core/Utils.h"
 #include "WelcomeWindow.h"
+#include <shellapi.h>
 #include <mygui/MyGUI_Button.h>
 #include <mygui/MyGUI_Delegate.h>
 #include <mygui/MyGUI_Gui.h>
@@ -32,6 +33,10 @@ void OnLauncherSettingsClick(MyGUI::Widget *sender) { CreateSettingsUI(); }
 void OnLauncherCampaignsClick(MyGUI::Widget *sender) { CreateCampaignsUI(); }
 void OnLauncherWelcomeClick(MyGUI::Widget *sender) { CreateWelcomeUI(); }
 void OnLauncherProfileClick(MyGUI::Widget *sender) { CreateProfileEditorUI(); }
+void OnLauncherWebPanelClick(MyGUI::Widget *sender) {
+  ShellExecuteA(NULL, "open", "http://127.0.0.1:5000/", NULL, NULL,
+                SW_SHOWNORMAL);
+}
 
 void OnLauncherWindowButtonPressed(MyGUI::Window *sender,
                                    const std::string &name) {
@@ -54,9 +59,9 @@ void CreateLauncherUI() {
       MyGUI::newDelegate(OnLauncherWindowButtonPressed);
 
   MyGUI::Widget *client = g_launcherWindow->getClientWidget();
-  float yDelta = 0.16f;
+  float yDelta = 0.14f;
   float yPos = 0.02f;
-  float bH = 0.14f;
+  float bH = 0.12f;
 
   MyGUI::Button *libBtn = client->createWidgetReal<MyGUI::Button>(
       "Kenshi_Button1", 0.05f, yPos, 0.9f, bH,
@@ -99,6 +104,14 @@ void CreateLauncherUI() {
   profBtn->eventMouseButtonClick += MyGUI::newDelegate(OnLauncherProfileClick);
   yPos += yDelta;
 
+  MyGUI::Button *webBtn = client->createWidgetReal<MyGUI::Button>(
+      "Kenshi_Button1", 0.05f, yPos, 0.9f, bH,
+      MyGUI::Align::Top | MyGUI::Align::HStretch,
+      "SentientSands_LauncherWebBtn");
+  webBtn->setCaption(Utf8ToWide(T("Open Web Panel")).c_str());
+  webBtn->eventMouseButtonClick += MyGUI::newDelegate(OnLauncherWebPanelClick);
+  yPos += yDelta;
+
   MyGUI::Button *welBtn = client->createWidgetReal<MyGUI::Button>(
       "Kenshi_Button1", 0.05f, yPos, 0.9f, bH,
       MyGUI::Align::Top | MyGUI::Align::HStretch,
@@ -124,6 +137,7 @@ void RefreshLauncherUI() {
                         {"SentientSands_LauncherSetBtn", "AI Settings"},
                         {"SentientSands_LauncherCampBtn", "Campaign Manager"},
                         {"SentientSands_LauncherProfBtn", "Profile Editor"},
+                        {"SentientSands_LauncherWebBtn", "Open Web Panel"},
                         {"SentientSands_LauncherWelBtn", "Welcome Popup"}};
 
   for (int i = 0; i < sizeof(items) / sizeof(items[0]); ++i) {

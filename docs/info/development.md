@@ -31,6 +31,8 @@ python -m pip install -r server/requirements.txt
 python server/scripts/kenshi_llm_server.py
 ```
 
+The web app is at `http://127.0.0.1:5000/`. Add `--open-browser` to open it when the server is ready, as the plugin does at game start.
+
 From the repo, the server reads `mod/SentientSands_Config.ini` and writes its logs and campaigns under `server/`. On first start, it also creates `server/config/providers.json` for your API keys. Git ignores all of these files.
 
 `visual_debugger.py` needs Tkinter, which the embedded runtime does not include. Run it with a system Python.

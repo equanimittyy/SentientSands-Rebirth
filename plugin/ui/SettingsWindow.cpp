@@ -152,7 +152,7 @@ void OnSettingsTestClick(MyGUI::Widget *sender) {
 void OnSettingsRestartClick(MyGUI::Widget *sender) {
   MyGUI::Button *btn = (MyGUI::Button *)sender;
   btn->setCaption(Utf8ToWide(T("REBOOTING")).c_str());
-  StartPythonServer();
+  StartPythonServer(false);
 }
 
 void OnSettingsProviderChange(MyGUI::ComboBox *sender, size_t index) {

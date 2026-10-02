@@ -25,6 +25,7 @@ float g_maxFactionRelation = 100.0f;
 int g_worldEventIntervalDays = 3;
 int g_dialogueSpeedSeconds = 5;
 float g_speechBubbleLife = 5.0f;
+bool g_openWebPanelOnStart = true;
 
 hand g_lastSelectionHand;
 hand g_lastChattingPlayerHand;

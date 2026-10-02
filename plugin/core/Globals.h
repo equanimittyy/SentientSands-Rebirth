@@ -48,6 +48,7 @@ extern float g_maxFactionRelation;
 extern int g_worldEventIntervalDays;
 extern int g_dialogueSpeedSeconds;
 extern float g_speechBubbleLife;
+extern bool g_openWebPanelOnStart;
 
 extern hand g_lastSelectionHand;
 extern hand g_lastChattingPlayerHand;

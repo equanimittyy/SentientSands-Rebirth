@@ -1574,7 +1574,7 @@ DWORD WINAPI MainThread(LPVOID lpParam) {
   CreateThread(NULL, 0, PipeThread, NULL, 0, NULL);
   CreateThread(NULL, 0, NameAssignThread, NULL, 0, NULL);
   LoadPluginConfig();
-  StartPythonServer();
+  StartPythonServer(g_openWebPanelOnStart);
   while (true) {
     DWORD now = GetTickCount();
     if (now - g_lastContextPushTick > 5000) {

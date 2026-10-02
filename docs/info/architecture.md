@@ -12,7 +12,8 @@ Sentient Sands Rebirth has three parts: a C++ plugin that runs inside Kenshi, a 
 | `plugin/core/` | Shared state and mutexes (`Globals`), logging, INI settings, and server start-up (`Utils`), and the transport to the server (`Comm`). |
 | `plugin/game/` | Reads game state into JSON for prompts (`Context`) and applies queued NPC actions to the world (`GameActions`). |
 | `plugin/ui/` | The in-game MyGUI windows. `LauncherWindow` is the hub that opens the others. `ChatUIGlobals` holds the shared widget pointers. |
-| `server/scripts/` | The Flask server (`kenshi_llm_server.py`), the request checks (`request_guard.py`), the Kenshi save parser (`save_reader.py`), and a Tkinter debug tool (`visual_debugger.py`). |
+| `server/scripts/` | The Flask server (`kenshi_llm_server.py`), the request checks (`request_guard.py`), the browser auto-open (`browser_launch.py`), the Kenshi save parser (`save_reader.py`), and a Tkinter debug tool (`visual_debugger.py`). |
+| `server/web/` | The web app: plain HTML, CSS, and JavaScript, which the server serves at `http://127.0.0.1:5000/`. |
 | `server/tests/` | Unit tests that run with the standard library only. See [development.md](development.md#tests). |
 | `server/config/` | Provider, model, name, title, and localization JSON. |
 | `server/templates/` | Prompt templates and the world lore. |
@@ -32,7 +33,7 @@ SentientSandsRebirth/
   SentientSandsRebirth.mod
   SentientSands_Config.ini   settings that the plugin and the server both read
   server/
-    scripts/  config/  templates/
+    scripts/  config/  templates/  web/
     python/                  embedded runtime, added by scripts/package_release.py
     campaigns/  logs/        created at runtime
 ```
@@ -45,9 +46,10 @@ SentientSandsRebirth/
 
 1. RE_Kenshi loads `SentientSands.dll` and calls `startPlugin`. The plugin installs its KenshiLib hooks and starts `MainThread`.
 2. `MainThread` waits for `KenshiLib.dll`. Then it starts the pipe listener (`PipeThread`) and the name-assignment thread, loads the INI, and starts the server. After that, it posts the player's context to `/context` at most once every 5 seconds.
-3. The server listens on `127.0.0.1:5000`. The plugin sends HTTP POST requests to it through WinHTTP (`plugin/core/Comm.cpp`) for chat, history, settings, campaigns, profiles, and events. The server rejects a request whose `Host` header is not `127.0.0.1:5000` or `localhost:5000`, or whose `Origin` header names another site (`server/scripts/request_guard.py`). This stops web pages in the player's browser from using the server. A new caller must use one of these two host names.
-4. The server sends commands back through the named pipe `\\.\pipe\SentientSands`, which the plugin hosts. Examples are `SET_CONFIG`, `NOTIFY`, and `POPULATE_GENERIC`.
-5. The server builds each prompt from `server/templates/` and the campaign state, then calls the OpenAI-compatible provider that `server/config/providers.json` and `models.json` select.
+3. If `OpenWebPanelOnStart` in the INI is `1`, this first server start passes `--open-browser`. The server then opens the web app in the default browser when its port accepts connections. A restart from the launcher does not pass the flag, so the player does not get a second tab.
+4. The server listens on `127.0.0.1:5000`. The plugin sends HTTP POST requests to it through WinHTTP (`plugin/core/Comm.cpp`) for chat, history, settings, campaigns, profiles, and events. The server rejects a request whose `Host` header is not `127.0.0.1:5000` or `localhost:5000`, or whose `Origin` header names another site (`server/scripts/request_guard.py`). This stops web pages in the player's browser from using the server. A new caller must use one of these two host names.
+5. The server sends commands back through the named pipe `\\.\pipe\SentientSands`, which the plugin hosts. Examples are `SET_CONFIG`, `NOTIFY`, and `POPULATE_GENERIC`.
+6. The server builds each prompt from `server/templates/` and the campaign state, then calls the OpenAI-compatible provider that `server/config/providers.json` and `models.json` select.
 
 ## Threading
 

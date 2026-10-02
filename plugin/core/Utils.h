@@ -14,5 +14,5 @@ std::string GetJsonValue(const std::string &json, const std::string &key);
 void LoadPluginConfig();
 void SavePluginConfig();
 void SetHotkeyFromString(const std::string &keyStr);
-void StartPythonServer();
+void StartPythonServer(bool openBrowser);
 void SleepIfPaused(DWORD ms);

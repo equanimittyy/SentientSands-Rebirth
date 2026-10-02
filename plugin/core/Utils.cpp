@@ -235,6 +235,10 @@ void LoadPluginConfig() {
   g_dialogueSpeedSeconds =
       GetPrivateProfileIntA("Settings", "DialogueSpeed", 5, iniPath.c_str());
 
+  g_openWebPanelOnStart = GetPrivateProfileIntA("Settings",
+                                                "OpenWebPanelOnStart", 1,
+                                                iniPath.c_str()) != 0;
+
   Log("CONFIG: Loaded ProximityRadius=" + ToString(g_proximityRadius) +
       ", RadiantRange=" + ToString(g_radiantRange) +
       ", AmbientInterval=" + ToString(g_ambientIntervalSeconds) + "s" +
@@ -278,12 +282,13 @@ void SavePluginConfig() {
   Log("CONFIG: Saved full settings state to INI.");
 }
 
-void StartPythonServer() {
+void StartPythonServer(bool openBrowser) {
   Log("SYSTEM: Starting Python server...");
 
   std::string localPython = g_modRoot + "\\server\\python\\python.exe";
   std::string serverScript =
       g_modRoot + "\\server\\scripts\\kenshi_llm_server.py";
+  std::string serverArgs = openBrowser ? " --open-browser" : "";
 
   Log("SYSTEM: Python path: " + localPython);
   Log("SYSTEM: Server script: " + serverScript);
@@ -292,13 +297,15 @@ void StartPythonServer() {
   if (fileAttr != INVALID_FILE_ATTRIBUTES &&
       !(fileAttr & FILE_ATTRIBUTE_DIRECTORY)) {
     Log("SYSTEM: Using embedded Python runtime.");
-    std::string cmd = "\"" + localPython + "\" \"" + serverScript + "\"";
+    std::string cmd =
+        "\"" + localPython + "\" \"" + serverScript + "\"" + serverArgs;
     WinExec(cmd.c_str(), SW_HIDE);
   } else {
     int result = system("python --version >nul 2>&1");
     if (result == 0) {
       Log("SYSTEM: Local Python not found, falling back to global 'python'.");
-      WinExec(("python \"" + serverScript + "\"").c_str(), SW_HIDE);
+      WinExec(("python \"" + serverScript + "\"" + serverArgs).c_str(),
+              SW_HIDE);
     } else {
       Log("ERROR: No Python installation found!");
       MessageBoxA(

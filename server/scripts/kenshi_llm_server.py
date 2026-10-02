@@ -26,6 +26,7 @@ import time
 import threading
 import random
 import configparser
+import mimetypes
 from flask import Flask, request, jsonify
 from werkzeug.exceptions import HTTPException
 import sys
@@ -43,6 +44,7 @@ if SCRIPT_DIR not in sys.path:
 
 from save_reader import build_world_index
 from request_guard import is_request_allowed
+from browser_launch import open_when_ready
 
 def resolve_mod_file(filename):
     """Falls back to the repo's mod/ subdirectory when run from a source checkout."""
@@ -63,6 +65,7 @@ DEFAULT_PROVIDERS_PATH = os.path.join(KENSHI_SERVER_DIR, "config", "default_prov
 NAMES_PATH = os.path.join(KENSHI_SERVER_DIR, "config", "names.json")
 GENERIC_NAMES_PATH = os.path.join(KENSHI_SERVER_DIR, "config", "generic_names.json")
 LOCALIZATION_PATH = os.path.join(KENSHI_SERVER_DIR, "config", "localization.json")
+WEB_DIR = os.path.join(KENSHI_SERVER_DIR, "web")
 
 MODELS_CONFIG = {}
 PROVIDERS_CONFIG = {}
@@ -294,7 +297,9 @@ def kill_old_servers():
 
 kill_old_servers()
 
-app = Flask(__name__)
+# A Windows registry entry can map .js to text/plain, and browsers refuse to run a module script with that type
+mimetypes.add_type("text/javascript", ".js")
+app = Flask(__name__, static_folder=WEB_DIR, static_url_path="/web")
 # ASCII-only responses: the plugin's UnescapeJSON decodes the \u escapes
 app.json.ensure_ascii = True
 
@@ -2057,6 +2062,10 @@ INSTRUCTIONS:
     
     return jsonify({"status": "none"})
 
+@app.route('/')
+def web_app():
+    return app.send_static_file("index.html")
+
 @app.route('/test_llm', methods=['POST'])
 def test_llm():
     try:
@@ -3784,5 +3793,7 @@ threading.Thread(target=monitor_kenshi_process, daemon=True).start()
 
 if __name__ == '__main__':
     logging.info("Kenshi LLM Server Starting on port 5000...")
+    if "--open-browser" in sys.argv[1:]:
+        threading.Thread(target=open_when_ready, args=("127.0.0.1", 5000), daemon=True).start()
     # Threaded: the plugin's polling must not block chat and settings requests
     app.run(host='127.0.0.1', port=5000, threaded=True)
