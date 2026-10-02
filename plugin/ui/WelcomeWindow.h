@@ -8,6 +8,7 @@ extern MyGUI::Window *g_welcomeWindow;
 
 void CreateWelcomeUI();
 void CloseWelcomeUI();
+void RefreshWelcomeUI();
 void OnWelcomeSaveClick(MyGUI::Widget *sender);
 void OnWelcomeWindowButtonPressed(MyGUI::Window *sender,
                                   const std::string &name);

@@ -140,8 +140,11 @@ void CreateWelcomeUI() {
       "SentientSands_WelcomeSaveBtn");
   saveBtn->setCaption(Utf8ToWide(T("CLOSE")).c_str());
   saveBtn->eventMouseButtonClick += MyGUI::newDelegate(OnWelcomeSaveClick);
+}
 
-  CreateThread(NULL, 0, WelcomeResponseThread, NULL, 0, NULL);
+void RefreshWelcomeUI() {
+  if (g_welcomeWindow)
+    CreateWelcomeUI();
 }
 
 void OnWelcomeSaveClick(MyGUI::Widget *sender) {

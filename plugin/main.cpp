@@ -1201,9 +1201,12 @@ void playerUpdate_hook(PlayerInterface *thisptr) {
   if (playerUpdate_orig)
     playerUpdate_orig(thisptr);
 
-  if (!g_welcomeShown && g_enableWelcome && MyGUI::Gui::getInstancePtr()) {
-    CreateWelcomeUI();
-    CreateLauncherUI();
+  if (!g_welcomeShown && MyGUI::Gui::getInstancePtr()) {
+    if (g_enableWelcome) {
+      CreateWelcomeUI();
+      CreateLauncherUI();
+    }
+    CreateThread(NULL, 0, WelcomeResponseThread, NULL, 0, NULL);
     g_welcomeShown = true;
   }
 

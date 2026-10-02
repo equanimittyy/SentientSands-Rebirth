@@ -1,5 +1,6 @@
 #include "SettingsWindow.h"
 #include "CampaignsWindow.h"
+#include "WelcomeWindow.h"
 #include "../core/Comm.h"
 #include "../core/Globals.h"
 #include "../core/Utils.h"
@@ -383,7 +384,50 @@ void CreateSettingsUI() {
   CreateThread(NULL, 0, SettingsResponseThread, NULL, 0, NULL);
 }
 
+static void ApplyUITranslation(const std::string &json) {
+  std::string uiTransJson = GetJsonValue(json, "ui_translation");
+  if (uiTransJson.empty())
+    return;
+
+  g_uiTranslation.clear();
+  size_t pos = 1;
+  while (pos < uiTransJson.length() - 1) {
+    size_t q1 = uiTransJson.find('"', pos);
+    if (q1 == std::string::npos)
+      break;
+    size_t q2 = uiTransJson.find('"', q1 + 1);
+    if (q2 == std::string::npos)
+      break;
+    std::string key = uiTransJson.substr(q1 + 1, q2 - q1 - 1);
+
+    size_t colon = uiTransJson.find(':', q2);
+    if (colon == std::string::npos)
+      break;
+
+    size_t v1 = uiTransJson.find('"', colon);
+    if (v1 == std::string::npos)
+      break;
+    size_t v2 = uiTransJson.find('"', v1 + 1);
+    if (v2 == std::string::npos)
+      break;
+    std::string val = uiTransJson.substr(v1 + 1, v2 - v1 - 1);
+
+    g_uiTranslation[UnescapeJSON(key)] = UnescapeJSON(val);
+    pos = v2 + 1;
+  }
+
+  if (g_settingsWindow) {
+    g_settingsWindow->setCaption(Utf8ToWide(T("AI Settings")).c_str());
+  }
+  extern void RefreshLauncherUI();
+  RefreshLauncherUI();
+  RefreshWelcomeUI();
+}
+
 void PopulateSettingsUI(const std::string &json) {
+  // Before the early return: the startup fetch arrives with no settings window open
+  ApplyUITranslation(json);
+
   if (!g_settingsWindow && !g_campaignWindow)
     return;
 
@@ -534,42 +578,6 @@ void PopulateSettingsUI(const std::string &json) {
       g_settingsAmbientToggle->setCaption(
           Utf8ToWide(g_enableAmbient ? T("Radiant: [ON]") : T("Radiant: [OFF]"))
               .c_str());
-    }
-
-    std::string uiTransJson = GetJsonValue(json, "ui_translation");
-    if (!uiTransJson.empty()) {
-      g_uiTranslation.clear();
-      size_t pos = 1;
-      while (pos < uiTransJson.length() - 1) {
-        size_t q1 = uiTransJson.find('"', pos);
-        if (q1 == std::string::npos)
-          break;
-        size_t q2 = uiTransJson.find('"', q1 + 1);
-        if (q2 == std::string::npos)
-          break;
-        std::string key = uiTransJson.substr(q1 + 1, q2 - q1 - 1);
-
-        size_t colon = uiTransJson.find(':', q2);
-        if (colon == std::string::npos)
-          break;
-
-        size_t v1 = uiTransJson.find('"', colon);
-        if (v1 == std::string::npos)
-          break;
-        size_t v2 = uiTransJson.find('"', v1 + 1);
-        if (v2 == std::string::npos)
-          break;
-        std::string val = uiTransJson.substr(v1 + 1, v2 - v1 - 1);
-
-        g_uiTranslation[key] = UnescapeJSON(val);
-        pos = v2 + 1;
-      }
-
-      if (g_settingsWindow) {
-        g_settingsWindow->setCaption(Utf8ToWide(T("AI Settings")).c_str());
-      }
-      extern void RefreshLauncherUI();
-      RefreshLauncherUI();
     }
   }
 }
