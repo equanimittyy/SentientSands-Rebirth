@@ -142,6 +142,20 @@ nav a {
   border-bottom: 2px solid transparent;
 }
 
+/* A mask, not an img, so the icon takes the text colour around it. */
+.icon {
+  display: inline-block;
+  width: 1.1em;
+  height: 1.1em;
+  vertical-align: -0.2em;
+  background: currentColor;
+  mask: var(--icon) center / contain no-repeat;
+}
+
+nav .icon {
+  margin-right: 0.4em;
+}
+
 nav a[aria-current] {
   border-bottom-color: var(--accent);
   font-weight: 600;
@@ -150,6 +164,12 @@ nav a[aria-current] {
 nav a.unsaved::after {
   content: " \2022";
   color: var(--accent);
+}
+
+hr {
+  margin: 3rem 0;
+  border: none;
+  border-top: 1px solid var(--border);
 }
 
 fieldset {
@@ -464,6 +484,11 @@ details.card > summary > .blurb {
 
 .chain-buttons button {
   padding: 0.35rem 0.5rem;
+}
+
+/* Holds the place of a missing button, so the buttons of all rows line up. */
+.spacer {
+  visibility: hidden;
 }
 
 .add {

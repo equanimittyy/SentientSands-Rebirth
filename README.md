@@ -50,7 +50,7 @@ A profile is one model on one provider, and the page shows it in the card of tha
 The **Default LLM Profile** box at the top of the **Models** page sets the profile that every task uses. Each task list shows the default in bold. You can move it up or down, but you cannot remove it. To remove the default profile or its provider, choose another default first.
 
 ### Tasks
-To see the tasks, check **Enable Advanced Task Config** below the providers. Each task (chat, radiant conversations, NPC profiles, and world events) has an ordered list of profiles. The server tries them in order, and moves to the next profile after an error, a timeout, or an empty reply. List a profile twice to retry it. The game stops waiting after 60 s, so keep each deadline below that.
+Each task (chat, radiant conversations, NPC profiles, and world events) has an ordered list of profiles. The server tries them in order, and moves to the next profile after an error, a timeout, or an empty reply. List a profile twice to retry it. The game stops waiting after 60 s, so keep each deadline below that.
 
 The server keeps this configuration in `server/user/llm_config.json`. A mod update does not replace it, so your keys stay.
 

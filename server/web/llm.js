@@ -31,7 +31,6 @@ let listCount = 0;
 const fieldErrors = new Map();
 const checks = new WeakMap();
 let focusCard = null;
-let showTasks = false;
 
 const withHelp = (label, help) => el("span", { className: "label-text" }, label, el("span", { className: "help", tabIndex: 0 }, "?", el("span", { className: "tip" }, help)));
 
@@ -108,6 +107,8 @@ function selectInput(values, current, path, onChange, labels = {}, groups = null
   select.append(...(groups ?? values.map((value) => new Option(labels[value] ?? value, value, false, value === current))));
   return select;
 }
+
+const icon = (name) => el("span", { className: "icon", style: `--icon: url(/web/images/lucide/${name}.svg)` });
 
 function button(label, onClick, ariaLabel) {
   const element = el("button", { type: "button", disabled: !onClick, onclick: onClick || null }, label);
@@ -447,9 +448,9 @@ function renderRoutes() {
         el("span", { className: "detail" }, state.profiles[name]?.provider ?? ""),
         testBadge(name),
         el("span", { className: "chain-buttons" },
-          button("↑", index > 0 && (() => move(route.profiles, index, -1)), `Move ${name} up`),
-          button("↓", index < route.profiles.length - 1 && (() => move(route.profiles, index, 1)), `Move ${name} down`),
-          isDefault ? null : button("🗑", () => { route.profiles.splice(index, 1); changed(); }, `Remove ${name} from ${label}`)));
+          button(icon("arrow-up"), index > 0 && (() => move(route.profiles, index, -1)), `Move ${name} up`),
+          button(icon("arrow-down"), index < route.profiles.length - 1 && (() => move(route.profiles, index, 1)), `Move ${name} down`),
+          isDefault ? el("button", { type: "button", className: "spacer" }, icon("trash")) : button(icon("trash"), () => { route.profiles.splice(index, 1); changed(); }, `Remove ${name} from ${label}`)));
     });
     return el("div", { className: "card" },
       el("div", { className: "card-head" }, el("strong", {}, label)),
@@ -461,29 +462,33 @@ function renderRoutes() {
       field("Deadline (s)", numberInput(route, "deadline", path("deadline"), { step: 1, min: 1 }, deadlineWarning)));
   });
   return el("fieldset", {},
-    el("legend", {}, "Tasks"),
+    el("legend", {}, "Tasks (Optional)"),
     el("p", { className: "hint" },
       "Each task is one kind of LLM call that SSR makes, with its own settings. It tries its profiles in order until one replies. " +
       `The game waits only ${GAME_WAIT_S} s, so keep the deadline under that.`),
     el("div", { className: "card-grid" }, ...cards));
 }
 
-function renderDefault() {
-  return el("fieldset", {},
-    el("legend", {}, "Default LLM Profile"),
-    el("p", { className: "hint" }, "Every LLM call of Sentient Sands Rebirth (SSR) uses this profile. Advanced task config can add other profiles before or after it."),
-    field("Profile", selectInput(Object.keys(state.profiles), state.default_profile, ["default_profile"], (value) => { state.default_profile = value; changed(); }, {}, profileGroups(state.default_profile))));
+function untestedWarning(name) {
+  const result = testResults.get(name);
+  if (result?.ok) return null;
+  const failed = result && !result.pending;
+  return el("p", { className: "hint error" }, failed
+    ? "The last test of this profile failed. Check it under its provider."
+    : "This profile is not tested yet and may not work. Press Test on it under its provider.");
 }
 
-function tasksToggle() {
-  return el("label", { className: "check warning" },
-    el("input", { type: "checkbox", checked: showTasks, onchange: (event) => { showTasks = event.target.checked; render(); } }),
-    el("b", {}, "Enable Advanced Task Config"));
+function renderDefault() {
+  return el("fieldset", {},
+    el("legend", {}, "Default LLM Profile (Mandatory)"),
+    el("p", { className: "hint" }, "Every LLM call of Sentient Sands Rebirth (SSR) uses this profile. Each task below can add other profiles before or after it."),
+    field("Profile", selectInput(Object.keys(state.profiles), state.default_profile, ["default_profile"], (value) => { state.default_profile = value; changed(); }, {}, profileGroups(state.default_profile))),
+    untestedWarning(state.default_profile));
 }
 
 function render() {
   const focused = document.activeElement?.dataset?.field;
-  editor.replaceChildren(renderDefault(), renderProviders(), tasksToggle(), ...(showTasks ? [renderRoutes()] : []));
+  editor.replaceChildren(renderDefault(), renderProviders(), el("hr"), renderRoutes());
   for (const element of editor.querySelectorAll("[data-field]")) {
     if (element.value !== "" || fieldErrors.has(element.dataset.field)) checkInput(element);
   }
@@ -522,7 +527,6 @@ function showFieldErrors(errors) {
     fieldErrors.set(JSON.stringify(path), text);
     if (path[0] === "providers" || path[0] === "profiles") openCards.add(`${path[0]}/${path[1]}`);
     if (path[0] === "profiles") openCards.add(cardKey("provider", state.profiles[path[1]].provider));
-    if (path[0] === "routes") showTasks = true;
   }
   render();
 }
