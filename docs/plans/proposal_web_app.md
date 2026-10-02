@@ -43,7 +43,3 @@ Non-goals:
 | Risk | Impact | Mitigation |
 |---|---|---|
 | A web edit and a game write hit the same record | One change is lost without notice | `updated_at` check; `busy_timeout` |
-
-## 6. Open questions
-
-1. Should the release stop shipping `SentientSands_Config.ini`, so that an update keeps the player's gameplay settings? The plugin, the server, and the shipped INI now agree on every default ([architecture.md](../info/architecture.md#settings)), so a missing INI gives the same values on both sides.

@@ -17,7 +17,7 @@ Sentient Sands Rebirth has three parts: a C++ plugin that runs inside Kenshi, a 
 | `server/tests/` | Unit tests that run with the standard library only. See [development.md](development.md#tests). |
 | `server/config/` | The default providers and models that seed the LLM configuration, and the name, title, and localization JSON. |
 | `server/templates/` | Prompt templates and the world lore. |
-| `mod/` | The files at the root of the installed mod folder: `mod.info`, `SentientSandsRebirth.mod`, `RE_Kenshi.json`, and the default `SentientSands_Config.ini`. |
+| `mod/` | The files at the root of the installed mod folder: `mod.info`, `SentientSandsRebirth.mod`, and `RE_Kenshi.json`. A server that runs from the repo also writes its `SentientSands_Config.ini` here, which git ignores. |
 | `scripts/` | Release tooling. See [development.md](development.md#release). |
 | `package_release.cmd` | A Windows menu that builds the plugin, runs `scripts/package_release.py`, or does both. |
 
@@ -31,7 +31,7 @@ SentientSandsRebirth/
   RE_Kenshi.json             makes RE_Kenshi load the DLL
   mod.info
   SentientSandsRebirth.mod
-  SentientSands_Config.ini   settings that the plugin and the server both read
+  SentientSands_Config.ini   settings, created by the server on first start
   server/
     scripts/  config/  templates/  web/
     python/                  embedded runtime, added by scripts/package_release.py
@@ -71,7 +71,7 @@ A GET route must not change state. A page on another site can send a GET with no
 
 The server is the only writer of `SentientSands_Config.ini`. The plugin reads the INI once at start, because it starts before the server. After that, it takes changes only through `SET_CONFIG` on the pipe. Two writers with no lock between them would undo each other's changes.
 
-A default applies only when the INI has no value for a key. The defaults in `LoadPluginConfig` (`plugin/core/Utils.cpp`), the defaults in `load_settings` (`server/scripts/kenshi_llm_server.py`), and the values in `mod/SentientSands_Config.ini` must agree, or the plugin and the server start with different values.
+The release does not ship the INI, so an update keeps the player's settings. On the first start, the plugin reads no INI and uses the defaults in `LoadPluginConfig` (`plugin/core/Utils.cpp`). The server then writes the INI with the defaults in `load_settings` (`server/scripts/kenshi_llm_server.py`). These two sets of defaults must agree, or the plugin and the server start with different values.
 
 The web app's Settings page posts its changes to `/settings`. The server writes the INI and sends each value that the plugin holds through `SET_CONFIG`. A language change sends the new translation table through the pipe as `APPLY_TRANSLATION`.
 

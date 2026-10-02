@@ -46,7 +46,8 @@ def describe_dll(dll):
 
 def stage_files(stage, dll):
     # Skip what local test runs leave behind; the DLL comes from --dll instead.
-    shutil.copytree(REPO / "mod", stage, ignore=shutil.ignore_patterns("*.dll", "*.log", "sentient_sands_registry"))
+    # Shipping the INI would reset the player's settings on every update.
+    shutil.copytree(REPO / "mod", stage, ignore=shutil.ignore_patterns("*.dll", "*.log", "sentient_sands_registry", "SentientSands_Config.ini"))
     # Copy named folders only, so logs and campaigns from a local server run stay out.
     # providers.json holds local API keys, and leaving it out keeps a player's keys through an update.
     for name in SERVER_DIRS:

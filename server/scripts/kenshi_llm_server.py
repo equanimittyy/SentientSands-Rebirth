@@ -54,9 +54,9 @@ def resolve_mod_file(filename):
     if os.path.exists(path):
         return path
         
-    dev_path = os.path.join(KENSHI_MOD_DIR, "mod", filename)
-    if os.path.exists(dev_path):
-        return dev_path
+    dev_dir = os.path.join(KENSHI_MOD_DIR, "mod")
+    if os.path.isdir(dev_dir):
+        return os.path.join(dev_dir, filename)
 
     return path
 

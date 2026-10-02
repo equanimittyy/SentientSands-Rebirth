@@ -21,6 +21,7 @@ server/event_history.json
 sentient_sands_registry/
 server/config/providers.json
 server/user/
+mod/SentientSands_Config.ini
 
 .vs/
 *.user
