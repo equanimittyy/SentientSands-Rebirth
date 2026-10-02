@@ -47,6 +47,7 @@ from request_guard import is_request_allowed
 from browser_launch import open_when_ready
 import llm_config
 import llm_router
+import campaign_db
 
 def resolve_mod_file(filename):
     """Falls back to the repo's mod/ subdirectory when run from a source checkout."""
@@ -78,9 +79,7 @@ ACTIVE_CAMPAIGN = "Default"
 
 CAMPAIGNS_DIR = os.path.join(KENSHI_SERVER_DIR, "campaigns")
 PROMPTS_DIR = os.path.join(KENSHI_SERVER_DIR, "prompts")
-CHARACTERS_DIR = os.path.join(KENSHI_SERVER_DIR, "characters")
 
-EVENT_HISTORY = []
 PROFILES_IN_PROGRESS = set()
 PROGRESS_LOCK = threading.Lock()
 LIVE_CONTEXTS = {}
@@ -375,9 +374,6 @@ def get_campaign_dir():
 
 def ensure_campaign_seeded(cdir):
     try:
-        if not os.path.exists(os.path.join(cdir, "characters")):
-            os.makedirs(os.path.join(cdir, "characters"))
-            
         # Only these are per-campaign; rules, lore and other prompts stay shared in PROMPTS_DIR
         for component in ["character_bio.txt", "player_faction_description.txt"]:
             src = os.path.join(PROMPTS_DIR, component)
@@ -386,11 +382,6 @@ def ensure_campaign_seeded(cdir):
                 import shutil
                 shutil.copy2(src, dst)
                 logging.info(f"CAMPAIGN: Seeded '{os.path.basename(cdir)}' with {component}")
-            
-        ev_path = os.path.join(cdir, "world_events.txt")
-        if not os.path.exists(ev_path):
-            with open(ev_path, "w", encoding="utf-8") as f:
-                f.write("# Dynamic rumors generated for this campaign\n")
     except Exception as e:
         logging.error(f"Failed to seed campaign directory {cdir}: {e}")
 
@@ -452,25 +443,8 @@ def migrate_to_campaigns():
         logging.error(f"MIGRATION: Critical failure in migration logic: {e}")
 
 def load_campaign_config():
-    global CHARACTERS_DIR, EVENT_HISTORY
     try:
-        cdir = get_campaign_dir()
-        
-        CHARACTERS_DIR = os.path.join(cdir, "characters")
-        if not os.path.exists(CHARACTERS_DIR): 
-            os.makedirs(CHARACTERS_DIR)
-        
-        hist_path = os.path.join(cdir, "event_history.json")
-        if os.path.exists(hist_path):
-            try:
-                with open(hist_path, "r", encoding="utf-8") as f:
-                    EVENT_HISTORY = json.load(f)
-                logging.info(f"CAMPAIGN: Loaded {len(EVENT_HISTORY)} events for '{ACTIVE_CAMPAIGN}'")
-            except Exception as e:
-                logging.error(f"Failed to load event history: {e}")
-                EVENT_HISTORY = []
-        else:
-            EVENT_HISTORY = []
+        campaign_db.open_campaign(get_campaign_dir(), load_legacy_favorites())
         push_generic_names_to_dll()
     except Exception as e:
         logging.error(f"CAMPAIGN: Critical failure loading config: {e}")
@@ -502,15 +476,6 @@ def push_generic_names_to_dll():
         logging.info("PIPE: Synced generic name lists to DLL")
     except Exception as e:
         logging.error(f"Failed to sync generic names to DLL: {e}")
-
-def save_campaign_history():
-    try:
-        cdir = get_campaign_dir()
-        hist_path = os.path.join(cdir, "event_history.json")
-        with open(hist_path, "w", encoding="utf-8") as f:
-            json.dump(EVENT_HISTORY, f, indent=2, ensure_ascii=False)
-    except Exception as e:
-        logging.error(f"Failed to save event history: {e}")
 
 
 
@@ -573,18 +538,8 @@ KENSHI_NAME_POOL = [
 ]
 
 def get_used_names():
-    if not os.path.exists(CHARACTERS_DIR): return set()
-    names = set()
-    for f in os.listdir(CHARACTERS_DIR):
-        if f.endswith(".json"):
-            base = f.replace(".json", "")
-            # Profile files are Name.json or Name_Faction.json
-            if "_" in base:
-                name = base.split("_")[0]
-                names.add(name.lower())
-            else:
-                names.add(base.lower())
-    return names
+    # Storage IDs are Name or Name_Faction
+    return {npc["storage_id"].split("_")[0].lower() for npc in campaign_db.list_npcs()}
 
 def generate_unique_lore_name(gender="Neutral"):
     used = get_used_names()
@@ -643,18 +598,6 @@ def generate_relation_bar(rel):
     
     # Plain text, not MyGUI color tags, so it renders on every UI version
     return f"RELATION: [{label}] [{bar_str}] ({rel:+} pts)"
-
-def is_future_timestamp(line, cur_d, cur_h, cur_m):
-    match = re.search(r"\[Day (\d+)(?:, (\d+):(\d+))?\]", line)
-    if not match: return False
-    d = int(match.group(1))
-    h = int(match.group(2)) if match.group(2) else 0
-    m = int(match.group(3)) if match.group(3) else 0
-    if d > cur_d: return True
-    if d < cur_d: return False
-    if h > cur_h: return True
-    if h < cur_h: return False
-    return m > cur_m
 
 
 
@@ -857,7 +800,6 @@ INI_KEY_MAP = {
     "radiant_delay": "RadiantDelay",
     "global_events_count": "GlobalEventsCount",
     "synthesis_interval_minutes": "SynthesisIntervalMinutes",
-    "favorites": "Favorites",
     "radiant_range": "RadiantRange",
     "talk_radius": "TalkRadius",
     "yell_radius": "YellRadius",
@@ -901,7 +843,6 @@ def load_settings():
         "radiant_delay": 240,
         "global_events_count": 10,
         "synthesis_interval_minutes": 5,
-        "favorites": [],
         "radiant_range": 100,
         "talk_radius": 100,
         "yell_radius": 200,
@@ -956,26 +897,11 @@ def save_settings(new_settings):
 
 load_configs()
 
-def _load_event_history_from_log():
-    """Re-populate EVENT_HISTORY from the on-disk log so synthesis works after a server restart."""
-    log_path = os.path.join(get_campaign_dir(), "logs", "global_events.log")
-    if not os.path.exists(log_path):
-        # Pre-campaign installs wrote this log server-wide
-        log_path = os.path.join(KENSHI_SERVER_DIR, "logs", "global_events.log")
-        if not os.path.exists(log_path):
-            return
-    try:
-        with open(log_path, "r", encoding="utf-8") as f:
-            for line in f:
-                line = line.strip()
-                bracket = line.find('][') 
-                if bracket != -1:
-                    line = line[bracket + 1:]
-                if line and line not in EVENT_HISTORY:
-                    EVENT_HISTORY.append(line)
-        logging.info(f"Loaded {len(EVENT_HISTORY)} events from global_events.log")
-    except Exception as e:
-        logging.error(f"Failed to load event history: {e}")
+def load_legacy_favorites():
+    """Favorites now live in each campaign database; the INI keeps the old list for campaigns that migrate later."""
+    config = configparser.ConfigParser()
+    config.read(INI_PATH)
+    return [x.strip() for x in config.get("Settings", "Favorites", fallback="").split(",") if x.strip()]
 
 def init_server_state():
     global ACTIVE_CAMPAIGN
@@ -989,8 +915,6 @@ def init_server_state():
         
         migrate_to_campaigns()
         load_campaign_config()
-        # Must follow load_campaign_config, which resets EVENT_HISTORY
-        _load_event_history_from_log()
     except Exception as e:
         logging.error(f"INIT: Critical state init failure: {e}")
 
@@ -1090,19 +1014,12 @@ def build_system_prompt(player_name="Drifter"):
     settings = load_settings()
     ge_count = settings.get("global_events_count", 10)
     events_list = []
-    
-    world_events_path = os.path.join(get_campaign_dir(), "world_events.txt")
-    if os.path.exists(world_events_path):
-        try:
-            with open(world_events_path, "r", encoding="utf-8") as f:
-                rumors = [l.strip() for l in f.readlines() if l.strip().startswith("- [")]
-                events_list.extend(rumors[-max(1, ge_count//2):])
-        except: pass
 
-    if EVENT_HISTORY:
-        raw_recent = EVENT_HISTORY[-max(1, ge_count - len(events_list)):]
-        for e in raw_recent:
-            events_list.append(f"- {e}")
+    rumors = [line for _, line in campaign_db.rumors() if line.startswith("- [")]
+    events_list.extend(rumors[-max(1, ge_count//2):])
+
+    for e in campaign_db.recent_events(max(1, ge_count - len(events_list))):
+        events_list.append(f"- {e}")
 
     events_block = ""
     if events_list:
@@ -1503,10 +1420,9 @@ def generate_batch_profiles(npc_list):
                             "Personality": profile.get("Personality", "A weary traveler."),
                             "Backstory": profile.get("Backstory", "Trying to survive in the harsh desert."),
                             "SpeechQuirks": profile.get("SpeechQuirks", "None."),
-                            "ConversationHistory": [],
                             "Relation": int(float(npc.get("relation", 0)) / 2)
                         }
-                        save_character_data(storage_id, data)
+                        campaign_db.upsert_profile(storage_id, data)
                         logging.info(f"BATCH: Saved profile for {clean_name} (ID: {storage_id})")
         except Exception as e:
             logging.error(f"BATCH: Failed to parse batch profiles: {e}")
@@ -1540,23 +1456,11 @@ def get_character_data(name, context="", char_id=None, skip_generate=False):
     if storage_id and '|' in str(storage_id):
         storage_id = str(storage_id).split('|')[0].strip()
 
+    data = campaign_db.get_npc(storage_id)
+    stored = dict(data) if data else {}
 
-    storage_id_str = str(storage_id)
-    safe_filename = "".join([c for c in storage_id_str if c.isalnum() or c in (' ', '_', '-')]).strip()
-    path = os.path.join(CHARACTERS_DIR, f"{safe_filename}.json")
-    
-    
-    data = None
-    if os.path.exists(path):
-        try:
-            with open(path, "r", encoding="utf-8") as f:
-                data = json.loads(f.read())
-        except:
-            pass
-            
-    # Backfill keys missing from older profile files
+    # Backfill keys missing from older profiles
     if data:
-        if "ConversationHistory" not in data: data["ConversationHistory"] = []
         if "Relation" not in data: 
             data["Relation"] = int(float(ctx_data.get("relation", 0)) / 2) if ctx_data else 0
         if "Race" not in data: data["Race"] = "Unknown"
@@ -1611,8 +1515,7 @@ def get_character_data(name, context="", char_id=None, skip_generate=False):
 
                 # Bypasses should_save_profile, which would drop generic-content profiles
                 if needs_save:
-                    safe_fn = "".join([c for c in str(storage_id) if c.isalnum() or c in (' ', '_', '-')]).strip()
-                    save_character_data(safe_fn, data)
+                    campaign_db.upsert_profile(storage_id, {k: data[k] for k in ("Race", "Sex", "Faction", "OriginFaction", "Job")})
         except Exception as e:
             logging.error(f"Error updating character metadata from context: {e}")
 
@@ -1698,7 +1601,10 @@ def get_character_data(name, context="", char_id=None, skip_generate=False):
         data["SourcePlatoons"] = WORLD_INDEX[name]
 
     if should_save_profile(name, storage_id, data):
-        save_character_data(storage_id, data)
+        # Only the changed keys, so the write cannot undo a change that another request made since the read
+        changes = {k: v for k, v in data.items() if stored.get(k) != v}
+        if changes:
+            campaign_db.upsert_profile(storage_id, changes)
     return data
 
 def should_save_profile(name, storage_id, data):
@@ -1714,18 +1620,6 @@ def should_save_profile(name, storage_id, data):
         
                 
     return True
-
-def save_character_data(storage_id, data):
-    safe_filename = "".join([c for c in str(storage_id) if c.isalnum() or c in (' ', '_', '-')]).strip()
-    path = os.path.join(CHARACTERS_DIR, f"{safe_filename}.json")
-    if data and "ConversationHistory" in data and len(data["ConversationHistory"]) > 250:
-        data["ConversationHistory"] = data["ConversationHistory"][-250:]
-        
-    try:
-        with open(path, "w", encoding="utf-8") as f:
-            json.dump(data, f, indent=2)
-    except Exception as e:
-        logging.error(f"Error saving character {storage_id}: {e}")
 
 def extract_id_from_context(context_json):
     if not context_json: return None
@@ -1799,30 +1693,14 @@ def rename_character():
     if not old_id:
         return jsonify({"status": "error", "message": "Profile ID resolution failed"}), 500
 
-    char_data["Name"] = new_name
-    
     old_safe = "".join([c for c in old_name if c.isalnum() or c in (' ', '_', '-')]).strip()
     if str(old_id).startswith(old_safe) or "_" in str(old_id):
         new_id = new_name
-        
-        new_safe = "".join([c for c in str(new_id) if c.isalnum() or c in (' ', '_', '-')]).strip()
-        
-        old_path = os.path.join(CHARACTERS_DIR, f"{old_id}.json")
-        new_path = os.path.join(CHARACTERS_DIR, f"{new_safe}.json")
-        
-        if os.path.exists(old_path) and not os.path.exists(new_path):
-            try:
-                char_data["ID"] = new_id
-                with open(new_path, "w", encoding="utf-8") as f:
-                    json.dump(char_data, f, indent=2)
-                os.remove(old_path)
-                logging.info(f"RENAME: Migrated profile file {old_id} -> {new_safe}")
-                return jsonify({"status": "ok", "new_id": new_id})
-            except Exception as e:
-                logging.error(f"RENAME: Failed to migrate profile file: {e}")
-                return jsonify({"status": "error", "message": str(e)}), 500
+        if campaign_db.rename_npc(old_id, new_id, new_name):
+            logging.info(f"RENAME: Moved profile {old_id} -> {new_id}")
+            return jsonify({"status": "ok", "new_id": new_id})
 
-    save_character_data(old_id, char_data)
+    campaign_db.upsert_profile(old_id, {"Name": new_name})
     return jsonify({"status": "ok"})
 
 @app.route('/ambient', methods=['POST'])
@@ -1889,7 +1767,7 @@ def ambient_event():
         env = PLAYER_CONTEXT.get("environment", {})
         location = env.get("town_name", "") if isinstance(env, dict) else ""
 
-    for evt in reversed(EVENT_HISTORY):
+    for evt in reversed(campaign_db.recent_events(campaign_db.MAX_EVENTS)):
         # Entries look like "[Day 3, 14:05] [BANTER] Name (Faction) -> Nearby @ Town: Message"
         if (" [BANTER] " in evt or " [CHAT] " in evt):
             if not location or f"@ {location}" in evt or "@" not in evt:
@@ -1984,22 +1862,19 @@ INSTRUCTIONS:
             name = npc_obj.get('name') if isinstance(npc_obj, dict) else npc_obj
             memories[name] = get_character_data(name, context=json.dumps(npc_obj) if isinstance(npc_obj, dict) else "", skip_generate=True)
 
+        banter = []
         for line in lines:
             if ':' in line:
                 header, msg = line.split(':', 1)
                 speaker_name = header.split('|')[0].strip()
                 time_prefix = get_current_time_prefix()
-                processed_msg = f"{time_prefix}{speaker_name}: {msg.strip()}"
-                
-                for name, d in memories.items():
-                    d["ConversationHistory"].append(processed_msg)
+                banter.append(f"{time_prefix}{speaker_name}: {msg.strip()}")
                 
                 speaker_faction = memories.get(speaker_name, {}).get("Faction", "None")
                 record_event_to_history("BANTER", speaker_name, "Nearby", msg.strip(), actor_faction=speaker_faction)
 
         for name, d in memories.items():
-            storage_id = d.get("ID", name)
-            save_character_data(storage_id, d)
+            campaign_db.append_dialogue(d.get("ID", name), banter, d)
 
         logging.info(f"AMBIENT BARK:\n{final_text}")
         return jsonify({"status": "ok", "text": final_text})
@@ -2220,10 +2095,7 @@ def chat():
         if storage_id in checked_ids: continue
         checked_ids.add(storage_id)
         
-        safe_fn = "".join([c for c in str(storage_id) if c.isalnum() or c in (' ', '_', '-')]).strip()
-        path = os.path.join(CHARACTERS_DIR, f"{safe_fn}.json")
-        
-        if not os.path.exists(path):
+        if not campaign_db.npc_exists(storage_id):
             # Another request may already be generating this NPC
             with PROGRESS_LOCK:
                 if storage_id in PROFILES_IN_PROGRESS:
@@ -2277,12 +2149,9 @@ def chat():
         
         storage_id = name
         if '|' in str(storage_id): storage_id = str(storage_id).split('|')[0]
-            
-        safe_filename = "".join([c for c in str(storage_id) if c.isalnum() or c in (' ', '_', '-')]).strip()
-        path = os.path.join(CHARACTERS_DIR, f"{safe_filename}.json")
         
         delay = 0
-        if not os.path.exists(path):
+        if not campaign_db.npc_exists(storage_id):
             delay = delay_counter
             delay_counter += 1
             
@@ -2520,6 +2389,7 @@ def chat():
                 
                 actions.append(final_tag)
 
+        changed_relations = set()
         if not is_ambient:
             judges = speaker_judgments if speaker_judgments else {primary_npc: global_judgment}
             
@@ -2537,6 +2407,7 @@ def chat():
                 new_rel = max(-100, min(100, current_rel + j_val))
                 if new_rel != current_rel:
                     j_data["Relation"] = new_rel
+                    changed_relations.add(judge_name)
                     logging.info(f"RELATION: {judge_name} personal relation updated {current_rel} -> {new_rel} (judgment={j_val})")
 
                 f_delta = 0
@@ -2650,6 +2521,7 @@ def chat():
                 ctx, sid = get_local_context_and_id(name)
                 char_datas[name] = get_character_data(name, ctx, char_id=sid)
                 
+            stored_lines = len(char_datas[name]["ConversationHistory"])
             char_datas[name]["ConversationHistory"].append(f"{time_prefix}{overheard_tag}{player_name}{mode_action}: {player_message}")
             
             if "\n" in content:
@@ -2689,15 +2561,14 @@ def chat():
                 player_faction = PLAYER_CONTEXT.get("faction", "None")
                 record_event_to_history("CHAT", primary_npc, player_name, content, actor_faction=primary_faction, target_faction=player_faction)
 
-            if len(char_datas[name]["ConversationHistory"]) > 250:
-                char_datas[name]["ConversationHistory"] = char_datas[name]["ConversationHistory"][-250:]
-                
             storage_id = char_datas[name].get("ID", name)
             has_history = len(char_datas[name].get("ConversationHistory", [])) > 0
             if char_datas[name].get("_transient") and not has_history:
                 logging.warning(f"SKIP SAVE: {name} is using a transient fallback profile with no history. Blocking disk override.")
             elif should_save_profile(name, storage_id, char_datas[name]):
-                save_character_data(storage_id, char_datas[name])
+                campaign_db.append_dialogue(storage_id, char_datas[name]["ConversationHistory"][stored_lines:], char_datas[name])
+                if name in changed_relations:
+                    campaign_db.upsert_profile(storage_id, {"Relation": char_datas[name]["Relation"]})
 
         logging.info(f"AI RESPONSE: {content} | ACTIONS: {actions}")
         return jsonify({"text": content, "actions": actions})
@@ -2705,7 +2576,7 @@ def chat():
 
 
 def record_event_to_history(etype, actor, target, msg, actor_faction="None", target_faction="None"):
-    global EVENT_HISTORY, EVENT_THROTTLE, LAST_STATE_LOG
+    global EVENT_THROTTLE, LAST_STATE_LOG
     if not msg: return
     
     p_fact = PLAYER_CONTEXT.get('faction', 'Nameless')
@@ -2766,28 +2637,19 @@ def record_event_to_history(etype, actor, target, msg, actor_faction="None", tar
     if etype == "looting":
         return
 
-    if evt_str not in EVENT_HISTORY:
-        EVENT_HISTORY.append(evt_str)
-        save_campaign_history()
-            
-
-    if len(EVENT_HISTORY) > 500:
-        EVENT_HISTORY = EVENT_HISTORY[-500:]
+    campaign_db.add_event(evt_str)
 
 def generate_global_narrative_thread():
-    global EVENT_HISTORY
-    # Kept low so short sessions can still synthesize
-    min_needed = 5
-    if len(EVENT_HISTORY) < min_needed:
-        logging.warning(f"NARRATIVE: Not enough events to synthesize (have {len(EVENT_HISTORY)}, need {min_needed}).")
-        return None
-    
     settings = load_settings()
     ge_count = settings.get("global_events_count", 10)
-    
-    sample_size = min(len(EVENT_HISTORY), max(ge_count, 100))
-    last_chunk = EVENT_HISTORY[-sample_size:]
-    
+    last_chunk = campaign_db.recent_events(max(ge_count, 100))
+
+    # Kept low so short sessions can still synthesize
+    min_needed = 5
+    if len(last_chunk) < min_needed:
+        logging.warning(f"NARRATIVE: Not enough events to synthesize (have {len(last_chunk)}, need {min_needed}).")
+        return None
+
     grouped_events = {}
     for evt in last_chunk:
         location = "Unknown Region"
@@ -2810,19 +2672,13 @@ def generate_global_narrative_thread():
     logging.info(f"NARRATIVE: Grouped {len(last_chunk)} events into {len(grouped_events)} locations.")
     
     past_rumors_block = ""
-    world_events_path = os.path.join(get_campaign_dir(), "world_events.txt")
-    if os.path.exists(world_events_path):
-        try:
-            with open(world_events_path, "r", encoding="utf-8") as f:
-                rumor_lines = []
-                for line in f.readlines()[-20:]:
-                    match = re.search(r'\[RUMOR:\s*(.*?)\]', line)
-                    if match:
-                        rumor_lines.append(f"- {match.group(1).strip()}")
-                
-                if rumor_lines:
-                    past_rumors_block = "\nPREVIOUS RUMORS (Do NOT repeat these):\n" + "\n".join(rumor_lines[-5:])
-        except: pass
+    rumor_lines = []
+    for _, line in campaign_db.rumors()[-20:]:
+        match = re.search(r'\[RUMOR:\s*(.*?)\]', line)
+        if match:
+            rumor_lines.append(f"- {match.group(1).strip()}")
+    if rumor_lines:
+        past_rumors_block = "\nPREVIOUS RUMORS (Do NOT repeat these):\n" + "\n".join(rumor_lines[-5:])
 
     p_fact = PLAYER_CONTEXT.get("faction", "The Nameless")
     
@@ -2852,20 +2708,11 @@ def generate_global_narrative_thread():
         if len(rumor_text) > 10:
             time_prefix = get_current_time_prefix().strip()
             rumor_tagged = f"- {time_prefix} [RUMOR: {rumor_text}]"
-            world_events_path = os.path.join(get_campaign_dir(), "world_events.txt")
-            if not os.path.exists(world_events_path):
-                 with open(world_events_path, "w", encoding="utf-8") as f:
-                     f.write("# Dynamic rumors generated for this campaign\n")
-
             try:
-                if os.path.exists(world_events_path):
-                    with open(world_events_path, "a", encoding="utf-8") as f:
-                        f.write(f"\n{rumor_tagged}\n")
-                    logging.info(f"NARRATIVE: Generated and saved new global event: {rumor_tagged}")
-                    send_to_pipe(f"NOTIFY: [WORLD EVENT] {rumor_text}")
-                    return rumor_tagged
-                else:
-                    logging.warning(f"Could not find world_events.txt at {world_events_path}")
+                campaign_db.add_rumor(rumor_tagged)
+                logging.info(f"NARRATIVE: Generated and saved new global event: {rumor_tagged}")
+                send_to_pipe(f"NOTIFY: [WORLD EVENT] {rumor_text}")
+                return rumor_tagged
             except Exception as e:
                 logging.error(f"Error saving global event rumor: {e}")
     return None
@@ -2884,32 +2731,19 @@ def manual_synthesize():
 def list_events():
     logging.info(f"ROUTE: /events [{request.method}]")
 
-    world_events_path = os.path.join(get_campaign_dir(), "world_events.txt")
     rumors = []
+    for rumor_id, line in campaign_db.rumors():
+        match = re.search(r'\[RUMOR:\s*(.*?)\]', line)
+        if not match:
+            continue
 
-    if os.path.exists(world_events_path):
-        try:
-            with open(world_events_path, "r", encoding="utf-8") as f:
-                lines = f.readlines()
+        inner = match.group(1).strip()
 
-            rumor_count = 0
-            for i, line in enumerate(lines):
-                stripped = line.strip()
-                match = re.search(r'\[RUMOR:\s*(.*?)\]', stripped)
-                if not match:
-                    continue
-
-                rumor_count += 1
-                inner = match.group(1).strip()
-
-                # "N." numbering rather than "#N": MyGUI parses "#" as a color tag
-                words = inner.split()
-                short = " ".join(words[:7]) + ("..." if len(words) > 7 else "")
-                label = f"{rumor_count}. {short}"
-                rumors.append({"id": str(i + 1), "title": label[:80], "content": stripped, "inner": inner})
-
-        except Exception as e:
-            logging.error(f"Error reading world_events.txt: {e}")
+        # "N." numbering rather than "#N": MyGUI parses "#" as a color tag
+        words = inner.split()
+        short = " ".join(words[:7]) + ("..." if len(words) > 7 else "")
+        label = f"{len(rumors) + 1}. {short}"
+        rumors.append({"id": str(rumor_id), "title": label[:80], "content": line, "inner": inner})
 
     formatted = "--- DYNAMIC WORLD RUMORS ---\n" + "\n".join(r["content"] for r in rumors) if rumors else "(No rumors yet. Use 'Synthesize Rumors' to generate some.)"
     return jsonify({"status": "ok", "text": formatted, "events": rumors})
@@ -2919,16 +2753,11 @@ def list_events():
 def events_content():
     """The plugin's SetEventsText renders each newline-separated line as a row."""
     data = request.json or {}
-    line_id = data.get("day", "")
-    
-    world_events_path = os.path.join(get_campaign_dir(), "world_events.txt")
-        
+    rumor_id = data.get("day", "")  # "day" holds the rumor id that /events returned
+
     try:
-        line_num = int(line_id) - 1  # "day" holds the 1-indexed line id that /events returned
-        with open(world_events_path, "r", encoding="utf-8") as f:
-            lines = f.readlines()
-        if 0 <= line_num < len(lines):
-            raw = lines[line_num].strip()
+        raw = campaign_db.rumor(int(rumor_id))
+        if raw:
             match = re.search(r'\[RUMOR:\s*(.*?)\]', raw)
             if match:
                 inner = match.group(1).strip()
@@ -3190,64 +3019,19 @@ def cull_campaign_route():
     current_hour = int(PLAYER_CONTEXT.get("hour", 0))
     current_min = int(PLAYER_CONTEXT.get("minute", 0))
 
-    cdir = get_campaign_dir()
-    logging.info(f"CULL: Starting cull for [Day {current_day}, {current_hour:02d}:{current_min:02d}] in {cdir}")
-
-    char_dir = os.path.join(cdir, "characters")
-    if os.path.exists(char_dir):
-        for f in os.listdir(char_dir):
-            if f.endswith(".json"):
-                fpath = os.path.join(char_dir, f)
-                try:
-                    with open(fpath, "r", encoding="utf-8") as fh:
-                        cdata = json.load(fh)
-                    
-                    history = cdata.get("ConversationHistory", [])
-                    new_history = [l for l in history if not is_future_timestamp(l, current_day, current_hour, current_min)]
-                    
-                    if len(new_history) != len(history):
-                        cdata["ConversationHistory"] = new_history
-                        with open(fpath, "w", encoding="utf-8") as fw:
-                            json.dump(cdata, fw, indent=2)
-                        logging.info(f"CULL: Culled {len(history) - len(new_history)} lines from {f}")
-                except: pass
-
-    ev_history_path = os.path.join(cdir, "event_history.json")
-    if os.path.exists(ev_history_path):
-        try:
-            with open(ev_history_path, "r", encoding="utf-8") as fh:
-                ev_data = json.load(fh)
-            new_ev_data = [l for l in ev_data if not is_future_timestamp(l, current_day, current_hour, current_min)]
-            if len(new_ev_data) != len(ev_data):
-                with open(ev_history_path, "w", encoding="utf-8") as fw:
-                    json.dump(new_ev_data, fw, indent=2)
-                global EVENT_HISTORY
-                EVENT_HISTORY = new_ev_data
-                logging.info(f"CULL: Culled {len(ev_data) - len(new_ev_data)} events from event_history.json")
-        except: pass
-
-    world_events_path = os.path.join(cdir, "world_events.txt")
-    if os.path.exists(world_events_path):
-        try:
-            with open(world_events_path, "r", encoding="utf-8") as fh:
-                lines = fh.readlines()
-            new_lines = [l for l in lines if not is_future_timestamp(l, current_day, current_hour, current_min)]
-            if len(new_lines) != len(lines):
-                with open(world_events_path, "w", encoding="utf-8") as fw:
-                    fw.writelines(new_lines)
-                logging.info(f"CULL: Culled {len(lines) - len(new_lines)} lines from world_events.txt")
-        except: pass
+    logging.info(f"CULL: Starting cull for [Day {current_day}, {current_hour:02d}:{current_min:02d}] in '{ACTIVE_CAMPAIGN}'")
+    culled = campaign_db.cull_after(current_day, current_hour, current_min)
+    logging.info(f"CULL: Culled {culled['dialogue']} dialogue lines, {culled['event']} events, and {culled['rumor']} rumors")
 
     return jsonify({"status": "ok"})
 
 def switch_campaign(name):
-    global ACTIVE_CAMPAIGN, LIVE_CONTEXTS, EVENT_HISTORY
+    global ACTIVE_CAMPAIGN, LIVE_CONTEXTS
     cdir = os.path.join(CAMPAIGNS_DIR, name)
     if os.path.exists(cdir):
         ACTIVE_CAMPAIGN = name
         save_settings({"current_campaign": name})
         LIVE_CONTEXTS.clear()
-        EVENT_HISTORY = []
         load_campaign_config()
         update_world_index()
         return True
@@ -3260,17 +3044,12 @@ def regenerate_profile_route():
     sid = data.get("sid")
     if not sid: return jsonify({"status": "error", "message": "Missing NPC ID (sid)"}), 400
     
-    safe_fn = "".join([c for c in str(sid) if c.isalnum() or c in (' ', '_', '-')]).strip()
-    path = os.path.join(CHARACTERS_DIR, f"{safe_fn}.json")
-    
-    if not os.path.exists(path):
-        logging.error(f"REGEN: Profile not found at {path}")
+    char_data = campaign_db.get_npc(sid)
+    if not char_data:
+        logging.error(f"REGEN: Profile not found for {sid}")
         return jsonify({"status": "error", "message": "Profile not found"}), 404
-        
+
     try:
-        with open(path, "r", encoding="utf-8") as f:
-            char_data = json.load(f)
-            
         history = char_data.get("ConversationHistory", [])
         if not history:
              logging.warning(f"REGEN: No history for {sid}, fallback to standard gen?")
@@ -3315,13 +3094,12 @@ Instructions:
 
         result = robust_json_parse(response_text)
         if result:
-            char_data["Personality"] = result.get("Personality", personality)
-            char_data["Backstory"] = result.get("Backstory", backstory)
-            char_data["SpeechQuirks"] = result.get("SpeechQuirks", char_data.get("SpeechQuirks", ""))
-            
-            with open(path, "w", encoding="utf-8") as f:
-                json.dump(char_data, f, indent=2)
-            
+            campaign_db.upsert_profile(sid, {
+                "Personality": result.get("Personality", personality),
+                "Backstory": result.get("Backstory", backstory),
+                "SpeechQuirks": result.get("SpeechQuirks", char_data.get("SpeechQuirks", "")),
+            })
+
             logging.info(f"REGEN: Successfully evolved profile for {name}.")
             return jsonify({"status": "ok", "message": f"Successfully evolved {name}'s profile."})
         else:
@@ -3388,25 +3166,11 @@ def get_history():
     clean_npc_name = npc_name.split('|')[0] if '|' in npc_name else npc_name
     context = data.get('context', '')
     
-    char_data = None
-    safe_fn = "".join([c for c in str(clean_npc_name) if c.isalnum() or c in (' ', '_', '-')]).strip()
-    direct_path = os.path.join(CHARACTERS_DIR, f"{safe_fn}.json")
-    logging.info(f"HISTORY: Trying direct load for {clean_npc_name} from: {direct_path}")
-    
-    if os.path.exists(direct_path):
-        try:
-            with open(direct_path, "r", encoding="utf-8") as f:
-                char_data = json.load(f)
-            logging.info(f"HISTORY: Direct load SUCCESS for {clean_npc_name}")
-        except Exception as e:
-            logging.error(f"HISTORY: Direct load failed for {clean_npc_name}: {e}")
-            char_data = None
-    
+    char_data = campaign_db.get_npc(clean_npc_name)
     if not char_data:
         logging.info(f"HISTORY: Falling back to get_character_data for {clean_npc_name}")
         char_data = get_character_data(clean_npc_name, context)
-    
-    if "ConversationHistory" not in char_data: char_data["ConversationHistory"] = []
+
     if "Race" not in char_data: char_data["Race"] = "Unknown"
     if "Faction" not in char_data: char_data["Faction"] = "Unknown"
     
@@ -3457,38 +3221,12 @@ def list_characters():
     data = request.json or {}
     sort_mode = data.get("sort", "alphabetical") # alphabetical or latest
     
-    settings = load_settings()
-    favorites = settings.get("favorites", [])
-
-    logging.info(f"Scanning for characters in: {CHARACTERS_DIR} (Sort: {sort_mode})")
-    if not os.path.exists(CHARACTERS_DIR):
-        return jsonify({"status": "ok", "characters": ""})
-    
-    npc_list = []
-    for f in os.listdir(CHARACTERS_DIR):
-        if not f.endswith('.json'):
-            continue
-        storage_id = f.replace('.json', '')
-        try:
-            fpath = os.path.join(CHARACTERS_DIR, f)
-            mtime = os.path.getmtime(fpath)
-            with open(fpath, "r", encoding="utf-8") as fh:
-                cdata = json.load(fh)
-            display = cdata.get('Name', storage_id)
-            
-            npc_list.append({
-                "display": display,
-                "sid": storage_id,
-                "mtime": mtime,
-                "is_fav": storage_id in favorites
-            })
-        except:
-            npc_list.append({
-                "display": storage_id,
-                "sid": storage_id,
-                "mtime": 0,
-                "is_fav": storage_id in favorites
-            })
+    logging.info(f"Listing characters in '{ACTIVE_CAMPAIGN}' (Sort: {sort_mode})")
+    npc_list = [
+        {"display": n["name"], "sid": n["storage_id"], "updated_at": n["updated_at"], "is_fav": n["favorite"]}
+        for n in campaign_db.list_npcs()
+    ]
+    favorites = [n["sid"] for n in npc_list if n["is_fav"]]
 
     unique_npcs = {}
     for n in npc_list:
@@ -3502,7 +3240,7 @@ def list_characters():
     final_list = list(unique_npcs.values())
 
     if sort_mode == "latest":
-        final_list.sort(key=lambda x: x["mtime"], reverse=True)
+        final_list.sort(key=lambda x: x["updated_at"], reverse=True)
     else:
         final_list.sort(key=lambda x: x["display"].lower())
 
@@ -3526,21 +3264,12 @@ def toggle_favorite():
     sid = data.get("sid")
     if not sid:
         return jsonify({"status": "error"}), 400
-    
-    settings = load_settings()
-    favorites = settings.get("favorites", [])
-    
-    if sid in favorites:
-        favorites.remove(sid)
-        status = "removed"
-    else:
-        favorites.append(sid)
-        status = "added"
-    
-    settings["favorites"] = favorites
-    save_settings(settings)
-    
-    return jsonify({"status": "ok", "state": status})
+
+    is_fav = campaign_db.toggle_favorite(sid)
+    if is_fav is None:
+        return jsonify({"status": "error", "message": "Profile not found"}), 404
+
+    return jsonify({"status": "ok", "state": "added" if is_fav else "removed"})
 @app.route('/player_profile', methods=['GET', 'POST'])
 def player_profile_route():
     if request.method == 'GET':

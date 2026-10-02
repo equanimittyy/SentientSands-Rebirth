@@ -12,7 +12,7 @@ Sentient Sands Rebirth has three parts: a C++ plugin that runs inside Kenshi, a 
 | `plugin/core/` | Shared state and mutexes (`Globals`), logging, INI settings, and server start-up (`Utils`), and the transport to the server (`Comm`). |
 | `plugin/game/` | Reads game state into JSON for prompts (`Context`) and applies queued NPC actions to the world (`GameActions`). |
 | `plugin/ui/` | The in-game MyGUI windows. `LauncherWindow` is the hub that opens the others. `ChatUIGlobals` holds the shared widget pointers. |
-| `server/scripts/` | The Flask server (`kenshi_llm_server.py`), the request checks (`request_guard.py`), the browser auto-open (`browser_launch.py`), the LLM configuration (`llm_config.py`) and fallback chain (`llm_router.py`), the Kenshi save parser (`save_reader.py`), and a Tkinter debug tool (`visual_debugger.py`). |
+| `server/scripts/` | The Flask server (`kenshi_llm_server.py`), the campaign database (`campaign_db.py`), the request checks (`request_guard.py`), the browser auto-open (`browser_launch.py`), the LLM configuration (`llm_config.py`) and fallback chain (`llm_router.py`), the Kenshi save parser (`save_reader.py`), and a Tkinter debug tool (`visual_debugger.py`). |
 | `server/web/` | The web app: plain HTML, CSS, and JavaScript, which the server serves at `http://127.0.0.1:5000/`. |
 | `server/tests/` | Unit tests that run with the standard library only. See [development.md](development.md#tests). |
 | `server/config/` | The default providers and models that seed the LLM configuration, and the name, title, and localization JSON. |
@@ -101,11 +101,24 @@ A Player2 provider uses a session key from the local Player2 app. On a 401, `sen
 
 On a start without `llm_config.json`, the server builds it with one route per task that holds only the profile of the old `CurrentModel` setting. It reads `providers.json` and `models.json` from `server/config/` if an earlier release left them there, else `default_providers.json` and `default_models.json`.
 
+## Campaign storage
+
+`server/scripts/campaign_db.py` keeps the NPC profiles, the dialogue, the event history, and the rumors of a campaign in one SQLite file, `campaign.db`, in the campaign folder. The plugin reaches this data only through the server's routes, which keep their request and response shapes. The player profile and the prompt overrides stay text files in the campaign folder, because `load_prompt_component` reads any prompt file from there before `server/prompts/`.
+
+- Each write runs in one `BEGIN IMMEDIATE` transaction. A profile write merges only the keys that the caller passes, and the dialogue lines are rows of their own. A route that waits for the LLM must write only the keys that it changed, so that it cannot undo a change that another request made during the wait.
+- Each operation opens a connection with a 5 s busy timeout and closes it. A campaign switch changes only the database path that `open_campaign` sets.
+- The database uses the default rollback journal, not WAL. The campaign folder therefore has no `-wal` or `-shm` file, and a player can copy it while the server is idle.
+- A storage ID is the NPC name with the sanitizing of the old profile file names, and it ignores case, as the Windows file names did.
+- Each NPC keeps its newest 250 dialogue lines, and the campaign keeps its newest 500 events. An event that the table already holds is not added again.
+- Favorites belong to each campaign. The server no longer writes the INI's `Favorites` list, and it keeps the old list in the file for campaigns that migrate later.
+
+`open_campaign` migrates a campaign folder that has no `campaign.db`. It builds the database in `campaign.db.tmp`, renames it to `campaign.db`, and then moves `characters/`, `event_history.json`, and `world_events.txt` into `legacy/`. A crash before the rename leaves no database, so the next start runs the migration again. The migration skips a profile file that does not parse, and the file moves into `legacy/` with the others.
+
 ## Server state
 
 | Location | Contents |
 |---|---|
-| `server/campaigns/<name>/` | One campaign: `characters/*.json` (one file per NPC), `world_events.txt`, `event_history.json`, `logs/`, and `sentient_sands_registry/`. |
+| `server/campaigns/<name>/` | One campaign: `campaign.db` (see [Campaign storage](#campaign-storage)), `character_bio.txt`, `player_faction_description.txt`, `logs/`, and `sentient_sands_registry/`. `legacy/` holds the files from before the migration to `campaign.db`. |
 | `server/logs/server.log` | The main server log, rotated at 512 KB. |
 | `server/debug.log` | The debug log, rotated at 1 MB. |
 | `server/user/llm_config.json` | The LLM providers with the player's API keys, the profiles, and the routes (see [LLM routing](#llm-routing)). The release does not ship it, so an update keeps the keys. |
