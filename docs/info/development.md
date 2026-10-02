@@ -14,8 +14,6 @@ To build, open the project in Visual Studio and build it, or run this in a Devel
 msbuild plugin\SentientSands.vcxproj
 ```
 
-If you installed the compiler through the Windows SDK 7.1, add `-p:PlatformToolset=Windows7.1SDK`.
-
 The DLL goes to `plugin\x64\Release\SentientSands.dll`. Kenshi locks the DLL while it runs, so close the game before a build that copies it.
 
 The project lists each source file, because the Visual Studio IDE does not support wildcards in project items. A new file that you add through Solution Explorer goes into the list. A new file that you create outside Visual Studio must be added to the project, or the link fails.
