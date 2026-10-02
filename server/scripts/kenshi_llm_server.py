@@ -1354,13 +1354,11 @@ def generate_batch_profiles(npc_list):
         except Exception as e:
             logging.error(f"BATCH: Failed to parse batch profiles: {e}")
 
-def get_character_data(name, context="", char_id=None, skip_generate=False):
+def get_character_data(name, context="", skip_generate=False):
     # Strip the serial so "Name|ID" doesn't create a separate junk profile per serial
     if '|' in name:
         name_parts = name.split('|')
         name = name_parts[0]
-        if not char_id and len(name_parts) > 1:
-            char_id = name_parts[1]
 
     # Key profiles by name only; serial and faction-suffixed IDs are unstable
     name = str(name).strip()
@@ -1950,11 +1948,11 @@ def chat():
             if dist <= yell_radius: npcs_in_radius.append(name)
 
     
-    def get_local_context_and_id(target_name):
+    def get_local_context(target_name):
         clean_target = target_name.split('|')[0] if '|' in target_name else target_name
         
         if clean_target == primary_npc:
-            return context, primary_id
+            return context
             
         # The request's nearby data is fresher than the LIVE_CONTEXTS cache
         nearby_data = data.get('nearby', [])
@@ -1962,13 +1960,13 @@ def chat():
             n_name = n.get("name", "")
             clean_n = n_name.split('|')[0] if '|' in n_name else n_name
             if clean_n == clean_target:
-                return json.dumps(n), (n.get("storage_id") or n.get("id"))
+                return json.dumps(n)
                 
         if clean_target in LIVE_CONTEXTS:
             c = LIVE_CONTEXTS[clean_target]
-            return json.dumps(c), (c.get("storage_id") or c.get("id"))
+            return json.dumps(c)
             
-        return "", None
+        return ""
 
     raw_listeners = list(set([primary_npc] + npcs_in_radius))
     listeners = []
@@ -1985,9 +1983,7 @@ def chat():
     missing_for_batch = []
     checked_ids = set()
     for name in listeners:
-        cid = primary_id if name == primary_npc else None
-        npc_ctx, local_cid = get_local_context_and_id(name)
-        sid = cid if cid else local_cid
+        npc_ctx = get_local_context(name)
         
         storage_id = name
         if '|' in str(storage_id): storage_id = str(storage_id).split('|')[0]
@@ -2033,20 +2029,16 @@ def chat():
 
     char_datas = {}
     threads = []
-    def fetch_npc_thread(name, cid, delay):
+    def fetch_npc_thread(name, delay):
         if delay > 0:
             time.sleep(delay)
         try:
-            npc_context, local_cid = get_local_context_and_id(name)
-            thread_cid = cid if cid else local_cid
-            char_datas[name] = get_character_data(name, npc_context, char_id=thread_cid)
+            char_datas[name] = get_character_data(name, get_local_context(name))
         except Exception as e:
             logging.error(f"Thread Error fetching {name}: {e}")
 
     delay_counter = 0
     for name in listeners:
-        cid = primary_id if name == primary_npc else None
-        
         storage_id = name
         if '|' in str(storage_id): storage_id = str(storage_id).split('|')[0]
         
@@ -2055,7 +2047,7 @@ def chat():
             delay = delay_counter
             delay_counter += 1
             
-        t = threading.Thread(target=fetch_npc_thread, args=(name, cid, delay), daemon=True)
+        t = threading.Thread(target=fetch_npc_thread, args=(name, delay), daemon=True)
         t.start()
         threads.append(t)
         
@@ -2411,8 +2403,7 @@ def chat():
             overheard_tag = "(Overheard) " if is_overhearing else ""
             
             if name not in char_datas:
-                ctx, sid = get_local_context_and_id(name)
-                char_datas[name] = get_character_data(name, ctx, char_id=sid)
+                char_datas[name] = get_character_data(name, get_local_context(name))
                 
             stored_lines = len(char_datas[name]["ConversationHistory"])
             char_datas[name]["ConversationHistory"].append(f"{time_prefix}{overheard_tag}{player_name}{mode_action}: {player_message}")
