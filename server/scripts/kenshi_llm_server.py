@@ -1362,20 +1362,6 @@ def get_character_data(name, context="", char_id=None, skip_generate=False):
         if not char_id and len(name_parts) > 1:
             char_id = name_parts[1]
 
-    live_ctx = LIVE_CONTEXTS.get(name) or {}
-    
-    ctx_data = {}
-    if context:
-        if isinstance(context, dict):
-            ctx_data = context
-        elif isinstance(context, str) and context.strip().startswith('{'):
-            try:
-                ctx_data = json.loads(context)
-            except:
-                pass
-    if not ctx_data and live_ctx:
-        ctx_data = live_ctx
-    
     # Key profiles by name only; serial and faction-suffixed IDs are unstable
     name = str(name).strip()
     storage_id = name
@@ -1385,16 +1371,6 @@ def get_character_data(name, context="", char_id=None, skip_generate=False):
 
     data = campaign_db.get_npc(storage_id)
     stored = dict(data) if data else {}
-
-    # Backfill keys missing from older profiles
-    if data:
-        if "Relation" not in data: 
-            data["Relation"] = int(float(ctx_data.get("relation", 0)) / 2) if ctx_data else 0
-        if "Race" not in data: data["Race"] = "Unknown"
-        if "Sex" not in data: data["Sex"] = "Unknown"
-        if "Faction" not in data: data["Faction"] = "Unknown"
-        if "OriginFaction" not in data: data["OriginFaction"] = "Unknown"
-        if "Job" not in data: data["Job"] = "None"
 
     ctx_data = {}
     if isinstance(context, dict):
