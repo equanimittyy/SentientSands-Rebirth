@@ -263,7 +263,8 @@ void PopulateLibraryUI(const std::string &dataInput) {
 void SetLibraryText(const std::string &data) {
   if (!g_libraryText)
     return;
-  Log("LIBRARY_TEXT: Received " + ToString((int)data.length()) + " bytes");
+  Log(LOG_DEBUG,
+      "LIBRARY: Received " + ToString((int)data.length()) + " bytes");
   size_t start = (data.length() > 0 && data[0] == ' ') ? 1 : 0;
   std::stringstream ss(data.substr(start));
   std::string line;
@@ -315,8 +316,8 @@ void OnLibraryWindowButtonPressed(MyGUI::Window *sender,
 }
 
 DWORD WINAPI LibraryListThread(LPVOID lpParam) {
-  Log("LIBRARY_THREAD: Fetching characters (Sort: " + g_librarySortMode +
-      ")...");
+  Log(LOG_DEBUG, "LIBRARY: Fetching characters (Sort: " + g_librarySortMode +
+                     ")...");
   std::string json = "{\"sort\":\"" + g_librarySortMode + "\"}";
   std::string response = PostToPythonWithResponse(L"/characters", json);
   if (!response.empty()) {
@@ -337,7 +338,7 @@ DWORD WINAPI LibraryListThread(LPVOID lpParam) {
 
 DWORD WINAPI LibraryHistoryThread(LPVOID lpParam) {
   LibraryTask *t = (LibraryTask *)lpParam;
-  Log("LIBRARY_THREAD: Fetching history for " + t->npcName);
+  Log(LOG_DEBUG, "LIBRARY: Fetching history for " + t->npcName);
   std::string response = PostToPythonWithResponse(L"/history", t->json);
   if (!response.empty()) {
     std::string content = GetJsonValue(response, "text");

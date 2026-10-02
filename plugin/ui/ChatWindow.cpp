@@ -53,17 +53,19 @@ void CloseChatUI() {
 
 DWORD WINAPI ChatResponseThread(LPVOID lpParam) {
   ChatTask *t = (ChatTask *)lpParam;
-  Log("CHAT_THREAD: Sending chat request for " + t->npcName);
+  Log(LOG_INFO, "CHAT: Sending chat request for " + t->npcName);
 
   std::string response = PostToPythonWithResponse(L"/chat", t->json);
 
   if (response.empty()) {
-    Log("CHAT_THREAD: Empty response from server.");
+    Log(LOG_WARN, "CHAT: Empty response from server for " + t->npcName);
     delete t;
     return 0;
   }
 
-  Log("CHAT_THREAD: Got response: " + response.substr(0, 200));
+  Log(LOG_INFO, "CHAT: Got response for " + t->npcName + " (" +
+                    ToString((int)response.length()) + " bytes)");
+  Log(LOG_DEBUG, "CHAT: Response: " + response);
 
   std::string npcText = GetJsonValue(response, "text");
   std::vector<std::string> actions;
@@ -237,7 +239,7 @@ void OnChatSendClick(MyGUI::Widget *sender) {
 
         if (target) {
           target->setName(newName);
-          Log("RENAME: " + npcName + " is now " + newName);
+          Log(LOG_INFO, "NAME: " + npcName + " is now " + newName);
           g_chatTargetNameStr = newName;
 
           std::string renJson =
@@ -339,7 +341,7 @@ void OnChatSendClick(MyGUI::Widget *sender) {
         }
       }
     } catch (...) {
-      Log("CRASH_GUARD: Exception during proximity check.");
+      Log(LOG_WARN, "CHAT: Exception during proximity check.");
     }
   }
 

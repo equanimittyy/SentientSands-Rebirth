@@ -23,6 +23,7 @@ bool g_triggerAmbient = false;
 int g_dialogueSpeedSeconds = 5;
 float g_speechBubbleLife = 5.0f;
 bool g_openWebPanelOnStart = true;
+LogLevel g_logLevel = LOG_INFO;
 
 hand g_lastSelectionHand;
 hand g_lastChattingPlayerHand;

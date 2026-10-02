@@ -42,10 +42,10 @@ void OnWelcomeWindowButtonPressed(MyGUI::Window *sender,
 }
 
 DWORD WINAPI WelcomeResponseThread(LPVOID lpParam) {
-  Log("WELCOME_THREAD: Fetching initial config...");
+  Log(LOG_DEBUG, "WELCOME: Fetching initial config...");
   std::string response = PostToPythonWithResponse(L"/settings", "");
   if (response.empty()) {
-    Log("WELCOME_THREAD: Server not responding.");
+    Log(LOG_WARN, "WELCOME: Server not responding.");
     return 0;
   }
 

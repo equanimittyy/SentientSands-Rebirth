@@ -8,6 +8,8 @@
 #include <sstream>
 
 #include <algorithm>
+#include <cctype>
+#include <cstdio>
 #include <cstdlib>
 #include <windows.h>
 
@@ -24,21 +26,57 @@ std::wstring Utf8ToWide(const std::string &str) {
   return wstrTo;
 }
 
-void Log(const std::string &msg) {
-  static bool s_rotated = false;
+// File scope: VC++ 2010 does not construct function statics thread-safely
+static std::ofstream s_logFile;
+static bool s_logRotated = false;
+
+LogLevel ParseLogLevel(const std::string &text) {
+  std::string upper = text;
+  std::transform(upper.begin(), upper.end(), upper.begin(), ::toupper);
+  if (upper == "DEBUG")
+    return LOG_DEBUG;
+  if (upper == "WARN")
+    return LOG_WARN;
+  if (upper == "ERROR")
+    return LOG_ERROR;
+  return LOG_INFO;
+}
+
+bool LogEnabled(LogLevel level) { return level >= g_logLevel; }
+
+void Log(LogLevel level, const std::string &msg) {
+  if (!LogEnabled(level))
+    return;
+
+  static const char *const levelNames[] = {"DEBUG", "INFO", "WARN", "ERROR"};
+
   EnterCriticalSection(&g_LogMutex);
-  if (!s_rotated) {
+  SYSTEMTIME now;
+  GetLocalTime(&now);
+  char stamp[32];
+  sprintf_s(stamp, "%04d-%02d-%02d %02d:%02d:%02d,%03d", now.wYear,
+            now.wMonth, now.wDay, now.wHour, now.wMinute, now.wSecond,
+            now.wMilliseconds);
+
+  std::string line = std::string(stamp) + " - " + levelNames[level] + " - ";
+  for (size_t i = 0; i < msg.size(); ++i) {
+    if (msg[i] == '\n')
+      line += "\\n";
+    else if (msg[i] != '\r')
+      line += msg[i];
+  }
+
+  if (!s_logRotated) {
     // Keeps the previous game's log, so a crash log survives the relaunch
     MoveFileExA("SentientSands_SDK.log", "SentientSands_SDK.old.log",
                 MOVEFILE_REPLACE_EXISTING);
-    s_rotated = true;
+    s_logFile.open("SentientSands_SDK.log", std::ios::app);
+    s_logRotated = true;
   }
-  std::ofstream logFile("SentientSands_SDK.log", std::ios::app);
-  if (logFile.is_open()) {
-    logFile << "[SentientSands] " << msg << std::endl;
-  }
+  if (s_logFile.is_open())
+    s_logFile << line << std::endl;
   LeaveCriticalSection(&g_LogMutex);
-  OutputDebugStringA(("[SentientSands] " + msg + "\n").c_str());
+  OutputDebugStringA(("[SentientSands] " + line + "\n").c_str());
 }
 
 template <typename T> std::string ToStringT(T val) {
@@ -277,39 +315,47 @@ void LoadPluginConfig() {
                                                 "OpenWebPanelOnStart", 1,
                                                 iniPath.c_str()) != 0;
 
-  Log("CONFIG: Loaded ProximityRadius=" + ToString(g_proximityRadius) +
-      ", RadiantRange=" + ToString(g_radiantRange) +
-      ", AmbientInterval=" + ToString(g_ambientIntervalSeconds) + "s" +
-      ", EnableAmbient=" + (g_enableAmbient ? "true" : "false") +
-      ", EnableWelcome=" + (g_enableWelcome ? "true" : "false"));
+  char logLevelBuf[16];
+  GetPrivateProfileStringA("Settings", "LogLevel", "INFO", logLevelBuf, 16,
+                           iniPath.c_str());
+  g_logLevel = ParseLogLevel(logLevelBuf);
+
+  Log(LOG_INFO,
+      "CONFIG: Loaded ProximityRadius=" + ToString(g_proximityRadius) +
+          ", RadiantRange=" + ToString(g_radiantRange) +
+          ", AmbientInterval=" + ToString(g_ambientIntervalSeconds) + "s" +
+          ", EnableAmbient=" + (g_enableAmbient ? "true" : "false") +
+          ", EnableWelcome=" + (g_enableWelcome ? "true" : "false") +
+          ", LogLevel=" + logLevelBuf);
 }
 
 void StartPythonServer(bool openBrowser) {
-  Log("SYSTEM: Starting Python server...");
+  Log(LOG_INFO, "SYSTEM: Starting Python server...");
 
   std::string localPython = g_modRoot + "\\server\\python\\python.exe";
   std::string serverScript =
       g_modRoot + "\\server\\scripts\\kenshi_llm_server.py";
   std::string serverArgs = openBrowser ? " --open-browser" : "";
 
-  Log("SYSTEM: Python path: " + localPython);
-  Log("SYSTEM: Server script: " + serverScript);
+  Log(LOG_INFO, "SYSTEM: Python path: " + localPython);
+  Log(LOG_INFO, "SYSTEM: Server script: " + serverScript);
 
   DWORD fileAttr = GetFileAttributesA(localPython.c_str());
   if (fileAttr != INVALID_FILE_ATTRIBUTES &&
       !(fileAttr & FILE_ATTRIBUTE_DIRECTORY)) {
-    Log("SYSTEM: Using embedded Python runtime.");
+    Log(LOG_INFO, "SYSTEM: Using embedded Python runtime.");
     std::string cmd =
         "\"" + localPython + "\" \"" + serverScript + "\"" + serverArgs;
     WinExec(cmd.c_str(), SW_HIDE);
   } else {
     int result = system("python --version >nul 2>&1");
     if (result == 0) {
-      Log("SYSTEM: Local Python not found, falling back to global 'python'.");
+      Log(LOG_WARN,
+          "SYSTEM: Local Python not found, falling back to global 'python'.");
       WinExec(("python \"" + serverScript + "\"" + serverArgs).c_str(),
               SW_HIDE);
     } else {
-      Log("ERROR: No Python installation found!");
+      Log(LOG_ERROR, "SYSTEM: No Python installation found!");
       MessageBoxA(
           NULL,
           "Sentient Sands Rebirth requires a Python engine to connect to AI "
@@ -339,14 +385,16 @@ void LogGameEvent(const std::string &type, const std::string &actor,
   }
   LeaveCriticalSection(&g_eventMutex);
 
-  std::string logMsg = "[EVENT] " + type + ": " + actor;
+  if (!LogEnabled(LOG_DEBUG))
+    return;
+  std::string logMsg = "EVENT: " + type + ": " + actor;
   if (!actorFaction.empty() && actorFaction != "None")
     logMsg += " (" + actorFaction + ")";
   logMsg += " -> " + target;
   if (!targetFaction.empty() && targetFaction != "None")
     logMsg += " (" + targetFaction + ")";
   logMsg += " (" + message + ")";
-  Log(logMsg);
+  Log(LOG_DEBUG, logMsg);
 }
 
 #include <kenshi/GameWorld.h>

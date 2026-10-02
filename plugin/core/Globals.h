@@ -5,6 +5,8 @@
 #include <vector>
 #include <windows.h>
 
+#include "Utils.h"
+
 class GameWorld;
 namespace Ogre {
 class Vector3;
@@ -46,6 +48,7 @@ extern bool g_triggerAmbient;
 extern int g_dialogueSpeedSeconds;
 extern float g_speechBubbleLife;
 extern bool g_openWebPanelOnStart;
+extern LogLevel g_logLevel;
 
 extern hand g_lastSelectionHand;
 extern hand g_lastChattingPlayerHand;

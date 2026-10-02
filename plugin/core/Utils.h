@@ -3,7 +3,11 @@
 #include <vector>
 #include <windows.h>
 
-void Log(const std::string &msg);
+enum LogLevel { LOG_DEBUG, LOG_INFO, LOG_WARN, LOG_ERROR };
+
+void Log(LogLevel level, const std::string &msg);
+bool LogEnabled(LogLevel level);
+LogLevel ParseLogLevel(const std::string &text);
 std::string ToString(int val);
 std::string ToString(unsigned int val);
 std::string ToString(float val);

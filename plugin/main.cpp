@@ -209,7 +209,8 @@ void ProcessMessageQueue(GameWorld *thisptr) {
     while (!g_messageQueue.empty()) {
       std::string msg = g_messageQueue.front();
       g_messageQueue.pop_front();
-      Log("HOOK_MSG_PROC: Processing: " + msg);
+      if (LogEnabled(LOG_DEBUG))
+        Log(LOG_DEBUG, "QUEUE: Processing: " + msg);
 
       bool isNPCAction = (msg.find("NPC_ACTION: ") == 0);
       bool isPlayerSay = (msg.find("PLAYER_SAY: ") == 0);
@@ -283,6 +284,8 @@ void ProcessMessageQueue(GameWorld *thisptr) {
                 RefreshWelcomeUI();
               } else if (var == "g_enableWelcome") {
                 g_enableWelcome = (val == "1");
+              } else if (var == "g_logLevel") {
+                g_logLevel = ParseLogLevel(val);
               }
             }
           } else if (command == "ENABLE_REGEN_BTN") {
@@ -328,9 +331,11 @@ void ProcessMessageQueue(GameWorld *thisptr) {
                 g_genericKeywords.push_back(k);
               }
 
-              Log("GENERIC_NAMES: Populated " +
-                  ToString((int)g_genericPrefixes.size()) + " prefixes and " +
-                  ToString((int)g_genericKeywords.size()) + " keywords.");
+              Log(LOG_INFO,
+                  "NAME: Populated " +
+                      ToString((int)g_genericPrefixes.size()) +
+                      " generic prefixes and " +
+                      ToString((int)g_genericKeywords.size()) + " keywords.");
             }
           }
         }
@@ -350,8 +355,9 @@ void ProcessMessageQueue(GameWorld *thisptr) {
                   (*it)->getHandle().serial == serial) {
                 std::string oldName = (*it)->getName();
                 (*it)->setName(newName);
-                Log("NAME_ASSIGN: Renamed '" + oldName + "' -> '" + newName +
-                    "' (serial " + ToString(serial) + ")");
+                Log(LOG_DEBUG, "NAME: Renamed '" + oldName + "' -> '" +
+                                   newName + "' (serial " +
+                                   ToString(serial) + ")");
                 break;
               }
             }
@@ -557,7 +563,7 @@ void ProcessMessageQueue(GameWorld *thisptr) {
               targetHand = fallbackHand;
             }
           } else {
-            Log("HOOK_MSG_PROC: WARNING: speaker not found: " + name);
+            Log(LOG_WARN, "QUEUE: Speaker not found: " + name);
           }
         }
       }
@@ -1056,8 +1062,9 @@ void ProcessMessageQueue(GameWorld *thisptr) {
 
         if (!bubbleContent.empty() && bubbleAnchor.isValid()) {
           Character *tc = bubbleAnchor.getCharacter();
-          Log("HOOK_MSG_PROC: Queuing SAY for " +
-              (tc ? tc->getName() : "Unknown") + ": " + bubbleContent);
+          Log(LOG_DEBUG, "QUEUE: Queuing SAY for " +
+                             (tc ? tc->getName() : "Unknown") + ": " +
+                             bubbleContent);
           EnterCriticalSection(&g_uiMutex);
           QueuedAction act;
           act.type = ACT_SAY;
@@ -1494,7 +1501,7 @@ void playerUpdate_hook(PlayerInterface *thisptr) {
 DWORD WINAPI NameAssignThread(LPVOID lpParam) {
   // Give the Python server a head start before the first batch request.
   Sleep(8000);
-  Log("NAME_ASSIGN: Background name-assignment thread started.");
+  Log(LOG_INFO, "NAME: Background name-assignment thread started.");
 
   while (true) {
     std::vector<NameCheckItem> batch;
@@ -1613,7 +1620,7 @@ extern "C" __declspec(dllexport) void startPlugin() {
     size_t slash = p.find_last_of("\\/");
     g_modRoot = (slash != std::string::npos) ? p.substr(0, slash) : p;
   }
-  Log("SYSTEM: Mod root resolved to: " + g_modRoot);
+  Log(LOG_INFO, "SYSTEM: Mod root resolved to: " + g_modRoot);
 
   HMODULE hLib = GetModuleHandleA("KenshiLib.dll");
   void *thunkPlayer =

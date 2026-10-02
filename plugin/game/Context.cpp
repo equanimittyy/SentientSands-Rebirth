@@ -213,11 +213,11 @@ void LogNpcIdentity(Character *npc) {
   } catch (...) {
   }
 
-  Log("ID_PROBE: name=" + name + " handle=" + handle +
-      " serial=" + ToString(npc->getHandle().serial) +
-      " instance=" + instance + " layout=" + layout +
-      " template=" + templateID + " (" + templateName +
-      ") faction=" + factionName);
+  Log(LOG_INFO, "ID_PROBE: name=" + name + " handle=" + handle +
+                    " serial=" + ToString(npc->getHandle().serial) +
+                    " instance=" + instance + " layout=" + layout +
+                    " template=" + templateID + " (" + templateName +
+                    ") faction=" + factionName);
 }
 
 std::string GetIdentityFaction(Character *npc) {

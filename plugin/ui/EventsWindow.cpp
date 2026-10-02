@@ -57,7 +57,8 @@ void PopulateEventsUI(const std::string &data) {
 void SetEventsText(const std::string &data) {
   if (!g_eventsText)
     return;
-  Log("EVENTS_TEXT: Received " + ToString((int)data.length()) + " bytes");
+  Log(LOG_DEBUG, "EVENTS_WINDOW: Received " + ToString((int)data.length()) +
+                     " bytes");
   size_t start = (data.length() > 0 && data[0] == ' ') ? 1 : 0;
   std::stringstream ss(data.substr(start));
   std::string line;
@@ -77,12 +78,12 @@ void OnSynthesizeClick(MyGUI::Widget *sender) {
 }
 
 DWORD WINAPI SynthesizeThread(LPVOID lpParam) {
-  Log("EVENTS_THREAD: Requesting manual synthesis...");
+  Log(LOG_INFO, "EVENTS_WINDOW: Requesting manual synthesis...");
   std::string response = PostToPythonWithResponse(L"/synthesize", "");
   if (!response.empty()) {
     std::string rumor = GetJsonValue(response, "rumor");
     if (!rumor.empty()) {
-      Log("EVENTS_THREAD: Synthesis successful: " + rumor);
+      Log(LOG_INFO, "EVENTS_WINDOW: Synthesis successful: " + rumor);
       CreateThread(NULL, 0, EventsResponseThread, NULL, 0, NULL);
     } else {
       std::string error = GetJsonValue(response, "message");
@@ -117,7 +118,7 @@ void OnEventsSelect(MyGUI::ListBox *sender, size_t index) {
 
 DWORD WINAPI EventsContentThread(LPVOID lpParam) {
   EventTask *t = (EventTask *)lpParam;
-  Log("EVENTS_THREAD: Fetching content for Day " + t->day);
+  Log(LOG_DEBUG, "EVENTS_WINDOW: Fetching content for Day " + t->day);
   std::string response = PostToPythonWithResponse(L"/events/content", t->json);
   if (!response.empty()) {
     std::string content = GetJsonValue(response, "text");
@@ -133,7 +134,7 @@ DWORD WINAPI EventsContentThread(LPVOID lpParam) {
 }
 
 DWORD WINAPI EventsResponseThread(LPVOID lpParam) {
-  Log("EVENTS_THREAD: Fetching events list...");
+  Log(LOG_DEBUG, "EVENTS_WINDOW: Fetching events list...");
   std::string response = PostToPythonWithResponse(L"/events", "");
   if (!response.empty()) {
     std::string eventsJson = GetJsonValue(response, "events");

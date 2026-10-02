@@ -35,7 +35,7 @@ void PerformLeaveSquad(Character *npc, GameWorld *world,
     platoonPart = originFaction.substr(pipePos + 1);
   }
 
-  Log("ACTION_EXEC: Dismissing " + npc->getName() + " (Target Faction: " +
+  Log(LOG_INFO, "ACTION: Dismissing " + npc->getName() + " (Target Faction: " +
       factionPart + ", Target Platoon: " + platoonPart + ")");
 
   if (world->player) {
@@ -46,7 +46,7 @@ void PerformLeaveSquad(Character *npc, GameWorld *world,
         for (uint32_t j = i; j < pc.size() - 1; ++j)
           pc.stuff[j] = pc.stuff[j + 1];
         pc.count--;
-        Log("ACTION_EXEC: Removed " + npc->getName() +
+        Log(LOG_DEBUG, "ACTION: Removed " + npc->getName() +
             " from playerCharacters list.");
         break;
       }
@@ -102,7 +102,7 @@ void PerformLeaveSquad(Character *npc, GameWorld *world,
     }
 
     if (targetFaction) {
-      Log("ACTION_EXEC: Moving character to target faction: " +
+      Log(LOG_DEBUG, "ACTION: Moving character to target faction: " +
           targetFaction->getName());
 
       ActivePlatoon *ap = NULL;
@@ -117,7 +117,7 @@ void PerformLeaveSquad(Character *npc, GameWorld *world,
                       p->getPlatoonStringID() == platoonPart)) {
               ap = p->getActivePlatoon();
               if (ap) {
-                Log("ACTION_EXEC: Found existing active platoon: " +
+                Log(LOG_DEBUG, "ACTION: Found existing active platoon: " +
                     platoonPart);
                 break;
               }
@@ -131,7 +131,7 @@ void PerformLeaveSquad(Character *npc, GameWorld *world,
             NULL, true, npc->getPosition());
         if (newPlat) {
           ap = newPlat->getActivePlatoon();
-          Log("ACTION_EXEC: Created new platoon for dismissal.");
+          Log(LOG_DEBUG, "ACTION: Created new platoon for dismissal.");
         }
       }
 
@@ -156,7 +156,7 @@ void PerformLeaveSquad(Character *npc, GameWorld *world,
 
         npc->reThinkCurrentAIAction();
       } else {
-        Log("ACTION_EXEC: ERROR: Could not create or find a platoon for "
+        Log(LOG_ERROR, "ACTION: Could not create or find a platoon for "
             "dismissal!");
       }
     }
@@ -237,7 +237,7 @@ void ExecuteQueuedActions(GameWorld *thisptr, int &inventoryTimer) {
         thisptr->showPlayerAMessage_withLog(act.message, true);
       } else if (act.type == ACT_SAY && npc) {
         bool isPC = npc->isPlayerCharacter();
-        Log("ACTION_EXEC: SAY [" + npc->getName() + "]: " + act.message +
+        Log(LOG_DEBUG, "ACTION: SAY [" + npc->getName() + "]: " + act.message +
             (isPC ? " (PC)" : " (NPC)"));
         try {
           // No endDialogue/setInDialog(false): they clear AI goals, killing the task just queued
@@ -257,7 +257,7 @@ void ExecuteQueuedActions(GameWorld *thisptr, int &inventoryTimer) {
           }
 
         } catch (...) {
-          Log("ACTION_EXEC: SAY (ERROR): Exception during sayALine/say");
+          Log(LOG_ERROR, "ACTION: SAY: Exception during sayALine/say");
         }
       } else if (npc) {
         if (act.type == ACT_ATTACK && target) {
@@ -349,7 +349,7 @@ void ExecuteQueuedActions(GameWorld *thisptr, int &inventoryTimer) {
               npc->getName() + " left your squad.", true);
 
         } else if (act.type == ACT_SET_TASK) {
-          Log("ACTION_EXEC: Setting task for " + npc->getName() + ": " +
+          Log(LOG_INFO, "ACTION: Setting task for " + npc->getName() + ": " +
               ToString(act.taskValue) +
               (target ? " (Target: " + target->getName() + ")" : ""));
 
@@ -378,7 +378,7 @@ void ExecuteQueuedActions(GameWorld *thisptr, int &inventoryTimer) {
                 tName.erase(lnot + 1);
             }
 
-            Log("ACTION_EXEC: Resolving town target for " + ToString(tt) +
+            Log(LOG_DEBUG, "ACTION: Resolving town target for " + ToString(tt) +
                 ": '" + tName + "'");
 
             std::string tLow = tName;
@@ -396,14 +396,14 @@ void ExecuteQueuedActions(GameWorld *thisptr, int &inventoryTimer) {
 
                 if (tbName == tLow || tbName.find(tLow) != std::string::npos) {
                   taskTarget = (RootObject *)tb;
-                  Log("ACTION_EXEC: Found town match: " +
+                  Log(LOG_DEBUG, "ACTION: Found town match: " +
                       ((RootObjectBase *)tb)->getName());
                   break;
                 }
               }
             }
             if (!taskTarget) {
-              Log("ACTION_EXEC: WARNING: Town '" + tName +
+              Log(LOG_WARN, "ACTION: Town '" + tName +
                   "' not found in 10M units!");
             }
           }
@@ -429,11 +429,12 @@ void ExecuteQueuedActions(GameWorld *thisptr, int &inventoryTimer) {
                tt == FIND_AND_RESCUE || tt == FOLLOW_PLAYER_ORDER ||
                tt == BODYGUARD);
 
-          Log("ACTION_EXEC: Final Dispatch -> Task: " + ToString((int)tt) +
-              " (" + GetTaskName(tt) + "), Target: " +
-              (taskTarget ? ((RootObjectBase *)taskTarget)->getName()
-                          : "NULL") +
-              ", Permanent: " + (isPermanent ? "YES" : "NO"));
+          Log(LOG_DEBUG,
+              "ACTION: Final Dispatch -> Task: " + ToString((int)tt) +
+                  " (" + GetTaskName(tt) + "), Target: " +
+                  (taskTarget ? ((RootObjectBase *)taskTarget)->getName()
+                              : "NULL") +
+                  ", Permanent: " + (isPermanent ? "YES" : "NO"));
 
           if (tt == JOB_MEDIC || tt == FIND_AND_RESCUE ||
               tt == JOB_REPAIR_ROBOT) {
@@ -476,7 +477,7 @@ void ExecuteQueuedActions(GameWorld *thisptr, int &inventoryTimer) {
             std::transform(itemName.begin(), itemName.end(), itemName.begin(),
                            ::tolower);
             if (itemName.find(targetName) != std::string::npos) {
-              Log("ACTION_EXEC: Dropping item: " + items[i]->getName());
+              Log(LOG_INFO, "ACTION: Dropping item: " + items[i]->getName());
               npc->dropItem(items[i]);
               thisptr->showPlayerAMessage_withLog(
                   npc->getName() + " dropped " + items[i]->getName(), true);
@@ -507,8 +508,9 @@ void ExecuteQueuedActions(GameWorld *thisptr, int &inventoryTimer) {
               count = 1;
             int taken = 0;
 
-            Log("ACTION_EXEC: NPC " + npc->getName() + " attempting to take " +
-                ToString(count) + "x '" + targetName + "'");
+            Log(LOG_INFO,
+                "ACTION: NPC " + npc->getName() + " attempting to take " +
+                    ToString(count) + "x '" + targetName + "'");
 
             // Rescan per item: removals reorder the inventory
             while (taken < count) {
@@ -530,8 +532,9 @@ void ExecuteQueuedActions(GameWorld *thisptr, int &inventoryTimer) {
               }
 
               if (found) {
-                Log("ACTION_EXEC: Taking item (" + ToString(taken + 1) + "/" +
-                    ToString(count) + "): " + found->getName());
+                Log(LOG_DEBUG,
+                    "ACTION: Taking item (" + ToString(taken + 1) + "/" +
+                        ToString(count) + "): " + found->getName());
                 if (found->isEquipped)
                   player->unequipItem(found->inventorySection, found);
                 Inventory *inv = found->getInventory();
@@ -544,7 +547,7 @@ void ExecuteQueuedActions(GameWorld *thisptr, int &inventoryTimer) {
                 if (success) {
                   taken++;
                 } else {
-                  Log("ACTION_EXEC: NPC " + npc->getName() + " inventory full! Returning item to player.");
+                  Log(LOG_WARN, "ACTION: NPC " + npc->getName() + " inventory full. Returning item to player.");
                   player->giveItem(detached ? detached : found, true, false);
                   break;
                 }
@@ -556,7 +559,7 @@ void ExecuteQueuedActions(GameWorld *thisptr, int &inventoryTimer) {
             if (taken < count) {
               transactionFailed = true;
               failureReason = "Not enough items.";
-              Log("ACTION_EXEC: TRANSACTION FAILED: " + npc->getName() + " wanted " + ToString(count) + " but only found " + ToString(taken));
+              Log(LOG_WARN, "ACTION: Transaction failed: " + npc->getName() + " wanted " + ToString(count) + " but only found " + ToString(taken));
             }
 
             if (taken > 0) {
@@ -567,13 +570,13 @@ void ExecuteQueuedActions(GameWorld *thisptr, int &inventoryTimer) {
               npc->reThinkCurrentAIAction();
               inventoryTimer = 999;
             } else {
-              Log("ACTION_EXEC: NPC " + npc->getName() +
+              Log(LOG_WARN, "ACTION: NPC " + npc->getName() +
                   " found NO items matching '" + targetName + "' on player.");
             }
           }
         } else if (act.type == ACT_GIVE_ITEM) {
           if (transactionFailed) {
-            Log("ACTION_EXEC: Skipping GIVE_ITEM due to previous transaction failure (" + failureReason + ")");
+            Log(LOG_INFO, "ACTION: Skipping GIVE_ITEM due to previous transaction failure (" + failureReason + ")");
             continue;
           }
           std::vector<Item *> items;
@@ -606,8 +609,9 @@ void ExecuteQueuedActions(GameWorld *thisptr, int &inventoryTimer) {
               std::transform(itemName.begin(), itemName.end(), itemName.begin(),
                              ::tolower);
               if (itemName.find(targetName) != std::string::npos) {
-                Log("ACTION_EXEC: Giving item (" + ToString(given + 1) + "/" +
-                    ToString(count) + "): " + items[i]->getName());
+                Log(LOG_DEBUG,
+                    "ACTION: Giving item (" + ToString(given + 1) + "/" +
+                        ToString(count) + "): " + items[i]->getName());
                 if (items[i]->isEquipped)
                   npc->unequipItem(items[i]->inventorySection, items[i]);
                 Inventory *inv = items[i]->getInventory();
@@ -620,14 +624,15 @@ void ExecuteQueuedActions(GameWorld *thisptr, int &inventoryTimer) {
                   player->giveItem(detached, true, false);
                   given++;
                 } else {
-                  Log("ACTION_EXEC: Failed to detach " + items[i]->getName() +
-                      " from " + npc->getName() + "'s inventory.");
+                  Log(LOG_WARN,
+                      "ACTION: Failed to detach " + items[i]->getName() +
+                          " from " + npc->getName() + "'s inventory.");
                 }
               }
             }
 
             if (given < count) {
-              Log("ACTION_EXEC: NPC " + npc->getName() + " only had " +
+              Log(LOG_WARN, "ACTION: NPC " + npc->getName() + " only had " +
                   ToString(given) + " of '" + originalTargetName +
                   "'. Fallback to SPAWN for remaining " +
                   ToString(count - given));
@@ -682,7 +687,7 @@ void ExecuteQueuedActions(GameWorld *thisptr, int &inventoryTimer) {
           }
         } else if (act.type == ACT_GIVE_CATS) {
           if (transactionFailed) {
-            Log("ACTION_EXEC: Skipping GIVE_CATS due to previous transaction failure (" + failureReason + ")");
+            Log(LOG_INFO, "ACTION: Skipping GIVE_CATS due to previous transaction failure (" + failureReason + ")");
             continue;
           }
           if (thisptr->player &&
@@ -722,7 +727,7 @@ void ExecuteQueuedActions(GameWorld *thisptr, int &inventoryTimer) {
               amt = 0;
             }
 
-            Log("ACTION_EXEC: Taking " + ToString(amt) + " cats from " +
+            Log(LOG_INFO, "ACTION: Taking " + ToString(amt) + " cats from " +
                 p->getName() + " (Requested: " + ToString(targetAmt) +
                 ", Bank: " + ToString(pMoney) + ")");
             p->takeMoney(amt);
@@ -743,8 +748,9 @@ void ExecuteQueuedActions(GameWorld *thisptr, int &inventoryTimer) {
             if (!beingRecruited && !alreadyPlayer) {
               npc->takeMoney(-amt);
             } else {
-              Log("ACTION_EXEC: Recruitment fee or sign-on bonus. Money spent "
-                  "but not given to recruit pocket.");
+              Log(LOG_DEBUG,
+                  "ACTION: Recruitment fee or sign-on bonus. Money spent "
+                      "but not given to recruit pocket.");
             }
 
             thisptr->showPlayerAMessage_withLog(
@@ -763,14 +769,15 @@ void ExecuteQueuedActions(GameWorld *thisptr, int &inventoryTimer) {
           bool shackled = target->isChained || target->isChainedMode();
           float dist = npc->getPosition().distance(target->getPosition());
 
-          Log("ACTION_EXEC: Release/Breakout by " + npc->getName() + " on " +
-              target->getName() + ". InCage: " + ToString(inCage) +
-              ", Shackled: " + ToString(shackled) +
-              ", Dist: " + ToString(dist));
+          Log(LOG_INFO,
+              "ACTION: Release/Breakout by " + npc->getName() + " on " +
+                  target->getName() + ". InCage: " + ToString(inCage) +
+                  ", Shackled: " + ToString(shackled) +
+                  ", Dist: " + ToString(dist));
 
           // Free directly when close: for recruits/friends the engine cancels the release task
           if (dist < 4.0f && (inCage || shackled)) {
-            Log("ACTION_EXEC: Proximity force-release triggered.");
+            Log(LOG_DEBUG, "ACTION: Proximity force-release triggered.");
             if (shackled) {
               target->setChainedMode(false, hand());
               target->isChained = false;
@@ -787,7 +794,7 @@ void ExecuteQueuedActions(GameWorld *thisptr, int &inventoryTimer) {
 
           if (npc->isCarryingSomething &&
               npc->carryingObject == target->getHandle()) {
-            Log("ACTION_EXEC: NPC is carrying target. Dropping.");
+            Log(LOG_DEBUG, "ACTION: NPC is carrying target. Dropping.");
             npc->dropCarriedObject(false, false);
             didSomething = true;
           }
@@ -800,7 +807,7 @@ void ExecuteQueuedActions(GameWorld *thisptr, int &inventoryTimer) {
                 tt = (TaskType)201; // PICK_LOCK_ON_SHACKLES
             }
 
-            Log("ACTION_EXEC: Assigning task: " + GetTaskName(tt) + " (" +
+            Log(LOG_DEBUG, "ACTION: Assigning task: " + GetTaskName(tt) + " (" +
                 ToString((int)tt) + ")");
 
             // addOrder overrides at once, unlike addJob; clear=true halts background AI (staying home)
@@ -819,7 +826,7 @@ void ExecuteQueuedActions(GameWorld *thisptr, int &inventoryTimer) {
           }
 
           if (!didSomething && !npc->isPlayerCharacter()) {
-            Log("ACTION_EXEC: Target already free. Clearing NPC goals.");
+            Log(LOG_DEBUG, "ACTION: Target already free. Clearing NPC goals.");
             npc->clearAllAIGoals();
             npc->reThinkCurrentAIAction();
           }
@@ -837,7 +844,7 @@ void ExecuteQueuedActions(GameWorld *thisptr, int &inventoryTimer) {
                   thisptr->factionMgr->getFactionByStringID("Nameless_0");
 
             if (targetFaction && playerFaction) {
-              Log("ACTION_EXEC: Direct Faction Relation change: " +
+              Log(LOG_INFO, "ACTION: Direct Faction Relation change: " +
                   act.message + " (" + ToString(act.taskValue) + ")");
               if (playerFaction->relations)
                 playerFaction->relations->affectRelations(
@@ -973,8 +980,9 @@ void ExecuteQueuedActions(GameWorld *thisptr, int &inventoryTimer) {
           }
 
           if (gd) {
-            Log("ACTION_EXEC: Resolved " + templateName + " to " + gd->name +
-                " (Type: " + ToString(gd->type) + ")");
+            Log(LOG_DEBUG,
+                "ACTION: Resolved " + templateName + " to " + gd->name +
+                    " (Type: " + ToString(gd->type) + ")");
 
             Character *p = act.target.getCharacter();
             if (!p || (uintptr_t)p < 0x1000) {
@@ -990,7 +998,7 @@ void ExecuteQueuedActions(GameWorld *thisptr, int &inventoryTimer) {
               int spawnedCount = 0;
 
               for (int c = 0; c < count; c++) {
-                Log("ACTION_EXEC: Spawning " + gd->name + " (" +
+                Log(LOG_DEBUG, "ACTION: Spawning " + gd->name + " (" +
                     ToString(c + 1) + "/" + ToString(count) + ") for " +
                     p->getName());
 
@@ -1006,7 +1014,7 @@ void ExecuteQueuedActions(GameWorld *thisptr, int &inventoryTimer) {
                     if (refs && !refs->empty()) {
                       GameData *r = thisptr->gamedata.getData(refs->at(0).sid);
                       if (r) {
-                        Log("ACTION_EXEC: Found " + refName + " ref: " +
+                        Log(LOG_DEBUG, "ACTION: Found " + refName + " ref: " +
                             r->name + " (Type: " + ToString(r->type) + ")");
                       }
                       return r;
@@ -1100,15 +1108,15 @@ void ExecuteQueuedActions(GameWorld *thisptr, int &inventoryTimer) {
                   bool success = p->giveItem(item, true, false);
                   if (success) {
                     spawnedCount++;
-                    Log("ACTION_EXEC: Successfully spawned and gave " +
+                    Log(LOG_INFO, "ACTION: Successfully spawned and gave " +
                         gd->name + " to " + p->getName());
                   } else {
-                    Log("ACTION_EXEC: WARNING: Resolved " + gd->name +
+                    Log(LOG_WARN, "ACTION: Resolved " + gd->name +
                         " but giveItem failed (inventory full?) for " +
                         p->getName());
                   }
                 } else {
-                  Log("ACTION_EXEC: ERROR: Resolved " + gd->name +
+                  Log(LOG_ERROR, "ACTION: Resolved " + gd->name +
                       " but Factory failed to createItem! (Mesh: " +
                       (meshData ? meshData->name : "NULL") + ", Mat: " +
                       (materialData ? materialData->name : "NULL") + ")");
@@ -1130,14 +1138,15 @@ void ExecuteQueuedActions(GameWorld *thisptr, int &inventoryTimer) {
                 inventoryTimer = 999;
               }
             } else {
-              Log("ACTION_EXEC: No character found to give item to.");
+              Log(LOG_WARN, "ACTION: No character found to give item to.");
               Ogre::Vector3 dropPos = (npc && (uintptr_t)npc > 0x1000)
                                           ? npc->getPosition()
                                           : Ogre::Vector3::ZERO;
               dropPos.y += 2.0f;
 
-              Log("ACTION_EXEC: No player character found, dropping item at "
-                  "NPC/Origin.");
+              Log(LOG_WARN,
+                  "ACTION: No player character found, dropping item at "
+                      "NPC/Origin.");
 
               Item *item = thisptr->theFactory->createItem(gd, hand(), NULL,
                                                            NULL, 1, NULL);
@@ -1150,14 +1159,15 @@ void ExecuteQueuedActions(GameWorld *thisptr, int &inventoryTimer) {
               }
             }
           } else {
-            Log("ACTION_EXEC: Could not find template for: " + templateName);
+            Log(LOG_WARN,
+                "ACTION: Could not find template for: " + templateName);
             thisptr->showPlayerAMessage(
                 "Error: Item template '" + templateName + "' not found.", true);
           }
         }
       }
     } catch (...) {
-      Log("ACTION_EXEC: CRITICAL EXCEPTION during action index " +
+      Log(LOG_ERROR, "ACTION: Exception during action index " +
           ToString((int)actIdx));
     }
   }

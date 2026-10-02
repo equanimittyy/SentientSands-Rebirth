@@ -5,7 +5,7 @@
 #include <winhttp.h>
 
 DWORD WINAPI PipeThread(LPVOID lpParam) {
-  Log("PIPE: Server thread started.");
+  Log(LOG_INFO, "PIPE: Server thread started.");
   while (true) {
     HANDLE hPipe =
         CreateNamedPipeA("\\\\.\\pipe\\SentientSands", PIPE_ACCESS_DUPLEX,
@@ -14,7 +14,8 @@ DWORD WINAPI PipeThread(LPVOID lpParam) {
 
     if (hPipe == INVALID_HANDLE_VALUE) {
       DWORD err = GetLastError();
-      Log("PIPE_ERROR: Failed to create pipe. Error: " + ToString((int)err));
+      Log(LOG_ERROR,
+          "PIPE: Failed to create pipe. Error: " + ToString((int)err));
       Sleep(2000);
       continue;
     }
@@ -30,9 +31,6 @@ DWORD WINAPI PipeThread(LPVOID lpParam) {
         fullMsg += buffer;
       }
       if (!fullMsg.empty()) {
-        Log("PIPE_RECV (" + ToString((int)fullMsg.length()) + " bytes): " +
-            fullMsg.substr(0, 128) + (fullMsg.length() > 128 ? "..." : ""));
-
         EnterCriticalSection(&g_msgMutex);
         g_messageQueue.push_back(fullMsg);
         LeaveCriticalSection(&g_msgMutex);
@@ -74,8 +72,8 @@ void PostToPython(const std::wstring &endpoint, const std::string &jsonData) {
     WinHttpReceiveResponse(hRequest, NULL);
   } else {
     std::string endp(endpoint.begin(), endpoint.end());
-    Log("NETWORK_ERROR: Failed to POST to " + endp +
-        " Error: " + ToString((int)GetLastError()));
+    Log(LOG_WARN, "HTTP: Failed to POST to " + endp +
+                      " Error: " + ToString((int)GetLastError()));
   }
 
   if (hRequest)
@@ -168,12 +166,12 @@ void AsyncPostToPython(const std::wstring &endpoint,
 
 DWORD WINAPI AmbientPollThread(LPVOID lpParam) {
   std::string *pJson = (std::string *)lpParam;
-  Log("AMBIENT_NET: Sending request to server...");
+  Log(LOG_DEBUG, "AMBIENT: Sending request to server...");
   std::string response = PostToPythonWithResponse(L"/ambient", *pJson);
   delete pJson;
 
   if (response.empty()) {
-    Log("AMBIENT_NET: Empty response or timeout from server.");
+    Log(LOG_WARN, "AMBIENT: Empty response or timeout from server.");
     return 0;
   }
 
@@ -201,9 +199,10 @@ DWORD WINAPI AmbientPollThread(LPVOID lpParam) {
       first = false;
       lineCount++;
     }
-    Log("AMBIENT_POLL: Queued " + ToString(lineCount) + " banter lines.");
+    Log(LOG_INFO,
+        "AMBIENT: Queued " + ToString(lineCount) + " banter lines.");
   } else {
-    Log("AMBIENT_NET: Invalid response or no text found.");
+    Log(LOG_WARN, "AMBIENT: Invalid response or no text found.");
   }
   return 0;
 }
