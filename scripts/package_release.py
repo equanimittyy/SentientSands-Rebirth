@@ -112,7 +112,6 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--dll", type=Path, default=DEFAULT_DLL, help="path to the built SentientSands.dll (default plugin/x64/Release/)")
     parser.add_argument("--out", type=Path, default=REPO / "dist", help="output directory (default dist/)")
-    parser.add_argument("--confirm", action="store_true", help="show the details and ask before packaging")
     args = parser.parse_args()
 
     if not args.dll.is_file():
@@ -120,9 +119,6 @@ def main():
     version = read_mod_version()
     print(f"Version  {version}")
     describe_dll(args.dll)
-    if args.confirm and input("\nPackage this release? [y/N] ").strip().lower() != "y":
-        print("Cancelled.")
-        return
 
     stage_root = args.out / "stage"
     shutil.rmtree(stage_root, ignore_errors=True)

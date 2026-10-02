@@ -62,7 +62,7 @@ The build uses the newest MSBuild that `vswhere.exe` finds. To package a DLL tha
 python scripts/package_release.py
 ```
 
-The script packages `plugin/x64/Release/SentientSands.dll`. Use `--dll` to package a different DLL. Before it packages, it prints the mod version and the build time, size, and SHA-256 of the DLL. `package_release.cmd` then asks for confirmation. It stops if the DLL does not import the Visual C++ 2010 runtime, because a DLL from a newer toolset crashes the game.
+The script packages `plugin/x64/Release/SentientSands.dll`. Use `--dll` to package a different DLL. Before it packages, it prints the mod version and the build time, size, and SHA-256 of the DLL. It stops if the DLL does not import the Visual C++ 2010 runtime, because a DLL from a newer toolset crashes the game.
 
 The script writes `dist/SentientSands-<version>.zip` and takes the version from `mod/mod.info`. The zip contains the mod files, the DLL, the server, and an embedded Windows Python runtime with the packages from `server/requirements.txt` already installed. Players unzip it into `Kenshi/mods/` and do not install Python. The zip leaves out `server/config/providers.json`, so it never contains your keys and never replaces a player's keys.
 

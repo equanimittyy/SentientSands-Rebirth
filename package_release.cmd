@@ -1,14 +1,20 @@
 @echo off
 setlocal
+:menu
 echo Select one:
 echo 1. Rebuild and repackage
 echo 2. Rebuild only
 echo 3. Repackage
 echo 4. Exit
-choice /c 1234 /n
-set "OPTION=%errorlevel%"
-if %OPTION%==4 exit /b
-if %OPTION%==3 goto package
+set "OPTION="
+set /p "OPTION=> "
+if "%OPTION%"=="4" exit /b
+if "%OPTION%"=="3" goto package
+if not "%OPTION%"=="1" if not "%OPTION%"=="2" (
+    echo Invalid selection.
+    echo.
+    goto menu
+)
 
 set "VSWHERE=%ProgramFiles(x86)%\Microsoft Visual Studio\Installer\vswhere.exe"
 for /f "usebackq delims=" %%i in (`"%VSWHERE%" -latest -requires Microsoft.Component.MSBuild -find MSBuild\**\Bin\MSBuild.exe`) do set "MSBUILD=%%i"
@@ -25,7 +31,7 @@ if errorlevel 1 (
 if %OPTION%==2 goto end
 
 :package
-python "%~dp0scripts\package_release.py" --confirm %*
+python "%~dp0scripts\package_release.py" %*
 if errorlevel 1 (
     echo.
     echo Packaging failed.
