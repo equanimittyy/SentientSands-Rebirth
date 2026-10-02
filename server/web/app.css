@@ -108,6 +108,49 @@ button {
   gap: 1rem;
 }
 
+.card {
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 0.5rem 0.75rem;
+  margin: 0.75rem 0;
+}
+
+.card-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.chain {
+  margin: 0.5rem 0;
+  padding-left: 1.5rem;
+}
+
+.chain li {
+  display: flex;
+  gap: 0.4rem;
+  margin: 0.3rem 0;
+}
+
+.chain select {
+  flex: 1;
+}
+
+.add {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+}
+
+.hint {
+  color: var(--muted);
+  margin: 0.25rem 0 0.5rem;
+}
+
+.mono {
+  font-family: ui-monospace, monospace;
+}
+
 .message {
   color: var(--muted);
 }

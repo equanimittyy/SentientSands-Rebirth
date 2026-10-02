@@ -1,4 +1,5 @@
 import { getJson } from "./api.js";
+import { initLlm } from "./llm.js";
 import { initProfile } from "./profile.js";
 import { initSettings } from "./settings.js";
 
@@ -17,10 +18,11 @@ showPage();
 const status = document.getElementById("status");
 try {
   const settings = await getJson("/settings");
-  status.textContent = `Campaign: ${settings.current_campaign} | Model: ${settings.current}`;
+  status.textContent = `Campaign: ${settings.current_campaign}`;
 } catch (error) {
   status.textContent = `The server is not responding (${error.message}).`;
 }
 
 initSettings();
+initLlm();
 initProfile();

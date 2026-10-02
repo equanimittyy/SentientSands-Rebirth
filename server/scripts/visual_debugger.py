@@ -42,7 +42,7 @@ class VisualDebugger:
         self.events_tail_thread = threading.Thread(target=self.poll_events_file, daemon=True)
         self.events_tail_thread.start()
         
-        self.load_models()
+        self.load_settings()
 
     def setup_styles(self):
         style = ttk.Style()
@@ -246,21 +246,9 @@ class VisualDebugger:
         system_frame = ttk.LabelFrame(right_col, text=" SYSTEM ", padding=5)
         system_frame.pack(fill="x", pady=2)
         
-        self.provider_var = tk.StringVar()
-        self.provider_combo = ttk.Combobox(system_frame, textvariable=self.provider_var, state="readonly", font=("Segoe UI", 8))
-        self.provider_combo.pack(fill="x", pady=2)
-        self.provider_combo.bind("<<ComboboxSelected>>", self.on_provider_change)
-
-        self.model_var = tk.StringVar()
-        self.model_combo = ttk.Combobox(system_frame, textvariable=self.model_var, state="readonly", font=("Segoe UI", 8))
-        self.model_combo.pack(fill="x", pady=1)
-        self.model_combo.bind("<<ComboboxSelected>>", self.change_model)
-        
         self.ambient_var = tk.BooleanVar(value=True)
         self.ambient_check = ttk.Checkbutton(system_frame, text="Radiant Dialogue", variable=self.ambient_var, command=self.toggle_ambient)
         self.ambient_check.pack(fill="x", pady=2)
-
-        self.all_models_data = {}
 
         debug_frame = ttk.Frame(system_frame)
         debug_frame.pack(fill="x", pady=2)
@@ -557,13 +545,13 @@ class VisualDebugger:
                 ttk.Button(item_row, text="GIVE", width=6, command=lambda n=name: self.send_action(f"[ACTION: GIVE_ITEM: {n}]")).pack(side="right", padx=2)
                 ttk.Button(item_row, text="DROP", width=6, command=lambda n=name: self.send_action(f"[ACTION: DROP_ITEM: {n}]")).pack(side="right", padx=2)
 
-    def load_models(self):
+    def load_settings(self):
         def _fetch(attempt=1):
             try:
-                resp = requests.get("http://localhost:5000/models", timeout=3)
+                resp = requests.get("http://localhost:5000/settings", timeout=3)
                 if resp.status_code == 200:
                     data = resp.json()
-                    self.root.after(0, self._apply_models, data)
+                    self.root.after(0, self._apply_settings, data)
                     return
             except Exception:
                 pass
@@ -577,51 +565,10 @@ class VisualDebugger:
 
         threading.Thread(target=_fetch, daemon=True).start()
 
-    def _apply_models(self, data):
+    def _apply_settings(self, data):
         """Must run on the Tk main thread."""
-        self.all_models_data = data.get("models", {})
-        providers = data.get("providers", [])
-        current = data.get("current", "")
-        enable_ambient = data.get("enable_ambient", True)
-
-        self.provider_combo['values'] = providers
-        self.ambient_var.set(enable_ambient)
-
-        current_provider = ""
-        if current in self.all_models_data:
-            current_provider = self.all_models_data[current].get("provider", "")
-        if not current_provider and providers:
-            current_provider = providers[0]
-
-        if current_provider:
-            # set() doesn't fire <<ComboboxSelected>>, so the model list is refreshed by hand.
-            self.provider_var.set(current_provider)
-            self.update_model_list(current_provider)
-            models = self.model_combo['values']
-            if current in models:
-                self.model_var.set(current)
-            elif models:
-                self.model_var.set(models[0])
-
-        self.status_lbl.config(
-            text=f"API: OK | Provider: {current_provider} | Model: {self.model_var.get()}",
-            foreground="#00FF00")
-
-    def on_provider_change(self, event=None):
-        provider = self.provider_var.get()
-        self.update_model_list(provider)
-        models = self.model_combo['values']
-        if models:
-            self.model_var.set(models[0])
-            self.change_model()
-
-    def update_model_list(self, provider):
-        models = [name for name, info in self.all_models_data.items() if info.get("provider") == provider]
-        self.model_combo['values'] = sorted(models)
-
-    def change_model(self, event=None):
-        new_model = self.model_var.get()
-        threading.Thread(target=lambda m=new_model: requests.post("http://localhost:5000/settings", json={"current_model": m}, timeout=5), daemon=True).start()
+        self.ambient_var.set(data.get("enable_ambient", True))
+        self.status_lbl.config(text="API: OK", foreground="#00FF00")
 
     def toggle_ambient(self):
         state = self.ambient_var.get()

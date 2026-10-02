@@ -30,6 +30,7 @@ If the original Sentient Sands is also installed, disable it in the mod launcher
 ### Step 3: Launching the Game
 1. In the Kenshi mod launcher, check **Sentient Sands Rebirth**.
 2. Start Kenshi normally. RE_Kenshi loads the plugin, and the plugin starts the AI server.
+3. Your default browser opens the web panel. Set up a provider and a model there before you talk to an NPC (see below).
 
 ---
 
@@ -37,49 +38,18 @@ If the original Sentient Sands is also installed, disable it in the mod launcher
 
 Sentient Sands Rebirth connects to an embedded Python server running alongside your game. It supports any API that uses the standard OpenAI-compatible format (OpenRouter, local Ollama servers, LM Studio, etc.).
 
-You can add your own custom providers and models without modifying any code. Both configuration files are located in the mod folder at:
-`Kenshi/mods/SentientSandsRebirth/server/config/`
+You configure the mod in the web panel at `http://127.0.0.1:5000/`. It opens in your default browser when Kenshi starts. You can also open it with **Open Web Panel** in the in-game AI panel (F8). To stop it from opening on start, clear **Open this web panel on start** on its Settings page.
 
-### Adding a New Provider
-Edit `providers.json`. The server creates it from `default_providers.json` on its first start, and a mod update does not replace it, so your keys stay. A provider strictly requires an `api_key` and a `base_url`. The `player2` provider also needs a `game_key`, the game ID that you register with Player2.
+### Providers
+On the **LLM** page, a provider is one OpenAI-compatible endpoint: a base URL and an API key. Add a provider by name, then fill in its fields. The page never shows a stored key, only its last four characters. Leave the key field empty to keep the stored key. The `player2` type also needs a game key, the game ID that you register with Player2.
 
-**Example `providers.json`:**
-```json
-{
-    "openrouter": {
-        "api_key": "sk-or-your-api-key-here",
-        "base_url": "https://openrouter.ai/api/v1"
-    },
-    "ollama_local": {
-        "api_key": "ollama",
-        "base_url": "http://localhost:11434/v1"
-    }
-}
-```
+### Profiles
+A profile is one model on one provider. It holds the provider, the exact model ID that the provider expects (for example `anthropic/claude-3.5-sonnet`), a timeout, and optional extra request parameters as JSON. After you save, **Test** sends a short request to the profile.
 
-### Adding a New Model
-Edit `models.json`. This file links a user-friendly name (which appears in the game's UI) to the exact model string the provider expects.
+### Tasks
+Each task (chat, radiant conversations, NPC profiles, and world events) has an ordered list of profiles. The server tries them in order, and moves to the next profile after an error, a timeout, or an empty reply. List a profile twice to retry it. The game stops waiting after 60 s, so keep each deadline below that.
 
-**Example `models.json`:**
-```json
-{
-    "Llama-3-8B-Instruct": {
-        "provider": "ollama_local",
-        "model": "llama3"
-    },
-    "Claude-3.5-Sonnet": {
-        "provider": "openrouter",
-        "model": "anthropic/claude-3.5-sonnet"
-    }
-}
-```
-
-1. **Top-level key** (e.g., `"Claude-3.5-Sonnet"`): The name you will select in the in-game Settings menu.
-2. **`provider`**: Must perfectly match a top-level key from your `providers.json`.
-3. **`model`**: The exact model identifier required by the provider.
-
-### Selecting Your Model In-Game
-Once you have added models to your config, launch the game, open the Sentient Sands Rebirth **Settings Window**, and select your desired model from the dropdown menu!
+The server keeps this configuration in `server/user/llm_config.json`. A mod update does not replace it, so your keys stay. On its first start, the server copies your providers and models from the `providers.json` and `models.json` of an earlier release, if you have them.
 
 ---
 

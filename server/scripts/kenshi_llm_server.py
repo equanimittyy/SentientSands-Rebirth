@@ -45,6 +45,8 @@ if SCRIPT_DIR not in sys.path:
 from save_reader import build_world_index
 from request_guard import is_request_allowed
 from browser_launch import open_when_ready
+import llm_config
+import llm_router
 
 def resolve_mod_file(filename):
     """Falls back to the repo's mod/ subdirectory when run from a source checkout."""
@@ -59,7 +61,10 @@ def resolve_mod_file(filename):
     return path
 
 INI_PATH = resolve_mod_file("SentientSands_Config.ini")
+LLM_CONFIG_PATH = os.path.join(KENSHI_SERVER_DIR, "user", "llm_config.json")
+# The migration to llm_config.json reads these: the player's own files from an earlier release, else the shipped defaults
 MODELS_PATH = os.path.join(KENSHI_SERVER_DIR, "config", "models.json")
+DEFAULT_MODELS_PATH = os.path.join(KENSHI_SERVER_DIR, "config", "default_models.json")
 PROVIDERS_PATH = os.path.join(KENSHI_SERVER_DIR, "config", "providers.json")
 DEFAULT_PROVIDERS_PATH = os.path.join(KENSHI_SERVER_DIR, "config", "default_providers.json")
 NAMES_PATH = os.path.join(KENSHI_SERVER_DIR, "config", "names.json")
@@ -67,11 +72,8 @@ GENERIC_NAMES_PATH = os.path.join(KENSHI_SERVER_DIR, "config", "generic_names.js
 LOCALIZATION_PATH = os.path.join(KENSHI_SERVER_DIR, "config", "localization.json")
 WEB_DIR = os.path.join(KENSHI_SERVER_DIR, "web")
 
-MODELS_CONFIG = {}
-PROVIDERS_CONFIG = {}
 NAMES_CONFIG = {}
 GENERIC_CONFIG = {}
-CURRENT_MODEL_KEY = "player2-default"
 ACTIVE_CAMPAIGN = "Default"
 
 CAMPAIGNS_DIR = os.path.join(KENSHI_SERVER_DIR, "campaigns")
@@ -325,32 +327,12 @@ def reject_foreign_requests():
         return jsonify({"status": "error", "message": "Forbidden"}), 403
 
 def load_configs():
-    global MODELS_CONFIG, PROVIDERS_CONFIG, NAMES_CONFIG
+    global NAMES_CONFIG
     logging.debug("Checking configurations...")
     
     config_dir = os.path.join(KENSHI_SERVER_DIR, "config")
     if not os.path.exists(config_dir):
         os.makedirs(config_dir)
-
-    if os.path.exists(MODELS_PATH):
-        try:
-            with open(MODELS_PATH, "r") as f:
-                MODELS_CONFIG = json.load(f)
-            logging.debug(f"Loaded {len(MODELS_CONFIG)} models.")
-        except Exception as e:
-            logging.error(f"Failed to load models.json: {e}")
-
-    # The release ships only the default, so an update cannot overwrite the player's keys
-    if not os.path.exists(PROVIDERS_PATH) and os.path.exists(DEFAULT_PROVIDERS_PATH):
-        shutil.copyfile(DEFAULT_PROVIDERS_PATH, PROVIDERS_PATH)
-
-    if os.path.exists(PROVIDERS_PATH):
-        try:
-            with open(PROVIDERS_PATH, "r") as f:
-                PROVIDERS_CONFIG = json.load(f)
-            logging.debug(f"Loaded {len(PROVIDERS_CONFIG)} providers.")
-        except Exception as e:
-            logging.error(f"Failed to load providers.json: {e}")
 
     if os.path.exists(NAMES_PATH):
         try:
@@ -1000,12 +982,11 @@ def _load_event_history_from_log():
         logging.error(f"Failed to load event history: {e}")
 
 def init_server_state():
-    global ACTIVE_CAMPAIGN, CURRENT_MODEL_KEY
+    global ACTIVE_CAMPAIGN
     try:
         settings = load_settings()
         ACTIVE_CAMPAIGN = settings.get("current_campaign", "Default")
-        CURRENT_MODEL_KEY = settings.get("current_model", "wizardlm-2")
-        logging.info(f"INIT: Active Campaign: {ACTIVE_CAMPAIGN}, Model: {CURRENT_MODEL_KEY}")
+        logging.info(f"INIT: Active Campaign: {ACTIVE_CAMPAIGN}")
         
         # Backfills missing keys into the INI with defaults
         _save_settings_raw(settings)
@@ -1219,137 +1200,113 @@ def populate_initial_registry():
 populate_initial_registry()
 
 
-def call_llm(messages, max_tokens=2048, temperature=0.8):
+def migrate_llm_config():
+    def read(path, default_path):
+        with open(path if os.path.exists(path) else default_path, "r", encoding="utf-8") as f:
+            return json.load(f)
+    return llm_config.migrate(read(PROVIDERS_PATH, DEFAULT_PROVIDERS_PATH), read(MODELS_PATH, DEFAULT_MODELS_PATH), load_settings()["current_model"])
+
+def load_llm_config():
+    if not os.path.exists(LLM_CONFIG_PATH):
+        config = migrate_llm_config()
+        llm_config.save(LLM_CONFIG_PATH, config)
+        logging.info("LLM: Built llm_config.json from providers.json, models.json, and CurrentModel.")
+        return config
+    try:
+        config = llm_config.load(LLM_CONFIG_PATH)
+    except Exception as e:
+        # Not saved over, so a hand-edited file with a typo keeps its keys until the player fixes it
+        logging.error(f"LLM: Cannot read {LLM_CONFIG_PATH}: {e}. Using the migrated configuration until a save from the web app.")
+        return migrate_llm_config()
+    for error in llm_config.validate(config):
+        logging.warning(f"LLM: {error}")
+    return config
+
+def refresh_player2_session(provider):
     global PLAYER2_SESSION_KEY
-    model_entry = MODELS_CONFIG.get(CURRENT_MODEL_KEY)
-    if not model_entry:
-        logging.error(f"Model Error: {CURRENT_MODEL_KEY} not configured.")
-        return None
+    try:
+        auth_resp = requests.post(f"http://localhost:4315/v1/login/web/{provider.get('game_key', '')}", timeout=5)
+        new_key = auth_resp.json().get("p2Key") if auth_resp.status_code == 200 else None
+    except Exception as e:
+        # The Player2 app may not be running or logged in
+        logging.debug(f"Player2 session refresh failed: {e}")
+        return False
+    if new_key:
+        PLAYER2_SESSION_KEY = new_key
+    return bool(new_key)
 
-    provider_name = model_entry.get("provider")
-    provider_config = PROVIDERS_CONFIG.get(provider_name)
-    if not provider_config:
-        logging.error(f"Provider Error: {provider_name} not configured.")
-        return None
+def extract_completion(data, model):
+    choices = data.get("choices") or []
+    if not choices:
+        return ""
+    msg_obj = choices[0].get("message") or {}
+    content = msg_obj.get("content")
 
-    api_key = provider_config.get("api_key")
-    if provider_name == "player2" and PLAYER2_SESSION_KEY:
-        api_key = PLAYER2_SESSION_KEY
+    # Some providers put the text in reasoning_content (DeepSeek-style) or completions-style choices[0].text
+    if content is None:
+        content = msg_obj.get("reasoning_content")
+    if content is None:
+        content = choices[0].get("text")
+    if content is None:
+        debug_logger.warning(f"EMPTY RESPONSE DETAIL: {data}")
+        return ""
 
-    base_url = provider_config.get("base_url").rstrip("/")
-    target_url = f"{base_url}/chat/completions"
+    if "</thought>" in content:
+        content = content.split("</thought>")[-1]
 
-    headers = {
-        "Authorization": f"Bearer {api_key}",
-        "Content-Type": "application/json"
-    }
+    content = re.sub(r'<thought>.*?</thought>', '', content, flags=re.DOTALL | re.IGNORECASE)
+    content = re.sub(r'<thought>.*', '', content, flags=re.DOTALL | re.IGNORECASE)
 
-    # OpenRouter uses these headers for app attribution
-    if "openrouter.ai" in target_url:
-        headers["X-Title"] = "Sentient Sands Rebirth"
-        headers["HTTP-Referer"] = "https://github.com/equanimittyy/SentientSands-Rebirth"
+    if "\n\n" in content and ("thought" in model.lower() or content.strip().lower().startswith("thought:")):
+        parts = content.split("\n\n")
+        if "thought" in parts[0].lower() or "reasoning" in parts[0].lower():
+            content = "\n\n".join(parts[1:])
 
-    if provider_name == "player2":
-        headers["player2-game-key"] = provider_config.get("game_key", "")
+    return sanitize_llm_text(content.strip())
 
-    payload = {
-        "model": model_entry["model"],
-        "messages": messages,
-        "max_tokens": max_tokens,
-        "temperature": temperature,
-        "top_p": 0.9,
-    }
-    
-    last_error = None
-    for attempt in range(3):
-        try:
-            debug_logger.debug(f"LLM REQUEST [{provider_name}] to {target_url} (Payload omitted for security)")
-            start_time = time.time()
-            response = requests.post(target_url, headers=headers, json=payload, timeout=120)
-            elapsed = time.time() - start_time
-            
-            if response.status_code == 200:
-                if not response.text.strip():
-                    logging.error(f"Attempt {attempt+1}: Provider returned 200 OK but the response body is EMPTY.")
-                    raise Exception("Empty response from provider (possible content filter or token limit?)")
-                try:
-                    data = response.json()
-                except json.JSONDecodeError as je:
-                    logging.error(f"Attempt {attempt+1} JSON Error: Content provided by provider is not valid JSON despite 200 OK status.")
-                    logging.error(f"RESPONSE PREVIEW (200 OK): {response.text[:500]}")
-                    raise Exception(f"Invalid JSON response from provider: {str(je)}")
+def send_completion(provider, profile, body, timeout):
+    is_player2 = provider["type"] == "player2"
+    target_url = f"{provider['base_url'].rstrip('/')}/chat/completions"
 
-                choices = data.get('choices', [])
-                if not choices:
-                    logging.warning(f"API Success but empty choices: {data}")
-                    return None
-                    
-                msg_obj = choices[0].get('message', {})
-                content = msg_obj.get('content')
-                
-                # Some providers put the text in reasoning_content (DeepSeek-style) or completions-style choices[0].text
-                if content is None:
-                    content = msg_obj.get('reasoning_content')
-                
-                if content is None:
-                    content = choices[0].get('text')
+    for attempt in (1, 2):
+        api_key = PLAYER2_SESSION_KEY if is_player2 and PLAYER2_SESSION_KEY else provider.get("api_key", "")
+        headers = {
+            "Authorization": f"Bearer {api_key}",
+            "Content-Type": "application/json"
+        }
 
-                logging.info(f"API Success in {elapsed:.1f}s (Attempt {attempt+1})")
-                
-                if content is None:
-                    logging.warning(f"API Success but no content found in message. Message body: {msg_obj}")
-                    debug_logger.warning(f"EMPTY RESPONSE DETAIL: {data}")
-                    # Placeholder rather than None so callers don't crash on an empty 200
-                    return "... (Empty Response)"
+        # OpenRouter uses these headers for app attribution
+        if "openrouter.ai" in target_url:
+            headers["X-Title"] = "Sentient Sands Rebirth"
+            headers["HTTP-Referer"] = "https://github.com/equanimittyy/SentientSands-Rebirth"
 
-                debug_logger.debug(f"RAW LLM response received (Length: {len(content) if content else 0})")
+        if is_player2:
+            headers["player2-game-key"] = provider.get("game_key", "")
 
-                if "</thought>" in content:
-                    content = content.split("</thought>")[-1]
-                
-                content = re.sub(r'<thought>.*?</thought>', '', content, flags=re.DOTALL | re.IGNORECASE)
-                content = re.sub(r'<thought>.*', '', content, flags=re.DOTALL | re.IGNORECASE)
+        debug_logger.debug(f"LLM REQUEST [{profile['model']}] to {target_url} (Payload omitted for security)")
+        start_time = time.time()
+        response = requests.post(target_url, headers=headers, json=body, timeout=timeout)
+        logging.info(f"LLM [{profile['model']}]: HTTP {response.status_code} in {time.time() - start_time:.1f}s")
 
-                if "\n\n" in content and ("thought" in CURRENT_MODEL_KEY.lower() or content.strip().lower().startswith("thought:")):
-                    parts = content.split("\n\n")
-                    if "thought" in parts[0].lower() or "reasoning" in parts[0].lower():
-                        content = "\n\n".join(parts[1:])
+        # A Player2 session key expires, so a refreshed key gets one more try on the same profile
+        if response.status_code == 401 and is_player2 and attempt == 1 and refresh_player2_session(provider):
+            logging.info("Successfully refreshed Player2 token locally.")
+            continue
+        break
 
-                if not content.strip():
-                    return "..."
-                return sanitize_llm_text(content.strip())
-            elif response.status_code == 401 and provider_name == "player2":
-                last_error = f"API ERROR 401: Unauthorized - attempting local token refresh"
-                logging.warning(f"Player2 token expired/invalid (401). Attempting re-auth...")
-                try:
-                    auth_url = f"http://localhost:4315/v1/login/web/{provider_config.get('game_key', '')}"
-                    auth_resp = requests.post(auth_url, timeout=5)
-                    if auth_resp.status_code == 200:
-                        new_key = auth_resp.json().get("p2Key")
-                        if new_key:
-                            PLAYER2_SESSION_KEY = new_key
-                            headers["Authorization"] = f"Bearer {PLAYER2_SESSION_KEY}"
-                            logging.info("Successfully refreshed Player2 token locally.")
-                except Exception as e:
-                    logging.error(f"Failed to refresh Player2 token: {e}")
-                
-                logging.error(f"Attempt {attempt+1} failed after {elapsed:.1f}s: {last_error}")
-                if attempt < 2:
-                    time.sleep(1)
-            else:
-                last_error = f"API ERROR {response.status_code}: {response.text[:200]}"
-                logging.error(f"Attempt {attempt+1} failed after {elapsed:.1f}s: {last_error}")
-                if attempt < 2:
-                    time.sleep(1)
+    if response.status_code != 200:
+        raise RuntimeError(f"HTTP {response.status_code}: {response.text[:200]}")
+    try:
+        data = response.json()
+    except ValueError:
+        raise RuntimeError(f"invalid JSON in the response: {response.text[:200]}")
+    return extract_completion(data, profile["model"])
 
-        except Exception as e:
-            last_error = str(e)
-            logging.error(f"Attempt {attempt+1} Exception: {e}")
-            debug_logger.error(f"LLM EXCEPTION STACK (Attempt {attempt+1}):\n{traceback.format_exc()}")
-            if attempt < 2:
-                time.sleep(1)
-    
-    return None
+def call_llm(task, messages):
+    """Returns the completion text from the first profile of the task's route that answers, or None."""
+    return llm_router.run_route(LLM_CONFIG, task, messages, send_completion)
+
+LLM_CONFIG = load_llm_config()
 
 CANON_CHARACTERS_PATH = os.path.join(SCRIPT_DIR, "..", "config", "canon_characters.json")
 CANON_CHARACTERS = {}
@@ -1452,7 +1409,7 @@ CRITICAL RULES:
         prompt += f"\nLANGUAGE: The JSON values ('Personality', 'Backstory', 'SpeechQuirks') MUST be written entirely in {language}. Do not use English.\n"
     
     messages = [{"role": "user", "content": prompt}]
-    response_text = call_llm(messages, max_tokens=600, temperature=0.7)
+    response_text = call_llm("profile", messages)
     
     if response_text:
         try:
@@ -1529,7 +1486,7 @@ CRITICAL RULES:
         prompt += f"\nLANGUAGE: All generated profile values ('Personality', 'Backstory', 'SpeechQuirks') MUST be written entirely in {language}. Do not use English for the values.\n"
     
     messages = [{"role": "user", "content": prompt}]
-    response_text = call_llm(messages, max_tokens=1500, temperature=0.7)
+    response_text = call_llm("profile_batch", messages)
     
     if response_text:
         try:
@@ -2017,7 +1974,7 @@ INSTRUCTIONS:
         {"role": "user", "content": "The world is quiet. Generate a radiant interaction."}
     ]
     
-    content = call_llm(messages)
+    content = call_llm("ambient", messages)
     if content:
         # The LLM sometimes emits [ACTION] tags despite the prompt forbidding them
         content = re.sub(r'\[\s*[A-Z_]+(?::\s*[^\]]+)?\s*\]', '', content).strip()
@@ -2083,7 +2040,7 @@ def web_app():
 def test_llm():
     try:
         messages = [{"role": "user", "content": "Keep your response extremely short. Reply with the word: Success"}]
-        response = call_llm(messages, max_tokens=10, temperature=0.7)
+        response = call_llm("chat", messages)
         if response:
             logging.info(f"TEST_LLM: Success! Response: {response}")
             # Hand-built: the plugin string-matches "llm":"ok" rather than parsing the JSON
@@ -2097,7 +2054,6 @@ def test_llm():
 
 @app.route('/chat', methods=['POST'])
 def chat():
-    global CURRENT_MODEL_KEY
     data = request.json
     debug_logger.debug(f"ROUTE: /chat [POST] (Request details omitted for security)")
     if not data: return jsonify({"text": "Error: No JSON data provided"}), 400
@@ -2501,7 +2457,7 @@ You MUST write your final response exclusively in {language_str}.
     except: pass
 
     logging.info(f"Calling main chat LLM...")
-    content = call_llm(messages)
+    content = call_llm("chat", messages)
     
     if content:
         try:
@@ -2956,7 +2912,7 @@ INSTRUCTIONS:
     ]
     
     logging.info("NARRATIVE: Calling LLM to synthesize world events...")
-    rumor_text = call_llm(messages)
+    rumor_text = call_llm("synthesis", messages)
     
     if rumor_text:
         rumor_text = rumor_text.strip()
@@ -3124,7 +3080,6 @@ def get_context():
 
 @app.route('/settings', methods=['GET', 'POST'])
 def settings_endpoint():
-    global CURRENT_MODEL_KEY
     if request.method == 'POST' and request.content_length:
         logging.info(f"ROUTE: /settings [{request.method}]")
     else:
@@ -3143,23 +3098,9 @@ def settings_endpoint():
         settings = load_settings()
         r, t, y = get_config_radii()
         campaigns = [d for d in os.listdir(CAMPAIGNS_DIR) if os.path.isdir(os.path.join(CAMPAIGNS_DIR, d))] if os.path.exists(CAMPAIGNS_DIR) else []
-        
-        # The plugin reads "models" ({provider: [model keys]}) and "all_models"
-        mbp = {}
-        for k, v in MODELS_CONFIG.items():
-            p = v.get("provider", "unknown")
-            if p not in mbp: mbp[p] = []
-            mbp[p].append(k)
-        
-        curr_prov = MODELS_CONFIG.get(CURRENT_MODEL_KEY, {}).get("provider", "unknown")
 
         return jsonify({
             "status": "ok",
-            "models": mbp,
-            "all_models": MODELS_CONFIG,
-            "providers": list(PROVIDERS_CONFIG.keys()),
-            "current": CURRENT_MODEL_KEY,
-            "current_provider": curr_prov,
             "campaigns": campaigns,
             "current_campaign": ACTIVE_CAMPAIGN,
             "enable_ambient": settings.get("enable_ambient", True),
@@ -3184,12 +3125,6 @@ def settings_endpoint():
 
     logging.info(f"Received settings update request: {json.dumps(data)}")
     changes = {}
-
-    new_model = data.get("current_model")
-    if new_model and new_model in MODELS_CONFIG:
-        CURRENT_MODEL_KEY = new_model
-        changes["current_model"] = CURRENT_MODEL_KEY
-        logging.info(f"Model switched to: {CURRENT_MODEL_KEY}")
 
     enable_ambient = data.get("enable_ambient")
     if enable_ambient is not None:
@@ -3455,10 +3390,9 @@ Instructions:
             {"role": "system", "content": system_msg},
             {"role": "user", "content": user_msg}
         ]
-        response_text = call_llm(messages, max_tokens=1500, temperature=0.7)
+        response_text = call_llm("profile", messages)
         
-        # call_llm returns "... (Empty Response)" rather than None on an empty 200
-        if not response_text or "Empty Response" in response_text:
+        if not response_text:
             logging.error(f"REGEN: LLM returned empty/null response for {name}. This may be a token limit or content filter issue.")
             return jsonify({"status": "error", "message": f"LLM returned an empty response. The model may have run out of tokens. Try again or use an NPC with fewer memories."}), 500
 
@@ -3484,17 +3418,45 @@ Instructions:
     return jsonify({"status": "error", "message": "Synthesis failed"}), 500
 
 
-@app.route('/models', methods=['GET'])
-def get_models():
-    load_configs()
-    settings = load_settings()
+@app.route('/api/llm', methods=['GET'])
+def get_llm_config():
     return jsonify({
         "status": "ok",
-        "models": MODELS_CONFIG,
-        "providers": list(PROVIDERS_CONFIG.keys()),
-        "current": CURRENT_MODEL_KEY,
-        "enable_ambient": settings.get("enable_ambient", True),
+        "tasks": list(llm_config.TASKS),
+        "provider_types": list(llm_config.PROVIDER_TYPES),
+        **llm_config.masked(LLM_CONFIG)
     })
+
+@app.route('/api/llm', methods=['POST'])
+def save_llm_config():
+    global LLM_CONFIG
+    data = request.get_json(silent=True) or {}
+    new_config = {part: data.get(part) for part in ("providers", "profiles", "routes")}
+    errors = llm_config.validate(new_config)
+    if errors:
+        return jsonify({"status": "error", "errors": errors}), 400
+    new_config = llm_config.with_stored_keys(new_config, LLM_CONFIG)
+    llm_config.save(LLM_CONFIG_PATH, new_config)
+    LLM_CONFIG = new_config
+    logging.info("LLM: Saved the LLM configuration from the web app.")
+    return get_llm_config()
+
+@app.route('/api/llm/test', methods=['POST'])
+def test_llm_profile():
+    name = (request.get_json(silent=True) or {}).get("profile")
+    profile = LLM_CONFIG["profiles"].get(name)
+    if not profile:
+        return jsonify({"status": "error", "message": f"The profile {name} does not exist."}), 404
+    provider = LLM_CONFIG["providers"][profile["provider"]]
+    messages = [{"role": "user", "content": "Keep your response extremely short. Reply with the word: Success"}]
+    body = llm_router.build_body({"max_tokens": 200, "temperature": 0.7}, profile, messages)
+    try:
+        text = send_completion(provider, profile, body, min(profile["timeout"], 30))
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 502
+    if not text:
+        return jsonify({"status": "error", "message": "The model returned an empty completion."}), 502
+    return jsonify({"status": "ok", "response": text})
 
 
 @app.route('/history', methods=['POST'])
@@ -3738,43 +3700,27 @@ def synthesis_loop():
 threading.Thread(target=synthesis_loop, daemon=True).start()
 
 def player2_ping_loop():
-    global PLAYER2_SESSION_KEY
     logging.debug("HEALTH: Player2 background thread initialized.")
     
     while True:
         try:
-            model_entry = MODELS_CONFIG.get(CURRENT_MODEL_KEY)
-            if model_entry and model_entry.get("provider") == "player2":
-                game_key = PROVIDERS_CONFIG.get("player2", {}).get("game_key", "")
-                if not PLAYER2_SESSION_KEY:
-                    try:
-                        auth_url = f"http://localhost:4315/v1/login/web/{game_key}"
-                        auth_resp = requests.post(auth_url, timeout=5)
-                        if auth_resp.status_code == 200:
-                            new_key = auth_resp.json().get("p2Key")
-                            if new_key:
-                                PLAYER2_SESSION_KEY = new_key
-                                logging.info("HEALTH: Player2 session authorized at startup.")
-                    except Exception as e:
-                        # The Player2 app may not be running or logged in
-                        pass
+            for name in llm_config.player2_providers_in_use(LLM_CONFIG):
+                provider = LLM_CONFIG["providers"][name]
+                if not PLAYER2_SESSION_KEY and refresh_player2_session(provider):
+                    logging.info("HEALTH: Player2 session authorized at startup.")
 
-
-                provider_config = PROVIDERS_CONFIG.get("player2")
-                if provider_config:
-                    base_url = provider_config.get("base_url").rstrip("/")
-                    try:
-                        h = {
-                            "player2-game-key": game_key,
-                            "Authorization": f"Bearer {PLAYER2_SESSION_KEY}" if PLAYER2_SESSION_KEY else ""
-                        }
-                        resp = requests.get(f"{base_url}/health", headers=h, timeout=5)
-                        if resp.status_code == 200:
-                            logging.debug("HEALTH: Player2 server is UP")
-                        else:
-                            logging.warning(f"HEALTH: Player2 server returned status {resp.status_code}")
-                    except Exception as e:
-                        logging.error(f"HEALTH: Player2 server is DOWN or unreachable: {e}")
+                try:
+                    h = {
+                        "player2-game-key": provider.get("game_key", ""),
+                        "Authorization": f"Bearer {PLAYER2_SESSION_KEY}" if PLAYER2_SESSION_KEY else ""
+                    }
+                    resp = requests.get(f"{provider['base_url'].rstrip('/')}/health", headers=h, timeout=5)
+                    if resp.status_code == 200:
+                        logging.debug("HEALTH: Player2 server is UP")
+                    else:
+                        logging.warning(f"HEALTH: Player2 server returned status {resp.status_code}")
+                except Exception as e:
+                    logging.error(f"HEALTH: Player2 server is DOWN or unreachable: {e}")
             
         except Exception as e:
             logging.error(f"Error in player2 background thread: {e}")

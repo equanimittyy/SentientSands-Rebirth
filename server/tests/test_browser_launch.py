@@ -37,7 +37,8 @@ class BrowserLaunchTest(unittest.TestCase):
 
     def test_opens_nothing_when_port_never_listens(self):
         opened = []
-        open_when_ready("127.0.0.1", closed_port(), timeout=0.5, opener=opened.append)
+        with self.assertLogs(level="WARNING"):
+            open_when_ready("127.0.0.1", closed_port(), timeout=0.5, opener=opened.append)
         self.assertEqual(opened, [])
 
 

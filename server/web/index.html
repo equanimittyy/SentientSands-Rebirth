@@ -13,6 +13,7 @@
     <p id="status">Connecting...</p>
     <nav>
       <a href="#settings">Settings</a>
+      <a href="#llm">LLM</a>
       <a href="#profile">Player profile</a>
     </nav>
   </header>
@@ -46,6 +47,13 @@
           <span class="message" id="settings-message" role="status"></span>
         </div>
       </form>
+    </section>
+    <section id="llm" hidden>
+      <div id="llm-editor"></div>
+      <div class="actions">
+        <button type="button" id="llm-save">Save</button>
+        <span class="message" id="llm-message" role="status"></span>
+      </div>
     </section>
     <section id="profile" hidden>
       <form id="profile-form" class="stacked">

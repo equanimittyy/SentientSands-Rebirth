@@ -20,6 +20,7 @@ server/world_events.txt
 server/event_history.json
 sentient_sands_registry/
 server/config/providers.json
+server/user/
 
 .vs/
 *.user
