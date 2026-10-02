@@ -20,7 +20,7 @@ The project lists each source file, because the Visual Studio IDE does not suppo
 
 Includes between plugin files are relative (`../core/Utils.h`), so the plugin folders need no include path entry.
 
-When `SENTIENT_SANDS_MOD_DIR` names an installed mod folder, each build copies the DLL into it. To test the build, start the game normally. The plugin writes `SentientSands_SDK.log` in the Kenshi folder.
+When `SENTIENT_SANDS_MOD_DIR` names an installed mod folder, each build copies the DLL into it. To test the build, start the game normally. The plugin writes `SentientSands_SDK.log` in the Kenshi folder. At each game start, it renames the log of the previous game to `SentientSands_SDK.old.log`, so the folder holds the logs of two games at most.
 
 ## Server
 

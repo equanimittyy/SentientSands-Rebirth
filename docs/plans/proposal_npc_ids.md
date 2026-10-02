@@ -67,7 +67,7 @@ The LLM names each speaker by name, for example `Beep: Hello`. The server maps a
 
 ## 9. Not yet verified
 
-Each chat message writes one `ID_PROBE` line for the target NPC to `SentientSands_SDK.log` (`LogNpcIdentity` in `plugin/game/Context.cpp`). The line holds the name, the handle text, the serial, the instance ID, the template `stringID` and name, and the faction. Compare the lines of one NPC before and after a save and a load, a recruit, a change of the mod list, and a reload of its town.
+Each chat message writes one `ID_PROBE` line for the target NPC to `SentientSands_SDK.log` (`LogNpcIdentity` in `plugin/game/Context.cpp`). The line holds the name, the handle text, the serial, the instance ID, the template `stringID` and name, and the faction. Compare the lines of one NPC before and after a save and a load, a recruit, a change of the mod list, and a reload of its town. A change of the mod list needs a restart of the game, which moves the earlier lines to `SentientSands_SDK.old.log`.
 
 - Whether `hand::toString()` gives the same text after a save and a load. Kenshi stores handles in its save files.
 - Whether the instance ID gives the same text after a save and a load. If it does, it can replace the handle as the ID of a generic NPC.

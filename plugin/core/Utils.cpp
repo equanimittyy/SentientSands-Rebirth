@@ -25,7 +25,14 @@ std::wstring Utf8ToWide(const std::string &str) {
 }
 
 void Log(const std::string &msg) {
+  static bool s_rotated = false;
   EnterCriticalSection(&g_LogMutex);
+  if (!s_rotated) {
+    // Keeps the previous game's log, so a crash log survives the relaunch
+    MoveFileExA("SentientSands_SDK.log", "SentientSands_SDK.old.log",
+                MOVEFILE_REPLACE_EXISTING);
+    s_rotated = true;
+  }
   std::ofstream logFile("SentientSands_SDK.log", std::ios::app);
   if (logFile.is_open()) {
     logFile << "[SentientSands] " << msg << std::endl;
