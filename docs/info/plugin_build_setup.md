@@ -87,11 +87,7 @@ These are all the libraries that the plugin needs. The Ogre and MyGUI files in K
 
 The plugin starts the Python server from its own mod folder. A test therefore needs the complete mod, not only the DLL.
 
-1. Build a release zip that contains your DLL. This needs Python 3 with `pip`, and internet access:
-
-   ```
-   python scripts/package_release.py --dll plugin/x64/Release/SentientSands.dll
-   ```
+1. Build a release zip that contains your DLL: run `package_release.cmd` in the repo root. This needs Python 3 with `pip`, and internet access.
 
 2. Extract `dist\SentientSands-<version>.zip` into `Kenshi\mods\`. The result is `Kenshi\mods\SentientSands\`.
 3. In the Kenshi launcher, open the mod list and enable **Sentient Sands**.

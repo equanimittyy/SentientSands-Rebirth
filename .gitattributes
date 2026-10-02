@@ -1,3 +1,6 @@
 # Shell scripts run inside the Linux dev container. A CRLF checkout on Windows
 # breaks the shebang line, so the firewall script and hooks fail to start.
 *.sh text eol=lf
+
+# cmd.exe can misread labels in a batch file with LF line endings.
+*.cmd text eol=crlf

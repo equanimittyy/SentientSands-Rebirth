@@ -8,15 +8,18 @@ plugin starts server\\python\\python.exe when it exists (plugin/core/Utils.cpp).
 Runs on any OS with Python 3 and pip: pip fetches Windows wheels with --platform.
 """
 import argparse
+import hashlib
 import shutil
 import subprocess
 import sys
 import urllib.request
 import zipfile
+from datetime import datetime
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parent.parent
 MOD_NAME = "SentientSands"
+DEFAULT_DLL = REPO / "plugin" / "x64" / "Release" / "SentientSands.dll"
 SERVER_DIRS = ("scripts", "config", "templates")
 # Change only together with server/requirements.txt: its pins are checked against this runtime's wheels.
 PYTHON_VERSION = "3.13.3"
@@ -28,6 +31,17 @@ def read_mod_version():
         if key.strip() == "version":
             return value.strip()
     raise SystemExit("mod/mod.info has no version= line")
+
+
+def describe_dll(dll):
+    data = dll.read_bytes()
+    # The plugin shares C++ types with Kenshi, so a DLL from a newer toolset crashes the game on load.
+    if b"msvcr100.dll" not in data.lower():
+        raise SystemExit(f"{dll} was not built with the Visual C++ 2010 toolset")
+    print(f"DLL      {dll}")
+    print(f"Built    {datetime.fromtimestamp(dll.stat().st_mtime):%Y-%m-%d %H:%M}")
+    print(f"Size     {len(data) / 1024:.0f} KB")
+    print(f"SHA-256  {hashlib.sha256(data).hexdigest()}")
 
 
 def stage_files(stage, dll):
@@ -96,12 +110,19 @@ def make_zip(stage, out_zip):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    parser.add_argument("--dll", required=True, type=Path, help="path to the built SentientSands.dll")
+    parser.add_argument("--dll", type=Path, default=DEFAULT_DLL, help="path to the built SentientSands.dll (default plugin/x64/Release/)")
     parser.add_argument("--out", type=Path, default=REPO / "dist", help="output directory (default dist/)")
+    parser.add_argument("--confirm", action="store_true", help="show the details and ask before packaging")
     args = parser.parse_args()
 
     if not args.dll.is_file():
-        raise SystemExit(f"DLL not found: {args.dll}")
+        raise SystemExit(f"DLL not found: {args.dll}. Build the plugin first (docs/info/development.md#plugin).")
+    version = read_mod_version()
+    print(f"Version  {version}")
+    describe_dll(args.dll)
+    if args.confirm and input("\nPackage this release? [y/N] ").strip().lower() != "y":
+        print("Cancelled.")
+        return
 
     stage_root = args.out / "stage"
     shutil.rmtree(stage_root, ignore_errors=True)
@@ -113,9 +134,9 @@ def main():
     install_python(embed_zip, PYTHON_VERSION, python_dir)
     install_dependencies(PYTHON_VERSION, python_dir / "Lib" / "site-packages")
 
-    out_zip = args.out / f"{MOD_NAME}-{read_mod_version()}.zip"
+    out_zip = args.out / f"{MOD_NAME}-{version}.zip"
     make_zip(stage, out_zip)
-    print(f"Wrote {out_zip}")
+    print(f"Wrote {out_zip} ({out_zip.stat().st_size / 1_048_576:.1f} MB)")
 
 
 if __name__ == "__main__":
