@@ -29,8 +29,6 @@ import mimetypes
 from flask import Flask, Response, request, jsonify
 from werkzeug.exceptions import HTTPException
 import sys
-import logging.handlers
-import traceback
 
 SCRIPT_PATH = os.path.abspath(__file__)
 SCRIPT_DIR = os.path.dirname(SCRIPT_PATH)
@@ -47,6 +45,8 @@ from browser_launch import PanelTabs, open_when_ready
 import llm_config
 import llm_router
 import campaign_db
+import log_setup
+from log_setup import llm_log
 
 def resolve_mod_file(filename):
     """Falls back to the repo's mod/ subdirectory when run from a source checkout."""
@@ -235,45 +235,10 @@ def robust_json_parse(text):
             sanitized = re.sub(r'(?<=[a-zA-Z0-9])"(?=[a-zA-Z0-9\s])', "'", json_str)
             return json.loads(sanitized)
         except:
-            logging.error(f"ROBUST_JSON_PARSE: Final failure on string: {json_str[:200]}...")
+            logging.warning(f"LLM: Cannot parse the reply as JSON: {json_str[:200]}...")
             raise eFirst
 
-_log_fmt = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
-_log_dir = os.path.join(SCRIPT_DIR, "..", "logs")
-if not os.path.exists(_log_dir):
-    try:
-        os.makedirs(_log_dir)
-    except:
-        pass
-
-_log_file = os.path.join(_log_dir, "server.log")
-_debug_file = os.path.join(KENSHI_SERVER_DIR, "debug.log")
-
-try:
-    _file_handler = logging.handlers.RotatingFileHandler(_log_file, maxBytes=512*1024, backupCount=3, encoding='utf-8')
-    _file_handler.setFormatter(_log_fmt)
-    
-    _stream_handler = logging.StreamHandler()
-    _stream_handler.setFormatter(_log_fmt)
-    
-    _debug_handler = logging.handlers.RotatingFileHandler(_debug_file, maxBytes=1024*1024, backupCount=1, encoding='utf-8')
-    _debug_handler.setFormatter(_log_fmt)
-    _debug_handler.setLevel(logging.DEBUG)
-
-    logging.basicConfig(level=logging.INFO, handlers=[_stream_handler, _file_handler, _debug_handler])
-    
-    # Prompts and raw payloads go only to debug.log so server.log stays readable
-    debug_logger = logging.getLogger('kenshi_debug')
-    debug_logger.setLevel(logging.DEBUG)
-    debug_logger.addHandler(_debug_handler)
-    debug_logger.propagate = False
-
-except Exception as e:
-    logging.basicConfig(level=logging.INFO)
-    logging.error(f"Failed to initialize file logging: {e}")
-
-logging.getLogger('werkzeug').setLevel(logging.ERROR)
-logging.getLogger('urllib3').setLevel(logging.WARNING)
+log_setup.setup(os.path.join(KENSHI_SERVER_DIR, "logs"))
 
 def kill_old_servers():
     try:
@@ -285,12 +250,12 @@ def kill_old_servers():
                 parts = line.strip().split()
                 pid = int(parts[-1])
                 if pid > 0 and pid != os.getpid():
-                    logging.info(f"Terminating old server process (PID {pid}) on port 5000...")
+                    logging.info(f"SYSTEM: Stopping the old server process (PID {pid}) on port 5000.")
                     subprocess.run(['taskkill', '/F', '/PID', str(pid)], 
                                  capture_output=True, shell=True)
                     time.sleep(1)
     except Exception as e:
-        logging.warning(f"Port cleanup diagnostic: {e}")
+        logging.warning(f"SYSTEM: Cannot check port 5000 for an old server: {e}")
 
 kill_old_servers()
 
@@ -304,11 +269,10 @@ app.json.ensure_ascii = True
 def handle_exception(e):
     if isinstance(e, HTTPException):
         return jsonify({"error": e.description, "status": "error"}), e.code
-    logging.error(f"UNHANDLED SERVER EXCEPTION: {str(e)}")
-    debug_logger.error(f"UNHANDLED SERVER EXCEPTION STACK:\n{traceback.format_exc()}")
+    logging.exception(f"HTTP: Unhandled exception in {request.path}: {e}")
     try:
         if request.json:
-            debug_logger.debug(f"Offending Request JSON: {json.dumps(request.json, indent=2)}")
+            logging.debug(f"HTTP: Request body: {json.dumps(request.json)}")
     except:
         pass
     return jsonify({"error": str(e), "status": "error"}), 500
@@ -318,12 +282,12 @@ def reject_foreign_requests():
     host = request.headers.get("Host")
     origin = request.headers.get("Origin")
     if not is_request_allowed(host, origin):
-        logging.warning(f"Rejected request to {request.path}: Host={host}, Origin={origin}")
+        logging.warning(f"HTTP: Rejected request to {request.path}: Host={host}, Origin={origin}")
         return jsonify({"status": "error", "message": "Forbidden"}), 403
 
 def load_configs():
     global NAMES_CONFIG
-    logging.debug("Checking configurations...")
+    logging.debug("CONFIG: Loading the name, generic name, and localization files.")
     
     config_dir = os.path.join(KENSHI_SERVER_DIR, "config")
     if not os.path.exists(config_dir):
@@ -333,18 +297,18 @@ def load_configs():
         try:
             with open(NAMES_PATH, "r") as f:
                 NAMES_CONFIG = json.load(f)
-            logging.debug(f"Loaded {len(NAMES_CONFIG)} gender pools from names.json.")
+            logging.debug(f"CONFIG: Loaded {len(NAMES_CONFIG)} gender pools from names.json.")
         except Exception as e:
-            logging.error(f"Failed to load names.json: {e}")
+            logging.error(f"CONFIG: Cannot load names.json: {e}")
 
     if os.path.exists(GENERIC_NAMES_PATH):
         try:
             global GENERIC_CONFIG
             with open(GENERIC_NAMES_PATH, "r") as f:
                 GENERIC_CONFIG = json.load(f)
-            logging.debug(f"Loaded {len(GENERIC_CONFIG.get('prefixes', []))} generic prefixes from generic_names.json.")
+            logging.debug(f"CONFIG: Loaded {len(GENERIC_CONFIG.get('prefixes', []))} generic prefixes from generic_names.json.")
         except Exception as e:
-            logging.error(f"Failed to load generic_names.json: {e}")
+            logging.error(f"CONFIG: Cannot load generic_names.json: {e}")
 
     global LOCALIZATION_CONFIG
     LOCALIZATION_CONFIG = {}
@@ -352,19 +316,19 @@ def load_configs():
         try:
             with open(LOCALIZATION_PATH, "r", encoding="utf-8") as f:
                 LOCALIZATION_CONFIG = json.load(f)
-            logging.debug(f"Loaded {len(LOCALIZATION_CONFIG)} language localizations.")
+            logging.debug(f"CONFIG: Loaded {len(LOCALIZATION_CONFIG)} language localizations.")
         except Exception as e:
-            logging.error(f"Failed to load localization.json: {e}")
+            logging.error(f"CONFIG: Cannot load localization.json: {e}")
 
 def get_campaign_dir():
     if not os.path.exists(CAMPAIGNS_DIR):
         os.makedirs(CAMPAIGNS_DIR)
-        logging.info(f"Created base campaigns directory: {CAMPAIGNS_DIR}")
+        logging.info(f"CAMPAIGN: Created the campaigns folder {CAMPAIGNS_DIR}")
         
     cdir = os.path.join(CAMPAIGNS_DIR, ACTIVE_CAMPAIGN)
     if not os.path.exists(cdir):
         os.makedirs(cdir)
-        logging.info(f"Created campaign directory: {cdir}")
+        logging.info(f"CAMPAIGN: Created the campaign folder {cdir}")
         ensure_campaign_seeded(cdir)
     return cdir
 
@@ -379,14 +343,14 @@ def ensure_campaign_seeded(cdir):
                 shutil.copy2(src, dst)
                 logging.info(f"CAMPAIGN: Seeded '{os.path.basename(cdir)}' with {component}")
     except Exception as e:
-        logging.error(f"Failed to seed campaign directory {cdir}: {e}")
+        logging.error(f"CAMPAIGN: Cannot seed the campaign folder {cdir}: {e}")
 
 def load_campaign_config():
     try:
         campaign_db.open_campaign(get_campaign_dir())
         push_generic_names_to_dll()
     except Exception as e:
-        logging.error(f"CAMPAIGN: Critical failure loading config: {e}")
+        logging.error(f"CAMPAIGN: Cannot load the campaign: {e}")
 
 def send_to_pipe(cmd):
     """The plugin dispatches on these prefixes; anything else is sent as a "CMD: " command."""
@@ -412,9 +376,9 @@ def push_generic_names_to_dll():
         p_str = ",".join(prefixes)
         k_str = ",".join(keywords)
         send_to_pipe(f"POPULATE_GENERIC: {p_str}|{k_str}")
-        logging.info("PIPE: Synced generic name lists to DLL")
+        logging.debug("PIPE: Sent the generic name lists to the plugin.")
     except Exception as e:
-        logging.error(f"Failed to sync generic names to DLL: {e}")
+        logging.error(f"PIPE: Cannot send the generic name lists to the plugin: {e}")
 
 
 
@@ -746,7 +710,8 @@ INI_KEY_MAP = {
     "bubble_life": "SpeechBubbleLife",
     "language": "Language",
     "chat_hotkey": "ChatHotkey",
-    "open_web_panel_on_start": "OpenWebPanelOnStart"
+    "open_web_panel_on_start": "OpenWebPanelOnStart",
+    "log_level": "LogLevel"
 }
 
 def _save_settings_raw(settings):
@@ -771,7 +736,7 @@ def _save_settings_raw(settings):
         with open(INI_PATH, "w") as f:
             config.write(f)
     except Exception as e:
-        logging.error(f"Error saving Settings to INI at {INI_PATH}: {e}")
+        logging.error(f"SETTINGS: Cannot save the INI at {INI_PATH}: {e}")
 
 def load_settings():
     defaults = {
@@ -788,7 +753,8 @@ def load_settings():
         "bubble_life": 5.0,
         "language": "English",
         "chat_hotkey": "\\",
-        "open_web_panel_on_start": True
+        "open_web_panel_on_start": True,
+        "log_level": log_setup.DEFAULT_LEVEL
     }
     
     settings = defaults.copy()
@@ -814,7 +780,7 @@ def load_settings():
                         else:
                             settings[k] = val
         except Exception as e:
-            logging.error(f"Error loading settings from INI: {e}")
+            logging.error(f"SETTINGS: Cannot read the INI: {e}")
             
     return settings
 
@@ -838,15 +804,16 @@ def init_server_state():
     global ACTIVE_CAMPAIGN
     try:
         settings = load_settings()
+        log_setup.set_level(settings["log_level"])
         ACTIVE_CAMPAIGN = settings.get("current_campaign", "Default")
-        logging.info(f"INIT: Active Campaign: {ACTIVE_CAMPAIGN}")
+        logging.info(f"CAMPAIGN: Active campaign: {ACTIVE_CAMPAIGN}")
         
         # Backfills missing keys into the INI with defaults
         _save_settings_raw(settings)
         
         load_campaign_config()
     except Exception as e:
-        logging.error(f"INIT: Critical state init failure: {e}")
+        logging.error(f"SYSTEM: Cannot initialize the server state: {e}")
 
 init_server_state()
 
@@ -859,10 +826,10 @@ def load_prompt_component(filename):
             with open(path, "r", encoding="utf-8") as f:
                 content = f.read().strip()
                 if content:
-                    logging.info(f"PROMPT: Loaded {filename} from {source}")
+                    logging.debug(f"PROMPT: Loaded {filename} from {source}")
                     return content
         except Exception as e:
-            logging.error(f"Error reading {filename} from {source}: {e}")
+            logging.error(f"PROMPT: Cannot read {filename} from {source}: {e}")
     
     default_path = os.path.join(PROMPTS_DIR, filename)
     if os.path.exists(default_path):
@@ -870,10 +837,10 @@ def load_prompt_component(filename):
             with open(default_path, "r", encoding="utf-8") as f:
                 content = f.read().strip()
                 if content:
-                    logging.info(f"PROMPT: Loaded {filename} from prompts (read-only)")
+                    logging.debug(f"PROMPT: Loaded {filename} from prompts (read-only)")
                     return content
         except Exception as e:
-            logging.error(f"Error reading {filename} from prompts: {e}")
+            logging.error(f"PROMPT: Cannot read {filename} from prompts: {e}")
     else:
         logging.error(f"PROMPT: {filename} is missing from {PROMPTS_DIR}")
 
@@ -1023,9 +990,9 @@ def update_world_index():
     global WORLD_INDEX
     try:
         WORLD_INDEX = build_world_index()
-        logging.info(f"World Index Updated: {len(WORLD_INDEX)} names indexed from latest save.")
+        logging.info(f"WORLD: Indexed {len(WORLD_INDEX)} names from the latest save.")
     except Exception as e:
-        logging.error(f"Failed to update world index: {e}")
+        logging.error(f"WORLD: Cannot index the latest save: {e}")
 
 update_world_index()
 
@@ -1071,7 +1038,7 @@ def refresh_player2_session(provider):
         new_key = auth_resp.json().get("p2Key") if auth_resp.status_code == 200 else None
     except Exception as e:
         # The Player2 app may not be running or logged in
-        logging.debug(f"Player2 session refresh failed: {e}")
+        logging.warning(f"PLAYER2: Cannot refresh the session key: {e}")
         return False
     if new_key:
         PLAYER2_SESSION_KEY = new_key
@@ -1090,7 +1057,7 @@ def extract_completion(data, model):
     if content is None:
         content = choices[0].get("text")
     if content is None:
-        debug_logger.warning(f"EMPTY RESPONSE DETAIL: {data}")
+        llm_log.debug(f"{model} reply without text: {data}")
         return ""
 
     if "</thought>" in content:
@@ -1125,14 +1092,14 @@ def send_completion(provider, profile, body, timeout):
         if is_player2:
             headers["player2-game-key"] = provider.get("game_key", "")
 
-        debug_logger.debug(f"LLM REQUEST [{profile['model']}] to {target_url} (Payload omitted for security)")
+        logging.debug(f"LLM: Request to {profile['model']} at {target_url}")
         start_time = time.time()
         response = requests.post(target_url, headers=headers, json=body, timeout=timeout)
-        logging.info(f"LLM [{profile['model']}]: HTTP {response.status_code} in {time.time() - start_time:.1f}s")
+        logging.debug(f"LLM: {profile['model']} answered HTTP {response.status_code} in {time.time() - start_time:.1f} s")
 
         # A Player2 session key expires, so a refreshed key gets one more try on the same profile
         if response.status_code == 401 and is_player2 and attempt == 1 and refresh_player2_session(provider):
-            logging.info("Successfully refreshed Player2 token locally.")
+            logging.info("PLAYER2: Refreshed the session key.")
             continue
         break
 
@@ -1146,7 +1113,10 @@ def send_completion(provider, profile, body, timeout):
 
 def call_llm(task, messages):
     """Returns the completion text from the first profile of the task's route that answers, or None."""
-    return llm_router.run_route(LLM_CONFIG, task, messages, send_completion)
+    llm_log.debug(f"{task} request:\n" + "\n".join(f"[{m['role']}]\n{m['content']}" for m in messages))
+    text = llm_router.run_route(LLM_CONFIG, task, messages, send_completion)
+    llm_log.debug(f"{task} reply:\n{text}")
+    return text
 
 LLM_CONFIG = load_llm_config()
 
@@ -1161,9 +1131,9 @@ def load_canon_characters():
                 data = json.load(f)
                 for char in data:
                     CANON_CHARACTERS[char["Name"].lower()] = char
-            logging.info(f"Loaded {len(CANON_CHARACTERS)} canon characters.")
+            logging.info(f"CONFIG: Loaded {len(CANON_CHARACTERS)} canon characters.")
         except Exception as e:
-            logging.error(f"Failed to load canon_characters.json: {e}")
+            logging.error(f"CONFIG: Cannot load canon_characters.json: {e}")
 
 load_canon_characters()
 
@@ -1181,7 +1151,7 @@ def generate_character_profile(name, context=""):
         }
 
     if lower_name in CANON_CHARACTERS:
-        logging.info(f"Found canon match for {name}")
+        logging.debug(f"PROFILE: Canon profile for {name}")
         return CANON_CHARACTERS[lower_name]
 
     live_ctx = LIVE_CONTEXTS.get(name) or {}
@@ -1219,11 +1189,11 @@ def generate_character_profile(name, context=""):
     
     # Unknown race/faction is tolerated: modded factions often don't report names through the hooks
     if name in ("Unknown", "Someone", "Unknown Entity"):
-        logging.info(f"Skipping profile: Name is {name}.")
+        logging.debug(f"PROFILE: Skipped the profile of {name}.")
         return None
 
 
-    logging.info(f"Generating rich profile for {name} ({gender} {race}, Base Faction: {origin_faction}, Job: {job})...")
+    logging.info(f"PROFILE: Generating the profile of {name} ({gender} {race}, Base Faction: {origin_faction}, Job: {job})...")
     
     template = load_prompt_component("prompt_profile_generation.txt")
     f_info = get_faction_info(faction)
@@ -1250,7 +1220,7 @@ def generate_character_profile(name, context=""):
                 result["Sex"] = gender
                 return result
         except Exception as e:
-            logging.error(f"Failed to parse generated profile: {e}")
+            logging.error(f"PROFILE: Cannot parse the generated profile: {e}")
             
     return {
         "Personality": "A weary wanderer.",
@@ -1274,15 +1244,15 @@ def generate_batch_profiles(npc_list):
         faction = npc.get('faction', 'Unknown')
         missing = [k for k, v in {"race": race, "gender": gender, "faction": faction}.items() if v in ("Unknown", None, "")]
         if missing:
-            logging.info(f"BATCH: Skipping {name} \u2014 missing {', '.join(missing)}, will generate on next full context.")
+            logging.debug(f"PROFILE: Batch skips {name} \u2014 missing {', '.join(missing)}, will generate on next full context.")
         else:
             complete.append(npc)
 
     if not complete:
-        logging.info("BATCH: No complete NPC data available, deferring all profiles.")
+        logging.debug("PROFILE: Batch has no NPC with complete data, so every profile waits.")
         return
     
-    logging.info(f"BATCH: Generating {len(complete)} profiles in one call ({len(npc_list) - len(complete)} deferred)...")
+    logging.info(f"PROFILE: Batch generating {len(complete)} profiles in one call ({len(npc_list) - len(complete)} deferred)...")
     
     descriptions = []
     for npc in complete:
@@ -1350,9 +1320,9 @@ def generate_batch_profiles(npc_list):
                             "Relation": int(float(npc.get("relation", 0)) / 2)
                         }
                         campaign_db.upsert_profile(storage_id, data)
-                        logging.info(f"BATCH: Saved profile for {clean_name} (ID: {storage_id})")
+                        logging.debug(f"PROFILE: Batch saved the profile of {clean_name} (ID: {storage_id})")
         except Exception as e:
-            logging.error(f"BATCH: Failed to parse batch profiles: {e}")
+            logging.error(f"PROFILE: Cannot parse the batch profiles: {e}")
 
 def get_character_data(name, context="", skip_generate=False):
     # Strip the serial so "Name|ID" doesn't create a separate junk profile per serial
@@ -1388,29 +1358,29 @@ def get_character_data(name, context="", skip_generate=False):
                 needs_save = False
                 
                 if data.get("Race") == "Unknown" and current_race != "Unknown":
-                    logging.info(f"Updating Race for {name}: {current_race}")
+                    logging.debug(f"PROFILE: Updating Race for {name}: {current_race}")
                     data["Race"] = current_race
                     needs_save = True
                     
                 if data.get("Sex") in ("Unknown", None) and current_sex not in ("Unknown", None):
-                    logging.info(f"Updating Sex for {name}: {current_sex}")
+                    logging.debug(f"PROFILE: Updating Sex for {name}: {current_sex}")
                     data["Sex"] = current_sex
                     needs_save = True
                     
                 if data.get("Faction") == "Unknown" and current_faction != "Unknown":
-                    logging.info(f"Updating Faction for {name}: {current_faction}")
+                    logging.debug(f"PROFILE: Updating Faction for {name}: {current_faction}")
                     data["Faction"] = current_faction
                     needs_save = True
 
                 current_origin = ctx_data.get("origin_faction", "Unknown")
                 if data.get("OriginFaction") == "Unknown" and current_origin != "Unknown":
-                    logging.info(f"Updating OriginFaction for {name}: {current_origin}")
+                    logging.debug(f"PROFILE: Updating OriginFaction for {name}: {current_origin}")
                     data["OriginFaction"] = current_origin
                     needs_save = True
 
                 current_job = ctx_data.get("job", "None")
                 if data.get("Job") in ("None", "Unknown") and current_job not in ("None", "Unknown"):
-                    logging.info(f"Updating Job for {name}: {current_job}")
+                    logging.debug(f"PROFILE: Updating Job for {name}: {current_job}")
                     data["Job"] = current_job
                     needs_save = True
 
@@ -1418,11 +1388,11 @@ def get_character_data(name, context="", skip_generate=False):
                 if needs_save:
                     campaign_db.upsert_profile(storage_id, {k: data[k] for k in ("Race", "Sex", "Faction", "OriginFaction", "Job")})
         except Exception as e:
-            logging.error(f"Error updating character metadata from context: {e}")
+            logging.error(f"PROFILE: Cannot update the profile from the context: {e}")
 
     if not data:
         if skip_generate:
-             logging.debug(f"TRANS-PATH-1: {name} (skip_generate=True)")
+             logging.debug(f"PROFILE: Stand-in path 1: {name} (skip_generate=True)")
              return {
                 "ID": storage_id,
                 "Name": name,
@@ -1442,7 +1412,7 @@ def get_character_data(name, context="", skip_generate=False):
         # Stops concurrent requests from generating the same NPC twice
         with PROGRESS_LOCK:
             if storage_id in PROFILES_IN_PROGRESS:
-                logging.debug(f"TRANS-PATH-2: {name} (Already in progress: {storage_id})")
+                logging.debug(f"PROFILE: Stand-in path 2: {name} (Already in progress: {storage_id})")
                 return {
                     "ID": storage_id,
                     "Name": name,
@@ -1463,7 +1433,7 @@ def get_character_data(name, context="", skip_generate=False):
         try:
             profile = generate_character_profile(name, context)
             if profile is None:
-                logging.debug(f"TRANS-PATH-3: {name} (Generator returned None)")
+                logging.debug(f"PROFILE: Stand-in path 3: {name} (Generator returned None)")
                 return {
                     "ID": storage_id,
                     "Name": name,
@@ -1558,7 +1528,7 @@ def get_batch_identities():
                 "status": "rename",
                 "new_name": new_name
             })
-            logging.info(f"IDENTITY-BATCH: Assigning unique name '{new_name}' to generic NPC '{current_name}' (serial {serial})")
+            logging.debug(f"NAME: Assigning the name '{new_name}' to generic NPC '{current_name}' (serial {serial})")
             rename_count += 1
         else:
             results.append({
@@ -1567,7 +1537,7 @@ def get_batch_identities():
             })
             
     if results:
-        logging.info(f"IDENTITY: Batch processed {len(results)} items. Renamed: {rename_count}")
+        logging.debug(f"NAME: Batch of {len(results)} NPCs, {rename_count} renamed.")
     return jsonify(results)
 
 
@@ -1583,7 +1553,7 @@ def rename_character():
     if not old_name or not new_name:
         return jsonify({"status": "error", "message": "Missing names"}), 400
         
-    logging.info(f"RENAME: Attempting to rename '{old_name}' to '{new_name}'")
+    logging.debug(f"RENAME: Renaming '{old_name}' to '{new_name}'")
     
     char_data = get_character_data(old_name, context, skip_generate=True)
     if char_data.get("_transient"):
@@ -1606,14 +1576,14 @@ def rename_character():
 
 @app.route('/ambient', methods=['POST'])
 def ambient_event():
-    debug_logger.debug("ROUTE: /ambient [POST]")
+    logging.debug("HTTP: POST /ambient")
     data = request.json
     if not data: return jsonify({"status": "error"}), 400
     
     npcs_data = data.get('npcs', [])
     player_name = data.get('player', 'Drifter')
     
-    logging.info(f"RADIANT: Received ambient banter request ({len(npcs_data)} NPCs nearby)")
+    logging.info(f"AMBIENT: Banter request ({len(npcs_data)} NPCs nearby)")
     
     if not npcs_data:
         return jsonify({"status": "ignore"})
@@ -1777,7 +1747,7 @@ INSTRUCTIONS:
         for name, d in memories.items():
             campaign_db.append_dialogue(d.get("ID", name), banter, d)
 
-        logging.info(f"AMBIENT BARK:\n{final_text}")
+        logging.debug(f"AMBIENT: Banter: {final_text}")
         return jsonify({"status": "ok", "text": final_text})
     
     return jsonify({"status": "none"})
@@ -1800,7 +1770,7 @@ def web_panel():
 @app.route('/chat', methods=['POST'])
 def chat():
     data = request.json
-    debug_logger.debug(f"ROUTE: /chat [POST] (Request details omitted for security)")
+    logging.debug("HTTP: POST /chat")
     if not data: return jsonify({"text": "Error: No JSON data provided"}), 400
     
     raw_npc = data.get('npc', 'Someone')
@@ -1895,7 +1865,7 @@ def chat():
         elif cmd == "task": test_action = f"[TASK: {args.upper()}]"
         
         if test_action:
-            logging.info(f"TEST COMMAND: {cmd} -> {test_action}")
+            logging.info(f"CHAT: Test command {cmd} -> {test_action}")
             return jsonify({
                 "text": f"[DEBUG] Executing test command: {test_action}",
                 "actions": [test_action]
@@ -1938,7 +1908,7 @@ def chat():
                 if "dist" in ctx_dict:
                     target["player_dist"] = ctx_dict["dist"]
         except Exception as e:
-            logging.error(f"Error registering primary context: {e}")
+            logging.error(f"CHAT: Cannot register the context of the chat target: {e}")
     
     _, talk_radius, yell_radius = get_config_radii()
     
@@ -2046,7 +2016,7 @@ def chat():
         try:
             char_datas[name] = get_character_data(name, get_local_context(name))
         except Exception as e:
-            logging.error(f"Thread Error fetching {name}: {e}")
+            logging.error(f"PROFILE: Cannot fetch the profile of {name}: {e}")
 
     delay_counter = 0
     for name in listeners:
@@ -2067,11 +2037,11 @@ def chat():
 
     for name in npcs:
         if name not in char_datas or not char_datas[name]:
-            logging.error(f"Failed to retrieve data for {name}, using fallback.")
+            logging.warning(f"PROFILE: No profile for {name}, so the chat uses a generic one.")
             char_datas[name] = {"Name": name, "Personality": "A generic NPC.", "Backstory": "Unknown", "ConversationHistory": []}
     
 
-    logging.info(f"Prompting LLM for {mode} communication with {primary_npc} (Total participants: {len(npcs)})...")
+    logging.info(f"CHAT: {mode} with {primary_npc} (Total participants: {len(npcs)})...")
     primary_data = char_datas[primary_npc]
     
     history_str = "\n".join(primary_data["ConversationHistory"][-20:])
@@ -2163,33 +2133,9 @@ def chat():
         {"role": "user", "content": full_player_entry}
     ]
 
-    DEBUG_LOG = os.path.join(KENSHI_SERVER_DIR, "logs", "llm_debug.log")
-    try:
-        with open(DEBUG_LOG, "a", encoding="utf-8") as f:
-            f.write(f"\n{'='*50}\n")
-            f.write(f"TIMESTAMP: {time.ctime()}\n")
-            f.write(f"REQUEST FOR: {primary_npc} (Mode: {mode})\n")
-            f.write(f"PROMPT:\n{rich_prompt}\n")
-            f.write(f"USER MESSAGE: {player_message}\n")
-            f.write(f"{'-'*30}\n")
-    except: pass
-
-    logging.info(f"Calling main chat LLM...")
     content = call_llm("chat", messages)
-    
-    if content:
-        try:
-            with open(DEBUG_LOG, "a", encoding="utf-8") as f:
-                f.write(f"RAW LLM RESPONSE:\n{content}\n")
-                f.write(f"{'='*50}\n")
-        except: pass
-    else:
-        logging.error("LLM returned None for chat response.")
-        try:
-            with open(DEBUG_LOG, "a", encoding="utf-8") as f:
-                f.write(f"LLM RESPONSE FAILED (None)\n")
-                f.write(f"{'='*50}\n")
-        except: pass
+    if not content:
+        logging.error("CHAT: No reply from the LLM.")
     
     if content:
         # Must run before the tag cleanup below strips the tags
@@ -2207,7 +2153,7 @@ def chat():
                     speaker_tags = re.findall(r'\[\s*[^\]]+\s*\]', payload)
                     for stag in speaker_tags:
                         per_speaker_actions.append(f"{speaker}: {stag}")
-                        logging.info(f"YELL ATTRIBUTION: {speaker} took action {stag}")
+                        logging.debug(f"CHAT: Yell attribution: {speaker} took action {stag}")
                         
                         if "JUDGMENT" in stag.upper():
                             j_match = re.search(r'-?\d+', stag)
@@ -2266,7 +2212,7 @@ def chat():
                     try:
                         j_str = j_val.group(0) if hasattr(j_val, 'group') else str(j_val)
                         global_judgment = max(-5, min(5, int(j_str)))
-                        logging.info(f"RELATION: Interaction judged as {global_judgment}")
+                        logging.debug(f"RELATION: Interaction judged as {global_judgment}")
                     except: pass
                 # No continue: the JUDGMENT tag is forwarded to the plugin too
 
@@ -2323,7 +2269,7 @@ def chat():
 
         # "Name: [ACTION: X]" tells the plugin which NPC takes each action
         if mode == 'yell' and per_speaker_actions:
-            logging.info(f"YELL ACTIONS: {per_speaker_actions}")
+            logging.debug(f"CHAT: Yell actions: {per_speaker_actions}")
             actions = per_speaker_actions + actions
 
         content = content.replace('"', '').strip()
@@ -2350,7 +2296,7 @@ def chat():
                         filtered_lines.append(f"{full_actor}: {actor_speech}")
                         continue
                     else:
-                        logging.info(f"Hallucination Filter: Discarded LLM attempt to speak as {player_name}")
+                        logging.debug(f"CHAT: Filter: Discarded LLM attempt to speak as {player_name}")
                         continue
             
             lower_line = line.lower()
@@ -2370,10 +2316,10 @@ def chat():
                 if prefix_match:
                     p = prefix_match.group(1).strip().lower()
                     if p == player_name.lower():
-                        logging.info(f"Hallucination Filter: Discarded player entry {line}")
+                        logging.debug(f"CHAT: Filter: Discarded player entry {line}")
                         continue
                     if p != primary_npc.lower():
-                        logging.info(f"Hallucination Filter: Discarded line from {p} (expected {primary_npc})")
+                        logging.debug(f"CHAT: Filter: Discarded line from {p} (expected {primary_npc})")
                         continue
                 line = re.sub(r'^[A-Za-z0-9 _\-\.]+:\s*', '', line)
             
@@ -2463,7 +2409,7 @@ def chat():
                     new_rel = campaign_db.change_relation(storage_id, relation_deltas[name])
                     logging.info(f"RELATION: {name} personal relation is now {new_rel} (judgment={relation_deltas[name]})")
 
-        logging.info(f"AI RESPONSE: {content} | ACTIONS: {actions}")
+        logging.debug(f"CHAT: Reply: {content} | Actions: {actions}")
         return jsonify({"text": content, "actions": actions})
     return jsonify({"text": "...", "actions": []})
 
@@ -2515,16 +2461,7 @@ def record_event_to_history(etype, actor, target, msg, actor_faction="None", tar
             sorted_items = sorted(EVENT_THROTTLE.items(), key=lambda x: x[1])
             EVENT_THROTTLE = dict(sorted_items[500:])
 
-    try:
-        cdir = get_campaign_dir()
-        log_dir = os.path.join(cdir, "logs")
-        if not os.path.exists(log_dir): os.makedirs(log_dir)
-        with open(os.path.join(log_dir, "global_events.log"), "a", encoding="utf-8") as f:
-            f.write(f"{evt_str}\n")
-            
-        logging.info(f"EVENT: {evt_str}")
-    except:
-        pass
+    logging.debug(f"EVENT: {evt_str}")
 
     # Looting events would flood the narrative history
     if etype == "looting":
@@ -2540,7 +2477,7 @@ def generate_global_narrative_thread():
     # Kept low so short sessions can still synthesize
     min_needed = 5
     if len(last_chunk) < min_needed:
-        logging.warning(f"NARRATIVE: Not enough events to synthesize (have {len(last_chunk)}, need {min_needed}).")
+        logging.debug(f"NARRATIVE: Not enough events to synthesize (have {len(last_chunk)}, need {min_needed}).")
         return None
 
     grouped_events = {}
@@ -2562,7 +2499,7 @@ def generate_global_narrative_thread():
         events_text += f"\n--- {loc.upper()} ---\n"
         events_text += "\n".join(evts) + "\n"
     
-    logging.info(f"NARRATIVE: Grouped {len(last_chunk)} events into {len(grouped_events)} locations.")
+    logging.debug(f"NARRATIVE: Grouped {len(last_chunk)} events into {len(grouped_events)} locations.")
     
     past_rumors_block = ""
     rumor_lines = []
@@ -2607,7 +2544,7 @@ def generate_global_narrative_thread():
                 send_to_pipe(f"NOTIFY: [WORLD EVENT] {rumor_text}")
                 return rumor_tagged
             except Exception as e:
-                logging.error(f"Error saving global event rumor: {e}")
+                logging.error(f"NARRATIVE: Cannot save the rumor: {e}")
     return None
 
 @app.route('/synthesize', methods=['POST'])
@@ -2622,7 +2559,7 @@ def manual_synthesize():
 
 @app.route('/events', methods=['GET', 'POST'])
 def list_events():
-    logging.info(f"ROUTE: /events [{request.method}]")
+    logging.debug(f"HTTP: {request.method} /events")
 
     rumors = []
     for rumor_id, line in campaign_db.rumors():
@@ -2667,7 +2604,7 @@ def events_content():
                 ]
                 return jsonify({"status": "ok", "text": "\n".join(card_lines)})
     except Exception as e:
-        logging.error(f"events/content error: {e}")
+        logging.error(f"EVENT: Cannot build the events text: {e}")
     return jsonify({"status": "error", "text": "Entry not found."}), 404
 
 @app.route('/context', methods=['POST'])
@@ -2696,7 +2633,7 @@ def update_context():
         prev_paused = PLAYER_CONTEXT.get("is_paused")
         PLAYER_CONTEXT = data
         if prev_paused != data.get("is_paused"):
-             logging.info(f"CONTEXT: Player pause state changed to {data.get('is_paused')} (Speed: {data.get('gamespeed')})")
+             logging.debug(f"CONTEXT: Player pause state changed to {data.get('is_paused')} (Speed: {data.get('gamespeed')})")
     else:
         name = data.get("name")
         if name:
@@ -2729,10 +2666,7 @@ def get_context():
 
 @app.route('/settings', methods=['GET', 'POST'])
 def settings_endpoint():
-    if request.method == 'POST' and request.content_length:
-        logging.info(f"ROUTE: /settings [{request.method}]")
-    else:
-        logging.debug(f"ROUTE: /settings [{request.method}]")
+    logging.debug(f"HTTP: {request.method} /settings")
     load_configs()
 
     data = None
@@ -2769,24 +2703,26 @@ def settings_endpoint():
             "chat_hotkeys": CHAT_HOTKEYS,
             "enable_welcome": settings.get("enable_welcome", True),
             "open_web_panel_on_start": settings.get("open_web_panel_on_start", True),
+            "log_level": log_setup.parse_level(settings.get("log_level")),
+            "log_levels": list(log_setup.LEVELS),
             "ui_translation": LOCALIZATION_CONFIG.get(settings.get("language", "English"), {})
         })
 
-    logging.info(f"Received settings update request: {json.dumps(data)}")
+    logging.debug(f"SETTINGS: Update request: {json.dumps(data)}")
     changes = {}
 
     enable_ambient = data.get("enable_ambient")
     if enable_ambient is not None:
         changes["enable_ambient"] = enable_ambient
         send_to_pipe(f"SET_CONFIG: g_enableAmbient: {'1' if enable_ambient else '0'}")
-        logging.info(f"Ambient enabled set to: {enable_ambient}")
+        logging.info(f"SETTINGS: Ambient enabled set to {enable_ambient}")
 
     ambient_timer = data.get("ambient_timer")
     if ambient_timer is not None:
         val = int(ambient_timer)
         changes["radiant_delay"] = val
         send_to_pipe(f"SET_CONFIG: g_ambientIntervalSeconds: {val}")
-        logging.info(f"Radiant delay set to: {val}")
+        logging.info(f"SETTINGS: Radiant delay set to {val}")
 
     radii = data.get("radii")
     if radii:
@@ -2805,13 +2741,13 @@ def settings_endpoint():
     if lang is not None:
         changes["language"] = lang
         send_to_pipe("APPLY_TRANSLATION: " + json.dumps({"ui_translation": LOCALIZATION_CONFIG.get(lang, {})}))
-        logging.info(f"Language set to: {lang}")
+        logging.info(f"SETTINGS: Language set to {lang}")
 
     hotkey = data.get("chat_hotkey")
     if hotkey in CHAT_HOTKEYS:
         changes["chat_hotkey"] = hotkey
         send_to_pipe(f"SET_CONFIG: g_chatHotkey: {hotkey}")
-        logging.info(f"Chat hotkey set to: {hotkey}")
+        logging.info(f"SETTINGS: Chat hotkey set to {hotkey}")
 
     enable_welcome = data.get("enable_welcome")
     if enable_welcome is not None:
@@ -2822,12 +2758,19 @@ def settings_endpoint():
     if open_web_panel is not None:
         changes["open_web_panel_on_start"] = bool(open_web_panel)
 
+    log_level = data.get("log_level")
+    if log_level in log_setup.LEVELS:
+        changes["log_level"] = log_level
+        log_setup.set_level(log_level)
+        send_to_pipe(f"SET_CONFIG: g_logLevel: {log_level}")
+        logging.info(f"SETTINGS: Log level set to {log_level}")
+
     ge_count = data.get("global_events_count")
     if ge_count is not None:
         try:
             val = int(ge_count)
             changes["global_events_count"] = val
-            logging.info(f"Global events count set to: {val}")
+            logging.info(f"SETTINGS: Global events count set to {val}")
         except: pass
 
     syn_timer = data.get("synthesis_timer")
@@ -2835,7 +2778,7 @@ def settings_endpoint():
         try:
             val = int(syn_timer)
             changes["synthesis_interval_minutes"] = val
-            logging.info(f"Synthesis timer set to: {val} minutes")
+            logging.info(f"SETTINGS: Synthesis timer set to {val} minutes")
         except: pass
 
     diag_speed = data.get("dialogue_speed")
@@ -2844,7 +2787,7 @@ def settings_endpoint():
             val = int(diag_speed)
             changes["dialogue_speed_seconds"] = val
             send_to_pipe(f"SET_CONFIG: g_dialogueSpeedSeconds: {val}")
-            logging.info(f"Dialogue speed set to: {val} seconds")
+            logging.info(f"SETTINGS: Dialogue speed set to {val} seconds")
         except: pass
 
     bubble_life = data.get("bubble_life")
@@ -2853,7 +2796,7 @@ def settings_endpoint():
             val = float(bubble_life)
             changes["bubble_life"] = val
             send_to_pipe(f"SET_CONFIG: g_speechBubbleLife: {val}")
-            logging.info(f"Bubble life set to: {val} seconds")
+            logging.info(f"SETTINGS: Bubble life set to {val} seconds")
         except: pass
 
     if changes:
@@ -2863,18 +2806,18 @@ def settings_endpoint():
     if campaign:
         if switch_campaign(campaign):
             changes["current_campaign"] = ACTIVE_CAMPAIGN
-            logging.info(f"Campaign switched to: {ACTIVE_CAMPAIGN}")
+            logging.info(f"CAMPAIGN: Switched to {ACTIVE_CAMPAIGN}")
 
     if changes:
         save_settings(changes)
-        logging.info(f"Successfully saved {len(changes)} setting changes.")
+        logging.info(f"SETTINGS: Saved {len(changes)} changes.")
         return jsonify({"status": "ok", **changes})
 
     return jsonify({"status": "error", "message": "No valid settings provided"}), 400
 
 @app.route('/campaigns/create', methods=['POST'])
 def create_campaign_route():
-    logging.info("ROUTE: /campaigns/create [POST]")
+    logging.debug("HTTP: POST /campaigns/create")
     data = request.json
     name = data.get("name")
     if not name: return jsonify({"status": "error", "message": "Missing name"}), 400
@@ -2896,7 +2839,7 @@ def create_campaign_route():
 
 @app.route('/campaigns/switch', methods=['POST'])
 def switch_campaign_route():
-    logging.info("ROUTE: /campaigns/switch [POST]")
+    logging.debug("HTTP: POST /campaigns/switch")
     data = request.json
     name = data.get("name")
     if not name: return jsonify({"status": "error", "message": "Missing name"}), 400
@@ -2906,15 +2849,15 @@ def switch_campaign_route():
 
 @app.route('/campaigns/cull', methods=['POST'])
 def cull_campaign_route():
-    logging.info("ROUTE: /campaigns/cull [POST]")
+    logging.debug("HTTP: POST /campaigns/cull")
     
     current_day = int(PLAYER_CONTEXT.get("day", 0))
     current_hour = int(PLAYER_CONTEXT.get("hour", 0))
     current_min = int(PLAYER_CONTEXT.get("minute", 0))
 
-    logging.info(f"CULL: Starting cull for [Day {current_day}, {current_hour:02d}:{current_min:02d}] in '{ACTIVE_CAMPAIGN}'")
+    logging.info(f"CAMPAIGN: Culling after [Day {current_day}, {current_hour:02d}:{current_min:02d}] in '{ACTIVE_CAMPAIGN}'")
     culled = campaign_db.cull_after(current_day, current_hour, current_min)
-    logging.info(f"CULL: Culled {culled['dialogue']} dialogue lines, {culled['event']} events, and {culled['rumor']} rumors")
+    logging.info(f"CAMPAIGN: Culled {culled['dialogue']} dialogue lines, {culled['event']} events, and {culled['rumor']} rumors")
 
     return jsonify({"status": "ok"})
 
@@ -2932,20 +2875,20 @@ def switch_campaign(name):
 
 @app.route('/regenerate_profile', methods=['POST'])
 def regenerate_profile_route():
-    logging.info("ROUTE: /regenerate_profile [POST]")
+    logging.debug("HTTP: POST /regenerate_profile")
     data = request.json
     sid = data.get("sid")
     if not sid: return jsonify({"status": "error", "message": "Missing NPC ID (sid)"}), 400
     
     char_data = campaign_db.get_npc(sid)
     if not char_data:
-        logging.error(f"REGEN: Profile not found for {sid}")
+        logging.warning(f"PROFILE: Regen found no profile for {sid}")
         return jsonify({"status": "error", "message": "Profile not found"}), 404
 
     try:
         history = char_data.get("ConversationHistory", [])
         if not history:
-             logging.warning(f"REGEN: No history for {sid}, fallback to standard gen?")
+             logging.info(f"PROFILE: Regen skipped {sid}, because it has no dialogue.")
              return jsonify({"status": "error", "message": "No conversation history to build from. Talk to the NPC first!"}), 400
              
         name = char_data.get("Name", sid)
@@ -2956,7 +2899,7 @@ def regenerate_profile_route():
         
         history_block = "\n".join(history)
         
-        logging.info(f"REGEN: Evolving profile for {name} based on {len(history)} lines of memory...")
+        logging.info(f"PROFILE: Regen evolving profile for {name} based on {len(history)} lines of memory...")
         
         system_msg = "You are an expert on Kenshi lore and character growth. You write NPC profiles in a grounded, cynical tone. You ALWAYS respond ONLY with a valid JSON object."
         user_msg = f"""Rewrite the Personality and Backstory for the Kenshi NPC "{name}" based on their conversation history.
@@ -2982,7 +2925,7 @@ Instructions:
         response_text = call_llm("profile", messages)
         
         if not response_text:
-            logging.error(f"REGEN: LLM returned empty/null response for {name}. This may be a token limit or content filter issue.")
+            logging.error(f"PROFILE: Regen got no reply for {name}. This may be a token limit or content filter issue.")
             return jsonify({"status": "error", "message": f"LLM returned an empty response. The model may have run out of tokens. Try again or use an NPC with fewer memories."}), 500
 
         result = robust_json_parse(response_text)
@@ -2993,14 +2936,14 @@ Instructions:
                 "SpeechQuirks": result.get("SpeechQuirks", char_data.get("SpeechQuirks", "")),
             })
 
-            logging.info(f"REGEN: Successfully evolved profile for {name}.")
+            logging.info(f"PROFILE: Regen evolved the profile of {name}.")
             return jsonify({"status": "ok", "message": f"Successfully evolved {name}'s profile."})
         else:
-            logging.error(f"REGEN: JSON parse failed for {name}. Raw response: {response_text[:300]}")
+            logging.error(f"PROFILE: Regen cannot parse the reply for {name}. Raw reply: {response_text[:300]}")
             return jsonify({"status": "error", "message": "LLM response was not valid JSON. Try again."}), 500
                 
     except Exception as e:
-        logging.error(f"REGEN: Failed for {sid}: {e}")
+        logging.error(f"PROFILE: Regen failed for {sid}: {e}")
         return jsonify({"status": "error", "message": str(e)}), 500
         
     return jsonify({"status": "error", "message": "Synthesis failed"}), 500
@@ -3049,19 +2992,19 @@ def test_llm_profile():
 
 @app.route('/history', methods=['POST'])
 def get_history():
-    logging.info("ROUTE: /history [POST]")
+    logging.debug("HTTP: POST /history")
     data = request.json or {}
     
     npc_name = data.get('npc', data.get('name', 'Someone'))
     
-    logging.info(f"HISTORY: Request for {npc_name}")
+    logging.debug(f"HISTORY: Request for {npc_name}")
     
     clean_npc_name = npc_name.split('|')[0] if '|' in npc_name else npc_name
     context = data.get('context', '')
     
     char_data = campaign_db.get_npc(clean_npc_name)
     if not char_data:
-        logging.info(f"HISTORY: Falling back to get_character_data for {clean_npc_name}")
+        logging.debug(f"HISTORY: Falling back to get_character_data for {clean_npc_name}")
         char_data = get_character_data(clean_npc_name, context)
 
     if "Race" not in char_data: char_data["Race"] = "Unknown"
@@ -3103,7 +3046,7 @@ def get_history():
         
     formatted_output = "\n".join(lines)
     
-    logging.info(f"HISTORY: Returning formatted report for {clean_npc_name} ({len(history)} lines)")
+    logging.debug(f"HISTORY: Returning formatted report for {clean_npc_name} ({len(history)} lines)")
     return jsonify({
         "status": "ok",
         "text": formatted_output
@@ -3114,7 +3057,7 @@ def list_characters():
     data = request.json or {}
     sort_mode = data.get("sort", "alphabetical") # alphabetical or latest
     
-    logging.info(f"Listing characters in '{ACTIVE_CAMPAIGN}' (Sort: {sort_mode})")
+    logging.debug(f"LIBRARY: Listing the characters of '{ACTIVE_CAMPAIGN}' (sort: {sort_mode})")
     npc_list = [
         {"display": n["name"], "sid": n["storage_id"], "updated_at": n["updated_at"], "is_fav": n["favorite"]}
         for n in campaign_db.list_npcs()
@@ -3166,7 +3109,7 @@ def toggle_favorite():
 @app.route('/player_profile', methods=['GET', 'POST'])
 def player_profile_route():
     if request.method == 'GET':
-        logging.info("PROMPT: Loading player profile (GUI request).")
+        logging.debug("PROFILE: Loading the player profile.")
         campaign = ACTIVE_CAMPAIGN
         bio = load_prompt_component("character_bio.txt")
         faction = load_prompt_component("player_faction_description.txt")
@@ -3193,7 +3136,7 @@ def player_profile_route():
             with open(os.path.join(cdir, "player_faction_description.txt"), "w", encoding="utf-8") as f:
                 f.write(faction)
         
-        logging.info("PROMPT: Player profile updated via UI.")
+        logging.info("PROFILE: Saved the player profile from the web app.")
         return jsonify({"status": "ok"})
 
 def synthesis_loop():
@@ -3208,7 +3151,7 @@ def synthesis_loop():
             SYNTHESIS_STATUS["interval"] = interval
             
             if elapsed_minutes >= interval:
-                logging.info(f"NARRATIVE: Interval shortened ({interval}m). Triggering synthesis.")
+                logging.debug(f"NARRATIVE: Interval shortened ({interval}m). Triggering synthesis.")
                 generate_global_narrative_thread()
                 elapsed_minutes = 0
                 SYNTHESIS_STATUS["elapsed"] = 0
@@ -3223,29 +3166,29 @@ def synthesis_loop():
                 elapsed_minutes += 1
                 SYNTHESIS_STATUS["elapsed"] = elapsed_minutes
                 if elapsed_minutes % 10 == 0:
-                    logging.info(f"NARRATIVE: Timer progress: {elapsed_minutes}/{interval} minutes.")
+                    logging.debug(f"NARRATIVE: Timer progress: {elapsed_minutes}/{interval} minutes.")
             
             if elapsed_minutes >= interval:
-                logging.info(f"NARRATIVE: Timer reached ({interval}m). Triggering periodic synthesis.")
+                logging.debug(f"NARRATIVE: Timer reached ({interval}m). Triggering periodic synthesis.")
                 generate_global_narrative_thread()
                 elapsed_minutes = 0
                 SYNTHESIS_STATUS["elapsed"] = 0
                     
         except Exception as e:
-            logging.error(f"Error in synthesis loop: {e}")
+            logging.error(f"NARRATIVE: Synthesis loop failed: {e}")
             time.sleep(60)
 
 threading.Thread(target=synthesis_loop, daemon=True).start()
 
 def player2_ping_loop():
-    logging.debug("HEALTH: Player2 background thread initialized.")
+    logging.debug("PLAYER2: Health check thread started.")
     
     while True:
         try:
             for name in llm_config.player2_providers_in_use(LLM_CONFIG):
                 provider = LLM_CONFIG["providers"][name]
                 if not PLAYER2_SESSION_KEY and refresh_player2_session(provider):
-                    logging.info("HEALTH: Player2 session authorized at startup.")
+                    logging.info("PLAYER2: Session authorized.")
 
                 try:
                     h = {
@@ -3254,14 +3197,14 @@ def player2_ping_loop():
                     }
                     resp = requests.get(f"{provider['base_url'].rstrip('/')}/health", headers=h, timeout=5)
                     if resp.status_code == 200:
-                        logging.debug("HEALTH: Player2 server is UP")
+                        logging.debug("PLAYER2: The Player2 app is up.")
                     else:
-                        logging.warning(f"HEALTH: Player2 server returned status {resp.status_code}")
+                        logging.warning(f"PLAYER2: Health check returned status {resp.status_code}")
                 except Exception as e:
-                    logging.error(f"HEALTH: Player2 server is DOWN or unreachable: {e}")
+                    logging.warning(f"PLAYER2: The Player2 app is down or unreachable: {e}")
             
         except Exception as e:
-            logging.error(f"Error in player2 background thread: {e}")
+            logging.error(f"PLAYER2: Health check loop failed: {e}")
         
         time.sleep(60)
 
@@ -3296,7 +3239,7 @@ def monitor_kenshi_process():
                     os._exit(0)
             else:
                 kernel32.CloseHandle(handle)
-                logging.info(f"SYSTEM: Failed to query parent process state. Assuming it closed. Shutting down server.")
+                logging.warning(f"SYSTEM: Failed to query parent process state. Assuming it closed. Shutting down server.")
                 os._exit(0)
             
             kernel32.CloseHandle(handle)
@@ -3309,7 +3252,7 @@ threading.Thread(target=monitor_kenshi_process, daemon=True).start()
 
 
 if __name__ == '__main__':
-    logging.info("Kenshi LLM Server Starting on port 5000...")
+    logging.info("SYSTEM: Server starting on port 5000.")
     if "--open-browser" in sys.argv[1:]:
         threading.Thread(target=open_when_ready, args=("127.0.0.1", 5000, PANEL_TABS), daemon=True).start()
     # Threaded: the plugin's polling must not block chat and settings requests

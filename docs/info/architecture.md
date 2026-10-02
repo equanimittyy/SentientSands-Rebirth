@@ -12,7 +12,7 @@ Sentient Sands Rebirth has three parts: a C++ plugin that runs inside Kenshi, a 
 | `plugin/core/` | Shared state and mutexes (`Globals`), logging, INI settings, and server start-up (`Utils`), and the transport to the server (`Comm`). |
 | `plugin/game/` | Reads game state into JSON for prompts (`Context`) and applies queued NPC actions to the world (`GameActions`). |
 | `plugin/ui/` | The in-game MyGUI windows. `LauncherWindow` is the hub that opens the others. `ChatUIGlobals` holds the shared widget pointers. |
-| `server/scripts/` | The Flask server (`kenshi_llm_server.py`), the campaign database (`campaign_db.py`), the request checks (`request_guard.py`), the browser auto-open (`browser_launch.py`), the LLM configuration (`llm_config.py`) and fallback chain (`llm_router.py`), the Kenshi save parser (`save_reader.py`), and a Tkinter debug tool (`visual_debugger.py`). |
+| `server/scripts/` | The Flask server (`kenshi_llm_server.py`), the campaign database (`campaign_db.py`), the request checks (`request_guard.py`), the browser auto-open (`browser_launch.py`), the LLM configuration (`llm_config.py`) and fallback chain (`llm_router.py`), the Kenshi save parser (`save_reader.py`), the log files and the log level (`log_setup.py`), and a Tkinter debug tool (`visual_debugger.py`). |
 | `server/web/` | The web app: plain HTML, CSS, JavaScript, and fonts, which the server serves at `http://127.0.0.1:5000/`. |
 | `server/tests/` | Unit tests that run with the standard library only. See [development.md](development.md#tests). |
 | `server/config/` | The default providers and models that seed the LLM configuration, and the name, title, and localization JSON. |
@@ -120,11 +120,40 @@ On a start without `llm_config.json`, the server builds it from `default_provide
 
 `open_campaign` creates `campaign.db` in a campaign folder that has none. It builds the database in `campaign.db.tmp` and then renames it to `campaign.db`. A crash before the rename leaves no database, so the next start creates it again.
 
+## Logging
+
+The plugin and the server write their logs in the same format, so one tool can read both files and merge them by time:
+
+```
+2026-10-02 22:54:01,123 - INFO - SYSTEM: Server starting on port 5000.
+```
+
+- Each record is one line. A line break in a message is written as `\n`. On the server, only a traceback continues on the lines after its record.
+- The tag after the level names the component, for example `CHAT`, `PIPE`, or `EVENT`. It never names the severity.
+
+| Level | Use |
+|---|---|
+| DEBUG | Game events, pipe traffic, route traces, prompts, full replies, and other content |
+| INFO | Start-up, configuration, campaign changes, and one summary line for each chat and each LLM call |
+| WARN | A retry, a fallback, missing data, or another problem that the code handles |
+| ERROR | A failure: the action, the request, or the call did not happen |
+
+`LogLevel` in the INI sets the lowest level that both sides write. The default is `INFO`. The plugin reads the INI at start, and a change on the web app's Settings page reaches the plugin as `SET_CONFIG: g_logLevel` (see [Settings](#settings)).
+
+| File | Writer | Contents | Size |
+|---|---|---|---|
+| `SentientSands_SDK.log` in the Kenshi folder | Plugin | The log of the current game. At each game start, the plugin renames the log of the previous game to `SentientSands_SDK.old.log`. | One game |
+| `server/logs/server.log` | Server | The server log | Rotated at 512 KB, with 3 backups |
+| `server/logs/llm.log` | Server | Each prompt and reply of each LLM task, with its line breaks. The server writes it only at `DEBUG`. | Rotated at 2 MB, with 1 backup |
+
+- The plugin keeps its log file open for the whole game and flushes each line, so the lines before a crash reach the file.
+- `LogGameEvent` runs on the game thread for each attack, so it checks the level before it builds its message.
+- The events of a campaign are in its database, not in a log file. `visual_debugger.py` reads them from there.
+
 ## Server state
 
 | Location | Contents |
 |---|---|
-| `server/campaigns/<name>/` | One campaign: `campaign.db` (see [Campaign storage](#campaign-storage)), `character_bio.txt`, `player_faction_description.txt`, `logs/`, and `sentient_sands_registry/`. |
-| `server/logs/server.log` | The main server log, rotated at 512 KB. |
-| `server/debug.log` | The debug log, rotated at 1 MB. |
+| `server/campaigns/<name>/` | One campaign: `campaign.db` (see [Campaign storage](#campaign-storage)), `character_bio.txt`, `player_faction_description.txt`, and `sentient_sands_registry/`. |
+| `server/logs/` | `server.log` and `llm.log` (see [Logging](#logging)). |
 | `server/user/llm_config.json` | The LLM providers with the player's API keys, the profiles, and the routes (see [LLM routing](#llm-routing)). The release does not ship it, so an update keeps the keys. |

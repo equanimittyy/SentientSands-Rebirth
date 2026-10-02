@@ -113,7 +113,10 @@ The plugin starts the Python server from its own mod folder. A test therefore ne
    | `SentientSands_SDK.log` in the Kenshi folder | The plugin log of the current game |
    | `SentientSands_SDK.old.log` in the Kenshi folder | The plugin log of the previous game, for example the game that crashed |
    | `Kenshi\mods\SentientSandsRebirth\server\logs\server.log` | The server log |
+   | `Kenshi\mods\SentientSandsRebirth\server\logs\llm.log` | The prompts and the replies of the LLM, only at the `DEBUG` log level |
    | **Options > Mods > RE_Kenshi Settings**, debug log tab | RE_Kenshi's own log, which shows plugin load errors |
+
+   For more detail in the plugin and server logs, set **Log level** to `DEBUG` on the Settings page of the web app.
 
 ## Troubleshooting
 

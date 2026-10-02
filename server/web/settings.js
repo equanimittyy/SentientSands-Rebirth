@@ -57,6 +57,7 @@ export async function loadSettings() {
     const settings = await getJson("/settings");
     fillOptions(form.elements.language, settings.supported_languages);
     fillOptions(form.elements.chat_hotkey, settings.chat_hotkeys);
+    fillOptions(form.elements.log_level, settings.log_levels);
     for (const input of fields()) {
       setValue(input, input.name.split(".").reduce((object, key) => object?.[key], settings));
     }

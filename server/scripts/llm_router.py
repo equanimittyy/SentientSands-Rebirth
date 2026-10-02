@@ -20,10 +20,11 @@ def run_route(config, task, messages, send, clock=time.monotonic):
     """send(provider, profile, body, timeout) returns the completion text or raises. Returns None when every profile fails."""
     route = config["routes"].get(task)
     if route is None:
-        logging.error(f"LLM [{task}]: the task has no route.")
+        logging.error(f"LLM: {task} has no route.")
         return None
 
-    deadline = clock() + route["deadline"]
+    start = clock()
+    deadline = start + route["deadline"]
     failures = []
     for name in route["profiles"]:
         remaining = deadline - clock()
@@ -42,11 +43,11 @@ def run_route(config, task, messages, send, clock=time.monotonic):
             continue
         if text and text.strip():
             if failures:
-                logging.warning(f"LLM [{task}]: served by {name} after failures: {'; '.join(failures)}")
+                logging.warning(f"LLM: {task} served by {name} in {clock() - start:.1f} s after failures: {'; '.join(failures)}")
             else:
-                logging.info(f"LLM [{task}]: served by {name}")
+                logging.info(f"LLM: {task} served by {name} in {clock() - start:.1f} s")
             return text
         failures.append(f"{name}: empty completion")
 
-    logging.error(f"LLM [{task}]: every profile failed: {'; '.join(failures) or 'the route has no profiles'}")
+    logging.error(f"LLM: {task} failed on every profile: {'; '.join(failures) or 'the route has no profiles'}")
     return None

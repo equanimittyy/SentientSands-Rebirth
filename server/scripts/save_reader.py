@@ -31,16 +31,16 @@ def scan_platoon_for_characters(platoon_path):
             names.append(name)
         return list(set(names))
     except Exception as e:
-        logging.error(f"Error scanning {platoon_path}: {e}")
+        logging.error(f"WORLD: Cannot scan {platoon_path}: {e}")
         return []
 
 def build_world_index():
     latest = get_latest_save()
     if not latest:
-        logging.warning("No Kenshi saves found.")
+        logging.warning("WORLD: No Kenshi saves found.")
         return {}
         
-    logging.info(f"Scanning save: {latest}")
+    logging.info(f"WORLD: Scanning save {latest}")
     platoon_dir = os.path.join(latest, 'platoon')
     if not os.path.exists(platoon_dir):
         return {}

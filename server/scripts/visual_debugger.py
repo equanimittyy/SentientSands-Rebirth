@@ -3,9 +3,11 @@ from tkinter import ttk, scrolledtext, messagebox
 import sys
 import os
 import requests
+import sqlite3
 import threading
 import time
 import ctypes
+from pathlib import Path
 
 if os.name == 'nt' and not sys.executable.lower().endswith('pythonw.exe'):
     hwnd = ctypes.windll.kernel32.GetConsoleWindow()
@@ -39,7 +41,7 @@ class VisualDebugger:
         self.log_tail_thread = threading.Thread(target=self.poll_log_file, daemon=True)
         self.log_tail_thread.start()
 
-        self.events_tail_thread = threading.Thread(target=self.poll_events_file, daemon=True)
+        self.events_tail_thread = threading.Thread(target=self.poll_events_db, daemon=True)
         self.events_tail_thread.start()
         
         self.load_settings()
@@ -398,7 +400,7 @@ class VisualDebugger:
         for line in text.splitlines():
             tag = "info"
             if " - ERROR - " in line:   tag = "error"
-            elif " - WARNING - " in line: tag = "warn"
+            elif " - WARN - " in line: tag = "warn"
             elif " - DEBUG - " in line:  tag = "debug"
             self.server_log.insert(tk.END, line + "\n", tag)
         line_count = int(self.server_log.index(tk.END).split('.')[0])
@@ -412,21 +414,27 @@ class VisualDebugger:
         self.server_log.delete("1.0", tk.END)
         self.server_log.config(state="disabled")
 
-    _EVENTS_LOG_PATH = os.path.join(KENSHI_SERVER_DIR, "campaigns", "Default", "logs", "global_events.log")
+    def _events_db_path(self):
+        return os.path.join(KENSHI_SERVER_DIR, "campaigns", self.current_campaign, "campaign.db")
 
-    def poll_events_file(self):
-        last_size = 0
+    def poll_events_db(self):
+        path, last_id = None, 0
         while self.running:
             try:
-                if os.path.exists(self._EVENTS_LOG_PATH):
-                    size = os.path.getsize(self._EVENTS_LOG_PATH)
-                    if size != last_size:
-                        with open(self._EVENTS_LOG_PATH, 'r', encoding='utf-8', errors='replace') as f:
-                            f.seek(last_size if size > last_size else 0)
-                            new_text = f.read()
-                        last_size = size
-                        if new_text:
-                            self.root.after(0, self._append_events_log, new_text)
+                if path != self._events_db_path():
+                    path, last_id = self._events_db_path(), 0
+                if os.path.exists(path):
+                    # Read-only, so the debugger never creates or locks a campaign database for writing
+                    conn = sqlite3.connect(Path(path).as_uri() + "?mode=ro", uri=True, timeout=1)
+                    try:
+                        # A cull deletes the newest events, and SQLite then reuses their IDs
+                        last_id = min(last_id, conn.execute("SELECT COALESCE(MAX(id), 0) FROM event").fetchone()[0])
+                        rows = conn.execute("SELECT id, line FROM event WHERE id > ? ORDER BY id", (last_id,)).fetchall()
+                    finally:
+                        conn.close()
+                    if rows:
+                        last_id = rows[-1][0]
+                        self.root.after(0, self._append_events_log, "\n".join(line for _, line in rows))
             except Exception:
                 pass
             time.sleep(1.5)
@@ -480,9 +488,9 @@ class VisualDebugger:
         if campaign != self.current_campaign:
             self.current_campaign = campaign
             self.campaign_lbl.config(text=f"CAMPAIGN: {campaign}")
-            self._EVENTS_LOG_PATH = os.path.join(KENSHI_SERVER_DIR, "campaigns", campaign, "logs", "global_events.log")
+            self._clear_events_log()
             self._append_server_log(f"\n[DEBUGGER] Switched to campaign: {campaign}\n")
-            self._append_server_log(f"[DEBUGGER] Tailing: {self._EVENTS_LOG_PATH}\n")
+            self._append_server_log(f"[DEBUGGER] Reading events from: {self._events_db_path()}\n")
 
         def update_timers(data):
             ctx = data.get("player", {}) or data.get("npc", {})

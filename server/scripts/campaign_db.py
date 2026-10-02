@@ -220,7 +220,7 @@ def _create(folder):
         conn.close()
     # A crash before this rename leaves no database, so the next open creates it again
     os.replace(tmp, os.path.join(folder, DB_NAME))
-    logging.info(f"CAMPAIGN DB: Created {DB_NAME} in {folder}")
+    logging.info(f"CAMPAIGN: Created {DB_NAME} in {folder}")
 
 
 def _insert_npc(conn, storage_id, profile):
