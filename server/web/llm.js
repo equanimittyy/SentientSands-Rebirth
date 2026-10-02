@@ -27,7 +27,7 @@ let focusCard = null;
 
 function field(label, input, hint) {
   const note = typeof hint === "string" ? el("span", { className: "hint" }, hint) : hint;
-  return el("label", {}, label, input, note ?? null);
+  return el("label", {}, label, note ?? null, input);
 }
 const cardKey = (kind, name) => `${kind}s/${name}`;
 

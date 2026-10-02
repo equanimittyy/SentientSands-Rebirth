@@ -25,69 +25,70 @@
   <main>
     <section id="settings" hidden>
       <form id="settings-form">
-        <fieldset>
-          <legend>Interface</legend>
-          <label>Language <select name="language"></select> <span class="hint">The language of the in-game windows and of the NPC replies.</span></label>
-          <label>Chat key <select name="chat_hotkey"></select> <span class="hint">The key that opens the chat window.</span></label>
-          <label class="check"><input type="checkbox" name="enable_welcome"> Show the welcome popup on start</label>
-          <label class="check"><input type="checkbox" name="open_web_panel_on_start"> Open this web panel on start</label>
-        </fieldset>
-        <fieldset>
-          <legend>Conversations</legend>
-          <label>Talk range <input type="number" name="radii.talk" min="1" required> <span class="hint">NPCs within this distance hear what you say in talk mode.</span></label>
-          <label>Yell range <input type="number" name="radii.yell" min="1" required> <span class="hint">NPCs within this distance hear what you say in yell mode.</span></label>
-          <label>Radiant range <input type="number" name="radii.radiant" min="1" required> <span class="hint">A radiant conversation starts only between NPCs within this distance of you.</span></label>
-          <label class="check"><input type="checkbox" name="enable_ambient"> Radiant conversations</label>
-          <label>Radiant timer (s) <input type="number" name="ambient_timer" min="1" required> <span class="hint">The time between two radiant conversations. Paused time does not count.</span></label>
-          <label>Dialogue delay (s) <input type="number" name="dialogue_speed" min="1" required> <span class="hint">The time between two lines of a conversation.</span></label>
-          <label>Bubble life (s) <input type="number" name="bubble_life" min="1" step="0.5" required> <span class="hint">How long a speech bubble stays. It grows with the game speed.</span></label>
-        </fieldset>
-        <fieldset>
-          <legend>World events</legend>
-          <label>Events in prompt <input type="number" name="global_events_count" min="0" required> <span class="hint">How many recent world events and rumors each chat prompt holds.</span></label>
-          <label>Event timer (min) <input type="number" name="synthesis_timer" min="1" required> <span class="hint">The time between two new world events.</span></label>
-        </fieldset>
-        <fieldset>
-          <legend>Diagnostics</legend>
-          <label>Log level <select name="log_level"></select> <span class="hint">The lowest level that the plugin and the server write to their logs.</span></label>
-        </fieldset>
         <div class="actions save-bar">
           <button type="submit" class="save" disabled>Save</button>
           <button type="button" class="discard" disabled>Discard</button>
           <button type="button" id="settings-reset">Reset to defaults</button>
           <span class="message" id="settings-message" role="status"></span>
         </div>
+        <fieldset>
+          <legend>Interface</legend>
+          <label>Language <span class="hint">The language of the in-game windows and of the NPC replies.</span> <select name="language"></select></label>
+          <label>Chat key <span class="hint">The key that opens the chat window.</span> <select name="chat_hotkey"></select></label>
+          <label class="check"><input type="checkbox" name="enable_welcome"> Show the welcome popup on start</label>
+          <label class="check"><input type="checkbox" name="open_web_panel_on_start"> Open this web panel on start</label>
+        </fieldset>
+        <fieldset>
+          <legend>Conversations</legend>
+          <label class="check"><input type="checkbox" name="enable_ambient"> <b>Radiant conversations</b></label>
+          <div class="columns">
+            <label>Talk range <span class="hint">NPCs within this distance hear what you say in talk mode.</span> <input type="number" name="radii.talk" min="1" required></label>
+            <label>Yell range <span class="hint">NPCs within this distance hear what you say in yell mode.</span> <input type="number" name="radii.yell" min="1" required></label>
+            <label>Radiant range <span class="hint">A radiant conversation starts only between NPCs within this distance of you.</span> <input type="number" name="radii.radiant" min="1" required></label>
+            <label>Radiant timer (s) <span class="hint">The time between two radiant conversations. Paused time does not count.</span> <input type="number" name="ambient_timer" min="1" required></label>
+            <label>Dialogue delay (s) <span class="hint">The time between two lines of a conversation.</span> <input type="number" name="dialogue_speed" min="1" required></label>
+            <label>Bubble life (s) <span class="hint">How long a speech bubble stays. It grows with the game speed.</span> <input type="number" name="bubble_life" min="1" step="0.5" required></label>
+          </div>
+        </fieldset>
+        <fieldset>
+          <legend>World events</legend>
+          <label>Events in prompt <span class="hint">How many recent world events and rumors each chat prompt holds.</span> <input type="number" name="global_events_count" min="0" required></label>
+          <label>Event timer (min) <span class="hint">The time between two new world events.</span> <input type="number" name="synthesis_timer" min="1" required></label>
+        </fieldset>
+        <fieldset>
+          <legend>Diagnostics</legend>
+          <label>Log level <span class="hint">The lowest level that the plugin and the server write to their logs.</span> <select name="log_level"></select></label>
+        </fieldset>
       </form>
     </section>
     <section id="llm" hidden>
-      <div id="llm-editor"></div>
       <div class="actions save-bar">
         <button type="button" id="llm-save" class="save" disabled>Save</button>
         <button type="button" class="discard" disabled>Discard</button>
         <button type="button" id="llm-reset">Reset to defaults</button>
         <span class="message" id="llm-message" role="status"></span>
       </div>
+      <div id="llm-editor"></div>
     </section>
     <section id="prompts" hidden>
-      <p class="hint">An edit is saved as your own copy of the prompt, which a mod update keeps. Use default and Save to go back to the shipped text and get its later updates.</p>
-      <div id="prompts-list"></div>
       <div class="actions save-bar">
         <button type="button" id="prompts-save" class="save" disabled>Save</button>
         <button type="button" class="discard" disabled>Discard</button>
         <button type="button" id="prompts-reset">Reset all to defaults</button>
         <span class="message" id="prompts-message" role="status"></span>
       </div>
+      <p class="hint">An edit is saved as your own copy of the prompt, which a mod update keeps. Use default and Save to go back to the shipped text and get its later updates.</p>
+      <div id="prompts-list"></div>
     </section>
     <section id="profile" hidden>
       <form id="profile-form" class="stacked">
-        <label>Player backstory <textarea name="character_bio"></textarea> <span class="hint length"></span></label>
-        <label>Faction description <textarea name="player_faction"></textarea> <span class="hint length"></span></label>
         <div class="actions save-bar">
           <button type="submit" class="save" disabled>Save</button>
           <button type="button" class="discard" disabled>Discard</button>
           <span class="message" id="profile-message" role="status"></span>
         </div>
-      </form>
+        <label>Player backstory <textarea name="character_bio"></textarea> <span class="hint length"></span></label>
+        <label>Faction description <textarea name="player_faction"></textarea> <span class="hint length"></span></label>
     </section>
   </main>
 </body>
