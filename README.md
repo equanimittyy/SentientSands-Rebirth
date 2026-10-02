@@ -56,6 +56,19 @@ The server keeps this configuration in `server/user/llm_config.json`. A mod upda
 
 ---
 
+## Credits
+
+Sentient Sands Rebirth builds on the original Sentient Sands mod and on its Kayak lore system.
+
+SentientSands Kayak by Harvicus and Pineaxe.
+
+| Project | Links |
+|---|---|
+| Sentient Sands | [Source](https://github.com/harvicusdev-glitch/SentientSands), [Nexus Mods](https://www.nexusmods.com/kenshi/mods/1872), [Steam Workshop](https://steamcommunity.com/sharedfiles/filedetails/?id=3675880187) |
+| Kayak | [Source](https://github.com/Starswimmer/Kayak), [Nexus Mods](https://www.nexusmods.com/kenshi/mods/2067) |
+
+---
+
 ## Development
 
 See [docs/info/architecture.md](docs/info/architecture.md) for how the plugin, the server, and the mod files fit together, and [docs/info/development.md](docs/info/development.md) for building, running, and releasing.
