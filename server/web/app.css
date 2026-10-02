@@ -67,6 +67,11 @@ label {
   margin: 0.5rem 0;
 }
 
+.stacked label {
+  grid-template-columns: minmax(0, 1fr);
+  gap: 0.25rem;
+}
+
 label.check {
   display: flex;
   gap: 0.5rem;

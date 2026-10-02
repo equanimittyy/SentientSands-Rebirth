@@ -1,4 +1,5 @@
 import { getJson } from "./api.js";
+import { initProfile } from "./profile.js";
 import { initSettings } from "./settings.js";
 
 const pages = [...document.querySelectorAll("main > section")];
@@ -22,3 +23,4 @@ try {
 }
 
 initSettings();
+initProfile();

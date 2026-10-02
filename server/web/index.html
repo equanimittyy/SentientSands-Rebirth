@@ -13,6 +13,7 @@
     <p id="status">Connecting...</p>
     <nav>
       <a href="#settings">Settings</a>
+      <a href="#profile">Player profile</a>
     </nav>
   </header>
   <main>
@@ -43,6 +44,16 @@
         <div class="actions">
           <button type="submit">Save</button>
           <span class="message" id="settings-message" role="status"></span>
+        </div>
+      </form>
+    </section>
+    <section id="profile" hidden>
+      <form id="profile-form" class="stacked">
+        <label>Player backstory <textarea name="character_bio"></textarea></label>
+        <label>Faction description <textarea name="player_faction"></textarea></label>
+        <div class="actions">
+          <button type="submit">Save</button>
+          <span class="message" id="profile-message" role="status"></span>
         </div>
       </form>
     </section>
