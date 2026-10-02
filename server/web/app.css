@@ -13,16 +13,43 @@
 :root {
   color-scheme: light dark;
   font-family: "Walter Turncoat", system-ui, sans-serif;
-  --muted: #777;
-  --border: #8884;
-  --error: #c33;
-  --ok: #3a8a3a;
+  --bg: #f4ead8;
+  --surface: #fbf5ea;
+  --field: #fffdf8;
+  --text: #2b2118;
+  --muted: #6b5a48;
+  --border: #c9b494;
+  --field-border: #8a7558;
   --accent: #b5762a;
+  --accent-strong: #8c5517;
+  --on-accent: #ffffff;
+  --error: #a3271f;
+  --ok: #2f6b34;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #1b1713;
+    --surface: #25201a;
+    --field: #2c261f;
+    --text: #ece2d0;
+    --muted: #ab9a83;
+    --border: #4a3f33;
+    --field-border: #8a7862;
+    --accent: #d99a4a;
+    --accent-strong: #d99a4a;
+    --on-accent: #1b1713;
+    --error: #f2857d;
+    --ok: #82c785;
+  }
 }
 
 body {
   margin: 0;
   padding: 1.5rem 1rem 3rem;
+  background: var(--bg);
+  color: var(--text);
+  accent-color: var(--accent-strong);
 }
 
 header,
@@ -37,9 +64,37 @@ legend {
   font-weight: normal;
 }
 
+.banner {
+  position: relative;
+  margin: 0 0 0.75rem;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.banner img {
+  display: block;
+  width: 100%;
+  height: 12rem;
+  object-fit: cover;
+  object-position: 50% 15%;
+}
+
+.banner::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(transparent 45%, rgb(0 0 0 / 0.6));
+}
+
 h1 {
-  margin: 0 0 0.25rem;
-  font-size: 1.5rem;
+  position: absolute;
+  z-index: 1;
+  left: 1rem;
+  bottom: 0.6rem;
+  margin: 0;
+  color: #fff;
+  font-size: 2rem;
+  text-shadow: 0 2px 6px rgb(0 0 0 / 0.8);
 }
 
 #status {
@@ -82,6 +137,7 @@ nav a.unsaved::after {
 fieldset {
   border: 1px solid var(--border);
   border-radius: 6px;
+  background: var(--surface);
   margin: 0 0 1rem;
   padding: 0.75rem 1rem 1rem;
 }
@@ -130,6 +186,10 @@ textarea {
   box-sizing: border-box;
   width: 100%;
   padding: 0.3rem 0.4rem;
+  border: 1px solid var(--field-border);
+  border-radius: 4px;
+  background: var(--field);
+  color: var(--text);
 }
 
 textarea {
@@ -139,7 +199,31 @@ textarea {
 
 button {
   padding: 0.35rem 0.9rem;
+  border: 1px solid var(--field-border);
+  border-radius: 4px;
+  background: var(--surface);
+  color: var(--text);
   cursor: pointer;
+}
+
+button:hover:not(:disabled) {
+  border-color: var(--accent);
+}
+
+button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+button.save {
+  border-color: var(--accent-strong);
+  background: var(--accent-strong);
+  color: var(--on-accent);
+}
+
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
 }
 
 .actions {
@@ -153,7 +237,7 @@ button {
   bottom: 0;
   padding: 0.75rem 0;
   border-top: 1px solid var(--border);
-  background: Canvas;
+  background: var(--bg);
 }
 
 .invalid {
@@ -285,5 +369,13 @@ label > .hint {
   label {
     grid-template-columns: minmax(0, 1fr);
     gap: 0.25rem;
+  }
+
+  .banner img {
+    height: 8rem;
+  }
+
+  h1 {
+    font-size: 1.5rem;
   }
 }
