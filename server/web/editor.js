@@ -7,7 +7,7 @@ const LONG_PROFILE_KEYS = ["Personality", "Backstory", "SpeechQuirks"];
 const CHOICE_KEYS = ["Race", "Sex", "Faction"];
 const CHOICE_HELP = {
   Race: "The race of the character.",
-  Faction: "The faction the character currently belongs to.",
+  Faction: "The faction that SSR tells the LLM the character belongs to.",
 };
 const KIND_LABELS = { manifest: "Template info", overview: "Overview", history: "History", faction: "Faction", character: "Character" };
 const CATEGORY_LABELS = { races: "Race", locations: "Location", regions: "Region" };
@@ -311,6 +311,7 @@ function characterForm(form, path, record) {
       el("legend", {}, "Other Details"),
       el("p", { className: "hint" }, "The game and your chats set these details."),
       field("Relation (to you)", relationBar(form.details.Relation), null, "How much the character likes you, from -100 to 100. Your chats with the character change it."),
+      source === "campaign" ? field("Current Faction", el("span", {}, record.current_faction || "Not seen this session"), null, "The faction that the game reports for the character. It shows after you select the character or talk near it while the game runs.") : null,
       field("Original Faction", el("span", {}, form.details.OriginFaction || "Unknown"), null, "The faction that the character comes from.")),
   ];
 }

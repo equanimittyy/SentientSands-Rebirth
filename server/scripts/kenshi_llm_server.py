@@ -2834,7 +2834,7 @@ def get_campaign_canon():
                 for f in campaign_db.list_factions()
             ],
             "characters": [
-                {"id": npc_id, "data": {"game_id": npc_id.removeprefix("u:"), "profile": profile}, "origin": origin, "updated_at": updated_at}
+                {"id": npc_id, "data": {"game_id": npc_id.removeprefix("u:"), "profile": profile}, "origin": origin, "updated_at": updated_at, "current_faction": LIVE_CONTEXTS.get(npc_id, {}).get("faction")}
                 for (npc_id,), profile, origin, updated_at in campaign_db.list_records("character")
             ],
             "entities": [

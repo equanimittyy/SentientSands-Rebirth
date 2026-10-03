@@ -94,7 +94,7 @@ The Relations section of a race, location, or region lists its children, which t
 
 The Race, Sex, and Faction of a character are choices, not free text (`choice` in `server/web/editor.js`). Race offers the race entries of the page, Faction offers its factions, and Sex offers Male, Female, and Other. A stored value selects the choice whose name or alias it matches, with case ignored. A blank value or a value that matches no choice shows as Unknown, and a save of the character writes Unknown.
 
-Other Details shows the `Relation` of a character as a bar from -100 to 100, with the labels of the relation bar in game, and its `OriginFaction`. Both are read-only, because the game and the chats set them. A save keeps every profile key that the form does not show, as it is.
+Other Details shows the `Relation` of a character as a bar from -100 to 100, with the labels of the relation bar in game, and its `OriginFaction`. On Campaign Canon it also shows the current faction that the game reported for the character since the server started, so the player can compare it with the Faction that the prompts use. All are read-only, because the game and the chats set them. A save keeps every profile key that the form does not show, as it is.
 
 ## Settings
 
@@ -229,7 +229,7 @@ The `character` table holds every character of a campaign in one shape: the cano
 | `POST /api/campaigns/switch` | Make a campaign the current one. The name must be a folder that the campaign list shows, so a name such as `../x` cannot point outside `server/campaigns/`. |
 | `POST /api/campaigns/delete` | Delete a campaign folder, with the same name check. Before it deletes the current campaign, it switches to the first other one. When no other campaign remains, the server has no current campaign (see [Campaign storage](#campaign-storage)). |
 | `GET /api/campaign` | The active campaign: its events and rumors. A refused campaign gives status 409 with the reason. |
-| `GET /api/campaign/canon` | The canon of the active campaign, each record with its `origin` and `updated_at`. A refused campaign gives status 409 with the reason. |
+| `GET /api/campaign/canon` | The canon of the active campaign, each record with its `origin` and `updated_at`, and each character with the `current_faction` that the game reported since the server started (`LIVE_CONTEXTS`), or `null`. A refused campaign gives status 409 with the reason. |
 | `POST /api/campaign/records`, `.../records/delete` | Save or delete one canon record of the active campaign. A faction, character, race, location, or region with no ID is new. |
 | `POST /api/campaign/rumors`, `.../rumors/delete`, `.../events/delete` | Edit the rumors and events of the active campaign |
 | `POST /api/campaign/cull` | Delete the dialogue, events, and rumors dated after the current game time, after the player loads an older save. It needs the player's context from the running game, because without it day 0 would count as now and the cull would delete the whole history. |
