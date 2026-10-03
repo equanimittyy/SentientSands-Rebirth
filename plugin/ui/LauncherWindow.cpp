@@ -168,6 +168,14 @@ void CreateLauncherUI() {
   evtBtn->eventMouseButtonClick += MyGUI::newDelegate(OnLauncherEventsClick);
   yPos += yDelta;
 
+  MyGUI::Button *cullBtn = client->createWidgetReal<MyGUI::Button>(
+      "Kenshi_Button1", 0.05f, yPos, 0.9f, bH,
+      MyGUI::Align::Top | MyGUI::Align::HStretch,
+      "SentientSands_LauncherCullBtn");
+  cullBtn->setCaption(Utf8ToWide(T("Cull Future Data")).c_str());
+  cullBtn->eventMouseButtonClick += MyGUI::newDelegate(OnLauncherCullClick);
+  yPos += yDelta;
+
   MyGUI::Button *webBtn = client->createWidgetReal<MyGUI::Button>(
       "Kenshi_Button1", 0.05f, yPos, 0.9f, bH,
       MyGUI::Align::Top | MyGUI::Align::HStretch,
@@ -191,14 +199,6 @@ void CreateLauncherUI() {
       "SentientSands_LauncherWelBtn");
   welBtn->setCaption(Utf8ToWide(T("Welcome Popup")).c_str());
   welBtn->eventMouseButtonClick += MyGUI::newDelegate(OnLauncherWelcomeClick);
-  yPos += yDelta;
-
-  MyGUI::Button *cullBtn = client->createWidgetReal<MyGUI::Button>(
-      "Kenshi_Button1", 0.05f, yPos, 0.9f, bH,
-      MyGUI::Align::Top | MyGUI::Align::HStretch,
-      "SentientSands_LauncherCullBtn");
-  cullBtn->setCaption(Utf8ToWide(T("Cull Future Data")).c_str());
-  cullBtn->eventMouseButtonClick += MyGUI::newDelegate(OnLauncherCullClick);
 }
 
 void RefreshLauncherUI() {
