@@ -129,9 +129,9 @@ A chat request is ordered for a provider's prompt cache, which reuses only an id
 
 | Part | Content | Changes |
 |---|---|---|
-| System message | `prompt_chat_template.txt`: `prompt_system.txt`, `npc_chat_template.txt`, then `prompt_chat_scene.txt`: the place, the 5 newest rumors, the player, and the NPC | When a new conversation starts |
+| System message | `prompt_chat_template.txt`: `prompt_system.txt`, the judgment rule, `npc_chat_template.txt`, then `prompt_chat_scene.txt`: the place, the 5 newest rumors, the player, and the NPC | When a new conversation starts |
 | History | The stored dialogue of the NPC, as user and assistant turns | One exchange more each turn |
-| Last user message | `prompt_chat_turn.txt`: the volume, the final instruction, and the player's line | Every turn |
+| Last user message | `prompt_chat_turn.txt`: the player's line, then a one-line reminder of whom to reply as and to end with the judgment | Every turn |
 
 From one turn to the next, only the newest exchange and the last message are new, so the cache can serve the rest. Chats with different NPCs, by any speaker, and banter share the start of the system message.
 
@@ -148,7 +148,9 @@ The scene is prose that the NPC reads in the second person, built by `server/scr
 - The server stores a reply without its bracketed tags, such as the judgment.
 - Chat templates of the Mistral v3 family place the system text next to the last user message. With those models, the cache cannot serve the system message.
 
-The server answers a Yell with one NPC, as a Talk. A Yell differs only in that the NPCs within the yell radius overhear it, and the scene tells the NPC that the player speaks loudly.
+The server answers a Yell with one NPC, as a Talk. A Yell differs only in that the NPCs within the yell radius overhear it, and the player's line carries a `(Yelled)` prefix, as a whispered line carries `(Whispered)`. The history keeps the prefix, so the NPC remembers how each line was said.
+
+The judgment rule sits in the cached system message, and the last message repeats only a short reminder, because a model follows an instruction at the very end of a request most reliably. Banter reads the same reply rules but forbids bracketed text, so the judgment rule stays out of `response_rules.txt`.
 
 The reply text of `/chat` starts with the name of the NPC, because the plugin takes the text before a first colon as the speaker (`plugin/ui/ChatWindow.cpp`). A reply such as "Listen: ..." therefore stays with the NPC. The server removes a `*stage direction*` from a person's reply, but an animal replies only in `*actions*`, so those stay.
 

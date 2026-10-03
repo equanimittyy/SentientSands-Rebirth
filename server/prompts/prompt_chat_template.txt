@@ -1,6 +1,8 @@
 [SYSTEM CORE]
 {system_prompt}
 
+{judgment}
+
 [CURRENT CHARACTER: {primary_npc}]
 {npc_profiles}
 

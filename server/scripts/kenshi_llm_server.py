@@ -1634,21 +1634,15 @@ def chat():
     if is_animal:
         system_prompt = f"CRITICAL: {primary_npc} is an ANIMAL ({primary_race}). Animals in Kenshi CANNOT speak human languages. They do not use words, symbols, or telegram-style speech. They ONLY react with brief physical actions, sounds, or gestures described within asterisks."
         final_instruction = f"Respond as {primary_npc} (the animal). Provide a single, BRIEF action description or sound in asterisks (e.g. *Growls*, *Tilts head*, *Nuzzles hand*). DO NOT USE WORDS OR SPEECH. Keep it under 6 words."
-        volume = judgment = ""
+        judgment = ""
     else:
         system_prompt = build_system_prompt()
-        if mode == 'whisper':
-            volume = "CRITICAL: The player is WHISPERING to you privately. This is a quiet, intimate, or secretive moment. Keep the reply hushed and private."
-        elif mode == 'yell':
-            volume = "INFO: The player is speaking loudly, so others nearby can hear it."
-        else:
-            volume = "INFO: The player is speaking at a normal, conversational volume."
-        judgment = "" if is_ambient else "JUDGMENT: At the end of your response, you MUST judge the player's tone and the quality of this interaction on a scale of -5 (extremely aggressive/hostile/insulting) to 5 (extremely friendly/helpful/respectful). 0 is neutral. Format this judgment as a tag like [JUDGMENT: n] at the very end."
-        final_instruction = f"Respond ONLY as {primary_npc}, to the player's last line. Do not speak as anyone else."
+        judgment = "" if is_ambient else "JUDGMENT: End every reply with [JUDGMENT: n], from -5 (the player was hostile or insulting) to 5 (the player was friendly or respectful); 0 is neutral."
+        final_instruction = f"Reply as {primary_npc}{', quietly' if mode == 'whisper' else ''}.{' End with [JUDGMENT: n].' if judgment else ''}"
 
-    whisper_tag = "(Whispered) " if mode == 'whisper' else ""
+    mode_tag = {"whisper": "(Whispered) ", "yell": "(Yelled) "}.get(mode, "")
     time_prefix = get_current_time_prefix()
-    full_player_entry = f"{time_prefix}{whisper_tag}{player_name}: {player_message}"
+    full_player_entry = f"{time_prefix}{mode_tag}{player_name}: {player_message}"
 
     conversation = (speaker.get("npc_id"), npc_ids.get(primary_npc) or primary_npc)
     scene = CONVERSATION_SCENE.get(conversation)
@@ -1660,8 +1654,8 @@ def chat():
         )
         CONVERSATION_SCENE.clear()
         CONVERSATION_SCENE[conversation] = scene
-    system = fill_prompt("prompt_chat_template.txt", system_prompt=system_prompt, primary_npc=primary_npc, npc_profiles=describe_npc(primary_npc, primary_data, npc_ids.get(primary_npc)), scene=scene)
-    turn = fill_prompt("prompt_chat_turn.txt", volume=volume, final_instruction=final_instruction, judgment=judgment, player_line=full_player_entry)
+    system = fill_prompt("prompt_chat_template.txt", system_prompt=system_prompt, judgment=judgment, primary_npc=primary_npc, npc_profiles=describe_npc(primary_npc, primary_data, npc_ids.get(primary_npc)), scene=scene)
+    turn = fill_prompt("prompt_chat_turn.txt", player_line=full_player_entry, final_instruction=final_instruction)
     history = chat_prompt.history_window(primary_data["ConversationHistory"], campaign_db.DIALOGUE_BLOCK)
     messages = chat_prompt.chat_messages(system, chat_prompt.history_turns(history, primary_npc), turn)
 
@@ -1742,7 +1736,7 @@ def chat():
                 char_datas[name] = get_character_data(name, get_local_context(name))
 
             stored_lines = len(char_datas[name]["ConversationHistory"])
-            char_datas[name]["ConversationHistory"].append(f"{time_prefix}{overheard_tag}{whisper_tag}{player_name}: {player_message}")
+            char_datas[name]["ConversationHistory"].append(f"{time_prefix}{overheard_tag}{mode_tag}{player_name}: {player_message}")
             char_datas[name]["ConversationHistory"].append(f"{time_prefix}{overheard_tag}{reply_line}")
 
             npc_id = npc_ids.get(name)
