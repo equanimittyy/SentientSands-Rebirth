@@ -140,6 +140,20 @@ class CharacterTest(CampaignTestCase):
         self.assertEqual(campaign_db.change_relation(GENERIC_ID, -300), -100)
         self.assertIsNone(campaign_db.change_relation("h:1", 1))
 
+    def test_only_a_provisional_profile_counts_interactions(self):
+        campaign_db.upsert_profile(GENERIC_ID, {"Name": "Dust Bandit", campaign_db.PROVISIONAL: 0})
+        self.assertEqual([campaign_db.count_interaction(GENERIC_ID) for _ in range(2)], [1, 2])
+        self.assertIsNone(campaign_db.count_interaction(BEEP_ID))
+        self.assertIsNone(campaign_db.count_interaction("h:1"))
+
+    def test_a_bio_ends_the_provisional_profile_and_never_overwrites_a_full_one(self):
+        campaign_db.upsert_profile(GENERIC_ID, {"Name": "Dust Bandit", "Personality": "Rolled.", campaign_db.PROVISIONAL: 4})
+        self.assertTrue(campaign_db.promote_profile(GENERIC_ID, {"Personality": "Written."}))
+        self.assertEqual(campaign_db.get_character(GENERIC_ID), {"Name": "Dust Bandit", "Personality": "Written.", "ConversationHistory": []})
+        self.assertFalse(campaign_db.promote_profile(GENERIC_ID, {"Personality": "Again."}))
+        self.assertEqual(campaign_db.get_character(GENERIC_ID)["Personality"], "Written.")
+        self.assertFalse(campaign_db.promote_profile("h:1", {"Personality": "Written."}))
+
     def test_underscore_keys_are_not_stored(self):
         campaign_db.append_dialogue(GENERIC_ID, ["a"], {"Name": "Beep", "_transient": True})
         campaign_db.upsert_profile(GENERIC_ID, {"Relation": 1, "_transient": True})

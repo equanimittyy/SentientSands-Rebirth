@@ -45,6 +45,7 @@ import llm_config
 import llm_router
 import chat_prompt
 import scene_text
+import provisional_profile
 import campaign_db
 import prompt_store
 import world_template
@@ -498,6 +499,12 @@ def is_skeleton(race):
 def reported_sex(race, gender):
     return "Other" if is_skeleton(race) else gender
 
+def is_animal(race):
+    return any(keyword.lower() in str(race).lower() for keyword in ANIMAL_RACES)
+
+def character_kind(race):
+    return "animal" if is_animal(race) else "skeleton" if is_skeleton(race) else "person"
+
 def npc_scene(npc_id, profile, player_name):
     context = LIVE_CONTEXTS.get(npc_id) or profile
     faction = context.get("faction") or context.get("Faction", "Unknown")
@@ -526,7 +533,8 @@ INI_KEY_MAP = {
     "language": "Language",
     "chat_hotkey": "ChatHotkey",
     "open_web_panel_on_start": "OpenWebPanelOnStart",
-    "log_level": "LogLevel"
+    "log_level": "LogLevel",
+    "bio_interactions": "BioInteractions"
 }
 
 def _save_settings_raw(settings):
@@ -567,7 +575,8 @@ SETTINGS_DEFAULTS = {
     "language": "English",
     "chat_hotkey": "\\",
     "open_web_panel_on_start": True,
-    "log_level": log_setup.DEFAULT_LEVEL
+    "log_level": log_setup.DEFAULT_LEVEL,
+    "bio_interactions": 5
 }
 
 def load_settings():
@@ -656,7 +665,7 @@ def describe_npc(name, profile, npc_id):
         current_faction=current_faction,
         origin_faction=describe_origin(describe_faction(profile.get("OriginFaction", "Unknown")), current_faction),
         personality=profile.get("Personality"),
-        backstory=profile.get("Backstory"),
+        backstory=profile.get("Backstory") or "None.",
         speech_quirks=profile.get("SpeechQuirks") or "None.",
     )
 
@@ -814,179 +823,85 @@ def call_llm(task, messages):
 
 LLM_CONFIG = load_llm_config()
 
-def generate_character_profile(name, context=""):
-    lower_name = name.lower()
-    if "your squad" in lower_name or "squad" == lower_name:
-        player_faction = PLAYER_CONTEXT.get('faction', 'Nameless')
-        return {
-            "Personality": "A collective of your loyal companions, each with their own views but united in purpose. They are loyal to you and the squad's goals.",
-            "Backstory": f"You have traveled together as members of the {player_faction} through the harsh lands of Kenshi, surviving against all odds.",
-            "SpeechQuirks": "Speaks as a representative of the group, sometimes mentioning others in the squad.",
-            "Race": "Mixed",
-            "Faction": player_faction,
-            "Sex": "Mixed"
-        }
+def new_profile(name, npc_id, ctx_data):
+    """The profile of an NPC at its first meeting, rolled in code. The LLM would know no more than the race, the faction, and
+    the job yet, so the roll loses nothing; the LLM writes the bio later (generate_bio). An animal's roll is final, because a
+    bio would give it a backstory and a speech quirk."""
+    live_ctx = LIVE_CONTEXTS.get(npc_id) or {}
 
-    race = "Unknown"
-    gender = "Unknown"
-    faction = "Unknown"
-    origin_faction = "Unknown"
-    job = "None"
+    def fact(key, missing="Unknown"):
+        value = ctx_data.get(key, missing)
+        return live_ctx.get(key, missing) if value == missing else value
 
-    ctx_data = context_dict(context)
-    live_ctx = LIVE_CONTEXTS.get(ctx_data.get("npc_id")) or {}
-
-    if ctx_data:
-        race = ctx_data.get('race', race)
-        gender = ctx_data.get('gender', gender)
-        faction = ctx_data.get('faction', faction)
-        if faction == "Unknown":
-            faction = ctx_data.get('factionID', "Unknown")
-        origin_faction = ctx_data.get('origin_faction', origin_faction)
-        job = ctx_data.get('job', job)
-    
-    if race == "Unknown": race = live_ctx.get('race', 'Unknown')
-    if gender == "Unknown": gender = live_ctx.get('gender', 'Unknown')
-    gender = reported_sex(race, gender)
-    if faction == "Unknown": 
-        faction = live_ctx.get('faction', 'Unknown')
-        if faction == "Unknown":
-            faction = live_ctx.get('factionID', "Unknown")
-    
-    if origin_faction == "Unknown": origin_faction = live_ctx.get('origin_faction', 'Unknown')
-    if job == "None": job = live_ctx.get('job', 'None')
-    
-    # Unknown race/faction is tolerated: modded factions often don't report names through the hooks
-    if name in ("Unknown", "Someone", "Unknown Entity"):
-        logging.debug(f"PROFILE: Skipped the profile of {name}.")
-        return None
-
-
-    logging.info(f"PROFILE: Generating the profile of {name} ({gender} {race}, Base Faction: {origin_faction}, Job: {job})...")
-    
-    f_info = describe_faction(faction, ctx_data.get("factionID") or live_ctx.get("factionID"))
-    o_info = describe_origin(describe_faction(origin_faction), f_info)
-
-    prompt = fill_prompt("prompt_profile_generation.txt", name=name, sex=gender, race=race, race_lore=describe_race(race), faction=f_info, origin_faction=o_info, job=job, context=context)
-    
-    settings = load_settings()
-    language = settings.get("language", "English")
-    if language and language.lower() != "english":
-        prompt += f"\nLANGUAGE: The JSON values ('Personality', 'Backstory', 'SpeechQuirks') MUST be written entirely in {language}. Do not use English.\n"
-    
-    messages = [{"role": "user", "content": prompt}]
-    response_text = call_llm("profile", messages)
-    
-    if response_text:
-        try:
-            result = robust_json_parse(response_text)
-            if result:
-                result["Race"] = race
-                result["Faction"] = faction
-                result["OriginFaction"] = origin_faction
-                result["Job"] = job
-                result["Sex"] = gender
-                return result
-        except Exception as e:
-            logging.error(f"PROFILE: Cannot parse the generated profile: {e}")
-            
+    race = fact("race")
+    kind = character_kind(race)
+    faction = fact("faction")
+    # Modded factions often report no name through the hooks
+    if faction == "Unknown":
+        faction = ctx_data.get("factionID") or live_ctx.get("factionID") or "Unknown"
+    logging.info(f"PROFILE: Rolled the profile of {name} ({npc_id})")
     return {
-        "Personality": "A weary wanderer.",
-        "Backstory": "Trying to survive in the harsh desert.",
-        "SpeechQuirks": "None.",
+        "Name": name,
         "Race": race,
+        "Sex": reported_sex(race, fact("gender")),
         "Faction": faction,
-        "OriginFaction": origin_faction,
-        "Job": job,
-        "Sex": gender
+        "OriginFaction": fact("origin_faction"),
+        "Job": fact("job", "None"),
+        **provisional_profile.roll(npc_id, kind),
+        "ConversationHistory": [],
+        "Relation": int(float(ctx_data.get("relation", 0)) / 2),
+        **({} if kind == "animal" else {campaign_db.PROVISIONAL: 0}),
     }
 
-def generate_batch_profiles(npc_list):
-    if not npc_list: return
-    
-    complete = []
-    for npc in npc_list:
-        name = npc.get('name', 'Unknown')
-        race = npc.get('race', 'Unknown')
-        gender = npc.get('gender', 'Unknown')
-        faction = npc.get('faction', 'Unknown')
-        missing = [k for k, v in {"race": race, "gender": gender, "faction": faction}.items() if v in ("Unknown", None, "")]
-        if missing:
-            logging.debug(f"PROFILE: Batch skips {name} \u2014 missing {', '.join(missing)}, will generate on next full context.")
-        else:
-            complete.append(npc)
+def generate_bio(npc_id):
+    """Has the LLM write the full bio of a provisional NPC. Returns None once the bio is stored, else the reason it is not."""
+    with PROGRESS_LOCK:
+        if npc_id in PROFILES_IN_PROGRESS:
+            logging.debug(f"PROFILE: The LLM is already writing the bio of {npc_id}.")
+            return "The LLM is already writing the bio of this character."
+        PROFILES_IN_PROGRESS.add(npc_id)
+    campaign = ACTIVE_CAMPAIGN
+    try:
+        profile = campaign_db.get_character(npc_id)
+        if not profile or campaign_db.PROVISIONAL not in profile:
+            return "The character has no provisional profile."
+        name, race = profile.get("Name", npc_id), profile.get("Race", "Unknown")
+        logging.info(f"PROFILE: Writing the bio of {name} ({npc_id})...")
+        faction = describe_faction(profile.get("Faction"), (LIVE_CONTEXTS.get(npc_id) or {}).get("factionID"))
+        prompt = fill_prompt(
+            "prompt_profile_generation.txt",
+            name=name,
+            sex=reported_sex(race, profile.get("Sex", "Unknown")),
+            race=race,
+            race_lore=describe_race(race),
+            faction=faction,
+            origin_faction=describe_origin(describe_faction(profile.get("OriginFaction", "Unknown")), faction),
+            job=profile.get("Job", "None"),
+            provisional=f"Personality: {profile.get('Personality') or 'None.'}\nBackstory: {profile.get('Backstory') or 'None.'}\nSpeech quirks: {profile.get('SpeechQuirks') or 'None.'}",
+            history="\n".join(profile.get("ConversationHistory", [])) or "None yet.",
+        )
+        language = load_settings().get("language", "English")
+        if language and language.lower() != "english":
+            prompt += f"\nLANGUAGE: The JSON values ('Personality', 'Backstory', 'SpeechQuirks') MUST be written entirely in {language}. Do not use English.\n"
+        result = robust_json_parse(call_llm("profile", [{"role": "user", "content": prompt}]))
+        bio = {key: result[key].strip() for key in ("Personality", "Backstory", "SpeechQuirks") if isinstance((result or {}).get(key), str) and result[key].strip()}
+        if len(bio) < 3:
+            logging.warning(f"PROFILE: The LLM gave no usable bio for {name}, so the profile stays provisional.")
+            return "The LLM gave no usable bio. Try again."
+        # A thread can outlive a campaign switch, and the same npc_id can name another character in the new campaign
+        if ACTIVE_CAMPAIGN != campaign:
+            logging.info(f"PROFILE: Dropped the bio of {name}, because the active campaign changed while the LLM wrote it.")
+            return "The active campaign changed while the LLM wrote the bio."
+        if not campaign_db.promote_profile(npc_id, bio):
+            logging.info(f"PROFILE: Dropped the bio of {name}, because its profile stopped being provisional while the LLM wrote it.")
+            return "The profile stopped being provisional while the LLM wrote the bio, for example after an edit on Campaign Canon."
+        logging.info(f"PROFILE: Stored the bio of {name} ({npc_id}).")
+        return None
+    finally:
+        with PROGRESS_LOCK:
+            PROFILES_IN_PROGRESS.discard(npc_id)
 
-    if not complete:
-        logging.debug("PROFILE: Batch has no NPC with complete data, so every profile waits.")
-        return
-    
-    logging.info(f"PROFILE: Batch generating {len(complete)} profiles in one call ({len(npc_list) - len(complete)} deferred)...")
-    
-    descriptions = []
-    for npc in complete:
-        name = npc.get('name', 'Unknown')
-        race = npc.get('race', 'Unknown')
-        gender = reported_sex(race, npc.get('gender', 'Unknown'))
-        faction = npc.get('faction', 'Unknown')
-        f_info = describe_faction(faction, npc.get("factionID"))
-        descriptions.append(f"- Name: {name}, Sex: {gender}, Race: {race}, Faction: {f_info}")
-    
-    desc_str = "\n".join(descriptions)
-    
-    race_lore = "\n".join(describe_race(race) for race in dict.fromkeys(npc.get('race', 'Unknown') for npc in complete))
-    prompt = fill_prompt("prompt_batch_profile_generation.txt", desc_str=desc_str, race_lore=race_lore)
-    
-    settings = load_settings()
-    language = settings.get("language", "English")
-    if language and language.lower() != "english":
-        prompt += f"\nLANGUAGE: All generated profile values ('Personality', 'Backstory', 'SpeechQuirks') MUST be written entirely in {language}. Do not use English for the values.\n"
-    
-    messages = [{"role": "user", "content": prompt}]
-    response_text = call_llm("profile_batch", messages)
-    
-    if response_text:
-        try:
-            batch_results = robust_json_parse(response_text)
-            if batch_results:
-                for npc in npc_list:
-                    raw_name = npc.get('name', 'Unknown')
-                    clean_name = raw_name.split('|')[0] if '|' in raw_name else raw_name
-                    gender = npc.get('gender', 'Neutral')
-                    
-                    profile = batch_results.get(clean_name) or batch_results.get(raw_name)
-                    
-                    if not profile:
-                        # The LLM may change the key's case or echo the "|serial" suffix
-                        clean_low = clean_name.lower()
-                        raw_low = raw_name.lower()
-                        for k, v in batch_results.items():
-                            k_low = k.lower()
-                            k_clean_low = k_low.split('|')[0].strip() if '|' in k_low else k_low.strip()
-                            
-                            if k_low == clean_low or k_low == raw_low or k_clean_low == clean_low:
-                                profile = v
-                                break
-                    
-                    npc_id = npc.get('npc_id')
-                    if profile and npc_id:
-                        data = {
-                            "Name": clean_name,
-                            "Race": npc.get('race', 'Unknown'),
-                            "Sex": reported_sex(npc.get('race', 'Unknown'), npc.get('gender', 'Unknown')),
-                            "Faction": npc.get('faction') or npc.get('Faction') or 'Unknown',
-                            "OriginFaction": npc.get('origin_faction', 'Unknown'),
-                            "Job": npc.get('job', 'None'),
-                            "Personality": profile.get("Personality", "A weary traveler."),
-                            "Backstory": profile.get("Backstory", "Trying to survive in the harsh desert."),
-                            "SpeechQuirks": profile.get("SpeechQuirks", "None."),
-                            "Relation": int(float(npc.get("relation", 0)) / 2)
-                        }
-                        campaign_db.upsert_profile(npc_id, data)
-                        logging.debug(f"PROFILE: Batch saved the profile of {clean_name} ({npc_id})")
-        except Exception as e:
-            logging.error(f"PROFILE: Cannot parse the batch profiles: {e}")
-
-def get_character_data(name, context="", skip_generate=False):
+def get_character_data(name, context=""):
     """The profile of the NPC that the context names by npc_id. Without an npc_id the profile is a stand-in that is never stored."""
     name = str(name).split('|')[0].strip()
     ctx_data = context_dict(context)
@@ -1037,8 +952,8 @@ def get_character_data(name, context="", skip_generate=False):
             logging.error(f"PROFILE: Cannot update the profile from the context: {e}")
 
     if not data:
-        if skip_generate or not npc_id:
-            logging.debug(f"PROFILE: Stand-in path 1: {name} (skip_generate={skip_generate}, npc_id={npc_id})")
+        if not npc_id:
+            logging.debug(f"PROFILE: {name} has no npc_id, so the chat uses a stand-in profile.")
             return {
                 "Name": name,
                 "Race": ctx_data.get("race", "Unknown"),
@@ -1051,63 +966,8 @@ def get_character_data(name, context="", skip_generate=False):
                 "SpeechQuirks": "None.",
                 "ConversationHistory": [],
                 "Relation": int(float(ctx_data.get("relation", 0)) / 2),
-                "_transient": True
             }
-
-        # Stops concurrent requests from generating the same NPC twice
-        with PROGRESS_LOCK:
-            if npc_id in PROFILES_IN_PROGRESS:
-                logging.debug(f"PROFILE: Stand-in path 2: {name} (Already in progress: {npc_id})")
-                return {
-                    "Name": name,
-                    "Race": "Unknown",
-                    "Sex": "Unknown",
-                    "Faction": "Unknown",
-                    "OriginFaction": "Unknown",
-                    "Job": "None",
-                    "Personality": "A quiet traveler.",
-                    "Backstory": "Unknown.",
-                    "SpeechQuirks": "None.",
-                    "ConversationHistory": [],
-                    "Relation": int(float(ctx_data.get("relation", 0)) / 2),
-                    "_transient": True
-                }
-            PROFILES_IN_PROGRESS.add(npc_id)
-
-        try:
-            profile = generate_character_profile(name, context)
-            if profile is None:
-                logging.debug(f"PROFILE: Stand-in path 3: {name} (Generator returned None)")
-                return {
-                    "Name": name,
-                    "Race": "Unknown",
-                    "Sex": "Unknown",
-                    "Faction": "Unknown",
-                    "OriginFaction": "Unknown",
-                    "Job": "None",
-                    "Personality": "A quiet traveler who keeps to themselves.",
-                    "Backstory": "Their past is unclear.",
-                    "SpeechQuirks": "Speaks sparingly.",
-                    "ConversationHistory": [],
-                    "Relation": int(float(ctx_data.get("relation", 0)) / 2),
-                    "_transient": True
-                }
-            data = {
-                "Name": name,
-                "Race": profile.get("Race", "Unknown"),
-                "Sex": profile.get("Sex", "Unknown"),
-                "Faction": profile.get("Faction", "Unknown"),
-                "OriginFaction": profile.get("OriginFaction", "Unknown"),
-                "Job": profile.get("Job", "None"),
-                "Personality": profile.get("Personality", "Unknown"),
-                "Backstory": profile.get("Backstory", "Unknown"),
-                "SpeechQuirks": profile.get("SpeechQuirks", ""),
-                "ConversationHistory": [],
-                "Relation": int(float(ctx_data.get("relation", 0)) / 2)
-            }
-        finally:
-            with PROGRESS_LOCK:
-                PROFILES_IN_PROGRESS.discard(npc_id)
+        data = new_profile(name, npc_id, ctx_data)
 
     if should_save_profile(name, npc_id, data):
         # Only the changed keys, so the write cannot undo a change that another request made since the read
@@ -1121,7 +981,7 @@ def should_save_profile(name, npc_id, data):
         return False
         
     personality = data.get("Personality", "").lower()
-    is_generic_content = any(x in personality for x in ("unknown", "generic npc", "weary wanderer", "weary traveler"))
+    is_generic_content = any(x in personality for x in ("unknown", "generic npc"))
     has_history = len(data.get("ConversationHistory", [])) > 0
     
     if is_generic_content and not has_history:
@@ -1202,21 +1062,7 @@ def ambient_event():
     char_profiles = ""
     name_to_id = {}
     
-    missing_npcs = []
     npc_limit = npcs_data[:12]
-    for npc in npc_limit:
-        if isinstance(npc, dict):
-            name = npc.get('name', 'Unknown')
-            if "your squad" in name.lower():
-                continue
-            
-            # skip_generate defers missing profiles to one batch LLM call
-            info = get_character_data(name, context=json.dumps(npc), skip_generate=True)
-            if info.get("_transient"):
-                missing_npcs.append(npc)
-                
-    if missing_npcs:
-        generate_batch_profiles(missing_npcs)
 
     recent_dialogue = []
     for npc in npc_limit:
@@ -1349,7 +1195,7 @@ INSTRUCTIONS:
         npc_ids = {}
         for npc_obj in npc_limit:
             name = npc_obj.get('name') if isinstance(npc_obj, dict) else npc_obj
-            memories[name] = get_character_data(name, context=json.dumps(npc_obj) if isinstance(npc_obj, dict) else "", skip_generate=True)
+            memories[name] = get_character_data(name, context=json.dumps(npc_obj) if isinstance(npc_obj, dict) else "")
             if isinstance(npc_obj, dict) and npc_obj.get('npc_id'):
                 npc_ids[name] = npc_obj['npc_id']
 
@@ -1496,7 +1342,7 @@ def chat():
         
     context = data.get('context', '')
 
-    # Batch profile generation reads race/faction from LIVE_CONTEXTS
+    # A new profile and the scene read race/faction from LIVE_CONTEXTS
     if primary_npc and context:
         try:
             ctx_dict = context_dict(context)
@@ -1565,61 +1411,15 @@ def chat():
         if clean_l not in listeners: listeners.append(clean_l)
 
 
-    # One batch LLM call for every listener missing a profile, instead of one call each
-    missing_for_batch = []
-    for name in listeners:
-        npc_id = npc_ids.get(name)
-        if not npc_id or campaign_db.character_exists(npc_id):
-            continue
-        # Another request may already be generating this NPC
-        with PROGRESS_LOCK:
-            if npc_id in PROFILES_IN_PROGRESS:
-                continue
-            PROFILES_IN_PROGRESS.add(npc_id)
-        live = LIVE_CONTEXTS.get(npc_id, {})
-        missing_for_batch.append({
-            "race": live.get("race", "Unknown"),
-            "gender": live.get("gender", "Unknown"),
-            "faction": live.get("faction", "Unknown"),
-            **context_dict(get_local_context(name)),
-            "name": name,
-            "npc_id": npc_id,
-        })
-
-    if missing_for_batch:
-        try:
-            generate_batch_profiles(missing_for_batch)
-        finally:
-            with PROGRESS_LOCK:
-                for ctx in missing_for_batch:
-                    PROFILES_IN_PROGRESS.discard(ctx["npc_id"])
-
     char_datas = {}
-    threads = []
-    def fetch_npc_thread(name, delay):
-        if delay > 0:
-            time.sleep(delay)
+    for name in listeners:
         try:
             char_datas[name] = get_character_data(name, get_local_context(name))
         except Exception as e:
             logging.error(f"PROFILE: Cannot fetch the profile of {name}: {e}")
 
-    delay_counter = 0
-    for name in listeners:
-        delay = 0
-        if not campaign_db.character_exists(npc_ids.get(name, "")):
-            delay = delay_counter
-            delay_counter += 1
-            
-        t = threading.Thread(target=fetch_npc_thread, args=(name, delay), daemon=True)
-        t.start()
-        threads.append(t)
-
     # The squad member who talks
     speaker = context_dict(data.get('speaker'))
-
-    for t in threads:
-        t.join()
 
     primary_data = char_datas.get(primary_npc)
     if not primary_data:
@@ -1629,9 +1429,9 @@ def chat():
     logging.info(f"CHAT: {mode} with {primary_npc} ({len(listeners) - 1} others hear it)...")
 
     primary_race = primary_data.get('Race', 'Unknown')
-    is_animal = any(kw.lower() in primary_race.lower() for kw in ANIMAL_RACES)
+    animal = is_animal(primary_race)
 
-    if is_animal:
+    if animal:
         system_prompt = f"CRITICAL: {primary_npc} is an ANIMAL ({primary_race}). Animals in Kenshi CANNOT speak human languages. They do not use words, symbols, or telegram-style speech. They ONLY react with brief physical actions, sounds, or gestures described within asterisks."
         final_instruction = f"Respond as {primary_npc} (the animal). Provide a single, BRIEF action description or sound in asterisks (e.g. *Growls*, *Tilts head*, *Nuzzles hand*). DO NOT USE WORDS OR SPEECH. Keep it under 6 words."
         judgment = ""
@@ -1685,7 +1485,7 @@ def chat():
             if not line: continue
             
             line = re.sub(r'\[\s*[^\]]+\s*\]', '', line).strip()
-            if not is_animal:
+            if not animal:
                 # An animal speaks only in *actions*; a person's *nods* is a stage direction, so it goes and the words stay
                 line = re.sub(r'\*[^*]*\*', '', line).replace('*', '').strip()
             if not line: continue
@@ -1745,6 +1545,13 @@ def chat():
                 if name in relation_deltas:
                     new_rel = campaign_db.change_relation(npc_id, relation_deltas[name])
                     logging.info(f"RELATION: {name} personal relation is now {new_rel} (judgment={relation_deltas[name]})")
+
+        primary_id = npc_ids.get(primary_npc)
+        interactions = campaign_db.count_interaction(primary_id) if primary_id and not is_ambient else None
+        threshold = load_settings()["bio_interactions"]
+        if interactions is not None and threshold and interactions >= threshold:
+            # In the background, so the reply does not wait for a second LLM call
+            threading.Thread(target=generate_bio, args=(primary_id,), daemon=True).start()
 
         logging.debug(f"CHAT: Reply: {content}")
         # The plugin takes the text before a first colon as the speaker, so the reply names its NPC first
@@ -2026,7 +1833,8 @@ def settings_page_values(settings):
         "chat_hotkey": settings["chat_hotkey"],
         "enable_welcome": settings["enable_welcome"],
         "open_web_panel_on_start": settings["open_web_panel_on_start"],
-        "log_level": log_setup.parse_level(settings["log_level"])
+        "log_level": log_setup.parse_level(settings["log_level"]),
+        "bio_interactions": settings["bio_interactions"]
     }
 
 @app.route('/settings/defaults')
@@ -2121,6 +1929,14 @@ def settings_endpoint():
             val = int(syn_timer)
             changes["synthesis_interval_minutes"] = val
             logging.info(f"SETTINGS: Synthesis timer set to {val} minutes")
+        except: pass
+
+    bio_interactions = data.get("bio_interactions")
+    if bio_interactions is not None:
+        try:
+            val = max(0, int(bio_interactions))
+            changes["bio_interactions"] = val
+            logging.info(f"SETTINGS: Bio threshold set to {val} chats")
         except: pass
 
     diag_speed = data.get("dialogue_speed")
@@ -2338,6 +2154,7 @@ def get_campaign_canon():
             "status": "ok",
             "name": ACTIVE_CAMPAIGN,
             "template": campaign_db.template_info(),
+            "bio_interactions": load_settings()["bio_interactions"],
             "overview": campaign_db.overview(),
             "history": campaign_db.history(),
             "factions": [
@@ -2387,6 +2204,11 @@ def save_campaign_record():
                 if errors: return record_refusal(errors)
                 if data.get("id") is None:
                     record_id = campaign_db.unique_npc_id(record_id)
+                elif campaign_db.PROVISIONAL in character["profile"]:
+                    # A later bio would overwrite text that the player wrote
+                    stored = campaign_db.get_character(record_id) or {}
+                    if any(character["profile"].get(key) != stored.get(key) for key in ("Personality", "Backstory", "SpeechQuirks")):
+                        del character["profile"][campaign_db.PROVISIONAL]
                 campaign_db.save_record("character", (record_id,), character["profile"], updated_at)
             else:
                 category = data.get("category")
@@ -2410,6 +2232,16 @@ def save_campaign_record():
         return record_refusal([{"field": ["kind"], "message": f"{kind} is not a kind of record."}])
     logging.info(f"CAMPAIGN: Saved the {kind} {record_id or ''} of '{ACTIVE_CAMPAIGN}' from the web app")
     return jsonify({"status": "ok", "id": record_id, "warnings": warnings})
+
+@app.route('/api/campaign/characters/bio', methods=['POST'])
+def write_campaign_bio():
+    data = request.get_json(silent=True) or {}
+    refused = campaign_write(data)
+    if refused: return refused
+    reason = generate_bio(str(data.get("id")))
+    if reason:
+        return jsonify({"status": "error", "message": reason}), 500
+    return jsonify({"status": "ok"})
 
 def save_campaign_faction(faction_id, value, updated_at):
     """Returns the warnings. Raises world_template.TemplateError, or a campaign_db error, with the reason."""
@@ -2515,6 +2347,13 @@ def regenerate_profile_route():
     if not char_data:
         logging.warning(f"PROFILE: Regen found no profile for {sid}")
         return jsonify({"status": "error", "message": "Profile not found"}), 404
+
+    # A provisional profile needs no dialogue: its traits give the LLM enough to write a first bio from
+    if campaign_db.PROVISIONAL in char_data:
+        reason = generate_bio(sid)
+        if reason:
+            return jsonify({"status": "error", "message": reason}), 500
+        return jsonify({"status": "ok", "message": f"Wrote the bio of {char_data.get('Name', sid)}."})
 
     try:
         history = char_data.get("ConversationHistory", [])

@@ -21,6 +21,8 @@ const FACTS = {
 const TEMPLATE_PARTS = ["manifest", "overview", "history"];
 const SOURCES = [["campaign", "Campaign Canon"], ["events", "Campaign Events"], ["template", "Templates"]];
 const ORIGIN_LABELS = { seed: "Seeded", game: "Met in game", campaign: "Added in this campaign" };
+// Mirrors campaign_db.PROVISIONAL: the chat count of a provisional profile is also its mark.
+const PROVISIONAL = "Interactions";
 const IMPORT_PROBLEMS_SHOWN = 10;
 
 let source = "campaign";
@@ -213,6 +215,8 @@ function kindLabel(record) {
   return record.kind === "entity" ? CATEGORY_LABELS[record.category] : KIND_LABELS[record.kind];
 }
 
+const isProvisional = (record) => source === "campaign" && record.kind === "character" && PROVISIONAL in (record.data?.profile ?? {});
+
 function searchText(record) {
   const form = drafts.get(record.key)?.form;
   return `${title(record)} ${kindLabel(record)} ${record.id ?? ""} ${JSON.stringify(form ?? record.data)}`.toLowerCase();
@@ -316,8 +320,33 @@ function characterForm(form, path, record) {
       el("p", { className: "hint" }, "The game and your chats set these details."),
       field("Relation (to you)", relationBar(form.details.Relation), null, "How much the character likes you, from -100 to 100. Your chats with the character change it."),
       source === "campaign" ? field("Current Faction", el("span", {}, record.current_faction || "Not seen this session"), null, "The faction that the game reports for the character. It shows after you select the character or talk near it while the game runs.") : null,
-      field("Original Faction", el("span", {}, form.details.OriginFaction || "Unknown"), null, "The faction that the character comes from.")),
+      field("Original Faction", el("span", {}, form.details.OriginFaction || "Unknown"), null, "The faction that the character comes from."),
+      isProvisional(record) ? field("Chats", el("span", {}, chatCount(form.details[PROVISIONAL])), null, "How many times you talked to the character. Its personality, backstory, and speech quirks are rolled, not written. When the count reaches Chats before a bio on the Settings page, the LLM writes its full bio.") : null,
+      isProvisional(record) ? el("button", { type: "button", disabled: readOnly(), onclick: () => writeBio(record) }, "Generate bio") : null),
   ];
+}
+
+function chatCount(count) {
+  const threshold = canon.bio_interactions;
+  return threshold > 0 ? `${count} of ${threshold} chats` : `${count} chats. The LLM writes the bio only when you ask for it.`;
+}
+
+async function writeBio(record) {
+  if (isChanged(record)) {
+    showMessage(message, `Save or discard the changes to ${title(record)} first.`, true);
+    return;
+  }
+  const steps = progress(`Writing the bio of ${title(record)}`, "Asking the LLM for the bio", "Loading the campaign");
+  try {
+    await sendJson("POST", "/api/campaign/characters/bio", { ...target(), id: record.id });
+    steps.next();
+    await fetchRecords(keptDrafts());
+    steps.close();
+    showMessage(message, `Wrote the bio of ${title(record)}.`);
+  } catch (error) {
+    steps.close();
+    showMessage(message, `Bio failed: ${error.message}`, true);
+  }
 }
 
 // The labels and thresholds match the relation bar that the game shows (generate_relation_bar in kenshi_llm_server.py).
@@ -482,7 +511,8 @@ function renderForm() {
     el("div", { className: "card-head" },
       el("span", {}, el("strong", { className: "name" }, title(record)), " ", el("span", { className: "badge" }, kindLabel(record)),
         record.is_player ? el("span", { className: "badge ok" }, "Your faction") : null,
-        ORIGIN_LABELS[record.origin] ? el("span", { className: `badge${record.origin === "seed" ? " seed" : ""}` }, ORIGIN_LABELS[record.origin]) : null),
+        ORIGIN_LABELS[record.origin] ? el("span", { className: `badge${record.origin === "seed" ? " seed" : ""}` }, ORIGIN_LABELS[record.origin]) : null,
+        isProvisional(record) ? el("span", { className: "badge" }, "Provisional") : null),
       deletable ? deleteButton(`Delete ${title(record)}`, () => deleteRecord(record), readOnly()) : null),
     note ? el("p", { className: `hint${note.error ? " error" : ""}` }, note.text) : null,
     ...body));
@@ -506,7 +536,7 @@ function renderList() {
         renderList();
         renderForm();
       },
-    }, el("span", { className: "name" }, title(record)), el("span", { className: "detail" }, kindLabel(record)));
+    }, el("span", { className: "name" }, title(record)), el("span", { className: "detail" }, isProvisional(record) ? "Provisional character" : kindLabel(record)));
     if (record.key === selected) item.setAttribute("aria-current", "true");
     return item;
   }));

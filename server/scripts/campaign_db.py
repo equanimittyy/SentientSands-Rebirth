@@ -19,6 +19,9 @@ SCHEMA_VERSION = 4
 MAX_DIALOGUE = 260
 DIALOGUE_BLOCK = 20
 MAX_EVENTS = 500
+# The chat count of a provisional profile also marks it as provisional: the template validator, which the campaign editor
+# also runs, takes only text and numbers as profile values, so a true/false mark could not be saved from the editor
+PROVISIONAL = "Interactions"
 
 SCHEMA = f"""
 CREATE TABLE meta (
@@ -206,6 +209,32 @@ def change_relation(npc_id, delta):
         profile["Relation"] = max(-100, min(100, int(profile.get("Relation", 0)) + delta))
         conn.execute("UPDATE character SET profile = ?, updated_at = ? WHERE id = ?", (json.dumps(profile), _now(), row[0]))
         return profile["Relation"]
+
+
+def count_interaction(npc_id):
+    """Returns the new Interactions of a provisional profile, or None if the profile is not provisional or not stored."""
+    with _connect(write=True) as conn:
+        row = conn.execute("SELECT id, profile FROM character WHERE npc_id = ?", (npc_id,)).fetchone()
+        profile = json.loads(row[1]) if row else {}
+        if PROVISIONAL not in profile:
+            return None
+        profile[PROVISIONAL] = int(profile[PROVISIONAL]) + 1
+        conn.execute("UPDATE character SET profile = ?, updated_at = ? WHERE id = ?", (json.dumps(profile), _now(), row[0]))
+        return profile[PROVISIONAL]
+
+
+def promote_profile(npc_id, bio):
+    """Writes the bio over a provisional profile, which stops being provisional. Returns False, with no write, if the profile
+    is no longer provisional, for example because the player wrote its text by hand while the LLM wrote the bio."""
+    with _connect(write=True) as conn:
+        row = conn.execute("SELECT id, profile FROM character WHERE npc_id = ?", (npc_id,)).fetchone()
+        profile = json.loads(row[1]) if row else {}
+        if PROVISIONAL not in profile:
+            return False
+        del profile[PROVISIONAL]
+        profile.update(bio)
+        conn.execute("UPDATE character SET profile = ?, updated_at = ? WHERE id = ?", (json.dumps(_stored(profile)), _now(), row[0]))
+        return True
 
 
 def append_dialogue(npc_id, lines, profile):
@@ -512,7 +541,6 @@ def _insert_character(conn, npc_id, profile):
 
 
 def _stored(profile):
-    # A stored "_transient" would block /rename and make /ambient regenerate the profile on every call
     return {k: v for k, v in profile.items() if k != "ConversationHistory" and not k.startswith("_")}
 
 

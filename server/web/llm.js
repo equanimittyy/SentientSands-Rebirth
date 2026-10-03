@@ -4,14 +4,12 @@ const TASK_LABELS = {
   chat: "Chat",
   ambient: "Radiant conversations",
   profile: "NPC profile",
-  profile_batch: "NPC profiles in a batch",
   synthesis: "World events",
 };
 const TASK_HINTS = {
   chat: "The reply of an NPC when you talk to it.",
   ambient: "A conversation between NPCs near you, on the radiant timer.",
-  profile: "The personality and backstory of one NPC, written the first time SSR needs them.",
-  profile_batch: "The profiles of several new NPCs in one call, before they speak.",
+  profile: "The full bio of an NPC, written after a few chats with it, or when you ask for one.",
   synthesis: "A new world event or rumor from the recent events, on the event timer.",
 };
 const TYPE_LABELS = { openai: "OpenAI-compatible", player2: "Player2" };

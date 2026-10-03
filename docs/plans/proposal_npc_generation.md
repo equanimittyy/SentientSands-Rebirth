@@ -44,18 +44,13 @@ The kind of a new profile comes from the `npc_id` ([architecture.md](../info/arc
 
 At a first meeting, the LLM has only the race, the faction, and the job of the NPC, so a bio from the LLM would be no better than the roll. A unique NPC without a canon row therefore starts provisional too. The LLM writes a bio only at promotion, when it has the traits and the dialogue to build on ([section 5](#5-promotion-to-a-full-profile)).
 
-A provisional profile has the keys of a full profile, and two more:
+A provisional profile has the keys of a full profile, and one more: `Interactions`, the number of chat turns in which the NPC replied to the player. An overheard turn and banter do not count. The key also marks the profile as provisional, and a bio removes it.
 
-| Key | Value |
-|---|---|
-| `Provisional` | `true` until a bio replaces the provisional text |
-| `Interactions` | The number of chat turns in which the NPC replied to the player. An overheard turn and banter do not count. |
-
-- The server counts `Interactions` only while the profile is provisional.
+- Rejected: a separate `Provisional: true` key. The template validator, which the campaign editor also runs, takes only text and numbers as profile values.
 - Provisional profiles replace each LLM call at a first meeting: batch generation (`generate_batch_profiles` and `prompt_batch_profile_generation.txt`), which served the NPCs that overhear a chat and the speakers of banter, and the first call of `generate_character_profile`.
 - The stand-ins for a generation in progress and for a failed generation go too, because a first meeting no longer waits for the LLM. The stand-in for a request without an `npc_id` stays.
 - Rejected: a count from the dialogue history. A banter line has no tag, so it looks like a reply to the player, and the history keeps only the newest 260 lines.
-- An edit of `Personality`, `Backstory`, or `SpeechQuirks` on Campaign Canon clears `Provisional`, because a later bio would overwrite the player's text.
+- An edit of `Personality`, `Backstory`, or `SpeechQuirks` on Campaign Canon removes `Interactions`, because a later bio would overwrite the player's text.
 
 ## 4. Provisional roll
 
@@ -103,14 +98,15 @@ Each trait names the kinds of character that it fits. The server finds the kind 
 
 ### 4.2 Animal personalities
 
-An animal gets no traits, no backstory, and no speech quirk. Its `Personality` is one entry, rolled from a list of 20 short texts that are written in advance, as the backstories are.
+An animal gets no traits, no backstory, and no speech quirk. Its `Personality` is one entry, rolled from a list of 20 short texts that are written in advance, as the backstories are. The roll is final, with no `Interactions`, because a bio would give the animal a backstory and a speech quirk.
 
 - One or two sentences, with "They" as the subject.
-- Only behavior that any animal can show, so each entry fits each species. It names no species, place, or person.
+- Temperament, and tendencies that the animal shows where it stands, such as nudging someone. Never a movement, such as following someone or wandering off: the game moves the animal, so the player would see it stand still.
+- Each entry fits each species. It names no species, place, or person.
 
 | Animal personality |
 |---|
-| They are wary of strangers, but they follow anyone who feeds them. |
+| They are wary of strangers, but they warm to anyone who feeds them. |
 | They are restless and curious, and they poke at everything new. |
 | They are slow and placid, and they turn fierce only when cornered. |
 
@@ -174,9 +170,9 @@ The threshold is a new setting, `bio_interactions`, with a default of 5. A value
 
 Bio generation:
 
-- `prompt_profile_generation.txt` becomes the bio prompt, because no first meeting uses it any more. It keeps its values and gets two more: `{provisional}`, the provisional `Personality`, `Backstory`, and `SpeechQuirks`, and `{history}`, the dialogue lines of the NPC.
+- `prompt_profile_generation.txt` becomes the bio prompt, because no first meeting uses it any more. It keeps its values except the live context, which a request from the web app does not have, and gets two more: `{provisional}`, the provisional `Personality`, `Backstory`, and `SpeechQuirks`, and `{history}`, the dialogue lines of the NPC.
 - The prompt tells the LLM to keep the traits, to expand the backstory so that it fits the race, the faction, and the job, and to keep true everything that the NPC said in the dialogue. The reply has the JSON keys of a profile today.
-- The write holds only `Personality`, `Backstory`, and `SpeechQuirks`, and it clears `Provisional` and `Interactions`. A route that waits for the LLM must write only the keys that it changed ([architecture.md](../info/architecture.md#campaign-storage)).
+- The write holds only `Personality`, `Backstory`, and `SpeechQuirks`, and it removes `Interactions`. A route that waits for the LLM must write only the keys that it changed ([architecture.md](../info/architecture.md#campaign-storage)).
 - `PROFILES_IN_PROGRESS` stops a threshold bio and a requested bio for the same NPC from running together.
 - After a failed call, the profile stays provisional. The count stays at or above the threshold, so the next chat turn tries again.
 - A background thread keeps the reply from waiting for a second LLM call. The plugin stops waiting after 60 s.

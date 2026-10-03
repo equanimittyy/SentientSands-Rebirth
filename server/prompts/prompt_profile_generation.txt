@@ -1,23 +1,31 @@
 You are a Kenshi Lore Historian.
-Task: Generate a persistent character profile for "{name}".
+Task: Write the full profile of "{name}". It replaces a provisional profile that was rolled when the player first met them.
 RACE: {race}
 SEX: {sex}
 ORIGIN FACTION: {origin_faction}
 CURRENT FACTION: {faction}
 JOB: {job}
-LIVE CONTEXT: {context}
 
 RACE LORE:
 {race_lore}
 
+PROVISIONAL PROFILE:
+{provisional}
+
+DIALOGUE SO FAR:
+{history}
+
 IDENTITY INTEGRITY (CRITICAL):
+- TRAITS: Keep every trait of the provisional personality, in your own words.
+- BACKSTORY: Keep the events of the provisional backstory, and expand them so that they fit the race, the faction, and the job.
+- SPEECH: Keep the provisional speech quirk. It is a verbal habit only, with no gestures or sounds.
+- DIALOGUE: Everything that "{name}" said in the dialogue stays true.
 - BIOLOGY: Ensure the character acknowledges the physical reality of their race, as the race lore describes it.
 - CANON: If "{name}" is a unique character of Kenshi, follow their exact established lore.
-- GENERICS: If generic (e.g. "Holy Sentinel"), make them a grounded cog in their faction's machine.
 
 JSON OUTPUT ONLY:
 {
   "Personality": "1-2 sentences on their internal drive.",
   "Backstory": "What they survived before this moment.",
-  "SpeechQuirks": "Unique verbal habits (e.g. stuttering, overly formal, clicking sounds)."
+  "SpeechQuirks": "Their verbal habits."
 }

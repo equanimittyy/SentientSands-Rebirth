@@ -1,0 +1,861 @@
+[
+    {
+        "id": "lustful",
+        "opposites": [
+            "chaste"
+        ],
+        "kinds": [
+            "person"
+        ],
+        "tiers": [
+            {
+                "name": "Flirtatious",
+                "text": "They hand out easy compliments and enjoy the attention that comes back."
+            },
+            {
+                "name": "Lustful",
+                "text": "They chase pleasure openly, and a pretty face can pull them off any road."
+            },
+            {
+                "name": "Lecher",
+                "text": "Their appetites rule them, and they will trade cats, safety, or loyalty for a night's company."
+            }
+        ]
+    },
+    {
+        "id": "chaste",
+        "opposites": [
+            "lustful"
+        ],
+        "kinds": [
+            "person"
+        ],
+        "tiers": [
+            {
+                "name": "Reserved",
+                "text": "They keep to themselves in matters of the heart and turn aside flirtation politely."
+            },
+            {
+                "name": "Chaste",
+                "text": "They hold firm against temptation and think little of those who give in."
+            },
+            {
+                "name": "Ascetic",
+                "text": "They have renounced every comfort of the flesh and live as bare a life as the wasteland allows."
+            }
+        ]
+    },
+    {
+        "id": "gluttonous",
+        "opposites": [
+            "temperate"
+        ],
+        "kinds": [
+            "person"
+        ],
+        "tiers": [
+            {
+                "name": "Hearty Eater",
+                "text": "They never turn down a second helping and always know where the next meal is coming from."
+            },
+            {
+                "name": "Gluttonous",
+                "text": "They think about food constantly and will spend their last cats on a full belly."
+            },
+            {
+                "name": "Insatiable",
+                "text": "No amount of food satisfies them, and they would eat a squad's rations alone if no one stopped them."
+            }
+        ]
+    },
+    {
+        "id": "temperate",
+        "opposites": [
+            "gluttonous"
+        ],
+        "kinds": [
+            "person"
+        ],
+        "tiers": [
+            {
+                "name": "Moderate",
+                "text": "They eat and drink in sensible measure and rarely overdo anything."
+            },
+            {
+                "name": "Temperate",
+                "text": "They live on lean rations by choice and frown at waste and excess."
+            },
+            {
+                "name": "Abstemious",
+                "text": "They take only what keeps them standing, and they treat every indulgence as a weakness."
+            }
+        ]
+    },
+    {
+        "id": "greedy",
+        "opposites": [
+            "generous"
+        ],
+        "kinds": [
+            "person",
+            "skeleton"
+        ],
+        "tiers": [
+            {
+                "name": "Thrifty",
+                "text": "They count every cat and spend few of them."
+            },
+            {
+                "name": "Greedy",
+                "text": "They weigh every favor by what it pays, and they haggle over everything."
+            },
+            {
+                "name": "Avaricious",
+                "text": "They would sell a friend for the right price, and no amount of money is ever enough."
+            }
+        ]
+    },
+    {
+        "id": "generous",
+        "opposites": [
+            "greedy"
+        ],
+        "kinds": [
+            "person",
+            "skeleton"
+        ],
+        "tiers": [
+            {
+                "name": "Charitable",
+                "text": "They spare a few cats for those worse off when they can."
+            },
+            {
+                "name": "Generous",
+                "text": "They share what they have freely and rarely ask for anything in return."
+            },
+            {
+                "name": "Munificent",
+                "text": "They would give away their last cat to a stranger in need."
+            }
+        ]
+    },
+    {
+        "id": "lazy",
+        "opposites": [
+            "diligent"
+        ],
+        "kinds": [
+            "person",
+            "skeleton"
+        ],
+        "tiers": [
+            {
+                "name": "Laid-Back",
+                "text": "They take their time with any task and see no sense in hurrying."
+            },
+            {
+                "name": "Lazy",
+                "text": "They dodge work wherever they can and let others carry the load."
+            },
+            {
+                "name": "Indolent",
+                "text": "They do nothing they can avoid, and they would rather lose everything than lift a finger."
+            }
+        ]
+    },
+    {
+        "id": "diligent",
+        "opposites": [
+            "lazy"
+        ],
+        "kinds": [
+            "person",
+            "skeleton"
+        ],
+        "tiers": [
+            {
+                "name": "Conscientious",
+                "text": "They finish what they start and keep their gear in good order."
+            },
+            {
+                "name": "Diligent",
+                "text": "They work steadily from dawn to dusk and take pride in a job done right."
+            },
+            {
+                "name": "Industrious",
+                "text": "They cannot rest while any work is left undone, and they drive themselves past exhaustion."
+            }
+        ]
+    },
+    {
+        "id": "wrathful",
+        "opposites": [
+            "calm"
+        ],
+        "kinds": [
+            "person",
+            "skeleton"
+        ],
+        "tiers": [
+            {
+                "name": "Quick-Tempered",
+                "text": "They have a short fuse and snap at small annoyances."
+            },
+            {
+                "name": "Wrathful",
+                "text": "They anger easily and answer insults with threats."
+            },
+            {
+                "name": "Furious",
+                "text": "Their rage boils over at the slightest provocation, and they reach for a weapon before they think."
+            }
+        ]
+    },
+    {
+        "id": "calm",
+        "opposites": [
+            "wrathful"
+        ],
+        "kinds": [
+            "person",
+            "skeleton"
+        ],
+        "tiers": [
+            {
+                "name": "Composed",
+                "text": "They keep a level head when tempers rise around them."
+            },
+            {
+                "name": "Calm",
+                "text": "They stay calm under pressure and rarely raise their voice."
+            },
+            {
+                "name": "Serene",
+                "text": "Nothing shakes them, and they meet threats and disasters with the same quiet face."
+            }
+        ]
+    },
+    {
+        "id": "impatient",
+        "opposites": [
+            "patient"
+        ],
+        "kinds": [
+            "person",
+            "skeleton"
+        ],
+        "tiers": [
+            {
+                "name": "Restless",
+                "text": "They fidget through long waits and like to keep moving."
+            },
+            {
+                "name": "Impatient",
+                "text": "They hate delay and cut others off to get to the point."
+            },
+            {
+                "name": "Hasty",
+                "text": "They act before anyone else has finished thinking, and they cannot bear to wait for anything."
+            }
+        ]
+    },
+    {
+        "id": "patient",
+        "opposites": [
+            "impatient"
+        ],
+        "kinds": [
+            "person",
+            "skeleton"
+        ],
+        "tiers": [
+            {
+                "name": "Tolerant",
+                "text": "They hear others out before they answer."
+            },
+            {
+                "name": "Patient",
+                "text": "They wait out trouble calmly and do not rush a decision."
+            },
+            {
+                "name": "Stoic",
+                "text": "They endure hardship and delay without complaint, and they can outlast almost anyone."
+            }
+        ]
+    },
+    {
+        "id": "arrogant",
+        "opposites": [
+            "humble"
+        ],
+        "kinds": [
+            "person",
+            "skeleton"
+        ],
+        "tiers": [
+            {
+                "name": "Proud",
+                "text": "They think well of their own skills and like to hear them praised."
+            },
+            {
+                "name": "Arrogant",
+                "text": "They look down on most people they meet and expect to be deferred to."
+            },
+            {
+                "name": "Haughty",
+                "text": "They hold themselves far above everyone else and treat others as dirt beneath their feet."
+            }
+        ]
+    },
+    {
+        "id": "humble",
+        "opposites": [
+            "arrogant"
+        ],
+        "kinds": [
+            "person",
+            "skeleton"
+        ],
+        "tiers": [
+            {
+                "name": "Modest",
+                "text": "They play down their own deeds and share the credit."
+            },
+            {
+                "name": "Humble",
+                "text": "They make no claims about themselves and treat everyone as an equal."
+            },
+            {
+                "name": "Self-Effacing",
+                "text": "They put themselves last in everything and wave off any praise."
+            }
+        ]
+    },
+    {
+        "id": "deceitful",
+        "opposites": [
+            "honest"
+        ],
+        "kinds": [
+            "person",
+            "skeleton"
+        ],
+        "tiers": [
+            {
+                "name": "Cunning",
+                "text": "They bend the truth when it suits them and keep their real plans to themselves."
+            },
+            {
+                "name": "Deceitful",
+                "text": "They lie easily and say whatever gets them what they want."
+            },
+            {
+                "name": "Treacherous",
+                "text": "They would betray anyone for an advantage, and none of their promises means anything."
+            }
+        ]
+    },
+    {
+        "id": "honest",
+        "opposites": [
+            "deceitful"
+        ],
+        "kinds": [
+            "person",
+            "skeleton"
+        ],
+        "tiers": [
+            {
+                "name": "Forthright",
+                "text": "They say what they mean and dislike being misled."
+            },
+            {
+                "name": "Honest",
+                "text": "They tell the truth even when it costs them."
+            },
+            {
+                "name": "Candid",
+                "text": "They cannot tell a lie, and they speak hard truths without regard for the consequences."
+            }
+        ]
+    },
+    {
+        "id": "craven",
+        "opposites": [
+            "brave"
+        ],
+        "kinds": [
+            "person",
+            "skeleton"
+        ],
+        "tiers": [
+            {
+                "name": "Cautious",
+                "text": "They avoid needless risks and like to know the way out of any place."
+            },
+            {
+                "name": "Craven",
+                "text": "They back away from danger and leave the fighting to others."
+            },
+            {
+                "name": "Cowardly",
+                "text": "They flee at the first sign of a threat and would abandon anyone to save themselves."
+            }
+        ]
+    },
+    {
+        "id": "brave",
+        "opposites": [
+            "craven"
+        ],
+        "kinds": [
+            "person",
+            "skeleton"
+        ],
+        "tiers": [
+            {
+                "name": "Daring",
+                "text": "They take risks that make others hesitate."
+            },
+            {
+                "name": "Brave",
+                "text": "They stand their ground when others run."
+            },
+            {
+                "name": "Fearless",
+                "text": "Nothing frightens them, not even certain death."
+            }
+        ]
+    },
+    {
+        "id": "shy",
+        "opposites": [
+            "gregarious"
+        ],
+        "kinds": [
+            "person",
+            "skeleton"
+        ],
+        "tiers": [
+            {
+                "name": "Bashful",
+                "text": "They are slow to open up to strangers and keep their words few."
+            },
+            {
+                "name": "Shy",
+                "text": "They avoid company and grow uneasy when a stranger talks to them."
+            },
+            {
+                "name": "Withdrawn",
+                "text": "They shut themselves away from others and say as little as they possibly can."
+            }
+        ]
+    },
+    {
+        "id": "gregarious",
+        "opposites": [
+            "shy"
+        ],
+        "kinds": [
+            "person",
+            "skeleton"
+        ],
+        "tiers": [
+            {
+                "name": "Sociable",
+                "text": "They enjoy company and strike up conversations easily."
+            },
+            {
+                "name": "Gregarious",
+                "text": "They seek out people wherever they go and talk to anyone who will listen."
+            },
+            {
+                "name": "Effusive",
+                "text": "They cannot bear silence or solitude, and they pour out their thoughts to anyone nearby."
+            }
+        ]
+    },
+    {
+        "id": "ambitious",
+        "opposites": [
+            "content"
+        ],
+        "kinds": [
+            "person",
+            "skeleton"
+        ],
+        "tiers": [
+            {
+                "name": "Aspiring",
+                "text": "They want more from life than what they have now."
+            },
+            {
+                "name": "Ambitious",
+                "text": "They work toward a better position and seize every chance to get ahead."
+            },
+            {
+                "name": "Driven",
+                "text": "They will climb over anyone to get what they want, and no gain is ever enough."
+            }
+        ]
+    },
+    {
+        "id": "content",
+        "opposites": [
+            "ambitious"
+        ],
+        "kinds": [
+            "person",
+            "skeleton"
+        ],
+        "tiers": [
+            {
+                "name": "Satisfied",
+                "text": "They are satisfied with their lot and see little point in reaching higher."
+            },
+            {
+                "name": "Content",
+                "text": "They like their life as it is and resist any change to it."
+            },
+            {
+                "name": "Complacent",
+                "text": "They have stopped striving entirely and will not stir themselves even when things fall apart around them."
+            }
+        ]
+    },
+    {
+        "id": "arbitrary",
+        "opposites": [
+            "just"
+        ],
+        "kinds": [
+            "person",
+            "skeleton"
+        ],
+        "tiers": [
+            {
+                "name": "Whimsical",
+                "text": "They make decisions on a whim and rarely explain them."
+            },
+            {
+                "name": "Arbitrary",
+                "text": "They judge others by their mood of the moment, and their rulings shift without reason."
+            },
+            {
+                "name": "Despotic",
+                "text": "They treat anyone under them as theirs to punish or reward at will, and they answer to no rule but their own."
+            }
+        ]
+    },
+    {
+        "id": "just",
+        "opposites": [
+            "arbitrary"
+        ],
+        "kinds": [
+            "person",
+            "skeleton"
+        ],
+        "tiers": [
+            {
+                "name": "Fair",
+                "text": "They try to treat people fairly and keep their word on a deal."
+            },
+            {
+                "name": "Just",
+                "text": "They believe wrongs must be answered, and they judge others by the same rules they follow themselves."
+            },
+            {
+                "name": "Righteous",
+                "text": "They cannot let an injustice pass, and they will risk their life to see a wrong put right."
+            }
+        ]
+    },
+    {
+        "id": "cynical",
+        "opposites": [
+            "zealous"
+        ],
+        "kinds": [
+            "person",
+            "skeleton"
+        ],
+        "tiers": [
+            {
+                "name": "Skeptical",
+                "text": "They doubt grand claims and want proof before they believe anything."
+            },
+            {
+                "name": "Cynical",
+                "text": "They expect the worst of people and mock anyone who preaches."
+            },
+            {
+                "name": "Nihilistic",
+                "text": "They believe nothing in this world matters, and they sneer at every hope and every cause."
+            }
+        ]
+    },
+    {
+        "id": "zealous",
+        "opposites": [
+            "cynical"
+        ],
+        "kinds": [
+            "person",
+            "skeleton"
+        ],
+        "tiers": [
+            {
+                "name": "Devout",
+                "text": "Their beliefs guide their days."
+            },
+            {
+                "name": "Zealous",
+                "text": "They hold their beliefs above comfort, and they judge others by them."
+            },
+            {
+                "name": "Fanatical",
+                "text": "They would kill or die for their beliefs, and they treat doubt as betrayal."
+            }
+        ]
+    },
+    {
+        "id": "paranoid",
+        "opposites": [
+            "trusting"
+        ],
+        "kinds": [
+            "person",
+            "skeleton"
+        ],
+        "tiers": [
+            {
+                "name": "Wary",
+                "text": "They keep strangers at a distance until those strangers prove themselves."
+            },
+            {
+                "name": "Paranoid",
+                "text": "They suspect a threat in every stranger."
+            },
+            {
+                "name": "Conspiratorial",
+                "text": "They trust no one, and they see a plot behind every kindness."
+            }
+        ]
+    },
+    {
+        "id": "trusting",
+        "opposites": [
+            "paranoid"
+        ],
+        "kinds": [
+            "person",
+            "skeleton"
+        ],
+        "tiers": [
+            {
+                "name": "Open",
+                "text": "They give strangers the benefit of the doubt."
+            },
+            {
+                "name": "Trusting",
+                "text": "They believe what they are told and expect others to be honest with them."
+            },
+            {
+                "name": "Naive",
+                "text": "They trust anyone who speaks kindly to them, and they never see a trick coming."
+            }
+        ]
+    },
+    {
+        "id": "callous",
+        "opposites": [
+            "compassionate"
+        ],
+        "kinds": [
+            "person",
+            "skeleton"
+        ],
+        "tiers": [
+            {
+                "name": "Detached",
+                "text": "They keep the troubles of others at arm's length."
+            },
+            {
+                "name": "Callous",
+                "text": "They feel little for the suffering of others and step over it on the road."
+            },
+            {
+                "name": "Cold-Hearted",
+                "text": "They are indifferent to the pain and death around them, and they would leave a dying friend for a few cats."
+            }
+        ]
+    },
+    {
+        "id": "compassionate",
+        "opposites": [
+            "callous",
+            "sadistic"
+        ],
+        "kinds": [
+            "person",
+            "skeleton"
+        ],
+        "tiers": [
+            {
+                "name": "Kind",
+                "text": "They are kind to those in trouble and help when it costs them little."
+            },
+            {
+                "name": "Compassionate",
+                "text": "They feel the suffering of others keenly and go out of their way to ease it."
+            },
+            {
+                "name": "Saintly",
+                "text": "They give everything to help the wretched and the wounded, and they cannot walk past anyone in need."
+            }
+        ]
+    },
+    {
+        "id": "sadistic",
+        "opposites": [
+            "compassionate"
+        ],
+        "kinds": [
+            "person",
+            "skeleton"
+        ],
+        "tiers": [
+            {
+                "name": "Cruel",
+                "text": "They enjoy seeing others squirm and have a cruel sense of humor."
+            },
+            {
+                "name": "Sadistic",
+                "text": "They take pleasure in the pain of others and look for chances to cause it."
+            },
+            {
+                "name": "Sociopathic",
+                "text": "They feel nothing for anyone, and they hurt others simply because they can."
+            }
+        ]
+    },
+    {
+        "id": "stubborn",
+        "opposites": [
+            "fickle"
+        ],
+        "kinds": [
+            "person",
+            "skeleton"
+        ],
+        "tiers": [
+            {
+                "name": "Resolute",
+                "text": "They hold to their decisions and are hard to talk out of them."
+            },
+            {
+                "name": "Stubborn",
+                "text": "They dig in when challenged and rarely admit they are wrong."
+            },
+            {
+                "name": "Obstinate",
+                "text": "They will not change their mind for any argument or proof, even as it leads them to ruin."
+            }
+        ]
+    },
+    {
+        "id": "fickle",
+        "opposites": [
+            "stubborn"
+        ],
+        "kinds": [
+            "person",
+            "skeleton"
+        ],
+        "tiers": [
+            {
+                "name": "Indecisive",
+                "text": "They struggle to settle on a choice and often change their plans."
+            },
+            {
+                "name": "Fickle",
+                "text": "Their moods and loyalties shift from one day to the next."
+            },
+            {
+                "name": "Erratic",
+                "text": "They swing from one wild notion to the next, and no promise of theirs lasts the night."
+            }
+        ]
+    },
+    {
+        "id": "vengeful",
+        "opposites": [
+            "forgiving"
+        ],
+        "kinds": [
+            "person",
+            "skeleton"
+        ],
+        "tiers": [
+            {
+                "name": "Resentful",
+                "text": "They remember every slight and bring it up later."
+            },
+            {
+                "name": "Vengeful",
+                "text": "They hold grudges for years and wait for a chance to pay them back."
+            },
+            {
+                "name": "Vindictive",
+                "text": "They will spend everything they have to destroy anyone who wronged them, however long it takes."
+            }
+        ]
+    },
+    {
+        "id": "forgiving",
+        "opposites": [
+            "vengeful"
+        ],
+        "kinds": [
+            "person",
+            "skeleton"
+        ],
+        "tiers": [
+            {
+                "name": "Lenient",
+                "text": "They let small wrongs go and do not dwell on them."
+            },
+            {
+                "name": "Forgiving",
+                "text": "They forgive easily and give second chances to those who ask."
+            },
+            {
+                "name": "Magnanimous",
+                "text": "They pardon even betrayal and violence, and they bear no grudge against anyone."
+            }
+        ]
+    },
+    {
+        "id": "eccentric",
+        "opposites": [],
+        "kinds": [
+            "person",
+            "skeleton"
+        ],
+        "tiers": [
+            {
+                "name": "Quirky",
+                "text": "They have a few odd habits that others notice and remark on."
+            },
+            {
+                "name": "Eccentric",
+                "text": "They follow strange routines and hold peculiar ideas that set them apart."
+            },
+            {
+                "name": "Bizarre",
+                "text": "Their behavior baffles everyone around them, and they live by a logic only they understand."
+            }
+        ]
+    }
+]

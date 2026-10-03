@@ -15,7 +15,6 @@ TASKS = {
     "chat": {"max_tokens": 2048, "temperature": 0.8},
     "ambient": {"max_tokens": 2048, "temperature": 0.8},
     "profile": {"max_tokens": 1500, "temperature": 0.7},
-    "profile_batch": {"max_tokens": 1500, "temperature": 0.7},
     "synthesis": {"max_tokens": 2048, "temperature": 0.8},
 }
 PROVIDER_TYPES = ("openai", "player2")
