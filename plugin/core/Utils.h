@@ -15,6 +15,7 @@ std::string EscapeJSON(const std::string &s);
 std::string UnescapeJSON(const std::string &s);
 std::wstring Utf8ToWide(const std::string &str);
 std::string GetJsonValue(const std::string &json, const std::string &key);
+bool ContainsIgnoreCase(const std::string &text, const std::string &query);
 void LoadPluginConfig();
 void SetHotkeyFromString(const std::string &keyStr);
 void LoadUITranslation(const std::string &json);

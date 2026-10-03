@@ -222,6 +222,17 @@ std::string GetJsonValue(const std::string &json, const std::string &key) {
   return "";
 }
 
+static bool CharEqualIgnoreCase(char a, char b) {
+  return tolower((unsigned char)a) == tolower((unsigned char)b);
+}
+
+// Folds ASCII only, so a Cyrillic letter matches only in the same case
+bool ContainsIgnoreCase(const std::string &text, const std::string &query) {
+  return query.empty() ||
+         std::search(text.begin(), text.end(), query.begin(), query.end(),
+                     CharEqualIgnoreCase) != text.end();
+}
+
 void SetHotkeyFromString(const std::string &keyStr) {
   g_chatHotkeyStr = keyStr;
   if (keyStr == "\\")

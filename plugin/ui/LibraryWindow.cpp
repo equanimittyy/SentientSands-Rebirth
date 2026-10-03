@@ -21,8 +21,11 @@ MyGUI::Button *g_libraryLatestBtn = nullptr;
 MyGUI::Button *g_libraryAZBtn = nullptr;
 MyGUI::Button *g_libraryFavBtn = nullptr;
 MyGUI::Button *g_libraryRegenBtn = nullptr;
+MyGUI::EditBox *g_librarySearch = nullptr;
 
 std::vector<std::string> g_libraryStorageIds;
+std::vector<std::string> g_libraryAllNames;
+std::vector<std::string> g_libraryAllSids;
 std::string g_librarySortMode = "alphabetical";
 std::vector<std::string> g_libraryFavorites;
 
@@ -37,7 +40,10 @@ void CloseLibraryUI() {
     g_libraryAZBtn = nullptr;
     g_libraryFavBtn = nullptr;
     g_libraryRegenBtn = nullptr;
+    g_librarySearch = nullptr;
     g_libraryStorageIds.clear();
+    g_libraryAllNames.clear();
+    g_libraryAllSids.clear();
     g_libraryFavorites.clear();
   }
 }
@@ -134,6 +140,32 @@ void OnLibraryRegenerateClick(MyGUI::Widget *sender) {
   CreateThread(NULL, 0, RegenHelper::ThreadProc, t, 0, NULL);
 }
 
+void ApplyLibraryFilter(const std::string &keepSid) {
+  g_libraryList->removeAllItems();
+  g_libraryStorageIds.clear();
+  std::string query =
+      g_librarySearch ? g_librarySearch->getOnlyText().asUTF8() : "";
+  for (size_t i = 0; i < g_libraryAllSids.size(); i++) {
+    const std::string &name = g_libraryAllNames[i];
+    const std::string &sid = g_libraryAllSids[i];
+    if (!ContainsIgnoreCase(name, query))
+      continue;
+    bool isFav = std::find(g_libraryFavorites.begin(), g_libraryFavorites.end(),
+                           sid) != g_libraryFavorites.end();
+    g_libraryList->addItem(Utf8ToWide(isFav ? "[*] " + name : name).c_str());
+    g_libraryStorageIds.push_back(sid);
+    if (sid == keepSid)
+      g_libraryList->setIndexSelected(g_libraryStorageIds.size() - 1);
+  }
+}
+
+void OnLibrarySearchChange(MyGUI::EditBox *sender) {
+  size_t index = g_libraryList->getIndexSelected();
+  ApplyLibraryFilter(index < g_libraryStorageIds.size()
+                         ? g_libraryStorageIds[index]
+                         : "");
+}
+
 void PopulateLibraryUI(const std::string &dataInput) {
   if (!g_libraryList)
     return;
@@ -144,8 +176,8 @@ void PopulateLibraryUI(const std::string &dataInput) {
     selSid = g_libraryStorageIds[selIndex];
   }
 
-  g_libraryList->removeAllItems();
-  g_libraryStorageIds.clear();
+  g_libraryAllNames.clear();
+  g_libraryAllSids.clear();
   g_libraryFavorites.clear();
 
   std::string data = dataInput;
@@ -206,17 +238,8 @@ void PopulateLibraryUI(const std::string &dataInput) {
           sid = entry.substr(pipePos + 1);
         }
 
-        bool isFav = false;
-        for (size_t f = 0; f < g_libraryFavorites.size(); f++) {
-          if (g_libraryFavorites[f] == sid) {
-            isFav = true;
-            break;
-          }
-        }
-
-        g_libraryList->addItem(
-            Utf8ToWide(isFav ? "[*] " + display : display).c_str());
-        g_libraryStorageIds.push_back(sid);
+        g_libraryAllNames.push_back(display);
+        g_libraryAllSids.push_back(sid);
       }
       cur = next + 1;
     }
@@ -236,28 +259,12 @@ void PopulateLibraryUI(const std::string &dataInput) {
         sid = last.substr(pipePos + 1);
       }
 
-      bool isFav = false;
-      for (size_t f = 0; f < g_libraryFavorites.size(); f++) {
-        if (g_libraryFavorites[f] == sid) {
-          isFav = true;
-          break;
-        }
-      }
-
-      g_libraryList->addItem(
-          Utf8ToWide(isFav ? "[*] " + display : display).c_str());
-      g_libraryStorageIds.push_back(sid);
+      g_libraryAllNames.push_back(display);
+      g_libraryAllSids.push_back(sid);
     }
   }
 
-  if (!selSid.empty()) {
-    for (size_t i = 0; i < g_libraryStorageIds.size(); i++) {
-      if (g_libraryStorageIds[i] == selSid) {
-        g_libraryList->setIndexSelected(i);
-        break;
-      }
-    }
-  }
+  ApplyLibraryFilter(selSid);
 }
 
 void SetLibraryText(const std::string &data) {
@@ -390,8 +397,25 @@ void CreateLibraryUI() {
   g_libraryFavBtn->eventMouseButtonClick +=
       MyGUI::newDelegate(OnLibraryFavoriteClick);
 
+  MyGUI::TextBox *searchLabel = client->createWidgetReal<MyGUI::TextBox>(
+      "Kenshi_TextboxStandardText", 0.02f, 0.075f, 0.08f, 0.05f,
+      MyGUI::Align::Left | MyGUI::Align::Top, "SentientSands_LibSearchLabel");
+  searchLabel->setCaption(Utf8ToWide(T("Search")).c_str());
+  searchLabel->setTextAlign(MyGUI::Align::Left | MyGUI::Align::VCenter);
+
+  g_librarySearch = client->createWidgetReal<MyGUI::EditBox>(
+      "Kenshi_EditBox", 0.10f, 0.075f, 0.20f, 0.05f,
+      MyGUI::Align::Left | MyGUI::Align::Top, "SentientSands_LibSearch");
+  g_librarySearch->setEditMultiLine(false);
+  g_librarySearch->setEditWordWrap(false);
+  g_librarySearch->setVisibleVScroll(false);
+  g_librarySearch->setTextAlign(MyGUI::Align::Default);
+  g_librarySearch->setFontHeight(18);
+  g_librarySearch->eventEditTextChange +=
+      MyGUI::newDelegate(OnLibrarySearchChange);
+
   g_libraryList = client->createWidgetReal<MyGUI::ListBox>(
-      "Kenshi_ListBox", 0.02f, 0.07f, 0.28f, 0.91f,
+      "Kenshi_ListBox", 0.02f, 0.135f, 0.28f, 0.845f,
       MyGUI::Align::Left | MyGUI::Align::VStretch, "SentientSands_LibraryList");
   g_libraryList->eventListSelectAccept +=
       MyGUI::newDelegate(OnLibraryNPCSelect);

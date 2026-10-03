@@ -53,7 +53,8 @@
         "Dialogue lines: ": "Dialogue lines: ",
         "events: ": "events: ",
         "rumors: ": "rumors: ",
-        "Cull failed: ": "Cull failed: "
+        "Cull failed: ": "Cull failed: ",
+        "Search": "Search"
     },
     "Spanish": {
         "Talking to: ": "Hablando con: ",
@@ -109,7 +110,8 @@
         "Dialogue lines: ": "Líneas de diálogo: ",
         "events: ": "eventos: ",
         "rumors: ": "rumores: ",
-        "Cull failed: ": "Purga fallida: "
+        "Cull failed: ": "Purga fallida: ",
+        "Search": "Buscar"
     },
     "French": {
         "Talking to: ": "Discussion avec : ",
@@ -165,7 +167,8 @@
         "Dialogue lines: ": "Lignes de dialogue : ",
         "events: ": "événements : ",
         "rumors: ": "rumeurs : ",
-        "Cull failed: ": "Échec de la purge : "
+        "Cull failed: ": "Échec de la purge : ",
+        "Search": "Rechercher"
     },
     "Japanese": {
         "Talking to: ": "会話相手: ",
@@ -221,7 +224,8 @@
         "Dialogue lines: ": "会話: ",
         "events: ": "イベント: ",
         "rumors: ": "噂: ",
-        "Cull failed: ": "削除失敗: "
+        "Cull failed: ": "削除失敗: ",
+        "Search": "検索"
     },
     "Russian": {
         "Talking to: ": "Разговор с: ",
@@ -277,6 +281,7 @@
         "Dialogue lines: ": "Строки диалогов: ",
         "events: ": "события: ",
         "rumors: ": "слухи: ",
-        "Cull failed: ": "Удаление не удалось: "
+        "Cull failed: ": "Удаление не удалось: ",
+        "Search": "Поиск"
     }
 }

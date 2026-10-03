@@ -1452,7 +1452,13 @@ void playerUpdate_hook(PlayerInterface *thisptr) {
     }
   }
 
-  if ((GetAsyncKeyState(g_chatHotkey) & 0x8000) && !g_chatWindow &&
+  // The hotkey is polled from the keyboard, so it would fire while the player
+  // types its key into a text box
+  MyGUI::InputManager *input = MyGUI::InputManager::getInstancePtr();
+  MyGUI::Widget *keyFocus = input ? input->getKeyFocusWidget() : nullptr;
+  bool typing = keyFocus && keyFocus->isType<MyGUI::EditBox>();
+
+  if (!typing && (GetAsyncKeyState(g_chatHotkey) & 0x8000) && !g_chatWindow &&
       !g_libraryWindow) {
     static DWORD lastTalkTick = 0;
     if (GetTickCount() - lastTalkTick > 500) {

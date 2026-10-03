@@ -14,7 +14,11 @@ namespace UI {
 MyGUI::Window *g_eventsWindow = nullptr;
 MyGUI::ListBox *g_eventsList = nullptr;
 MyGUI::ListBox *g_eventsText = nullptr;
+MyGUI::EditBox *g_eventsSearch = nullptr;
 std::vector<std::string> g_eventsStorageIds;
+std::vector<std::string> g_eventsAllIds;
+std::vector<std::string> g_eventsAllTitles;
+std::vector<std::string> g_eventsAllTexts;
 
 void CloseEventsUI() {
   if (g_eventsWindow) {
@@ -23,35 +27,54 @@ void CloseEventsUI() {
     g_eventsWindow = nullptr;
     g_eventsList = nullptr;
     g_eventsText = nullptr;
+    g_eventsSearch = nullptr;
     g_eventsStorageIds.clear();
+    g_eventsAllIds.clear();
+    g_eventsAllTitles.clear();
+    g_eventsAllTexts.clear();
   }
+}
+
+void ApplyEventsFilter(const std::string &keepId) {
+  g_eventsList->removeAllItems();
+  g_eventsStorageIds.clear();
+  std::string query =
+      g_eventsSearch ? g_eventsSearch->getOnlyText().asUTF8() : "";
+  for (size_t i = 0; i < g_eventsAllIds.size(); i++) {
+    if (!ContainsIgnoreCase(g_eventsAllTexts[i], query))
+      continue;
+    g_eventsList->addItem(Utf8ToWide(g_eventsAllTitles[i]).c_str());
+    g_eventsStorageIds.push_back(g_eventsAllIds[i]);
+    if (g_eventsAllIds[i] == keepId)
+      g_eventsList->setIndexSelected(g_eventsStorageIds.size() - 1);
+  }
+}
+
+void OnEventsSearchChange(MyGUI::EditBox *sender) {
+  size_t index = g_eventsList->getIndexSelected();
+  ApplyEventsFilter(index < g_eventsStorageIds.size()
+                        ? g_eventsStorageIds[index]
+                        : "");
 }
 
 void PopulateEventsUI(const std::string &data) {
   if (!g_eventsList)
     return;
-  g_eventsList->removeAllItems();
-  g_eventsStorageIds.clear();
-  size_t cur = 0;
-  // JSON Format: [{"id": "...", "title": "..."}, ...]
-  while ((cur = data.find("\"id\":", cur)) != std::string::npos) {
-    cur = data.find("\"", cur + 5);
-    if (cur == std::string::npos)
-      break;
-    size_t idEnd = data.find("\"", cur + 1);
-    std::string id = data.substr(cur + 1, idEnd - cur - 1);
-
-    size_t titleField = data.find("\"title\":", idEnd);
-    if (titleField == std::string::npos)
-      break;
-    size_t titleStart = data.find("\"", titleField + 8);
-    size_t titleEnd = data.find("\"", titleStart + 1);
-    std::string title = data.substr(titleStart + 1, titleEnd - titleStart - 1);
-
-    g_eventsList->addItem(Utf8ToWide(UnescapeJSON(title)).c_str());
-    g_eventsStorageIds.push_back(id);
-    cur = titleEnd;
+  g_eventsAllIds.clear();
+  g_eventsAllTitles.clear();
+  g_eventsAllTexts.clear();
+  // Flask sorts the keys, so each object's "inner" and "title" lie between its
+  // "id" and the next one; an escaped quote in a value cannot fake an "id": key
+  size_t cur = data.find("\"id\":");
+  while (cur != std::string::npos) {
+    size_t next = data.find("\"id\":", cur + 5);
+    std::string entry = data.substr(cur, next - cur);
+    g_eventsAllIds.push_back(GetJsonValue(entry, "id"));
+    g_eventsAllTitles.push_back(GetJsonValue(entry, "title"));
+    g_eventsAllTexts.push_back(GetJsonValue(entry, "inner"));
+    cur = next;
   }
+  ApplyEventsFilter("");
 }
 
 void SetEventsText(const std::string &data) {
@@ -168,8 +191,26 @@ void CreateEventsUI() {
 
   MyGUI::Widget *client = g_eventsWindow->getClientWidget();
 
+  MyGUI::TextBox *searchLabel = client->createWidgetReal<MyGUI::TextBox>(
+      "Kenshi_TextboxStandardText", 0.02f, 0.02f, 0.07f, 0.06f,
+      MyGUI::Align::Left | MyGUI::Align::Top,
+      "SentientSands_EventsSearchLabel");
+  searchLabel->setCaption(Utf8ToWide(T("Search")).c_str());
+  searchLabel->setTextAlign(MyGUI::Align::Left | MyGUI::Align::VCenter);
+
+  g_eventsSearch = client->createWidgetReal<MyGUI::EditBox>(
+      "Kenshi_EditBox", 0.09f, 0.02f, 0.21f, 0.06f,
+      MyGUI::Align::Left | MyGUI::Align::Top, "SentientSands_EventsSearch");
+  g_eventsSearch->setEditMultiLine(false);
+  g_eventsSearch->setEditWordWrap(false);
+  g_eventsSearch->setVisibleVScroll(false);
+  g_eventsSearch->setTextAlign(MyGUI::Align::Default);
+  g_eventsSearch->setFontHeight(18);
+  g_eventsSearch->eventEditTextChange +=
+      MyGUI::newDelegate(OnEventsSearchChange);
+
   g_eventsList = client->createWidgetReal<MyGUI::ListBox>(
-      "Kenshi_ListBox", 0.02f, 0.02f, 0.28f, 0.82f,
+      "Kenshi_ListBox", 0.02f, 0.10f, 0.28f, 0.74f,
       MyGUI::Align::Left | MyGUI::Align::VStretch, "SentientSands_EventsList");
   g_eventsList->eventListSelectAccept += MyGUI::newDelegate(OnEventsSelect);
   g_eventsList->eventListChangePosition += MyGUI::newDelegate(OnEventsSelect);
