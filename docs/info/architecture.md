@@ -148,7 +148,9 @@ The server answers a Yell with one NPC, as a Talk. A Yell differs only in that t
 
 The reply text of `/chat` starts with the name of the NPC, because the plugin takes the text before a first colon as the speaker (`plugin/ui/ChatWindow.cpp`). A reply such as "Listen: ..." therefore stays with the NPC. The server removes a `*stage direction*` from a person's reply, but an animal replies only in `*actions*`, so those stay.
 
-The two profile prompts take `{race_lore}` from the race entries of the campaign (`describe_race`), matched by name or alias with case ignored. A template that describes its races therefore shapes new profiles, and a race with no entry gets a line that says so.
+The two profile prompts take `{race_lore}` from the race entries of the campaign (`describe_race`), matched by name or alias with case ignored. A template that describes its races therefore shapes new profiles, and a race with no entry gets a line that says so. The `{player_race}` of the system prompt takes the entry of the player's race in the same way, and only the name of a race with no entry.
+
+When the origin faction of an NPC is its current faction, the chat and profile prompts give the origin as "Same as the current faction." (`describe_origin`), because the prompt already holds the whole entry of that faction.
 
 ## LLM routing
 
@@ -212,7 +214,7 @@ The canon of a campaign is its copy of the template records: the overview, the h
 | Character | `character` table (see [Characters](#characters)); the profile as JSON | `u:` and the game ID |
 | Race, location, region | `entity` table, with `races`, `locations`, or `regions` as the category; the whole template record as JSON | The category and the entity ID |
 
-- The chat prompt reads the overview, the factions, and the profiles of the characters in the chat. The profile prompts read the races (see [Prompts](#prompts)). No prompt reads the history, the locations, or the regions yet.
+- The chat prompt reads the overview, the factions, the race of the player, and the profiles of the characters in the chat. The profile prompts read the races (see [Prompts](#prompts)). No prompt reads the history, the locations, or the regions yet.
 - `origin` tells where a record came from: `seed` (the copy of the template at creation), `game` (a faction that a context reported, or a character that the server added in play), or `campaign` (added on the web app).
 - A save checks the record with the template validator (`world_template.record_problems`), so a campaign record follows the same rules as a template record. The validator sees only one record, so the database refuses a second faction or character with the same game ID.
 - The key of a faction or a character, its game ID or its `npc_id`, cannot change after the record is added.

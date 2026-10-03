@@ -111,17 +111,25 @@ def describe_faction(name, faction_id=None):
         return f"{name}: A minor or specialized group in the wasteland."
     return describe_record(faction)
 
+def describe_origin(origin, current):
+    """Most NPCs still belong to their origin faction, whose whole entry the prompt already holds."""
+    return "Same as the current faction." if origin == current else origin
+
 def describe_record(record):
     details = "; ".join(f"{key}: {', '.join(value) if isinstance(value, list) else value}" for key, value in record.get("fields", {}).items())
     text = f"{record['name']} ({details})" if details else record["name"]
     return f"{text}: {record['description']}" if record.get("description") else text
 
-def describe_race(race):
+def find_race(race):
     wanted = str(race).strip().lower()
     for (category, _), entry, *_ in campaign_db.list_records("entity"):
         if category == "races" and wanted in (name.lower() for name in [entry.get("name", ""), *entry.get("aliases", [])]):
-            return describe_record(entry)
-    return f"{race}: The campaign has no entry for this race."
+            return entry
+    return None
+
+def describe_race(race):
+    entry = find_race(race)
+    return describe_record(entry) if entry else f"{race}: The campaign has no entry for this race."
 
 def note_faction(ctx, is_player=False):
     """Records each faction that the game reports, so the player can describe a modded or minor faction on the Campaigns page."""
@@ -809,8 +817,6 @@ def fill_prompt(filename, **values):
 def format_player_status(player_ctx):
     if not player_ctx: return "No status data."
     res = "PLAYER STATUS:\n"
-    res += f"- Race: {player_ctx.get('race', 'Unknown')}\n"
-    res += f"- Gender: {reported_sex(player_ctx.get('race', ''), player_ctx.get('gender', 'male'))}\n"
     med = player_ctx.get("medical", {})
     if med:
         hunger = med.get("hunger", 300)
@@ -867,14 +873,15 @@ def describe_bio(profile):
 
 def describe_npc(name, profile, npc_id):
     race = profile.get("Race", "Unknown")
+    current_faction = describe_faction(profile.get("Faction"), LIVE_CONTEXTS.get(npc_id, {}).get("factionID"))
     return fill_prompt(
         "npc_chat_template.txt",
         name=name,
         race=race,
         sex=reported_sex(race, profile.get("Sex", "Unknown")),
         job=profile.get("Job", "None"),
-        current_faction=describe_faction(profile.get("Faction"), LIVE_CONTEXTS.get(npc_id, {}).get("factionID")),
-        origin_faction=describe_faction(profile.get("OriginFaction", "Unknown")),
+        current_faction=current_faction,
+        origin_faction=describe_origin(describe_faction(profile.get("OriginFaction", "Unknown")), current_faction),
         personality=profile.get("Personality"),
         backstory=profile.get("Backstory"),
         speech_quirks=profile.get("SpeechQuirks") or "None.",
@@ -903,12 +910,13 @@ def build_system_prompt(player_name="Drifter", speaker=None, speaker_profile=Non
 
     player_race = player.get("race", "Unknown")
     player_gender = reported_sex(player_race, player.get("gender", "male"))
+    race_entry = find_race(player_race)
 
     prompt = fill_prompt(
         "prompt_system.txt",
         world_lore=world_lore,
         player_name=player_name,
-        player_race=player_race,
+        player_race=describe_record(race_entry) if race_entry else player_race,
         player_gender=player_gender,
         player_bio=player_bio,
         player_faction=faction_block,
@@ -1124,7 +1132,7 @@ def generate_character_profile(name, context=""):
     logging.info(f"PROFILE: Generating the profile of {name} ({gender} {race}, Base Faction: {origin_faction}, Job: {job})...")
     
     f_info = describe_faction(faction, ctx_data.get("factionID") or live_ctx.get("factionID"))
-    o_info = describe_faction(origin_faction)
+    o_info = describe_origin(describe_faction(origin_faction), f_info)
 
     prompt = fill_prompt("prompt_profile_generation.txt", name=name, sex=gender, race=race, race_lore=describe_race(race), faction=f_info, origin_faction=o_info, job=job, context=context)
     

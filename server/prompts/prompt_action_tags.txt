@@ -51,7 +51,6 @@ IMPORTANT: Action tags are OPTIONAL. Only use them if a specific, intentional ac
 - [ACTION: TAKE_CATS:Amount] -> NPC takes money FROM the player. (Deduction)
   - DIRECTION: Player Wallet -> NPC Wallet (Player gets poorer).
   - USE FOR: Selling items to player, bribes, taxes, or robbery.
-  - CRITICAL: Never use this until the player has explicitly agreed to the price in chat.
   - Example: "Good, we have agreed on a price of 200 cats for the info. [ACTION: TAKE_CATS:200]"
 
 - [ACTION: FOLLOW_PLAYER] -> Use if you agree to follow the player around.
