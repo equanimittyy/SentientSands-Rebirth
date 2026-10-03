@@ -440,9 +440,10 @@ void CreateChatUI(const std::string &npcName, const std::string &handleStr) {
 
   std::string actualNpcName = npcName;
   // Auto-renaming runs on NameAssignThread so CreateChatUI never blocks on HTTP.
+  // Not "Popup": a click there raises the window over its open speaker list
   g_chatWindow = gui->createWidgetReal<MyGUI::Window>(
       "Kenshi_WindowCX", 0.1875f, 0.4f, 0.625f, 0.18f, MyGUI::Align::Center,
-      "Popup", "SentientSands_ChatWindow");
+      "Window", "SentientSands_ChatWindow");
   g_chatWindow->setCaption(
       Utf8ToWide(T("Talking to: ") + actualNpcName).c_str());
   g_chatWindow->eventWindowButtonPressed +=
@@ -458,6 +459,7 @@ void CreateChatUI(const std::string &npcName, const std::string &handleStr) {
       SPEAKER_BOX_SKIN, 0.62f, 0.05f, 0.33f, 0.22f,
       MyGUI::Align::Top | MyGUI::Align::Right, "SentientSands_ChatSpeaker");
   g_chatSpeakerBox->setComboModeDrop(true);
+  g_chatSpeakerBox->setSmoothShow(false);
   for (size_t i = 0; i < g_chatSpeakers.size(); ++i) {
     Character *member = g_chatSpeakers[i].getCharacter();
     g_chatSpeakerBox->addItem(
