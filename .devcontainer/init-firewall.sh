@@ -72,6 +72,8 @@ REQUIRED_DOMAINS=(
 )
 OPTIONAL_DOMAINS=(
     "downloads.claude.ai"
+    "kenshi.fandom.com"
+    "kenshi.wiki"
 )
 
 allow_domain() {
