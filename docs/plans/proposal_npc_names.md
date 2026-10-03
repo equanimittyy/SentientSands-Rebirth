@@ -12,7 +12,7 @@ Today the plugin names each generic NPC as soon as it sees it, and the new name 
 | The first chat with the NPC ([section 4](#4-naming-at-the-first-chat)) | Starving Bandit Josh |
 | The NPC joins the player's faction ([section 5](#5-recruits)) | Josh |
 
-The provisional profiles of [proposal_npc_generation.md](proposal_npc_generation.md) do not depend on this plan, and this plan does not depend on them.
+The provisional profiles ([architecture.md](../info/architecture.md#provisional-profiles)) do not depend on this plan, and this plan does not depend on them.
 
 Non-goals:
 
