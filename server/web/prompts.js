@@ -10,8 +10,8 @@ const openCards = new Set();
 const OTHER = "Other prompts";
 const PROMPT_INFO = {
   "prompt_system.txt": { group: "Conversations", title: "System prompt", blurb: "The frame of every chat and radiant conversation. It places the prompts below, the location, the player, and the recent world events." },
-  "npc_base.txt": { group: "Conversations", title: "NPC persona", blurb: "Who every NPC is at heart: a weary survivor of Kenshi who stays in character." },
-  "response_rules.txt": { group: "Conversations", title: "Reply rules", blurb: "How an NPC writes a reply: spoken words only, short, with no formatting or modern slang." },
+  "npc_base.txt": { group: "Conversations", title: "NPC persona", blurb: "The base persona of every NPC. The profile of each NPC adds to it." },
+  "response_rules.txt": { group: "Conversations", title: "Reply rules", blurb: "The rules for how an NPC writes a reply." },
   "prompt_action_tags.txt": { group: "Conversations", title: "Action tags", blurb: "The game actions that an NPC can take from a reply, such as attack, join your squad, or give an item." },
   "prompt_chat_template.txt": { group: "Conversations", title: "Chat template", blurb: "How a chat request is put together: the system prompt, the NPC profiles, the conversation so far, and the final instruction." },
   "prompt_profile_generation.txt": { group: "NPC profiles", title: "One NPC profile", blurb: "Writes the personality, backstory, and speech quirks of one NPC the first time SSR needs them." },
