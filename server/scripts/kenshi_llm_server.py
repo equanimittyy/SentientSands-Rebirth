@@ -290,7 +290,10 @@ def ensure_campaign_seeded(cdir):
 
 def load_campaign_config():
     try:
-        campaign_db.open_campaign(get_campaign_dir(), lambda: world_template.campaign_seed(DEFAULT_TEMPLATE, WORLD_TEMPLATES_DIR, USER_TEMPLATES_DIR))
+        if ACTIVE_CAMPAIGN:
+            campaign_db.open_campaign(get_campaign_dir(), lambda: world_template.campaign_seed(DEFAULT_TEMPLATE, WORLD_TEMPLATES_DIR, USER_TEMPLATES_DIR))
+        else:
+            campaign_db.close_campaign()
         push_generic_names_to_dll()
     except Exception as e:
         logging.error(f"CAMPAIGN: Cannot load the campaign: {e}")
@@ -767,7 +770,7 @@ def init_server_state():
         settings = load_settings()
         log_setup.set_level(settings["log_level"])
         ACTIVE_CAMPAIGN = settings.get("current_campaign", "Default")
-        logging.info(f"CAMPAIGN: Active campaign: {ACTIVE_CAMPAIGN}")
+        logging.info(f"CAMPAIGN: Active campaign: {ACTIVE_CAMPAIGN or 'none'}")
         
         # Backfills missing keys into the INI with defaults
         _save_settings_raw(settings)
@@ -2723,7 +2726,7 @@ def create_campaign(name, template):
 def switch_campaign(name):
     global ACTIVE_CAMPAIGN, LIVE_CONTEXTS
     cdir = os.path.join(CAMPAIGNS_DIR, name)
-    if os.path.exists(cdir):
+    if not name or os.path.exists(cdir):
         ACTIVE_CAMPAIGN = name
         save_settings({"current_campaign": name})
         LIVE_CONTEXTS.clear()
@@ -2830,10 +2833,8 @@ def delete_campaign():
     names = campaign_names()
     if name not in names:
         return jsonify({"status": "error", "message": f"There is no campaign named {name}."}), 404
-    if len(names) == 1:
-        return jsonify({"status": "error", "message": f"{name} is your only campaign. Create another campaign before you delete it."}), 409
     if name == ACTIVE_CAMPAIGN:
-        switch_campaign(next(other for other in names if other != name))
+        switch_campaign(next((other for other in names if other != name), ""))
     import shutil
     try:
         shutil.rmtree(os.path.join(CAMPAIGNS_DIR, name))

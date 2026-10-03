@@ -161,6 +161,10 @@ A new campaign is a copy of a world template (see [World templates](#world-templ
 
 `open_campaign` creates `campaign.db` in a campaign folder that has none, from the Vanilla Kenshi template. It builds the database in `campaign.db.tmp` and then renames it to `campaign.db`. A crash before the rename leaves no database, so the next start creates it again. A database of an earlier schema version is not upgraded: `open_campaign` refuses it, and each later operation fails with the reason until the player switches to another campaign.
 
+After the player deletes the last campaign, the server has no current campaign: `current_campaign` is empty, and each operation fails with the reason until the player creates and chooses a campaign. The empty value stays across a restart, so the server does not create a campaign again.
+
+A `campaign.db` that is gone while the server runs, for example because the player deleted the folder by hand, makes each operation fail with the reason in the same way.
+
 ### Campaign canon
 
 The canon of a campaign is its copy of the template records: the overview, the history, the factions, the characters, and the world entries.
@@ -194,7 +198,7 @@ Each campaign holds its own copy of the factions, keyed by the string ID of the 
 | `GET /api/campaigns` | Each campaign with its template |
 | `POST /api/campaigns` | Create a campaign from a template, with no switch |
 | `POST /api/campaigns/switch` | Make a campaign the current one. The name must be a folder that the campaign list shows, so a name such as `../x` cannot point outside `server/campaigns/`. |
-| `POST /api/campaigns/delete` | Delete a campaign folder, with the same name check. The server refuses to delete the last campaign, because the server always needs a current campaign. Before it deletes the current campaign, it switches to the first other one. |
+| `POST /api/campaigns/delete` | Delete a campaign folder, with the same name check. Before it deletes the current campaign, it switches to the first other one. When no other campaign remains, the server has no current campaign (see [Campaign storage](#campaign-storage)). |
 | `GET /api/campaign` | The active campaign: its template, events, and rumors. A refused campaign gives status 409 with the reason. |
 | `GET /api/campaign/canon` | The canon of the active campaign, each record with its `origin` and `updated_at`. A refused campaign gives status 409 with the reason. |
 | `POST /api/campaign/records`, `.../records/delete` | Save or delete one canon record of the active campaign. A faction, character, or world entry with no ID is new. |

@@ -79,7 +79,7 @@ window.addEventListener("beforeunload", (event) => {
 async function poll() {
   try {
     const context = await getJson("/context");
-    status.textContent = `Current Campaign: ${context.campaign}`;
+    status.textContent = `Current Campaign: ${context.campaign || "None"}`;
     if (campaign !== null && context.campaign !== campaign) document.dispatchEvent(new CustomEvent("campaignchange", { detail: context.campaign }));
     campaign = context.campaign;
   } catch {

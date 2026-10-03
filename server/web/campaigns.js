@@ -71,6 +71,7 @@ function renderCampaigns() {
 function renderCurrent() {
   const current = campaigns.find((campaign) => campaign.active)?.name ?? active?.name;
   const choice = el("select", { onchange: (event) => switchCampaign(event.target.value) },
+    campaigns.some((campaign) => campaign.name === current) ? null : el("option", { value: "", disabled: true, selected: true }, "None"),
     ...campaigns.map((campaign) => new Option(campaign.name, campaign.name, false, campaign.name === current)));
   const template = active?.template.name ? `Made from ${templateTitle(active.template.name)} ${active.template.version ?? ""}`.trim() : null;
   return [el("fieldset", {},
@@ -124,13 +125,10 @@ async function createCampaign(event) {
 }
 
 async function deleteCampaign(campaign) {
-  if (campaigns.length === 1) {
-    await tell("Cannot delete the campaign", `${campaign.name} is your only campaign. Create another campaign before you delete it.`);
-    return;
-  }
-  const next = campaigns.find((other) => other !== campaign).name;
+  const next = campaigns.find((other) => other !== campaign)?.name;
+  const switchNote = next ? `SSR switches to ${next} first` : "SSR has no current campaign until you create and choose one";
   if (!(await ask(`Delete ${campaign.name}`, "Delete", `This deletes the campaign ${campaign.name} with its NPC memories, factions, world events, and rumors. `,
-    campaign.active ? `It is the current campaign, so SSR switches to ${next} first${hasChanges() ? ", and your unsaved changes are lost" : ""}. ` : "",
+    campaign.active ? `It is the current campaign, so ${switchNote}${hasChanges() ? ", and your unsaved changes are lost" : ""}. ` : "",
     "\n\n", el("b", { className: "warning" }, "The delete takes effect immediately and is irreversible!")))) return;
   try {
     await sendJson("POST", "/api/campaigns/delete", { name: campaign.name });

@@ -106,6 +106,13 @@ def open_campaign(folder, seed):
             raise CampaignUnavailable(_closed_reason)
 
 
+def close_campaign():
+    global _db_path, _closed_reason
+    with _open_lock:
+        _db_path = None
+        _closed_reason = "No campaign is selected. On the Campaigns tab, choose one under Current Campaign, or create one under Campaign Manager."
+
+
 def read_meta(folder):
     """The meta rows of the database in folder, or {} if it has none. It opens the file read-only, so any campaign can be read."""
     path = os.path.join(folder, DB_NAME)
@@ -482,6 +489,8 @@ def delete_record(kind, key):
 def _connect(write=False):
     if _db_path is None:
         raise CampaignUnavailable(_closed_reason)
+    if not os.path.exists(_db_path):
+        raise CampaignUnavailable(f"The campaign {os.path.basename(os.path.dirname(_db_path))} has no {DB_NAME} file. On the Campaigns tab, choose or create another campaign.")
     # mode=rw: a missing file must fail, not become an empty database that the next open takes as created
     conn = sqlite3.connect(Path(os.path.abspath(_db_path)).as_uri() + "?mode=rw", uri=True, timeout=5, isolation_level=None)
     try:
