@@ -1,4 +1,4 @@
-import { ask, el, field, getJson, icon, reportUnsaved, sendJson, setFieldError, showMessage, tell } from "./api.js";
+import { ask, deleteButton, el, field, getJson, reportUnsaved, sendJson, setFieldError, showMessage, tell } from "./api.js";
 
 const page = document.getElementById("campaigns-page");
 const message = document.getElementById("campaigns-message");
@@ -40,12 +40,6 @@ function textInput(object, key, path, { tag = "input", label, ...props } = {}) {
   return input;
 }
 
-function iconButton(name, label, onClick) {
-  const button = el("button", { type: "button", className: "icon-button", onclick: onClick }, icon(name));
-  button.setAttribute("aria-label", label);
-  return button;
-}
-
 const templateTitle = (name) => templates.find((template) => template.name === name)?.title ?? name;
 
 function render() {
@@ -61,7 +55,7 @@ function renderCampaigns() {
     el("strong", { className: "name" }, campaign.name),
     campaign.template ? el("span", { className: "detail" }, `from ${templateTitle(campaign.template)}`) : null,
     campaign.active ? el("span", { className: "badge ok" }, "Current") : null,
-    iconButton("trash", `Delete the campaign ${campaign.name}`, () => deleteCampaign(campaign))));
+    deleteButton(`Delete the campaign ${campaign.name}`, () => deleteCampaign(campaign))));
   const template = el("select", { onchange: (event) => { creation.template = event.target.value; } },
     ...templates.map((entry) => new Option(entry.title, entry.name, false, entry.name === creation.template)));
   return el("fieldset", {},
@@ -97,7 +91,7 @@ function renderRumors() {
   const rows = active.rumors.map((rumor) => el("div", { className: "card" },
     el("div", { className: "inline row" },
       textInput(rumorDrafts, rumor.id, ["rumors", rumor.id], { tag: "textarea", rows: 2, label: "Rumor" }),
-      iconButton("trash", "Delete the rumor", () => deleteRow("rumor", rumor.id))),
+      deleteButton("Delete the rumor", () => deleteRow("rumor", rumor.id))),
     noteLine(`rumor:${rumor.id}`)));
   return el("fieldset", {},
     el("legend", {}, `Rumors (${active.rumors.length})`),
@@ -108,7 +102,7 @@ function renderRumors() {
 function renderEvents() {
   const rows = [...active.events].reverse().map((event) => el("li", {},
     el("span", { className: "detail" }, event.line),
-    iconButton("trash", "Delete the event", () => deleteRow("event", event.id))));
+    deleteButton("Delete the event", () => deleteRow("event", event.id))));
   return el("fieldset", {},
     el("legend", {}, `Event history (${active.events.length})`),
     el("p", { className: "hint" }, "What happened in game, newest first. SSR writes the rumors from it."),

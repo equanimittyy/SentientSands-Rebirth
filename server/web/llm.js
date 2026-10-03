@@ -1,4 +1,4 @@
-import { ask, confirmReset, el, field, getJson, icon, reportUnsaved, sendJson, setFieldError, showMessage } from "./api.js";
+import { ask, confirmReset, deleteButton, el, field, getJson, icon, reportUnsaved, sendJson, setFieldError, showMessage } from "./api.js";
 
 const TASK_LABELS = {
   chat: "Chat",
@@ -231,7 +231,7 @@ async function removeProvider(name) {
   }
   const users = Object.keys(state.profiles).filter((profile) => state.profiles[profile].provider === name);
   const one = users.length === 1;
-  if (users.length > 0 && !(await ask(`Remove ${name}`, "Remove", `The profile${one ? "" : "s"} ${joinNames(users)} use${one ? "s" : ""} this provider. Remove ${one ? "it" : "them"} too?`))) return;
+  if (users.length > 0 && !(await ask(`Delete ${name}`, "Delete", `The profile${one ? "" : "s"} ${joinNames(users)} use${one ? "s" : ""} this provider. Delete ${one ? "it" : "them"} too?`))) return;
   users.forEach(dropProfile);
   delete state.providers[name];
   changed();
@@ -244,7 +244,7 @@ async function removeProfile(name) {
   }
   const users = tasks.filter((task) => state.routes[task].profiles.includes(name)).map((task) => TASK_LABELS[task] ?? task);
   const one = users.length === 1;
-  if (users.length > 0 && !(await ask(`Remove ${name}`, "Remove", `${joinNames(users)} use${one ? "s" : ""} this profile. Remove it from ${one ? "that task" : "them"} too?`))) return;
+  if (users.length > 0 && !(await ask(`Delete ${name}`, "Delete", `${joinNames(users)} use${one ? "s" : ""} this profile. Delete it, and take it out of ${one ? "that task" : "them"}?`))) return;
   dropProfile(name);
   changed();
 }
@@ -301,7 +301,7 @@ function renderProviders() {
       field("API key", keyInput(provider, path("api_key")), null, "The page never shows a stored key. Leave this field empty to keep the stored key. A local server, for example Ollama, needs no key."),
       provider.type === "player2" ? field("Game key", textInput(provider, "game_key", path("game_key")), null, "The game ID that you register with Player2.") : null,
       el("div", { className: "card-actions" },
-        button("Remove", () => removeProvider(name), `Remove ${name}`)),
+        deleteButton(`Delete ${name}`, () => removeProvider(name))),
       el("fieldset", {},
         el("legend", {}, "Profiles (Models)"),
         el("p", { className: "hint" }, "A profile is one model from this provider, with its own timeout and settings. Several tasks can use the same profile."),
@@ -413,7 +413,7 @@ function renderProfile(name, profile) {
     el("div", { className: "card-actions" },
       button("Test", () => testProfile(name), `Test ${name}`),
       el("span", { className: `message${result && !result.ok && !result.pending ? " error" : ""}` }, result?.text ?? ""),
-      button("Remove", () => removeProfile(name), `Remove ${name}`)));
+      deleteButton(`Delete ${name}`, () => removeProfile(name))));
 }
 
 function move(list, index, offset) {
@@ -466,7 +466,7 @@ function renderRoutes() {
         el("span", { className: "chain-buttons" },
           button(icon("arrow-up"), index > 0 && (() => move(route.profiles, index, -1)), `Move ${name} up`),
           button(icon("arrow-down"), index < route.profiles.length - 1 && (() => move(route.profiles, index, 1)), `Move ${name} down`),
-          isDefault ? el("button", { type: "button", className: "spacer" }, icon("trash")) : button(icon("trash"), () => { route.profiles.splice(index, 1); changed(); }, `Remove ${name} from ${label}`)));
+          isDefault ? el("button", { type: "button", className: "danger spacer" }, "Delete") : deleteButton(`Delete ${name} from ${label}`, () => { route.profiles.splice(index, 1); changed(); })));
     });
     return el("div", { className: "card" },
       el("div", { className: "card-head" }, el("strong", {}, label)),

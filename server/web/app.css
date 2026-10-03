@@ -629,11 +629,6 @@ input[type="search"] {
   flex: 0 0 6rem;
 }
 
-.icon-button {
-  flex: none;
-  padding: 0.35rem 0.5rem;
-}
-
 .subtabs {
   display: flex;
   gap: 0.25rem;

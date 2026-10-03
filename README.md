@@ -47,7 +47,7 @@ On the **Models** page, a provider is one OpenAI-compatible endpoint: a base URL
 A profile is one model on one provider, and the page shows it in the card of that provider. It holds the exact model ID that the provider expects (for example `anthropic/claude-3.5-sonnet`), a timeout, and optional extra request parameters as JSON. **List models** gets the model IDs from the provider, so the Model ID field can suggest them as you type. **Test** sends a short request to the profile as the page shows it, so you can test before you save.
 
 ### Default profile
-The **Default LLM Profile** box at the top of the **Models** page sets the profile that every task uses. Each task list shows the default in bold. You can move it up or down, but you cannot remove it. To remove the default profile or its provider, choose another default first.
+The **Default LLM Profile** box at the top of the **Models** page sets the profile that every task uses. Each task list shows the default in bold. You can move it up or down, but you cannot delete it. To delete the default profile or its provider, choose another default first.
 
 ### Tasks
 Each task (chat, radiant conversations, NPC profiles, and world events) has an ordered list of profiles. The server tries them in order, and moves to the next profile after an error, a timeout, or an empty reply. List a profile twice to retry it. The game stops waiting after 60 s, so keep each deadline below that.
@@ -55,7 +55,7 @@ Each task (chat, radiant conversations, NPC profiles, and world events) has an o
 The server keeps this configuration in `server/user/llm_config.json`. A mod update does not replace it, so your keys stay.
 
 ### Campaigns and world templates
-The **Campaigns** page lists your campaigns and creates a new one from a world template. It also edits the rumors and events of the current campaign. To switch campaigns, choose one under **Current Campaign**. The next chat uses it. The bin next to a campaign deletes it, but you always keep at least one campaign. Loaded an older save? **Cull future data** makes NPCs forget what happened after it.
+The **Campaigns** page lists your campaigns and creates a new one from a world template. It also edits the rumors and events of the current campaign. To switch campaigns, choose one under **Current Campaign**. The next chat uses it. **Delete** next to a campaign deletes it, but you always keep at least one campaign. Loaded an older save? **Cull future data** makes NPCs forget what happened after it.
 
 The **Editor** page edits the canon of a world: the overview that every NPC knows, the history, the factions, the characters, and world entries such as towns and zones. It has two subtabs:
 

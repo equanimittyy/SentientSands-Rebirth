@@ -62,6 +62,12 @@ export function field(label, input, status, help) {
   return el("label", {}, help ? withHelp(label, help) : label, status ?? null, input);
 }
 
+export function deleteButton(label, onClick, disabled = false) {
+  const button = el("button", { type: "button", className: "danger", disabled, onclick: onClick }, "Delete");
+  button.setAttribute("aria-label", label);
+  return button;
+}
+
 export const icon = (name) => el("span", { className: "icon", style: `--icon: url(/web/images/lucide/${name}.svg)` });
 
 export function showMessage(element, text, isError = false) {

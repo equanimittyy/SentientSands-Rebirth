@@ -1,4 +1,4 @@
-import { ask, el, field, getJson, icon, reportUnsaved, sendJson, setFieldError, showMessage } from "./api.js";
+import { ask, deleteButton, el, field, getJson, reportUnsaved, sendJson, setFieldError, showMessage } from "./api.js";
 
 const page = document.getElementById("editor-page");
 const message = document.getElementById("editor-message");
@@ -199,18 +199,12 @@ function control(tag, object, key, path, { label, disabled = false, ...props } =
   return input;
 }
 
-function iconButton(name, label, onClick) {
-  const button = el("button", { type: "button", className: "icon-button", disabled: readOnly(), onclick: onClick }, icon(name));
-  button.setAttribute("aria-label", label);
-  return button;
-}
-
 function addButton(text, onClick) {
   return el("button", { type: "button", disabled: readOnly(), onclick: () => { onClick(); changed(); renderForm(); } }, text);
 }
 
 function removeButton(list, index, label) {
-  return iconButton("trash", label, () => { list.splice(index, 1); changed(); renderForm(); });
+  return deleteButton(label, () => { list.splice(index, 1); changed(); renderForm(); }, readOnly());
 }
 
 function rowsEditor(legend, hint, list, path, { long = false, placeholder = "Name" } = {}) {
@@ -220,7 +214,7 @@ function rowsEditor(legend, hint, list, path, { long = false, placeholder = "Nam
     ...list.map((row, index) => el("div", { className: "inline row" },
       control("input", row, "key", [...path, index, "key"], { placeholder, label: `${legend} name` }),
       control(long ? "textarea" : "input", row, "value", [...path, index, "value"], { placeholder: row.list ? "Values, separated by commas" : "Value", rows: 3, label: `${legend} value` }),
-      removeButton(list, index, `Remove the ${legend.toLowerCase()} row`))),
+      removeButton(list, index, `Delete the ${legend.toLowerCase()} row`))),
     addButton(`Add ${legend.toLowerCase().replace(/s$/, "")}`, () => list.push({ key: "", value: "", list: false })));
 }
 
@@ -253,7 +247,7 @@ function characterForm(form, path, record) {
       ...others.map((row) => el("div", { className: "inline row" },
         control("input", row, "key", [...path, "profile", "other", row.key, "key"], { placeholder: "Key", label: "Profile key" }),
         control("input", row, "value", [...path, "profile", "other", row.key, "value"], { placeholder: "Value", label: "Profile value" }),
-        removeButton(form.profile, form.profile.indexOf(row), "Remove the profile key"))),
+        removeButton(form.profile, form.profile.indexOf(row), "Delete the profile key"))),
       addButton("Add profile key", () => form.profile.push({ key: "", value: "", list: false }))),
   ];
 }
@@ -271,7 +265,7 @@ function entityForm(form, path) {
       ...form.children.map((child, index) => el("div", { className: "inline row" },
         control("input", child, "name", [...path, "children", index, "name"], { placeholder: "Name of an entry", label: "Child name" }),
         control("input", child, "weight", [...path, "children", index, "weight"], { placeholder: "Weight", inputMode: "decimal", className: "short", label: "Child weight" }),
-        removeButton(form.children, index, "Remove the child"))),
+        removeButton(form.children, index, "Delete the child"))),
       addButton("Add child", () => form.children.push({ name: "", weight: "" }))),
     field("Access rules (JSON)", control("textarea", form, "access", [...path, "access"], { className: "mono", rows: 3 }), null, "Which NPCs know this entry. Leave [] for every NPC."),
   ];
@@ -283,7 +277,7 @@ function historyForm(form, path) {
     ...form.entries.map((entry, index) => el("div", { className: "card" },
       el("div", { className: "inline row" },
         control("input", entry, "title", [...path, index, "title"], { placeholder: "Title, for example The Second Empire", label: "Title" }),
-        removeButton(form.entries, index, "Remove the history entry")),
+        removeButton(form.entries, index, "Delete the history entry")),
       control("textarea", entry, "text", [...path, index, "text"], { rows: 4, label: "Text" }))),
     addButton("Add history entry", () => form.entries.push({ title: "", text: "" })),
   ];
@@ -335,7 +329,7 @@ function renderForm() {
       el("span", {}, el("strong", { className: "name" }, title(record)), " ", el("span", { className: "badge" }, kindLabel(record)),
         record.is_player ? el("span", { className: "badge ok" }, "Your faction") : null,
         ORIGIN_LABELS[record.origin] ? el("span", { className: "badge" }, ORIGIN_LABELS[record.origin]) : null),
-      deletable ? el("button", { type: "button", disabled: readOnly(), onclick: () => deleteRecord(record) }, "Delete") : null),
+      deletable ? deleteButton(`Delete ${title(record)}`, () => deleteRecord(record), readOnly()) : null),
     note ? el("p", { className: `hint${note.error ? " error" : ""}` }, note.text) : null,
     ...body));
   if (note?.field) {
@@ -527,7 +521,7 @@ function renderTemplateBar() {
     ...(template?.errors ?? []).map((error) => el("p", { className: "hint error" }, error.message)),
     ...(template?.warnings ?? []).map((warning) => el("p", { className: "hint" }, warning.message)),
     el("form", { className: "add", onsubmit: duplicateTemplate }, duplicateName, el("button", { type: "submit" }, "Duplicate"),
-      template && !template.builtin ? el("button", { type: "button", className: "danger", onclick: deleteTemplate }, "Delete") : null));
+      template && !template.builtin ? deleteButton(`Delete the template ${templateTitle()}`, deleteTemplate) : null));
 }
 
 function counts(factions, characters, entities) {
