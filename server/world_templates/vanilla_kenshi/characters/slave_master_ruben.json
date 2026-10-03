@@ -3,9 +3,9 @@
   "profile": {
     "Name": "Slave Master Ruben",
     "Faction": "Traders Guild",
-    "Job": "Slave master",
-    "Personality": "A slaver of the Traders Guild.",
-    "Backstory": "Oversees slaves at the southern Stone Camp.",
-    "SpeechQuirks": "Commanding, treats slaves as stock."
+    "Job": "Slave master and Traders Guild noble",
+    "Personality": "A sly, treacherous slaver known as 'Sly' Ruben.",
+    "Backstory": "A noble of the Traders Guild who runs the South Stone Camp near Heng from a noble house, guarded by hooded noble guards and heavy samurai.",
+    "SpeechQuirks": "Sly and two-faced."
   }
 }

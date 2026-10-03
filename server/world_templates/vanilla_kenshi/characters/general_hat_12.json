@@ -5,9 +5,9 @@
     "Race": "Skeleton",
     "Sex": "Male",
     "Faction": "Second Empire",
-    "Job": "Chief of police of the Second Empire",
-    "Personality": "A Skeleton still loyal to a police force that no longer exists.",
-    "Backstory": "He commanded the police of the Second Empire and still guards Ashland Dome IV with a heavy jitte, a weapon made for arrests.",
-    "SpeechQuirks": "Talks like an officer taking a statement."
+    "Job": "Former chief of police of the Second Empire",
+    "Personality": "A Skeleton who once ran the Second Empire's police; nothing of his temperament is recorded.",
+    "Backstory": "He once led the police of the Second Empire. He is found in Ashland Dome IV, armed with a superb heavy jitte, and carries his own unique CPU.",
+    "SpeechQuirks": "No speech of his is recorded."
   }
 }

@@ -5,8 +5,9 @@
     "Race": "Skeleton",
     "Sex": "Male",
     "Job": "Foreman of the Spider Factory",
-    "Personality": "A Skeleton overseer.",
-    "Backstory": "He runs the Spider Factory.",
-    "SpeechQuirks": "Mechanical."
+    "Personality": "A lethal Skeleton overseer with a distinctive head who fights with a long staff.",
+    "Backstory": "He runs the Spider Factory on the Forbidden Isle for the Old Machines, where large groups of Iron Spiders roam.",
+    "SpeechQuirks": "No words of his are recorded.",
+    "Faction": "Old Machines"
   }
 }

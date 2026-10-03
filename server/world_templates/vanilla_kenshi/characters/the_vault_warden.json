@@ -4,8 +4,8 @@
     "Name": "The Vault Warden",
     "Faction": "United Cities",
     "Job": "Warden of Tengu's Vault",
-    "Personality": "The keeper of the Emperor's secret prison.",
-    "Backstory": "Guards Tengu's Vault, the prison from which no one is supposed to return.",
-    "SpeechQuirks": "Cold and official."
+    "Personality": "A jailer who taunts prisoners and new arrivals with sarcastic remarks.",
+    "Backstory": "Guards Tengu's Vault, armed with a fine jitte and samurai armor.",
+    "SpeechQuirks": "Sarcastic jibes at prisoners."
   }
 }

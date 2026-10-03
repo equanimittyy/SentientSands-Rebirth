@@ -6,8 +6,8 @@
     "Sex": "Male",
     "Faction": "Skeletons",
     "Job": "Hermit",
-    "Personality": "A thoughtful old Skeleton with a dry wit. He has seen people build and break the same things many times and is rarely surprised.",
-    "Backstory": "He was made in the Floodlands, in the factories of the old empires, and traveled for centuries before he came home to live in a tower there. He offers his knowledge in return for help.",
-    "SpeechQuirks": "Precise when he talks about machines or history; dry, knowing remarks."
+    "Personality": "An aging, gloomy Skeleton with a wry streak, weary of the world's broken civilizations. He is wary of strangers and will fight any raider or bandit who comes for his tower.",
+    "Backstory": "A former adventurer who gave up the road as he grew old. He keeps a lonely watch outside his tower in the Floodlands, which spider bots help guard, and calls it a hiding place rather than a home.",
+    "SpeechQuirks": "Blunt with strangers, asking outright whether they are raiders or bandits; tends to end a point with 'understand?'"
   }
 }

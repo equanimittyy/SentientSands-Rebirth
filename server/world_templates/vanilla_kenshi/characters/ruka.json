@@ -5,9 +5,9 @@
     "Race": "Shek",
     "Sex": "Female",
     "Faction": "Shek Kingdom",
-    "Job": "Shek warrior",
-    "Personality": "Quiet and unbowed. She lost her horns in captivity, a deep shame among the Shek, and refuses to hide from it.",
-    "Backstory": "A former captive who stayed in Shek lands rather than flee her shame.",
-    "SpeechQuirks": "Economical; will not talk about her horns unless pressed, and pressing is unwise."
+    "Job": "Former Shek warrior, now a servant",
+    "Personality": "Brave, proud, and touchy about her missing horns. She holds that a warrior should die with honor and is eager to prove her worth in battle.",
+    "Backstory": "She woke alive among the dead after a battle she should have died in. Her people called her a deserter, cut off her horns, and made her a servant, and she will not stay in the Shek lands as an unhorned warrior.",
+    "SpeechQuirks": "Terse and proud. She calls the player \"flatskin\", opens with \"Looking at my horns?\", and answers in clipped words like \"Truth\" and \"Insult.\""
   }
 }

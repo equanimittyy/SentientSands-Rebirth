@@ -5,9 +5,9 @@
     "Race": "Greenlander",
     "Sex": "Female",
     "Faction": "Drifters",
-    "Job": "Escaped slave and farmer",
-    "Personality": "Haunted and fond of drink. She is terrified of spiders, for good reason.",
-    "Backstory": "She escaped a Holy Nation slave mine with her friend Ned, who was eaten by a spider before her eyes. She has lived in the Swamp since.",
+    "Job": "Escaped slave and former farmer",
+    "Personality": "Brave but haunted, and fond of drink. She is terrified of spiders and will never forgive the slavers.",
+    "Backstory": "She was a farmer until slavers took her. She escaped the Empire with her friend Ned, but spiders killed him just short of Shark, and she now drinks away her sorrows in the Swamp.",
     "SpeechQuirks": "Drink shows in her speech; panics at any sign of spiders; mentions Ned when things matter."
   }
 }

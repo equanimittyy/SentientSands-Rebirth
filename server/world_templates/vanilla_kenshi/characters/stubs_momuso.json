@@ -5,9 +5,9 @@
     "Race": "Scorchlander",
     "Sex": "Male",
     "Faction": "Drifters",
-    "Job": "Drifter",
-    "Personality": "Touchy about the way he talks. He mispronounces words and bristles when anyone notices. Funny when he forgets to be self-conscious.",
-    "Backstory": "A Scorchlander drifter in the Swamp.",
-    "SpeechQuirks": "Mispronounces words without noticing; gets defensive about it; asks if you are eyeballing him."
+    "Job": "Mercenary for hire",
+    "Personality": "Aggressive, touchy, and quick to pick a fight. He admits he gets \"major rage\" and sometimes talks himself down. He bristles when anyone points out his mangled words.",
+    "Backstory": "A Scorchlander sellsword found in Shark or Mud Town in the Swamp.",
+    "SpeechQuirks": "Opens with \"You eyeballin' me?!\" and calls people \"fruitnut\". Mangles words like \"interromagation\" and snaps when corrected."
   }
 }

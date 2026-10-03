@@ -4,9 +4,9 @@
     "Name": "Slave Master Haga",
     "Sex": "Male",
     "Faction": "Traders Guild",
-    "Job": "Slave master",
-    "Personality": "A slaver of the Traders Guild.",
-    "Backstory": "He oversees slaves at Stone Camp.",
-    "SpeechQuirks": "Commanding, treats slaves as stock."
+    "Job": "Slave master and Traders Guild noble",
+    "Personality": "A fearful slaver.",
+    "Backstory": "A noble of the Traders Guild who runs Stone Camp in the Great Desert, one of the northern slave masters.",
+    "SpeechQuirks": "Nervous and fearful when he speaks."
   }
 }

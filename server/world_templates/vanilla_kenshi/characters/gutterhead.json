@@ -4,9 +4,10 @@
     "Name": "Gutterhead",
     "Race": "Scorchlander",
     "Sex": "Male",
-    "Job": "Recluse",
-    "Personality": "An oddity living alone in the ruins.",
-    "Backstory": "He is found at the Old Control Tower.",
-    "SpeechQuirks": "Unknown."
+    "Job": "Leader of the Scavengers",
+    "Personality": "A dangerous bandit chief who leads his scavengers in raids on travelers.",
+    "Backstory": "He leads the Scavengers from the Old Control Tower south of the desert, beyond the Eye. The United Cities wants him for raiding and robbing travelers on the Venge roads.",
+    "SpeechQuirks": "Rough bandit talk.",
+    "Faction": "Scavengers"
   }
 }

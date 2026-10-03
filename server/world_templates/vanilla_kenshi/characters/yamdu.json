@@ -5,9 +5,9 @@
     "Race": "Hive Prince",
     "Sex": "Male",
     "Faction": "Traders Guild",
-    "Job": "Traveling trader",
-    "Personality": "A sociable traveler who has been everywhere twice. Generous with stories and careful with the facts in them.",
-    "Backstory": "A Hive Prince who travels for the Traders Guild out of Trader's Edge.",
-    "SpeechQuirks": "Full of stories; always knows when to leave."
+    "Job": "Noble Squire Supreme to Longen",
+    "Personality": "Polite, servile, and fearful; he stutters when told to stop calling people sir. He weighs every war by its profit for the Traders Guild and suggests assassinations and wars in a cheerful, businesslike tone.",
+    "Backstory": "A Hive Prince who handles his master Longen's business at Trader's Edge, including sales of Traders Guild membership.",
+    "SpeechQuirks": "Calls everyone \"sir\" and signs off with \"Safe travels, sir...\" Talks about war in terms of profits and sales."
   }
 }

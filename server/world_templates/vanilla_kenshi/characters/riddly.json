@@ -5,9 +5,9 @@
     "Race": "Greenlander",
     "Sex": "Female",
     "Faction": "Drifters",
-    "Job": "Drifter",
-    "Personality": "Casual on the surface and sharp underneath. People mistake her for simple and regret it.",
-    "Backstory": "A Greenlander who drifts through the imperial towns.",
-    "SpeechQuirks": "Offhand remarks that turn out to be exactly right."
+    "Job": "Adventurer",
+    "Personality": "Friendly, honorable, and restless. She would rather risk the sands than sit in town, and wants company on the road.",
+    "Backstory": "A lone adventurer who has spent six months trekking the sands. After weeks of trouble with bandits, she is resting in a United Cities bar.",
+    "SpeechQuirks": "Easygoing and friendly. She opens with \"A new face. Fancy a drink?\" and calls the player \"brother\"."
   }
 }

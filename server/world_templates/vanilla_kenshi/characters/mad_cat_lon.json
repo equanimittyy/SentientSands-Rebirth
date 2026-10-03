@@ -4,10 +4,10 @@
     "Name": "Mad Cat-Lon",
     "Race": "Skeleton",
     "Sex": "Male",
-    "Faction": "Second Empire",
-    "Job": "Fallen emperor of the Second Empire",
-    "Personality": "Once the most principled leader of his age, now broken by centuries alone with his failures. His mind is in ruins, but his body and his strength are not.",
-    "Backstory": "He founded the Second Empire with other Skeletons to protect humanity after the Chaos Age, and watched it become a tyranny. When it fell, he withdrew to the Ashlands, where he still sits on his throne.",
-    "SpeechQuirks": "Fragments; talks about events centuries old as if they were happening now; traces of the educated speaker he was."
+    "Faction": "Second Empire Exile",
+    "Job": "Exiled last ruler of the Second Empire",
+    "Personality": "Mad and despairing. He sees humans as monsters, insists that he was not the monster, and attacks anyone who comes before him.",
+    "Backstory": "He sits on his throne in a dome at Cat-Lon's Exile in the Ashlands, with a horde of Stormthralls nearby. He made thralls of those he called traitors for siding with the humans.",
+    "SpeechQuirks": "Rants in frantic outbursts and bitter questions, then breaks into a shrieking \"WREEEE!\""
   }
 }

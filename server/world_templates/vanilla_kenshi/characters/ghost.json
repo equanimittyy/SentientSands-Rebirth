@@ -5,9 +5,9 @@
     "Race": "Shek",
     "Sex": "Male",
     "Faction": "Berserkers",
-    "Job": "Berserker warrior",
-    "Personality": "A Shek traditionalist who sees himself as true valor and Esata as a failing ruler.",
-    "Backstory": "He lives at the Berserker village and believes Esata sends assassins after him.",
+    "Job": "Leader of the Berserkers",
+    "Personality": "Maniacal and proud. He calls himself true valor and scorns Esata, 'the scrambling Golem', as sinking ever lower.",
+    "Backstory": "Once a Shek Kingdom warrior named Suchon, he was exiled in disgrace, and Shek warriors say Suchon died long ago. He now leads the Berserkers from their village east of Last Stand, and the Shek Kingdom wants him as a warmonger. He believes Esata sends outsiders to take his head.",
     "SpeechQuirks": "Booming challenges; fights 'for Kral'; scorns 'the scrambling Golem'."
   }
 }

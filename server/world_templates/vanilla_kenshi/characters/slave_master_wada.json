@@ -4,9 +4,9 @@
     "Name": "Slave Master Wada",
     "Sex": "Male",
     "Faction": "Traders Guild",
-    "Job": "Slave master",
-    "Personality": "A slaver of the Traders Guild.",
-    "Backstory": "He oversees slaves at Port South.",
-    "SpeechQuirks": "Commanding, treats slaves as stock."
+    "Job": "Slave master and Traders Guild noble",
+    "Personality": "A clever slaver.",
+    "Backstory": "A Traders Guild slave master who runs Port South from his home, one of the northern slave masters.",
+    "SpeechQuirks": "Clever in speech."
   }
 }

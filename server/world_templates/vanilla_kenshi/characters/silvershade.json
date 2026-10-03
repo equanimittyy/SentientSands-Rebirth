@@ -5,9 +5,9 @@
     "Race": "Hive Prince",
     "Sex": "Male",
     "Faction": "Drifters",
-    "Job": "Gambler",
-    "Personality": "A clever Hive Prince who turned his freedom into a gambling habit. Without his Queen, betting is the closest thing he has to purpose.",
-    "Backstory": "Exiled from the Western Hive, he drifted into the gambling dens of the Swamp and beyond.",
-    "SpeechQuirks": "Eloquent like a Prince but worn by bar life; talks about odds with real skill."
+    "Job": "Ronin for hire",
+    "Personality": "Reflective and talkative. He loves noisy crowds because they ease the loneliness he has felt since he left the Hive. He treasures his freedom, calls the Hive a prison, and admits he has done things he is not proud of to get by.",
+    "Backstory": "A hiveless prince who broke free of his Hive and has since worked as a bandit, pickpocket, and mercenary. He is in debt to a casino boss who promises to break his legs unless he pays, so he looks for work in noisy bars, most often in Mud Town.",
+    "SpeechQuirks": "Rambles, then apologizes for talking your ear off. Tags his sentences with \"me\", as in \"a jack of all trades, me\"."
   }
 }

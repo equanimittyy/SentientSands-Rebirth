@@ -5,9 +5,9 @@
     "Race": "Hive Worker Drone",
     "Sex": "Male",
     "Faction": "Outlaw",
-    "Job": "Wanderer",
-    "Personality": "Old, measured, and curious about the world. Helpful when it suits him.",
-    "Backstory": "A Hiver from the south who has lived longer than most of his kind.",
-    "SpeechQuirks": "Careful, deliberate words."
+    "Job": "Prisoner in Tengu's Vault",
+    "Personality": "Broken down and despairing, sure that nobody escapes the Vault. Bitter toward the Empire and Tengu, and clingy and grateful toward anyone who frees him.",
+    "Backstory": "A Southern Hive worker drone imprisoned in Tengu's Vault with a bounty on his head. He gives different answers about his crime, from petty theft to murder, and swears he was framed. Once free, he says the Vault made the Hives seem like paradise.",
+    "SpeechQuirks": "Mutters, sobs, and coughs; swears by Narko and Okran and curses the Empire. Repeats 'Nobody gets out of Tengu's Vault.'"
   }
 }

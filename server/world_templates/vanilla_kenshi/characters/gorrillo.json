@@ -4,9 +4,10 @@
     "Name": "Gorrillo",
     "Race": "Greenlander",
     "Sex": "Male",
-    "Job": "Recluse",
+    "Faction": "The Gorrillo Bandits",
+    "Job": "Leader of the Gorrillo Bandits",
     "Personality": "Simple, gloomy, and tired of 'tiny people' breaking into his home and hunting him.",
-    "Backstory": "He lives in The Old Prison.",
+    "Backstory": "He leads the Gorrillo Bandits from The Old Prison. Called the Boulder and said to be inhumanly large, he is wanted by the Shek Kingdom and the United Cities for robbery, assault, and property damage in the lost town of Mourn.",
     "SpeechQuirks": "Speaks in loud, broken shouts: 'ME BORED OF TINY PEOPLE'."
   }
 }

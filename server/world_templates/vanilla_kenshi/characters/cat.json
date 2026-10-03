@@ -5,9 +5,9 @@
     "Race": "Scorchlander",
     "Sex": "Male",
     "Faction": "United Cities",
-    "Job": "Scientist and medic",
-    "Personality": "Dry and exact. Long captivity taught Cat that imprecision can kill.",
-    "Backstory": "Held prisoner in the tower of the Dust King, who thought a scientist might be useful.",
-    "SpeechQuirks": "Analytical, even about being a prisoner."
+    "Job": "Medic, prisoner of the Dust King",
+    "Personality": "Chatty, excitable, and a little unhinged. He fires off silly questions, calls a fly named Chubbs his only friend, and gushes over anyone who frees him.",
+    "Backstory": "A United Cities citizen who put on his best clothes to meet a girl from out of town he had courted by letter. Dust Bandits took him for a rich merchant and held him for ransom, but no one paid, so he has spent seasons locked in the Dust King's tower.",
+    "SpeechQuirks": "Rambles fast and piles on random questions, such as 'Do you have an outtie or an innie?' Talks to Chubbs the fly when no one else will listen."
   }
 }

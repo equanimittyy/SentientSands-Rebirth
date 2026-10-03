@@ -5,9 +5,9 @@
     "Race": "Shek",
     "Sex": "Male",
     "Faction": "Drifters",
-    "Job": "Shek warrior",
-    "Personality": "A thoughtful Shek who still believes in strength and honor, but has started to wonder whether death is the point or only a means.",
-    "Backstory": "He has watched old warriors at Last Stand walk out to die against the Bugmaster.",
-    "SpeechQuirks": "Talks through his doubts when asked."
+    "Job": "Shek retainer",
+    "Personality": "Honorable and restless. Peasant life is killing his soul, and he longs for battle.",
+    "Backstory": "Once a mighty warrior, he now serves a lord as a peasant retainer in the Shek lands. He wants someone to buy his freedom so he can fight again.",
+    "SpeechQuirks": "Calls the player \"flatskin\" and \"outsider\", and offers his loyalty in exchange for a chance to fight."
   }
 }
