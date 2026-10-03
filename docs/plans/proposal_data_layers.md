@@ -236,7 +236,7 @@ CREATE VIRTUAL TABLE entity_fts USING fts5(
 
 The player picks which squad member speaks in a chat. Today the speaker is always squad slot 1 (`playerCharacters[0]`, `plugin/main.cpp:1475`), and one bio serves the whole campaign.
 
-- The chat window gets a drop-down of the members of the current squad (`PlayerInterface::getCurrentPlatoon`). The talk target is not in the list.
+- The chat window gets a drop-down of the members of the current squad (`PlayerInterface::getCurrentPlatoon`, [kenshi_internals.md](../info/kenshi_internals.md#squads)). The talk target is not in the list.
 - The drop-down starts on the last speaker if that character is still in the current squad, else on the first member of the current squad. The plugin keeps the last speaker in memory, so a new game session starts on the first member.
 - The chat request names the speaker in its `player` field, as today (`plugin/ui/ChatWindow.cpp:377`). It also carries the speaker's context from `GetDetailedContext(speaker, "player")`. The prompt then shows the race, gender, status, and equipment of the speaker, not those of squad slot 1 in `PLAYER_CONTEXT` (`plugin/main.cpp:1247`).
 - The bio is the `Personality`, `Backstory`, and `SpeechQuirks` of the speaker's profile in the character store. A speaker with no profile gets one from the `profile` task, as an NPC does (`get_character_data`). A squad member that the player recruited as an NPC keeps its profile and its dialogue.
@@ -254,7 +254,7 @@ SSR writes the vanilla template itself. Today the template holds the overview, 1
 
 - The facts come from the game: its data files, which the Forgotten Construction Set (FCS) opens, and play. The Kenshi wiki can help to find a fact, but no text comes from the wiki or from Kayak ([section 9](#9-licence)).
 - The template of Kayak v0.5.0 ([section 13](#13-references)) is only a checklist of the records that a vanilla world needs. Phase 4 covers at least the counts in the table.
-- Each faction and each canon character has its game ID. The faction IDs come from the `FACTION_PROBE` line, and the character ID is the string ID of the character's template in the game data ([proposal_npc_ids.md](proposal_npc_ids.md#3-id-format)).
+- Each faction and each canon character has its game ID. The faction IDs come from the `FACTION_PROBE` line ([kenshi_internals.md](../info/kenshi_internals.md#factions)), and the character ID is the string ID of the character's template in the game data ([proposal_npc_ids.md](proposal_npc_ids.md#3-id-format)).
 - A region is a named zone of the game data (record type 95), such as Border Zone or Shem. Record type 28 is a ground texture set and type 99 is a soil type, so neither is a region. Six zones have no wiki page, no towns, and almost no data, so the template leaves them out: Akakus, Central, Desert, Empire, Rim Sands, and The Desert.
 - A location is a town of the game data (record type 13) that the wiki places in a zone. The game data does not say which zone holds a town, so the zone comes from the wiki's town infobox, joined to the game data on the string ID. A camp that a zone places at random (a nest) is not a location.
 - The `factions` and `animals` fields of a region hold only the squads that are in the zone at the start of a game. A squad that needs a world state other than "a character is alive", such as the death of a leader, is left out, because a new campaign does not know which states have changed. The descriptions also describe the start of a game.
@@ -329,11 +329,6 @@ Tests:
 
 - Retrieval tests: a fixed list of player messages, each with its expected entities in order, runs on the vanilla template.
 - Performance check against the 500 ms `timeout_ms` default on the full vanilla template.
-
-### In-game results
-
-- `PlayerInterface::getCurrentPlatoon` gives the squad that the player selected, and `Character::getPlatoon` tells which squad members are in it. The speaker picker can therefore list the current squad. The `SQUAD_PROBE` lines showed this ([development.md](../info/development.md#probes)).
-- The faction files of the vanilla template take their `game_id` from the `FACTION_PROBE` lines of one mod list. A change of the mod list is not tested. A string ID holds the name of the mod file that adds the faction, for example `58229-Dialogue.mod`, so only the removal of that mod is expected to change it.
 
 ## 11. Risks
 

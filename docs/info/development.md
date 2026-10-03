@@ -53,19 +53,12 @@ Some questions of the plans need data from the game. The plugin writes probe lin
 
 | Line | Written | Function | Answers |
 |---|---|---|---|
-| `ID_PROBE` | At each chat, for the target NPC | `LogNpcIdentity` | Which candidate ID of an NPC stays the same, and how many other loaded characters share each member of its handle ([proposal_npc_ids.md](../plans/proposal_npc_ids.md#9-in-game-results)) |
-| `ZONE_PROBE` | At each chat, for the target NPC. The first chat also lists every zone record. | `LogNpcZone` | Which slot of the zone object (`AreaBiomeGroup`) holds its zone record, so that the context can name the zone, for example Stenn Desert. `ZoneManager::getBiome` gives only the ground type, such as Canyonland FlatTop, so it cannot name the zone. |
-| `FACTION_PROBE` | At the first chat of each game, one line for each faction | `LogFactionList` | Whether the string ID of each faction stays the same when the mod list changes ([proposal_data_layers.md](../plans/proposal_data_layers.md#in-game-results)) |
+| `ID_PROBE` | At each chat, for the target NPC | `LogNpcIdentity` | Which candidate ID of an NPC stays the same, and how many other loaded characters share each member of its handle |
+| `ZONE_PROBE` | At each chat, for the target NPC. The first chat also lists every zone record. | `LogNpcZone` | Which slot of the zone object (`AreaBiomeGroup`) holds its zone record, so that the context can name the zone, for example Stenn Desert |
+| `FACTION_PROBE` | At the first chat of each game, one line for each faction | `LogFactionList` | The string ID of each faction, and whether it stays the same when the mod list changes |
 | `SQUAD_PROBE` | At each chat | `LogCurrentSquad` | Whether `PlayerInterface::getCurrentPlatoon` gives the squad that the player selected, which the speaker picker needs |
 
-The in-game tests answered each question:
-
-| Line | Result |
-|---|---|
-| `ID_PROBE` | The `serial` of a handle stays the same through a save and a load, a town reload, and a recruit, and no other loaded character has it, so it is the ID of a generic NPC. The other members of the handle name the squad, so a recruit changes them ([proposal_npc_ids.md](../plans/proposal_npc_ids.md#9-in-game-results)). |
-| `ZONE_PROBE` | Slot `0x10` of the zone object holds the zone record. |
-| `FACTION_PROBE` | The string ID of each faction for one mod list. A change of the mod list is not tested ([proposal_data_layers.md](../plans/proposal_data_layers.md#in-game-results)). |
-| `SQUAD_PROBE` | `getCurrentPlatoon` gives the squad that the player selected. |
+The in-game tests answered each question, and [kenshi_internals.md](kenshi_internals.md) records the results.
 
 Two questions need no probe:
 
