@@ -200,6 +200,7 @@ On a start without `llm_config.json`, the server builds it from `default_provide
 - The database uses the default rollback journal, not WAL. The campaign folder therefore has no `-wal` or `-shm` file, and a player can copy it while the server is idle.
 - Each character keeps its newest 240 to 260 dialogue lines (see [Prompts](#prompts)), and the campaign keeps its newest 500 events. An event that the table already holds is not added again.
 - Favorites belong to each campaign.
+- Rejected: one database for all campaigns, with a `campaign_id` column. A query that missed the filter would leak data between campaigns.
 
 A new campaign is a copy of a world template (see [World templates](#world-templates)): its canon and the name, version, and content hash of the template. After the copy, the campaign does not depend on the template, so a template edit or a deleted template does not change it. Only the Campaigns page of the web app creates and switches campaigns. The game has no campaign window.
 
@@ -239,13 +240,16 @@ Each campaign holds its own copy of the factions, keyed by the string ID of the 
 
 ### Characters
 
-The `character` table holds every character of a campaign in one shape: the canon characters of the template, the NPCs that the player meets, and the player's squad. Each row is keyed by the `npc_id` that the plugin builds ([proposal_npc_ids.md](../plans/proposal_npc_ids.md#3-id-format)):
+The `character` table holds every character of a campaign in one shape: the canon characters of the template, the NPCs that the player meets, and the player's squad. Each row is keyed by the `npc_id` that the plugin builds (`GetNpcId` in `plugin/game/Context.cpp`), because only the plugin sees the game objects:
 
 | Character | `npc_id` |
 |---|---|
 | A unique NPC, for example Beep | `u:` and the string ID of its template in the game data |
 | Every other character | `h:` and the `serial` of its handle |
 
+- A unique NPC has the same `npc_id` in every save and every campaign, so a canon character of a template binds to it. Many generic NPCs share one template, so a generic NPC takes the `serial`, the only part of its handle that survives a save, a town reload, and a recruit ([kenshi_internals.md](kenshi_internals.md#character-identity)).
+- Rejected: a hash of the string ID. The template loader in Python and the plugin in C++ would have to compute the same hash, and a hash hides the template and the mod that the ID comes from. JSON and SQLite carry the raw string ID unchanged, also with spaces, `'`, and parentheses, for example `2757496-Bele'coz.mod`.
+- A character that the game creates again, for example a guard that replaces a dead guard, is a new NPC with a new profile.
 - The server stores an `npc_id` exactly as the plugin sends it. It builds an `npc_id` only for a canon character, `u:<game_id>`, so that chat uses the canon profile instead of a generated one. Dialogue adds to the row and does not change the canon profile.
 - The name is only the `Name` key of the profile, so two NPCs with one name keep two rows, and a rename changes only `Name`.
 - A `Race`, `Sex`, or `Faction` of `Unknown` takes the value that the plugin reports for the character (`get_character_data`). A missing `Race` or `Faction` stays missing. A canon character whose race, sex, or faction the game data does not fix therefore holds `Unknown`, so the first meeting fills it with the value of the spawned NPC.
@@ -278,7 +282,21 @@ The `character` table holds every character of a campaign in one shape: the cano
 
 ## World templates
 
-A world template is a folder that describes a world: `manifest.json` (format version, name, description, version, authors, credits), `overview.txt` (the lore that goes into every prompt), `history.json`, `factions/<id>.json`, `characters/<id>.json`, `races/<id>.json`, `locations/<id>.json`, and `regions/<id>.json`. The format is in [proposal_data_layers.md](../plans/proposal_data_layers.md#3-world-template-format). A new campaign copies every record except the manifest (see [Campaign canon](#campaign-canon)).
+A world template is a folder that describes a world. A new campaign copies every record except the manifest (see [Campaign canon](#campaign-canon)). A template holds no rumors and no dialogue, and a campaign cannot become a template, because play state never leaves its campaign.
+
+| File | Content |
+|---|---|
+| `manifest.json` | `format_version`, `name`, `description`, `version`, `authors`, `credits` |
+| `overview.txt` | The lore that goes into every prompt |
+| `history.json` | The lore timeline: a list of `title` and `text`, in timeline order |
+| `factions/<id>.json` | `game_id`, `name`, `aliases`, `major`, `fields`, `description` |
+| `characters/<id>.json` | `game_id`, and a `profile` with the keys of a profile in the character store, such as `Name`, `Race`, `Faction`, and `Personality` |
+| `races/<id>.json`, `locations/<id>.json`, `regions/<id>.json` | `name`, `aliases`, `fields`, `description`, and `children`: a list of `entry` and `weight` |
+
+- The ID of a record is its file name without `.json`.
+- `fields` holds the facts of a record, in the categories of its kind (see [Web app](#web-app)).
+- A child names its entry as `<category>/<entity ID>`, for example `locations/bast`, not by name, because a location and a region can share a name, for example Bast.
+- An entry holds no access rules, because what an NPC knows belongs to the character, not to the entry.
 
 | Template | Location | Edits |
 |---|---|---|
@@ -289,12 +307,11 @@ A world template is a folder that describes a world: `manifest.json` (format ver
 
 - One validator runs before each write and each campaign creation. It rejects an unknown `format_version`, a `version` that is not text, a folder that the format does not name, a JSON file that does not parse, a faction or an entity without a name, a faction or a character without `game_id`, two factions or two characters with one `game_id`, a character without a `Name` in its profile, and a fact whose category is not one of its kind or whose value does not have the shape of its category. A child whose `entry` names no race, location, or region of the template is a warning.
 - A faction binds to the game by `game_id`, the string ID of the faction in the game data, so a rename in game does not break the link. The IDs of the vanilla factions come from the `FACTION_PROBE` lines of an in-game test ([kenshi_internals.md](kenshi_internals.md#factions)).
-- SSR Vanilla also holds the factions and the unique characters of Universal Wasteland Expansion (UWE). They bind by the `game_id` of a UWE record, which a game without UWE never reports, so they change nothing there. The overview, the history, and the entities do not bind by `game_id`, so they hold only facts that are true with and without UWE. Where UWE changes a fact of a vanilla record, for example the race of Bugmaster, the vanilla record sets that field to `Unknown`, so the game fills it (see [Characters](#characters)).
-- The `OriginFaction` of an SSR Vanilla character is the character's own faction in the game data. A character without one, which takes its faction from the squad that spawns it, has its `Faction` there.
 - A route takes a template name, a record kind, a category, and a record ID, never a path. The category must be `races`, `locations`, or `regions`, and each other part must match a fixed pattern, so a request cannot write outside the template folders. A new record takes its ID from its name.
 - A duplicate copies every file of the template, its credit and licence files included, so a derived template keeps its attribution.
 - Players share a template as one JSON file that holds the manifest, the overview, the history, and each record by its ID. The file leaves out other files, such as licence files, so the `credits` of the manifest carry the attribution.
 - An imported file can come from anyone, so each record ID must match the ID pattern before it becomes a file name, and the whole template must pass the validator before anything is written.
+- A shared template carries text that the LLM reads, so it can steer NPCs against the player's intent. A template gets the same trust as a Kenshi mod, and the Templates page shows the authors and the credits of a file before an import.
 - An import is stricter than the validator. It also rejects a key that the format does not name, at any level of the file, so a typo such as `descripton` cannot drop text without notice. The validator accepts such a key, because the editor keeps a key that someone added to a template folder by hand. An import also rejects two IDs in one section that differ only in case, because Windows would save them as one file.
 - A new template name must differ from the name and the title of each other template, ignoring case, because the template list shows titles.
 - An import and a duplicate write into a staging folder whose name starts with a dot, which the template list ignores, and then rename it, so a failure leaves no template behind. The staging folder makes a temporary file for each file unnecessary, which matters on a mounted drive, where each file operation takes milliseconds.
@@ -307,6 +324,16 @@ A world template is a folder that describes a world: `manifest.json` (format ver
 | `POST /api/templates/<name>/duplicate`, `.../delete` | Copy a template as a user template, or delete a user template |
 | `GET /api/templates/<name>/export` | The shared file of a template |
 | `POST /api/templates/import` | Write a shared file as a new user template with the name that the player gives |
+
+### SSR Vanilla
+
+SSR writes the content of SSR Vanilla itself. Each fact comes from the game: its data files, which the Forgotten Construction Set (FCS) opens, its dialogue, and play. The Kenshi wiki can help to find a fact, but no text comes from the wiki or from Kayak. Their licence terms therefore do not apply, and the template carries no Kayak credit or terms file.
+
+- A region is a zone of the game data (record type 95), such as Border Zone or Shem. Record type 28 is a ground texture set and type 99 is a soil type, so neither is a region. Six zones have no towns and almost no data, so the template leaves them out: Akakus, Central, Desert, Empire, Rim Sands, and The Desert.
+- A location is a town of the game data (record type 13). The game data does not say which zone holds a town, so the zone comes from the town infobox of the wiki, joined to the game data on the string ID. A camp that a zone places at random, a nest, is not a location.
+- The facts and the descriptions describe the start of a game, because a new campaign does not know which world states changed. The `factions` and `animals` of a region therefore leave out each squad that needs a world state other than "a character is alive", such as the death of a leader.
+- SSR Vanilla also holds the factions and the unique characters of Universal Wasteland Expansion (UWE). They bind by the `game_id` of a UWE record, which a game without UWE never reports, so they change nothing there. The overview, the history, and the entities do not bind by `game_id`, so they hold only facts that are true with and without UWE. Where UWE changes a fact of a vanilla record, for example the race of Bugmaster, the vanilla record sets that field to `Unknown`, so the game fills it (see [Characters](#characters)).
+- The `OriginFaction` of an SSR Vanilla character is the character's own faction in the game data. A character without one, which takes its faction from the squad that spawns it, has its `Faction` there.
 
 ## Logging
 
