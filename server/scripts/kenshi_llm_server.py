@@ -1509,7 +1509,7 @@ def ambient_event():
             # "Name|ID" lets the plugin map each banter line to the right NPC
             health = npc.get('health', 'Healthy')
             gear = npc.get('equipment', 'nothing notable')
-            char_profiles += f"\n- {name}|{nid} ({npc.get('gender')} {npc.get('race')}, {npc.get('faction')}) | Health: {health} | Gear: {gear} | Personality: {d.get('Personality', 'A traveler.')}"
+            char_profiles += f"\n- {name}|{nid} ({npc.get('gender')} {npc.get('race')}, {npc.get('faction')}) | Health: {health} | Gear: {gear} | Personality: {d.get('Personality', 'A traveler.')} | Speech quirks: {d.get('SpeechQuirks') or 'None.'}"
         else:
             name_to_id[npc] = 0
             d = get_character_data(npc, "")
@@ -1517,7 +1517,7 @@ def ambient_event():
             if d.get("ConversationHistory"):
                 recent_dialogue.extend(d["ConversationHistory"][-15:])
                 
-            char_profiles += f"\n- {npc} (A traveler): {d.get('Personality', 'A traveler.')}"
+            char_profiles += f"\n- {npc} (A traveler): {d.get('Personality', 'A traveler.')} | Speech quirks: {d.get('SpeechQuirks') or 'None.'}"
 
     all_history = list(recent_dialogue)
     
@@ -1942,6 +1942,7 @@ def chat():
         npc_profiles += f"JOB: {d.get('Job', 'None')}\n"
         npc_profiles += f"PERSONALITY: {d.get('Personality')}\n"
         npc_profiles += f"BACKSTORY: {d.get('Backstory')}\n"
+        npc_profiles += f"SPEECH QUIRKS: {d.get('SpeechQuirks') or 'None.'}\n"
         npc_profiles += f"PERSONAL RELATION TO PLAYER: {d.get('Relation', 0)} (Scale: -100 to 100)\n"
         
         live_context = build_detailed_context_string(name, char_data=d)
