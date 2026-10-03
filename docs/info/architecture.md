@@ -212,7 +212,7 @@ The canon of a campaign is its copy of the template records: the overview, the h
 | Character | `character` table (see [Characters](#characters)); the profile as JSON | `u:` and the game ID |
 | Race, location, region | `entity` table, with `races`, `locations`, or `regions` as the category; the whole template record as JSON | The category and the entity ID |
 
-- The chat prompt reads the overview, the factions, and the profiles of the characters in the chat. No prompt reads the history, the races, the locations, or the regions yet.
+- The chat prompt reads the overview, the factions, and the profiles of the characters in the chat. The profile prompts read the races (see [Prompts](#prompts)). No prompt reads the history, the locations, or the regions yet.
 - `origin` tells where a record came from: `seed` (the copy of the template at creation), `game` (a faction that a context reported, or a character that the server added in play), or `campaign` (added on the web app).
 - A save checks the record with the template validator (`world_template.record_problems`), so a campaign record follows the same rules as a template record. The validator sees only one record, so the database refuses a second faction or character with the same game ID.
 - The key of a faction or a character, its game ID or its `npc_id`, cannot change after the record is added.
