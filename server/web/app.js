@@ -48,6 +48,7 @@ const loaded = new Set();
 const unsaved = new Set();
 let online = true;
 let campaign = null;
+let culls = null;
 
 // A page that did not load has empty fields, and its Save would write them over the stored values.
 function updateButtons() {
@@ -83,6 +84,8 @@ async function poll() {
     status.textContent = `Current Campaign: ${context.campaign || "None"}`;
     if (campaign !== null && context.campaign !== campaign) document.dispatchEvent(new CustomEvent("campaignchange", { detail: context.campaign }));
     campaign = context.campaign;
+    if (culls !== null && context.culls !== culls) document.dispatchEvent(new CustomEvent("campaigncull"));
+    culls = context.culls;
   } catch {
     // The offline banner reports a lost server.
   }

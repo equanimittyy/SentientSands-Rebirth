@@ -91,6 +91,7 @@ THROTTLE_LOCK = threading.Lock()
 LAST_STATE_LOG = {} # {"<target>|<etype>": last message}
 STATE_LOCK = threading.Lock()
 SYNTHESIS_STATUS = {"elapsed": 0, "interval": 60}
+CULL_COUNT = 0
 SEEN_FACTIONS = set()
 
 ANIMAL_RACES = [
@@ -2490,6 +2491,7 @@ def get_context():
         "player": PLAYER_CONTEXT or LAST_STATE_LOG.get("player", {}),
         "npc": last_npc or LAST_STATE_LOG.get("npc", {}),
         "campaign": ACTIVE_CAMPAIGN,
+        "culls": CULL_COUNT,
         "synthesis": {
             "elapsed": elapsed,
             "interval": interval
@@ -2980,11 +2982,13 @@ def cull_from_game():
     return cull_future_data()
 
 def cull_future_data():
+    global CULL_COUNT
     # Without a game, day 0 would count as now, and the cull would delete the whole history
     if "day" not in PLAYER_CONTEXT:
         return jsonify({"status": "error", "message": "Cull needs the game running, because it deletes what is dated after the current game time."}), 409
     day, hour, minute = int(PLAYER_CONTEXT["day"]), int(PLAYER_CONTEXT.get("hour", 0)), int(PLAYER_CONTEXT.get("minute", 0))
     culled = campaign_db.cull_after(day, hour, minute)
+    CULL_COUNT += 1
     logging.info(f"CAMPAIGN: Culled {culled['dialogue']} dialogue lines, {culled['event']} events, and {culled['rumor']} rumors after [Day {day}, {hour:02d}:{minute:02d}] in '{ACTIVE_CAMPAIGN}'")
     return jsonify({"status": "ok", "time": f"Day {day}, {hour:02d}:{minute:02d}", "culled": culled})
 

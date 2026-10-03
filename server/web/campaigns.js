@@ -127,7 +127,6 @@ async function cull() {
     const reply = await sendJson("POST", "/api/campaign/cull", { campaign: active.name });
     const { dialogue, event, rumor } = reply.culled;
     showMessage(message, `Culled after ${reply.time}: ${count(dialogue, "dialogue line")}, ${count(event, "event")}, and ${count(rumor, "rumor")}.`);
-    document.dispatchEvent(new CustomEvent("campaigncull"));
   } catch (error) {
     showMessage(message, `Cull failed: ${error.message}`, true);
   }

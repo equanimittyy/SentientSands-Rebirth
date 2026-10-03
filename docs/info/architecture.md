@@ -80,7 +80,7 @@ Each tab holds `GET /web_panel/presence` open. This event stream sends a heartbe
 
 **Open Web Panel** in the SSR HUB always opens the web app in a new tab of the default browser. The button does not check for an open tab. A version that brought the browser window of an open tab to the front left an empty box on the game screen in exclusive fullscreen.
 
-Another tab can switch the campaign while a tab is open, so the poll also shows the active campaign. When the poll sees another campaign, it sends a `campaignchange` event. The Campaigns page loads the new campaign, and the open Campaign Canon or Campaign Events subtab of the Editor loads it unless the subtab has unsaved changes. After a cull, the Campaigns page sends a `campaigncull` event, so the Campaign Events subtab loads the rumors and events again.
+Another tab can switch the campaign while a tab is open, so the poll also shows the active campaign. When the poll sees another campaign, it sends a `campaignchange` event. The Campaigns page loads the new campaign, and the open Campaign Canon or Campaign Events subtab of the Editor loads it unless the subtab has unsaved changes. `GET /context` also returns `culls`, the number of culls since the server started, from the Campaigns page or from the SSR HUB. When the number changes, the poll sends a `campaigncull` event, so the Campaign Events subtab loads the rumors and events again.
 
 The Editor holds many records. Save sends one request for each changed record, and a record that the server rejects keeps its draft and shows the reason. A delete takes effect at once, after a confirmation.
 
