@@ -789,6 +789,10 @@ input[type="search"] {
   text-align: left;
 }
 
+.record-list .record .detail {
+  flex-shrink: 0;
+}
+
 .record-list .record[aria-current] {
   background: var(--bg);
   box-shadow: inset 3px 0 var(--accent);
