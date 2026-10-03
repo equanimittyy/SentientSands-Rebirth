@@ -87,7 +87,7 @@ function toForm(kind, data) {
   if (kind === "character") {
     const profile = data.profile ?? {};
     const known = PROFILE_KEYS.map((key) => ({ key, value: profile[key] === undefined ? "" : String(profile[key]), list: false, original: profile[key] }));
-    return { game_id: data.game_id ?? "", profile: [...known, ...rows(rest(profile, PROFILE_KEYS))], extra: rest(data, ["game_id", "profile"]) };
+    return { game_id: data.game_id ?? "", profile: known, details: rest(profile, PROFILE_KEYS), extra: rest(data, ["game_id", "profile"]) };
   }
   const labels = entryLabels();
   return {
@@ -108,7 +108,7 @@ function toData(kind, form) {
   }
   if (kind === "character") {
     const profile = form.profile.map((row) => (CHOICE_KEYS.includes(row.key) ? { ...row, value: choice(row.key, row.value) } : row));
-    return { ...form.extra, game_id: form.game_id.trim(), profile: fromRows(profile, PROFILE_KEYS) };
+    return { ...form.extra, game_id: form.game_id.trim(), profile: { ...fromRows(profile, PROFILE_KEYS), ...form.details } };
   }
   let access;
   try {
@@ -310,21 +310,38 @@ function factionForm(form, path, record) {
 }
 
 function characterForm(form, path, record) {
-  const known = form.profile.filter((row) => PROFILE_KEYS.includes(row.key));
-  const others = form.profile.filter((row) => !PROFILE_KEYS.includes(row.key));
   return [
     gameIdField(form, path, record, "The string ID of the character's template in the game data, for example 19576-Dialogue.mod. The Forgotten Construction Set (FCS) shows it."),
-    ...known.map((row) => (CHOICE_KEYS.includes(row.key)
+    ...form.profile.map((row) => (CHOICE_KEYS.includes(row.key)
       ? field(row.key, choiceControl(row, [...path, "profile", row.key]), null, CHOICE_HELP[row.key])
       : field(row.key, control(LONG_PROFILE_KEYS.includes(row.key) ? "textarea" : "input", row, "value", [...path, "profile", row.key], { rows: 4 })))),
     el("fieldset", {},
-      el("legend", {}, "Other profile keys"),
-      ...others.map((row) => el("div", { className: "inline row" },
-        control("input", row, "key", [...path, "profile", "other", row.key, "key"], { placeholder: "Key", label: "Profile key" }),
-        control("input", row, "value", [...path, "profile", "other", row.key, "value"], { placeholder: "Value", label: "Profile value" }),
-        removeButton(form.profile, form.profile.indexOf(row), "Delete the profile key"))),
-      addButton("Add profile key", () => form.profile.push({ key: "", value: "", list: false }))),
+      el("legend", {}, "Other Details"),
+      el("p", { className: "hint" }, "The game and your chats set these details."),
+      field("Relation (to you)", relationBar(form.details.Relation), null, "How much the character likes you, from -100 to 100. Your chats with the character change it."),
+      field("Original Faction", el("span", {}, form.details.OriginFaction || "Unknown"), null, "The faction that the character comes from. It stays the same after the character joins your squad.")),
   ];
+}
+
+// The labels and thresholds match the relation bar that the game shows (generate_relation_bar in kenshi_llm_server.py).
+function relationLabel(value) {
+  if (value <= -90) return "ARCH-ENEMY";
+  if (value <= -60) return "HOSTILE";
+  if (value <= -25) return "UNFRIENDLY";
+  if (value >= 90) return "SOUL-MATE";
+  if (value >= 60) return "ALLIED";
+  if (value >= 25) return "FRIENDLY";
+  return "NEUTRAL";
+}
+
+function relationBar(stored) {
+  const value = Math.max(-100, Math.min(100, Math.trunc(Number(stored)) || 0));
+  const text = `${relationLabel(value)} (${value >= 0 ? "+" : ""}${value} pts)`;
+  const bar = el("div", { className: "relation-bar" },
+    el("span", { className: "relation-track" }, el("span", { className: "relation-marker", style: `left: ${(value + 100) / 2}%` })),
+    el("span", {}, text));
+  for (const [name, attribute] of Object.entries({ role: "meter", "aria-label": "Relation to you", "aria-valuemin": -100, "aria-valuemax": 100, "aria-valuenow": value, "aria-valuetext": text })) bar.setAttribute(name, attribute);
+  return bar;
 }
 
 function choiceControl(row, path) {

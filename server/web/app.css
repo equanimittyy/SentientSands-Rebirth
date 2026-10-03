@@ -876,6 +876,32 @@ input[type="search"] {
   right: 0;
 }
 
+.relation-bar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.4rem 0.75rem;
+}
+
+.relation-track {
+  position: relative;
+  flex: 1 1 8rem;
+  max-width: 16rem;
+  height: 0.5rem;
+  border-radius: 999px;
+  background: linear-gradient(to right, var(--error), var(--border), var(--ok));
+}
+
+.relation-marker {
+  position: absolute;
+  top: 50%;
+  width: 0.25rem;
+  height: 1rem;
+  border-radius: 2px;
+  background: var(--text);
+  transform: translate(-50%, -50%);
+}
+
 .new-record {
   display: flex;
   flex-direction: column;
