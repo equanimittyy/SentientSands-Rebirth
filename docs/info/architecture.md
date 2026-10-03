@@ -127,6 +127,8 @@ A placeholder is a `{name}` in a prompt. `prompt_store.render` replaces each pla
 
 `prompt_system.txt` is the skeleton of the chat system prompt: its headings, the order of its sections, and the rules on what an NPC can see of the player. `build_system_prompt` fills it. A block that appears only with data, such as the events or the player faction description, keeps its heading in the code, because a placeholder has no conditions. The `{world_lore}` placeholder takes the overview of the campaign (see [Campaign storage](#campaign-storage)).
 
+The two profile prompts take `{race_lore}` from the race entries of the campaign (`describe_race`), matched by name or alias with case ignored. A template that describes its races therefore shapes new profiles, and a race with no entry gets a line that says so.
+
 ## LLM routing
 
 Each LLM call names a task: `chat`, `ambient`, `profile`, `profile_batch`, or `synthesis`. `server/user/llm_config.json` holds four parts, and the web app's Models page edits all of them through `/api/llm`.

@@ -108,9 +108,19 @@ def describe_faction(name, faction_id=None):
     faction = campaign_db.find_faction(faction_id, name)
     if not faction or not (faction["description"] or faction["fields"] or faction["major"]):
         return f"{name}: A minor or specialized group in the wasteland."
-    details = "; ".join(f"{key}: {', '.join(value) if isinstance(value, list) else value}" for key, value in faction["fields"].items())
-    text = f"{faction['name']} ({details})" if details else faction["name"]
-    return f"{text}: {faction['description']}" if faction["description"] else text
+    return describe_record(faction)
+
+def describe_record(record):
+    details = "; ".join(f"{key}: {', '.join(value) if isinstance(value, list) else value}" for key, value in record.get("fields", {}).items())
+    text = f"{record['name']} ({details})" if details else record["name"]
+    return f"{text}: {record['description']}" if record.get("description") else text
+
+def describe_race(race):
+    wanted = str(race).strip().lower()
+    for (category, _), entry, *_ in campaign_db.list_records("entity"):
+        if category == "races" and wanted in (name.lower() for name in [entry.get("name", ""), *entry.get("aliases", [])]):
+            return describe_record(entry)
+    return f"{race}: The campaign has no entry for this race."
 
 def note_faction(ctx, is_player=False):
     """Records each faction that the game reports, so the player can describe a modded or minor faction on the Campaigns page."""
@@ -1093,7 +1103,7 @@ def generate_character_profile(name, context=""):
     f_info = describe_faction(faction, ctx_data.get("factionID") or live_ctx.get("factionID"))
     o_info = describe_faction(origin_faction)
 
-    prompt = fill_prompt("prompt_profile_generation.txt", name=name, gender=gender, race=race, faction=f_info, origin_faction=o_info, job=job, context=context)
+    prompt = fill_prompt("prompt_profile_generation.txt", name=name, sex=gender, race=race, race_lore=describe_race(race), faction=f_info, origin_faction=o_info, job=job, context=context)
     
     settings = load_settings()
     language = settings.get("language", "English")
@@ -1159,7 +1169,8 @@ def generate_batch_profiles(npc_list):
     
     desc_str = "\n".join(descriptions)
     
-    prompt = fill_prompt("prompt_batch_profile_generation.txt", desc_str=desc_str)
+    race_lore = "\n".join(describe_race(race) for race in dict.fromkeys(npc.get('race', 'Unknown') for npc in complete))
+    prompt = fill_prompt("prompt_batch_profile_generation.txt", desc_str=desc_str, race_lore=race_lore)
     
     settings = load_settings()
     language = settings.get("language", "English")
