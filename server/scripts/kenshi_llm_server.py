@@ -86,6 +86,7 @@ PROFILES_IN_PROGRESS = set()
 PROGRESS_LOCK = threading.Lock()
 LIVE_CONTEXTS = {}
 PLAYER_CONTEXT = {}
+PROMPT_RUMORS = 5
 # The scene stays fixed for a whole conversation, so the prompt cache can serve it; a chat with another NPC, or as another squad member, starts a new one
 CONVERSATION_SCENE = {}
 PLAYER2_SESSION_KEY = None
@@ -672,7 +673,6 @@ INI_KEY_MAP = {
     "current_campaign": "ActiveCampaign",
     "enable_ambient": "EnableAmbientConversations",
     "radiant_delay": "RadiantDelay",
-    "global_events_count": "GlobalEventsCount",
     "synthesis_interval_minutes": "SynthesisIntervalMinutes",
     "radiant_range": "RadiantRange",
     "talk_radius": "TalkRadius",
@@ -714,7 +714,6 @@ SETTINGS_DEFAULTS = {
     "current_campaign": "Default",
     "enable_ambient": True,
     "radiant_delay": 240,
-    "global_events_count": 10,
     "synthesis_interval_minutes": 5,
     "radiant_range": 100,
     "talk_radius": 100,
@@ -802,9 +801,13 @@ def fill_prompt(filename, **values):
         logging.warning(f"PROMPT: {filename} has placeholders that nothing fills, so they stay as text: {', '.join(sorted(unknown))}")
     return prompt_store.render(template, values)
 
-def format_player_status(player_ctx):
+def format_player_status(player_ctx, player_name):
     if not player_ctx: return "No status data."
-    res = "PLAYER STATUS:\n"
+    race = player_ctx.get('race', 'Unknown')
+    race_entry = find_race(race)
+    res = f"PLAYER STATUS ({player_name}):\n"
+    res += f"- Race: {describe_record(race_entry) if race_entry else race}\n"
+    res += f"- Gender: {reported_sex(race, player_ctx.get('gender', 'male'))}\n"
     med =player_ctx.get("medical", {})
     if med:
         hunger = med.get("hunger", 300)
@@ -826,17 +829,14 @@ def format_player_status(player_ctx):
             
         res += f"- Condition: {', '.join(status) if status else 'Healthy/Fed'}\n"
     res += f"- Money: {player_ctx.get('money', 0)} cats\n"
-    res += f"- Faction: {player_ctx.get('faction', 'Nameless')}\n"
+    player_faction = campaign_db.player_faction()
+    description = player_faction["description"].strip() if player_faction else ""
+    res += f"- Faction: {player_ctx.get('faction', 'Nameless')}{f': {description}' if description else ''}\n"
     return res
 
 def format_player_equipment(player_ctx):
     worn = [f"- {item.get('name', 'Unknown Item')} [{item.get('slot', 'none').upper()}]" for item in player_ctx.get("inventory", []) if item.get("equipped")]
     return "PLAYER EQUIPMENT (Worn/Held):\n" + ("\n".join(worn) if worn else "- Nothing visible.")
-
-def describe_bio(profile):
-    if not profile:
-        return ""
-    return "\n".join(f"{label}: {profile[key]}" for key, label in (("Personality", "PERSONALITY"), ("Backstory", "BACKSTORY"), ("SpeechQuirks", "SPEECH QUIRKS")) if profile.get(key))
 
 def describe_npc(name, profile, npc_id):
     race = profile.get("Race", "Unknown")
@@ -854,19 +854,9 @@ def describe_npc(name, profile, npc_id):
         speech_quirks=profile.get("SpeechQuirks") or "None.",
     )
 
-def build_system_prompt(player_name="Drifter", speaker=None, speaker_profile=None):
-    # Ambient banter has no speaker, so squad slot 1 of the player context stands for the player
-    player = speaker or PLAYER_CONTEXT
-    if speaker_profile is None and player.get("npc_id"):
-        speaker_profile = campaign_db.get_character(player["npc_id"])
-    player_bio = describe_bio(speaker_profile)
+def build_system_prompt():
     world_lore = campaign_db.overview()
     rules = load_prompt_component("response_rules.txt")
-
-    player_faction = campaign_db.player_faction()
-    faction_block = ""
-    if player_faction and player_faction["description"].strip():
-        faction_block = f"PLAYER FACTION ({player_faction['name']}):\n{player_faction['description']}\n"
 
     # Only player2 infers the language from context; other providers need it stated
     language = load_settings().get("language", "English")
@@ -874,39 +864,22 @@ def build_system_prompt(player_name="Drifter", speaker=None, speaker_profile=Non
     if language and language.lower() != "english":
         language_instruction = f"\nLANGUAGE: You MUST respond ONLY in {language}. Do not switch to English under any circumstances.\n"
 
-    player_race = player.get("race", "Unknown")
-    player_gender = reported_sex(player_race, player.get("gender", "male"))
-    race_entry = find_race(player_race)
-
     prompt = fill_prompt(
         "prompt_system.txt",
         world_lore=world_lore,
-        player_name=player_name,
-        player_race=describe_record(race_entry) if race_entry else player_race,
-        player_gender=player_gender,
-        player_bio=player_bio,
-        player_faction=faction_block,
         rules=rules,
         language_instruction=language_instruction
     )
     return prompt.strip()
 
-def scene_values(player):
+def scene_values(player, player_name):
     """The prompt values that change from one call to the next, which a prompt places after its cached start."""
-    ge_count = load_settings().get("global_events_count", 10)
-    events_list = []
-
-    rumors = [line for _, line in campaign_db.rumors() if line.startswith("- [")]
-    events_list.extend(rumors[-max(1, ge_count//2):])
-
-    for e in campaign_db.recent_events(max(1, ge_count - len(events_list))):
-        events_list.append(f"- {e}")
-
+    rumors = [line for _, line in campaign_db.rumors() if line.startswith("- [")][-PROMPT_RUMORS:]
     events_block = ""
-    if events_list:
-        events_block = "WORLD STATUS & RUMORS (Hearsay):\n"
-        events_block += "The following are bits of gossip and recent news circulating in the wasteland. Do NOT prioritize these over your core identity or immediate situation. Mention them only if relevant to the conversation.\n"
-        events_block += "\n".join(events_list[-ge_count:])
+    if rumors:
+        events_block = "RUMORS (Hearsay):\n"
+        events_block += "The following rumors circulate in the wasteland. Do NOT prioritize these over your core identity or immediate situation. Mention them only if relevant to the conversation.\n"
+        events_block += "\n".join(rumors)
 
     location_tag = "The Wasteland"
     if player:
@@ -924,7 +897,7 @@ def scene_values(player):
     return {
         "location": location_tag,
         "events": events_block,
-        "player_status": format_player_status(player),
+        "player_status": format_player_status(player, player_name),
         "player_equipment": format_player_equipment(player),
     }
 
@@ -1508,8 +1481,8 @@ def ambient_event():
     if unique_history:
         history_block = "\nRECENT LOCAL DIALOGUE (DO NOT REPEAT TOPICS OR JOKES FROM HERE):\n" + "\n".join(unique_history)
 
-    dynamic_system_prompt = build_system_prompt(player_name)
-    scene = scene_values(PLAYER_CONTEXT)
+    dynamic_system_prompt = build_system_prompt()
+    scene = scene_values(PLAYER_CONTEXT, player_name)
 
     ambient_system_prompt = f"""{dynamic_system_prompt}
 
@@ -1848,18 +1821,8 @@ def chat():
         t.start()
         threads.append(t)
 
-    # The squad member who talks; a profile that it lacks is generated like an NPC's
+    # The squad member who talks
     speaker = context_dict(data.get('speaker'))
-    speaker_profile = {}
-    def fetch_speaker():
-        try:
-            speaker_profile.update(get_character_data(player_name, speaker))
-        except Exception as e:
-            logging.error(f"PROFILE: Cannot fetch the profile of the speaker {player_name}: {e}")
-    if speaker.get('npc_id'):
-        t = threading.Thread(target=fetch_speaker, daemon=True)
-        t.start()
-        threads.append(t)
 
     for t in threads:
         t.join()
@@ -1879,7 +1842,7 @@ def chat():
         final_instruction = f"Respond as {primary_npc} (the animal). Provide a single, BRIEF action description or sound in asterisks (e.g. *Growls*, *Tilts head*, *Nuzzles hand*). DO NOT USE WORDS OR SPEECH. Keep it under 6 words."
         volume = judgment = ""
     else:
-        system_prompt = build_system_prompt(player_name, speaker or None, speaker_profile or None)
+        system_prompt = build_system_prompt()
         if mode == 'whisper':
             volume = "CRITICAL: The player is WHISPERING to you privately. This is a quiet, intimate, or secretive moment. Keep the reply hushed and private."
         elif mode == 'yell':
@@ -1898,7 +1861,7 @@ def chat():
     if scene is None:
         scene = fill_prompt(
             "prompt_chat_scene.txt",
-            **scene_values(speaker or PLAYER_CONTEXT),
+            **scene_values(speaker or PLAYER_CONTEXT, player_name),
             npc_name=primary_npc,
             relation=primary_data.get("Relation", 0),
             condition=build_detailed_context_string(primary_npc, npc_ids.get(primary_npc), char_data=primary_data),
@@ -2067,8 +2030,7 @@ def generate_global_narrative_thread():
         logging.debug("NARRATIVE: No game time yet, so no synthesis.")
         return None
     settings = load_settings()
-    ge_count = settings.get("global_events_count", 10)
-    last_chunk = campaign_db.recent_events(max(ge_count, 100))
+    last_chunk = campaign_db.recent_events(100)
 
     # Kept low so short sessions can still synthesize
     min_needed = 5
@@ -2267,7 +2229,6 @@ def settings_page_values(settings):
         "enable_ambient": settings["enable_ambient"],
         "ambient_timer": settings["radiant_delay"],
         "synthesis_timer": settings["synthesis_interval_minutes"],
-        "global_events_count": settings["global_events_count"],
         "dialogue_speed": settings["dialogue_speed_seconds"],
         "bubble_life": settings["bubble_life"],
         "radii": {
@@ -2367,14 +2328,6 @@ def settings_endpoint():
         log_setup.set_level(log_level)
         send_to_pipe(f"SET_CONFIG: g_logLevel: {log_level}")
         logging.info(f"SETTINGS: Log level set to {log_level}")
-
-    ge_count = data.get("global_events_count")
-    if ge_count is not None:
-        try:
-            val = int(ge_count)
-            changes["global_events_count"] = val
-            logging.info(f"SETTINGS: Global events count set to {val}")
-        except: pass
 
     syn_timer = data.get("synthesis_timer")
     if syn_timer is not None:

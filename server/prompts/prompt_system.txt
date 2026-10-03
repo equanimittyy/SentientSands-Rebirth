@@ -12,10 +12,3 @@ REPLY RULES:
 
 WORLD LORE:
 {world_lore}
-
-PLAYER CHARACTER ({player_name}):
-RACE: {player_race}
-GENDER: {player_gender}
-{player_bio}
-
-{player_faction}
