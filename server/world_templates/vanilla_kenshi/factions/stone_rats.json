@@ -4,6 +4,7 @@
   "aliases": [],
   "major": false,
   "fields": {
+    "leader": "Big Al",
     "base": "Stone Rat Village",
     "territory": "The Swamp"
   },

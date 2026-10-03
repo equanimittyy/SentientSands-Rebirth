@@ -3,6 +3,8 @@
   "name": "Skin Bandits",
   "aliases": [],
   "major": false,
-  "fields": {},
+  "fields": {
+    "leader": "Savant"
+  },
   "description": "A band of insane Skeletons who believe that every living being is a Skeleton hidden under flesh. They capture people and peel off their skin to set them free. Other Skeletons are the only travelers they leave alone."
 }

@@ -4,6 +4,7 @@
   "aliases": [],
   "major": false,
   "fields": {
+    "leader": "Big Fang",
     "base": "Shark",
     "territory": "The Swamp"
   },

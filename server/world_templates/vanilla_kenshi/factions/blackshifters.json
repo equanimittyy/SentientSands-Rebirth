@@ -4,6 +4,7 @@
   "aliases": [],
   "major": false,
   "fields": {
+    "leader": "Big Darkbrow",
     "base": "Shark",
     "territory": "The Swamp"
   },
