@@ -1,4 +1,4 @@
-import { ask, deleteButton, el, field, getJson, reportUnsaved, sendJson, setFieldError, showMessage, tell } from "./api.js";
+import { ask, deleteButton, el, field, getJson, progress, reportUnsaved, sendJson, setFieldError, showMessage, tell } from "./api.js";
 
 const page = document.getElementById("campaigns-page");
 const message = document.getElementById("campaigns-message");
@@ -56,7 +56,14 @@ function renderCampaigns() {
     campaign.template ? el("span", { className: "detail" }, `from ${templateTitle(campaign.template)}`) : null,
     campaign.active ? el("span", { className: "badge ok" }, "Current") : null,
     deleteButton(`Delete the campaign ${campaign.name}`, () => deleteCampaign(campaign))));
-  const template = el("select", { onchange: (event) => { creation.template = event.target.value; } },
+  const description = el("p", { className: "hint" });
+  const describe = () => {
+    description.textContent = templates.find((entry) => entry.name === creation.template)?.description ?? "";
+    description.hidden = !description.textContent;
+  };
+  describe();
+  // Not render(): it rebuilds the select, so a player who steps through the options with the arrow keys loses focus on each step
+  const template = el("select", { onchange: (event) => { creation.template = event.target.value; describe(); } },
     ...templates.map((entry) => new Option(entry.title, entry.name, false, entry.name === creation.template)));
   return el("fieldset", {},
     el("legend", {}, "Campaign Manager"),
@@ -65,6 +72,7 @@ function renderCampaigns() {
       el("label", {}, "Campaign Name", textInput(creation, "name", ["create", "name"], { required: true })),
       el("label", {}, "Template", template),
       el("button", { type: "submit" }, "Create")),
+    description,
     noteLine("create"));
 }
 
@@ -112,16 +120,23 @@ function renderEvents() {
 
 async function createCampaign(event) {
   event.preventDefault();
+  const switching = !campaigns.some((campaign) => campaign.active);
+  const steps = progress("Creating the campaign", "Writing the campaign", ...(switching ? ["Switching campaigns"] : []), "Loading the campaigns");
   try {
-    const reply = await sendJson("POST", "/api/campaigns", creation);
+    const { name } = await sendJson("POST", "/api/campaigns", creation);
     creation.name = "";
-    notes.set("create", { text: `Created ${reply.name}. Choose it under Current Campaign to play it.` });
-    const list = await getJson("/api/campaigns");
-    campaigns = list.campaigns;
+    steps.next();
+    notes.set("create", { text: `Created ${name}. Choose it under Current Campaign to play it.` });
+    if (switching) {
+      await sendJson("POST", "/api/campaigns/switch", { name });
+      steps.next();
+      notes.set("create", { text: `Created ${name} and switched to it. The next chat uses it.` });
+    }
   } catch (error) {
     notes.set("create", { error: true, text: error.message });
   }
-  render();
+  await fetchAll(unsavedDrafts());
+  steps.close();
 }
 
 async function deleteCampaign(campaign) {

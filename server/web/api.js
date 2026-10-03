@@ -125,6 +125,30 @@ export function ask(title, action, ...text) {
 
 export const tell = (title, ...text) => ask(title, null, ...text);
 
+// Escape cannot close it, so the player cannot start the same request again while it runs.
+export function progress(title, ...labels) {
+  const dialog = document.getElementById("progress");
+  const steps = labels.map((label) => el("li", {}, label));
+  let current = 0;
+  steps[current]?.classList.add("current");
+  dialog.querySelector("h2").textContent = title;
+  dialog.querySelector("ol").replaceChildren(...steps);
+  const block = (event) => event.preventDefault();
+  dialog.addEventListener("cancel", block);
+  dialog.showModal();
+  return {
+    next() {
+      steps[current]?.classList.replace("current", "done");
+      current += 1;
+      steps[current]?.classList.add("current");
+    },
+    close() {
+      dialog.removeEventListener("cancel", block);
+      dialog.close();
+    },
+  };
+}
+
 export const confirmReset = (page, ...notes) =>
   ask("Reset to defaults", "Reset", "Are you sure you want to reset all settings on ", el("b", {}, page), " to their defaults?", ...notes.flatMap((note) => ["\n\n", note]));
 
