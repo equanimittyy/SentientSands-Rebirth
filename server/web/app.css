@@ -11,7 +11,7 @@
 }
 
 :root {
-  color-scheme: light dark;
+  color-scheme: light;
   font-family: "Walter Turncoat", system-ui, sans-serif;
   --bg: #f4ead8;
   --surface: #fbf5ea;
@@ -27,21 +27,20 @@
   --ok: #2f6b34;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --bg: #1b1713;
-    --surface: #25201a;
-    --field: #2c261f;
-    --text: #ece2d0;
-    --muted: #ab9a83;
-    --border: #4a3f33;
-    --field-border: #8a7862;
-    --accent: #d99a4a;
-    --accent-strong: #d99a4a;
-    --on-accent: #1b1713;
-    --error: #f2857d;
-    --ok: #82c785;
-  }
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --bg: #1b1713;
+  --surface: #25201a;
+  --field: #2c261f;
+  --text: #ece2d0;
+  --muted: #ab9a83;
+  --border: #4a3f33;
+  --field-border: #8a7862;
+  --accent: #d99a4a;
+  --accent-strong: #d99a4a;
+  --on-accent: #1b1713;
+  --error: #f2857d;
+  --ok: #82c785;
 }
 
 body {
@@ -140,6 +139,21 @@ nav a {
   color: inherit;
   text-decoration: none;
   border-bottom: 2px solid transparent;
+}
+
+.theme-toggle {
+  position: absolute;
+  z-index: 3;
+  top: 0.75rem;
+  right: 0.75rem;
+  display: flex;
+  padding: 0.45rem;
+  border-radius: 50%;
+}
+
+.theme-toggle .icon {
+  width: 1.3rem;
+  height: 1.3rem;
 }
 
 /* A mask, not an img, so the icon takes the text colour around it. */

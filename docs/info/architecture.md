@@ -60,6 +60,8 @@ Background threads do not change game objects or MyGUI widgets. The pipe listene
 
 The server serves `server/web/` at `/` and `/web/<file>`. The files are plain HTML, CSS, JavaScript modules, fonts, and images, with no build step, no npm packages, and no assets from a CDN, so the web app works offline and the release needs no extra tools.
 
+The toggle at the top right switches between the light and the dark colours. The browser keeps the choice in `localStorage`, and without a stored choice the page follows the system setting. A small script in the page head sets the theme before the page paints, so a dark page never flashes light.
+
 | Page | Route | Storage |
 |---|---|---|
 | Settings | `/settings`, `/settings/defaults` | `SentientSands_Config.ini` |

@@ -19,6 +19,26 @@ function showPage() {
 window.addEventListener("hashchange", showPage);
 showPage();
 
+const themeToggle = document.getElementById("theme-toggle");
+
+function showTheme() {
+  const dark = document.documentElement.dataset.theme === "dark";
+  themeToggle.firstElementChild.style.setProperty("--icon", `url(/web/images/lucide/${dark ? "sun" : "moon"}.svg)`);
+  themeToggle.setAttribute("aria-label", dark ? "Switch to light mode" : "Switch to dark mode");
+}
+
+themeToggle.addEventListener("click", () => {
+  const theme = document.documentElement.dataset.theme === "dark" ? "light" : "dark";
+  document.documentElement.dataset.theme = theme;
+  try {
+    localStorage.setItem("theme", theme);
+  } catch {
+    // Storage can be blocked, for example in a private window; the toggle then lasts until the page reloads.
+  }
+  showTheme();
+});
+showTheme();
+
 const status = document.getElementById("status");
 const offline = document.getElementById("offline");
 const loaders = { settings: loadSettings, llm: loadLlm, prompts: loadPrompts, campaigns: loadCampaigns, editor: loadEditor };
