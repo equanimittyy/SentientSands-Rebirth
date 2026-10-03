@@ -262,13 +262,13 @@ function removeButton(list, index, label) {
   return deleteButton(label, () => { list.splice(index, 1); changed(); renderForm(); }, readOnly());
 }
 
-function factsEditor(list, path, hint, categories) {
+function factsEditor(list, path, categories) {
   const free = Object.keys(categories).filter((key) => !list.some((row) => row.key === key));
   const add = addButton("Add fact", () => list.push({ key: free[0], value: "", list: categories[free[0]] === "list" }));
   add.disabled ||= free.length === 0;
   return el("fieldset", {},
     el("legend", {}, "Facts"),
-    el("p", { className: "hint" }, hint),
+    el("p", { className: "hint" }, "Short facts about the entry. Each fact has a predefined type."),
     ...list.map((row, index) => el("div", { className: "inline row" },
       factCategory(row, free, categories),
       control("input", row, "value", [...path, index, "value"], { placeholder: row.list ? "Values, separated by commas" : "Value", label: "Fact value" }),
@@ -287,7 +287,7 @@ function factCategory(row, free, categories) {
       renderForm();
     },
   }, ...[...keys].map((key) => new Option(key[0].toUpperCase() + key.slice(1), key, false, key === row.key)));
-  select.setAttribute("aria-label", "Fact category");
+  select.setAttribute("aria-label", "Fact type");
   return select;
 }
 
@@ -305,7 +305,7 @@ function factionForm(form, path, record) {
     field("Aliases", control("input", form, "aliases", [...path, "aliases"]), null, "Other names of the faction, separated by commas."),
     el("label", { className: "check" }, major, "Major world power. Its members resist an offer to join your squad."),
     field("Description", control("textarea", form, "description", [...path, "description"], { rows: 5 }), null, record.is_player ? "What every NPC knows about your squad." : "What NPCs know about the faction."),
-    factsEditor(form.fields, [...path, "fields"], "Short facts about the faction, for example its leader.", FACTS.factions),
+    factsEditor(form.fields, [...path, "fields"], FACTS.factions),
   ];
 }
 
@@ -405,7 +405,7 @@ function entityForm(form, path, record) {
     field("Name", control("input", form, "name", [...path, "name"]), null, "The name that NPCs use for it."),
     field("Aliases", control("input", form, "aliases", [...path, "aliases"]), null, "Other names of the entry, separated by commas."),
     field("Description", control("textarea", form, "description", [...path, "description"], { rows: 5 }), null, `What NPCs know about the ${CATEGORY_LABELS[record.category].toLowerCase()}.`),
-    factsEditor(form.fields, [...path, "fields"], "Short facts, for example the owner of a town. A value that names another entry links the two.", FACTS[record.category]),
+    factsEditor(form.fields, [...path, "fields"], FACTS[record.category]),
     field("Access rules (JSON)", control("textarea", form, "access", [...path, "access"], { className: "mono", rows: 3 }), null, "Which NPCs know this entry. Leave [] for every NPC."),
     relationsEditor(form, path, record),
   ];
