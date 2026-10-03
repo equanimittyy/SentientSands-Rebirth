@@ -31,14 +31,16 @@ class TemplateError(Exception):
 
 
 def listing(shipped_dir, user_dir):
+    """Opens only the manifests: a full load of each template opens every record file, which took seconds on a mounted drive."""
     result = []
     for name, builtin in _names(shipped_dir, user_dir):
-        template = load(name, shipped_dir, user_dir)
+        path = os.path.join(shipped_dir if builtin else user_dir, name)
+        manifest = _read_json(path, MANIFEST, {}, [])
         result.append({
             "name": name,
             "builtin": builtin,
-            "title": template["manifest"].get("name") or name,
-            "counts": {"factions": len(template["factions"]), "characters": len(template["characters"]), "entities": sum(len(records) for records in template["entities"].values())},
+            "title": manifest.get("name") or name,
+            "counts": {"factions": len(_record_ids(path, "factions")), "characters": len(_record_ids(path, "characters")), "entities": sum(len(_record_ids(path, category)) for category in CATEGORIES)},
         })
     return result
 
@@ -296,18 +298,20 @@ def _read_json(folder, relative, default, errors):
         return default
 
 
-def _read_records(folder, relative, errors):
+def _record_ids(folder, relative):
     directory = os.path.join(folder, relative)
     if not os.path.isdir(directory):
-        return {}
+        return []
+    return [record_id for record_id, extension in map(os.path.splitext, sorted(os.listdir(directory))) if extension == ".json" and _ID.fullmatch(record_id)]
+
+
+def _read_records(folder, relative, errors):
     records = {}
-    for file_name in sorted(os.listdir(directory)):
-        record_id, extension = os.path.splitext(file_name)
-        if extension == ".json" and _ID.fullmatch(record_id):
-            failed = len(errors)
-            record = _read_json(folder, os.path.join(relative, file_name), None, errors)
-            if len(errors) == failed:
-                records[record_id] = record
+    for record_id in _record_ids(folder, relative):
+        failed = len(errors)
+        record = _read_json(folder, os.path.join(relative, record_id + ".json"), None, errors)
+        if len(errors) == failed:
+            records[record_id] = record
     return records
 
 

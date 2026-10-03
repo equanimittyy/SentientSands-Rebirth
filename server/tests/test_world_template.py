@@ -107,6 +107,13 @@ class SaveTest(TemplateTestCase):
         super().setUp()
         world_template.duplicate("base", "Mine", self.shipped, self.user)
 
+    def test_the_listing_gives_the_title_and_the_counts_of_each_template(self):
+        self.write("base", "regions/okran.json", {"name": "Okran's Pride"})
+        self.assertEqual(world_template.listing(self.shipped, self.user), [
+            {"name": "base", "builtin": True, "title": "Base", "counts": {"factions": 1, "characters": 0, "entities": 1}},
+            {"name": "Mine", "builtin": False, "title": "Mine", "counts": {"factions": 1, "characters": 0, "entities": 0}},
+        ])
+
     def test_a_shipped_template_is_read_only(self):
         with self.assertRaisesRegex(world_template.TemplateError, "Duplicate it"):
             world_template.save_record("base", "overview", None, "Changed.", self.shipped, self.user)
