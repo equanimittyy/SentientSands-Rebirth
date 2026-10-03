@@ -93,12 +93,11 @@ function toForm(kind, data) {
   return {
     name: data.name ?? "", aliases: (data.aliases ?? []).join(", "), fields: rows(data.fields), description: data.description ?? "",
     children: (data.children ?? []).map((child) => ({ entry: child.entry ?? "", text: labels.get(child.entry) ?? child.entry ?? "", weight: child.weight === undefined ? "" : String(child.weight) })),
-    access: JSON.stringify(data.access ?? []),
-    extra: rest(data, ["name", "aliases", "fields", "description", "children", "access"]),
+    extra: rest(data, ["name", "aliases", "fields", "description", "children"]),
   };
 }
 
-// Throws when the access rules are not valid JSON or a relation names no entry.
+// Throws when a relation names no entry.
 function toData(kind, form) {
   if (kind === "overview") return form.text.trim();
   if (kind === "history") return form.entries.map((entry) => ({ title: entry.title.trim(), text: entry.text.trim() }));
@@ -110,12 +109,6 @@ function toData(kind, form) {
     const profile = form.profile.map((row) => (CHOICE_KEYS.includes(row.key) ? { ...row, value: choice(row.key, row.value) } : row));
     return { ...form.extra, game_id: form.game_id.trim(), profile: { ...fromRows(profile, PROFILE_KEYS), ...form.details } };
   }
-  let access;
-  try {
-    access = JSON.parse(form.access.trim() || "[]");
-  } catch {
-    throw new Error("The access rules are not valid JSON.");
-  }
   return {
     ...form.extra,
     name: form.name.trim(),
@@ -126,7 +119,6 @@ function toData(kind, form) {
       if (!child.entry) throw new Error(`${child.text.trim()} is not an entry. Choose one from the list.`);
       return { entry: child.entry, ...(child.weight.trim() ? { weight: numberOr(child.weight) } : {}) };
     }),
-    access,
   };
 }
 
@@ -423,7 +415,6 @@ function entityForm(form, path, record) {
     field("Aliases", control("input", form, "aliases", [...path, "aliases"]), null, "Other names of the entry, separated by commas."),
     field("Description", control("textarea", form, "description", [...path, "description"], { rows: 5 }), null, `What NPCs know about the ${CATEGORY_LABELS[record.category].toLowerCase()}.`),
     factsEditor(form.fields, [...path, "fields"], FACTS[record.category]),
-    field("Access rules (JSON)", control("textarea", form, "access", [...path, "access"], { className: "mono", rows: 3 }), null, "Which NPCs know this entry. Leave [] for every NPC."),
     relationsEditor(form, path, record),
   ];
 }

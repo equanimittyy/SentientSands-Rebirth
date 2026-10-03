@@ -104,8 +104,7 @@ A world lore entity file, `locations/blister_hill.json`:
   "aliases": [],
   "fields": {"owner": ["Holy Nation"]},
   "description": "The capital of the Holy Nation...",
-  "children": [{"entry": "locations/...", "weight": 2}],
-  "access": []
+  "children": [{"entry": "locations/...", "weight": 2}]
 }
 ```
 
@@ -123,7 +122,8 @@ A world lore entity file, `locations/blister_hill.json`:
 - The entity ID is the file name without `.json`. The category is the folder name: `races`, `locations`, or `regions`. A template cannot add a category, so another folder is an error.
 - The values in `fields` feed link expansion. The `description` is retrieved text and never feeds link expansion.
 - Each kind of record has fixed `fields` categories, and each category holds one text or a list of text (`FACTS` in `server/scripts/world_template.py`). The validator refuses another category, so each template uses the same keys.
-- `children` are weighted links to other entities. Each child names its entity as `<category>/<entity ID>`, not by name, because a location and a region can share a name, for example Bast. `access` holds the rules that decide which NPCs know the entity. Phase 5 sets its schema, with the retriever that applies it ([section 10](#10-phases-and-verification)).
+- `children` are weighted links to other entities. Each child names its entity as `<category>/<entity ID>`, not by name, because a location and a region can share a name, for example Bast.
+- A lore entity holds no access rules. What an NPC knows belongs to the character, in its knowledge bank, not to the entity. The format of the knowledge bank is open ([section 12](#12-open-questions)).
 - The order of `history.json` is the timeline order. The loader stores each entry as an entity of category `history`, so retrieval finds it like any entity.
 - One validator runs on each load, import, and edit. It rejects an unknown `format_version`, a JSON file that does not parse, a faction or an entity without `name`, a faction or a character without `game_id`, and a character without a `Name` in its profile. A child whose `entry` names no entity is a warning, not an error.
 
@@ -203,11 +203,6 @@ CREATE TABLE child (
   weight      REAL NOT NULL
 );
 
-CREATE TABLE access_rule (
-  entity_id INTEGER NOT NULL REFERENCES entity(id) ON DELETE CASCADE,
-  rule      TEXT NOT NULL        -- one JSON object from the entity's access list
-);
-
 CREATE VIRTUAL TABLE entity_fts USING fts5(
   name, aliases, body,
   tokenize = 'porter unicode61'
@@ -217,13 +212,13 @@ CREATE VIRTUAL TABLE entity_fts USING fts5(
 - `meta` holds the overview and the name, version, and content hash of the template that the campaign came from.
 - The dialogue rows reference `character`, as they reference `npc` today.
 - Characters and factions are not world lore entities. Retrieval searches only the lore, so the many generated NPCs cannot crowd lore out of a prompt.
-- Rejected: one table for characters, factions, and lore, with a flag that keeps generated characters out of retrieval. The three stores have different keys and different editors, and only the lore needs links, children, and access rules.
+- Rejected: one table for characters, factions, and lore, with a flag that keeps generated characters out of retrieval. The three stores have different keys and different editors, and only the lore needs links and children.
 - `updated_at` lets the web app reject a stale save ([proposal_web_app.md](proposal_web_app.md#3-consistency)).
 
 ## 6. Campaign model
 
 - The Campaigns tab of the web app creates a campaign from any template, and from SSR Vanilla by default.
-- The server loads the template into the new campaign database in one transaction: the canon factions into the faction store, the canon characters into the character store under `u:<game_id>`, the lore entities with their descriptions, fields, aliases, children, and access rules, the history entries, the links, the FTS index, and the overview.
+- The server loads the template into the new campaign database in one transaction: the canon factions into the faction store, the canon characters into the character store under `u:<game_id>`, the lore entities with their descriptions, fields, aliases, and children, the history entries, the links, the FTS index, and the overview.
 - After creation, the campaign does not depend on its template. A template edit, a new template version, or a deleted template does not change the campaign.
 - A campaign database of an earlier schema version is not upgraded. `open_campaign` refuses it and logs that the player must start a new campaign.
 - The prompt takes the overview from `meta`.
@@ -275,7 +270,7 @@ The retriever, `server/scripts/knowledge_retrieve.py`, searches the world lore o
 2. Layer 0: FTS5 match against the name, the aliases, and the fields.
 3. Layers 1 to N: follow the precomputed `link` table, up to `max_layers`.
 4. Rank by layer, then FTS rank. Apply `max_matches_per_layer` and `max_files`.
-5. Apply the access rules for the speaking NPC.
+5. Keep only the entities that the speaking NPC knows, by its knowledge bank.
 6. Honor `timeout_ms` as a hard ceiling.
 
 The limits are INI settings with these defaults: `max_keywords` 3, `max_layers` 1, `max_matches_per_layer` 3, `max_files` 4, and `timeout_ms` 500. The retrieved entities go into the prompt after the overview.
@@ -343,6 +338,7 @@ Tests:
 1. Should the name pools (`names.json`, `generic_names.json`) be customizable? The options are a player override, as for the system prompts, or a part of each world template, so that a modded template can add its own generic NPC types and names.
 2. Should an existing campaign be able to take a newer version of its template, and how does that merge with `origin = 'campaign'` changes?
 3. Should retrieval also search the faction and character stores, so that a question about the Holy Nation or Beep brings their records into the prompt? Should a lore field, such as the owner of a town, link to a faction?
+4. What does the knowledge bank of a character hold, and how does a character get it?
 
 ## 13. References
 

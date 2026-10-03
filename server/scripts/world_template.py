@@ -302,7 +302,7 @@ _FORMAT_KEYS = {
     "history": {"title", "text"},
     "factions": {"game_id", "name", "aliases", "major", "fields", "description"},
     "characters": {"game_id", "profile"},
-    "entity": {"name", "aliases", "fields", "description", "children", "access"},
+    "entity": {"name", "aliases", "fields", "description", "children"},
     "child": {"entry", "weight"},
 }
 
@@ -513,9 +513,6 @@ def _check_entity(entity, field, entries, error, warnings):
         for child in children:
             if child["entry"] not in entries:
                 warnings.append({"field": field + ["children"], "message": f"The relation {child['entry']} of {entity.get('name', field[-1])} names no entry."})
-    access = entity.get("access", [])
-    if not isinstance(access, list) or not all(isinstance(rule, dict) for rule in access):
-        error(field + ["access"], "The access rules must be a list of objects.")
 
 
 def _check_object(record, field, error):
