@@ -125,7 +125,26 @@ A placeholder is a `{name}` in a prompt. `prompt_store.render` replaces each pla
 - A hand-made override can still hold a wrong placeholder. `fill_prompt` then leaves it as text and logs a warning.
 - Rejected: Jinja2. Flask already bundles it, but template logic lets one edit break the whole prompt, and a syntax error fails the call.
 
-`prompt_system.txt` is the skeleton of the chat system prompt: its headings, the order of its sections, and the rules on what an NPC can see of the player. `build_system_prompt` fills it. A block that appears only with data, such as the events or the player faction description, keeps its heading in the code, because a placeholder has no conditions. The `{world_lore}` placeholder takes the overview of the campaign (see [Campaign storage](#campaign-storage)).
+A chat request is ordered for a provider's prompt cache, which reuses only an identical start of a request (`chat` in `server/scripts/kenshi_llm_server.py`, `server/scripts/chat_prompt.py`):
+
+| Part | Content | Changes |
+|---|---|---|
+| System message | `prompt_chat_template.txt`: `prompt_system.txt`, then `npc_chat_template.txt` | When the campaign, the speaker, or the NPC changes |
+| History | The stored dialogue of the NPC, as user and assistant turns | One exchange more each turn |
+| Last user message | `prompt_chat_scene.txt`: the place, the world events, the player's state, the relation and condition of the NPC, the volume, the final instruction, and the player's line | Every turn |
+
+From one turn to the next, only the newest exchange and the last message are new, so the cache can serve the rest. Chats with different NPCs and banter share the start of the system message.
+
+`prompt_system.txt` holds the rules, the action tags, the world lore, and the player character, and `build_system_prompt` fills it. `scene_values` fills the parts that change on each call, for the chat scene and for banter. A block that appears only with data, such as the events or the player faction description, keeps its heading in the code, because a placeholder has no conditions. The `{world_lore}` placeholder takes the overview of the campaign (see [Campaign storage](#campaign-storage)).
+
+`npc_chat_template.txt` describes the NPC of a chat from its profile (`describe_npc`). Banter keeps its one-line list of NPCs in the code, because the plugin reads the `Name|ID` of each line.
+
+- The history is a block window of the stored dialogue (`chat_prompt.history_window`). It keeps its first line while it grows from 20 to 39 lines, and then it moves on by 20 lines. A window that moved with each new line would change the start of the history on every turn, so the cache could never serve it. For the same reason, `append_dialogue` drops old lines in whole blocks of 20 when an NPC has more than 260.
+- `chat_prompt.history_turns` makes each line that starts with the name of the NPC an assistant turn, without the time and the name, and every other line a user turn. A reply that was stored without the name, or under a name from before a rename, therefore counts as a user line, and the banter lines of the NPC count as its own turns.
+- The server stores a reply without the `FACTION_RELATIONS` tag that it derives from a strong judgment, so the model does not learn to add that tag itself.
+- Chat templates of the Mistral v3 family place the system text next to the last user message. With those models, the cache cannot serve the system message.
+
+The server answers a Yell with one NPC, as a Talk. A Yell differs only in that the NPCs within the yell radius overhear it, and the scene tells the NPC that the player speaks loudly.
 
 The two profile prompts take `{race_lore}` from the race entries of the campaign (`describe_race`), matched by name or alias with case ignored. A template that describes its races therefore shapes new profiles, and a race with no entry gets a line that says so.
 
@@ -143,6 +162,8 @@ Each LLM call names a task: `chat`, `ambient`, `profile`, `profile_batch`, or `s
 `llm_router.run_route` tries the profiles of the route in order, one attempt each. It moves to the next profile after an exception, a non-200 status, or an empty completion. Each attempt gets the smaller of the profile's timeout and the time left before the deadline. The default deadline is 55 s, because the plugin stops waiting for a reply after 60 s (`plugin/core/Comm.cpp`).
 
 The request body starts with `model`, `messages`, and `top_p` 0.9. The route's `max_tokens` and `temperature` come next, and the profile's extra request parameters override both.
+
+`log_cache_use` logs the prompt tokens of each reply and how many of them the provider's cache served, as OpenAI and OpenRouter (`usage.prompt_tokens_details.cached_tokens`), DeepSeek (`usage.prompt_cache_hit_tokens`), and llama.cpp (`timings.cache_n`) report it.
 
 A Player2 provider uses a session key from the local Player2 app. On a 401, `send_completion` gets a new session key and tries the same profile once more.
 
@@ -165,7 +186,7 @@ On a start without `llm_config.json`, the server builds it from `default_provide
 - A profile key that starts with `_` is not stored. Such a key describes only the copy of one request, for example `_transient` on a stand-in profile.
 - Each operation opens a connection with a 5 s busy timeout and closes it. A campaign switch changes only the database path that `open_campaign` sets.
 - The database uses the default rollback journal, not WAL. The campaign folder therefore has no `-wal` or `-shm` file, and a player can copy it while the server is idle.
-- Each character keeps its newest 250 dialogue lines, and the campaign keeps its newest 500 events. An event that the table already holds is not added again.
+- Each character keeps its newest 240 to 260 dialogue lines (see [Prompts](#prompts)), and the campaign keeps its newest 500 events. An event that the table already holds is not added again.
 - Favorites belong to each campaign.
 
 A new campaign is a copy of a world template (see [World templates](#world-templates)): its canon and the name, version, and content hash of the template. After the copy, the campaign does not depend on the template, so a template edit or a deleted template does not change it. Only the Campaigns page of the web app creates and switches campaigns. The game has no campaign window.

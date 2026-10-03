@@ -159,10 +159,11 @@ class CharacterTest(CampaignTestCase):
         campaign_db.upsert_profile(GENERIC_ID, BEEP)
         self.assertEqual({c["npc_id"]: c["origin"] for c in campaign_db.list_characters()}[GENERIC_ID], "game")
 
-    def test_dialogue_keeps_the_newest_250_lines(self):
+    def test_dialogue_drops_its_oldest_lines_in_whole_blocks(self):
         campaign_db.append_dialogue(GENERIC_ID, [f"line {i}" for i in range(300)], BEEP)
-        history = campaign_db.get_character(GENERIC_ID)["ConversationHistory"]
-        self.assertEqual(history, [f"line {i}" for i in range(50, 300)])
+        self.assertEqual(campaign_db.get_character(GENERIC_ID)["ConversationHistory"], [f"line {i}" for i in range(40, 300)])
+        campaign_db.append_dialogue(GENERIC_ID, ["line 300"], BEEP)
+        self.assertEqual(campaign_db.get_character(GENERIC_ID)["ConversationHistory"][0], "line 60")
 
     def test_two_npcs_with_one_name_keep_separate_rows(self):
         campaign_db.append_dialogue("h:1", ["to the first"], {"Name": "Bob"})

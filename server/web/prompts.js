@@ -9,11 +9,12 @@ const openCards = new Set();
 
 const OTHER = "Other prompts";
 const PROMPT_INFO = {
-  "prompt_system.txt": { group: "Conversations", title: "System prompt", blurb: "The frame of every chat and radiant conversation. It places the reply rules, the action tags, the location, the player, and the recent world events." },
-  "npc_base.txt": { group: "Conversations", title: "NPC persona", blurb: "The base persona of every NPC. The profile of each NPC adds to it." },
+  "prompt_system.txt": { group: "Conversations", title: "System prompt", blurb: "The stable frame of every chat and banter: the rules, the action tags, the world lore, and the player character. It comes first, so a provider can cache it." },
+  "npc_chat_template.txt": { group: "Conversations", title: "NPC chat template", blurb: "How a chat describes the NPC, from its profile. It stays the same from turn to turn." },
   "response_rules.txt": { group: "Conversations", title: "Reply rules", blurb: "The rules for how an NPC writes a reply." },
   "prompt_action_tags.txt": { group: "Conversations", title: "Action tags", blurb: "The game actions that an NPC can take from a reply, such as attack, join your squad, or give an item." },
-  "prompt_chat_template.txt": { group: "Conversations", title: "Chat template", blurb: "How a chat request is put together: the system prompt, the NPC profiles, the conversation so far, and the final instruction." },
+  "prompt_chat_template.txt": { group: "Conversations", title: "Chat request", blurb: "The system message of a chat: the system prompt, then the NPC chat template. It stays the same from turn to turn, so a provider can cache it." },
+  "prompt_chat_scene.txt": { group: "Conversations", title: "Chat scene", blurb: "The last message of a chat request, which changes each turn: the place, the world events, the player's state, the NPC's condition, the final instruction, and the player's line." },
   "prompt_profile_generation.txt": { group: "NPC profiles", title: "One NPC profile", blurb: "Writes the personality, backstory, and speech quirks of one NPC the first time SSR needs them." },
   "prompt_batch_profile_generation.txt": { group: "NPC profiles", title: "NPC profiles in a batch", blurb: "Writes the profiles of several new NPCs in one request, before they speak." },
   "prompt_world_synthesis.txt": { group: "World events", title: "World events", blurb: "Turns the recent events of the world into one new rumor that NPCs can mention." },

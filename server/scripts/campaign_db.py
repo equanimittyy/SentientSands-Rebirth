@@ -16,7 +16,8 @@ from pathlib import Path
 
 DB_NAME = "campaign.db"
 SCHEMA_VERSION = 4
-MAX_DIALOGUE = 250
+MAX_DIALOGUE = 260
+DIALOGUE_BLOCK = 20
 MAX_EVENTS = 500
 
 SCHEMA = f"""
@@ -217,10 +218,13 @@ def append_dialogue(npc_id, lines, profile):
         else:
             character_id = _insert_character(conn, npc_id, profile)
         conn.executemany("INSERT INTO dialogue (character_id, game_time, line) VALUES (?, ?, ?)", [(character_id, _game_time(line), line) for line in lines])
-        conn.execute(
-            "DELETE FROM dialogue WHERE character_id = ? AND id <= (SELECT id FROM dialogue WHERE character_id = ? ORDER BY id DESC LIMIT 1 OFFSET ?)",
-            (character_id, character_id, MAX_DIALOGUE),
-        )
+        excess = conn.execute("SELECT COUNT(*) FROM dialogue WHERE character_id = ?", (character_id,)).fetchone()[0] - MAX_DIALOGUE
+        if excess > 0:
+            # Whole blocks only, so the chat history window keeps its first line and the prompt cache still matches
+            conn.execute(
+                "DELETE FROM dialogue WHERE id IN (SELECT id FROM dialogue WHERE character_id = ? ORDER BY id LIMIT ?)",
+                (character_id, DIALOGUE_BLOCK * -(-excess // DIALOGUE_BLOCK)),
+            )
 
 
 def list_characters():

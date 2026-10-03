@@ -43,6 +43,7 @@ from request_guard import is_request_allowed
 from browser_launch import PanelTabs, open_when_ready
 import llm_config
 import llm_router
+import chat_prompt
 import campaign_db
 import prompt_store
 import world_template
@@ -868,19 +869,62 @@ def describe_bio(profile):
         return ""
     return "\n".join(f"{label}: {profile[key]}" for key, label in (("Personality", "PERSONALITY"), ("Backstory", "BACKSTORY"), ("SpeechQuirks", "SPEECH QUIRKS")) if profile.get(key))
 
+def describe_npc(name, profile, npc_id):
+    race = profile.get("Race", "Unknown")
+    return fill_prompt(
+        "npc_chat_template.txt",
+        name=name,
+        race=race,
+        sex=reported_sex(race, profile.get("Sex", "Unknown")),
+        job=profile.get("Job", "None"),
+        current_faction=describe_faction(profile.get("Faction"), LIVE_CONTEXTS.get(npc_id, {}).get("factionID")),
+        origin_faction=describe_faction(profile.get("OriginFaction", "Unknown")),
+        personality=profile.get("Personality"),
+        backstory=profile.get("Backstory"),
+        speech_quirks=profile.get("SpeechQuirks") or "None.",
+    )
+
 def build_system_prompt(player_name="Drifter", speaker=None, speaker_profile=None):
     # Ambient banter has no speaker, so squad slot 1 of the player context stands for the player
     player = speaker or PLAYER_CONTEXT
     if speaker_profile is None and player.get("npc_id"):
         speaker_profile = campaign_db.get_character(player["npc_id"])
     player_bio = describe_bio(speaker_profile)
-    npc_base = load_prompt_component("npc_base.txt")
     world_lore = campaign_db.overview()
     rules = load_prompt_component("response_rules.txt")
     action_tags = load_prompt_component("prompt_action_tags.txt")
-    
-    settings = load_settings()
-    ge_count = settings.get("global_events_count", 10)
+
+    player_faction = campaign_db.player_faction()
+    faction_block = ""
+    if player_faction and player_faction["description"].strip():
+        faction_block = f"PLAYER FACTION ({player_faction['name']}):\n{player_faction['description']}\n"
+
+    # Only player2 infers the language from context; other providers need it stated
+    language = load_settings().get("language", "English")
+    language_instruction = ""
+    if language and language.lower() != "english":
+        language_instruction = f"\nLANGUAGE: You MUST respond ONLY in {language}. Do not switch to English under any circumstances.\n"
+
+    player_race = player.get("race", "Unknown")
+    player_gender = reported_sex(player_race, player.get("gender", "male"))
+
+    prompt = fill_prompt(
+        "prompt_system.txt",
+        world_lore=world_lore,
+        player_name=player_name,
+        player_race=player_race,
+        player_gender=player_gender,
+        player_bio=player_bio,
+        player_faction=faction_block,
+        rules=rules,
+        action_tags=action_tags,
+        language_instruction=language_instruction
+    )
+    return prompt.strip()
+
+def scene_values(player):
+    """The prompt values that change from one call to the next, which a prompt places after its cached start."""
+    ge_count = load_settings().get("global_events_count", 10)
     events_list = []
 
     rumors = [line for _, line in campaign_db.rumors() if line.startswith("- [")]
@@ -891,14 +935,9 @@ def build_system_prompt(player_name="Drifter", speaker=None, speaker_profile=Non
 
     events_block = ""
     if events_list:
-        events_block = "WORLD STATUS & RUMORS (Hearsay):\n" 
+        events_block = "WORLD STATUS & RUMORS (Hearsay):\n"
         events_block += "The following are bits of gossip and recent news circulating in the wasteland. Do NOT prioritize these over your core identity or immediate situation. Mention them only if relevant to the conversation.\n"
         events_block += "\n".join(events_list[-ge_count:])
-
-    player_faction = campaign_db.player_faction()
-    faction_block = ""
-    if player_faction and player_faction["description"].strip():
-        faction_block = f"PLAYER FACTION ({player_faction['name']}):\n{player_faction['description']}\n"
 
     location_tag = "The Wasteland"
     if player:
@@ -913,33 +952,12 @@ def build_system_prompt(player_name="Drifter", speaker=None, speaker_profile=Non
             elif biome:
                 location_tag = biome
 
-    # Only player2 infers the language from context; other providers need it stated
-    language = settings.get("language", "English")
-    language_instruction = ""
-    if language and language.lower() != "english":
-        language_instruction = f"\nLANGUAGE: You MUST respond ONLY in {language}. Do not switch to English under any circumstances.\n"
-
-    player_race = player.get("race", "Unknown")
-    player_gender = reported_sex(player_race, player.get("gender", "male"))
-
-    prompt = fill_prompt(
-        "prompt_system.txt",
-        npc_base=npc_base,
-        location=location_tag,
-        world_lore=world_lore,
-        events=events_block,
-        player_name=player_name,
-        player_race=player_race,
-        player_gender=player_gender,
-        player_bio=player_bio,
-        player_faction=faction_block,
-        player_status=format_player_status(player),
-        player_inventory=format_player_inventory(player),
-        rules=rules,
-        action_tags=action_tags,
-        language_instruction=language_instruction
-    )
-    return prompt.strip()
+    return {
+        "location": location_tag,
+        "events": events_block,
+        "player_status": format_player_status(player),
+        "player_inventory": format_player_inventory(player),
+    }
 
 
 def default_llm_config():
@@ -1039,7 +1057,16 @@ def send_completion(provider, profile, body, timeout):
         data = response.json()
     except ValueError:
         raise RuntimeError(f"invalid JSON in the response: {response.text[:200]}")
+    log_cache_use(profile["model"], data)
     return extract_completion(data, profile["model"])
+
+def log_cache_use(model, data):
+    """Shows whether the provider's prompt cache served the stable start of a prompt. Each provider reports it under its own key."""
+    if not isinstance(data, dict):
+        return
+    usage = data.get("usage") or {}
+    cached = (usage.get("prompt_tokens_details") or {}).get("cached_tokens", usage.get("prompt_cache_hit_tokens", (data.get("timings") or {}).get("cache_n")))
+    logging.info(f"LLM: {model} read {usage.get('prompt_tokens', 'an unknown number of')} prompt tokens, {'an unknown number' if cached is None else cached} of them from its cache")
 
 def call_llm(task, messages):
     """Returns the completion text from the first profile of the task's route that answers, or None."""
@@ -1513,9 +1540,16 @@ def ambient_event():
         history_block = "\nRECENT LOCAL DIALOGUE (DO NOT REPEAT TOPICS OR JOKES FROM HERE):\n" + "\n".join(unique_history)
 
     dynamic_system_prompt = build_system_prompt(player_name)
-    
-    
+    scene = scene_values(PLAYER_CONTEXT)
+
     ambient_system_prompt = f"""{dynamic_system_prompt}
+
+CURRENT LOCATION: {scene['location']}
+
+{scene['events']}
+
+{scene['player_status']}
+{scene['player_inventory']}
 
 [RADIANT DIALOGUE SYSTEM - BANTER MODE]
 You are generating a short, atmospheric back-and-forth conversation (banter) between NPCs in Kenshi.
@@ -1623,13 +1657,9 @@ def chat():
     raw_npc = data.get('npc', 'Someone')
     raw_npcs = data.get('npcs', [])
     
-    name_to_id = {}
-    
     def register(raw):
         if not raw: return ""
-        clean = raw.split('|')[0] if '|' in raw else raw
-        name_to_id[clean] = raw
-        return clean
+        return raw.split('|')[0] if '|' in raw else raw
 
     primary_npc = register(raw_npc)
     npcs = [register(n) for n in raw_npcs]
@@ -1798,10 +1828,6 @@ def chat():
         clean_l = l.split('|')[0] if '|' in l else l
         if clean_l not in listeners: listeners.append(clean_l)
 
-    if mode == 'yell':
-        npcs = listeners
-    else:
-        npcs = [primary_npc]
 
     # One batch LLM call for every listener missing a profile, instead of one call each
     missing_for_batch = []
@@ -1869,134 +1895,56 @@ def chat():
     for t in threads:
         t.join()
 
-    for name in npcs:
-        if name not in char_datas or not char_datas[name]:
-            logging.warning(f"PROFILE: No profile for {name}, so the chat uses a generic one.")
-            char_datas[name] = {"Name": name, "Personality": "A generic NPC.", "Backstory": "Unknown", "ConversationHistory": []}
-    
+    primary_data = char_datas.get(primary_npc)
+    if not primary_data:
+        logging.warning(f"PROFILE: No profile for {primary_npc}, so the chat uses a generic one.")
+        primary_data = char_datas[primary_npc] = {"Name": primary_npc, "Personality": "A generic NPC.", "Backstory": "Unknown", "ConversationHistory": []}
 
-    logging.info(f"CHAT: {mode} with {primary_npc} (Total participants: {len(npcs)})...")
-    primary_data = char_datas[primary_npc]
-    
-    history_str = "\n".join(primary_data["ConversationHistory"][-20:])
-
-    npc_profiles = ""
-    for name in npcs:
-        d = char_datas[name]
-        npc_profiles += f"\nCHARACTER: {name}\n"
-        npc_profiles += f"RACE: {d.get('Race')}\n"
-        npc_profiles += f"ORIGIN FACTION: {describe_faction(d.get('OriginFaction', 'Unknown'))}\n"
-        npc_profiles += f"CURRENT FACTION: {describe_faction(d.get('Faction'), LIVE_CONTEXTS.get(npc_ids.get(name), {}).get('factionID'))}\n"
-        npc_profiles += f"JOB: {d.get('Job', 'None')}\n"
-        npc_profiles += f"PERSONALITY: {d.get('Personality')}\n"
-        npc_profiles += f"BACKSTORY: {d.get('Backstory')}\n"
-        npc_profiles += f"SPEECH QUIRKS: {d.get('SpeechQuirks') or 'None.'}\n"
-        npc_profiles += f"PERSONAL RELATION TO PLAYER: {d.get('Relation', 0)} (Scale: -100 to 100)\n"
-        
-        live_context = build_detailed_context_string(name, npc_ids.get(name), char_data=d)
-        if live_context:
-            npc_profiles += f"{live_context}\n"
+    logging.info(f"CHAT: {mode} with {primary_npc} ({len(listeners) - 1} others hear it)...")
 
     primary_race = primary_data.get('Race', 'Unknown')
     is_animal = any(kw.lower() in primary_race.lower() for kw in ANIMAL_RACES)
 
     if is_animal:
-        dynamic_system_prompt = f"CRITICAL: {primary_npc} is an ANIMAL ({primary_race}). Animals in Kenshi CANNOT speak human languages. They do not use words, symbols, or telegram-style speech. They ONLY react with brief physical actions, sounds, or gestures described within asterisks."
+        system_prompt = f"CRITICAL: {primary_npc} is an ANIMAL ({primary_race}). Animals in Kenshi CANNOT speak human languages. They do not use words, symbols, or telegram-style speech. They ONLY react with brief physical actions, sounds, or gestures described within asterisks."
         final_instruction = f"Respond as {primary_npc} (the animal). Provide a single, BRIEF action description or sound in asterisks (e.g. *Growls*, *Tilts head*, *Nuzzles hand*). DO NOT USE WORDS OR SPEECH. Keep it under 6 words."
+        volume = judgment = ""
     else:
-        dynamic_system_prompt = build_system_prompt(player_name, speaker or None, speaker_profile or None)
-        
-        if mode == 'yell':
-            volume_status = "The player is addressing everyone nearby at a clear, projected volume."
-            yell_instruction = f"\nCRITICAL: {volume_status} This can be heard by everyone nearby ({', '.join(npcs)}). This is a public address or talking to a crowd; it is NOT yelling or shouting aggressively. DO NOT tell the player to quiet down or react with annoyance to the volume. You SHOULD respond as multiple characters from the list to create a realistic crowd reaction. Every speaker MUST be on a new line started with 'Name: ' (e.g., 'Beep: Hey!').\nACTION TAGS IN CROWD MODE: If a character decides to take an action (attack, flee, join, etc.), place the [ACTION: TAG] at the END of THAT CHARACTER'S OWN LINE, not at the end of the whole response. Example: 'Hobbs: I'm with you! [ACTION: JOIN_PARTY]'"
-            dynamic_system_prompt += yell_instruction
-        elif mode == 'whisper':
-            volume_status = "The player is WHISPERING to you privately. This is a quiet, intimate, or secretive moment."
-            whisper_instruction = f"\nCRITICAL: {volume_status} ONLY {primary_npc} should respond. Keep the tone hushed and private."
-            dynamic_system_prompt += whisper_instruction
+        system_prompt = build_system_prompt(player_name, speaker or None, speaker_profile or None)
+        if mode == 'whisper':
+            volume = f"CRITICAL: The player is WHISPERING to you privately. This is a quiet, intimate, or secretive moment. ONLY {primary_npc} should respond. Keep the tone hushed and private."
+        elif mode == 'yell':
+            volume = f"CRITICAL: The player is speaking loudly, so others nearby can hear it, but ONLY {primary_npc} answers. DO NOT tell the player to quiet down unless they are actually being aggressive."
         else:
-            volume_status = "The player is speaking at a normal, conversational volume."
+            volume = "INFO: The player is speaking at a normal, conversational volume. Respond naturally. This is a standard, polite conversation. You are calm and composed. DO NOT tell the player to quiet down, do NOT react with annoyance to their volume, and do NOT mention noise or shouting unless they are actually being aggressive."
+        judgment = "" if is_ambient else "JUDGMENT: At the end of your response, you MUST judge the player's tone and the quality of this interaction on a scale of -5 (extremely aggressive/hostile/insulting) to 5 (extremely friendly/helpful/respectful). 0 is neutral. Format this judgment as a tag like [JUDGMENT: n] at the very end."
+        final_instruction = f"Respond ONLY as {primary_npc}. Do not speak as anyone else. Keep it immersive, short, and grounded in the world of Kenshi: 1-2 short sentences in a single paragraph."
 
-            if "[ACTION: ADDRESSES GROUP]" in history_str:
-                 volume_status += " They have STOPPED addressing the group and are now speaking at a calm, normal volume."
-                 
-            talk_instruction = f"\nINFO: {volume_status} Respond naturally. This is a standard, polite conversation. You are calm and composed. DO NOT tell the player to quiet down, do NOT react with annoyance to their volume, and do NOT mention noise or shouting unless they are actually being aggressive."
-            dynamic_system_prompt += talk_instruction
-            
-        if not is_ambient:
-            dynamic_system_prompt += "\nJUDGMENT: At the end of your response, you MUST judge the player's tone and the quality of this interaction on a scale of -5 (extremely aggressive/hostile/insulting) to 5 (extremely friendly/helpful/respectful). 0 is neutral. Format this judgment as a tag like [JUDGMENT: n] at the very end."
-        
-        if len(npcs) > 1 and mode == 'yell':
-            group_instruction = f"\nCONTEXT: You are facilitating a group conversation. YOU SHOULD RESPOND AS SEVERAL DIFFERENT CHARACTERS to create a lively atmosphere. Each speaker MUST use the format: 'Name: Dialogue'."
-            dynamic_system_prompt += group_instruction
-
-        final_instruction = f"Respond as {primary_npc} to the player's last message."
-        if mode != 'yell':
-            final_instruction = f"Respond ONLY as {primary_npc}. Do not speak as anyone else. Keep the response to 1-2 short sentences in a single paragraph."
-        else:
-            final_instruction = f"Respond as several characters from this list: ({', '.join(npcs)}) to the player's group address. Ensure at least 2-3 unique characters speak on separate lines if they are nearby."
-
-    final_instruction += " Keep it immersive, short, and grounded in the world of Kenshi. Response should be 1-3 sentences maximum."
-    
-    settings = load_settings()
-    user_lang = settings.get("language", "English")
-
-    rich_prompt = fill_prompt(
-        "prompt_chat_template.txt",
-        system_prompt=dynamic_system_prompt,
-        primary_npc=primary_npc,
-        npc_profiles=npc_profiles,
-        history_str=history_str,
-        final_instruction=final_instruction,
-        language_str=user_lang
-    )
-    # Later turns detect these history tags to tell the LLM the volume changed
-    mode_action = ""
-    if mode == 'whisper':
-        mode_action = f" [ACTION: WHISPERS TO {primary_npc}]"
-    elif mode == 'yell':
-        mode_action = " [ACTION: ADDRESSES GROUP]"
-    else:
-        if "[ACTION: ADDRESSES GROUP]" in history_str:
-            mode_action = " [ACTION: TALKS NORMALLY]"
+    mode_action = f" [ACTION: WHISPERS TO {primary_npc}]" if mode == 'whisper' else ""
     time_prefix = get_current_time_prefix()
     full_player_entry = f"{time_prefix}{player_name}{mode_action}: {player_message}"
 
-    messages = [
-        {"role": "system", "content": rich_prompt},
-        {"role": "user", "content": full_player_entry}
-    ]
+    system = fill_prompt("prompt_chat_template.txt", system_prompt=system_prompt, primary_npc=primary_npc, npc_profiles=describe_npc(primary_npc, primary_data, npc_ids.get(primary_npc)))
+    scene = fill_prompt(
+        "prompt_chat_scene.txt",
+        **scene_values(speaker or PLAYER_CONTEXT),
+        npc_name=primary_npc,
+        relation=primary_data.get("Relation", 0),
+        condition=build_detailed_context_string(primary_npc, npc_ids.get(primary_npc), char_data=primary_data),
+        volume=volume,
+        final_instruction=final_instruction,
+        judgment=judgment,
+        language_str=load_settings().get("language", "English"),
+        player_line=full_player_entry,
+    )
+    history = chat_prompt.history_window(primary_data["ConversationHistory"], campaign_db.DIALOGUE_BLOCK)
+    messages = chat_prompt.chat_messages(system, chat_prompt.history_turns(history, primary_npc), scene)
 
     content = call_llm("chat", messages)
     if not content:
         logging.error("CHAT: No reply from the LLM.")
     
     if content:
-        # Must run before the tag cleanup below strips the tags
-        per_speaker_actions = []
-        speaker_judgments = {}
-        if mode == 'yell':
-            raw_lines = content.split('\n')
-            for rline in raw_lines:
-                rline = rline.strip()
-                if not rline: continue
-                match = re.match(r'^([^:]+):\s*(.*)$', rline)
-                if match:
-                    speaker = match.group(1).strip()
-                    payload = match.group(2).strip()
-                    speaker_tags = re.findall(r'\[\s*[^\]]+\s*\]', payload)
-                    for stag in speaker_tags:
-                        per_speaker_actions.append(f"{speaker}: {stag}")
-                        logging.debug(f"CHAT: Yell attribution: {speaker} took action {stag}")
-                        
-                        if "JUDGMENT" in stag.upper():
-                            j_match = re.search(r'-?\d+', stag)
-                            if j_match:
-                                try:
-                                    val = int(j_match.group(0))
-                                    speaker_judgments[speaker] = max(-5, min(5, val))
-                                except: pass
-
         # Allows one level of nested brackets: item names like "Bolts [Toothpicks]" contain them
         all_bracketed = re.findall(r'\[\s*(?:[^\[\]]|\[[^\[\]]*\])+\s*\]', content)
         
@@ -2075,38 +2023,27 @@ def chat():
                 actions.append(final_tag)
 
         relation_deltas = {}
-        if not is_ambient:
-            judges = speaker_judgments if speaker_judgments else {primary_npc: global_judgment}
-            
-            for judge_name, j_val in judges.items():
-                if j_val == 0: continue
-                
-                j_data = char_datas.get(judge_name)
-                if not j_data: 
-                    continue
+        # The server derives this tag from the judgment, so the stored reply leaves it out and the model does not learn to add it too
+        derived_tag = None
+        if not is_ambient and global_judgment != 0:
+            # Applied as a delta at save time: the profile read before the LLM call can be stale by then
+            relation_deltas[primary_npc] = global_judgment
 
-                # Applied as a delta at save time: the profile read before the LLM call can be stale by then
-                relation_deltas[judge_name] = j_val
+            f_delta = 0
+            if global_judgment >= 5: f_delta = 2
+            elif global_judgment >= 4: f_delta = 1
+            elif global_judgment <= -5: f_delta = -2
+            elif global_judgment <= -4: f_delta = -1
 
-                f_delta = 0
-                if j_val >= 5: f_delta = 2
-                elif j_val >= 4: f_delta = 1
-                elif j_val <= -5: f_delta = -2
-                elif j_val <= -4: f_delta = -1
-                
-                if f_delta != 0:
-                    npc_f = j_data.get("Faction", "None")
-                    if npc_f and npc_f not in ["None", "Nameless", "No Faction"]:
-                        f_tag = f"[ACTION: FACTION_RELATIONS: {npc_f}: {f_delta}]"
-                        actions.append(f_tag)
-                        logging.info(f"RELATION: Scheduled faction relation change via {judge_name} for {npc_f}: {f_delta}")
+            if f_delta != 0:
+                npc_f = primary_data.get("Faction", "None")
+                if npc_f and npc_f not in ["None", "Nameless", "No Faction"]:
+                    derived_tag = f"[ACTION: FACTION_RELATIONS: {npc_f}: {f_delta}]"
+                    actions.append(derived_tag)
+                    logging.info(f"RELATION: Scheduled faction relation change via {primary_npc} for {npc_f}: {f_delta}")
 
         content = re.sub(r'\[\s*(?:[^\[\]]|\[[^\[\]]*\])+\s*\]', '', content).strip()
 
-        # "Name: [ACTION: X]" tells the plugin which NPC takes each action
-        if mode == 'yell' and per_speaker_actions:
-            logging.debug(f"CHAT: Yell actions: {per_speaker_actions}")
-            actions = per_speaker_actions + actions
 
         content = content.replace('"', '').strip()
         
@@ -2119,22 +2056,6 @@ def chat():
             line = re.sub(r'\[\s*[^\]]+\s*\]', '', line).strip()
             if not line: continue
 
-            is_group_response = (mode == 'yell')
-            if is_group_response:
-                match = re.match(r'^([^:]+):\s*(.*)$', line)
-                if match:
-                    actor_name = match.group(1).strip()
-                    actor_clean = actor_name.lower()
-                    actor_speech = match.group(2).strip()
-                    if actor_clean != player_name.lower():
-                        # "Name|ID" lets the plugin resolve the speaker
-                        full_actor = name_to_id.get(actor_name, actor_name)
-                        filtered_lines.append(f"{full_actor}: {actor_speech}")
-                        continue
-                    else:
-                        logging.debug(f"CHAT: Filter: Discarded LLM attempt to speak as {player_name}")
-                        continue
-            
             lower_line = line.lower()
             if any(lower_line.startswith(prefix) for prefix in [
                 "thought:", "thinking:", "observation:", "note:", "(thinking", 
@@ -2147,96 +2068,45 @@ def chat():
             if line.startswith('=') or line.startswith('-') or len(set(line)) <= 2:
                 continue
                 
-            if len(npcs) <= 1:
-                prefix_match = re.match(r'^([A-Za-z0-9 _\-\.]+):\s*', line)
-                if prefix_match:
-                    p = prefix_match.group(1).strip().lower()
-                    if p == player_name.lower():
-                        logging.debug(f"CHAT: Filter: Discarded player entry {line}")
-                        continue
-                    if p != primary_npc.lower():
-                        logging.debug(f"CHAT: Filter: Discarded line from {p} (expected {primary_npc})")
-                        continue
-                line = re.sub(r'^[A-Za-z0-9 _\-\.]+:\s*', '', line)
-            
-            # The LLM sometimes puts several speakers on one line: "Name1: text Name2: text"
-            if len(npcs) > 1:
-                pattern = r'([A-Z][a-z0-9 \-\.]+):\s*([^:]+?)(?=\s+[A-Z][a-z0-9 \-\.]+:\s*|$)'
-                sub_matches = re.findall(pattern, line)
-                if sub_matches:
-                    for actor, speech in sub_matches:
-                        actor_clean = actor.strip()
-                        if actor_clean.lower() != player_name.lower():
-                            full_actor = name_to_id.get(actor_clean, actor_clean)
-                            filtered_lines.append(f"{full_actor}: {speech.strip()}")
+            prefix_match = re.match(r'^([A-Za-z0-9 _\-\.]+):\s*', line)
+            if prefix_match:
+                p = prefix_match.group(1).strip().lower()
+                if p == player_name.lower():
+                    logging.debug(f"CHAT: Filter: Discarded player entry {line}")
                     continue
-
+                if p != primary_npc.lower():
+                    logging.debug(f"CHAT: Filter: Discarded line from {p} (expected {primary_npc})")
+                    continue
+            line = re.sub(r'^[A-Za-z0-9 _\-\.]+:\s*', '', line)
+            
             if line:
                 filtered_lines.append(line)
         
-        # Each newline becomes a separate speech bubble in the plugin
-        if filtered_lines:
-            if mode != 'yell':
-                # One speaker: a single bubble avoids rapid-fire flashing
-                content = " ".join(filtered_lines)
-            else:
-                content = "\n".join(filtered_lines)
-        else:
-            content = "..."
+        # The plugin shows each line as its own speech bubble, so one reply is one line
+        content = " ".join(filtered_lines) if filtered_lines else "..."
 
         if len(content) > 500:
             content = content[:497] + "..."
         
         player_faction = PLAYER_CONTEXT.get("faction", "None")
-        primary_faction = char_datas.get(primary_npc, {}).get("Faction", "None")
+        primary_faction = primary_data.get("Faction", "None")
         record_event_to_history("CHAT", player_name, primary_npc, player_message, actor_faction=player_faction, target_faction=primary_faction)
+        record_event_to_history("CHAT", primary_npc, player_name, content, actor_faction=primary_faction, target_faction=player_faction)
+
+        reply_line = f"{primary_npc}: {content}"
+        stored_actions = [action for action in actions if action != derived_tag]
+        if stored_actions:
+            reply_line += f" {' '.join(stored_actions)}"
 
         for name in listeners:
-            is_overhearing = name not in npcs
-            overheard_tag = "(Overheard) " if is_overhearing else ""
-            
+            overheard_tag = "" if name == primary_npc else "(Overheard) "
+
             if name not in char_datas:
                 char_datas[name] = get_character_data(name, get_local_context(name))
-                
+
             stored_lines = len(char_datas[name]["ConversationHistory"])
             char_datas[name]["ConversationHistory"].append(f"{time_prefix}{overheard_tag}{player_name}{mode_action}: {player_message}")
-            
-            if "\n" in content:
-                for line in content.split('\n'):
-                    if not line.strip(): continue
-                    
-                    history_line = line.strip()
-                    if ':' not in history_line:
-                         history_line = f"{primary_npc}: {history_line}"
-                    
-                    if line == filtered_lines[-1] and actions:
-                        history_line += f" {' '.join(actions)}"
-
-                    char_datas[name]["ConversationHistory"].append(f"{time_prefix}{overheard_tag}{history_line}")
-                    
-                    if ':' in history_line:
-                        h, m = history_line.split(':', 1)
-                        speaker_name = h.strip()
-                        speaker_faction = char_datas.get(speaker_name, {}).get("Faction", "None")
-                        player_faction = PLAYER_CONTEXT.get("faction", "None")
-                        record_event_to_history("CHAT", speaker_name, player_name, m.strip(), actor_faction=speaker_faction, target_faction=player_faction)
-                    else:
-                        primary_faction = char_datas.get(primary_npc, {}).get("Faction", "None")
-                        player_faction = PLAYER_CONTEXT.get("faction", "None")
-                        record_event_to_history("CHAT", primary_npc, player_name, history_line, actor_faction=primary_faction, target_faction=player_faction)
-            else:
-                history_line = content
-                if ':' not in history_line:
-                     history_line = f"{primary_npc}: {history_line}"
-                
-                history_entry = f"{time_prefix}{overheard_tag}{history_line}"
-                if actions:
-                    history_entry += f" {' '.join(actions)}"
-                char_datas[name]["ConversationHistory"].append(history_entry)
-                
-                primary_faction = char_datas.get(primary_npc, {}).get("Faction", "None")
-                player_faction = PLAYER_CONTEXT.get("faction", "None")
-                record_event_to_history("CHAT", primary_npc, player_name, content, actor_faction=primary_faction, target_faction=player_faction)
+            char_datas[name]["ConversationHistory"].append(f"{time_prefix}{overheard_tag}{reply_line}")
 
             npc_id = npc_ids.get(name)
             if npc_id and should_save_profile(name, npc_id, char_datas[name]):

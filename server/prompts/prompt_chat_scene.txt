@@ -1,0 +1,20 @@
+[SCENE]
+CURRENT LOCATION: {location}
+
+{events}
+
+{player_status}
+{player_inventory}
+
+RELATION OF {npc_name} TO THE PLAYER: {relation} (Scale: -100 to 100)
+{condition}
+
+{volume}
+
+[FINAL INSTRUCTION]
+{final_instruction}
+{judgment}
+You MUST write your final response exclusively in {language_str}.
+
+[PLAYER SAYS]
+{player_line}
