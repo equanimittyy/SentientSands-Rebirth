@@ -341,7 +341,7 @@ Known differences to handle: Kayak uses its own stemming (`stem_key`) and tokeni
   - its `manifest.json` carries the credit line "SentientSands Kayak by Harvicus and Pineaxe."
   - its folder holds a copy of `ADDITIONAL_TERMS.md`
   - a duplicate keeps both, so an exported template that derives from vanilla carries them
-  - the README shows the credit line with the official project links (Nexus Mods, Steam Workshop, Kayak source repo, Discord)
+  - the README shows the credit line with the official project links (source repos, Nexus Mods, and Steam Workshop)
 - Some lore text paraphrases the Kenshi wiki, and the underlying game content belongs to Lo-Fi Games. The wiki's licence was not checked. This must be reviewed before the vanilla content ships.
 - This document is not legal advice.
 
