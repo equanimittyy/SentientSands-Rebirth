@@ -319,7 +319,7 @@ function characterForm(form, path, record) {
       el("legend", {}, "Other Details"),
       el("p", { className: "hint" }, "The game and your chats set these details."),
       field("Relation (to you)", relationBar(form.details.Relation), null, "How much the character likes you, from -100 to 100. Your chats with the character change it."),
-      source === "campaign" ? field("Current Faction", el("span", {}, record.current_faction || "Not seen this session"), null, "The faction that the game reports for the character. It shows after you select the character or talk near it while the game runs.") : null,
+      source === "campaign" ? field("Current Faction", el("span", {}, record.current_faction || "Unknown"), null, "The faction that the game reports for the character. It shows after you select the character or talk near it while the game runs.") : null,
       field("Original Faction", el("span", {}, form.details.OriginFaction || "Unknown"), null, "The faction that the character comes from."),
       isProvisional(record) ? field("Chats", el("span", {}, chatCount(form.details[PROVISIONAL])), null, "How many times you talked to the character. Its personality, backstory, and speech quirks are rolled, not written. When the count reaches Chats before a bio on the Settings page, the LLM writes its full bio.") : null,
       isProvisional(record) ? el("button", { type: "button", disabled: readOnly(), onclick: () => writeBio(record) }, "Generate bio") : null),
