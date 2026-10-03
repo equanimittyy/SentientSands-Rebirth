@@ -28,6 +28,7 @@
   --seed: #7a5c12;
   --seed-bg: #f8e7a8;
   --info: #2a5b8c;
+  --blood: rgb(138 28 18 / 0.75);
 }
 
 :root[data-theme="dark"] {
@@ -47,6 +48,7 @@
   --seed: #f0d98a;
   --seed-bg: #4a3f1c;
   --info: #8ab8e6;
+  --blood: #8c1a12;
 }
 
 body {
@@ -147,7 +149,6 @@ nav a {
   padding: 0.5rem 0.9rem;
   color: inherit;
   text-decoration: none;
-  border-bottom: 2px solid transparent;
 }
 
 .theme-toggle {
@@ -180,7 +181,6 @@ nav .icon {
 }
 
 nav a[aria-current] {
-  border-bottom-color: var(--accent);
   font-weight: 600;
 }
 
@@ -194,7 +194,7 @@ hr {
   border: none;
 }
 
-/* ::before, so a tab's accent underline, positioned later in the tree, paints over the line. */
+/* ::before, so a selected tab's splatter, positioned later in the tree, paints over the line. */
 nav::before,
 .subtabs::before,
 .save-bar::before {
@@ -212,6 +212,27 @@ nav::before,
   height: 16px;
   background: var(--border);
   mask: url("images/rule.svg") 0 0 / auto 100% repeat-x;
+}
+
+/* The isolated tab keeps the splatter's negative z-index behind its label, not behind the page. */
+nav a[aria-current],
+.subtabs [aria-selected="true"] {
+  isolation: isolate;
+}
+
+nav a[aria-current]::before,
+.subtabs [aria-selected="true"]::before {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  inset: -10px -16px;
+  background: var(--blood);
+  mask: url("images/splat.svg") 0 0 / 100% 100% no-repeat;
+}
+
+/* Mirrored, so the main tab and sub-tab splatters on the Editor page do not look stamped. */
+.subtabs [aria-selected="true"]::before {
+  transform: scaleX(-1);
 }
 
 fieldset {
@@ -796,14 +817,12 @@ input[type="search"] {
 .subtabs button {
   position: relative;
   border: none;
-  border-bottom: 2px solid transparent;
   border-radius: 0;
   background: none;
   color: inherit;
 }
 
 .subtabs [aria-selected="true"] {
-  border-bottom-color: var(--accent);
   font-weight: 600;
 }
 
