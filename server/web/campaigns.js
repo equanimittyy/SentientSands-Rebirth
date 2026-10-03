@@ -67,14 +67,12 @@ function renderCampaigns() {
   template.setAttribute("aria-label", "World template of the new campaign");
   return el("fieldset", {},
     el("legend", {}, "Campaign Manager"),
-    el("p", { className: "hint" }, "A campaign is one playthrough with its own NPC memories, factions, and world events."),
     el("ul", { className: "plain-list" }, ...rows),
     el("form", { className: "add", onsubmit: createCampaign },
       textInput(creation, "name", ["create", "name"], { placeholder: "New campaign name", required: true, label: "New campaign name" }),
       template,
       el("button", { type: "submit" }, "Create")),
-    noteLine("create"),
-    el("p", { className: "hint" }, "A new campaign starts with a copy of the canon of its world template: the overview, history, factions, characters, and world entries. Edit the templates, and the canon of the current campaign, on the Editor tab."));
+    noteLine("create"));
 }
 
 function renderCurrent() {
@@ -87,8 +85,7 @@ function renderCurrent() {
     field("Campaign", choice, template ? el("span", { className: "detail" }, template) : null, "The campaign that the game plays. Choose another one to switch to it. The next chat uses it."),
     refusal ? el("p", { className: "hint error" }, refusal) : null,
     ...(active ? [
-      el("p", { className: "hint" }, "Changes on this page apply only to this campaign, from the next chat on."),
-      el("p", { className: "hint" }, "Loaded an older save? Cull deletes the NPC memories, events, and rumors dated after the current game time, so NPCs forget what has not happened yet in this save."),
+      el("p", { className: "hint" }, "Loaded an older save? Cull makes NPCs forget everything dated after the current game time."),
       el("div", { className: "card-actions" }, el("button", { type: "button", className: "danger", onclick: cull }, "Cull future data")),
     ] : []))];
 }

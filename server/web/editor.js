@@ -521,9 +521,9 @@ function renderTemplateBar() {
   duplicateName.setAttribute("aria-label", "Name of the copy");
   return el("fieldset", {},
     el("legend", {}, "World template"),
-    el("p", { className: "hint" }, "A world template holds the canon of a world: its overview, history, factions, characters, and world entries such as towns and zones. A new campaign copies its template, so an edit here changes only the campaigns that you create later. To change the current campaign, use Campaign Canon."),
+    el("p", { className: "hint" }, "A new campaign starts as a copy of its template, so changes here apply only to campaigns that you create later."),
     field("Template", select, el("span", { className: "detail" }, recordCounts)),
-    template?.builtin ? el("p", { className: "hint" }, `${templateTitle()} ships with SSR, and an update replaces it, so it is read-only. Duplicate it to edit a copy.`) : null,
+    template?.builtin ? el("p", { className: "hint" }, `${templateTitle()} ships with SSR and is read-only. Duplicate it to make your own copy.`) : null,
     ...(template?.errors ?? []).map((error) => el("p", { className: "hint error" }, error.message)),
     ...(template?.warnings ?? []).map((warning) => el("p", { className: "hint" }, warning.message)),
     el("form", { className: "add", onsubmit: duplicateTemplate }, duplicateName, el("button", { type: "submit" }, "Duplicate"),
@@ -535,11 +535,9 @@ function counts(factions, characters, entities) {
 }
 
 function renderCanonBar() {
-  const made = canon?.template.name ? ` It was made from the template ${`${canon.template.name} ${canon.template.version ?? ""}`.trim()}.` : "";
   return el("fieldset", {},
     el("legend", {}, canon ? `Campaign canon: ${canon.name}` : "Campaign canon"),
-    el("p", { className: "hint" }, `The canon of the current campaign: its own copy of the overview, history, factions, characters, and world entries of its world template.${made} An edit here changes only this campaign. To edit another campaign, make it the current one on the Campaigns tab.`),
-    el("p", { className: "hint" }, "NPCs read the overview and the factions. A faction that you meet in game and that the campaign lacks gets an empty entry, so you can describe it. The history, characters, and world entries are kept for a later version of SSR."),
+    el("p", { className: "hint" }, "Changes here apply only to the current campaign, from the next chat on."),
     refusal ? el("p", { className: "hint error" }, refusal) : null,
     canon ? el("p", { className: "detail" }, counts(canon.factions.length, canon.characters.length, canon.entities.length)) : null);
 }
