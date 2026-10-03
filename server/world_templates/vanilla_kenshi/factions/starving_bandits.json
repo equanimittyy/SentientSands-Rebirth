@@ -4,10 +4,7 @@
   "aliases": [],
   "major": false,
   "fields": {
-    "territory": [
-      "Border Zone",
-      "Skinner's Roam"
-    ]
+    "territory": "the lands around the Holy Nation"
   },
-  "description": "The poorest bandits of all: starving people in rags who rush travelers in large groups and demand food before they attack."
+  "description": "Destitute nobodies, thugs, and beggars who have ganged up in the wilds around the Holy Nation, sometimes in huge groups with leaders of their own. Hunger drives their attacks."
 }

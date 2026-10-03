@@ -3,11 +3,6 @@
   "name": "Manhunters",
   "aliases": [],
   "major": false,
-  "fields": {
-    "territory": "United Cities",
-    "enemies": [
-      "Anti-Slavers"
-    ]
-  },
-  "description": "Licensed slave catchers of the United Cities. They hunt escaped slaves and debtors across the Empire for the bounty, and treat the work as a trade, without hatred and without mercy."
+  "fields": {},
+  "description": "Hunters of escaped slaves, stronger and better armed than the Slave Hunters. They capture vagrants and rebel farmers, and sometimes seize innocent travelers to sell to the slavers as runaways."
 }

@@ -4,8 +4,10 @@
   "aliases": [],
   "major": false,
   "fields": {
-    "base": "The Hub",
-    "territory": "Border Zone"
+    "bases": [
+      "The Hub",
+      "Rebel Base"
+    ]
   },
-  "description": "Exiles and deserters from the Holy Nation who took over the half-ruined town of the Hub. They are too few to threaten anyone, but they defend their town and let in most travelers."
+  "description": "Bandits and criminals on the run from the Holy Nation, who wander the wilds in small gangs. The Hub and the Rebel Base are nominally theirs."
 }

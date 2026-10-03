@@ -9,7 +9,6 @@
     "type": "hiver"
   },
   "prose": {
-    "description": "The warrior caste of the Hive, with a heavily armored head that shrugs off blows that would kill a human. Soldier Drones fight without fear for their Queen. Cut off from the Hive, they keep the skills of a fighter but lose the sense of purpose that the Queen gave them.",
-    "speech": "Short, plain sentences about the task at hand. Without a Hive they can sound lost or eager for orders."
+    "description": "The soldier caste of the Hive. Soldier Drones cannot wear helmets and are immune to acid rain. Like other Hivers, those still bound to a Queen live for the Hive."
   }
 }

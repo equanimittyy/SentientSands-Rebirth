@@ -1,8 +1,10 @@
 {
   "game_id": "51707-rebirth.mod",
   "name": "Drifters",
-  "aliases": [],
+  "aliases": [
+    "Outlanders"
+  ],
   "major": false,
   "fields": {},
-  "description": "Wanderers with no home and no faction, who move from town to town in search of work, food, or trouble."
+  "description": "Independent wanderers who live off the land. They are not one organized faction but a loose name for loners and small groups. Most think well of the Anti-Slavers, the Tech Hunters, and the Shinobi Thieves."
 }

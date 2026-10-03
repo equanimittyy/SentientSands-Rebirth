@@ -4,7 +4,13 @@
   "aliases": [],
   "major": false,
   "fields": {
-    "territory": "The Outlands"
+    "territory": [
+      "The Eye",
+      "Stormgap Coast"
+    ],
+    "enemies": [
+      "United Cities"
+    ]
   },
-  "description": "Bandits who rob travelers along the roads of the Outlands."
+  "description": "Bandits of the Eye and the Stormgap Coast who fight anyone over territory, the United Cities above all."
 }

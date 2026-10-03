@@ -5,7 +5,14 @@
   "major": false,
   "fields": {
     "leader": "Shade",
-    "territory": "The Swamp"
+    "base": "Swamp Ninja Base",
+    "territory": [
+      "The Swamp",
+      "South Wetlands"
+    ],
+    "enemies": [
+      "Red Sabres"
+    ]
   },
-  "description": "Outlaw ninjas who know the Swamp better than anyone and fight well among its reeds and water. They run drugs through the region and fight the other swamp gangs for the trade."
+  "description": "Masked bandits of the Swamp armed with ninja blades, and rivals of the Red Sabres. Their boss Shade keeps to the Swamp Ninja Base in the South Wetlands. Little is known of their history."
 }

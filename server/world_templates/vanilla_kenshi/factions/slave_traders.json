@@ -4,7 +4,6 @@
   "aliases": [],
   "major": true,
   "fields": {
-    "territory": "Great Desert",
     "bases": [
       "Eyesocket",
       "Stone Camp",
@@ -15,5 +14,5 @@
       "Anti-Slavers"
     ]
   },
-  "description": "A licensed company that buys, sells, and works slaves under the law of the United Cities. They run slave camps and markets across the Great Desert, and the farms and mines of the Empire depend on their labor. Debtors and the poor are their stock, and Manhunters bring back those who run."
+  "description": "The practitioners of slavery: they capture, trade, and work slaves on farms and in mines. They have close ties to the Holy Nation and the United Cities, and the Traders Guild holds great sway over them; every slave master is a member of the guild."
 }

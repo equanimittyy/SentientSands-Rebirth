@@ -6,7 +6,13 @@
   "fields": {
     "leader": "Red Sabre Boss",
     "base": "Red Sabre Hideout",
-    "territory": "The Swamp"
+    "territory": [
+      "The Swamp",
+      "South Wetlands"
+    ],
+    "enemies": [
+      "Swamp Ninjas"
+    ]
   },
-  "description": "Bandits and deserters who rob travelers on the roads of the Swamp. They hold a hideout of their own and fight the other swamp gangs for territory."
+  "description": "Bandits of the Swamp and the South Wetlands who dress in red and fight with sabres. They are locked in a struggle for power with the Swamp Ninjas."
 }

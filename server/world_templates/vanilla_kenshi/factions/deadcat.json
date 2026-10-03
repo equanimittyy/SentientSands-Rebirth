@@ -4,7 +4,10 @@
   "aliases": [],
   "major": false,
   "fields": {
-    "territory": "Northern Coast"
+    "territory": [
+      "Northern Coast",
+      "Dreg"
+    ]
   },
-  "description": "A people of fishermen who live in small villages along the coast. Cannibal raids wiped out most of their nation, and the survivors stay close to the shore and are wary of strangers."
+  "description": "A small faction of refugees from the city of Deadcat, which they lost to the cannibal tribes. The survivors live in small villages and fish to get by. Hard times have made them distant and wary of outsiders."
 }

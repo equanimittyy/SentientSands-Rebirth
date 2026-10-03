@@ -6,10 +6,9 @@
   "fields": {
     "leader": "Longen",
     "base": "Trader's Edge",
-    "territory": "Great Desert",
     "enemies": [
       "Anti-Slavers"
     ]
   },
-  "description": "The merchant guild that controls most trade in the United Cities, from caravans to shops. Longen runs it from Trader's Edge and holds more real power than most nobles. The Guild profits from slave labor, so it works to keep slavery legal."
+  "description": "A guild that handles trade between towns and claims to be neutral. It is based in the United Cities and vital to its economy, yet it trades even with the Empire's enemies such as the Holy Nation. Through the Noble Circle it runs the slave camps of the United Cities."
 }

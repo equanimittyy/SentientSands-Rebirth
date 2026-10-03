@@ -6,13 +6,12 @@
   "fields": {
     "leader": "Tinfist",
     "base": "Spring",
-    "territory": "Stobe's Gamble",
     "enemies": [
+      "The Holy Nation",
       "United Cities",
-      "Slave Traders",
       "Traders Guild",
-      "Manhunters"
+      "Slave Traders"
     ]
   },
-  "description": "An army of freed slaves and abolitionists, led by the Skeleton Tinfist, that raids slave camps and breaks collars across the United Cities. They hide in the mountains around Spring and take in former slaves of any race. The Empire calls them terrorists and has put a large bounty on Tinfist that nobody has collected."
+  "description": "A faction led by the Skeleton Tinfist that fights slavery. The slaver factions call them terrorists for their raids, but drifters across the world think well of them. Their base is Spring, a town on a mountain."
 }

@@ -1,7 +1,9 @@
 {
   "game_id": "518-gamedata.base",
   "name": "Cannibals",
-  "aliases": [],
+  "aliases": [
+    "Painted Tribe"
+  ],
   "major": false,
   "fields": {
     "territory": [
@@ -9,5 +11,5 @@
       "Darkfinger"
     ]
   },
-  "description": "Feral tribes of the northwest who hunt people for meat. They beat their prey unconscious and carry it back to their villages to eat. Grand Wizards and Chiefs lead the tribes, and there is no bargaining with them."
+  "description": "Tribal humanoids of the Cannibal Plains and Darkfinger, also called the Painted Tribe, who roam as far as the Great Desert. They carry the unconscious back to their villages, cage them, and beat them to death for the cooking pits. They do not eat Skeletons or animals, and like Skeletons and Hivers they are immune to acid. Scholars of the Machinists suspect they are humans who degenerated long ago."
 }

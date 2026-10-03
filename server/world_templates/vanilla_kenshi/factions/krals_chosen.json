@@ -5,10 +5,10 @@
   "major": false,
   "fields": {
     "leader": "Flying Bull",
-    "territory": [
-      "The Hook",
-      "Stenn Desert"
+    "base": "New Kralia",
+    "enemies": [
+      "Shek Kingdom"
     ]
   },
-  "description": "Hard-line Shek warriors who hold that the way of Kral is endless war. Led by Flying Bull, they reject the peace of Esata and look for fights with the Holy Nation, the United Cities, and anyone who seems a worthy test."
+  "description": "A large faction of Shek loyal to Flying Bull, who rebelled against Esata after she overthrew Shager and holds to Shager's creed of Shek supremacy. They follow Kral devoutly, look down on weaker races, and attack outsiders in the wilds until those outsiders prove themselves."
 }

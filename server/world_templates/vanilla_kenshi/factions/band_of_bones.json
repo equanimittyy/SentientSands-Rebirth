@@ -5,7 +5,11 @@
   "major": false,
   "fields": {
     "leader": "Tora The Fearless",
-    "territory": "Stenn Desert"
+    "base": "Exile Camp",
+    "territory": [
+      "The Swamp",
+      "southern United Cities"
+    ]
   },
-  "description": "Shek warriors, most of them hornless, who reject the reforms of Esata. Losing one's horns is a deep shame among the Shek, and these outcasts want to win back their honor through a worthy death in battle."
+  "description": "A violent band of Shek bandits, mostly warriors who lost in battle but refused to give up the sword. Many of them have no horns and go hungry."
 }
