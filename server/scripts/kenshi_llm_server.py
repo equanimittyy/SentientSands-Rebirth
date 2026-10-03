@@ -515,15 +515,11 @@ def build_detailed_context_string(npc_name, npc_id, char_data=None):
     if char_state in state_labels:
         lines.append(state_labels[char_state])
 
-    race = ctx.get("race") or ctx.get("Race", "Unknown")
-    gender = reported_sex(race, ctx.get("gender") or ctx.get("Sex", "Unknown"))
     faction = ctx.get("faction") or ctx.get("Faction", "Unknown")
     job = ctx.get("job") or ctx.get("Job", "None")
     money = ctx.get("money") or 0
     relation = ctx.get("relation")
 
-    lines.append(f"- RACE: {race}")
-    lines.append(f"- SEX: {gender}")
     lines.append(f"- FACTION: {faction}")
     
     is_trader = ctx.get("is_trader", False)
@@ -1912,13 +1908,13 @@ def chat():
     else:
         system_prompt = build_system_prompt(player_name, speaker or None, speaker_profile or None)
         if mode == 'whisper':
-            volume = f"CRITICAL: The player is WHISPERING to you privately. This is a quiet, intimate, or secretive moment. ONLY {primary_npc} should respond. Keep the tone hushed and private."
+            volume = "CRITICAL: The player is WHISPERING to you privately. This is a quiet, intimate, or secretive moment. Keep the reply hushed and private."
         elif mode == 'yell':
-            volume = f"CRITICAL: The player is speaking loudly, so others nearby can hear it, but ONLY {primary_npc} answers. DO NOT tell the player to quiet down unless they are actually being aggressive."
+            volume = "INFO: The player is speaking loudly, so others nearby can hear it."
         else:
-            volume = "INFO: The player is speaking at a normal, conversational volume. Respond naturally. This is a standard, polite conversation. You are calm and composed. DO NOT tell the player to quiet down, do NOT react with annoyance to their volume, and do NOT mention noise or shouting unless they are actually being aggressive."
+            volume = "INFO: The player is speaking at a normal, conversational volume."
         judgment = "" if is_ambient else "JUDGMENT: At the end of your response, you MUST judge the player's tone and the quality of this interaction on a scale of -5 (extremely aggressive/hostile/insulting) to 5 (extremely friendly/helpful/respectful). 0 is neutral. Format this judgment as a tag like [JUDGMENT: n] at the very end."
-        final_instruction = f"Respond ONLY as {primary_npc}. Do not speak as anyone else. Keep it immersive, short, and grounded in the world of Kenshi: 1-2 short sentences in a single paragraph."
+        final_instruction = f"Respond ONLY as {primary_npc}, to the player's last line. Do not speak as anyone else."
 
     mode_action = f" [ACTION: WHISPERS TO {primary_npc}]" if mode == 'whisper' else ""
     time_prefix = get_current_time_prefix()
@@ -1934,7 +1930,6 @@ def chat():
         volume=volume,
         final_instruction=final_instruction,
         judgment=judgment,
-        language_str=load_settings().get("language", "English"),
         player_line=full_player_entry,
     )
     history = chat_prompt.history_window(primary_data["ConversationHistory"], campaign_db.DIALOGUE_BLOCK)

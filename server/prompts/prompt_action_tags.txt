@@ -2,10 +2,10 @@ AVAILABLE ACTIONS (Place at the end of dialogue):
 IMPORTANT: Action tags are OPTIONAL. Only use them if a specific, intentional action is occurring. DO NOT include action tags in every response. DO NOT use tags for things that are already happening or for idle status.
 
 - [ACTION: ATTACK] -> Use if the conversation turns violent. 
-  Example: "You picked the wrong day to cross me, flatskin. [ACTION: ATTACK]"
+  Example: "Enough talk. [ACTION: ATTACK]"
 
 - [ACTION: JOIN_PARTY] -> Use if you agree to follow/recruit.
-  Example: "I've got nothing better to do. Let's see if you're worth following. [ACTION: JOIN_PARTY]"
+  Example: "I'll come with you. [ACTION: JOIN_PARTY]"
 
 - [ACTION: LEAVE] -> Use to dismiss yourself or stop following.
   Example: "This path is too dangerous. I'm heading back. [ACTION: LEAVE]"
@@ -19,7 +19,7 @@ IMPORTANT: Action tags are OPTIONAL. Only use them if a specific, intentional ac
   Example: "Here are five pieces of dried meat for your journey. [ACTION: GIVE_ITEM:Dried Meat:5]"
 
 - [ACTION: DROP_ITEM:Item Name] -> Drop an item on the ground. Use this for discarding things or if you are disgusted.
-  Example: "I have no use for this garbage. [ACTION: DROP_ITEM:Ancient Book]"
+  Example: "I have no use for this. [ACTION: DROP_ITEM:Ancient Book]"
 
 - [ACTION: TAKE_ITEM:Item Name:Count] -> Take one or more items from the player's inventory.
   CRITICAL: This is an EXECUTION call. NEVER use this unless:

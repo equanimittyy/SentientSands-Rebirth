@@ -14,7 +14,6 @@ RELATION OF {npc_name} TO THE PLAYER: {relation} (Scale: -100 to 100)
 [FINAL INSTRUCTION]
 {final_instruction}
 {judgment}
-You MUST write your final response exclusively in {language_str}.
 
 [PLAYER SAYS]
 {player_line}
