@@ -23,8 +23,8 @@ const notes = new Map();
 let selected = "overview";
 let query = "";
 let kindFilter = "all";
-let showSeeded = false;
-try { showSeeded = localStorage.getItem("showSeeded") === "true"; } catch {}
+let showSeeded = true;
+try { showSeeded = localStorage.getItem("showSeeded") !== "false"; } catch {}
 let newCount = 0;
 const creation = { kind: "faction", name: "" };
 const duplication = { name: "" };

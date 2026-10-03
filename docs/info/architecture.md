@@ -86,7 +86,7 @@ The Campaigns and Editor pages hold many records. Save sends one request for eac
 
 The Editor has two subtabs with the same record list and forms. Campaign Canon edits the canon of the active campaign, and Templates edits the world templates that new campaigns copy. The page holds the records of one subtab and one template at a time, so a switch with unsaved changes asks the player first. A shipped template is read-only, so the page offers a duplicate.
 
-On Campaign Canon, the record list hides the records whose `origin` is `seed` until the player turns on **Show seeded data**, and the browser remembers the switch. The overview and the history have no `origin`, so they always show.
+On Campaign Canon, **Show seeded data** starts on, and the record list hides the records whose `origin` is `seed` only while the player turns it off. The browser remembers the switch. The overview and the history have no `origin`, so they always show.
 
 The Relations section of a race, location, or region lists its children, which the entry stores, and its parents, which are the entries whose children name it. A parent row is read-only and opens the parent, because the relation is stored in the parent entry.
 
