@@ -213,6 +213,9 @@ app.json.ensure_ascii = True
 def handle_exception(e):
     if isinstance(e, HTTPException):
         return jsonify({"error": e.description, "status": "error"}), e.code
+    if isinstance(e, campaign_db.CampaignUnavailable):
+        logging.warning(f"HTTP: {request.path} needs a campaign: {e}")
+        return jsonify({"error": str(e), "status": "error"}), 409
     logging.exception(f"HTTP: Unhandled exception in {request.path}: {e}")
     try:
         if request.json:
@@ -795,7 +798,7 @@ def fill_prompt(filename, **values):
     return prompt_store.render(template, values)
 
 def load_campaign_text(filename):
-    return prompt_store.read(os.path.join(get_campaign_dir(), filename)) or prompt_store.read(os.path.join(PROMPTS_DIR, filename))
+    return prompt_store.read(os.path.join(CAMPAIGNS_DIR, ACTIVE_CAMPAIGN, filename)) or prompt_store.read(os.path.join(PROMPTS_DIR, filename))
 
 def format_player_status(player_ctx):
     if not player_ctx: return "No status data."
@@ -2351,7 +2354,10 @@ def record_event_to_history(etype, actor, target, msg, actor_faction="None", tar
     if etype == "looting":
         return
 
-    campaign_db.add_event(evt_str)
+    try:
+        campaign_db.add_event(evt_str)
+    except campaign_db.CampaignUnavailable:
+        pass  # The event is lost, but the context post that carries it must still update the player's context
 
 def generate_global_narrative_thread():
     settings = load_settings()

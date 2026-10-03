@@ -163,7 +163,9 @@ A new campaign is a copy of a world template (see [World templates](#world-templ
 
 After the player deletes the last campaign, the server has no current campaign: `current_campaign` is empty, and each operation fails with the reason until the player creates and chooses a campaign. The empty value stays across a restart, so the server does not create a campaign again.
 
-A `campaign.db` that is gone while the server runs, for example because the player deleted the folder by hand, makes each operation fail with the reason in the same way.
+A route that needs the campaign then answers status 409 with the reason, and the server logs one warning line for it instead of a traceback. A context post still updates the player's context, but the server drops the events in it.
+
+A `campaign.db` that is gone while the server runs, for example because the player deleted the folder by hand, makes each operation fail with the reason in the same way. The server creates the folder again only at the next start.
 
 ### Campaign canon
 
