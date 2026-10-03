@@ -53,10 +53,8 @@ Some questions of the plans need data from the game. The plugin writes probe lin
 
 | Line | Written | Function | Answers |
 |---|---|---|---|
-| `ID_PROBE` | At each chat, for the target NPC | `LogNpcIdentity` | Which candidate ID of an NPC stays the same, and how many other loaded characters share each member of its handle |
 | `ZONE_PROBE` | At each chat, for the target NPC. The first chat also lists every zone record. | `LogNpcZone` | Which slot of the zone object (`AreaBiomeGroup`) holds its zone record, so that the context can name the zone, for example Stenn Desert |
 | `FACTION_PROBE` | At the first chat of each game, one line for each faction | `LogFactionList` | The string ID of each faction, and whether it stays the same when the mod list changes |
-| `SQUAD_PROBE` | At each chat | `LogCurrentSquad` | Whether `PlayerInterface::getCurrentPlatoon` gives the squad that the player selected, which the speaker picker needs |
 
 The in-game tests answered each question, and [kenshi_internals.md](kenshi_internals.md) records the results.
 

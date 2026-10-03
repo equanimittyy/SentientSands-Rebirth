@@ -286,7 +286,7 @@ void OnLibraryNPCSelect(MyGUI::ListBox *sender, size_t index) {
     return;
   std::string displayName = sender->getItemNameAt(index);
 
-  // Server loads profiles by file name (storage_id), which can differ from the display name
+  // The server keys profiles by npc_id, and two NPCs can share a display name
   std::string storageId = displayName;
   if (index < g_libraryStorageIds.size()) {
     storageId = g_libraryStorageIds[index];

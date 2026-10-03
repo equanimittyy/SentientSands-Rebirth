@@ -173,88 +173,11 @@ static std::string GetVisibleEquipment(Character *npc) {
   return eq;
 }
 
-std::string GetStorageIDFor(Character *npc, const std::string &name,
-                            const std::string &factionName) {
-  // Name only, so saved data survives the NPC changing faction
-  return name;
-}
-
-static std::string HandleMember(const std::string &key, unsigned int value,
-                                unsigned int shared) {
-  return " " + key + "=" + ToString(value) + " (" + ToString(shared) +
-         " shared)";
-}
-
-// For in-game checks of which candidate NPC IDs survive a save and load, a
-// recruit, and a reload, and how many other loaded characters share each one
-void LogNpcIdentity(Character *npc) {
-  std::string name = "?";
-  try {
-    name = npc->getName();
-  } catch (...) {
-  }
-
-  std::string handle = "?";
-  try {
-    handle = npc->getHandle().toString();
-  } catch (...) {
-  }
-
-  std::string members = "?";
-  try {
-    const hand &h = npc->getHandle();
-    unsigned int container = 0, containerSerial = 0, index = 0, serial = 0;
-    GameWorld *world = ppWorld ? *ppWorld : NULL;
-    if (world) {
-      const auto &chars = world->getCharacterUpdateList();
-      for (auto it = chars.begin(); it != chars.end(); ++it) {
-        Character *other = *it;
-        if (!other || (uintptr_t)other <= 0x1000 || other == npc)
-          continue;
-        const hand &o = other->getHandle();
-        if (o.container == h.container)
-          ++container;
-        if (o.containerSerial == h.containerSerial)
-          ++containerSerial;
-        if (o.index == h.index)
-          ++index;
-        if (o.serial == h.serial)
-          ++serial;
-      }
-    }
-    members = "type=" + ToString((int)h.type) +
-              HandleMember("container", h.container, container) +
-              HandleMember("containerSerial", h.containerSerial,
-                           containerSerial) +
-              HandleMember("index", h.index, index) +
-              HandleMember("serial", h.serial, serial);
-  } catch (...) {
-  }
-
-  std::string templateID = "?";
-  std::string templateName = "?";
-  if (npc->data) {
-    templateID = npc->data->stringID;
-    templateName = npc->data->name;
-  }
-
-  std::string factionName = "?";
-  try {
-    Faction *faction = npc->getFaction();
-    if (faction && (uintptr_t)faction > 0x1000)
-      factionName = faction->getName();
-  } catch (...) {
-  }
-
-  std::string unique = "?";
-  try {
-    unique = npc->isUnique() ? "1" : "0";
-  } catch (...) {
-  }
-
-  Log(LOG_INFO, "ID_PROBE: name=" + name + " handle=" + handle + " " +
-                    members + " template=" + templateID + " (" + templateName +
-                    ") faction=" + factionName + " unique=" + unique);
+// The serial is the only member of a handle that survives a recruit
+std::string GetNpcId(Character *npc) {
+  if (npc->isUnique() && npc->data)
+    return "u:" + npc->data->stringID;
+  return "h:" + ToString(npc->getHandle().serial);
 }
 
 // Probe: find the slot of AreaBiomeGroup that holds its zone record.
@@ -322,31 +245,20 @@ void LogFactionList() {
   }
 }
 
-// Probe: is getCurrentPlatoon the selected squad, for the speaker picker?
-void LogCurrentSquad() {
+void GetCurrentSquad(std::vector<Character *> &members) {
   GameWorld *world = ppWorld ? *ppWorld : NULL;
   if (!world || !world->player)
     return;
 
   Platoon *platoon = world->player->getCurrentPlatoon();
   ActivePlatoon *active = platoon ? platoon->getActivePlatoon() : NULL;
-  std::string members;
-  std::string others;
+  if (!active)
+    return;
   lektor<Character *> &characters = world->player->playerCharacters;
   for (uint32_t i = 0; i < characters.size(); ++i) {
-    Character *character = characters[i];
-    if (!character)
-      continue;
-    std::string &list =
-        (active && character->getPlatoon() == active) ? members : others;
-    if (!list.empty())
-      list += ",";
-    list += character->getName();
+    if (characters[i] && characters[i]->getPlatoon() == active)
+      members.push_back(characters[i]);
   }
-
-  Log(LOG_INFO, "SQUAD_PROBE: current=" +
-                    (platoon ? platoon->getName() : std::string("?")) +
-                    " members=" + members + " others=" + others);
 }
 
 std::string GetIdentityFaction(Character *npc) {
@@ -566,8 +478,7 @@ std::string GetDetailedContext(Character *npc, const std::string &type) {
   std::string identityFaction = GetIdentityFaction(npc);
   json += "\"origin_faction\": \"" + EscapeJSON(identityFaction) + "\",";
 
-  std::string stableID = GetStorageIDFor(npc, name, identityFaction);
-  json += "\"storage_id\": \"" + EscapeJSON(stableID) + "\",";
+  json += "\"npc_id\": \"" + EscapeJSON(GetNpcId(npc)) + "\",";
 
   if (ppWorld && *ppWorld && (*ppWorld)->player &&
       (*ppWorld)->player->getFaction() && faction) {
@@ -660,19 +571,13 @@ std::string GetDetailedContext(Character *npc, const std::string &type) {
         std::string o_gender = other->isFemale() ? "female" : "male";
         float dist = npc->getPosition().distance(other->getPosition());
 
-        std::string o_sid_fact = o_fn;
         unsigned int o_serial = other->getHandle().serial;
 
         EnterCriticalSection(&g_stateMutex);
-        if (g_originFactions.count(o_serial)) {
-          o_sid_fact = g_originFactions[o_serial];
-        } else if (o_fact && !o_fact->isThePlayer()) {
+        if (!g_originFactions.count(o_serial) && o_fact &&
+            !o_fact->isThePlayer())
           g_originFactions[o_serial] = o_fn;
-          o_sid_fact = o_fn;
-        }
         LeaveCriticalSection(&g_stateMutex);
-
-        std::string o_sid = GetStorageIDFor(other, o_name, o_sid_fact);
 
         std::string o_health = GetHealthStatus(other);
         std::string o_equip = GetVisibleEquipment(other);
@@ -683,7 +588,7 @@ std::string GetDetailedContext(Character *npc, const std::string &type) {
         json += "\"gender\":\"" + EscapeJSON(o_gender) + "\",";
         json += "\"health\":\"" + EscapeJSON(o_health) + "\",";
         json += "\"equipment\":\"" + EscapeJSON(o_equip) + "\",";
-        json += "\"storage_id\":\"" + EscapeJSON(o_sid) + "\",";
+        json += "\"npc_id\":\"" + EscapeJSON(GetNpcId(other)) + "\",";
         json += "\"dist\":" + ToString(dist) + "}";
       }
     }

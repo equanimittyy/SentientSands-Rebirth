@@ -24,7 +24,12 @@
 #include <mygui/MyGUI_TextBox.h>
 #include <mygui/MyGUI_Window.h>
 
+#include <cstdlib>
 #include <sstream>
+#include <vector>
+
+// A layout skin in Kenshi's data\gui\templates\kenshi_templates.xml
+static const char *SPEAKER_BOX_SKIN = "Kenshi_ComboBox";
 
 namespace SentientSands {
 namespace UI {
@@ -33,9 +38,12 @@ MyGUI::Window *g_chatWindow = nullptr;
 MyGUI::EditBox *g_chatInput = nullptr;
 MyGUI::Button *g_chatModeBtns[3] = {nullptr, nullptr, nullptr};
 MyGUI::TextBox *g_chatLabel = nullptr;
+MyGUI::ComboBox *g_chatSpeakerBox = nullptr;
+std::vector<hand> g_chatSpeakers;
+// In memory only, so a new game session starts on the first squad member
+hand g_lastSpeaker;
 std::string g_chatTargetHandleStr = "";
 std::string g_chatTargetNameStr = "";
-std::string g_chatPlayerNameStr = "";
 size_t g_lastChatModeIndex = 1;
 bool g_chatJustOpened = false;
 
@@ -48,6 +56,7 @@ void CloseChatUI() {
     for (int i = 0; i < 3; i++)
       g_chatModeBtns[i] = nullptr;
     g_chatLabel = nullptr;
+    g_chatSpeakerBox = nullptr;
   }
 }
 
@@ -214,8 +223,21 @@ void OnChatSendClick(MyGUI::Widget *sender) {
     mode = "yell";
 
   std::string npcName = g_chatTargetNameStr;
-  std::string playerName = g_chatPlayerNameStr;
   std::string handleStr = g_chatTargetHandleStr;
+  GameWorld *world = *ppWorld;
+
+  Character *speaker = nullptr;
+  if (g_chatSpeakerBox) {
+    size_t index = g_chatSpeakerBox->getIndexSelected();
+    if (index < g_chatSpeakers.size())
+      speaker = g_chatSpeakers[index].getCharacter();
+  }
+  if (!speaker && world && world->player &&
+      world->player->playerCharacters.size() > 0)
+    speaker = world->player->playerCharacters[0];
+  if (speaker)
+    g_lastSpeaker = speaker->getHandle();
+  std::string playerName = speaker ? speaker->getName() : "Drifter";
 
   if (text.substr(0, 6) == "/name " && text.length() > 6) {
     std::string newName = text.substr(6);
@@ -263,7 +285,9 @@ void OnChatSendClick(MyGUI::Widget *sender) {
   CloseChatUI();
 
   EnterCriticalSection(&g_msgMutex);
-  g_messageQueue.push_back("PLAYER_SAY: " + text);
+  // Names the speaker, so its bubble and the NPC's actions go to that squad member
+  g_messageQueue.push_back(
+      "PLAYER_SAY: " + (speaker ? playerName + ": " : std::string()) + text);
   LeaveCriticalSection(&g_msgMutex);
 
   std::string primaryId = npcName + "|" + handleStr;
@@ -276,10 +300,9 @@ void OnChatSendClick(MyGUI::Widget *sender) {
   else if (mode == "yell")
     searchRadius = g_yellRadius;
 
-  GameWorld *world = *ppWorld;
-  if (world && world->player && world->player->playerCharacters.size() > 0) {
+  if (world && speaker) {
     try {
-      Character *player = world->player->playerCharacters[0];
+      Character *player = speaker;
       const auto &chars = world->getCharacterUpdateList();
       for (auto it = chars.begin(); it != chars.end(); ++it) {
         Character *other = *it;
@@ -315,15 +338,9 @@ void OnChatSendClick(MyGUI::Widget *sender) {
                 factionName = faction->data->stringID;
             }
 
-            std::string o_sid_fact = factionName;
-            if (g_originFactions.count(o_serial)) {
-              o_sid_fact = g_originFactions[o_serial];
-            } else if (faction && !faction->isThePlayer()) {
+            if (!g_originFactions.count(o_serial) && faction &&
+                !faction->isThePlayer())
               g_originFactions[o_serial] = factionName;
-              o_sid_fact = factionName;
-            }
-            std::string o_sid =
-                GetStorageIDFor(other, other->getName(), o_sid_fact);
 
             std::string o_gender = other->isFemale() ? "female" : "male";
 
@@ -332,7 +349,7 @@ void OnChatSendClick(MyGUI::Widget *sender) {
             nearbyFullJson += "{\"name\":\"" + EscapeJSON(other->getName()) +
                               "\", \"id\":\"" +
                               ToString((int)other->getHandle().serial) +
-                              "\", \"storage_id\":\"" + EscapeJSON(o_sid) +
+                              "\", \"npc_id\":\"" + EscapeJSON(GetNpcId(other)) +
                               "\", \"race\":\"" + EscapeJSON(raceName) +
                               "\", \"faction\":\"" + EscapeJSON(factionName) +
                               "\", \"gender\":\"" + EscapeJSON(o_gender) +
@@ -365,17 +382,18 @@ void OnChatSendClick(MyGUI::Widget *sender) {
   std::string detailedContext = "{}";
   if (targetNpc) {
     detailedContext = GetDetailedContext(targetNpc);
-    LogNpcIdentity(targetNpc);
     LogNpcZone(targetNpc);
     LogFactionList();
-    LogCurrentSquad();
   }
+  std::string speakerContext =
+      speaker ? GetDetailedContext(speaker, "player") : "{}";
 
   std::string json =
       "{\"npc\": \"" + EscapeJSON(npcName) + "\", \"npcs\": [" + npcsJson +
       "], \"nearby\": [" + nearbyFullJson + "], \"message\": \"" +
       EscapeJSON(text) + "\", \"player\": \"" + EscapeJSON(playerName) +
-      "\", \"mode\": \"" + mode + "\", \"context\": " + detailedContext + "}";
+      "\", \"mode\": \"" + mode + "\", \"context\": " + detailedContext +
+      ", \"speaker\": " + speakerContext + "}";
 
   ChatTask *task = new ChatTask();
   task->json = json;
@@ -395,8 +413,7 @@ void OnChatWindowButtonPressed(MyGUI::Window *sender, const std::string &name) {
     CloseChatUI();
 }
 
-void CreateChatUI(const std::string &npcName, const std::string &playerName,
-                  const std::string &handleStr) {
+void CreateChatUI(const std::string &npcName, const std::string &handleStr) {
   MyGUI::Gui *gui = MyGUI::Gui::getInstancePtr();
   if (!gui)
     return;
@@ -404,9 +421,22 @@ void CreateChatUI(const std::string &npcName, const std::string &playerName,
     CloseChatUI();
 
   g_chatTargetNameStr = npcName;
-  g_chatPlayerNameStr = playerName;
   g_chatTargetHandleStr = handleStr;
   g_chatJustOpened = true;
+
+  unsigned int targetSerial =
+      (unsigned int)strtoul(handleStr.c_str(), NULL, 10);
+  std::vector<Character *> squad;
+  GetCurrentSquad(squad);
+  g_chatSpeakers.clear();
+  size_t selected = 0;
+  for (size_t i = 0; i < squad.size(); ++i) {
+    if (squad[i]->getHandle().serial == targetSerial)
+      continue;
+    if (squad[i]->getHandle() == g_lastSpeaker)
+      selected = g_chatSpeakers.size();
+    g_chatSpeakers.push_back(squad[i]->getHandle());
+  }
 
   std::string actualNpcName = npcName;
   // Auto-renaming runs on NameAssignThread so CreateChatUI never blocks on HTTP.
@@ -419,11 +449,22 @@ void CreateChatUI(const std::string &npcName, const std::string &playerName,
       MyGUI::newDelegate(OnChatWindowButtonPressed);
   MyGUI::Widget *client = g_chatWindow->getClientWidget();
   g_chatLabel = client->createWidgetReal<MyGUI::TextBox>(
-      "Kenshi_TextboxStandardText", 0.05f, 0.05f, 0.9f, 0.2f,
+      "Kenshi_TextboxStandardText", 0.05f, 0.05f, 0.55f, 0.2f,
       MyGUI::Align::Top | MyGUI::Align::HStretch, "SentientSands_ChatLabel");
-  g_chatLabel->setCaption(Utf8ToWide(T("Message for ") + actualNpcName +
-                                     T(" (from ") + playerName + T("):"))
-                              .c_str());
+  g_chatLabel->setCaption(
+      Utf8ToWide(T("Message for ") + actualNpcName + ":").c_str());
+
+  g_chatSpeakerBox = client->createWidgetReal<MyGUI::ComboBox>(
+      SPEAKER_BOX_SKIN, 0.62f, 0.05f, 0.33f, 0.22f,
+      MyGUI::Align::Top | MyGUI::Align::Right, "SentientSands_ChatSpeaker");
+  g_chatSpeakerBox->setComboModeDrop(true);
+  for (size_t i = 0; i < g_chatSpeakers.size(); ++i) {
+    Character *member = g_chatSpeakers[i].getCharacter();
+    g_chatSpeakerBox->addItem(
+        Utf8ToWide(member ? member->getName() : "?").c_str());
+  }
+  if (!g_chatSpeakers.empty())
+    g_chatSpeakerBox->setIndexSelected(selected);
   g_chatInput = client->createWidgetReal<MyGUI::EditBox>(
       "Kenshi_EditBox", 0.05f, 0.35f, 0.9f, 0.25f,
       MyGUI::Align::Top | MyGUI::Align::HStretch, "SentientSands_ChatInput");

@@ -2,8 +2,6 @@
     "English": {
         "Talking to: ": "Talking to: ",
         "Message for ": "Message for ",
-        " (from ": " (from ",
-        "):": "):",
         "Whisper": "Whisper",
         "Talk": "Talk",
         "Yell": "Yell",
@@ -59,8 +57,6 @@
     "Spanish": {
         "Talking to: ": "Hablando con: ",
         "Message for ": "Mensaje para ",
-        " (from ": " (de parte de ",
-        "):": "):",
         "Whisper": "Susurrar",
         "Talk": "Hablar",
         "Yell": "Gritar",
@@ -116,8 +112,6 @@
     "French": {
         "Talking to: ": "Discussion avec : ",
         "Message for ": "Message pour ",
-        " (from ": " (de la part de ",
-        "):": ") :",
         "Whisper": "Chuchoter",
         "Talk": "Parler",
         "Yell": "Crier",
@@ -173,8 +167,6 @@
     "Japanese": {
         "Talking to: ": "会話相手: ",
         "Message for ": "メッセージ先: ",
-        " (from ": "(送信者: ",
-        "):": "):",
         "Whisper": "囁く",
         "Talk": "話す",
         "Yell": "叫ぶ",
@@ -230,8 +222,6 @@
     "Russian": {
         "Talking to: ": "Разговор с: ",
         "Message for ": "Сообщение для ",
-        " (from ": " (от ",
-        "):": "):",
         "Whisper": "Шёпот",
         "Talk": "Разговор",
         "Yell": "Крик",

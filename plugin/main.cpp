@@ -1318,6 +1318,8 @@ void playerUpdate_hook(PlayerInterface *thisptr) {
                   npcData +=
                       "\"id\":" + ToString((int)other->getHandle().serial) +
                       ",";
+                  npcData +=
+                      "\"npc_id\":\"" + EscapeJSON(GetNpcId(other)) + "\",";
                   npcData += "\"race\":\"" + EscapeJSON(o_rn) + "\",";
                   npcData +=
                       "\"gender\":\"" +
@@ -1483,11 +1485,7 @@ void playerUpdate_hook(PlayerInterface *thisptr) {
             }
           }
 
-          std::string pName = (thisptr->playerCharacters.size() > 0)
-                                  ? thisptr->playerCharacters[0]->getName()
-                                  : "Drifter";
-          CreateChatUI(sel->getName(), pName,
-                       ToString((int)sel->getHandle().serial));
+          CreateChatUI(sel->getName(), ToString((int)sel->getHandle().serial));
         }
       }
     }

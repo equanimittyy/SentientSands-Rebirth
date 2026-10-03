@@ -208,7 +208,7 @@ The `character` table holds every character of a campaign in one shape: the cano
 - The server stores an `npc_id` exactly as the plugin sends it. It builds an `npc_id` only for a canon character, `u:<game_id>`, so that chat uses the canon profile instead of a generated one. Dialogue adds to the row and does not change the canon profile.
 - The name is only the `Name` key of the profile, so two NPCs with one name keep two rows, and a rename changes only `Name`.
 - A name in the LLM output maps to an `npc_id` only among the characters of the same request. Name assignment gives generic NPCs different names, so the names of one request stay apart.
-- The player bio in the chat prompt is the `Personality`, `Backstory`, and `SpeechQuirks` of the squad member who speaks, the `speaker` of the chat request. A speaker with no profile gets a generated one, as an NPC does. Ambient banter has no speaker, so it uses the stored profile of squad slot 1 from the player's context.
+- The player bio in the chat prompt is the `Personality`, `Backstory`, and `SpeechQuirks` of the squad member who speaks, the `speaker` of the chat request. The chat window offers the members of the current squad except the talk target, and starts on the last speaker while that character is still in the squad. A speaker with no profile gets a generated one, as an NPC does. Ambient banter has no speaker, so it uses the stored profile of squad slot 1 from the player's context.
 - The Dialogue Library lists each character with dialogue and each character that is not seeded, so the seeded characters that the player never met stay out of it.
 - `LIVE_CONTEXTS` holds the latest context of each NPC by `npc_id`.
 

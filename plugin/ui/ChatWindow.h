@@ -10,11 +10,9 @@ extern MyGUI::Button *g_chatModeBtns[3];
 extern MyGUI::TextBox *g_chatLabel;
 extern std::string g_chatTargetHandleStr;
 extern std::string g_chatTargetNameStr;
-extern std::string g_chatPlayerNameStr;
 extern size_t g_lastChatModeIndex;
 
-void CreateChatUI(const std::string &npcName, const std::string &playerName,
-                  const std::string &handleStr);
+void CreateChatUI(const std::string &npcName, const std::string &handleStr);
 void CloseChatUI();
 
 DWORD WINAPI ChatResponseThread(LPVOID lpParam);
