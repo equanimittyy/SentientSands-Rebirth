@@ -64,13 +64,12 @@ function renderCampaigns() {
     iconButton("trash", `Delete the campaign ${campaign.name}`, () => deleteCampaign(campaign))));
   const template = el("select", { onchange: (event) => { creation.template = event.target.value; } },
     ...templates.map((entry) => new Option(entry.title, entry.name, false, entry.name === creation.template)));
-  template.setAttribute("aria-label", "World template of the new campaign");
   return el("fieldset", {},
     el("legend", {}, "Campaign Manager"),
     el("ul", { className: "plain-list" }, ...rows),
     el("form", { className: "add", onsubmit: createCampaign },
-      textInput(creation, "name", ["create", "name"], { placeholder: "New campaign name", required: true, label: "New campaign name" }),
-      template,
+      el("label", {}, "Campaign Name", textInput(creation, "name", ["create", "name"], { required: true })),
+      el("label", {}, "Template", template),
       el("button", { type: "submit" }, "Create")),
     noteLine("create"));
 }

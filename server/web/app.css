@@ -520,6 +520,18 @@ details.card > summary > .blurb {
   margin-top: 0.75rem;
 }
 
+.add > label {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 0.25rem;
+  margin: 0;
+}
+
+.add > label ~ button {
+  align-self: flex-end;
+}
+
 .hint {
   color: var(--muted);
   margin: 0.25rem 0 0.5rem;
