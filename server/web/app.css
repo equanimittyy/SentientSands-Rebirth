@@ -27,6 +27,7 @@
   --ok: #2f6b34;
   --seed: #7a5c12;
   --seed-bg: #f8e7a8;
+  --info: #2a5b8c;
 }
 
 :root[data-theme="dark"] {
@@ -45,6 +46,7 @@
   --ok: #82c785;
   --seed: #f0d98a;
   --seed-bg: #4a3f1c;
+  --info: #8ab8e6;
 }
 
 body {
@@ -200,6 +202,14 @@ fieldset {
 
 legend {
   padding: 0 0.25rem;
+}
+
+legend .mandatory {
+  color: var(--error);
+}
+
+legend .optional {
+  color: var(--info);
 }
 
 label {

@@ -486,7 +486,7 @@ function renderRoutes() {
       field("Deadline (s)", numberInput(route, "deadline", path("deadline"), { step: 1, min: 1 }, deadlineWarning)));
   });
   return el("fieldset", {},
-    el("legend", {}, "Tasks (Optional)"),
+    el("legend", {}, "Tasks ", el("span", { className: "optional" }, "(Optional)")),
     el("p", { className: "hint" },
       "Each task is one kind of LLM call that SSR makes, with its own settings. It tries its profiles in order until one replies. " +
       `The game waits only ${GAME_WAIT_S} s, so keep the deadline under that.`),
@@ -504,7 +504,7 @@ function untestedWarning(name) {
 
 function renderDefault() {
   return el("fieldset", {},
-    el("legend", {}, "Default LLM Profile (Mandatory)"),
+    el("legend", {}, "Default LLM Profile ", el("span", { className: "mandatory" }, "(Mandatory)")),
     el("p", { className: "hint" }, "Every LLM call of Sentient Sands Rebirth (SSR) uses this profile. Each task below can add other profiles before or after it."),
     field("Profile", selectInput(Object.keys(state.profiles), state.default_profile, ["default_profile"], (value) => { state.default_profile = value; changed(); }, {}, profileGroups(state.default_profile))),
     untestedWarning(state.default_profile));
