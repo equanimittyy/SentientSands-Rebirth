@@ -32,7 +32,7 @@ class TemplateTestCase(unittest.TestCase):
         self._tmp = tempfile.TemporaryDirectory()
         self.shipped = os.path.join(self._tmp.name, "world_templates")
         self.user = os.path.join(self._tmp.name, "user", "world_templates")
-        self.write("base", "manifest.json", {"format_version": 1, "name": "Base", "version": "1.0.0", "authors": ["SSR"], "credits": ["SentientSands Kayak by Harvicus and Pineaxe."]})
+        self.write("base", "manifest.json", {"format_version": 1, "name": "Base", "description": "Rust and sand.", "version": "1.0.0", "authors": ["SSR"], "credits": ["SentientSands Kayak by Harvicus and Pineaxe."]})
         self.write("base", "overview.txt", "A world of rust.\r\n")
         self.write("base", "factions/holy_nation.json", HOLY_NATION)
         self.write("base", "ADDITIONAL_TERMS.md", "Keep the credit line.")
@@ -60,6 +60,10 @@ class ValidateTest(TemplateTestCase):
     def test_an_unknown_format_version_is_an_error(self):
         self.write("base", "manifest.json", {"format_version": 2, "name": "Base"})
         self.assertEqual(self.fields(), [["manifest", "format_version"]])
+
+    def test_a_description_that_is_not_text_is_an_error(self):
+        self.write("base", "manifest.json", {"format_version": 1, "name": "Base", "description": ["Rust"]})
+        self.assertEqual(self.fields(), [["manifest", "description"]])
 
     def test_a_file_that_does_not_parse_is_an_error(self):
         self.write("base", "factions/broken.json", "{")
@@ -110,8 +114,8 @@ class SaveTest(TemplateTestCase):
     def test_the_listing_gives_the_title_and_the_counts_of_each_template(self):
         self.write("base", "regions/okran.json", {"name": "Okran's Pride"})
         self.assertEqual(world_template.listing(self.shipped, self.user), [
-            {"name": "base", "builtin": True, "title": "Base", "counts": {"factions": 1, "characters": 0, "entities": 1}},
-            {"name": "Mine", "builtin": False, "title": "Mine", "counts": {"factions": 1, "characters": 0, "entities": 0}},
+            {"name": "base", "builtin": True, "title": "Base", "description": "Rust and sand.", "counts": {"factions": 1, "characters": 0, "entities": 1}},
+            {"name": "Mine", "builtin": False, "title": "Mine", "description": "Rust and sand.", "counts": {"factions": 1, "characters": 0, "entities": 0}},
         ])
 
     def test_a_shipped_template_is_read_only(self):
@@ -124,11 +128,19 @@ class SaveTest(TemplateTestCase):
         self.assertEqual(template["manifest"]["name"], "Mine")
         self.assertEqual(template["manifest"]["credits"], ["SentientSands Kayak by Harvicus and Pineaxe."])
         self.assertTrue(os.path.exists(os.path.join(self.user, "Mine", "ADDITIONAL_TERMS.md")))
+        self.assertEqual(os.listdir(self.user), ["Mine"])
 
     def test_duplicate_refuses_a_taken_or_unsafe_name(self):
         for name in ("mine", "base", "../escape", ""):
             with self.assertRaises(world_template.TemplateError, msg=name):
                 world_template.duplicate("base", name, self.shipped, self.user)
+
+    def test_duplicate_and_import_refuse_the_title_of_another_template(self):
+        self.write("other", "manifest.json", {"format_version": 1, "name": "Rust World"})
+        with self.assertRaisesRegex(world_template.TemplateError, "already exists"):
+            world_template.duplicate("base", "rust world", self.shipped, self.user)
+        with self.assertRaisesRegex(world_template.TemplateError, "already exists"):
+            world_template.import_template(world_template.export_template("base", self.shipped, self.user), "Rust World", self.shipped, self.user)
 
     def test_a_new_record_takes_its_id_from_its_name(self):
         faction = dict(HOLY_NATION, game_id="42022-rebirth.mod", name="Holy Nation Outlaws")

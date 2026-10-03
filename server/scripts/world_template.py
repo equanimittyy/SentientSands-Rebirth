@@ -40,6 +40,7 @@ def listing(shipped_dir, user_dir):
             "name": name,
             "builtin": builtin,
             "title": manifest.get("name") or name,
+            "description": manifest.get("description", ""),
             "counts": {"factions": len(_record_ids(path, "factions")), "characters": len(_record_ids(path, "characters")), "entities": sum(len(_record_ids(path, category)) for category in CATEGORIES)},
         })
     return result
@@ -82,6 +83,8 @@ def validate(template):
         error(["manifest", "format_version"], "This template was made for another version of SSR, so this version cannot read it.")
     if not _is_text(manifest.get("name")):
         error(["manifest", "name"], "Give the template a name.")
+    if "description" in manifest and not isinstance(manifest["description"], str):
+        error(["manifest", "description"], "The description must be text.")
     if "version" in manifest and not isinstance(manifest["version"], str):
         error(["manifest", "version"], 'The template version must be in quotes, for example "1.0.0".')
     for key in ("authors", "credits"):
@@ -207,13 +210,15 @@ def duplicate(name, new_name, shipped_dir, user_dir):
     """Copies every file, the credit and licence files included, so a derived template keeps its attribution."""
     path, _ = _folder(name, shipped_dir, user_dir)
     new_name = _check_new_name(new_name, shipped_dir, user_dir)
-    target = os.path.join(user_dir, new_name)
-    os.makedirs(user_dir, exist_ok=True)
-    shutil.copytree(path, target)
-    manifest = _read_json(target, MANIFEST, {}, [])
+    files = {}
+    for root, _, file_names in os.walk(path):
+        for file_name in file_names:
+            with open(os.path.join(root, file_name), "rb") as f:
+                files[os.path.relpath(os.path.join(root, file_name), path)] = f.read()
+    manifest = _read_json(path, MANIFEST, {}, [])
     if isinstance(manifest, dict):
-        manifest["name"] = new_name
-        _write(os.path.join(target, MANIFEST), json.dumps(manifest, indent=2, ensure_ascii=False) + "\n")
+        files[MANIFEST] = json.dumps(dict(manifest, name=new_name), indent=2, ensure_ascii=False) + "\n"
+    _write_new_template(user_dir, new_name, files)
     return new_name
 
 
@@ -267,22 +272,35 @@ def import_template(data, new_name, shipped_dir, user_dir):
         raise TemplateError(errors)
     files = {MANIFEST: manifest, OVERVIEW: template["overview"], HISTORY: template["history"]}
     for key in record_keys:
-        files.update({f"{key}/{record_id}.json": record for record_id, record in data.get(key, {}).items()})
-    os.makedirs(user_dir, exist_ok=True)
-    # The dot keeps a folder that a crash leaves behind out of the template list
-    staging = tempfile.mkdtemp(dir=user_dir, prefix=".import-")
-    try:
-        for relative, content in files.items():
-            _write(os.path.join(staging, relative), content if isinstance(content, str) else json.dumps(content, indent=2, ensure_ascii=False) + "\n")
-        os.rename(staging, os.path.join(user_dir, new_name))
-    except BaseException:
-        shutil.rmtree(staging, ignore_errors=True)
-        raise
+        files.update({os.path.join(key, f"{record_id}.json"): record for record_id, record in data.get(key, {}).items()})
+    _write_new_template(user_dir, new_name, {relative: content if isinstance(content, str) else json.dumps(content, indent=2, ensure_ascii=False) + "\n" for relative, content in files.items()})
     return new_name
 
 
+def _write_new_template(user_dir, name, files):
+    """Writes files, a map of relative path to text or bytes, as the user template name.
+
+    The files go into a staging folder that is renamed only when it is complete, so a failure leaves no half-written
+    template. That makes the temporary file of _write unnecessary, which matters on a mounted drive, where each file
+    operation took about 5 ms and a template has hundreds of files.
+    """
+    os.makedirs(user_dir, exist_ok=True)
+    # The dot keeps a folder that a crash leaves behind out of the template list
+    staging = tempfile.mkdtemp(dir=user_dir, prefix=".new-")
+    try:
+        for folder in {os.path.dirname(relative) for relative in files} - {""}:
+            os.makedirs(os.path.join(staging, folder), exist_ok=True)
+        for relative, content in files.items():
+            with open(os.path.join(staging, relative), "wb") as f:
+                f.write(content if isinstance(content, bytes) else content.encode("utf-8"))
+        os.rename(staging, os.path.join(user_dir, name))
+    except BaseException:
+        shutil.rmtree(staging, ignore_errors=True)
+        raise
+
+
 _FORMAT_KEYS = {
-    "manifest": {"format_version", "name", "version", "authors", "credits"},
+    "manifest": {"format_version", "name", "description", "version", "authors", "credits"},
     "history": {"title", "text"},
     "factions": {"game_id", "name", "aliases", "major", "fields", "description"},
     "characters": {"game_id", "profile"},
@@ -392,7 +410,9 @@ def _check_new_name(new_name, shipped_dir, user_dir):
     new_name = str(new_name or "").strip()
     if not _NAME.fullmatch(new_name):
         raise TemplateError([{"field": ["new_name"], "message": "A template name may hold only letters, digits, spaces, _ and -."}])
-    if any(name.lower() == new_name.lower() for name, _ in _names(shipped_dir, user_dir)) or os.path.exists(os.path.join(user_dir, new_name)):
+    # The template list shows titles, so a name that matches another template's title would look like that template
+    taken = {str(entry[key]).lower() for entry in listing(shipped_dir, user_dir) for key in ("name", "title")}
+    if new_name.lower() in taken or os.path.exists(os.path.join(user_dir, new_name)):
         raise TemplateError([{"field": ["new_name"], "message": f"A template named {new_name} already exists. Choose another name."}])
     return new_name
 

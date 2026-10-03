@@ -1,4 +1,4 @@
-import { ask, deleteButton, el, field, getJson, reportUnsaved, sendJson, setFieldError, showMessage, tell } from "./api.js";
+import { ask, deleteButton, el, field, getJson, progress, reportUnsaved, sendJson, setFieldError, showMessage, tell } from "./api.js";
 
 const page = document.getElementById("editor-page");
 const message = document.getElementById("editor-message");
@@ -62,7 +62,7 @@ function toForm(kind, data) {
   if (kind === "overview") return { text: data ?? "" };
   if (kind === "history") return { entries: (Array.isArray(data) ? data : []).map((entry) => ({ title: entry?.title ?? "", text: entry?.text ?? "" })) };
   if (kind === "manifest") {
-    return { name: data.name ?? "", version: data.version ?? "", authors: (data.authors ?? []).join(", "), credits: (data.credits ?? []).join("\n"), extra: rest(data, ["name", "version", "authors", "credits"]) };
+    return { name: data.name ?? "", description: data.description ?? "", version: data.version ?? "", authors: (data.authors ?? []).join(", "), credits: (data.credits ?? []).join("\n"), extra: rest(data, ["name", "description", "version", "authors", "credits"]) };
   }
   if (kind === "faction") {
     return {
@@ -87,7 +87,7 @@ function toForm(kind, data) {
 function toData(kind, form) {
   if (kind === "overview") return form.text.trim();
   if (kind === "history") return form.entries.map((entry) => ({ title: entry.title.trim(), text: entry.text.trim() }));
-  if (kind === "manifest") return { ...form.extra, name: form.name.trim(), version: form.version.trim(), authors: commaList(form.authors), credits: lineList(form.credits) };
+  if (kind === "manifest") return { ...form.extra, name: form.name.trim(), description: form.description.trim(), version: form.version.trim(), authors: commaList(form.authors), credits: lineList(form.credits) };
   if (kind === "faction") {
     return { ...form.extra, game_id: form.game_id.trim(), name: form.name.trim(), aliases: commaList(form.aliases), major: form.major, fields: fromRows(form.fields), description: form.description.trim() };
   }
@@ -290,6 +290,7 @@ function historyForm(form, path) {
 function manifestForm(form) {
   return [
     field("Name", control("input", form, "name", ["manifest", "name"]), null, "The name of the template that players see."),
+    field("Description", control("textarea", form, "description", ["manifest", "description"], { rows: 2 }), null, "A short text that players see when they choose the template, for example the mods that it supports."),
     field("Version", control("input", form, "version", ["manifest", "version"]), null, "Your version of the template, for example 1.0.0."),
     field("Authors", control("input", form, "authors", ["manifest", "authors"]), null, "The authors of the template, separated by commas."),
     field("Credits", control("textarea", form, "credits", ["manifest", "credits"], { rows: 3 }), null, "One credit line on each line. Keep the credits of the template that you copied."),
@@ -440,11 +441,17 @@ function keptDrafts() {
   }));
 }
 
+const discardChanges = async (action) => changedRecords().length === 0 || ask("Discard the changes", "Discard", `Your changes to ${templateTitle()} are not saved. ${action} and lose them?`);
+
 async function chooseTemplate(name) {
-  if (changedRecords().length > 0 && !(await ask("Discard the changes", "Discard", `Your changes to ${templateTitle()} are not saved. Open ${name} and lose them?`))) {
+  if (!(await discardChanges(`Open ${name}`))) {
     render();
     return;
   }
+  await openTemplate(name);
+}
+
+async function openTemplate(name) {
   current = name;
   selected = "overview";
   notes.clear();
@@ -472,13 +479,19 @@ async function chooseSource(value) {
 
 async function duplicateTemplate(event) {
   event.preventDefault();
+  const name = duplication.name.trim();
+  if (!(await discardChanges(`Duplicate ${templateTitle()}`))) return;
+  const steps = progress("Duplicating the template", `Copying ${templateTitle()} as ${name}`, "Opening the template");
   try {
-    const reply = await sendJson("POST", `/api/templates/${encodeURIComponent(current)}/duplicate`, { new_name: duplication.name });
+    const reply = await sendJson("POST", `/api/templates/${encodeURIComponent(current)}/duplicate`, { new_name: name });
+    steps.next();
     duplication.name = "";
     await fetchTemplates();
-    await chooseTemplate(reply.name);
+    await openTemplate(reply.name);
+    steps.close();
     showMessage(message, `Created ${reply.name}. You can edit it now.`);
   } catch (error) {
+    steps.close();
     showMessage(message, `Duplicate failed: ${error.message}`, true);
   }
 }
@@ -507,6 +520,16 @@ async function prefillImportName(event, nameInput) {
   const data = await readTemplateFile(event.target).catch(() => null);
   importing.name = typeof data?.manifest?.name === "string" ? data.manifest.name : "";
   nameInput.value = importing.name;
+  checkNewName(nameInput);
+}
+
+// A name that matches the title of another template would show twice in the template list.
+function checkNewName(input) {
+  const key = input.value.trim().toLowerCase();
+  const text = templates.some((entry) => [entry.name, entry.title].some((name) => String(name).toLowerCase() === key)) ? `A template named ${input.value.trim()} already exists. Choose another name.` : "";
+  input.setCustomValidity(text);
+  setFieldError(input, text);
+  return input;
 }
 
 async function importTemplate(event) {
@@ -520,14 +543,21 @@ async function importTemplate(event) {
   }
   const manifest = data?.manifest ?? {};
   const names = (value) => (Array.isArray(value) && value.length > 0 ? value.join(", ") : "none");
-  if (!(await ask(`Import ${importing.name}`, "Import", `Authors: ${names(manifest.authors)}\nCredits: ${names(manifest.credits)}`))) return;
+  const name = importing.name.trim();
+  if (!(await ask(`Import ${name}`, "Import", `Authors: ${names(manifest.authors)}\nCredits: ${names(manifest.credits)}`))) return;
+  if (!(await discardChanges(`Import ${name}`))) return;
+  const entries = ["factions", "characters", ...Object.keys(CATEGORY_LABELS)].reduce((sum, key) => sum + Object.keys(data?.[key] ?? {}).length, 0);
+  const steps = progress("Importing the template", `Checking and saving ${name} (${entries} entries)`, "Opening the template");
   try {
-    const reply = await sendJson("POST", "/api/templates/import", { name: importing.name, template: data });
+    const reply = await sendJson("POST", "/api/templates/import", { name, template: data });
+    steps.next();
     importing.name = "";
     await fetchTemplates();
-    await chooseTemplate(reply.name);
+    await openTemplate(reply.name);
+    steps.close();
     showMessage(message, `Imported ${reply.name}. You can edit it now.`);
   } catch (error) {
+    steps.close();
     const problems = error.fieldErrors?.map((problem) => problem.message) ?? [];
     if (problems.length <= 1) {
       showMessage(message, `Import failed: ${error.message}`, true);
@@ -559,9 +589,9 @@ function renderTemplateBar() {
     ...templates.map((entry) => new Option(entry.title, entry.name, false, entry.name === current)));
   select.setAttribute("aria-label", "World template");
   const recordCounts = template ? counts() : "";
-  const duplicateName = el("input", { value: duplication.name, placeholder: "Name of the copy", required: true, oninput: (event) => { duplication.name = event.target.value; } });
+  const duplicateName = checkNewName(el("input", { value: duplication.name, placeholder: "Name of the copy", required: true, oninput: (event) => { duplication.name = checkNewName(event.target).value; } }));
   duplicateName.setAttribute("aria-label", "Name of the copy");
-  const importName = el("input", { value: importing.name, placeholder: "Name of the imported template", required: true, oninput: (event) => { importing.name = event.target.value; } });
+  const importName = checkNewName(el("input", { value: importing.name, placeholder: "Name of the imported template", required: true, oninput: (event) => { importing.name = checkNewName(event.target).value; } }));
   importName.setAttribute("aria-label", "Name of the imported template");
   const importFile = el("input", { type: "file", name: "file", accept: ".json,application/json", required: true, onchange: (event) => prefillImportName(event, importName) });
   importFile.setAttribute("aria-label", "Template file to import");
@@ -569,6 +599,7 @@ function renderTemplateBar() {
     el("legend", {}, "World template"),
     el("p", { className: "hint" }, "A new campaign starts as a copy of its template, so changes here apply only to campaigns that you create later."),
     field("Template", select, el("span", { className: "detail" }, recordCounts)),
+    template?.manifest?.description ? el("p", { className: "hint" }, template.manifest.description) : null,
     template?.builtin ? el("p", { className: "hint" }, `${templateTitle()} ships with SSR and is read-only. Duplicate it to make your own copy.`) : null,
     ...(template?.errors ?? []).map((error) => el("p", { className: "hint error" }, error.message)),
     ...(template?.warnings ?? []).map((warning) => el("p", { className: "hint" }, warning.message)),

@@ -8,7 +8,7 @@ The server mixes player settings, world lore, and play state. For example, the V
 
 - **App data** ships with the release as defaults, and each update replaces it. A player can override each system prompt. The override survives an update, and a reset restores the shipped default.
 - **Settings** belong to the player. Both the gameplay settings and the LLM configuration get a reset to the shipped defaults.
-- **World templates** describe a world: canon factions, canon characters, world lore entities, a lore timeline, and an overview. The release ships a Vanilla Kenshi template. Players export and import templates to share worlds for modded playthroughs, with custom factions and characters.
+- **World templates** describe a world: canon factions, canon characters, world lore entities, a lore timeline, and an overview. The release ships the SSR Vanilla template. Players export and import templates to share worlds for modded playthroughs, with custom factions and characters.
 - **Campaigns** hold one playthrough in three stores: characters, factions, and world lore. Each campaign starts as a copy of a world template, and then only play and the player's edits change it.
 
 The proposal builds on the campaign database ([architecture.md](../info/architecture.md#campaign-storage)). The C++ plugin changes only for the speaker picker in the chat window ([section 6.1](#61-player-characters)) and for the game IDs of [proposal_npc_ids.md](proposal_npc_ids.md). [proposal_web_app.md](proposal_web_app.md) adds the browser pages for templates, factions, characters, and entities.
@@ -16,7 +16,7 @@ The proposal builds on the campaign database ([architecture.md](../info/architec
 Non-goals:
 
 - Changes to the C++ plugin other than the speaker picker and the game IDs.
-- Any use of Kayak's code, data, or folder format. SSR writes its own vanilla content ([section 7](#7-vanilla-kenshi-template)).
+- Any use of Kayak's code, data, or folder format. SSR writes its own vanilla content ([section 7](#7-ssr-vanilla-template)).
 - Starting rumors and pre-written dialogue in templates.
 - Saving a campaign as a template. Play state never leaves its campaign.
 - Vector search or embeddings.
@@ -27,7 +27,7 @@ Non-goals:
 |---|---|---|---|---|
 | App data | System prompts; UI translations, name pools, default LLM providers and models | Defaults in `server/prompts/` and `server/config/`; prompt overrides in `server/user/prompts/` | Defaults replaced; overrides kept | Shipped files, with a reset for prompts |
 | Settings | Gameplay settings; LLM providers, profiles, routes, and API keys | `SentientSands_Config.ini` in the mod root; `server/user/llm_config.json` | Kept | Shipped defaults, with a reset |
-| World templates | Canon factions, canon characters, world lore entities, lore timeline, overview | `server/world_templates/vanilla_kenshi/`; `server/user/world_templates/<name>/` | Vanilla replaced; user templates kept | Vanilla Kenshi |
+| World templates | Canon factions, canon characters, world lore entities, lore timeline, overview | `server/world_templates/vanilla_kenshi/`; `server/user/world_templates/<name>/` | Vanilla replaced; user templates kept | SSR Vanilla |
 | Campaigns | The character store (NPCs and player characters, with dialogue and favorites), the faction store (the player's faction included), the copied world lore, events, rumors, logs | `server/campaigns/<name>/` | Kept | Created from a template |
 
 The INI stays in the mod root, because the plugin reads it from there at start ([architecture.md](../info/architecture.md#settings)).
@@ -63,7 +63,8 @@ A world template is a folder of JSON and text files. A shared template is one JS
 ```json
 {
   "format_version": 1,
-  "name": "Vanilla Kenshi",
+  "name": "SSR Vanilla",
+  "description": "Supports vanilla Kenshi, with compatibility for Universal Wasteland Expansion.",
   "version": "1.0.0",
   "authors": ["Sentient Sands Rebirth"],
   "credits": []
@@ -222,7 +223,7 @@ CREATE VIRTUAL TABLE entity_fts USING fts5(
 
 ## 6. Campaign model
 
-- The Campaigns tab of the web app creates a campaign from any template, and from Vanilla Kenshi by default.
+- The Campaigns tab of the web app creates a campaign from any template, and from SSR Vanilla by default.
 - The server loads the template into the new campaign database in one transaction: the canon factions into the faction store, the canon characters into the character store under `u:<game_id>`, the lore entities with their fields, aliases, children, and access rules, the history entries, the links, the FTS index, and the overview.
 - After creation, the campaign does not depend on its template. A template edit, a new template version, or a deleted template does not change the campaign.
 - A campaign database of an earlier schema version is not upgraded. `open_campaign` refuses it and logs that the player must start a new campaign.
@@ -247,7 +248,7 @@ The player picks which squad member speaks in a chat. Today the speaker is alway
 
 Built. Each campaign holds its own copy of the factions, and the player edits that copy on the Campaign Canon subtab of the web app's Editor tab. [architecture.md](../info/architecture.md#factions) describes the faction store.
 
-## 7. Vanilla Kenshi template
+## 7. SSR Vanilla template
 
 SSR writes the vanilla template itself. Today the template holds `overview.txt` and 17 factions, and phase 4 adds the rest.
 
@@ -305,7 +306,7 @@ LIMIT :max_files;
 ## 9. Licence
 
 - Rebirth is GPLv3, as is the original SentientSands that it derives from.
-- The vanilla template copies no text from Kayak or the Kenshi wiki ([section 7](#7-vanilla-kenshi-template)). Kayak's attribution condition under GPLv3 section 7(b) (`Kayak/ADDITIONAL_TERMS.md`) applies only to Kayak material and works derived from it, so the template carries no Kayak credit or terms file. The wiki's licence also does not apply, because no wiki text is copied.
+- The vanilla template copies no text from Kayak or the Kenshi wiki ([section 7](#7-ssr-vanilla-template)). Kayak's attribution condition under GPLv3 section 7(b) (`Kayak/ADDITIONAL_TERMS.md`) applies only to Kayak material and works derived from it, so the template carries no Kayak credit or terms file. The wiki's licence also does not apply, because no wiki text is copied.
 - The names, places, and story of Kenshi belong to Lo-Fi Games, as for any Kenshi mod.
 - This document is not legal advice.
 
@@ -316,7 +317,7 @@ LIMIT :max_files;
 | 1. Templates and factions | Built ([architecture.md](../info/architecture.md#world-templates)). A new campaign copies every template record, and it keeps the characters, races, locations, and regions as JSON rows until phases 2 and 5 give them their stores ([architecture.md](../info/architecture.md#campaign-canon)). | |
 | 2. Characters | The character store keyed by game ID ([proposal_npc_ids.md](proposal_npc_ids.md)); canon characters from the template; the speaker picker; the Characters page; tests | The acceptance criteria of the NPC ID proposal; a canon character file gives that NPC its canon profile in a new campaign; a chat uses the bio and context of the picked speaker; a speaker with no profile gets a generated one |
 | 3. Import and export | Built ([architecture.md](../info/architecture.md#world-templates)). | |
-| 4. Vanilla content | The factions, characters, races, locations, regions, and world lore of the vanilla template ([section 7](#7-vanilla-kenshi-template)) | The template covers at least the counts in section 7, and the validator accepts it; each faction and each canon character has its game ID; no record copies text from Kayak or the wiki |
+| 4. Vanilla content | The factions, characters, races, locations, regions, and world lore of the vanilla template ([section 7](#7-ssr-vanilla-template)) | The template covers at least the counts in section 7, and the validator accepts it; each faction and each canon character has its game ID; no record copies text from Kayak or the wiki |
 | 5. Retrieval | `knowledge_retrieve.py`; the prompt wiring; the INI limits | For each player message in a fixed list, retrieval returns the expected entities in the expected order; chat prompts include the retrieved entities |
 
 Phase 2 waits for the in-game checks of the NPC IDs ([proposal_npc_ids.md](proposal_npc_ids.md#9-not-yet-verified)). The canon characters of phase 4 need the character IDs of phase 2. The other records of phase 4 need no other phase. The tests of phase 5 run on the vanilla content of phase 4.
@@ -351,4 +352,4 @@ Tests:
 - Original mod: `github.com/harvicusdev-glitch/SentientSands` (GPL-3.0, includes the C++ `src/` folder)
 - SentientSands on Nexus Mods: `nexusmods.com/kenshi/mods/1872`
 - SentientSands on Steam Workshop: item `3675880187`
-- Kayak, the checklist of [section 7](#7-vanilla-kenshi-template): `github.com/Starswimmer/Kayak`, release `V0.41_betatest` (version 0.5.0)
+- Kayak, the checklist of [section 7](#7-ssr-vanilla-template): `github.com/Starswimmer/Kayak`, release `V0.41_betatest` (version 0.5.0)

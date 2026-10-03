@@ -159,7 +159,7 @@ On a start without `llm_config.json`, the server builds it from `default_provide
 
 A new campaign is a copy of a world template (see [World templates](#world-templates)): its canon and the name, version, and content hash of the template. After the copy, the campaign does not depend on the template, so a template edit or a deleted template does not change it. Only the Campaigns page of the web app creates and switches campaigns. The game has no campaign window.
 
-`open_campaign` creates `campaign.db` in a campaign folder that has none, from the Vanilla Kenshi template. It builds the database in `campaign.db.tmp` and then renames it to `campaign.db`. A crash before the rename leaves no database, so the next start creates it again. A database of an earlier schema version is not upgraded: `open_campaign` refuses it, and each later operation fails with the reason until the player switches to another campaign.
+`open_campaign` creates `campaign.db` in a campaign folder that has none, from the SSR Vanilla template. It builds the database in `campaign.db.tmp` and then renames it to `campaign.db`. A crash before the rename leaves no database, so the next start creates it again. A database of an earlier schema version is not upgraded: `open_campaign` refuses it, and each later operation fails with the reason until the player switches to another campaign.
 
 After the player deletes the last campaign, the server has no current campaign: `current_campaign` is empty, and each operation fails with the reason until the player creates a campaign. The empty value stays across a restart, so the server does not create a campaign again. When the server has no current campaign, the Campaigns page switches to the campaign that the player creates.
 
@@ -215,24 +215,25 @@ Each campaign holds its own copy of the factions, keyed by the string ID of the 
 
 ## World templates
 
-A world template is a folder that describes a world: `manifest.json` (format version, name, version, authors, credits), `overview.txt` (the lore that goes into every prompt), `history.json`, `factions/<id>.json`, `characters/<id>.json`, `races/<id>.json`, `locations/<id>.json`, and `regions/<id>.json`. The format is in [proposal_data_layers.md](../plans/proposal_data_layers.md#3-world-template-format). A new campaign copies every record except the manifest (see [Campaign canon](#campaign-canon)).
+A world template is a folder that describes a world: `manifest.json` (format version, name, description, version, authors, credits), `overview.txt` (the lore that goes into every prompt), `history.json`, `factions/<id>.json`, `characters/<id>.json`, `races/<id>.json`, `locations/<id>.json`, and `regions/<id>.json`. The format is in [proposal_data_layers.md](../plans/proposal_data_layers.md#3-world-template-format). A new campaign copies every record except the manifest (see [Campaign canon](#campaign-canon)).
 
 | Template | Location | Edits |
 |---|---|---|
-| Vanilla Kenshi | `server/world_templates/vanilla_kenshi/`, shipped | None. An update replaces it, so the player duplicates it first. |
+| SSR Vanilla | `server/world_templates/vanilla_kenshi/`, shipped | None. An update replaces it, so the player duplicates it first. |
 | User templates | `server/user/world_templates/<name>/` | The web app, or by hand |
 
 `server/scripts/world_template.py` reads, validates, and writes templates, and imports only the standard library.
 
 - One validator runs before each write and each campaign creation. It rejects an unknown `format_version`, a `version` that is not text, a folder that the format does not name, a JSON file that does not parse, a faction or an entity without a name, a faction or a character without `game_id`, two factions or two characters with one `game_id`, and a character without a `Name` in its profile. A child that names no entity is a warning.
 - A faction binds to the game by `game_id`, the string ID of the faction in the game data, so a rename in game does not break the link. The IDs of the vanilla factions come from the `FACTION_PROBE` lines of an in-game test ([development.md](development.md#probes)).
-- Vanilla Kenshi also holds the factions and the unique characters of Universal Wasteland Expansion (UWE). They bind by the `game_id` of a UWE record, which a game without UWE never reports, so they change nothing there. The overview, the history, and the entities do not bind by `game_id`, so they hold only facts that are true with and without UWE. Where UWE changes a fact of a vanilla record, for example the race of Bugmaster, the vanilla record leaves that field out.
+- SSR Vanilla also holds the factions and the unique characters of Universal Wasteland Expansion (UWE). They bind by the `game_id` of a UWE record, which a game without UWE never reports, so they change nothing there. The overview, the history, and the entities do not bind by `game_id`, so they hold only facts that are true with and without UWE. Where UWE changes a fact of a vanilla record, for example the race of Bugmaster, the vanilla record leaves that field out.
 - A route takes a template name, a record kind, a category, and a record ID, never a path. The category must be `races`, `locations`, or `regions`, and each other part must match a fixed pattern, so a request cannot write outside the template folders. A new record takes its ID from its name.
 - A duplicate copies every file of the template, its credit and licence files included, so a derived template keeps its attribution.
 - Players share a template as one JSON file that holds the manifest, the overview, the history, and each record by its ID. The file leaves out other files, such as licence files, so the `credits` of the manifest carry the attribution.
 - An imported file can come from anyone, so each record ID must match the ID pattern before it becomes a file name, and the whole template must pass the validator before anything is written.
 - An import is stricter than the validator. It also rejects a key that the format does not name, at any level of the file, so a typo such as `descripton` cannot drop text without notice. The validator accepts such a key, because the editor keeps a key that someone added to a template folder by hand. An import also rejects two IDs in one section that differ only in case, because Windows would save them as one file.
-- The import writes into a staging folder whose name starts with a dot, which the template list ignores, and then renames it, so a failed import leaves no template behind.
+- A new template name must differ from the name and the title of each other template, ignoring case, because the template list shows titles.
+- An import and a duplicate write into a staging folder whose name starts with a dot, which the template list ignores, and then rename it, so a failure leaves no template behind. The staging folder makes a temporary file for each file unnecessary, which matters on a mounted drive, where each file operation takes milliseconds.
 
 | Route | Behavior |
 |---|---|
