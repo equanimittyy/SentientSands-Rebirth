@@ -450,14 +450,14 @@ void CreateChatUI(const std::string &npcName, const std::string &handleStr) {
       MyGUI::newDelegate(OnChatWindowButtonPressed);
   MyGUI::Widget *client = g_chatWindow->getClientWidget();
   g_chatLabel = client->createWidgetReal<MyGUI::TextBox>(
-      "Kenshi_TextboxStandardText", 0.05f, 0.05f, 0.55f, 0.2f,
+      "Kenshi_TextboxStandardText", 0.40f, 0.05f, 0.55f, 0.2f,
       MyGUI::Align::Top | MyGUI::Align::HStretch, "SentientSands_ChatLabel");
   g_chatLabel->setCaption(
       Utf8ToWide(T("Message for ") + actualNpcName + ":").c_str());
 
   g_chatSpeakerBox = client->createWidgetReal<MyGUI::ComboBox>(
-      SPEAKER_BOX_SKIN, 0.62f, 0.05f, 0.33f, 0.22f,
-      MyGUI::Align::Top | MyGUI::Align::Right, "SentientSands_ChatSpeaker");
+      SPEAKER_BOX_SKIN, 0.05f, 0.05f, 0.33f, 0.22f,
+      MyGUI::Align::Top | MyGUI::Align::Left, "SentientSands_ChatSpeaker");
   g_chatSpeakerBox->setComboModeDrop(true);
   g_chatSpeakerBox->setSmoothShow(false);
   for (size_t i = 0; i < g_chatSpeakers.size(); ++i) {
