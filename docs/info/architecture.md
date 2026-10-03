@@ -88,7 +88,7 @@ The Editor has two subtabs with the same record list and forms. Campaign Canon e
 
 On Campaign Canon, **Show seeded data** starts on, and the record list hides the records whose `origin` is `seed` only while the player turns it off. The browser remembers the switch. The overview and the history have no `origin`, so they always show.
 
-The Relations section of a race, location, or region lists its children, which the entry stores, and its parents, which are the entries whose children name it. A parent row is read-only and opens the parent, because the relation is stored in the parent entry.
+The Relations section of a race, location, or region lists its children, which the entry stores, and its parents, which are the entries whose children name it. Each row opens its entry. A parent row is read-only, because the relation is stored in the parent entry.
 
 ## Settings
 

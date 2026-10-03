@@ -279,7 +279,7 @@ function characterForm(form, path, record) {
   ];
 }
 
-function relationEntry(child, path) {
+function relationEntry(child, path, open) {
   const input = el("input", {
     value: child.text,
     placeholder: "Type to search",
@@ -287,6 +287,7 @@ function relationEntry(child, path) {
     oninput: (event) => {
       child.text = event.target.value;
       child.entry = entryOf(child.text);
+      open.disabled = !child.entry;
       setFieldError(event.target, child.text.trim() && !child.entry ? "Choose an entry from the list." : "");
       changed();
     },
@@ -295,6 +296,20 @@ function relationEntry(child, path) {
   input.setAttribute("aria-label", "Related entry");
   input.setAttribute("list", "relation-entries");
   return input;
+}
+
+function openEntry(key) {
+  selected = records.find((record) => record.kind === "entity" && entryKey(record) === key).key;
+  renderList();
+  renderForm();
+}
+
+async function deleteRelation(form, index, record) {
+  const { text } = form.children[index];
+  if (text.trim() && !(await ask("Delete the relation", "Delete", `This deletes the relation between ${title(record)} and ${text}. The delete takes effect when you save.`))) return;
+  form.children.splice(index, 1);
+  changed();
+  renderForm();
 }
 
 function relationsEditor(form, path, record) {
@@ -310,17 +325,20 @@ function relationsEditor(form, path, record) {
       withHelp("Relationship", "Child: the entry belongs to this one, for example a town in its region. Parent: this one belongs to the entry. Open the parent to change that relation."),
       withHelp("Weight", "How strong the relation is. A higher number marks a closer link. Empty counts as 1."),
       el("span"),
-      ...form.children.flatMap((child, index) => [
-        relationEntry(child, [...path, "children", index, "entry"]),
-        el("span", {}, "Child"),
-        control("input", child, "weight", [...path, "children", index, "weight"], { placeholder: "1", inputMode: "decimal", label: "Relation weight" }),
-        removeButton(form.children, index, "Delete the relation"),
-      ]),
+      ...form.children.flatMap((child, index) => {
+        const open = el("button", { type: "button", disabled: !labels.has(child.entry), onclick: () => openEntry(child.entry) }, "Open");
+        return [
+          relationEntry(child, [...path, "children", index, "entry"], open),
+          el("span", {}, "Child"),
+          control("input", child, "weight", [...path, "children", index, "weight"], { placeholder: "1", inputMode: "decimal", label: "Relation weight" }),
+          el("span", { className: "inline" }, open, deleteButton("Delete the relation", () => deleteRelation(form, index, record), readOnly())),
+        ];
+      }),
       ...parents.flatMap(({ entry, weight }) => [
         el("span", {}, labels.get(entryKey(entry))),
         el("span", {}, "Parent"),
         el("span", {}, weight === undefined || weight === "" ? "1" : String(weight)),
-        el("button", { type: "button", onclick: () => { selected = entry.key; renderList(); renderForm(); } }, "Open"),
+        el("button", { type: "button", onclick: () => openEntry(entryKey(entry)) }, "Open"),
       ])),
     el("datalist", { id: "relation-entries" }, ...[...labels].filter(([key]) => key !== self).map(([, text]) => el("option", { value: text }))),
     addButton("Add child", () => form.children.push({ entry: "", text: "", weight: "" })));
