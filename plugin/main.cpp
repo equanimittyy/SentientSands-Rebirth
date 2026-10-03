@@ -29,7 +29,6 @@
 #include "core/Comm.h"
 #include "game/Context.h"
 #include <core/Functions.h>
-#include "ui/CampaignsWindow.h"
 #include "game/GameActions.h"
 #include "core/Globals.h"
 #include "core/Utils.h"
@@ -291,8 +290,6 @@ void ProcessMessageQueue(GameWorld *thisptr) {
           } else if (command == "ENABLE_REGEN_BTN") {
             if (g_libraryRegenBtn)
               g_libraryRegenBtn->setEnabled(true);
-          } else if (command == "POPULATE_CAMPAIGNS") {
-            PopulateCampaignsUI(data);
           } else if (command == "POPULATE_EVENTS") {
             PopulateEventsUI(data);
           } else if (command == "POPULATE_GENERIC") {

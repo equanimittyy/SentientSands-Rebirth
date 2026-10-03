@@ -245,7 +245,7 @@ CREATE VIRTUAL TABLE entity_fts USING fts5(
 
 ## 6. Campaign model
 
-- `POST /campaigns/create` takes an optional `template`, and uses Vanilla Kenshi without one. The in-game Campaign Manager sends no template, so the plugin does not change. The web app's Templates page creates a campaign from any template.
+- The Campaigns tab of the web app creates a campaign from any template, and from Vanilla Kenshi by default.
 - The server loads the template into the new campaign database in one transaction: the canon factions into the faction store, the canon characters into the character store under `u:<game_id>`, the lore entities with their fields, aliases, children, and access rules, the history entries, the links, the FTS index, and the overview.
 - After creation, the campaign does not depend on its template. A template edit, a new template version, or a deleted template does not change the campaign.
 - A campaign database of an earlier schema version is not upgraded. `open_campaign` refuses it and logs that the player must start a new campaign.

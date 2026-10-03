@@ -48,7 +48,7 @@ SentientSandsRebirth/
 1. RE_Kenshi loads `SentientSands.dll` and calls `startPlugin`. The plugin installs its KenshiLib hooks and starts `MainThread`.
 2. `MainThread` waits for `KenshiLib.dll`. Then it starts the pipe listener (`PipeThread`) and the name-assignment thread, loads the INI, and starts the server. After that, it posts the player's context to `/context` at most once every 5 seconds.
 3. If `OpenWebPanelOnStart` in the INI is `1`, this first server start passes `--open-browser`. The server waits until its port accepts connections, and then 3 s more, so that a tab from an earlier start can reconnect. It opens the web app in the default browser only when no tab is open (see [Web app](#web-app)). A restart from the launcher does not pass the flag, so the player does not get a second tab.
-4. The server listens on `127.0.0.1:5000`. The plugin sends HTTP POST requests to it through WinHTTP (`plugin/core/Comm.cpp`) for chat, history, settings, campaigns, profiles, and events. The server rejects a request whose `Host` header is not `127.0.0.1:5000` or `localhost:5000`, or whose `Origin` header names another site (`server/scripts/request_guard.py`). This stops web pages in the player's browser from using the server. A new caller must use one of these two host names.
+4. The server listens on `127.0.0.1:5000`. The plugin sends HTTP POST requests to it through WinHTTP (`plugin/core/Comm.cpp`) for chat, history, settings, profiles, and events. The server rejects a request whose `Host` header is not `127.0.0.1:5000` or `localhost:5000`, or whose `Origin` header names another site (`server/scripts/request_guard.py`). This stops web pages in the player's browser from using the server. A new caller must use one of these two host names.
 5. The server sends commands back through the named pipe `\\.\pipe\SentientSands`, which the plugin hosts. Examples are `SET_CONFIG`, `NOTIFY`, and `POPULATE_GENERIC`.
 6. The server builds each prompt from the prompt files (see [Prompts](#prompts)) and the campaign state, then sends it down the route of its task (see [LLM routing](#llm-routing)).
 
@@ -78,7 +78,7 @@ Each tab holds `GET /web_panel/presence` open. This event stream sends a heartbe
 
 **Open Web Panel** in the SSR HUB always opens the web app in a new tab of the default browser. The button does not check for an open tab. A version that brought the browser window of an open tab to the front left an empty box on the game screen in exclusive fullscreen.
 
-The player can switch the campaign in game while the web app is open, so the poll also shows the active campaign. When the poll sees another campaign, it sends a `campaignchange` event, and the Campaigns page loads the new campaign unless it has unsaved changes.
+Another tab can switch the campaign while a tab is open, so the poll also shows the active campaign. When the poll sees another campaign, it sends a `campaignchange` event, and the Campaigns page loads the new campaign unless it has unsaved changes.
 
 The Campaigns and Editor pages hold many records. Save sends one request for each changed record, and a record that the server rejects keeps its draft and shows the reason. A delete takes effect at once, after a confirmation. The Editor opens one template at a time, and a shipped template is read-only, so the page offers a duplicate.
 
@@ -153,7 +153,7 @@ On a start without `llm_config.json`, the server builds it from `default_provide
 - Each NPC keeps its newest 250 dialogue lines, and the campaign keeps its newest 500 events. An event that the table already holds is not added again.
 - Favorites belong to each campaign.
 
-A new campaign is a copy of a world template (see [World templates](#world-templates)): its overview, its factions, and the name, version, and content hash of the template. After the copy, the campaign does not depend on the template, so a template edit or a deleted template does not change it. `/campaigns/create`, which the in-game Campaign Manager calls, takes an optional `template` and uses Vanilla Kenshi without one.
+A new campaign is a copy of a world template (see [World templates](#world-templates)): its overview, its factions, and the name, version, and content hash of the template. After the copy, the campaign does not depend on the template, so a template edit or a deleted template does not change it. Only the Campaigns page of the web app creates and switches campaigns. The game has no campaign window.
 
 `open_campaign` creates `campaign.db` in a campaign folder that has none, from the Vanilla Kenshi template. It builds the database in `campaign.db.tmp` and then renames it to `campaign.db`. A crash before the rename leaves no database, so the next start creates it again. A database of an earlier schema version is not upgraded: `open_campaign` refuses it, and each later operation fails with the reason until the player switches to another campaign.
 
@@ -172,11 +172,13 @@ Each campaign holds its own copy of the factions, keyed by the string ID of the 
 | Route | Behavior |
 |---|---|
 | `GET /api/campaigns` | Each campaign with its template, and whether an earlier version of SSR made it |
-| `POST /api/campaigns` | Create a campaign from a template. Only the in-game Campaign Manager switches campaigns, so this route does not switch. |
+| `POST /api/campaigns` | Create a campaign from a template, with no switch |
+| `POST /api/campaigns/switch` | Make a campaign the current one. The name must be a folder that the campaign list shows, so a name such as `../x` cannot point outside `server/campaigns/`. |
 | `GET /api/campaign` | The active campaign: its template, overview, factions, events, and rumors. A refused campaign gives status 409 with the reason. |
 | `POST /api/campaign/overview`, `.../factions`, `.../rumors`, `.../rumors/delete`, `.../events/delete` | Edit the active campaign |
+| `POST /api/campaign/cull` | Delete the dialogue, events, and rumors dated after the current game time, after the player loads an older save. It needs the player's context from the running game, because without it day 0 would count as now and the cull would delete the whole history. |
 
-- Each edit names the campaign that the page loaded. The player can switch the campaign in game while the page is open, so the server refuses an edit for another campaign instead of writing it into the active one.
+- Each edit names the campaign that the page loaded. Another tab can switch the campaign while the page is open, so the server refuses an edit for another campaign instead of writing it into the active one.
 - A faction edit carries the `updated_at` that the page loaded, and the server refuses it when the row changed after that, for example when the game renamed the player's faction. The name of the player's faction is not editable, because the next context would undo it.
 - A rumor edit replaces only the text of its `[RUMOR: ...]` tag and keeps its game time. Brackets in the text become parentheses, because the prompt reads the rumor up to the first `]`.
 

@@ -59,7 +59,6 @@
     <ClCompile Include="game\Context.cpp" />
     <ClCompile Include="game\GameActions.cpp" />
     <ClCompile Include="main.cpp" />
-    <ClCompile Include="ui\CampaignsWindow.cpp" />
     <ClCompile Include="ui\ChatUIGlobals.cpp" />
     <ClCompile Include="ui\ChatWindow.cpp" />
     <ClCompile Include="ui\EventsWindow.cpp" />
@@ -73,7 +72,6 @@
     <ClInclude Include="core\Utils.h" />
     <ClInclude Include="game\Context.h" />
     <ClInclude Include="game\GameActions.h" />
-    <ClInclude Include="ui\CampaignsWindow.h" />
     <ClInclude Include="ui\ChatUI.h" />
     <ClInclude Include="ui\ChatUIGlobals.h" />
     <ClInclude Include="ui\ChatWindow.h" />

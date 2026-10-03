@@ -10,7 +10,7 @@ Two tabs hold the editors. The Campaigns tab edits the active campaign, and the 
 
 ## 2. Scope
 
-The editor works on the user world templates and the active campaign database. Campaign switching stays in the in-game Campaign Manager. The web app shows the name of the active campaign and reloads its data when the campaign changes.
+The editor works on the user world templates and the active campaign database. Only the Campaigns tab switches campaigns. The web app shows the name of the active campaign and reloads its data when the campaign changes.
 
 | Tab | Still to build |
 |---|---|

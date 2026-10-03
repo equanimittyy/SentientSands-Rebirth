@@ -43,11 +43,5 @@ extern bool g_welcomeShown;
 extern bool g_enableWelcome;
 extern MyGUI::Button *g_welcomeCheckbox;
 
-extern MyGUI::Window *g_campaignWindow;
-extern MyGUI::ComboBox *g_campaignList;
-extern MyGUI::EditBox *g_campaignNewName;
-extern MyGUI::TextBox *g_campaignStatus;
-extern MyGUI::TextBox *g_campaignActiveLabel;
-
 } // namespace UI
 } // namespace SentientSands

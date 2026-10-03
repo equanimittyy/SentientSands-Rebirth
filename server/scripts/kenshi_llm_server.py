@@ -2584,12 +2584,9 @@ def settings_endpoint():
     if not data:
         # An empty-body POST is how the plugin fetches the config
         settings = load_settings()
-        campaigns = [d for d in os.listdir(CAMPAIGNS_DIR) if os.path.isdir(os.path.join(CAMPAIGNS_DIR, d))] if os.path.exists(CAMPAIGNS_DIR) else []
 
         return jsonify({
             "status": "ok",
-            "campaigns": campaigns,
-            "current_campaign": ACTIVE_CAMPAIGN,
             **settings_page_values(settings),
             "supported_languages": list(LOCALIZATION_CONFIG.keys()),
             "chat_hotkeys": CHAT_HOTKEYS,
@@ -2723,44 +2720,6 @@ def create_campaign(name, template):
     ensure_campaign_seeded(cdir)
     return safe_name
 
-@app.route('/campaigns/create', methods=['POST'])
-def create_campaign_route():
-    logging.debug("HTTP: POST /campaigns/create")
-    data = request.json or {}
-    try:
-        safe_name = create_campaign(data.get("name"), data.get("template") or DEFAULT_TEMPLATE)
-    except (ValueError, world_template.TemplateError) as e:
-        return jsonify({"status": "error", "message": str(e)}), 400
-
-    switch_campaign(safe_name)
-            
-    logging.info(f"CAMPAIGN: Created and switched to new campaign '{safe_name}'")
-    return jsonify({"status": "ok", "name": safe_name, "current": ACTIVE_CAMPAIGN})
-
-@app.route('/campaigns/switch', methods=['POST'])
-def switch_campaign_route():
-    logging.debug("HTTP: POST /campaigns/switch")
-    data = request.json
-    name = data.get("name")
-    if not name: return jsonify({"status": "error", "message": "Missing name"}), 400
-    if switch_campaign(name):
-        return jsonify({"status": "ok", "current": ACTIVE_CAMPAIGN})
-    return jsonify({"status": "error", "message": "Campaign not found"}), 404
-
-@app.route('/campaigns/cull', methods=['POST'])
-def cull_campaign_route():
-    logging.debug("HTTP: POST /campaigns/cull")
-    
-    current_day = int(PLAYER_CONTEXT.get("day", 0))
-    current_hour = int(PLAYER_CONTEXT.get("hour", 0))
-    current_min = int(PLAYER_CONTEXT.get("minute", 0))
-
-    logging.info(f"CAMPAIGN: Culling after [Day {current_day}, {current_hour:02d}:{current_min:02d}] in '{ACTIVE_CAMPAIGN}'")
-    culled = campaign_db.cull_after(current_day, current_hour, current_min)
-    logging.info(f"CAMPAIGN: Culled {culled['dialogue']} dialogue lines, {culled['event']} events, and {culled['rumor']} rumors")
-
-    return jsonify({"status": "ok"})
-
 def switch_campaign(name):
     global ACTIVE_CAMPAIGN, LIVE_CONTEXTS
     cdir = os.path.join(CAMPAIGNS_DIR, name)
@@ -2828,11 +2787,13 @@ def delete_template(name):
     logging.info(f"TEMPLATE: Deleted {name}")
     return jsonify({"status": "ok"})
 
+def campaign_names():
+    return sorted(d for d in os.listdir(CAMPAIGNS_DIR) if os.path.isdir(os.path.join(CAMPAIGNS_DIR, d))) if os.path.exists(CAMPAIGNS_DIR) else []
+
 @app.route('/api/campaigns', methods=['GET'])
 def list_campaigns():
-    names = sorted(d for d in os.listdir(CAMPAIGNS_DIR) if os.path.isdir(os.path.join(CAMPAIGNS_DIR, d))) if os.path.exists(CAMPAIGNS_DIR) else []
     campaigns = []
-    for name in names:
+    for name in campaign_names():
         meta = campaign_db.read_meta(os.path.join(CAMPAIGNS_DIR, name))
         campaigns.append({
             "name": name,
@@ -2842,7 +2803,6 @@ def list_campaigns():
         })
     return jsonify({"status": "ok", "campaigns": campaigns, "templates": world_template.listing(WORLD_TEMPLATES_DIR, USER_TEMPLATES_DIR), "default_template": DEFAULT_TEMPLATE})
 
-# The web app creates a campaign without a switch, because only the in-game Campaign Manager switches it
 @app.route('/api/campaigns', methods=['POST'])
 def create_campaign_from_web():
     data = request.get_json(silent=True) or {}
@@ -2854,6 +2814,16 @@ def create_campaign_from_web():
         return jsonify({"status": "error", "errors": [{"field": ["name"], "message": str(e)}]}), 400
     logging.info(f"CAMPAIGN: Created the campaign '{name}' from the web app")
     return jsonify({"status": "ok", "name": name})
+
+@app.route('/api/campaigns/switch', methods=['POST'])
+def switch_campaign_from_web():
+    name = (request.get_json(silent=True) or {}).get("name")
+    # Only a listed folder, so a name such as ../x cannot point the campaign outside the campaigns folder
+    if name not in campaign_names():
+        return jsonify({"status": "error", "message": f"There is no campaign named {name}."}), 404
+    switch_campaign(name)
+    logging.info(f"CAMPAIGN: Switched to '{name}' from the web app")
+    return jsonify({"status": "ok", "current": ACTIVE_CAMPAIGN})
 
 @app.route('/api/campaign', methods=['GET'])
 def get_active_campaign():
@@ -2939,6 +2909,19 @@ def delete_campaign_rumor():
     if refused: return refused
     campaign_db.delete_rumor(data.get("id"))
     return jsonify({"status": "ok"})
+
+@app.route('/api/campaign/cull', methods=['POST'])
+def cull_campaign():
+    data = request.get_json(silent=True) or {}
+    refused = campaign_write(data)
+    if refused: return refused
+    # Without a game, day 0 would count as now, and the cull would delete the whole history
+    if "day" not in PLAYER_CONTEXT:
+        return jsonify({"status": "error", "message": "Cull needs the game running, because it deletes what is dated after the current game time."}), 409
+    day, hour, minute = int(PLAYER_CONTEXT["day"]), int(PLAYER_CONTEXT.get("hour", 0)), int(PLAYER_CONTEXT.get("minute", 0))
+    culled = campaign_db.cull_after(day, hour, minute)
+    logging.info(f"CAMPAIGN: Culled {culled['dialogue']} dialogue lines, {culled['event']} events, and {culled['rumor']} rumors after [Day {day}, {hour:02d}:{minute:02d}] in '{ACTIVE_CAMPAIGN}'")
+    return jsonify({"status": "ok", "time": f"Day {day}, {hour:02d}:{minute:02d}", "culled": culled})
 
 @app.route('/api/campaign/events/delete', methods=['POST'])
 def delete_campaign_event():
