@@ -70,6 +70,27 @@ export function deleteButton(label, onClick, disabled = false) {
 
 export const icon = (name) => el("span", { className: "icon", style: `--icon: url(/web/images/lucide/${name}.svg)` });
 
+const ERROR_LENGTH = 60;
+
+function iconButton(name, label, onClick) {
+  const button = el("button", { type: "button", className: "icon-button", title: label, onclick: onClick }, icon(name));
+  button.setAttribute("aria-label", label);
+  return button;
+}
+
+// A provider error can hold a whole HTTP body, so the line shows only its start and the buttons give the rest.
+export function errorLine(text) {
+  const view = () => tell("Error", el("code", {}, text));
+  const copy = iconButton("copy", "Copy the error", () => navigator.clipboard.writeText(text).then(() => {
+    copy.replaceChildren(icon("check"));
+    setTimeout(() => copy.replaceChildren(icon("copy")), 1500);
+  }, view));
+  return el("span", { className: "message error error-line" },
+    el("span", {}, text.length > ERROR_LENGTH ? `${text.slice(0, ERROR_LENGTH).trimEnd()}…` : text),
+    copy,
+    iconButton("eye", "View the error", view));
+}
+
 export function showMessage(element, text, isError = false) {
   element.textContent = text;
   element.classList.toggle("error", isError);

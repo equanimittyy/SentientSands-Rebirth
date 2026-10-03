@@ -288,7 +288,8 @@ input,
 select,
 textarea,
 .name,
-.detail {
+.detail,
+.error-line {
   font-family: system-ui, sans-serif;
 }
 
@@ -353,6 +354,29 @@ button.danger {
 
 .test-mark.fail {
   color: var(--error);
+}
+
+.error-line {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  min-width: 0;
+  white-space: nowrap;
+}
+
+.error-line > span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.icon-button {
+  flex: none;
+  padding: 0.35rem 0.5rem;
+}
+
+.field-note {
+  margin: 0 0 0.5rem 9.75rem;
 }
 
 :focus-visible {
@@ -610,6 +634,7 @@ dialog h2 {
 dialog p {
   margin: 0 0 1.25rem;
   white-space: pre-line;
+  overflow-wrap: anywhere;
 }
 
 dialog .actions {
@@ -753,6 +778,10 @@ input[type="search"] {
   label {
     grid-template-columns: minmax(0, 1fr);
     gap: 0.25rem;
+  }
+
+  .field-note {
+    margin-left: 0;
   }
 
   .banner > img {

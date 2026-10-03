@@ -1,4 +1,4 @@
-import { ask, confirmReset, deleteButton, el, field, getJson, icon, reportUnsaved, sendJson, setFieldError, showMessage } from "./api.js";
+import { ask, confirmReset, deleteButton, el, errorLine, field, getJson, icon, reportUnsaved, sendJson, setFieldError, showMessage } from "./api.js";
 
 const TASK_LABELS = {
   chat: "Chat",
@@ -360,7 +360,7 @@ async function testProfile(name) {
     const reply = await sendJson("POST", "/api/llm/test", body);
     testResults.set(name, { ok: true, seconds: ((performance.now() - start) / 1000).toFixed(1), text: `OK: ${reply.response}` });
   } catch (error) {
-    testResults.set(name, { ok: false, text: `Failed: ${error.message}` });
+    testResults.set(name, { ok: false, text: error.message });
   }
   render();
 }
@@ -398,7 +398,13 @@ function modelInput(profile, path) {
 
 function modelStatus(providerName) {
   const list = modelLists.get(providerName);
-  return list ? el("span", { className: `hint${list.error ? " error" : ""}` }, list.text) : null;
+  return list && !list.error ? el("span", { className: "hint" }, list.text) : null;
+}
+
+// Outside the label: a button inside it before the input would become the control that the label names and clicks.
+function modelError(providerName) {
+  const list = modelLists.get(providerName);
+  return list?.error ? el("div", { className: "field-note" }, errorLine(list.text)) : null;
 }
 
 function renderProfile(name, profile) {
@@ -408,12 +414,13 @@ function renderProfile(name, profile) {
   return collapsible(cardKey("profile", name),
     [...cardName("profile", state.profiles, name, renameProfile), el("span", { className: "detail" }, profile.model || "no model ID"), testBadge(name)],
     field("Model ID", modelInput(profile, path("model")), modelStatus(profile.provider), "The exact model ID that the provider expects, for example anthropic/claude-3.5-sonnet. List models gets the IDs from the provider."),
+    modelError(profile.provider),
     field("Timeout (s)", numberInput(profile, "timeout", path("timeout"), { step: 1, min: 1 }), null, "The longest that this profile waits for a reply. When the task deadline is shorter, the deadline wins."),
     field("Extra request parameters (JSON)", textInput(profile, "paramsText", path("params"), { tag: "textarea", className: "mono", rows: 3 }, paramsError), null, 'Optional model settings as JSON, for example {"top_p": 0.9}. They replace the same settings of the task.'),
     el("div", { className: "card-actions" },
       button("Test", () => testProfile(name), `Test ${name}`),
       result && !result.pending ? el("span", { className: `test-mark ${result.ok ? "ok" : "fail"}` }, icon(result.ok ? "check" : "x")) : null,
-      el("span", { className: `message${result && !result.ok && !result.pending ? " error" : ""}` }, result?.text ?? ""),
+      result && !result.ok && !result.pending ? errorLine(result.text) : el("span", { className: "message" }, result?.text ?? ""),
       deleteButton(`Delete ${name}`, () => removeProfile(name))));
 }
 
