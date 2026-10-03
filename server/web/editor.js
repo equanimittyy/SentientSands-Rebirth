@@ -8,7 +8,7 @@ const KIND_LABELS = { manifest: "Template info", overview: "Overview", history: 
 const CATEGORY_LABELS = { races: "Race", locations: "Location", regions: "Region" };
 const TEMPLATE_PARTS = ["manifest", "overview", "history"];
 const SOURCES = [["campaign", "Campaign Canon"], ["template", "Templates"]];
-const ORIGIN_LABELS = { template: "Seeded", game: "Met in game", campaign: "Added in this campaign" };
+const ORIGIN_LABELS = { seed: "Seeded", game: "Met in game", campaign: "Added in this campaign" };
 const IMPORT_PROBLEMS_SHOWN = 10;
 
 let source = "campaign";
@@ -349,7 +349,7 @@ function renderList() {
   const list = page.querySelector("#record-list");
   if (!list) return;
   const needle = query.trim().toLowerCase();
-  const shown = allRecords().filter((record) => (showSeeded || record.origin !== "template") && (kindFilter === "all" || filterValue(record) === kindFilter) && (!needle || searchText(record).includes(needle)));
+  const shown = allRecords().filter((record) => (showSeeded || record.origin !== "seed") && (kindFilter === "all" || filterValue(record) === kindFilter) && (!needle || searchText(record).includes(needle)));
   list.replaceChildren(...shown.map((record) => {
     const item = el("button", {
       type: "button",
