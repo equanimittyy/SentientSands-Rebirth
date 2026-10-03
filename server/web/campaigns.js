@@ -4,12 +4,12 @@ const page = document.getElementById("campaigns-page");
 const message = document.getElementById("campaigns-message");
 let campaigns = [];
 let templates = [];
-let active = null;
 let refusal = "";
 const notes = new Map();
 const creation = { name: "", template: "" };
 
 const count = (number, noun) => `${number} ${noun}${number === 1 ? "" : "s"}`;
+const currentName = () => campaigns.find((campaign) => campaign.active)?.name ?? "";
 
 function noteLine(key) {
   const note = notes.get(key);
@@ -46,7 +46,7 @@ function renderCampaigns() {
 }
 
 function renderCurrent() {
-  const current = campaigns.find((campaign) => campaign.active)?.name ?? active?.name;
+  const current = currentName();
   const choice = el("select", { onchange: (event) => switchCampaign(event.target.value) },
     campaigns.some((campaign) => campaign.name === current) ? null : el("option", { value: "", disabled: true, selected: true }, "None"),
     ...campaigns.map((campaign) => new Option(campaign.name, campaign.name, false, campaign.name === current)));
@@ -54,7 +54,7 @@ function renderCurrent() {
     el("legend", {}, "Current Campaign"),
     field("Campaign", choice, null, "The campaign that the game plays. Choose another one to switch to it. The next chat uses it."),
     refusal ? el("p", { className: "hint error" }, refusal) : null,
-    ...(active ? [
+    ...(current && !refusal ? [
       el("p", { className: "hint" }, "Loaded an older save? Cull makes NPCs forget everything dated after the current game time."),
       el("div", { className: "card-actions" }, el("button", { type: "button", className: "danger", onclick: cull }, "Cull future data")),
     ] : []))];
@@ -121,10 +121,10 @@ async function switchCampaign(name) {
 }
 
 async function cull() {
-  if (!(await ask("Cull future data", "Cull", `This deletes every NPC memory, event, and rumor of ${active.name} dated after the current game time. `,
+  if (!(await ask("Cull future data", "Cull", `This deletes every NPC memory, event, and rumor of ${currentName()} dated after the current game time. `,
     "\n\n", el("b", { className: "warning" }, "The cull takes effect immediately and is irreversible!")))) return;
   try {
-    const reply = await sendJson("POST", "/api/campaign/cull", { campaign: active.name });
+    const reply = await sendJson("POST", "/api/campaign/cull", { campaign: currentName() });
     const { dialogue, event, rumor } = reply.culled;
     showMessage(message, `Culled after ${reply.time}: ${count(dialogue, "dialogue line")}, ${count(event, "event")}, and ${count(rumor, "rumor")}.`);
   } catch (error) {
@@ -138,15 +138,7 @@ async function fetchAll() {
     campaigns = list.campaigns;
     templates = list.templates;
     if (!templates.some((template) => template.name === creation.template)) creation.template = list.default_template;
-    try {
-      active = await getJson("/api/campaign");
-      refusal = "";
-    } catch (error) {
-      // A reply with an error status still has fieldErrors; a lost server has none and fails the whole load
-      if (!("fieldErrors" in error)) throw error;
-      active = null;
-      refusal = error.message;
-    }
+    refusal = list.refusal ?? "";
   } catch (error) {
     showMessage(message, `Could not load the campaigns: ${error.message}`, true);
     return false;
@@ -162,5 +154,5 @@ export async function loadCampaigns() {
 }
 
 document.addEventListener("campaignchange", (event) => {
-  if (active && active.name !== event.detail) loadCampaigns();
+  if (currentName() !== event.detail) loadCampaigns();
 });

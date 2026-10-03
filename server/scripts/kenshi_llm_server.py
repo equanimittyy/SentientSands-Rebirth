@@ -2764,7 +2764,7 @@ def campaign_names():
 @app.route('/api/campaigns', methods=['GET'])
 def list_campaigns():
     campaigns = [{"name": name, "active": name == ACTIVE_CAMPAIGN} for name in campaign_names()]
-    return jsonify({"status": "ok", "campaigns": campaigns, "templates": world_template.listing(WORLD_TEMPLATES_DIR, USER_TEMPLATES_DIR), "default_template": DEFAULT_TEMPLATE})
+    return jsonify({"status": "ok", "campaigns": campaigns, "refusal": campaign_db.unavailable_reason(), "templates": world_template.listing(WORLD_TEMPLATES_DIR, USER_TEMPLATES_DIR), "default_template": DEFAULT_TEMPLATE})
 
 @app.route('/api/campaigns', methods=['POST'])
 def create_campaign_from_web():

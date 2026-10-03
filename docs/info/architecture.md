@@ -67,7 +67,7 @@ The toggle at the top right switches between the light and the dark colours. The
 | Settings | `/settings`, `/settings/defaults` | `SentientSands_Config.ini` |
 | Models | `/api/llm`, `/api/llm/test`, `/api/llm/models`, `/api/llm/reset` | `server/user/llm_config.json` |
 | Prompts | `/api/prompts` | `server/user/prompts/` |
-| Campaigns | `/api/campaigns`, `/api/campaign` (see [Campaign routes of the web app](#campaign-routes-of-the-web-app)) | `campaign.db` of each campaign |
+| Campaigns | `/api/campaigns`, `/api/campaign/cull` (see [Campaign routes of the web app](#campaign-routes-of-the-web-app)) | `campaign.db` of each campaign |
 | Editor | `/api/campaign/canon`, `/api/campaign/records` (see [Campaign canon](#campaign-canon)); `/api/campaign` and its rumor and event routes (see [Campaign routes of the web app](#campaign-routes-of-the-web-app)); `/api/templates` (see [World templates](#world-templates)) | `campaign.db` of the active campaign; `server/user/world_templates/` |
 
 A GET route must not change state. A page on another site can send a GET with no `Origin` header, for example through an image tag, so the Origin check from step 4 of the runtime flow does not stop it. The presence stream below is the only exception, because EventSource sends only GET requests. A page on another site that holds the stream open can only stop a new tab from opening.
@@ -224,7 +224,7 @@ The `character` table holds every character of a campaign in one shape: the cano
 
 | Route | Behavior |
 |---|---|
-| `GET /api/campaigns` | Each campaign, and the templates for a new campaign |
+| `GET /api/campaigns` | Each campaign, the templates for a new campaign, and the reason that the current campaign cannot open, or `null` |
 | `POST /api/campaigns` | Create a campaign from a template, with no switch |
 | `POST /api/campaigns/switch` | Make a campaign the current one. The name must be a folder that the campaign list shows, so a name such as `../x` cannot point outside `server/campaigns/`. |
 | `POST /api/campaigns/delete` | Delete a campaign folder, with the same name check. Before it deletes the current campaign, it switches to the first other one. When no other campaign remains, the server has no current campaign (see [Campaign storage](#campaign-storage)). |

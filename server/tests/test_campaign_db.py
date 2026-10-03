@@ -91,6 +91,14 @@ class OpenTest(CampaignTestCase):
             campaign_db.get_character(BEEP_ID)
         self.assertFalse(os.path.exists(os.path.join(self.folder, campaign_db.DB_NAME)))
 
+    def test_unavailable_reason(self):
+        campaign_db.open_campaign(self.folder, lambda: SEED)
+        self.assertIsNone(campaign_db.unavailable_reason())
+        os.remove(os.path.join(self.folder, campaign_db.DB_NAME))
+        self.assertRegex(campaign_db.unavailable_reason(), "has no campaign.db file")
+        campaign_db.close_campaign()
+        self.assertRegex(campaign_db.unavailable_reason(), "No campaign is selected")
+
     def test_a_closed_campaign_fails_with_the_reason(self):
         campaign_db.open_campaign(self.folder, lambda: SEED)
         campaign_db.close_campaign()
