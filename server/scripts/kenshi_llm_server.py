@@ -505,12 +505,8 @@ def npc_scene(npc_id, profile, player_name):
     player_faction_id = PLAYER_CONTEXT.get("factionID")
     in_player_faction = faction == player_faction or bool(player_faction_id and context.get("factionID") == player_faction_id)
     major = not in_player_faction and bool((campaign_db.find_faction(context.get("factionID"), faction) or {}).get("major"))
-    people = [{**other, "gender": reported_sex(other.get("race", ""), other.get("gender", "Unknown"))} for other in context.get("nearby", [])]
-    return {
-        "npc": scene_text.npc_text(context, profile, player_name, player_faction, met=bool(profile.get("ConversationHistory")),
-                                   major=major, in_player_faction=in_player_faction, feels_hunger=not is_skeleton(profile.get("Race", ""))),
-        "nearby": scene_text.nearby_text(people, player_name, player_faction),
-    }
+    return scene_text.npc_text(context, profile, player_name, player_faction, met=bool(profile.get("ConversationHistory")),
+                               major=major, in_player_faction=in_player_faction, feels_hunger=not is_skeleton(profile.get("Race", "")))
 
 # SetHotkeyFromString in the plugin parses only these keys
 CHAT_HOTKEYS = ["\\", "[", "P", "T", "J", "U", "K"]
@@ -1660,7 +1656,7 @@ def chat():
         scene = fill_prompt(
             "prompt_chat_scene.txt",
             **scene_values(speaker or PLAYER_CONTEXT, player_name),
-            **npc_scene(npc_ids.get(primary_npc), primary_data, player_name),
+            npc=npc_scene(npc_ids.get(primary_npc), primary_data, player_name),
         )
         CONVERSATION_SCENE.clear()
         CONVERSATION_SCENE[conversation] = scene

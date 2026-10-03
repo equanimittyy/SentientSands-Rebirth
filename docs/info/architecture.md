@@ -129,7 +129,7 @@ A chat request is ordered for a provider's prompt cache, which reuses only an id
 
 | Part | Content | Changes |
 |---|---|---|
-| System message | `prompt_chat_template.txt`: `prompt_system.txt`, `npc_chat_template.txt`, then `prompt_chat_scene.txt`: the place, the 5 newest rumors, the player, the NPC, and the people nearby | When a new conversation starts |
+| System message | `prompt_chat_template.txt`: `prompt_system.txt`, `npc_chat_template.txt`, then `prompt_chat_scene.txt`: the place, the 5 newest rumors, the player, and the NPC | When a new conversation starts |
 | History | The stored dialogue of the NPC, as user and assistant turns | One exchange more each turn |
 | Last user message | `prompt_chat_turn.txt`: the volume, the final instruction, and the player's line | Every turn |
 
@@ -137,7 +137,7 @@ From one turn to the next, only the newest exchange and the last message are new
 
 The scene is a snapshot that the server takes when a conversation starts, and it keeps it for the whole conversation (`CONVERSATION_SCENE`). A conversation lasts until the player chats with another NPC, speaks as another squad member, or switches the campaign, because the plugin sends no signal when a conversation ends. A later relation or a new rumor therefore reaches the prompt only in the next conversation. The history of the NPC stays across conversations.
 
-The scene is prose that the NPC reads in the second person, built by `server/scripts/scene_text.py` from the game's data: "You are mildly hostile towards Drifter." A model reads a sentence more reliably than a raw number, and the cache serves the longer text after the first turn of a conversation. Each number becomes a sentence from a fixed scale, such as the relation, the faction stance, hunger, money, fighting skill, distance, and the age of a rumor. The bounds of the relation at ±25, ±60, and ±90 match the relation bar that the game shows, and steps at ±10 add finer grades. Every other person is "they", so no sentence needs a gendered pronoun.
+The scene is prose that the NPC reads in the second person, built by `server/scripts/scene_text.py` from the game's data: "You are mildly hostile towards Drifter." A model reads a sentence more reliably than a raw number, and the cache serves the longer text after the first turn of a conversation. Each number becomes a sentence from a fixed scale, such as the relation, the faction stance, hunger, money, fighting skill, and the age of a rumor. The bounds of the relation at ±25, ±60, and ±90 match the relation bar that the game shows, and steps at ±10 add finer grades. Every other person is "they", so no sentence needs a gendered pronoun.
 
 `prompt_system.txt` holds the rules and the world lore, and `build_system_prompt` fills it. `scene_values` fills the parts that change on each call, for the chat scene and for banter. A block that appears only with data, such as the rumors, keeps its heading in the code, because a placeholder has no conditions. The `{world_lore}` placeholder takes the overview of the campaign (see [Campaign storage](#campaign-storage)).
 

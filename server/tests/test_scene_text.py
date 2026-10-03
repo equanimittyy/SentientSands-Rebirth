@@ -45,10 +45,9 @@ class ScaleTest(unittest.TestCase):
         self.assertEqual(scene_text.blood_text("They", {"blood": 80, "max_blood": 100}), "They look wounded.")
         self.assertEqual(scene_text.blood_text("They", {"blood": 85, "max_blood": 100}), "They seem healthy.")
 
-    def test_combat_money_distance_and_rumor_age_bounds(self):
+    def test_combat_money_and_rumor_age_bounds(self):
         self.assertEqual([scene_text.combat_text({"melee_attack": v}) for v in (9, 10, 30, 60, 80)], [step for _, step in scene_text.COMBAT])
         self.assertEqual([scene_text._scale(v, scene_text.MONEY) for v in (49, 50, 1000, 10000)], [step for _, step in scene_text.MONEY])
-        self.assertEqual([scene_text._scale(v, scene_text.DISTANCE) for v in (2.4, 2.5, 10, 30)], [step for _, step in scene_text.DISTANCE])
         self.assertEqual([scene_text._scale(v, scene_text.RUMOR_AGE) for v in (0, 1, 2, 7)], [step for _, step in scene_text.RUMOR_AGE])
 
 
@@ -110,18 +109,6 @@ class SentenceTest(unittest.TestCase):
         text = scene_text.npc_text({"faction": "Nameless", "relation": 100}, {"Faction": "Nameless"}, "Drifter", "Nameless", met=True, major=False, in_player_faction=True, feels_hunger=True)
         self.assertIn("You travel in Drifter's squad, and Drifter leads it.", text)
         self.assertNotIn("Your faction", text)
-
-    def test_nearby_people(self):
-        people = [
-            {"name": "Ruka", "race": "Shek", "gender": "female", "faction": "Shek Kingdom", "health": "Injured", "equipment": "Plank, Shek Armour", "dist": 1.0},
-            {"name": "Beep", "race": "Hive Worker Drone", "gender": "male", "faction": "Nameless", "health": "Healthy", "dist": 20},
-            {"name": "Ghost", "race": "Unknown", "faction": "Unknown", "dist": 50},
-        ]
-        self.assertEqual(scene_text.nearby_text(people, "Drifter", "Nameless"), (
-            "Around you:\nRuka, a Shek woman of Shek Kingdom, is right beside you. They look injured. They wear or carry Plank, Shek Armour. "
-            "Beep, a Hive Worker Drone man, one of Drifter's squad, is nearby. They seem healthy. Ghost is some distance away."
-        ))
-        self.assertEqual(scene_text.nearby_text([], "Drifter", "Nameless"), "")
 
     def test_location(self):
         self.assertEqual(scene_text.location_text({"town_name": "Blister Hill"}), "You are in Blister Hill.")

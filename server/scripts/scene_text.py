@@ -43,7 +43,6 @@ MONEY = [
     (10000, "You have a fair amount of money."),
     (None, "You are wealthy."),
 ]
-DISTANCE = [(2.5, "right beside you"), (10, "close by"), (30, "nearby"), (None, "some distance away")]
 RUMOR_AGE = [(1, "Earlier today"), (2, "Yesterday"), (7, "A few days ago"), (None, "Some time ago")]
 
 # (at 50 or more, under 15)
@@ -84,16 +83,6 @@ LONG_TERM_MEMORIES = {
     8: "Your squad once defeated {name}'s.",
     14: "{name} killed a friend of yours.",
     15: "You once wronged {name}.",
-}
-
-# GetHealthStatus in plugin/game/Context.cpp
-NEARBY_HEALTH = {
-    "Healthy": "They seem healthy.",
-    "Injured": "They look injured.",
-    "Crippled": "They look crippled.",
-    "Unconscious": "They are unconscious.",
-    "Dead": "They are dead.",
-    "Playing Dead": "They lie still, playing dead.",
 }
 
 _RUMOR = re.compile(r"\[Day (\d+)[^\]]*\]\s*\[RUMOR:\s*(.*?)\]\s*$")
@@ -284,24 +273,3 @@ def npc_text(context, profile, player_name, player_faction, *, met, major, in_pl
         sentences += [table[tag].format(name=player_name) for tag in tags if tag in table]
     sentences.append(equipment_text("You", context.get("inventory") or []))
     return _section("You:", sentences)
-
-
-def nearby_text(people, player_name, player_faction):
-    """Each person's gender is the sex that the server reports, so a Skeleton has none."""
-    sentences = []
-    for other in people:
-        who = person(other.get("race"), other.get("gender"))
-        faction = other.get("faction", "")
-        if faction in ("Nameless", player_faction):
-            description = ", ".join(part for part in (who, f"one of {player_name}'s squad") if part)
-        elif _known(faction):
-            description = f"{who} of {faction}" if who else f"of {faction}"
-        else:
-            description = who
-        name = other.get("name", "Someone")
-        subject = f"{name}, {description}," if description else name
-        sentences.append(f"{subject} is {_scale(_number(other.get('dist'), 999), DISTANCE)}.")
-        sentences.append(NEARBY_HEALTH.get(other.get("health"), ""))
-        if other.get("equipment"):
-            sentences.append(f"They wear or carry {other['equipment']}.")
-    return _section("Around you:", sentences)
