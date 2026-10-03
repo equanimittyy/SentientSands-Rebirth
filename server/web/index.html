@@ -128,5 +128,27 @@
     <h2></h2>
     <ol class="steps"></ol>
   </dialog>
+  <dialog id="bio">
+    <form method="dialog">
+      <h2>Write with the LLM</h2>
+      <p></p>
+      <fieldset>
+        <legend>What to write</legend>
+        <label class="check"><input type="radio" name="part" value="all" checked> Full bio</label>
+        <label class="check"><input type="radio" name="part" value="Personality"> Personality</label>
+        <label class="check"><input type="radio" name="part" value="Backstory"> Backstory</label>
+        <label class="check"><input type="radio" name="part" value="SpeechQuirks"> SpeechQuirks</label>
+      </fieldset>
+      <fieldset>
+        <legend>Instructions (optional)</legend>
+        <textarea name="instructions" aria-label="Instructions" placeholder="For example: a former slave who distrusts every noble."></textarea>
+      </fieldset>
+      <p class="hint">The LLM also reads the name, sex, race, faction, job, the race lore, the current texts, and the chats with this character.</p>
+      <div class="actions">
+        <button value="cancel">Cancel</button>
+        <button value="ok" class="save">Write</button>
+      </div>
+    </form>
+  </dialog>
 </body>
 </html>

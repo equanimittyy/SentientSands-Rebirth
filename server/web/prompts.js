@@ -15,7 +15,7 @@ const PROMPT_INFO = {
   "prompt_chat_template.txt": { group: "Conversations", title: "Chat request", blurb: "The system message of a chat: the system prompt, the judgment rule, the NPC chat template, then the chat scene. It stays the same for a whole conversation, so a provider can cache it." },
   "prompt_chat_scene.txt": { group: "Conversations", title: "Chat scene", blurb: "A snapshot of the place, the latest rumors, the player, and the NPC, written as plain sentences and taken when a conversation starts. A conversation lasts until you talk to another NPC or speak as another squad member." },
   "prompt_chat_turn.txt": { group: "Conversations", title: "Chat turn", blurb: "The last message of a chat request, which changes each turn: the player's line, then a short reminder of whom to reply as." },
-  "prompt_profile_generation.txt": { group: "NPC profiles", title: "NPC bio", blurb: "Writes the full bio of an NPC after a few chats with it, or when you ask for one. It builds on the provisional profile that SSR rolled at the first meeting and on the dialogue so far." },
+  "prompt_profile_generation.txt": { group: "NPC profiles", title: "NPC bio", blurb: "Writes the bio of an NPC, or one part of it: after a few chats with it, on Regenerate in game, or with the robot button in the editor. It builds on the current personality, backstory, and speech quirks, on the dialogue so far, and on your instructions." },
   "prompt_world_synthesis.txt": { group: "World events", title: "World events", blurb: "Turns the recent events of the world into one new rumor that NPCs can mention." },
 };
 const GROUPS = [...new Set(Object.values(PROMPT_INFO).map((info) => info.group)), OTHER];

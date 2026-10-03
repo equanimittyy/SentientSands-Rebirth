@@ -350,7 +350,7 @@ textarea,
   font-family: system-ui, sans-serif;
 }
 
-input:not([type="checkbox"]),
+input:not([type="checkbox"], [type="radio"]),
 select,
 textarea {
   box-sizing: border-box;
@@ -494,6 +494,12 @@ label > .field-error {
   display: flex;
   justify-content: space-between;
   align-items: center;
+}
+
+/* The gap keeps a click meant for the bio button off Delete. */
+.card-tools {
+  display: flex;
+  gap: 1.5rem;
 }
 
 .card-head .badge + .badge {

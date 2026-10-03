@@ -1,4 +1,4 @@
-import { ask, deleteButton, el, field, getJson, progress, reportUnsaved, sendJson, setFieldError, showMessage, tell, withHelp } from "./api.js";
+import { ask, deleteButton, el, field, getJson, iconButton, progress, reportUnsaved, sendJson, setFieldError, showMessage, tell, withHelp } from "./api.js";
 
 const page = document.getElementById("editor-page");
 const message = document.getElementById("editor-message");
@@ -321,8 +321,7 @@ function characterForm(form, path, record) {
       field("Relation (to you)", relationBar(form.details.Relation), null, "How much the character likes you, from -100 to 100. Your chats with the character change it."),
       source === "campaign" ? field("Current Faction", el("span", {}, record.current_faction || "Unknown"), null, "The faction that the game reports for the character. It shows after you select the character or talk near it while the game runs.") : null,
       field("Original Faction", el("span", {}, form.details.OriginFaction || "Unknown"), null, "The faction that the character comes from."),
-      isProvisional(record) ? field("Chats", el("span", {}, chatCount(form.details[PROVISIONAL])), null, "How many times you talked to the character. Its personality, backstory, and speech quirks are rolled, not written. When the count reaches Chats before a bio on the Settings page, the LLM writes its full bio.") : null,
-      isProvisional(record) ? el("button", { type: "button", disabled: readOnly(), onclick: () => writeBio(record) }, "Generate bio") : null),
+      isProvisional(record) ? field("Chats", el("span", {}, chatCount(form.details[PROVISIONAL])), null, "How many times you talked to the character. Its personality, backstory, and speech quirks are rolled, not written. When the count reaches Chats before a bio on the Settings page, the LLM writes its full bio.") : null),
   ];
 }
 
@@ -331,22 +330,46 @@ function chatCount(count) {
   return threshold > 0 ? `${count} of ${threshold} chats` : `${count} chats. The LLM writes the bio only when you ask for it.`;
 }
 
+const BIO_CHOICES = { all: "bio", Personality: "personality", Backstory: "backstory", SpeechQuirks: "speech quirks" };
+
+function askBio(record) {
+  const dialog = document.getElementById("bio");
+  const form = dialog.querySelector("form");
+  form.reset();
+  dialog.querySelector("p").textContent = title(record);
+  dialog.returnValue = "";
+  dialog.showModal();
+  return new Promise((resolve) => dialog.addEventListener("close", () => {
+    resolve(dialog.returnValue === "ok" ? { part: form.elements.part.value, instructions: form.elements.instructions.value } : null);
+  }, { once: true }));
+}
+
+// The text goes into the form and not into the campaign, so the player reads it before a save keeps it.
 async function writeBio(record) {
-  if (isChanged(record)) {
-    showMessage(message, `Save or discard the changes to ${title(record)} first.`, true);
-    return;
-  }
-  const steps = progress(`Writing the bio of ${title(record)}`, "Asking the LLM for the bio", "Loading the campaign");
+  const choice = await askBio(record);
+  if (!choice) return;
+  const form = formOf(record);
+  const what = BIO_CHOICES[choice.part];
+  const steps = progress(`Writing the ${what} of ${title(record)}`, "Asking the LLM");
   try {
-    await sendJson("POST", "/api/campaign/characters/bio", { ...target(), id: record.id });
-    steps.next();
-    await fetchRecords(keptDrafts());
+    const { bio } = await sendJson("POST", bioUrl(), {
+      ...target(), id: record.id, parts: choice.part === "all" ? LONG_PROFILE_KEYS : [choice.part], instructions: choice.instructions, profile: toData("character", form).profile,
+    });
     steps.close();
-    showMessage(message, `Wrote the bio of ${title(record)}.`);
+    for (const row of form.profile) if (row.key in bio) row.value = bio[row.key];
+    changed();
+    renderForm();
+    showMessage(message, `The LLM wrote the ${what} of ${title(record)}. Save to keep it.`);
   } catch (error) {
     steps.close();
-    showMessage(message, `Bio failed: ${error.message}`, true);
+    showMessage(message, `Write failed: ${error.message}`, true);
   }
+}
+
+function bioButton(record) {
+  const button = iconButton("bot", `Write the bio of ${title(record)} with the LLM`, () => writeBio(record));
+  button.disabled = readOnly();
+  return button;
 }
 
 // The labels and thresholds match the relation bar that the game shows (generate_relation_bar in kenshi_llm_server.py).
@@ -507,13 +530,14 @@ function renderForm() {
   else body = entityForm(form, path, record);
   // The game reports the player's faction again, so a delete would only lose its description
   const deletable = !TEMPLATE_PARTS.includes(record.kind) && !record.is_player;
+  const remove = deletable ? deleteButton(`Delete ${title(record)}`, () => deleteRecord(record), readOnly()) : null;
   container.replaceChildren(el("div", { className: "card" },
     el("div", { className: "card-head" },
       el("span", {}, el("strong", { className: "name" }, title(record)), " ", el("span", { className: "badge" }, kindLabel(record)),
         record.is_player ? el("span", { className: "badge ok" }, "Your faction") : null,
         ORIGIN_LABELS[record.origin] ? el("span", { className: `badge${record.origin === "seed" ? " seed" : ""}` }, ORIGIN_LABELS[record.origin]) : null,
         isProvisional(record) ? el("span", { className: "badge" }, "Provisional") : null),
-      deletable ? deleteButton(`Delete ${title(record)}`, () => deleteRecord(record), readOnly()) : null),
+      record.kind === "character" ? el("span", { className: "card-tools" }, bioButton(record), remove) : remove),
     note ? el("p", { className: `hint${note.error ? " error" : ""}` }, note.text) : null,
     ...body));
   if (note?.field) {
@@ -609,6 +633,7 @@ function deleteEffect(record) {
 }
 
 const recordsUrl = () => (source === "template" ? `/api/templates/${encodeURIComponent(current)}/records` : "/api/campaign/records");
+const bioUrl = () => (source === "template" ? `/api/templates/${encodeURIComponent(current)}/characters/bio` : "/api/campaign/characters/bio");
 // A campaign write names the campaign that the page loaded, so the server refuses it after a switch
 const target = () => (source === "template" ? {} : { campaign: canon.name });
 

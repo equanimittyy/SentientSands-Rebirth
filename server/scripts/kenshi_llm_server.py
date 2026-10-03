@@ -109,10 +109,12 @@ ANIMAL_RACES = [
 ]
 
 def describe_faction(name, faction_id=None):
+    return faction_text(name, campaign_db.find_faction(faction_id, name) if name and name != "Unknown" else None)
+
+def faction_text(name, faction):
     if not name or name == "Unknown":
         return "Unknown Faction (Remnant or Drifter)"
-    faction = campaign_db.find_faction(faction_id, name)
-    if not faction or not (faction["description"] or faction["fields"] or faction["major"]):
+    if not faction or not (faction.get("description") or faction.get("fields") or faction.get("major")):
         return f"{name}: A minor or specialized group in the wasteland."
     return describe_record(faction)
 
@@ -125,12 +127,12 @@ def describe_record(record):
     text = f"{record['name']} ({details})" if details else record["name"]
     return f"{text}: {record['description']}" if record.get("description") else text
 
+def find_named(records, name):
+    wanted = str(name).strip().lower()
+    return next((record for record in records if wanted in (other.lower() for other in [record.get("name", ""), *record.get("aliases", [])])), None)
+
 def find_race(race):
-    wanted = str(race).strip().lower()
-    for (category, _), entry, *_ in campaign_db.list_records("entity"):
-        if category == "races" and wanted in (name.lower() for name in [entry.get("name", ""), *entry.get("aliases", [])]):
-            return entry
-    return None
+    return find_named((entry for (category, _), entry, *_ in campaign_db.list_records("entity") if category == "races"), race)
 
 def describe_race(race):
     entry = find_race(race)
@@ -853,8 +855,36 @@ def new_profile(name, npc_id, ctx_data):
         **({} if kind == "animal" else {campaign_db.PROVISIONAL: 0}),
     }
 
-def generate_bio(npc_id):
-    """Has the LLM write the full bio of a provisional NPC. Returns None once the bio is stored, else the reason it is not."""
+BIO_PARTS = ("Personality", "Backstory", "SpeechQuirks")
+
+def write_bio(profile, parts, instructions, history, race_lore, faction):
+    """The parts of the bio that the LLM wrote, or None when its reply lacks one. Stores nothing."""
+    race = profile.get("Race", "Unknown")
+    names = ", ".join(parts)
+    prompt = fill_prompt(
+        "prompt_profile_generation.txt",
+        parts=names,
+        name=profile.get("Name", "Unknown"),
+        race=race,
+        sex=reported_sex(race, profile.get("Sex", "Unknown")),
+        faction=faction,
+        job=profile.get("Job") or "None",
+        race_lore=race_lore,
+        current="\n".join(f"{part}: {profile.get(part) or 'None.'}" for part in BIO_PARTS),
+        history="\n".join(history) or "None yet.",
+        instructions=instructions.strip() or "None.",
+    )
+    language = load_settings().get("language", "English")
+    if language and language.lower() != "english":
+        prompt += f"\nLANGUAGE: The JSON values ({names}) MUST be written entirely in {language}. Do not use English.\n"
+    result = robust_json_parse(call_llm("profile", [{"role": "user", "content": prompt}]))
+    # Only the requested parts, so a reply cannot change a part that the player did not ask for
+    bio = {part: result[part].strip() for part in parts if isinstance((result or {}).get(part), str) and result[part].strip()}
+    return bio if len(bio) == len(parts) else None
+
+def generate_bio(npc_id, provisional_only=True):
+    """Has the LLM rewrite the bio of a stored NPC. Returns None once the bio is stored, else the reason it is not. The chat
+    threshold must not touch a full profile, because the player may have written it by hand."""
     with PROGRESS_LOCK:
         if npc_id in PROFILES_IN_PROGRESS:
             logging.debug(f"PROFILE: The LLM is already writing the bio of {npc_id}.")
@@ -863,40 +893,40 @@ def generate_bio(npc_id):
     campaign = ACTIVE_CAMPAIGN
     try:
         profile = campaign_db.get_character(npc_id)
-        if not profile or campaign_db.PROVISIONAL not in profile:
+        if not profile:
+            return "The character has no profile."
+        provisional = campaign_db.PROVISIONAL in profile
+        if provisional_only and not provisional:
             return "The character has no provisional profile."
         name, race = profile.get("Name", npc_id), profile.get("Race", "Unknown")
         logging.info(f"PROFILE: Writing the bio of {name} ({npc_id})...")
-        faction = describe_faction(profile.get("Faction"), (LIVE_CONTEXTS.get(npc_id) or {}).get("factionID"))
-        prompt = fill_prompt(
-            "prompt_profile_generation.txt",
-            name=name,
-            sex=reported_sex(race, profile.get("Sex", "Unknown")),
-            race=race,
-            race_lore=describe_race(race),
-            faction=faction,
-            origin_faction=describe_origin(describe_faction(profile.get("OriginFaction", "Unknown")), faction),
-            job=profile.get("Job", "None"),
-            provisional=f"Personality: {profile.get('Personality') or 'None.'}\nBackstory: {profile.get('Backstory') or 'None.'}\nSpeech quirks: {profile.get('SpeechQuirks') or 'None.'}",
-            history="\n".join(profile.get("ConversationHistory", [])) or "None yet.",
+        bio = write_bio(
+            profile,
+            # An animal keeps no backstory and no speech quirk
+            ["Personality"] if is_animal(race) else list(BIO_PARTS),
+            "",
+            profile.get("ConversationHistory", []),
+            describe_race(race),
+            describe_faction(profile.get("Faction"), (LIVE_CONTEXTS.get(npc_id) or {}).get("factionID")),
         )
-        language = load_settings().get("language", "English")
-        if language and language.lower() != "english":
-            prompt += f"\nLANGUAGE: The JSON values ('Personality', 'Backstory', 'SpeechQuirks') MUST be written entirely in {language}. Do not use English.\n"
-        result = robust_json_parse(call_llm("profile", [{"role": "user", "content": prompt}]))
-        bio = {key: result[key].strip() for key in ("Personality", "Backstory", "SpeechQuirks") if isinstance((result or {}).get(key), str) and result[key].strip()}
-        if len(bio) < 3:
-            logging.warning(f"PROFILE: The LLM gave no usable bio for {name}, so the profile stays provisional.")
+        if not bio:
+            logging.warning(f"PROFILE: The LLM gave no usable bio for {name}, so the profile stays as it is.")
             return "The LLM gave no usable bio. Try again."
         # A thread can outlive a campaign switch, and the same npc_id can name another character in the new campaign
         if ACTIVE_CAMPAIGN != campaign:
             logging.info(f"PROFILE: Dropped the bio of {name}, because the active campaign changed while the LLM wrote it.")
             return "The active campaign changed while the LLM wrote the bio."
-        if not campaign_db.promote_profile(npc_id, bio):
+        if not provisional:
+            campaign_db.upsert_profile(npc_id, bio)
+        elif not campaign_db.promote_profile(npc_id, bio):
             logging.info(f"PROFILE: Dropped the bio of {name}, because its profile stopped being provisional while the LLM wrote it.")
             return "The profile stopped being provisional while the LLM wrote the bio, for example after an edit on Campaign Canon."
         logging.info(f"PROFILE: Stored the bio of {name} ({npc_id}).")
         return None
+    except Exception as e:
+        # The chat threshold runs this in a thread, where nothing else would log the error
+        logging.error(f"PROFILE: The bio of {npc_id} failed: {e}")
+        return f"The bio failed: {e}"
     finally:
         with PROGRESS_LOCK:
             PROFILES_IN_PROGRESS.discard(npc_id)
@@ -2233,15 +2263,44 @@ def save_campaign_record():
     logging.info(f"CAMPAIGN: Saved the {kind} {record_id or ''} of '{ACTIVE_CAMPAIGN}' from the web app")
     return jsonify({"status": "ok", "id": record_id, "warnings": warnings})
 
+def bio_refusal(data):
+    parts, profile = data.get("parts"), data.get("profile")
+    if isinstance(profile, dict) and isinstance(parts, list) and parts and set(parts) <= set(BIO_PARTS):
+        return None
+    return jsonify({"status": "error", "message": f"Name the parts to write: {', '.join(BIO_PARTS)}."}), 400
+
+def bio_reply(data, history, race_lore, faction):
+    """The web app puts the parts into its form, and the usual record save stores them, so the player can read them first."""
+    parts = [part for part in BIO_PARTS if part in data["parts"]]
+    bio = write_bio(data["profile"], parts, str(data.get("instructions") or ""), history, race_lore, faction)
+    if not bio:
+        return jsonify({"status": "error", "message": "The LLM gave no usable text. Try again."}), 500
+    return jsonify({"status": "ok", "bio": bio})
+
 @app.route('/api/campaign/characters/bio', methods=['POST'])
 def write_campaign_bio():
     data = request.get_json(silent=True) or {}
-    refused = campaign_write(data)
+    refused = campaign_write(data) or bio_refusal(data)
     if refused: return refused
-    reason = generate_bio(str(data.get("id")))
-    if reason:
-        return jsonify({"status": "error", "message": reason}), 500
-    return jsonify({"status": "ok"})
+    profile = data["profile"]
+    stored = campaign_db.get_character(str(data["id"])) if data.get("id") else None
+    # By name only, so a faction that the player changed in the form counts, not the one the game reports
+    return bio_reply(data, (stored or {}).get("ConversationHistory", []), describe_race(profile.get("Race", "Unknown")), describe_faction(profile.get("Faction")))
+
+@app.route('/api/templates/<name>/characters/bio', methods=['POST'])
+def write_template_bio(name):
+    data = request.get_json(silent=True) or {}
+    refused = bio_refusal(data)
+    if refused: return refused
+    try:
+        template = world_template.load(name, WORLD_TEMPLATES_DIR, USER_TEMPLATES_DIR)
+    except world_template.TemplateError as e:
+        return template_error(e)
+    profile = data["profile"]
+    race, faction = profile.get("Race", "Unknown"), profile.get("Faction")
+    race_entry = find_named(template["entities"]["races"].values(), race)
+    race_lore = describe_record(race_entry) if race_entry else f"{race}: The template has no entry for this race."
+    return bio_reply(data, [], race_lore, faction_text(faction, find_named(template["factions"].values(), faction)))
 
 def save_campaign_faction(faction_id, value, updated_at):
     """Returns the warnings. Raises world_template.TemplateError, or a campaign_db error, with the reason."""
@@ -2348,75 +2407,10 @@ def regenerate_profile_route():
         logging.warning(f"PROFILE: Regen found no profile for {sid}")
         return jsonify({"status": "error", "message": "Profile not found"}), 404
 
-    # A provisional profile needs no dialogue: its traits give the LLM enough to write a first bio from
-    if campaign_db.PROVISIONAL in char_data:
-        reason = generate_bio(sid)
-        if reason:
-            return jsonify({"status": "error", "message": reason}), 500
-        return jsonify({"status": "ok", "message": f"Wrote the bio of {char_data.get('Name', sid)}."})
-
-    try:
-        history = char_data.get("ConversationHistory", [])
-        if not history:
-             logging.info(f"PROFILE: Regen skipped {sid}, because it has no dialogue.")
-             return jsonify({"status": "error", "message": "No conversation history to build from. Talk to the NPC first!"}), 400
-             
-        name = char_data.get("Name", sid)
-        race = char_data.get("Race", "Unknown")
-        personality = char_data.get("Personality", "Unknown")
-        backstory = char_data.get("Backstory", "Unknown")
-        faction = char_data.get("Faction", "Unknown")
-        
-        history_block = "\n".join(history)
-        
-        logging.info(f"PROFILE: Regen evolving profile for {name} based on {len(history)} lines of memory...")
-        
-        system_msg = "You are an expert on Kenshi lore and character growth. You write NPC profiles in a grounded, cynical tone. You ALWAYS respond ONLY with a valid JSON object."
-        user_msg = f"""Rewrite the Personality and Backstory for the Kenshi NPC "{name}" based on their conversation history.
-
-CURRENT PROFILE:
-Personality: {personality}
-Backstory: {backstory}
-Race: {race} | Faction: {faction}
-
-CONVERSATION HISTORY:
-{history_block}
-
-Instructions:
-- EVOLVE the profile to reflect their experiences with the player.
-- Maintain the Kenshi world's grounded, cynical tone.
-- If they've bonded with the player, reflect that. If there was conflict, reflect that too.
-- Response MUST be ONLY a JSON object with keys: "Personality", "Backstory", "SpeechQuirks"."""
-
-        messages = [
-            {"role": "system", "content": system_msg},
-            {"role": "user", "content": user_msg}
-        ]
-        response_text = call_llm("profile", messages)
-        
-        if not response_text:
-            logging.error(f"PROFILE: Regen got no reply for {name}. This may be a token limit or content filter issue.")
-            return jsonify({"status": "error", "message": f"LLM returned an empty response. The model may have run out of tokens. Try again or use an NPC with fewer memories."}), 500
-
-        result = robust_json_parse(response_text)
-        if result:
-            campaign_db.upsert_profile(sid, {
-                "Personality": result.get("Personality", personality),
-                "Backstory": result.get("Backstory", backstory),
-                "SpeechQuirks": result.get("SpeechQuirks", char_data.get("SpeechQuirks", "")),
-            })
-
-            logging.info(f"PROFILE: Regen evolved the profile of {name}.")
-            return jsonify({"status": "ok", "message": f"Successfully evolved {name}'s profile."})
-        else:
-            logging.error(f"PROFILE: Regen cannot parse the reply for {name}. Raw reply: {response_text[:300]}")
-            return jsonify({"status": "error", "message": "LLM response was not valid JSON. Try again."}), 500
-                
-    except Exception as e:
-        logging.error(f"PROFILE: Regen failed for {sid}: {e}")
-        return jsonify({"status": "error", "message": str(e)}), 500
-        
-    return jsonify({"status": "error", "message": "Synthesis failed"}), 500
+    reason = generate_bio(sid, provisional_only=False)
+    if reason:
+        return jsonify({"status": "error", "message": reason}), 500
+    return jsonify({"status": "ok", "message": f"Wrote the bio of {char_data.get('Name', sid)}."})
 
 
 @app.route('/api/llm', methods=['GET'])

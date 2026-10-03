@@ -96,7 +96,9 @@ The Race, Sex, and Faction of a character are choices, not free text (`choice` i
 
 Other Details shows the `Relation` of a character as a bar from -100 to 100, with the labels of the relation bar in game, and its `OriginFaction`. On Campaign Canon it also shows the current faction that the game reported for the character since the server started, so the player can compare it with the Faction that the prompts use. All are read-only, because the game and the chats set them. A save keeps every profile key that the form does not show, as it is.
 
-A provisional character (see [Provisional profiles](#provisional-profiles)) shows as Provisional in the list and on its record. Its Other Details also show its chat count against the Chats before a bio setting, and a Generate bio button, which posts to `/api/campaign/characters/bio`. A save that changes its Personality, Backstory, or SpeechQuirks ends the provisional state, because a later bio would overwrite the player's text.
+A provisional character (see [Provisional profiles](#provisional-profiles)) shows as Provisional in the list and on its record. Its Other Details also show its chat count against the Chats before a bio setting. A save that changes its Personality, Backstory, or SpeechQuirks ends the provisional state, because a later bio would overwrite the player's text.
+
+Each character has a robot button to the left of Delete, with a gap so that a click meant for one button does not hit the other. The button asks the LLM for the full bio or for one part of it, with the player's instructions, and puts the text into the form (`writeBio` in `server/web/editor.js`). The text is unsaved, so the player reads it before a save keeps it. A save of a provisional character with the new text ends the provisional state, as a hand edit does. The request carries the profile of the form, so an unsaved race or faction counts.
 
 ## Settings
 
@@ -158,9 +160,9 @@ The reply text of `/chat` starts with the name of the NPC, because the plugin ta
 
 A chat reply carries no game actions: the prompts offer the LLM no action tags, and the `actions` list of a `/chat` reply is empty. The server reads only the judgment of a reply, which changes the NPC's personal relation. The debug commands of the chat, such as `/attack`, still send their action to the plugin. The scene shows only the equipment that the player and the NPC wear or hold, because the contents of a bag mattered only for trading.
 
-The bio prompt, `prompt_profile_generation.txt`, takes `{race_lore}` from the race entries of the campaign (`describe_race`), matched by name or alias with case ignored. A template that describes its races therefore shapes the bios, and a race with no entry gets a line that says so. The player section of the scene gives the description of the player's race entry in the same way, and only the name of a race with no entry.
+The bio prompt, `prompt_profile_generation.txt`, takes `{race_lore}` from the race entries of the campaign (`describe_race`), or of the template for a character on the Templates page, matched by name or alias with case ignored. A template that describes its races therefore shapes the bios, and a race with no entry gets a line that says so. The player section of the scene gives the description of the player's race entry in the same way, and only the name of a race with no entry.
 
-When the origin faction of an NPC is its current faction, the chat and bio prompts give the origin as "Same as the current faction." (`describe_origin`), because the prompt already holds the whole entry of that faction.
+When the origin faction of an NPC is its current faction, the chat prompt gives the origin as "Same as the current faction." (`describe_origin`), because the prompt already holds the whole entry of that faction.
 
 ## LLM routing
 
@@ -281,15 +283,18 @@ A profile is provisional while it holds `Interactions` (`campaign_db.PROVISIONAL
 - Rejected: a separate `Provisional: true` key. The template validator, which the campaign editor also runs, takes only text and numbers as profile values.
 - Rejected: a count from the dialogue history. A banter line has no tag, so it looks like a reply to the player, and the history keeps only the newest 260 lines.
 
-The LLM writes the full bio of a provisional NPC (`generate_bio`) in three cases:
+The LLM writes the full bio of a stored NPC (`generate_bio`) in two cases:
 
 | Trigger | Behavior |
 |---|---|
-| The count reaches the Chats before a bio setting (`bio_interactions`, default 5) | After the reply, in a background thread, so the reply does not wait for a second LLM call. A setting of 0 writes a bio only on request. |
-| Regenerate in the Dialogue Library | `/regenerate_profile` writes the bio. A provisional profile needs no dialogue for it, unlike a full profile. |
-| Generate bio on Campaign Canon | `POST /api/campaign/characters/bio` |
+| The count reaches the Chats before a bio setting (`bio_interactions`, default 5) | After the reply, in a background thread, so the reply does not wait for a second LLM call. A setting of 0 writes a bio only on request. It never rewrites a full profile, because the player may have written that profile by hand. |
+| Regenerate in the Dialogue Library | `/regenerate_profile` writes the bio of a provisional or a full profile, with no need for dialogue. A full profile is stored through `upsert_profile`. |
 
-- `prompt_profile_generation.txt` gets the provisional text and the dialogue so far. It tells the LLM to keep the traits, the events of the backstory, the speech quirk, and everything that the NPC said.
+The robot button of the editor uses the same prompt through `write_bio`, but it stores nothing (see [Web app](#web-app)).
+
+- `prompt_profile_generation.txt` gets the name, the sex, the race, the faction, the job, the race lore, the current `Personality`, `Backstory`, and `SpeechQuirks`, the dialogue so far, and the player's instructions. The current texts carry the rolled traits of a provisional profile. The prompt tells the LLM to keep the traits, the events of the backstory, the speech quirk, and everything that the NPC said. The instructions win over every other rule.
+- `{parts}` names the parts to write. `write_bio` keeps only those parts of the reply, so a reply cannot change a part that the player did not ask for.
+- For an animal, `generate_bio` writes only the `Personality`, so the animal keeps no backstory and no speech quirk.
 - `promote_profile` writes `Personality`, `Backstory`, and `SpeechQuirks` and removes `Interactions` in one transaction. It writes nothing when the profile stopped being provisional during the call, for example after an edit on Campaign Canon. `generate_bio` also drops the bio when the campaign changed during the call, because the same `npc_id` can name another character in the new campaign.
 - `PROFILES_IN_PROGRESS` stops two bios of one NPC from running together.
 - After a failed call, the profile stays provisional, and the count stays at or above the threshold, so the next chat turn tries again.
@@ -306,7 +311,7 @@ The LLM writes the full bio of a provisional NPC (`generate_bio`) in three cases
 | `GET /api/campaign` | The active campaign: its events and rumors. A refused campaign gives status 409 with the reason. |
 | `GET /api/campaign/canon` | The canon of the active campaign, each record with its `origin` and `updated_at`, and each character with the `current_faction` that the game reported since the server started (`LIVE_CONTEXTS`), or `null`. A refused campaign gives status 409 with the reason. |
 | `POST /api/campaign/records`, `.../records/delete` | Save or delete one canon record of the active campaign. A faction, character, race, location, or region with no ID is new. |
-| `POST /api/campaign/characters/bio` | Have the LLM write the bio of a provisional character now (see [Provisional profiles](#provisional-profiles)) |
+| `POST /api/campaign/characters/bio` | The LLM text of the full bio, or of one part, for the form of a character. It stores nothing (see [Provisional profiles](#provisional-profiles)). |
 | `POST /api/campaign/rumors`, `.../rumors/delete`, `.../events/delete` | Edit the rumors and events of the active campaign |
 | `POST /api/campaign/cull` | Delete the dialogue, events, and rumors dated after the current game time, after the player loads an older save. It needs the player's context from the running game, because without it day 0 would count as now and the cull would delete the whole history. |
 
@@ -359,6 +364,7 @@ A world template is a folder that describes a world. A new campaign copies every
 | `GET /api/templates/<name>` | The whole template, with its errors and warnings |
 | `POST /api/templates/<name>/records`, `.../records/delete` | Save or delete one record of a user template |
 | `POST /api/templates/<name>/duplicate`, `.../delete` | Copy a template as a user template, or delete a user template |
+| `POST /api/templates/<name>/characters/bio` | The same as `POST /api/campaign/characters/bio`, with the race and the faction from the template and no dialogue |
 | `GET /api/templates/<name>/export` | The shared file of a template |
 | `POST /api/templates/import` | Write a shared file as a new user template with the name that the player gives |
 
