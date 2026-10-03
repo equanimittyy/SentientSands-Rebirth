@@ -176,7 +176,8 @@ nav a {
   mask: var(--icon) center / contain no-repeat;
 }
 
-nav .icon {
+nav .icon,
+.bio-button .icon {
   margin-right: 0.4em;
 }
 
@@ -499,7 +500,7 @@ label > .field-error {
 /* The gap keeps a click meant for the bio button off Delete. */
 .card-tools {
   display: flex;
-  gap: 1.5rem;
+  gap: 4.5rem;
 }
 
 .card-head .badge + .badge {

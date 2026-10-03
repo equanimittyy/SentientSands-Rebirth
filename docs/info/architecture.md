@@ -98,7 +98,7 @@ Other Details shows the `Relation` of a character as a bar from -100 to 100, wit
 
 A provisional character (see [Provisional profiles](#provisional-profiles)) shows as Provisional in the list and on its record. Its Other Details also show its chat count against the Chats before a bio setting. A save that changes its Personality, Backstory, or SpeechQuirks ends the provisional state, because a later bio would overwrite the player's text.
 
-Each character has a robot button to the left of Delete, with a gap so that a click meant for one button does not hit the other. The button asks the LLM for the full bio or for one part of it, with the player's instructions, and puts the text into the form (`writeBio` in `server/web/editor.js`). The text is unsaved, so the player reads it before a save keeps it. A save of a provisional character with the new text ends the provisional state, as a hand edit does. The request carries the profile of the form, so an unsaved race or faction counts.
+Each character has a Generate Bio button to the left of Delete, with a gap so that a click meant for one button does not hit the other. The button asks the LLM for the full bio or for one part of it, with the player's instructions, and puts the text into the form (`writeBio` in `server/web/editor.js`). The text is unsaved, so the player reads it before a save keeps it. A save of a provisional character with the new text ends the provisional state, as a hand edit does. The request carries the profile of the form, so an unsaved race or faction counts.
 
 ## Settings
 
@@ -290,7 +290,7 @@ The LLM writes the full bio of a stored NPC (`generate_bio`) in two cases:
 | The count reaches the Chats before a bio setting (`bio_interactions`, default 5) | After the reply, in a background thread, so the reply does not wait for a second LLM call. A setting of 0 writes a bio only on request. It never rewrites a full profile, because the player may have written that profile by hand. |
 | Regenerate in the Dialogue Library | `/regenerate_profile` writes the bio of a provisional or a full profile, with no need for dialogue. A full profile is stored through `upsert_profile`. |
 
-The robot button of the editor uses the same prompt through `write_bio`, but it stores nothing (see [Web app](#web-app)).
+Generate Bio in the editor uses the same prompt through `write_bio`, but it stores nothing (see [Web app](#web-app)).
 
 - `prompt_profile_generation.txt` gets the name, the sex, the race, the faction, the job, the race lore, the current `Personality`, `Backstory`, and `SpeechQuirks`, the dialogue so far, and the player's instructions. The current texts carry the rolled traits of a provisional profile. The prompt tells the LLM to keep the traits, the events of the backstory, the speech quirk, and everything that the NPC said. The instructions win over every other rule.
 - `{parts}` names the parts to write. `write_bio` keeps only those parts of the reply, so a reply cannot change a part that the player did not ask for.

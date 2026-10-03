@@ -1,4 +1,4 @@
-import { ask, deleteButton, el, field, getJson, iconButton, progress, reportUnsaved, sendJson, setFieldError, showMessage, tell, withHelp } from "./api.js";
+import { ask, deleteButton, el, field, getJson, icon, progress, reportUnsaved, sendJson, setFieldError, showMessage, tell, withHelp } from "./api.js";
 
 const page = document.getElementById("editor-page");
 const message = document.getElementById("editor-message");
@@ -366,11 +366,7 @@ async function writeBio(record) {
   }
 }
 
-function bioButton(record) {
-  const button = iconButton("bot", `Write the bio of ${title(record)} with the LLM`, () => writeBio(record));
-  button.disabled = readOnly();
-  return button;
-}
+const bioButton = (record) => el("button", { type: "button", className: "bio-button", disabled: readOnly(), onclick: () => writeBio(record) }, icon("bot"), "Generate Bio");
 
 // The labels and thresholds match the relation bar that the game shows (generate_relation_bar in kenshi_llm_server.py).
 function relationLabel(value) {

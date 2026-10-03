@@ -72,7 +72,7 @@ export const icon = (name) => el("span", { className: "icon", style: `--icon: ur
 
 const ERROR_LENGTH = 60;
 
-export function iconButton(name, label, onClick) {
+function iconButton(name, label, onClick) {
   const button = el("button", { type: "button", className: "icon-button", title: label, onclick: onClick }, icon(name));
   button.setAttribute("aria-label", label);
   return button;
