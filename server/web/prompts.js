@@ -9,10 +9,9 @@ const openCards = new Set();
 
 const OTHER = "Other prompts";
 const PROMPT_INFO = {
-  "prompt_system.txt": { group: "Conversations", title: "System prompt", blurb: "The stable frame of every chat and banter: the rules, the action tags, the world lore, and the player character. It comes first, so a provider can cache it." },
+  "prompt_system.txt": { group: "Conversations", title: "System prompt", blurb: "The stable frame of every chat and banter: the rules, the world lore, and the player character. It comes first, so a provider can cache it." },
   "npc_chat_template.txt": { group: "Conversations", title: "NPC chat template", blurb: "How a chat describes the NPC, from its profile. It stays the same from turn to turn." },
   "response_rules.txt": { group: "Conversations", title: "Reply rules", blurb: "The rules for how an NPC writes a reply." },
-  "prompt_action_tags.txt": { group: "Conversations", title: "Action tags", blurb: "The game actions that an NPC can take from a reply, such as attack, join your squad, or give an item." },
   "prompt_chat_template.txt": { group: "Conversations", title: "Chat request", blurb: "The system message of a chat: the system prompt, then the NPC chat template. It stays the same from turn to turn, so a provider can cache it." },
   "prompt_chat_scene.txt": { group: "Conversations", title: "Chat scene", blurb: "The last message of a chat request, which changes each turn: the place, the world events, the player's state, the NPC's condition, the final instruction, and the player's line." },
   "prompt_profile_generation.txt": { group: "NPC profiles", title: "One NPC profile", blurb: "Writes the personality, backstory, and speech quirks of one NPC the first time SSR needs them." },

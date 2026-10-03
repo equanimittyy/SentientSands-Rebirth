@@ -538,7 +538,6 @@ def build_detailed_context_string(npc_name, npc_id, char_data=None):
         shop_note = f"ROLE: {npc_name} is a SHOPKEEPER/TRADER."
         if in_shop:
             shop_note += f" They are currently IN THEIR SHOP ({building_name})."
-        shop_note += " They are authorized to sell items and cats from their inventory in exchange for the player's cats or items."
         lines.append(shop_note)
     
     if ctx.get("is_leader", False):
@@ -633,24 +632,11 @@ def build_detailed_context_string(npc_name, npc_id, char_data=None):
         if st: lines.append(f"- SHORT TERM: {', '.join(st)}")
         if lt: lines.append(f"- HISTORY TAGS: {', '.join(lt)}")
         
-    inv = ctx.get("inventory", [])
-    if inv:
-        worn = [i for i in inv if i.get("equipped")]
-        held = [i for i in inv if not i.get("equipped")]
-        
-        if worn:
-            lines.append(f"EQUIPMENT WORN by {npc_name}:")
-            for item in worn:
-                lines.append(f"- {item['name']} (x{item.get('count', 1)}) [{item['slot'].upper()}]")
-        
-        if held:
-            lines.append(f"INVENTORY HELD by {npc_name}:")
-            for item in held[:12]:
-                lines.append(f"- {item['name']} (x{item.get('count', 1)})")
-            if len(held) > 12:
-                lines.append(f"- ... (and {len(held)-12} other items)")
-    else:
-        lines.append(f"INVENTORY: Empty")
+    worn = [item for item in ctx.get("inventory", []) if item.get("equipped")]
+    if worn:
+        lines.append(f"EQUIPMENT WORN by {npc_name}:")
+        for item in worn:
+            lines.append(f"- {item['name']} (x{item.get('count', 1)}) [{item['slot'].upper()}]")
 
     nearby = ctx.get("nearby", [])
     if nearby:
@@ -817,7 +803,7 @@ def fill_prompt(filename, **values):
 def format_player_status(player_ctx):
     if not player_ctx: return "No status data."
     res = "PLAYER STATUS:\n"
-    med = player_ctx.get("medical", {})
+    med =player_ctx.get("medical", {})
     if med:
         hunger = med.get("hunger", 300)
         blood = med.get("blood", 100)
@@ -841,30 +827,9 @@ def format_player_status(player_ctx):
     res += f"- Faction: {player_ctx.get('faction', 'Nameless')}\n"
     return res
 
-def format_player_inventory(player_ctx):
-    if not player_ctx: return "No inventory data."
-    inv = player_ctx.get("inventory", [])
-    if not inv: return "Inventory: Empty or not visible."
-    
-    visible = []
-    bag = []
-    for item in inv:
-        name = item.get("name", "Unknown Item")
-        count = item.get("count", 1)
-        equipped = item.get("equipped", False)
-        slot = item.get("slot", "none")
-        display = f"{name} (x{count})"
-        if equipped:
-            visible.append(f"{display} [{slot.upper()}]")
-        else:
-            bag.append(display)
-            
-    res = "PLAYER EQUIPMENT & INVENTORY:\n"
-    res += "VISIBLE (Worn/Held):\n" + ("\n".join([f"- {v}" for v in visible]) if visible else "- Nothing visible.") + "\n"
-    res += "CONCEALED (In Bag/Pack):\n" + ("\n".join([f"- {b}" for b in bag[:15]]) if bag else "- Bag appears empty.")
-    if len(bag) > 15:
-        res += f"\n- ... and {len(bag)-15} more items."
-    return res
+def format_player_equipment(player_ctx):
+    worn = [f"- {item.get('name', 'Unknown Item')} [{item.get('slot', 'none').upper()}]" for item in player_ctx.get("inventory", []) if item.get("equipped")]
+    return "PLAYER EQUIPMENT (Worn/Held):\n" + ("\n".join(worn) if worn else "- Nothing visible.")
 
 def describe_bio(profile):
     if not profile:
@@ -895,7 +860,6 @@ def build_system_prompt(player_name="Drifter", speaker=None, speaker_profile=Non
     player_bio = describe_bio(speaker_profile)
     world_lore = campaign_db.overview()
     rules = load_prompt_component("response_rules.txt")
-    action_tags = load_prompt_component("prompt_action_tags.txt")
 
     player_faction = campaign_db.player_faction()
     faction_block = ""
@@ -921,7 +885,6 @@ def build_system_prompt(player_name="Drifter", speaker=None, speaker_profile=Non
         player_bio=player_bio,
         player_faction=faction_block,
         rules=rules,
-        action_tags=action_tags,
         language_instruction=language_instruction
     )
     return prompt.strip()
@@ -960,7 +923,7 @@ def scene_values(player):
         "location": location_tag,
         "events": events_block,
         "player_status": format_player_status(player),
-        "player_inventory": format_player_inventory(player),
+        "player_equipment": format_player_equipment(player),
     }
 
 
@@ -1553,7 +1516,7 @@ CURRENT LOCATION: {scene['location']}
 {scene['events']}
 
 {scene['player_status']}
-{scene['player_inventory']}
+{scene['player_equipment']}
 
 [RADIANT DIALOGUE SYSTEM - BANTER MODE]
 You are generating a short, atmospheric back-and-forth conversation (banter) between NPCs in Kenshi.
@@ -1924,9 +1887,9 @@ def chat():
         judgment = "" if is_ambient else "JUDGMENT: At the end of your response, you MUST judge the player's tone and the quality of this interaction on a scale of -5 (extremely aggressive/hostile/insulting) to 5 (extremely friendly/helpful/respectful). 0 is neutral. Format this judgment as a tag like [JUDGMENT: n] at the very end."
         final_instruction = f"Respond ONLY as {primary_npc}, to the player's last line. Do not speak as anyone else."
 
-    mode_action = f" [ACTION: WHISPERS TO {primary_npc}]" if mode == 'whisper' else ""
+    whisper_tag = "(Whispered) " if mode == 'whisper' else ""
     time_prefix = get_current_time_prefix()
-    full_player_entry = f"{time_prefix}{player_name}{mode_action}: {player_message}"
+    full_player_entry = f"{time_prefix}{whisper_tag}{player_name}: {player_message}"
 
     system = fill_prompt("prompt_chat_template.txt", system_prompt=system_prompt, primary_npc=primary_npc, npc_profiles=describe_npc(primary_npc, primary_data, npc_ids.get(primary_npc)))
     scene = fill_prompt(
@@ -1948,103 +1911,14 @@ def chat():
         logging.error("CHAT: No reply from the LLM.")
     
     if content:
-        # Allows one level of nested brackets: item names like "Bolts [Toothpicks]" contain them
-        all_bracketed = re.findall(r'\[\s*(?:[^\[\]]|\[[^\[\]]*\])+\s*\]', content)
-        
-        actions = []
-        global_judgment = 0
-        
-        formal_map = {
-            "GIVE_CATS": "GIVE_CATS", "TAKE_CATS": "TAKE_CATS", 
-            "GIVE_ITEM": "GIVE_ITEM", "TAKE_ITEM": "TAKE_ITEM",
-            "DROP_ITEM": "DROP_ITEM", "SPAWN_ITEM": "SPAWN_ITEM",
-            "JOIN_PARTY": "JOIN_PARTY", "LEAVE": "LEAVE",
-            "IDLE": "IDLE", "PATROL_TOWN": "PATROL_TOWN", 
-            "RELEASE_PLAYER": "RELEASE_PLAYER", "FREE_PLAYER": "FREE_PLAYER",
-            "NOTIFY": "NOTIFY", "FACTION_RELATIONS": "FACTION_RELATIONS",
-            "ATTACK_TOWN": "ATTACK_TOWN", "TRAVEL_TO_TARGET_TOWN": "TRAVEL_TO_TARGET_TOWN",
-            "RAID_TOWN": "RAID_TOWN", "ATTACK": "ATTACK",
-            "RELEASE_PRISONER": "RELEASE_PRISONER", 
-            "BREAKOUT_PRISONER": "BREAKOUT_PRISONER", "BREAKOUT_PLAYER": "BREAKOUT_PLAYER",
-            "JOB_MEDIC": "JOB_MEDIC", "JOB_REPAIR_ROBOT": "JOB_REPAIR_ROBOT",
-            "FIND_AND_RESCUE": "FIND_AND_RESCUE", "JUDGMENT": "JUDGMENT"
-        }
-
-        for raw in all_bracketed:
-            inner = raw.strip("[] \t")
-            # Loop: the LLM sometimes doubles prefixes, e.g. "ACTION: ACTION: TAKE_CATS"
-            clean = inner
-            while True:
-                prev = clean
-                clean = re.sub(r'^(ACTION|TASK|TAG):\s*', '', clean, flags=re.IGNORECASE).strip()
-                if clean == prev: break
-            
-            if ":" in clean:
-                parts = clean.split(":", 1)
-                kw = parts[0].strip().upper()
-                args = parts[1].strip()
-                
-                # The LLM sometimes repeats the keyword: "[ACTION: TAKE_CATS: TAKE_CATS: 40]"
-                if args.upper().startswith(kw):
-                     args = re.sub(rf'^{re.escape(kw)}\s*:?\s*', '', args, flags=re.IGNORECASE).strip()
-            else:
-                kw = clean.upper()
-                args = ""
-
-            if kw == "JUDGMENT" or "JUDGMENT" in kw:
-                j_val = args or re.search(r'-?\d+', kw)
-                if j_val:
-                    try:
-                        j_str = j_val.group(0) if hasattr(j_val, 'group') else str(j_val)
-                        global_judgment = max(-5, min(5, int(j_str)))
-                        logging.debug(f"RELATION: Interaction judged as {global_judgment}")
-                    except: pass
-                # No continue: the JUDGMENT tag is forwarded to the plugin too
-
-            matched_ka = None
-            for formal in formal_map:
-                if formal == kw or (formal in kw and len(kw) < len(formal) + 3):
-                    matched_ka = formal_map[formal]
-                    break
-            
-            if matched_ka:
-                if matched_ka in ["WANDERER", "CHASE", "IDLE", "MELEE_ATTACK"]:
-                    final_tag = f"[TASK: {matched_ka}{f': {args}' if args else ''}]"
-                else:
-                    if matched_ka == "LEAVE" and not args:
-                        origin_faction = primary_data.get("OriginFaction", "Unknown")
-                        if origin_faction == "Unknown":
-                            origin_faction = primary_data.get("Faction", "Unknown")
-                        final_tag = f"[ACTION: LEAVE: {origin_faction}]" if origin_faction != "Unknown" else "[ACTION: LEAVE]"
-                    else:
-                        final_tag = f"[ACTION: {matched_ka}{f': {args}' if args else ''}]"
-                
-                if "TASK:" in final_tag:
-                     last_hist = primary_data["ConversationHistory"][-1] if primary_data["ConversationHistory"] else ""
-                     if final_tag in last_hist: continue
-                
-                actions.append(final_tag)
-
+        judged = re.search(r'\[[^\]]*JUDGMENT\D*?(-?\d+)[^\]]*\]', content, re.IGNORECASE)
+        judgment_value = max(-5, min(5, int(judged.group(1)))) if judged else 0
         relation_deltas = {}
-        # The server derives this tag from the judgment, so the stored reply leaves it out and the model does not learn to add it too
-        derived_tag = None
-        if not is_ambient and global_judgment != 0:
+        if judgment_value and not is_ambient:
             # Applied as a delta at save time: the profile read before the LLM call can be stale by then
-            relation_deltas[primary_npc] = global_judgment
+            relation_deltas[primary_npc] = judgment_value
 
-            f_delta = 0
-            if global_judgment >= 5: f_delta = 2
-            elif global_judgment >= 4: f_delta = 1
-            elif global_judgment <= -5: f_delta = -2
-            elif global_judgment <= -4: f_delta = -1
-
-            if f_delta != 0:
-                npc_f = primary_data.get("Faction", "None")
-                if npc_f and npc_f not in ["None", "Nameless", "No Faction"]:
-                    derived_tag = f"[ACTION: FACTION_RELATIONS: {npc_f}: {f_delta}]"
-                    actions.append(derived_tag)
-                    logging.info(f"RELATION: Scheduled faction relation change via {primary_npc} for {npc_f}: {f_delta}")
-
+        # Allows one level of nested brackets: item names like "Bolts [Toothpicks]" contain them
         content = re.sub(r'\[\s*(?:[^\[\]]|\[[^\[\]]*\])+\s*\]', '', content).strip()
 
 
@@ -2101,9 +1975,6 @@ def chat():
         record_event_to_history("CHAT", primary_npc, player_name, content, actor_faction=primary_faction, target_faction=player_faction)
 
         reply_line = f"{primary_npc}: {content}"
-        stored_actions = [action for action in actions if action != derived_tag]
-        if stored_actions:
-            reply_line += f" {' '.join(stored_actions)}"
 
         for name in listeners:
             overheard_tag = "" if name == primary_npc else "(Overheard) "
@@ -2112,7 +1983,7 @@ def chat():
                 char_datas[name] = get_character_data(name, get_local_context(name))
 
             stored_lines = len(char_datas[name]["ConversationHistory"])
-            char_datas[name]["ConversationHistory"].append(f"{time_prefix}{overheard_tag}{player_name}{mode_action}: {player_message}")
+            char_datas[name]["ConversationHistory"].append(f"{time_prefix}{overheard_tag}{whisper_tag}{player_name}: {player_message}")
             char_datas[name]["ConversationHistory"].append(f"{time_prefix}{overheard_tag}{reply_line}")
 
             npc_id = npc_ids.get(name)
@@ -2122,9 +1993,9 @@ def chat():
                     new_rel = campaign_db.change_relation(npc_id, relation_deltas[name])
                     logging.info(f"RELATION: {name} personal relation is now {new_rel} (judgment={relation_deltas[name]})")
 
-        logging.debug(f"CHAT: Reply: {content} | Actions: {actions}")
+        logging.debug(f"CHAT: Reply: {content}")
         # The plugin takes the text before a first colon as the speaker, so the reply names its NPC first
-        return jsonify({"text": f"{primary_npc}: {content}", "actions": actions})
+        return jsonify({"text": f"{primary_npc}: {content}", "actions": []})
     return jsonify({"text": "...", "actions": []})
 
 

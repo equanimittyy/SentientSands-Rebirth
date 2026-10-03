@@ -25,12 +25,12 @@ class HistoryWindowTest(unittest.TestCase):
 class HistoryTurnsTest(unittest.TestCase):
     def test_the_npc_lines_are_assistant_turns_without_time_or_name(self):
         lines = [
-            "[Day 3, 14:01] Drifter [ACTION: WHISPERS TO Beep]: hi",
-            "[Day 3, 14:01] Beep: Beep friend! [ACTION: JUDGMENT: 2]",
+            "[Day 3, 14:01] (Whispered) Drifter: hi",
+            "[Day 3, 14:01] Beep: Beep friend!",
         ]
         self.assertEqual(chat_prompt.history_turns(lines, "Beep"), [
-            {"role": "user", "content": "[Day 3, 14:01] Drifter [ACTION: WHISPERS TO Beep]: hi"},
-            {"role": "assistant", "content": "Beep friend! [ACTION: JUDGMENT: 2]"},
+            {"role": "user", "content": "[Day 3, 14:01] (Whispered) Drifter: hi"},
+            {"role": "assistant", "content": "Beep friend!"},
         ])
 
     def test_lines_the_npc_heard_are_user_turns_and_merge(self):

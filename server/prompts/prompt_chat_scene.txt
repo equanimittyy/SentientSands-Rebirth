@@ -4,7 +4,7 @@ CURRENT LOCATION: {location}
 {events}
 
 {player_status}
-{player_inventory}
+{player_equipment}
 
 RELATION OF {npc_name} TO THE PLAYER: {relation} (Scale: -100 to 100)
 {condition}

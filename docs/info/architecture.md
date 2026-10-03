@@ -135,18 +135,20 @@ A chat request is ordered for a provider's prompt cache, which reuses only an id
 
 From one turn to the next, only the newest exchange and the last message are new, so the cache can serve the rest. Chats with different NPCs and banter share the start of the system message.
 
-`prompt_system.txt` holds the rules, the action tags, the world lore, and the player character, and `build_system_prompt` fills it. `scene_values` fills the parts that change on each call, for the chat scene and for banter. A block that appears only with data, such as the events or the player faction description, keeps its heading in the code, because a placeholder has no conditions. The `{world_lore}` placeholder takes the overview of the campaign (see [Campaign storage](#campaign-storage)).
+`prompt_system.txt` holds the rules, the world lore, and the player character, and `build_system_prompt` fills it. `scene_values` fills the parts that change on each call, for the chat scene and for banter. A block that appears only with data, such as the events or the player faction description, keeps its heading in the code, because a placeholder has no conditions. The `{world_lore}` placeholder takes the overview of the campaign (see [Campaign storage](#campaign-storage)).
 
 `npc_chat_template.txt` describes the NPC of a chat from its profile (`describe_npc`). Banter keeps its one-line list of NPCs in the code, because the plugin reads the `Name|ID` of each line.
 
 - The history is a block window of the stored dialogue (`chat_prompt.history_window`). It keeps its first line while it grows from 20 to 39 lines, and then it moves on by 20 lines. A window that moved with each new line would change the start of the history on every turn, so the cache could never serve it. For the same reason, `append_dialogue` drops old lines in whole blocks of 20 when an NPC has more than 260.
 - `chat_prompt.history_turns` makes each line that starts with the name of the NPC an assistant turn, without the time and the name, and every other line a user turn. A reply that was stored without the name, or under a name from before a rename, therefore counts as a user line, and the banter lines of the NPC count as its own turns.
-- The server stores a reply without the `FACTION_RELATIONS` tag that it derives from a strong judgment, so the model does not learn to add that tag itself.
+- The server stores a reply without its bracketed tags, such as the judgment.
 - Chat templates of the Mistral v3 family place the system text next to the last user message. With those models, the cache cannot serve the system message.
 
 The server answers a Yell with one NPC, as a Talk. A Yell differs only in that the NPCs within the yell radius overhear it, and the scene tells the NPC that the player speaks loudly.
 
 The reply text of `/chat` starts with the name of the NPC, because the plugin takes the text before a first colon as the speaker (`plugin/ui/ChatWindow.cpp`). A reply such as "Listen: ..." therefore stays with the NPC. The server removes a `*stage direction*` from a person's reply, but an animal replies only in `*actions*`, so those stay.
+
+A chat reply carries no game actions: the prompts offer the LLM no action tags, and the `actions` list of a `/chat` reply is empty. The server reads only the judgment of a reply, which changes the NPC's personal relation. The debug commands of the chat, such as `/attack`, still send their action to the plugin. The scene shows only the equipment that the player and the NPC wear or hold, because the contents of a bag mattered only for trading.
 
 The two profile prompts take `{race_lore}` from the race entries of the campaign (`describe_race`), matched by name or alias with case ignored. A template that describes its races therefore shapes new profiles, and a race with no entry gets a line that says so. The `{player_race}` of the system prompt takes the entry of the player's race in the same way, and only the name of a race with no entry.
 
