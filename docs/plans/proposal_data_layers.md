@@ -242,6 +242,13 @@ The player picks which squad member speaks in a chat. Today the speaker is alway
 
 Built. Each campaign holds its own copy of the factions, and the player edits that copy on the Campaign Canon subtab of the web app's Editor tab. [architecture.md](../info/architecture.md#factions) describes the faction store.
 
+### 6.3 Faction of an NPC
+
+The profile `Faction` is the faction that SSR tells the LLM. Today the server writes the faction that the game reports into it only while it is `Unknown` (`get_character_data`). An NPC that changes faction in game, for example a recruit, therefore keeps its old faction in the prompts.
+
+- The server checks the faction of an NPC only when a chat or ambient banter uses the NPC. It compares the profile `Faction` with the faction in the context of that request, and it writes the profile only when the two are different.
+- The server does not check on each context post. The plugin posts the context of the selected character every 1.5 s (`plugin/main.cpp:1246`), so a check there would run all the time, also for an NPC that no prompt uses.
+
 ## 7. SSR Vanilla template
 
 SSR writes the vanilla template itself. Today the template holds the overview, 17 history entries, 80 factions, 211 characters, 7 races, 69 regions, and 164 locations.
@@ -339,6 +346,7 @@ Tests:
 2. Should an existing campaign be able to take a newer version of its template, and how does that merge with `origin = 'campaign'` changes?
 3. Should retrieval also search the faction and character stores, so that a question about the Holy Nation or Beep brings their records into the prompt? Should a lore field, such as the owner of a town, link to a faction?
 4. What does the knowledge bank of a character hold, and how does a character get it?
+5. Should the player's edit of an NPC's `Faction` on Campaign Canon survive the faction check of [section 6.3](#63-faction-of-an-npc)? The check replaces the edit the next time that a chat uses the NPC.
 
 ## 13. References
 
