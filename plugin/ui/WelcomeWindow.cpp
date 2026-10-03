@@ -65,7 +65,7 @@ void CreateWelcomeUI() {
     CloseWelcomeUI();
 
   g_welcomeWindow = gui->createWidgetReal<MyGUI::Window>(
-      "Kenshi_WindowCX", 0.32f, 0.10f, 0.36f, 0.45f, MyGUI::Align::Center,
+      "Kenshi_WindowCX", 0.32f, 0.10f, 0.36f, 0.52f, MyGUI::Align::Center,
       "Popup", "SentientSands_WelcomeWindow");
   g_welcomeWindow->setCaption(
       Utf8ToWide(T("Welcome to Sentient Sands Rebirth")).c_str());
@@ -87,17 +87,6 @@ void CreateWelcomeUI() {
   l1->setTextColour(MyGUI::Colour(0.85f, 0.85f, 0.85f));
   yProg += yDelta;
 
-  MyGUI::TextBox *l2 = client->createWidgetReal<MyGUI::TextBox>(
-      "Kenshi_TextboxStandardText", 0.05f, yProg, 0.9f, 0.06f,
-      MyGUI::Align::Top | MyGUI::Align::HStretch, "SentientSands_WelcomeL2");
-  l2->setCaption(
-      Utf8ToWide(T("Sentient Sands Rebirth is a work in progress... you WILL "
-                   "encounter bugs!"))
-          .c_str());
-  l2->setTextAlign(MyGUI::Align::Center);
-  l2->setTextColour(MyGUI::Colour(1.0f, 0.6f, 0.6f));
-  yProg += yDelta;
-
   MyGUI::TextBox *l3 = client->createWidgetReal<MyGUI::TextBox>(
       "Kenshi_TextboxStandardText", 0.05f, yProg, 0.9f, 0.06f,
       MyGUI::Align::Top | MyGUI::Align::HStretch, "SentientSands_WelcomeL3");
@@ -116,9 +105,39 @@ void CreateWelcomeUI() {
                      .c_str());
   l4->setTextAlign(MyGUI::Align::Center);
   l4->setTextColour(MyGUI::Colour(1.0f, 0.9f, 0.5f));
+  yProg += yDelta;
+
+  MyGUI::TextBox *l5 = client->createWidgetReal<MyGUI::TextBox>(
+      "Kenshi_TextboxStandardText", 0.05f, yProg, 0.9f, 0.06f,
+      MyGUI::Align::Top | MyGUI::Align::HStretch, "SentientSands_WelcomeL5");
+  l5->setCaption(Utf8ToWide(T("Many original Sentient Sands features are now "
+                              "in the SSR web app"))
+                     .c_str());
+  l5->setTextAlign(MyGUI::Align::Center);
+  l5->setTextColour(MyGUI::Colour(0.85f, 0.85f, 0.85f));
+  yProg += yDelta;
+
+  MyGUI::TextBox *l6 = client->createWidgetReal<MyGUI::TextBox>(
+      "Kenshi_TextboxStandardText", 0.05f, yProg, 0.9f, 0.06f,
+      MyGUI::Align::Top | MyGUI::Align::HStretch, "SentientSands_WelcomeL6");
+  l6->setCaption(Utf8ToWide(T("In game: chat with NPCs, the Dialogue Library, "
+                              "and world events"))
+                     .c_str());
+  l6->setTextAlign(MyGUI::Align::Center);
+  l6->setTextColour(MyGUI::Colour(0.85f, 0.85f, 0.85f));
+  yProg += yDelta;
+
+  MyGUI::TextBox *l7 = client->createWidgetReal<MyGUI::TextBox>(
+      "Kenshi_TextboxStandardText", 0.05f, yProg, 0.9f, 0.06f,
+      MyGUI::Align::Top | MyGUI::Align::HStretch, "SentientSands_WelcomeL7");
+  l7->setCaption(Utf8ToWide(T("Web app: settings, LLM models, prompts, "
+                              "campaigns, and the editor"))
+                     .c_str());
+  l7->setTextAlign(MyGUI::Align::Center);
+  l7->setTextColour(MyGUI::Colour(0.85f, 0.85f, 0.85f));
 
   MyGUI::TextBox *instructions = client->createWidgetReal<MyGUI::TextBox>(
-      "Kenshi_TextboxStandardText", 0.05f, 0.40f, 0.9f, 0.1f,
+      "Kenshi_TextboxStandardText", 0.05f, 0.47f, 0.9f, 0.1f,
       MyGUI::Align::Top | MyGUI::Align::HStretch, "SentientSands_WelcomeKeys");
   std::string keysText =
       T("Use [ {key} ] to Chat and [ F8 ] to open the SSR HUB");
@@ -130,7 +149,7 @@ void CreateWelcomeUI() {
   instructions->setTextColour(MyGUI::Colour(0.6f, 1.0f, 0.6f));
 
   g_welcomeCheckbox = client->createWidgetReal<MyGUI::Button>(
-      "Kenshi_Button1", 0.05f, 0.55f, 0.9f, 0.12f,
+      "Kenshi_Button1", 0.05f, 0.61f, 0.9f, 0.12f,
       MyGUI::Align::Top | MyGUI::Align::HStretch,
       "SentientSands_WelcomeToggle");
   g_welcomeCheckbox->setCaption(Utf8ToWide(g_enableWelcome
@@ -141,7 +160,7 @@ void CreateWelcomeUI() {
       MyGUI::newDelegate(OnWelcomeToggleClick);
 
   MyGUI::Button *saveBtn = client->createWidgetReal<MyGUI::Button>(
-      "Kenshi_Button1", 0.29f, 0.75f, 0.42f, 0.18f,
+      "Kenshi_Button1", 0.29f, 0.78f, 0.42f, 0.18f,
       MyGUI::Align::Bottom | MyGUI::Align::HCenter,
       "SentientSands_WelcomeSaveBtn");
   saveBtn->setCaption(Utf8ToWide(T("CLOSE")).c_str());
