@@ -6,8 +6,8 @@ const PROFILE_KEYS = ["Name", "Race", "Sex", "Faction", "Job", "Personality", "B
 const LONG_PROFILE_KEYS = ["Personality", "Backstory", "SpeechQuirks"];
 const CHOICE_KEYS = ["Race", "Sex", "Faction"];
 const CHOICE_HELP = {
-  Race: "The choices are the race entries. Unknown also stands for a race that has no entry.",
-  Faction: "The choices are the factions. Unknown also stands for a faction that has no record.",
+  Race: "The race of the character.",
+  Faction: "The faction the character currently belongs to.",
 };
 const KIND_LABELS = { manifest: "Template info", overview: "Overview", history: "History", faction: "Faction", character: "Character" };
 const CATEGORY_LABELS = { races: "Race", locations: "Location", regions: "Region" };
