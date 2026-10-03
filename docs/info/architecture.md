@@ -86,6 +86,8 @@ The Campaigns and Editor pages hold many records. Save sends one request for eac
 
 The Editor has two subtabs with the same record list and forms. Campaign Canon edits the canon of the active campaign, and Templates edits the world templates that new campaigns copy. The page holds the records of one subtab and one template at a time, so a switch with unsaved changes asks the player first. A shipped template is read-only, so the page offers a duplicate.
 
+On Campaign Canon, the record list hides the records whose `origin` is `template` until the player turns on **Show seeded data**, and the browser remembers the switch. The overview and the history have no `origin`, so they always show.
+
 ## Settings
 
 The server is the only writer of `SentientSands_Config.ini`. The plugin reads the INI once at start, because it starts before the server. After that, it takes changes only through `SET_CONFIG` on the pipe. Two writers with no lock between them would undo each other's changes.

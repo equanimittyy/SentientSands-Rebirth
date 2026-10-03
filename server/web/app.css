@@ -769,6 +769,50 @@ input[type="search"] {
   gap: 0.5rem;
 }
 
+.switch {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0;
+  border: none;
+  background: none;
+}
+
+.switch .track {
+  position: relative;
+  flex-shrink: 0;
+  width: 2.2rem;
+  height: 1.2rem;
+  border: 1px solid var(--field-border);
+  border-radius: 999px;
+  background: var(--field);
+}
+
+.switch:hover .track {
+  border-color: var(--accent);
+}
+
+.switch .track::after {
+  content: "";
+  position: absolute;
+  top: 0.15rem;
+  left: 0.15rem;
+  width: 0.9rem;
+  height: 0.9rem;
+  border-radius: 50%;
+  background: var(--muted);
+}
+
+.switch[aria-checked="true"] .track {
+  border-color: var(--accent-strong);
+  background: var(--accent-strong);
+}
+
+.switch[aria-checked="true"] .track::after {
+  left: 1.15rem;
+  background: var(--on-accent);
+}
+
 .record-list {
   max-height: 55vh;
   overflow-y: auto;

@@ -8,7 +8,7 @@ const KIND_LABELS = { manifest: "Template info", overview: "Overview", history: 
 const CATEGORY_LABELS = { races: "Race", locations: "Location", regions: "Region" };
 const TEMPLATE_PARTS = ["manifest", "overview", "history"];
 const SOURCES = [["campaign", "Campaign Canon"], ["template", "Templates"]];
-const ORIGIN_LABELS = { template: "From the template", game: "Met in game", campaign: "Added in this campaign" };
+const ORIGIN_LABELS = { template: "Seeded", game: "Met in game", campaign: "Added in this campaign" };
 const IMPORT_PROBLEMS_SHOWN = 10;
 
 let source = "campaign";
@@ -23,6 +23,8 @@ const notes = new Map();
 let selected = "overview";
 let query = "";
 let kindFilter = "all";
+let showSeeded = false;
+try { showSeeded = localStorage.getItem("showSeeded") === "true"; } catch {}
 let newCount = 0;
 const creation = { kind: "faction", name: "" };
 const duplication = { name: "" };
@@ -347,7 +349,7 @@ function renderList() {
   const list = page.querySelector("#record-list");
   if (!list) return;
   const needle = query.trim().toLowerCase();
-  const shown = allRecords().filter((record) => (kindFilter === "all" || filterValue(record) === kindFilter) && (!needle || searchText(record).includes(needle)));
+  const shown = allRecords().filter((record) => (showSeeded || record.origin !== "template") && (kindFilter === "all" || filterValue(record) === kindFilter) && (!needle || searchText(record).includes(needle)));
   list.replaceChildren(...shown.map((record) => {
     const item = el("button", {
       type: "button",
@@ -369,6 +371,27 @@ function filterSelect() {
   const select = el("select", { onchange: (event) => { kindFilter = event.target.value; renderList(); } }, ...options.map(([value, text]) => new Option(text, value, false, value === kindFilter)));
   select.setAttribute("aria-label", "Show only");
   return select;
+}
+
+function seededSwitch() {
+  const toggle = el("button", {
+    type: "button",
+    className: "switch",
+    title: "Entries that the campaign copied from its template when you created it.",
+    onclick: () => {
+      showSeeded = !showSeeded;
+      try {
+        localStorage.setItem("showSeeded", String(showSeeded));
+      } catch {
+        // Storage can be blocked, for example in a private window; the switch then lasts until the page reloads.
+      }
+      toggle.setAttribute("aria-checked", String(showSeeded));
+      renderList();
+    },
+  }, el("span", { className: "track" }), "Show seeded data");
+  toggle.setAttribute("role", "switch");
+  toggle.setAttribute("aria-checked", String(showSeeded));
+  return toggle;
 }
 
 function newRecordForm() {
@@ -648,7 +671,7 @@ function render() {
     renderSubtabs(),
     source === "template" ? renderTemplateBar() : renderCanonBar(),
     (source === "template" ? template : canon) ? el("div", { className: "editor-layout" },
-      el("div", { className: "record-panel" }, search, filterSelect(), el("div", { id: "record-list", className: "record-list" }), newRecordForm()),
+      el("div", { className: "record-panel" }, source === "campaign" ? seededSwitch() : null, search, filterSelect(), el("div", { id: "record-list", className: "record-list" }), newRecordForm()),
       el("div", { id: "record-form" })) : null);
   renderList();
   renderForm();
