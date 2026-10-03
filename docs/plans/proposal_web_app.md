@@ -6,7 +6,7 @@ Status: Draft for review
 
 The web app ([architecture.md](../info/architecture.md#web-app)) holds the gameplay settings, the LLM routing, and the prompts. This proposal adds domain editors for the campaign database ([architecture.md](../info/architecture.md#campaign-storage)) and the world templates from [proposal_data_layers.md](proposal_data_layers.md).
 
-Two tabs hold the editors. The Campaigns tab edits the active campaign, and the Editor tab edits the world templates. The built parts are in [architecture.md](../info/architecture.md#web-app): the campaign list and the creation of a campaign from a template, the overview, factions, rumors, and events of the active campaign, and the search, edit, duplicate, and delete of templates and their records. The rest depends on later phases of the data layers proposal: the characters on phase 2, the import and export on phase 3, and the campaign's world lore on phase 5.
+Two tabs hold the editors. The Campaigns tab manages the campaigns and edits the rumors and events of the active campaign. The Editor tab has two subtabs with the same forms: Campaign Canon edits the canon of the active campaign, and Templates edits the world templates that new campaigns copy. The built parts are in [architecture.md](../info/architecture.md#web-app): the campaign list and the creation of a campaign from a template, the rumors and events of the active campaign, the search, edit, add, and delete of canon records in the active campaign and in a template, and the duplicate and delete of templates. The rest depends on later phases of the data layers proposal: the character store on phase 2, the import and export on phase 3, and the prompt use of the campaign's world lore on phase 5.
 
 ## 2. Scope
 
@@ -15,7 +15,7 @@ The editor works on the user world templates and the active campaign database. O
 | Tab | Still to build |
 |---|---|
 | Editor | Import and export of templates, with the authors and credits shown before an import. A form for the access rules, when the Kayak converter sets their schema. |
-| Campaigns | The profile, dialogue history, and favorite of each character of the active campaign, NPCs and player characters alike, with the bio of each player character ([data layers proposal, section 6.1](proposal_data_layers.md#61-player-characters)). The world lore of the campaign. |
+| Campaigns | The profile, dialogue history, and favorite of each character of the active campaign, NPCs and player characters alike, with the bio of each player character ([data layers proposal, section 6.1](proposal_data_layers.md#61-player-characters)). |
 
 Non-goals:
 

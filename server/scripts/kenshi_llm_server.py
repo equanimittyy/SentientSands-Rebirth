@@ -2836,8 +2836,6 @@ def get_active_campaign():
             "status": "ok",
             "name": ACTIVE_CAMPAIGN,
             "template": campaign_db.template_info(),
-            "overview": campaign_db.overview(),
-            "factions": campaign_db.list_factions(),
             "events": [{"id": event_id, "line": line} for event_id, line in campaign_db.events()],
             "rumors": rumors,
         })
@@ -2850,40 +2848,120 @@ def campaign_write(data):
         return jsonify({"status": "error", "message": f"The active campaign is now {ACTIVE_CAMPAIGN}. Discard to load it."}), 409
     return None
 
-@app.route('/api/campaign/overview', methods=['POST'])
-def save_campaign_overview():
-    data = request.get_json(silent=True) or {}
-    refused = campaign_write(data)
-    if refused: return refused
-    text = data.get("text")
-    if not isinstance(text, str):
-        return jsonify({"status": "error", "errors": [{"field": ["overview"], "message": "The overview must be text."}]}), 400
-    campaign_db.set_overview(text.replace("\r\n", "\n").strip())
-    logging.info(f"CAMPAIGN: Saved the overview of '{ACTIVE_CAMPAIGN}' from the web app")
-    return jsonify({"status": "ok"})
+@app.route('/api/campaign/canon', methods=['GET'])
+def get_campaign_canon():
+    try:
+        return jsonify({
+            "status": "ok",
+            "name": ACTIVE_CAMPAIGN,
+            "template": campaign_db.template_info(),
+            "overview": campaign_db.overview(),
+            "history": campaign_db.history(),
+            "factions": [
+                {"id": f["faction_id"], "data": {"game_id": f["faction_id"], **{key: f[key] for key in campaign_db.FACTION_KEYS}}, "is_player": f["is_player"], "origin": f["origin"], "updated_at": f["updated_at"]}
+                for f in campaign_db.list_factions()
+            ],
+            "characters": [
+                {"id": game_id, "data": {"game_id": game_id, "profile": profile}, "origin": origin, "updated_at": updated_at}
+                for (game_id,), profile, origin, updated_at in campaign_db.list_records("character")
+            ],
+            "entities": [
+                {"category": category, "id": ext_id, "data": data, "origin": origin, "updated_at": updated_at}
+                for (category, ext_id), data, origin, updated_at in campaign_db.list_records("entity")
+            ],
+        })
+    except campaign_db.CampaignUnavailable as e:
+        return jsonify({"status": "error", "name": ACTIVE_CAMPAIGN, "message": str(e)}), 409
 
-@app.route('/api/campaign/factions', methods=['POST'])
-def save_campaign_faction():
+def record_refusal(errors):
+    return jsonify({"status": "error", "errors": errors}), 400
+
+@app.route('/api/campaign/records', methods=['POST'])
+def save_campaign_record():
     data = request.get_json(silent=True) or {}
     refused = campaign_write(data)
     if refused: return refused
-    faction_id = data.get("faction_id")
-    changes = {key: value for key, value in (data.get("changes") or {}).items() if key in campaign_db.FACTION_KEYS}
+    kind, record_id, value = data.get("kind"), data.get("id"), data.get("data")
+    # A record that the page loaded must name its version, so a missing one counts as stale
+    updated_at = None if record_id is None else data.get("updated_at") or ""
+    warnings = []
+    if kind in ("overview", "history"):
+        if kind == "overview" and isinstance(value, str):
+            value = value.replace("\r\n", "\n").strip()
+        errors, _ = world_template.record_problems(kind, value, [kind])
+        if errors: return record_refusal(errors)
+        (campaign_db.set_overview if kind == "overview" else campaign_db.set_history)(value)
+    elif kind in ("faction", "character", "entity"):
+        value = value if isinstance(value, dict) else {}
+        if kind != "entity":
+            record_id = record_id or value.get("game_id")
+        try:
+            if kind == "faction":
+                warnings = save_campaign_faction(record_id, value, updated_at)
+            elif kind == "character":
+                character = {"game_id": record_id, "profile": value.get("profile")}
+                errors, _ = world_template.record_problems("character", character, ["characters", data.get("id") or "new"])
+                if errors: return record_refusal(errors)
+                campaign_db.save_record("character", (record_id,), character["profile"], updated_at)
+            else:
+                category = data.get("category")
+                if not isinstance(category, str) or not category.strip():
+                    return record_refusal([{"field": ["category"], "message": "Give the world entry a category."}])
+                stored = campaign_db.list_records("entity")
+                record_id = record_id or world_template.new_id(value, {ext_id for (stored_category, ext_id), *_ in stored if stored_category == category})
+                names = world_template.entity_names([entity for key, entity, *_ in stored if key != (category, record_id)] + [value])
+                errors, warnings = world_template.record_problems("entity", value, ["entities", category, data.get("id") or "new"], names)
+                if errors: return record_refusal(errors)
+                campaign_db.save_record("entity", (category, record_id), value, updated_at)
+        except world_template.TemplateError as e:
+            return record_refusal(e.errors)
+        except campaign_db.DuplicateRecord:
+            field = ["entities", data.get("category"), "new"] if kind == "entity" else [f"{kind}s", "new", "game_id"]
+            return record_refusal([{"field": field, "message": f"This campaign already holds the {kind} {record_id}."}])
+        except campaign_db.StaleRecord:
+            name = value.get("name") or (value.get("profile") or {}).get("Name") or record_id
+            return jsonify({"status": "error", "message": f"The {kind} {name} changed after the page loaded it, for example in game. Discard to load it again."}), 409
+    else:
+        return record_refusal([{"field": ["kind"], "message": f"{kind} is not a kind of record."}])
+    logging.info(f"CAMPAIGN: Saved the {kind} {record_id or ''} of '{ACTIVE_CAMPAIGN}' from the web app")
+    return jsonify({"status": "ok", "id": record_id, "warnings": warnings})
+
+def save_campaign_faction(faction_id, value, updated_at):
+    """Returns the warnings. Raises world_template.TemplateError, or a campaign_db error, with the reason."""
+    changes = {key: value[key] for key in campaign_db.FACTION_KEYS if key in value}
+    if updated_at is None:
+        faction = {"aliases": [], "major": False, "fields": {}, "description": "", **changes, "game_id": faction_id}
+        errors, warnings = world_template.record_problems("faction", faction, ["factions", "new"])
+        if errors: raise world_template.TemplateError(errors)
+        campaign_db.add_faction(faction_id, faction)
+        return warnings
     stored = campaign_db.find_faction(faction_id)
     if not stored:
-        return jsonify({"status": "error", "message": f"The faction {faction_id} is not in this campaign."}), 404
+        raise campaign_db.StaleRecord(faction_id)
     # The game names the player's faction, and the next context would undo another name
     if stored["is_player"]:
         changes.pop("name", None)
-    errors = world_template.faction_errors(dict(stored, game_id=faction_id, **changes), ["factions", faction_id])
-    if errors:
-        return jsonify({"status": "error", "errors": errors}), 400
-    try:
-        saved = campaign_db.update_faction(faction_id, changes, data.get("updated_at"))
-    except campaign_db.StaleRecord:
-        return jsonify({"status": "error", "message": f"The game changed {stored['name']} after the page loaded it. Discard to load it again."}), 409
-    logging.info(f"CAMPAIGN: Saved the faction {saved['name']} of '{ACTIVE_CAMPAIGN}' from the web app")
-    return jsonify({"status": "ok", "faction": saved})
+    errors, warnings = world_template.record_problems("faction", dict(stored, game_id=faction_id, **changes), ["factions", faction_id])
+    if errors: raise world_template.TemplateError(errors)
+    campaign_db.update_faction(faction_id, changes, updated_at)
+    return warnings
+
+@app.route('/api/campaign/records/delete', methods=['POST'])
+def delete_campaign_record():
+    data = request.get_json(silent=True) or {}
+    refused = campaign_write(data)
+    if refused: return refused
+    kind, record_id = data.get("kind"), data.get("id")
+    if kind == "faction":
+        campaign_db.delete_faction(record_id)
+    elif kind == "character":
+        campaign_db.delete_record("character", (record_id,))
+    elif kind == "entity":
+        campaign_db.delete_record("entity", (data.get("category"), record_id))
+    else:
+        return record_refusal([{"field": ["kind"], "message": f"{kind} is not a kind of record."}])
+    logging.info(f"CAMPAIGN: Deleted the {kind} {record_id} of '{ACTIVE_CAMPAIGN}' from the web app")
+    return jsonify({"status": "ok"})
 
 @app.route('/api/campaign/rumors', methods=['POST'])
 def save_campaign_rumor():

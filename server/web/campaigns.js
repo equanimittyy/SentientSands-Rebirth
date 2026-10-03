@@ -6,38 +6,14 @@ let campaigns = [];
 let templates = [];
 let active = null;
 let refusal = "";
-const draft = { overview: "" };
-let factionDrafts = {};
 let rumorDrafts = {};
 const notes = new Map();
-const openCards = new Set();
 const creation = { name: "", template: "" };
-let factionFilter = "";
 
-const commaList = (text) => text.split(",").map((item) => item.trim()).filter(Boolean);
-const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
 const count = (number, noun) => `${number} ${noun}${number === 1 ? "" : "s"}`;
 
-function factionDraft(faction) {
-  return {
-    name: faction.name,
-    aliases: faction.aliases.join(", "),
-    major: faction.major,
-    description: faction.description,
-    fields: Object.entries(faction.fields).map(([key, value]) => ({ key, value: Array.isArray(value) ? value.join(", ") : value, list: Array.isArray(value) })),
-  };
-}
-
-function factionChanges(faction) {
-  const fields = {};
-  for (const row of faction.fields) if (row.key.trim()) fields[row.key.trim()] = row.list ? commaList(row.value) : row.value.trim();
-  return { name: faction.name.trim(), aliases: commaList(faction.aliases), major: faction.major, fields, description: faction.description.trim() };
-}
-
-const changedFactions = () => (active?.factions ?? []).filter((faction) => !same(factionChanges(factionDrafts[faction.faction_id]), factionChanges(factionDraft(faction))));
 const changedRumors = () => (active?.rumors ?? []).filter((rumor) => rumorDrafts[rumor.id].trim() !== rumor.text);
-const overviewChanged = () => active !== null && draft.overview.trim() !== active.overview;
-const hasChanges = () => overviewChanged() || changedFactions().length > 0 || changedRumors().length > 0;
+const hasChanges = () => changedRumors().length > 0;
 
 function updateUnsaved() {
   reportUnsaved(page, hasChanges());
@@ -70,17 +46,6 @@ function iconButton(name, label, onClick) {
   return button;
 }
 
-function collapsible(key, summary, ...children) {
-  return el("details", {
-    className: "card",
-    open: openCards.has(key),
-    ontoggle: (event) => {
-      if (event.target.open) openCards.add(key);
-      else openCards.delete(key);
-    },
-  }, el("summary", {}, ...summary), ...children);
-}
-
 const templateTitle = (name) => templates.find((template) => template.name === name)?.title ?? name;
 
 function render() {
@@ -110,7 +75,7 @@ function renderCampaigns() {
       template,
       el("button", { type: "submit" }, "Create")),
     noteLine("create"),
-    el("p", { className: "hint" }, "A new campaign starts with a copy of the overview and the factions of its world template. Edit the templates on the Editor tab."));
+    el("p", { className: "hint" }, "A new campaign starts with a copy of the canon of its world template: the overview, history, factions, characters, and world entries. Edit the templates, and the canon of the current campaign, on the Editor tab."));
 }
 
 function renderCurrent() {
@@ -126,74 +91,7 @@ function renderCurrent() {
 }
 
 function renderActive() {
-  if (!active) return [];
-  return [
-    el("fieldset", {},
-      el("legend", {}, "Overview"),
-      el("p", { className: "hint" }, "The world lore that every NPC of this campaign knows."),
-      textInput(draft, "overview", ["overview"], { tag: "textarea", className: "tall", label: "Overview" }),
-      noteLine("overview")),
-    renderFactions(),
-    renderRumors(),
-    renderEvents(),
-  ];
-}
-
-function fieldRows(rows, path) {
-  return el("fieldset", {},
-    el("legend", {}, "Fields"),
-    el("p", { className: "hint" }, "Short facts about the faction, for example its leader. NPCs read them with the description."),
-    ...rows.map((row, index) => el("div", { className: "inline row" },
-      textInput(row, "key", [...path, index, "key"], { placeholder: "Name, for example leader", label: "Field name" }),
-      textInput(row, "value", [...path, index, "value"], { placeholder: row.list ? "Values, separated by commas" : "Value", label: "Field value" }),
-      iconButton("trash", "Remove the field", () => { rows.splice(index, 1); updateUnsaved(); render(); }))),
-    el("button", { type: "button", onclick: () => { rows.push({ key: "", value: "", list: false }); render(); } }, "Add field"));
-}
-
-function factionCard(faction) {
-  const id = faction.faction_id;
-  const edit = factionDrafts[id];
-  const path = (key) => ["factions", id, key];
-  const major = el("input", { type: "checkbox", checked: edit.major, onchange: (event) => { edit.major = event.target.checked; updateUnsaved(); } });
-  return collapsible(`faction:${id}`,
-    [
-      el("strong", { className: "name" }, faction.name),
-      el("span", { className: "detail" }, id),
-      faction.is_player ? el("span", { className: "badge ok" }, "Your faction") : null,
-      faction.major ? el("span", { className: "badge" }, "Major") : null,
-      el("span", { className: "badge" }, faction.origin === "template" ? "From the template" : "Met in game"),
-    ],
-    field("Name", textInput(edit, "name", path("name"), { disabled: faction.is_player }), null,
-      faction.is_player ? "The name of your faction in game. Rename your faction in game to change it." : "The name that NPCs use for the faction."),
-    field("Aliases", textInput(edit, "aliases", path("aliases")), null, "Other names of the faction, separated by commas, for example Okranites."),
-    el("label", { className: "check" }, major, "Major world power. Its members resist an offer to join your squad."),
-    fieldRows(edit.fields, path("fields")),
-    field("Description", textInput(edit, "description", path("description"), { tag: "textarea", rows: 4 }), null, "What NPCs know about the faction."),
-    noteLine(`faction:${id}`));
-}
-
-function matchingFactions() {
-  const query = factionFilter.trim().toLowerCase();
-  return active.factions.filter((faction) => !query || [faction.name, faction.faction_id, faction.description, ...faction.aliases, ...Object.values(faction.fields).flat()].some((text) => text.toLowerCase().includes(query)));
-}
-
-function renderFactions() {
-  const list = el("div", {}, ...matchingFactions().map(factionCard));
-  const search = el("input", {
-    type: "search",
-    placeholder: "Search the factions",
-    value: factionFilter,
-    oninput: (event) => {
-      factionFilter = event.target.value;
-      list.replaceChildren(...matchingFactions().map(factionCard));
-    },
-  });
-  search.setAttribute("aria-label", "Search the factions");
-  return el("fieldset", {},
-    el("legend", {}, `Factions (${active.factions.length})`),
-    el("p", { className: "hint" }, "The factions of this campaign. A faction that you meet in game and that the template lacks gets an empty entry here, so you can describe it. The description of your faction tells every NPC who your squad is."),
-    search,
-    list);
+  return active ? [renderRumors(), renderEvents()] : [];
 }
 
 function renderRumors() {
@@ -273,25 +171,13 @@ async function deleteRow(kind, id) {
 }
 
 function unsavedDrafts() {
-  return {
-    overview: overviewChanged() ? draft.overview : null,
-    factions: Object.fromEntries(changedFactions().map((faction) => [faction.faction_id, factionDrafts[faction.faction_id]])),
-    rumors: Object.fromEntries(changedRumors().map((rumor) => [rumor.id, rumorDrafts[rumor.id]])),
-  };
+  return { rumors: Object.fromEntries(changedRumors().map((rumor) => [rumor.id, rumorDrafts[rumor.id]])) };
 }
 
 async function save() {
   if (!active) return;
   const kept = unsavedDrafts();
   const jobs = [];
-  if (kept.overview !== null) {
-    jobs.push(["overview", () => { kept.overview = null; }, () => sendJson("POST", "/api/campaign/overview", { campaign: active.name, text: draft.overview })]);
-  }
-  for (const faction of changedFactions()) {
-    const id = faction.faction_id;
-    const changes = factionChanges(factionDrafts[id]);
-    jobs.push([`faction:${id}`, () => { delete kept.factions[id]; }, () => sendJson("POST", "/api/campaign/factions", { campaign: active.name, faction_id: id, updated_at: faction.updated_at, changes })]);
-  }
   for (const rumor of changedRumors()) {
     jobs.push([`rumor:${rumor.id}`, () => { delete kept.rumors[rumor.id]; }, () => sendJson("POST", "/api/campaign/rumors", { campaign: active.name, id: rumor.id, text: rumorDrafts[rumor.id] })]);
   }
@@ -308,7 +194,6 @@ async function save() {
     } catch (error) {
       failed += 1;
       notes.set(key, { error: true, text: error.message, field: error.fieldErrors?.[0]?.field });
-      openCards.add(key);
     }
   }
   if (!(await fetchAll(kept))) return;
@@ -336,8 +221,6 @@ async function fetchAll(kept) {
     showMessage(message, `Could not load the campaigns: ${error.message}`, true);
     return false;
   }
-  draft.overview = kept.overview ?? active?.overview ?? "";
-  factionDrafts = Object.fromEntries((active?.factions ?? []).map((faction) => [faction.faction_id, kept.factions[faction.faction_id] ?? factionDraft(faction)]));
   rumorDrafts = Object.fromEntries((active?.rumors ?? []).map((rumor) => [rumor.id, kept.rumors[rumor.id] ?? rumor.text]));
   render();
   updateUnsaved();
@@ -346,7 +229,7 @@ async function fetchAll(kept) {
 
 export async function loadCampaigns() {
   notes.clear();
-  return fetchAll({ overview: null, factions: {}, rumors: {} });
+  return fetchAll({ rumors: {} });
 }
 
 document.getElementById("campaigns-save").addEventListener("click", save);

@@ -7,7 +7,12 @@ const LONG_PROFILE_KEYS = ["Personality", "Backstory", "SpeechQuirks"];
 const SUGGESTED_CATEGORIES = ["locations", "zones", "items", "races"];
 const KIND_LABELS = { manifest: "Template info", overview: "Overview", history: "History", faction: "Faction", character: "Character", entity: "World entry" };
 const TEMPLATE_PARTS = ["manifest", "overview", "history"];
+const SOURCES = [["campaign", "Campaign Canon"], ["template", "Templates"]];
+const ORIGIN_LABELS = { template: "From the template", game: "Met in game", campaign: "Added in this campaign" };
 
+let source = "campaign";
+let canon = null;
+let refusal = "";
 let templates = [];
 let current = "";
 let template = null;
@@ -23,7 +28,8 @@ const duplication = { name: "" };
 
 const commaList = (text) => text.split(",").map((item) => item.trim()).filter(Boolean);
 const lineList = (text) => text.split("\n").map((item) => item.trim()).filter(Boolean);
-const readOnly = () => !template || template.builtin;
+const readOnly = () => (source === "template" ? !template || template.builtin : !canon);
+const inCampaign = (record) => source === "campaign" && !record.isNew;
 
 function numberOr(text) {
   const number = Number(text);
@@ -112,6 +118,14 @@ function savedRecords(loaded) {
   return list;
 }
 
+function canonRecords(loaded) {
+  const list = ["overview", "history"].map((kind) => ({ key: kind, kind, data: loaded[kind] }));
+  for (const entry of loaded.factions) list.push({ key: `faction/${entry.id}`, kind: "faction", ...entry });
+  for (const entry of loaded.characters) list.push({ key: `character/${entry.id}`, kind: "character", ...entry });
+  for (const entry of loaded.entities) list.push({ key: `entity/${entry.category}/${entry.id}`, kind: "entity", ...entry });
+  return list;
+}
+
 function allRecords() {
   return [...records, ...[...drafts.values()].filter((entry) => entry.isNew)];
 }
@@ -169,10 +183,10 @@ function changed() {
   renderList();
 }
 
-function control(tag, object, key, path, { label, ...props } = {}) {
+function control(tag, object, key, path, { label, disabled = false, ...props } = {}) {
   const input = el(tag, {
     ...props,
-    disabled: readOnly(),
+    disabled: disabled || readOnly(),
     value: object[key],
     oninput: (event) => {
       object[key] = event.target.value;
@@ -210,23 +224,29 @@ function rowsEditor(legend, hint, list, path, { long = false, placeholder = "Nam
     addButton(`Add ${legend.toLowerCase().replace(/s$/, "")}`, () => list.push({ key: "", value: "", list: false })));
 }
 
-function factionForm(form, path) {
+function gameIdField(form, path, record, help) {
+  const locked = inCampaign(record);
+  return field("Game ID", control("input", form, "game_id", [...path, "game_id"], { disabled: locked }), null, `${help}${locked ? " It cannot change after you add the entry." : ""}`);
+}
+
+function factionForm(form, path, record) {
   const major = el("input", { type: "checkbox", checked: form.major, disabled: readOnly(), onchange: (event) => { form.major = event.target.checked; changed(); } });
   return [
-    field("Game ID", control("input", form, "game_id", [...path, "game_id"]), null, "The string ID of the faction in the game data, for example 1083-gamedata.base. The Forgotten Construction Set (FCS) shows it."),
-    field("Name", control("input", form, "name", [...path, "name"]), null, "The name that NPCs use for the faction."),
+    gameIdField(form, path, record, "The string ID of the faction in the game data, for example 1083-gamedata.base. The Forgotten Construction Set (FCS) shows it."),
+    field("Name", control("input", form, "name", [...path, "name"], { disabled: record.is_player }), null,
+      record.is_player ? "The name of your faction in game. Rename your faction in game to change it." : "The name that NPCs use for the faction."),
     field("Aliases", control("input", form, "aliases", [...path, "aliases"]), null, "Other names of the faction, separated by commas."),
     el("label", { className: "check" }, major, "Major world power. Its members resist an offer to join your squad."),
     rowsEditor("Fields", "Short facts about the faction, for example its leader.", form.fields, [...path, "fields"]),
-    field("Description", control("textarea", form, "description", [...path, "description"], { rows: 5 }), null, "What NPCs know about the faction."),
+    field("Description", control("textarea", form, "description", [...path, "description"], { rows: 5 }), null, record.is_player ? "What every NPC knows about your squad." : "What NPCs know about the faction."),
   ];
 }
 
-function characterForm(form, path) {
+function characterForm(form, path, record) {
   const known = form.profile.filter((row) => PROFILE_KEYS.includes(row.key));
   const others = form.profile.filter((row) => !PROFILE_KEYS.includes(row.key));
   return [
-    field("Game ID", control("input", form, "game_id", [...path, "game_id"]), null, "The string ID of the character's template in the game data, for example 19576-Dialogue.mod. The Forgotten Construction Set (FCS) shows it."),
+    gameIdField(form, path, record, "The string ID of the character's template in the game data, for example 19576-Dialogue.mod. The Forgotten Construction Set (FCS) shows it."),
     ...known.map((row) => field(row.key, control(LONG_PROFILE_KEYS.includes(row.key) ? "textarea" : "input", row, "value", [...path, "profile", row.key], { rows: 4 }))),
     el("fieldset", {},
       el("legend", {}, "Other profile keys"),
@@ -301,16 +321,20 @@ function renderForm() {
   const path = recordPath(record);
   const note = notes.get(record.key);
   let body;
-  if (record.kind === "overview") body = [field("Overview", control("textarea", form, "text", ["overview"], { className: "tall" }), null, "The world lore that every NPC knows. A new campaign copies it.")];
+  const overviewHelp = source === "template" ? "The world lore that every NPC knows. A new campaign copies it." : "The world lore that every NPC of this campaign knows.";
+  if (record.kind === "overview") body = [field("Overview", control("textarea", form, "text", ["overview"], { className: "tall" }), null, overviewHelp)];
   else if (record.kind === "history") body = historyForm(form, ["history"]);
   else if (record.kind === "manifest") body = manifestForm(form);
-  else if (record.kind === "faction") body = factionForm(form, path);
-  else if (record.kind === "character") body = characterForm(form, path);
+  else if (record.kind === "faction") body = factionForm(form, path, record);
+  else if (record.kind === "character") body = characterForm(form, path, record);
   else body = entityForm(form, path);
-  const deletable = !TEMPLATE_PARTS.includes(record.kind);
+  // The game reports the player's faction again, so a delete would only lose its description
+  const deletable = !TEMPLATE_PARTS.includes(record.kind) && !record.is_player;
   container.replaceChildren(el("div", { className: "card" },
     el("div", { className: "card-head" },
-      el("span", {}, el("strong", { className: "name" }, title(record)), " ", el("span", { className: "badge" }, kindLabel(record))),
+      el("span", {}, el("strong", { className: "name" }, title(record)), " ", el("span", { className: "badge" }, kindLabel(record)),
+        record.is_player ? el("span", { className: "badge ok" }, "Your faction") : null,
+        ORIGIN_LABELS[record.origin] ? el("span", { className: "badge" }, ORIGIN_LABELS[record.origin]) : null),
       deletable ? el("button", { type: "button", disabled: readOnly(), onclick: () => deleteRecord(record) }, "Delete") : null),
     note ? el("p", { className: `hint${note.error ? " error" : ""}` }, note.text) : null,
     ...body));
@@ -342,11 +366,11 @@ function renderList() {
 }
 
 function categories() {
-  return [...new Set([...Object.keys(template?.entities ?? {}), ...allRecords().filter((record) => record.kind === "entity").map((record) => record.category)])].sort();
+  return [...new Set(allRecords().filter((record) => record.kind === "entity").map((record) => record.category))].sort();
 }
 
 function filterSelect() {
-  const options = [["all", "Everything"], ["template", "Template info, overview, history"], ["faction", "Factions"], ["character", "Characters"], ...categories().map((category) => [`entity:${category}`, `World entries: ${category}`])];
+  const options = [["all", "Everything"], ["template", source === "template" ? "Template info, overview, history" : "Overview, history"], ["faction", "Factions"], ["character", "Characters"], ...categories().map((category) => [`entity:${category}`, `World entries: ${category}`])];
   const select = el("select", { onchange: (event) => { kindFilter = event.target.value; renderList(); } }, ...options.map(([value, text]) => new Option(text, value, false, value === kindFilter)));
   select.setAttribute("aria-label", "Show only");
   return select;
@@ -392,9 +416,18 @@ function addRecord(event) {
   updateUnsaved();
 }
 
+function deleteEffect(record) {
+  if (source === "template") return `This deletes the ${kindLabel(record)} ${title(record)} from the template ${templateTitle()}. Campaigns that you made from the template keep their copy. `;
+  const comesBack = record.kind === "faction" ? " If the game reports the faction again, it comes back with an empty description." : "";
+  return `This deletes the ${kindLabel(record)} ${title(record)} from the campaign ${canon.name}.${comesBack} `;
+}
+
+const recordsUrl = () => (source === "template" ? `/api/templates/${encodeURIComponent(current)}/records` : "/api/campaign/records");
+// A campaign write names the campaign that the page loaded, so the server refuses it after a switch
+const target = () => (source === "template" ? {} : { campaign: canon.name });
+
 async function deleteRecord(record) {
-  if (!(await ask(`Delete ${title(record)}`, "Delete", `This deletes the ${kindLabel(record)} ${title(record)} from the template ${templateTitle()}. Campaigns that you made from the template keep their copy. `,
-    el("b", { className: "warning" }, "The delete takes effect immediately.")))) return;
+  if (!(await ask(`Delete ${title(record)}`, "Delete", deleteEffect(record), el("b", { className: "warning" }, "The delete takes effect immediately.")))) return;
   if (drafts.get(record.key)?.isNew) {
     drafts.delete(record.key);
     selected = "overview";
@@ -403,11 +436,11 @@ async function deleteRecord(record) {
     return;
   }
   try {
-    await sendJson("POST", `/api/templates/${encodeURIComponent(current)}/records/delete`, { kind: record.kind, id: record.id, category: record.category });
+    await sendJson("POST", `${recordsUrl()}/delete`, { ...target(), kind: record.kind, id: record.id, category: record.category });
     drafts.delete(record.key);
     notes.delete(record.key);
     selected = "overview";
-    await fetchTemplate(keptDrafts());
+    await fetchRecords(keptDrafts());
   } catch (error) {
     showMessage(message, `Delete failed: ${error.message}`, true);
   }
@@ -430,7 +463,26 @@ async function chooseTemplate(name) {
   current = name;
   selected = "overview";
   notes.clear();
-  await fetchTemplate(new Map());
+  await fetchRecords(new Map());
+}
+
+const sourceTitle = () => (source === "template" ? templateTitle() : `the campaign ${canon?.name}`);
+
+async function chooseSource(value) {
+  if (value === source) return;
+  const label = SOURCES.find(([key]) => key === value)[1];
+  if (changedRecords().length > 0 && !(await ask("Discard the changes", "Discard", `Your changes to ${sourceTitle()} are not saved. Open ${label} and lose them?`))) return;
+  const previous = source;
+  source = value;
+  selected = "overview";
+  query = "";
+  kindFilter = "all";
+  notes.clear();
+  // Save sends the drafts to the URL of the source, so a failed load must not leave them under the other one
+  if (!(await fetchRecords(new Map()))) {
+    source = previous;
+    render();
+  }
 }
 
 async function duplicateTemplate(event) {
@@ -454,7 +506,7 @@ async function deleteTemplate() {
     drafts.clear();
     current = "";
     await fetchTemplates();
-    await fetchTemplate(new Map());
+    await fetchRecords(new Map());
   } catch (error) {
     showMessage(message, `Delete failed: ${error.message}`, true);
   }
@@ -464,18 +516,43 @@ function renderTemplateBar() {
   const select = el("select", { onchange: (event) => chooseTemplate(event.target.value) },
     ...templates.map((entry) => new Option(`${entry.title}${entry.builtin ? " (shipped)" : ""}`, entry.name, false, entry.name === current)));
   select.setAttribute("aria-label", "World template");
-  const counts = template ? `${Object.keys(template.factions).length} factions, ${Object.keys(template.characters).length} characters, ${Object.values(template.entities).reduce((sum, entries) => sum + Object.keys(entries).length, 0)} world entries` : "";
+  const recordCounts = template ? counts(Object.keys(template.factions).length, Object.keys(template.characters).length, Object.values(template.entities).reduce((sum, entries) => sum + Object.keys(entries).length, 0)) : "";
   const duplicateName = el("input", { value: duplication.name, placeholder: "Name of the copy", required: true, oninput: (event) => { duplication.name = event.target.value; } });
   duplicateName.setAttribute("aria-label", "Name of the copy");
   return el("fieldset", {},
     el("legend", {}, "World template"),
-    el("p", { className: "hint" }, "A world template holds the canon of a world: its overview, history, factions, characters, and world entries such as towns and zones. A new campaign copies its template, so an edit here changes only the campaigns that you create later. To change the current campaign, use the Campaigns tab."),
-    field("Template", select, el("span", { className: "detail" }, counts)),
+    el("p", { className: "hint" }, "A world template holds the canon of a world: its overview, history, factions, characters, and world entries such as towns and zones. A new campaign copies its template, so an edit here changes only the campaigns that you create later. To change the current campaign, use Campaign Canon."),
+    field("Template", select, el("span", { className: "detail" }, recordCounts)),
     template?.builtin ? el("p", { className: "hint" }, `${templateTitle()} ships with SSR, and an update replaces it, so it is read-only. Duplicate it to edit a copy.`) : null,
     ...(template?.errors ?? []).map((error) => el("p", { className: "hint error" }, error.message)),
     ...(template?.warnings ?? []).map((warning) => el("p", { className: "hint" }, warning.message)),
     el("form", { className: "add", onsubmit: duplicateTemplate }, duplicateName, el("button", { type: "submit" }, "Duplicate"),
       template && !template.builtin ? el("button", { type: "button", className: "danger", onclick: deleteTemplate }, "Delete template") : null));
+}
+
+function counts(factions, characters, entities) {
+  return `${factions} factions, ${characters} characters, ${entities} world entries`;
+}
+
+function renderCanonBar() {
+  const made = canon?.template.name ? ` It was made from the template ${`${canon.template.name} ${canon.template.version ?? ""}`.trim()}.` : "";
+  return el("fieldset", {},
+    el("legend", {}, canon ? `Campaign canon: ${canon.name}` : "Campaign canon"),
+    el("p", { className: "hint" }, `The canon of the current campaign: its own copy of the overview, history, factions, characters, and world entries of its world template.${made} An edit here changes only this campaign. To edit another campaign, make it the current one on the Campaigns tab.`),
+    el("p", { className: "hint" }, "NPCs read the overview and the factions. A faction that you meet in game and that the campaign lacks gets an empty entry, so you can describe it. The history, characters, and world entries are kept for a later version of SSR."),
+    refusal ? el("p", { className: "hint error" }, refusal) : null,
+    canon ? el("p", { className: "detail" }, counts(canon.factions.length, canon.characters.length, canon.entities.length)) : null);
+}
+
+function renderSubtabs() {
+  const list = el("div", { className: "subtabs" }, ...SOURCES.map(([value, text]) => {
+    const tab = el("button", { type: "button", onclick: () => chooseSource(value) }, text);
+    tab.setAttribute("role", "tab");
+    tab.setAttribute("aria-selected", String(value === source));
+    return tab;
+  }));
+  list.setAttribute("role", "tablist");
+  return list;
 }
 
 function render() {
@@ -488,10 +565,11 @@ function render() {
       renderList();
     },
   });
-  search.setAttribute("aria-label", "Search the template");
+  search.setAttribute("aria-label", "Search the entries");
   page.replaceChildren(
-    renderTemplateBar(),
-    template ? el("div", { className: "editor-layout" },
+    renderSubtabs(),
+    source === "template" ? renderTemplateBar() : renderCanonBar(),
+    (source === "template" ? template : canon) ? el("div", { className: "editor-layout" },
       el("div", { className: "record-panel" }, search, filterSelect(), el("div", { id: "record-list", className: "record-list" }), newRecordForm()),
       el("div", { id: "record-form" })) : null);
   renderList();
@@ -513,7 +591,7 @@ async function save() {
   for (const record of changes) {
     const entry = drafts.get(record.key);
     try {
-      const reply = await sendJson("POST", `/api/templates/${encodeURIComponent(current)}/records`, { kind: record.kind, id: record.id ?? null, category: record.category, data: toData(record.kind, entry.form) });
+      const reply = await sendJson("POST", recordsUrl(), { ...target(), kind: record.kind, id: record.id ?? null, category: record.category, updated_at: record.updated_at, data: toData(record.kind, entry.form) });
       const key = entry.isNew ? (record.kind === "entity" ? `entity/${record.category}/${reply.id}` : `${record.kind}/${reply.id}`) : record.key;
       if (reply.warnings.length > 0) notes.set(key, { text: reply.warnings.map((warning) => warning.message).join(" ") });
       if (selected === record.key) selected = key;
@@ -523,9 +601,9 @@ async function save() {
     }
   }
   const failed = kept.size;
-  if (!(await fetchTemplate(kept))) return;
+  if (!(await fetchRecords(kept))) return;
   if (failed > 0) showMessage(message, `${failed} of ${changes.length} entries were not saved.`, true);
-  else showMessage(message, "Saved. Campaigns that you create from this template from now on get the changes.");
+  else showMessage(message, source === "template" ? "Saved. Campaigns that you create from this template from now on get the changes." : `Saved to the campaign ${canon.name}.`);
 }
 
 async function fetchTemplates() {
@@ -533,16 +611,32 @@ async function fetchTemplates() {
   if (!templates.some((entry) => entry.name === current)) current = templates[0]?.name ?? "";
 }
 
-// Keeps the drafts that failed to save, so the player can fix them.
-async function fetchTemplate(kept) {
+async function fetchCanon() {
   try {
-    if (!current) await fetchTemplates();
-    template = current ? (await getJson(`/api/templates/${encodeURIComponent(current)}`)).template : null;
+    canon = await getJson("/api/campaign/canon");
+    refusal = "";
   } catch (error) {
-    showMessage(message, `Could not load the template: ${error.message}`, true);
+    // A reply with an error status still has fieldErrors; a lost server has none and fails the whole load
+    if (!("fieldErrors" in error)) throw error;
+    canon = null;
+    refusal = error.message;
+  }
+}
+
+// Keeps the drafts that failed to save, so the player can fix them.
+async function fetchRecords(kept) {
+  try {
+    if (source === "campaign") await fetchCanon();
+    else {
+      if (!current) await fetchTemplates();
+      template = current ? (await getJson(`/api/templates/${encodeURIComponent(current)}`)).template : null;
+    }
+  } catch (error) {
+    showMessage(message, `Could not load the ${source === "template" ? "template" : "campaign canon"}: ${error.message}`, true);
     return false;
   }
-  records = template ? savedRecords(template) : [];
+  if (source === "campaign") records = canon ? canonRecords(canon) : [];
+  else records = template ? savedRecords(template) : [];
   drafts.clear();
   for (const [key, entry] of kept) drafts.set(key, entry);
   if (!allRecords().some((record) => record.key === selected)) selected = "overview";
@@ -553,13 +647,20 @@ async function fetchTemplate(kept) {
 
 export async function loadEditor() {
   notes.clear();
-  try {
-    await fetchTemplates();
-  } catch (error) {
-    showMessage(message, `Could not load the templates: ${error.message}`, true);
-    return false;
+  if (source === "template") {
+    try {
+      await fetchTemplates();
+    } catch (error) {
+      showMessage(message, `Could not load the templates: ${error.message}`, true);
+      return false;
+    }
   }
-  return fetchTemplate(new Map());
+  return fetchRecords(new Map());
 }
 
 document.getElementById("editor-save").addEventListener("click", save);
+document.addEventListener("campaignchange", (event) => {
+  if (source !== "campaign" || canon?.name === event.detail) return;
+  if (changedRecords().length > 0) showMessage(message, `The game switched to the campaign ${event.detail}. Your changes belong to ${canon.name}, so they cannot be saved. Discard to load ${event.detail}.`, true);
+  else fetchRecords(new Map());
+});

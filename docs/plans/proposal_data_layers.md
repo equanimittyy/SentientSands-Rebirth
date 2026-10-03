@@ -268,7 +268,7 @@ The player picks which squad member speaks in a chat. Today the speaker is alway
 
 ### 6.2 Factions
 
-Built. Each campaign holds its own copy of the factions, and the player edits that copy on the Campaigns tab of the web app. [architecture.md](../info/architecture.md#factions) describes the faction store.
+Built. Each campaign holds its own copy of the factions, and the player edits that copy on the Campaign Canon subtab of the web app's Editor tab. [architecture.md](../info/architecture.md#factions) describes the faction store.
 
 ## 7. Vanilla Kenshi template
 
@@ -350,7 +350,7 @@ Known differences to handle: Kayak uses its own stemming (`stem_key`) and tokeni
 | Phase | Deliverable | Acceptance criteria |
 |---|---|---|
 | 0. Prep | README credit section; the official English Kayak release | Attribution text in place; source release chosen |
-| 1. Templates and factions | Built ([architecture.md](../info/architecture.md#world-templates)) | |
+| 1. Templates and factions | Built ([architecture.md](../info/architecture.md#world-templates)). A new campaign copies every template record, and it keeps the characters and the world entries as JSON rows until phases 2 and 5 give them their stores ([architecture.md](../info/architecture.md#campaign-canon)). | |
 | 2. Characters | The character store keyed by game ID ([proposal_npc_ids.md](proposal_npc_ids.md)); canon characters from the template; the speaker picker; the Characters page; tests | The acceptance criteria of the NPC ID proposal; a canon character file gives that NPC its canon profile in a new campaign; a chat uses the bio and context of the picked speaker; a speaker with no profile gets a generated one |
 | 3. Import and export | The template routes; the Templates page | A template exported from one install imports on another with the same files; each unsafe zip in the tests is rejected |
 | 4. Vanilla content | `convert_kayak.py`; the converted template; the licence review | All 405 entities convert; the converter lists each dropped field |

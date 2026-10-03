@@ -88,14 +88,7 @@ def validate(template):
 
     if not isinstance(template["overview"], str):
         error(["overview"], "The overview must be text.")
-
-    history = template["history"]
-    if not isinstance(history, list):
-        error(["history"], f"{HISTORY} must hold a list of entries.")
-        history = []
-    for index, entry in enumerate(history):
-        if not isinstance(entry, dict) or not _is_text(entry.get("title")) or not isinstance(entry.get("text"), str):
-            error(["history", index], f"History entry {index + 1} needs a title and a text.")
+    _check_history(template["history"], error)
 
     game_ids = {}
     for record_id, faction in template["factions"].items():
@@ -103,53 +96,47 @@ def validate(template):
 
     game_ids = {}
     for record_id, character in template["characters"].items():
-        field = ["characters", record_id]
-        if not _check_object(character, field, error):
-            continue
-        _check_game_id(character, field, "character", game_ids, error)
-        profile = character.get("profile")
-        if not isinstance(profile, dict) or not _is_text(profile.get("Name")):
-            error(field + ["profile", "Name"], "Give the character a name.")
-        elif not all(isinstance(value, (str, int, float)) and not isinstance(value, bool) for value in profile.values()):
-            error(field + ["profile"], "Each profile value must be text or a number.")
+        _check_character(character, ["characters", record_id], game_ids, error)
 
-    names = set()
-    for records in template["entities"].values():
-        for entity in records.values():
-            if isinstance(entity, dict):
-                names.update(_norm(name) for name in [entity.get("name")] + list(entity.get("aliases") or []) if isinstance(name, str))
+    names = entity_names(entity for records in template["entities"].values() for entity in records.values())
     for category, records in template["entities"].items():
         for record_id, entity in records.items():
-            field = ["entities", category, record_id]
-            if not _check_object(entity, field, error):
-                continue
-            if not _is_text(entity.get("name")):
-                error(field + ["name"], "Give the entry a name.")
-            _check_aliases(entity, field, error)
-            if "weight" in entity and not _is_number(entity["weight"]):
-                error(field + ["weight"], "The weight must be a number.")
-            _check_fields(entity.get("fields", {}), field + ["fields"], error)
-            prose = entity.get("prose", {})
-            if not isinstance(prose, dict) or not all(isinstance(value, str) for value in prose.values()):
-                error(field + ["prose"], "Each prose value must be text.")
-            children = entity.get("children", [])
-            if not isinstance(children, list) or not all(isinstance(child, dict) and _is_text(child.get("name")) and _is_number(child.get("weight", 1)) for child in children):
-                error(field + ["children"], "Each child needs a name and a number as its weight.")
-            else:
-                for child in children:
-                    if _norm(child["name"]) not in names:
-                        warnings.append({"field": field + ["children"], "message": f"The child {child['name']} of {entity.get('name', record_id)} names no entry."})
-            access = entity.get("access", [])
-            if not isinstance(access, list) or not all(isinstance(rule, dict) for rule in access):
-                error(field + ["access"], "The access rules must be a list of objects.")
+            _check_entity(entity, ["entities", category, record_id], names, error, warnings)
     return errors, warnings
 
 
-def faction_errors(faction, field):
-    """The errors of one faction outside a template, for example the copy in a campaign."""
-    errors = []
-    _check_faction(faction, field, {}, lambda path, message: errors.append({"field": path, "message": message}))
-    return errors
+def record_problems(kind, data, field, names=frozenset()):
+    """The (errors, warnings) of one record outside a template, for example its copy in a campaign.
+
+    names holds the entity names and aliases that a child may name, from entity_names.
+    """
+    errors, warnings = [], []
+
+    def error(path, message):
+        errors.append({"field": path, "message": message})
+
+    if kind == "overview":
+        if not isinstance(data, str):
+            error(field, "The overview must be text.")
+    elif kind == "history":
+        _check_history(data, error)
+    elif kind == "faction":
+        _check_faction(data, field, {}, error)
+    elif kind == "character":
+        _check_character(data, field, {}, error)
+    elif kind == "entity":
+        _check_entity(data, field, names, error, warnings)
+    else:
+        error(["kind"], f"{kind} is not a kind of record.")
+    return errors, warnings
+
+
+def entity_names(entities):
+    names = set()
+    for entity in entities:
+        if isinstance(entity, dict):
+            names.update(_norm(name) for name in [entity.get("name")] + list(entity.get("aliases") or []) if isinstance(name, str))
+    return names
 
 
 def campaign_seed(name, shipped_dir, user_dir):
@@ -173,6 +160,9 @@ def campaign_seed(name, shipped_dir, user_dir):
             }
             for faction in template["factions"].values()
         ],
+        "history": template["history"],
+        "characters": [{"game_id": character["game_id"], "profile": character["profile"]} for character in template["characters"].values()],
+        "entities": [{"category": category, "id": record_id, "data": entity} for category, records in template["entities"].items() for record_id, entity in records.items()],
     }
 
 
@@ -190,7 +180,7 @@ def save_record(name, kind, record_id, data, shipped_dir, user_dir, category=Non
     else:
         records, folder = _records(template, kind, category)
         if record_id is None:
-            record_id = _new_id(data, records)
+            record_id = new_id(data, records)
         elif not _ID.fullmatch(str(record_id)):
             raise TemplateError([{"field": [kind], "message": "An ID may hold only letters, digits, _ and -."}])
         records[record_id] = data
@@ -269,12 +259,12 @@ def _records(template, kind, category):
     raise TemplateError([{"field": ["kind"], "message": f"{kind} is not a kind of record."}])
 
 
-def _new_id(data, records):
+def new_id(data, taken):
     name = data.get("name") or (data.get("profile") or {}).get("Name") if isinstance(data, dict) else None
     base = re.sub(r"[^a-z0-9]+", "_", str(name or "").lower()).strip("_") or "entry"
     record_id = base
     number = 2
-    while record_id in records:
+    while record_id in taken:
         record_id = f"{base}_{number}"
         number += 1
     return record_id
@@ -335,6 +325,15 @@ def _content_hash(path):
     return digest.hexdigest()
 
 
+def _check_history(history, error):
+    if not isinstance(history, list):
+        error(["history"], f"{HISTORY} must hold a list of entries.")
+        return
+    for index, entry in enumerate(history):
+        if not isinstance(entry, dict) or not _is_text(entry.get("title")) or not isinstance(entry.get("text"), str):
+            error(["history", index], f"History entry {index + 1} needs a title and a text.")
+
+
 def _check_faction(faction, field, game_ids, error):
     if not _check_object(faction, field, error):
         return
@@ -347,6 +346,41 @@ def _check_faction(faction, field, game_ids, error):
     _check_fields(faction.get("fields", {}), field + ["fields"], error)
     if not isinstance(faction.get("description", ""), str):
         error(field + ["description"], "The description must be text.")
+
+
+def _check_character(character, field, game_ids, error):
+    if not _check_object(character, field, error):
+        return
+    _check_game_id(character, field, "character", game_ids, error)
+    profile = character.get("profile")
+    if not isinstance(profile, dict) or not _is_text(profile.get("Name")):
+        error(field + ["profile", "Name"], "Give the character a name.")
+    elif not all(isinstance(value, (str, int, float)) and not isinstance(value, bool) for value in profile.values()):
+        error(field + ["profile"], "Each profile value must be text or a number.")
+
+
+def _check_entity(entity, field, names, error, warnings):
+    if not _check_object(entity, field, error):
+        return
+    if not _is_text(entity.get("name")):
+        error(field + ["name"], "Give the entry a name.")
+    _check_aliases(entity, field, error)
+    if "weight" in entity and not _is_number(entity["weight"]):
+        error(field + ["weight"], "The weight must be a number.")
+    _check_fields(entity.get("fields", {}), field + ["fields"], error)
+    prose = entity.get("prose", {})
+    if not isinstance(prose, dict) or not all(isinstance(value, str) for value in prose.values()):
+        error(field + ["prose"], "Each prose value must be text.")
+    children = entity.get("children", [])
+    if not isinstance(children, list) or not all(isinstance(child, dict) and _is_text(child.get("name")) and _is_number(child.get("weight", 1)) for child in children):
+        error(field + ["children"], "Each child needs a name and a number as its weight.")
+    else:
+        for child in children:
+            if _norm(child["name"]) not in names:
+                warnings.append({"field": field + ["children"], "message": f"The child {child['name']} of {entity.get('name', field[-1])} names no entry."})
+    access = entity.get("access", [])
+    if not isinstance(access, list) or not all(isinstance(rule, dict) for rule in access):
+        error(field + ["access"], "The access rules must be a list of objects.")
 
 
 def _check_object(record, field, error):

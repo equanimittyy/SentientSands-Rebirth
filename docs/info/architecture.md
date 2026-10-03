@@ -66,7 +66,7 @@ The server serves `server/web/` at `/` and `/web/<file>`. The files are plain HT
 | Models | `/api/llm`, `/api/llm/test`, `/api/llm/models`, `/api/llm/reset` | `server/user/llm_config.json` |
 | Prompts | `/api/prompts` | `server/user/prompts/` |
 | Campaigns | `/api/campaigns`, `/api/campaign` (see [Campaign routes of the web app](#campaign-routes-of-the-web-app)) | `campaign.db` of each campaign |
-| Editor | `/api/templates` (see [World templates](#world-templates)) | `server/user/world_templates/` |
+| Editor | `/api/campaign/canon`, `/api/campaign/records` (see [Campaign canon](#campaign-canon)); `/api/templates` (see [World templates](#world-templates)) | `campaign.db` of the active campaign; `server/user/world_templates/` |
 
 A GET route must not change state. A page on another site can send a GET with no `Origin` header, for example through an image tag, so the Origin check from step 4 of the runtime flow does not stop it. The presence stream below is the only exception, because EventSource sends only GET requests. A page on another site that holds the stream open can only stop a new tab from opening.
 
@@ -78,9 +78,11 @@ Each tab holds `GET /web_panel/presence` open. This event stream sends a heartbe
 
 **Open Web Panel** in the SSR HUB always opens the web app in a new tab of the default browser. The button does not check for an open tab. A version that brought the browser window of an open tab to the front left an empty box on the game screen in exclusive fullscreen.
 
-Another tab can switch the campaign while a tab is open, so the poll also shows the active campaign. When the poll sees another campaign, it sends a `campaignchange` event, and the Campaigns page loads the new campaign unless it has unsaved changes.
+Another tab can switch the campaign while a tab is open, so the poll also shows the active campaign. When the poll sees another campaign, it sends a `campaignchange` event, and the Campaigns page and the Campaign Canon subtab of the Editor load the new campaign unless they have unsaved changes.
 
-The Campaigns and Editor pages hold many records. Save sends one request for each changed record, and a record that the server rejects keeps its draft and shows the reason. A delete takes effect at once, after a confirmation. The Editor opens one template at a time, and a shipped template is read-only, so the page offers a duplicate.
+The Campaigns and Editor pages hold many records. Save sends one request for each changed record, and a record that the server rejects keeps its draft and shows the reason. A delete takes effect at once, after a confirmation.
+
+The Editor has two subtabs with the same record list and forms. Campaign Canon edits the canon of the active campaign, and Templates edits the world templates that new campaigns copy. The page holds the records of one subtab and one template at a time, so a switch with unsaved changes asks the player first. A shipped template is read-only, so the page offers a duplicate.
 
 ## Settings
 
@@ -142,7 +144,7 @@ On a start without `llm_config.json`, the server builds it from `default_provide
 
 ## Campaign storage
 
-`server/scripts/campaign_db.py` keeps the NPC profiles, the dialogue, the factions, the overview, the event history, and the rumors of a campaign in one SQLite file, `campaign.db`, in the campaign folder. The plugin reaches this data only through the server's routes, which keep their request and response shapes. The player bio stays a text file in the campaign folder, `character_bio.txt` (`load_campaign_text`). A new campaign gets a copy of the shipped file of the same name in `server/prompts/`.
+`server/scripts/campaign_db.py` keeps the NPC profiles, the dialogue, the canon, the event history, and the rumors of a campaign in one SQLite file, `campaign.db`, in the campaign folder. The plugin reaches this data only through the server's routes, which keep their request and response shapes. The player bio stays a text file in the campaign folder, `character_bio.txt` (`load_campaign_text`). A new campaign gets a copy of the shipped file of the same name in `server/prompts/`.
 
 - Each write runs in one `BEGIN IMMEDIATE` transaction. A profile write merges only the keys that the caller passes, and the dialogue lines are rows of their own. A route that waits for the LLM must write only the keys that it changed, so that it cannot undo a change that another request made during the wait.
 - `/chat` changes the Relation through `change_relation`, which adds the judgment to the stored value in one transaction. Two overlapping chats with the same NPC therefore keep both changes.
@@ -153,9 +155,25 @@ On a start without `llm_config.json`, the server builds it from `default_provide
 - Each NPC keeps its newest 250 dialogue lines, and the campaign keeps its newest 500 events. An event that the table already holds is not added again.
 - Favorites belong to each campaign.
 
-A new campaign is a copy of a world template (see [World templates](#world-templates)): its overview, its factions, and the name, version, and content hash of the template. After the copy, the campaign does not depend on the template, so a template edit or a deleted template does not change it. Only the Campaigns page of the web app creates and switches campaigns. The game has no campaign window.
+A new campaign is a copy of a world template (see [World templates](#world-templates)): its canon and the name, version, and content hash of the template. After the copy, the campaign does not depend on the template, so a template edit or a deleted template does not change it. Only the Campaigns page of the web app creates and switches campaigns. The game has no campaign window.
 
 `open_campaign` creates `campaign.db` in a campaign folder that has none, from the Vanilla Kenshi template. It builds the database in `campaign.db.tmp` and then renames it to `campaign.db`. A crash before the rename leaves no database, so the next start creates it again. A database of an earlier schema version is not upgraded: `open_campaign` refuses it, and each later operation fails with the reason until the player switches to another campaign.
+
+### Campaign canon
+
+The canon of a campaign is its copy of the template records: the overview, the history, the factions, the characters, and the world entries.
+
+| Record | Storage | Key |
+|---|---|---|
+| Overview, history | `meta` rows; the history as JSON | None |
+| Faction | `faction` table (see [Factions](#factions)) | The game ID |
+| Character | `character` table; the profile as JSON | The game ID |
+| World entry | `entity` table; the whole template record as JSON | The category and the entity ID |
+
+- The chat prompt reads only the overview and the factions. No prompt reads the history, the characters, or the world entries yet, and chat takes NPC profiles only from the `npc` table.
+- `origin` tells where a record came from: `template` (the copy at creation), `game` (a faction that a context reported), or `campaign` (added on the web app).
+- A save checks the record with the template validator (`world_template.record_problems`), so a campaign record follows the same rules as a template record. The validator sees only one record, so the database refuses a second faction or character with the same game ID.
+- The game ID of a faction or a character is its key in the campaign, so it cannot change after the record is added.
 
 ### Factions
 
@@ -174,17 +192,20 @@ Each campaign holds its own copy of the factions, keyed by the string ID of the 
 | `GET /api/campaigns` | Each campaign with its template, and whether an earlier version of SSR made it |
 | `POST /api/campaigns` | Create a campaign from a template, with no switch |
 | `POST /api/campaigns/switch` | Make a campaign the current one. The name must be a folder that the campaign list shows, so a name such as `../x` cannot point outside `server/campaigns/`. |
-| `GET /api/campaign` | The active campaign: its template, overview, factions, events, and rumors. A refused campaign gives status 409 with the reason. |
-| `POST /api/campaign/overview`, `.../factions`, `.../rumors`, `.../rumors/delete`, `.../events/delete` | Edit the active campaign |
+| `GET /api/campaign` | The active campaign: its template, events, and rumors. A refused campaign gives status 409 with the reason. |
+| `GET /api/campaign/canon` | The canon of the active campaign, each record with its `origin` and `updated_at`. A refused campaign gives status 409 with the reason. |
+| `POST /api/campaign/records`, `.../records/delete` | Save or delete one canon record of the active campaign. A faction, character, or world entry with no ID is new. |
+| `POST /api/campaign/rumors`, `.../rumors/delete`, `.../events/delete` | Edit the rumors and events of the active campaign |
 | `POST /api/campaign/cull` | Delete the dialogue, events, and rumors dated after the current game time, after the player loads an older save. It needs the player's context from the running game, because without it day 0 would count as now and the cull would delete the whole history. |
 
 - Each edit names the campaign that the page loaded. Another tab can switch the campaign while the page is open, so the server refuses an edit for another campaign instead of writing it into the active one.
-- A faction edit carries the `updated_at` that the page loaded, and the server refuses it when the row changed after that, for example when the game renamed the player's faction. The name of the player's faction is not editable, because the next context would undo it.
+- An edit of a faction, a character, or a world entry carries the `updated_at` that the page loaded, and the server refuses it when the row changed after that, for example when the game renamed the player's faction. An edit without `updated_at` counts as stale. The name of the player's faction is not editable, because the next context would undo it.
+- The web app offers no delete for the player's faction. The game reports the faction again, and the server then adds it back with an empty description, so a delete would only lose the description.
 - A rumor edit replaces only the text of its `[RUMOR: ...]` tag and keeps its game time. Brackets in the text become parentheses, because the prompt reads the rumor up to the first `]`.
 
 ## World templates
 
-A world template is a folder that describes a world: `manifest.json` (format version, name, version, authors, credits), `overview.txt` (the lore that goes into every prompt), `history.json`, `factions/<id>.json`, `characters/<id>.json`, and `entities/<category>/<id>.json`. The format is in [proposal_data_layers.md](../plans/proposal_data_layers.md#3-world-template-format). A campaign copies only the overview and the factions so far.
+A world template is a folder that describes a world: `manifest.json` (format version, name, version, authors, credits), `overview.txt` (the lore that goes into every prompt), `history.json`, `factions/<id>.json`, `characters/<id>.json`, and `entities/<category>/<id>.json`. The format is in [proposal_data_layers.md](../plans/proposal_data_layers.md#3-world-template-format). A new campaign copies every record except the manifest (see [Campaign canon](#campaign-canon)).
 
 | Template | Location | Edits |
 |---|---|---|

@@ -622,6 +622,26 @@ input[type="search"] {
   padding: 0.35rem 0.5rem;
 }
 
+.subtabs {
+  display: flex;
+  gap: 0.25rem;
+  margin-bottom: 1rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.subtabs button {
+  border: none;
+  border-bottom: 2px solid transparent;
+  border-radius: 0;
+  background: none;
+  color: inherit;
+}
+
+.subtabs [aria-selected="true"] {
+  border-bottom-color: var(--accent);
+  font-weight: 600;
+}
+
 .editor-layout {
   display: grid;
   grid-template-columns: 17rem minmax(0, 1fr);

@@ -27,6 +27,9 @@ SEED = {
         {"faction_id": "1083-gamedata.base", "name": "The Holy Nation", "aliases": ["Okranites"], "major": True, "fields": {"leader": "Phoenix"}, "description": "Zealots."},
         {"faction_id": "204-gamedata.base", "name": "Nameless", "aliases": [], "major": False, "fields": {}, "description": "Wanderers."},
     ],
+    "history": [{"title": "The First Empire", "text": "It fell."}],
+    "characters": [{"game_id": "19576-Dialogue.mod", "profile": {"Name": "Beep", "Race": "Hive Worker Drone"}}],
+    "entities": [{"category": "locations", "id": "the_hub", "data": {"name": "The Hub", "fields": {"owner": "Nameless"}}}],
 }
 
 
@@ -59,6 +62,9 @@ class OpenTest(CampaignTestCase):
         self.assertEqual(campaign_db.overview(), "Kenshi is a world of rust.")
         self.assertEqual(campaign_db.template_info(), {"name": "vanilla_kenshi", "version": "1.0.0", "hash": "abc"})
         self.assertEqual([(f["name"], f["origin"]) for f in campaign_db.list_factions()], [("Nameless", "template"), ("The Holy Nation", "template")])
+        self.assertEqual(campaign_db.history(), [{"title": "The First Empire", "text": "It fell."}])
+        self.assertEqual([record[:3] for record in campaign_db.list_records("character")], [(("19576-Dialogue.mod",), {"Name": "Beep", "Race": "Hive Worker Drone"}, "template")])
+        self.assertEqual([record[:3] for record in campaign_db.list_records("entity")], [(("locations", "the_hub"), {"name": "The Hub", "fields": {"owner": "Nameless"}}, "template")])
 
     def test_the_seed_is_read_only_for_a_new_database(self):
         campaign_db.open_campaign(self.folder, lambda: SEED)
@@ -224,7 +230,7 @@ class FactionTest(CampaignTestCase):
         campaign_db.note_faction("42022-rebirth.mod", "Holy Nation Outlaws")
         campaign_db.note_faction("42022-rebirth.mod", "Renamed")
         faction = campaign_db.find_faction("42022-rebirth.mod")
-        self.assertEqual((faction["name"], faction["description"], faction["origin"]), ("Holy Nation Outlaws", "", "campaign"))
+        self.assertEqual((faction["name"], faction["description"], faction["origin"]), ("Holy Nation Outlaws", "", "game"))
 
     def test_the_player_faction_follows_the_game_name(self):
         campaign_db.note_faction("204-gamedata.base", "Nameless", is_player=True)
@@ -255,9 +261,45 @@ class FactionTest(CampaignTestCase):
     def test_update_of_a_missing_faction(self):
         self.assertIsNone(campaign_db.update_faction("nope", {"description": "x"}, "t"))
 
-    def test_overview_edit(self):
+    def test_add_and_delete(self):
+        campaign_db.add_faction("42022-rebirth.mod", {"name": "Outlaws", "aliases": [], "major": False, "fields": {}, "description": "Exiles."})
+        self.assertEqual(campaign_db.find_faction("42022-rebirth.mod")["origin"], "campaign")
+        with self.assertRaises(campaign_db.DuplicateRecord):
+            campaign_db.add_faction("42022-rebirth.mod", {"name": "Again", "aliases": [], "major": False, "fields": {}, "description": ""})
+        self.assertTrue(campaign_db.delete_faction("42022-rebirth.mod"))
+        self.assertIsNone(campaign_db.find_faction("42022-rebirth.mod"))
+
+    def test_overview_and_history_edit(self):
         campaign_db.set_overview("A new world.")
-        self.assertEqual(campaign_db.overview(), "A new world.")
+        campaign_db.set_history([])
+        self.assertEqual((campaign_db.overview(), campaign_db.history()), ("A new world.", []))
+
+
+class RecordTest(CampaignTestCase):
+    def setUp(self):
+        super().setUp()
+        campaign_db.open_campaign(self.folder, lambda: SEED)
+
+    def test_add_replace_and_delete(self):
+        campaign_db.save_record("entity", ("zones", "stenn"), {"name": "Stenn Desert"}, None)
+        (key, value, origin, updated_at), = [record for record in campaign_db.list_records("entity") if record[0] == ("zones", "stenn")]
+        self.assertEqual(origin, "campaign")
+        campaign_db.save_record("entity", key, {"name": "The Stenn"}, updated_at)
+        self.assertIn((("zones", "stenn"), {"name": "The Stenn"}), [record[:2] for record in campaign_db.list_records("entity")])
+        self.assertTrue(campaign_db.delete_record("entity", key))
+        self.assertFalse(campaign_db.delete_record("entity", key))
+
+    def test_a_taken_key_and_a_stale_save_are_refused(self):
+        (key, _, _, updated_at), = campaign_db.list_records("character")
+        with self.assertRaises(campaign_db.DuplicateRecord):
+            campaign_db.save_record("character", key, {"Name": "Copy"}, None)
+        with mock.patch.object(campaign_db, "_now", return_value="2099-01-01T00:00:00.000+00:00"):
+            campaign_db.save_record("character", key, {"Name": "Beep"}, updated_at)
+        with self.assertRaises(campaign_db.StaleRecord):
+            campaign_db.save_record("character", key, {"Name": "Old"}, updated_at)
+        campaign_db.delete_record("character", key)
+        with self.assertRaises(campaign_db.StaleRecord):
+            campaign_db.save_record("character", key, {"Name": "Gone"}, "2099-01-01T00:00:00.000+00:00")
 
 
 if __name__ == "__main__":

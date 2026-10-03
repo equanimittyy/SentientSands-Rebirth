@@ -1,4 +1,4 @@
-"""The campaign's NPC profiles, dialogue, factions, overview, events, and rumors, in one SQLite file per campaign folder.
+"""The campaign's NPC profiles, dialogue, canon, events, and rumors, in one SQLite file per campaign folder.
 
 Every write runs in one BEGIN IMMEDIATE transaction, and a profile write merges only the keys that the
 caller passes. Two requests that change one NPC during an LLM call therefore keep both changes.
@@ -15,7 +15,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 DB_NAME = "campaign.db"
-SCHEMA_VERSION = 2
+SCHEMA_VERSION = 3
 MAX_DIALOGUE = 250
 MAX_EVENTS = 500
 
@@ -59,6 +59,22 @@ CREATE TABLE faction (
   is_player   INTEGER NOT NULL DEFAULT 0,
   origin      TEXT NOT NULL DEFAULT 'campaign',
   updated_at  TEXT NOT NULL
+);
+CREATE TABLE character (
+  id         INTEGER PRIMARY KEY,
+  game_id    TEXT NOT NULL UNIQUE,
+  profile    TEXT NOT NULL,
+  origin     TEXT NOT NULL DEFAULT 'campaign',
+  updated_at TEXT NOT NULL
+);
+CREATE TABLE entity (
+  id         INTEGER PRIMARY KEY,
+  category   TEXT NOT NULL,
+  ext_id     TEXT NOT NULL,
+  data       TEXT NOT NULL,
+  origin     TEXT NOT NULL DEFAULT 'campaign',
+  updated_at TEXT NOT NULL,
+  UNIQUE (category, ext_id)
 );
 INSERT INTO meta (key, value) VALUES ('schema_version', '{SCHEMA_VERSION}');
 """
@@ -116,12 +132,20 @@ def create(folder, seed):
         template = seed["template"]
         conn.executemany(
             "INSERT INTO meta (key, value) VALUES (?, ?)",
-            [("overview", seed["overview"]), ("template_name", template["name"]), ("template_version", template["version"]), ("template_hash", template["hash"])],
+            [("overview", seed["overview"]), ("history", json.dumps(seed["history"])), ("template_name", template["name"]), ("template_version", template["version"]), ("template_hash", template["hash"])],
         )
         now = _now()
         conn.executemany(
             "INSERT INTO faction (faction_id, name, aliases, major, fields, description, origin, updated_at) VALUES (?, ?, ?, ?, ?, ?, 'template', ?)",
             [(f["faction_id"], f["name"], json.dumps(f["aliases"]), int(f["major"]), json.dumps(f["fields"]), f["description"], now) for f in seed["factions"]],
+        )
+        conn.executemany(
+            "INSERT INTO character (game_id, profile, origin, updated_at) VALUES (?, ?, 'template', ?)",
+            [(c["game_id"], json.dumps(c["profile"]), now) for c in seed["characters"]],
+        )
+        conn.executemany(
+            "INSERT INTO entity (category, ext_id, data, origin, updated_at) VALUES (?, ?, ?, 'template', ?)",
+            [(e["category"], e["id"], json.dumps(e["data"]), now) for e in seed["entities"]],
         )
         conn.execute("COMMIT")
     finally:
@@ -287,6 +311,17 @@ def set_overview(text):
         conn.execute("INSERT OR REPLACE INTO meta (key, value) VALUES ('overview', ?)", (text,))
 
 
+def history():
+    with _connect() as conn:
+        row = conn.execute("SELECT value FROM meta WHERE key = 'history'").fetchone()
+    return json.loads(row[0]) if row else []
+
+
+def set_history(entries):
+    with _connect(write=True) as conn:
+        conn.execute("INSERT OR REPLACE INTO meta (key, value) VALUES ('history', ?)", (json.dumps(entries),))
+
+
 def template_info():
     """The name, version, and content hash of the template that the campaign came from."""
     with _connect() as conn:
@@ -295,6 +330,10 @@ def template_info():
 
 
 class StaleRecord(Exception):
+    pass
+
+
+class DuplicateRecord(Exception):
     pass
 
 
@@ -339,11 +378,27 @@ def note_faction(faction_id, name, is_player=False):
     with _connect(write=True) as conn:
         row = conn.execute("SELECT id, name, is_player FROM faction WHERE faction_id = ?", (faction_id,)).fetchone()
         if row is None:
-            conn.execute("INSERT INTO faction (faction_id, name, is_player, updated_at) VALUES (?, ?, ?, ?)", (faction_id, name, int(is_player), _now()))
+            conn.execute("INSERT INTO faction (faction_id, name, is_player, origin, updated_at) VALUES (?, ?, ?, 'game', ?)", (faction_id, name, int(is_player), _now()))
         elif is_player and (row[1] != name or not row[2]):
             conn.execute("UPDATE faction SET name = ?, is_player = 1, updated_at = ? WHERE id = ?", (name, _now(), row[0]))
         if is_player:
             conn.execute("UPDATE faction SET is_player = 0, updated_at = ? WHERE is_player = 1 AND faction_id != ?", (_now(), faction_id))
+
+
+def add_faction(faction_id, values):
+    """Raises DuplicateRecord if the campaign already holds faction_id."""
+    with _connect(write=True) as conn:
+        if conn.execute("SELECT 1 FROM faction WHERE faction_id = ?", (faction_id,)).fetchone():
+            raise DuplicateRecord(faction_id)
+        conn.execute(
+            "INSERT INTO faction (faction_id, name, aliases, major, fields, description, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
+            (faction_id, values["name"], json.dumps(values["aliases"]), int(values["major"]), json.dumps(values["fields"]), values["description"], _now()),
+        )
+
+
+def delete_faction(faction_id):
+    with _connect(write=True) as conn:
+        return conn.execute("DELETE FROM faction WHERE faction_id = ?", (faction_id,)).rowcount > 0
 
 
 def update_faction(faction_id, changes, updated_at):
@@ -383,6 +438,44 @@ def _faction(row):
         "origin": origin,
         "updated_at": updated_at,
     }
+
+
+# kind: (table, key columns, JSON column)
+_RECORDS = {"character": ("character", ("game_id",), "profile"), "entity": ("entity", ("category", "ext_id"), "data")}
+
+
+def list_records(kind):
+    """Each record of the kind as (key, value, origin, updated_at), where key is a tuple of the key columns."""
+    table, keys, column = _RECORDS[kind]
+    with _connect() as conn:
+        rows = conn.execute(f"SELECT {', '.join(keys)}, {column}, origin, updated_at FROM {table} ORDER BY id").fetchall()
+    return [(row[:len(keys)], json.loads(row[len(keys)]), *row[len(keys) + 1:]) for row in rows]
+
+
+def save_record(kind, key, value, updated_at):
+    """Adds the record when updated_at is None, else replaces its value.
+
+    Raises DuplicateRecord if a new record's key is taken, and StaleRecord if the record changed after the caller read
+    updated_at or is gone.
+    """
+    table, keys, column = _RECORDS[kind]
+    match = " AND ".join(f"{name} = ?" for name in keys)
+    with _connect(write=True) as conn:
+        row = conn.execute(f"SELECT updated_at FROM {table} WHERE {match}", key).fetchone()
+        if updated_at is None:
+            if row:
+                raise DuplicateRecord(key)
+            conn.execute(f"INSERT INTO {table} ({', '.join(keys)}, {column}, updated_at) VALUES ({', '.join('?' * (len(keys) + 2))})", (*key, json.dumps(value), _now()))
+        elif row is None or row[0] != updated_at:
+            raise StaleRecord(key)
+        else:
+            conn.execute(f"UPDATE {table} SET {column} = ?, updated_at = ? WHERE {match}", (json.dumps(value), _now(), *key))
+
+
+def delete_record(kind, key):
+    table, keys, _ = _RECORDS[kind]
+    with _connect(write=True) as conn:
+        return conn.execute(f"DELETE FROM {table} WHERE {' AND '.join(f'{name} = ?' for name in keys)}", key).rowcount > 0
 
 
 @contextmanager
