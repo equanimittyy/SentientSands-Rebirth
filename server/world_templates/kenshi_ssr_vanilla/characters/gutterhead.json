@@ -8,6 +8,7 @@
     "Personality": "A dangerous bandit chief who leads his scavengers in raids on travelers.",
     "Backstory": "He leads the Scavengers from the Old Control Tower south of the desert, beyond the Eye. The United Cities wants him for raiding and robbing travelers on the Venge roads.",
     "SpeechQuirks": "Rough bandit talk.",
-    "Faction": "Scavengers"
+    "Faction": "Scavengers",
+    "OriginFaction": "Scavengers"
   }
 }

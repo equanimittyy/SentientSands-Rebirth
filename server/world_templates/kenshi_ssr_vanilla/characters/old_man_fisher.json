@@ -5,6 +5,7 @@
     "Race": "Unknown",
     "Sex": "Male",
     "Faction": "Fisher",
+    "OriginFaction": "Fisher",
     "Job": "Fisherman",
     "Personality": "An old fisherman.",
     "Backstory": "He lives by fishing.",

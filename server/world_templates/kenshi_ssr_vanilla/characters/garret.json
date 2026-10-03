@@ -8,6 +8,7 @@
     "Personality": "A slave owner who treats his slave to a drink and calls it good management, while insisting he is no slave lover.",
     "Backstory": "He drinks in the bars of Eyesocket and the slave markets with his slave carrying his baggage.",
     "SpeechQuirks": "Hushes anyone who suggests he is kind to his slave.",
-    "Faction": "Slave Traders"
+    "Faction": "Slave Traders",
+    "OriginFaction": "Slave Traders"
   }
 }

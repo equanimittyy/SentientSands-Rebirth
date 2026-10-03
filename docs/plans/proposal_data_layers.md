@@ -90,7 +90,7 @@ A character file, `characters/beep.json`:
 {
   "game_id": "<the string ID of the character's template in the game data>",
   "profile": {
-    "Name": "Beep", "Race": "...", "Sex": "...", "Faction": "...", "Job": "...",
+    "Name": "Beep", "Race": "...", "Sex": "...", "Faction": "...", "OriginFaction": "...", "Job": "...",
     "Personality": "...", "Backstory": "...", "SpeechQuirks": "..."
   }
 }
