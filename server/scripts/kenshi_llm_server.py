@@ -1195,7 +1195,6 @@ def generate_batch_profiles(npc_list):
                     if profile and npc_id:
                         data = {
                             "Name": clean_name,
-                            "OriginalName": clean_name,
                             "Race": npc.get('race', 'Unknown'),
                             "Sex": reported_sex(npc.get('race', 'Unknown'), npc.get('gender', 'Unknown')),
                             "Faction": npc.get('faction') or npc.get('Faction') or 'Unknown',
