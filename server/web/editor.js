@@ -477,7 +477,7 @@ function renderForm() {
     el("div", { className: "card-head" },
       el("span", {}, el("strong", { className: "name" }, title(record)), " ", el("span", { className: "badge" }, kindLabel(record)),
         record.is_player ? el("span", { className: "badge ok" }, "Your faction") : null,
-        ORIGIN_LABELS[record.origin] ? el("span", { className: "badge" }, ORIGIN_LABELS[record.origin]) : null),
+        ORIGIN_LABELS[record.origin] ? el("span", { className: `badge${record.origin === "seed" ? " seed" : ""}` }, ORIGIN_LABELS[record.origin]) : null),
       deletable ? deleteButton(`Delete ${title(record)}`, () => deleteRecord(record), readOnly()) : null),
     note ? el("p", { className: `hint${note.error ? " error" : ""}` }, note.text) : null,
     ...body));

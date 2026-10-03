@@ -25,6 +25,8 @@
   --on-accent: #ffffff;
   --error: #a3271f;
   --ok: #2f6b34;
+  --seed: #7a5c12;
+  --seed-bg: #f8e7a8;
 }
 
 :root[data-theme="dark"] {
@@ -41,6 +43,8 @@
   --on-accent: #1b1713;
   --error: #f2857d;
   --ok: #82c785;
+  --seed: #f0d98a;
+  --seed-bg: #4a3f1c;
 }
 
 body {
@@ -435,6 +439,10 @@ label > .field-error {
   align-items: center;
 }
 
+.card-head .badge + .badge {
+  margin-left: 0.4rem;
+}
+
 details.card > summary {
   cursor: pointer;
 }
@@ -530,6 +538,11 @@ details.card > summary > .blurb {
 
 .badge.fail {
   color: var(--error);
+}
+
+.badge.seed {
+  color: var(--seed);
+  background: var(--seed-bg);
 }
 
 .chain {
