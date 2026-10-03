@@ -476,6 +476,12 @@ def context_dict(context):
             pass
     return {}
 
+# The game reports a skeleton as male. The prefixes cover the skeleton races of vanilla Kenshi and UWE.
+SKELETON_RACE_PREFIXES = ("skeleton", "p2 unit", "p4 unit", "screamer", "soldierbot")
+
+def reported_sex(race, gender):
+    return "Other" if str(race).strip().lower().startswith(SKELETON_RACE_PREFIXES) else gender
+
 def build_detailed_context_string(npc_name, npc_id, char_data=None):
     ctx = LIVE_CONTEXTS.get(npc_id)
     
@@ -498,7 +504,7 @@ def build_detailed_context_string(npc_name, npc_id, char_data=None):
         lines.append(state_labels[char_state])
 
     race = ctx.get("race") or ctx.get("Race", "Unknown")
-    gender = ctx.get("gender") or ctx.get("Sex", "Unknown")
+    gender = reported_sex(race, ctx.get("gender") or ctx.get("Sex", "Unknown"))
     faction = ctx.get("faction") or ctx.get("Faction", "Unknown")
     job = ctx.get("job") or ctx.get("Job", "None")
     money = ctx.get("money") or 0
@@ -638,7 +644,7 @@ def build_detailed_context_string(npc_name, npc_id, char_data=None):
             dist_str = "Immediate proximity" if dist < 2.5 else f"{int(dist)}m away"
             p_name = p.get("name", "Someone")
             p_race = p.get("race", "Unknown")
-            p_gender = p.get("gender", "Unknown")
+            p_gender = reported_sex(p_race, p.get("gender", "Unknown"))
             p_fact = p.get("faction", "Unknown")
             p_fact_display = p_fact
             if p_fact == "Nameless" or p_fact == PLAYER_CONTEXT.get('faction', 'Nameless'):
@@ -796,7 +802,7 @@ def format_player_status(player_ctx):
     if not player_ctx: return "No status data."
     res = "PLAYER STATUS:\n"
     res += f"- Race: {player_ctx.get('race', 'Unknown')}\n"
-    res += f"- Gender: {player_ctx.get('gender', 'male')}\n"
+    res += f"- Gender: {reported_sex(player_ctx.get('race', ''), player_ctx.get('gender', 'male'))}\n"
     med = player_ctx.get("medical", {})
     if med:
         hunger = med.get("hunger", 300)
@@ -903,7 +909,7 @@ def build_system_prompt(player_name="Drifter", speaker=None, speaker_profile=Non
         language_instruction = f"\nLANGUAGE: You MUST respond ONLY in {language}. Do not switch to English under any circumstances.\n"
 
     player_race = player.get("race", "Unknown")
-    player_gender = player.get("gender", "male")
+    player_gender = reported_sex(player_race, player.get("gender", "male"))
 
     prompt = fill_prompt(
         "prompt_system.txt",
@@ -1066,6 +1072,7 @@ def generate_character_profile(name, context=""):
     
     if race == "Unknown": race = live_ctx.get('race', 'Unknown')
     if gender == "Unknown": gender = live_ctx.get('gender', 'Unknown')
+    gender = reported_sex(race, gender)
     if faction == "Unknown": 
         faction = live_ctx.get('faction', 'Unknown')
         if faction == "Unknown":
@@ -1144,7 +1151,7 @@ def generate_batch_profiles(npc_list):
     for npc in complete:
         name = npc.get('name', 'Unknown')
         race = npc.get('race', 'Unknown')
-        gender = npc.get('gender', 'Unknown')
+        gender = reported_sex(race, npc.get('gender', 'Unknown'))
         faction = npc.get('faction', 'Unknown')
         f_info = describe_faction(faction, npc.get("factionID"))
         descriptions.append(f"- Name: {name}, Sex: {gender}, Race: {race}, Faction: {f_info}")
@@ -1190,7 +1197,7 @@ def generate_batch_profiles(npc_list):
                             "Name": clean_name,
                             "OriginalName": clean_name,
                             "Race": npc.get('race', 'Unknown'),
-                            "Sex": npc.get('gender', 'Unknown'),
+                            "Sex": reported_sex(npc.get('race', 'Unknown'), npc.get('gender', 'Unknown')),
                             "Faction": npc.get('faction') or npc.get('Faction') or 'Unknown',
                             "OriginFaction": npc.get('origin_faction', 'Unknown'),
                             "Job": npc.get('job', 'None'),
@@ -1217,7 +1224,7 @@ def get_character_data(name, context="", skip_generate=False):
         try:
             if data:
                 current_race = ctx_data.get("race", "Unknown")
-                current_sex = ctx_data.get("gender", "Unknown")
+                current_sex = reported_sex(current_race, ctx_data.get("gender", "Unknown"))
                 current_faction = ctx_data.get("faction", "Unknown")
                 needs_save = False
                 
@@ -1260,7 +1267,7 @@ def get_character_data(name, context="", skip_generate=False):
             return {
                 "Name": name,
                 "Race": ctx_data.get("race", "Unknown"),
-                "Sex": ctx_data.get("gender", "Unknown"),
+                "Sex": reported_sex(ctx_data.get("race", "Unknown"), ctx_data.get("gender", "Unknown")),
                 "Faction": ctx_data.get("faction", "Unknown"),
                 "OriginFaction": ctx_data.get("origin_faction", "Unknown"),
                 "Job": ctx_data.get("job", "None"),
@@ -1450,7 +1457,7 @@ def ambient_event():
             # "Name|ID" lets the plugin map each banter line to the right NPC
             health = npc.get('health', 'Healthy')
             gear = npc.get('equipment', 'nothing notable')
-            char_profiles += f"\n- {name}|{nid} ({npc.get('gender')} {npc.get('race')}, {npc.get('faction')}) | Health: {health} | Gear: {gear} | Personality: {d.get('Personality', 'A traveler.')} | Speech quirks: {d.get('SpeechQuirks') or 'None.'}"
+            char_profiles += f"\n- {name}|{nid} ({reported_sex(npc.get('race'), npc.get('gender'))} {npc.get('race')}, {npc.get('faction')}) | Health: {health} | Gear: {gear} | Personality: {d.get('Personality', 'A traveler.')} | Speech quirks: {d.get('SpeechQuirks') or 'None.'}"
         else:
             name_to_id[npc] = 0
             d = get_character_data(npc, "")
