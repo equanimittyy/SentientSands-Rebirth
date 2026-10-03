@@ -121,7 +121,7 @@ function renderEvents() {
 async function createCampaign(event) {
   event.preventDefault();
   const switching = !campaigns.some((campaign) => campaign.active);
-  const steps = progress("Creating the campaign", "Writing the campaign", ...(switching ? ["Switching campaigns"] : []), "Loading the campaigns");
+  const steps = progress("Creating the campaign", "Writing the campaign", ...(switching ? ["Switching campaigns"] : []), "Loading the campaign");
   try {
     const { name } = await sendJson("POST", "/api/campaigns", creation);
     creation.name = "";
@@ -145,13 +145,22 @@ async function deleteCampaign(campaign) {
   if (!(await ask(`Delete ${campaign.name}`, "Delete", `This deletes the campaign ${campaign.name} with its NPC memories, factions, world events, and rumors. `,
     campaign.active ? `It is the current campaign, so ${switchNote}${hasChanges() ? ", and your unsaved changes are lost" : ""}. ` : "",
     "\n\n", el("b", { className: "warning" }, "The delete takes effect immediately and is irreversible!")))) return;
+  const switching = campaign.active && next;
+  const steps = progress("Deleting the campaign", ...(switching ? [`Opening ${next}`] : []), `Deleting ${campaign.name}`, "Loading the campaign");
   try {
+    if (switching) {
+      await sendJson("POST", "/api/campaigns/switch", { name: next });
+      steps.next();
+    }
     await sendJson("POST", "/api/campaigns/delete", { name: campaign.name });
   } catch (error) {
+    steps.close();
     await tell("Cannot delete the campaign", error.message);
     return;
   }
+  steps.next();
   if (await (campaign.active ? loadCampaigns() : fetchAll(unsavedDrafts()))) showMessage(message, `Deleted ${campaign.name}.`);
+  steps.close();
 }
 
 async function switchCampaign(name) {
@@ -159,14 +168,18 @@ async function switchCampaign(name) {
     render();
     return;
   }
+  const steps = progress("Switching campaigns", `Opening ${name}`, "Loading the campaign");
   try {
     await sendJson("POST", "/api/campaigns/switch", { name });
   } catch (error) {
+    steps.close();
     showMessage(message, `Switch failed: ${error.message}`, true);
     return;
   }
+  steps.next();
   notes.clear();
   if (await loadCampaigns()) showMessage(message, `Switched to ${name}. The next chat uses it.`);
+  steps.close();
 }
 
 async function cull() {
