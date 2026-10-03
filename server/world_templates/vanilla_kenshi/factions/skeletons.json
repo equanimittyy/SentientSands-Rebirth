@@ -1,0 +1,10 @@
+{
+  "game_id": "42088-rebirth.mod",
+  "name": "Skeletons",
+  "aliases": [],
+  "major": false,
+  "fields": {
+    "base": "Black Desert City"
+  },
+  "description": "Independent Skeletons with no master and no empire. Many live in Black Desert City, far from the living, and keep what they remember of the old empires to themselves."
+}

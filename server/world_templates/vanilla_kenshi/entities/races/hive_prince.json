@@ -1,0 +1,15 @@
+{
+  "name": "Hive Prince",
+  "aliases": [
+    "Hiver Prince"
+  ],
+  "weight": 1,
+  "fields": {
+    "type": "hiver",
+    "homeland": "Vain"
+  },
+  "prose": {
+    "description": "The thinking caste of the Hive. Princes are tall, clever, and free to act on their own, so they handle trade and dealings with outsiders for their Queen. A Prince cut off from their Hive copes better than other Hivers, because Princes are made to think for themselves.",
+    "speech": "Precise and careful with words, often formal, and sometimes startlingly direct. Hivers call those outside any Hive no-hives."
+  }
+}

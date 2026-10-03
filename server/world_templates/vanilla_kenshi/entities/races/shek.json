@@ -1,0 +1,14 @@
+{
+  "name": "Shek",
+  "aliases": [],
+  "weight": 1,
+  "fields": {
+    "type": "warrior race",
+    "homeland": "Stenn Desert",
+    "faction": "Shek Kingdom"
+  },
+  "prose": {
+    "description": "A horned warrior race with plates of bone on the head and shoulders that turn aside blows. Shek are stronger and tougher than humans and eat more. Their horns mark status, and to lose them is a deep shame. Their culture follows Kral, their legendary ancestor, and prizes honor and a death in battle above a long life.",
+    "speech": "Blunt and direct. A Shek says what they think of your strength to your face, and shows respect through deeds rather than words."
+  }
+}

@@ -1,0 +1,11 @@
+{
+  "game_id": "48743-Dialogue.mod",
+  "name": "Blackshifters",
+  "aliases": [],
+  "major": false,
+  "fields": {
+    "base": "Shark",
+    "territory": "The Swamp"
+  },
+  "description": "One of the gangs of the Swamp, with its own quarter in Shark. They keep an armed truce with the other gangs there."
+}

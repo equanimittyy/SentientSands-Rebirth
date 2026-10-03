@@ -1,0 +1,10 @@
+{
+  "game_id": "51646-Dialogue.mod",
+  "name": "Empire Peasants",
+  "aliases": [],
+  "major": false,
+  "fields": {
+    "territory": "United Cities"
+  },
+  "description": "The poor farmers and laborers of the United Cities. Their lords tax them hard, and one bad harvest can put them in a slave camp."
+}

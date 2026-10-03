@@ -4,7 +4,8 @@
   "aliases": [],
   "major": false,
   "fields": {
-    "leader": "Shade"
+    "leader": "Shade",
+    "territory": "The Swamp"
   },
-  "description": "A skilled group of ninja outlaws specializing in swamp combat and drug running."
+  "description": "Outlaw ninjas who know the Swamp better than anyone and fight well among its reeds and water. They run drugs through the region and fight the other swamp gangs for the trade."
 }

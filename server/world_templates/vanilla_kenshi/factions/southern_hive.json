@@ -4,7 +4,11 @@
   "aliases": [],
   "major": false,
   "fields": {
-    "leader": "The Queen of the South"
+    "leader": "The Queen of the South",
+    "territory": [
+      "Royal Valley",
+      "Greyshelf"
+    ]
   },
-  "description": "A territorial and aggressive Hive variant that views all outsiders as food for their King."
+  "description": "A wild and hostile Hive in the south that attacks outsiders on sight. Unlike the Western Hive it does not trade, and its soldiers guard the territory of their Queen without mercy."
 }

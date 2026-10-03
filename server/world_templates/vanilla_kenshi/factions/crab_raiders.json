@@ -1,0 +1,10 @@
+{
+  "game_id": "62806-rebirth.mod",
+  "name": "Crab Raiders",
+  "aliases": [],
+  "major": false,
+  "fields": {
+    "base": "Crab Town"
+  },
+  "description": "Raiders of the southern coast who wear heavy armor shaped like crab shells. Their smiths make some of the best heavy armor in the world and guard the craft closely."
+}

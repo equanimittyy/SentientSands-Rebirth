@@ -1,0 +1,10 @@
+{
+  "game_id": "41162-Dialogue.mod",
+  "name": "Swampers",
+  "aliases": [],
+  "major": false,
+  "fields": {
+    "territory": "The Swamp"
+  },
+  "description": "The common folk of the swamp villages. Most of them work for, pay, or belong to one of the gangs that divide the region."
+}

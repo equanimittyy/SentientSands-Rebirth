@@ -4,7 +4,16 @@
   "aliases": [],
   "major": true,
   "fields": {
-    "leader": "Esata the Stone Golem"
+    "leader": "Esata the Stone Golem",
+    "capital": "Admag",
+    "territory": [
+      "Stenn Desert",
+      "The Hook"
+    ],
+    "enemies": [
+      "The Holy Nation",
+      "United Cities"
+    ]
   },
-  "description": "A warrior race obsessed with honor and strength, currently attempting to move away from suicidal traditions."
+  "description": "The kingdom of the Shek, a horned warrior race that values honor and a glorious death in battle. Esata the Stone Golem rules from Admag and is trying to end the wars that are driving her people toward extinction, which many traditionalists call cowardice. Shek measure worth by strength and call humans flatskins."
 }

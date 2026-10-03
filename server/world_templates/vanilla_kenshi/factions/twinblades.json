@@ -1,0 +1,11 @@
+{
+  "game_id": "48760-Dialogue.mod",
+  "name": "Twinblades",
+  "aliases": [],
+  "major": false,
+  "fields": {
+    "base": "Shark",
+    "territory": "The Swamp"
+  },
+  "description": "A swamp gang with its own quarter in Shark."
+}

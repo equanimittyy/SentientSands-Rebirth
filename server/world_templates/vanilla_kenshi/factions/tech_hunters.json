@@ -1,0 +1,15 @@
+{
+  "game_id": "1233-gamedata.base",
+  "name": "Tech Hunters",
+  "aliases": [],
+  "major": false,
+  "fields": {
+    "base": "World's End",
+    "bases": [
+      "Black Scratch",
+      "Flats Lagoon",
+      "Mourn"
+    ]
+  },
+  "description": "A guild of explorers who search the ruins of the ancient empires for technology and books. They accept members of any race, Skeletons included, and keep waystations along dangerous roads. Their library at Black Scratch holds more knowledge of the old world than any other place."
+}

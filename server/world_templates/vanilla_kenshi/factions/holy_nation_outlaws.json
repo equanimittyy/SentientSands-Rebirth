@@ -1,0 +1,11 @@
+{
+  "game_id": "42022-rebirth.mod",
+  "name": "Holy Nation Outlaws",
+  "aliases": [],
+  "major": false,
+  "fields": {
+    "base": "The Hub",
+    "territory": "Border Zone"
+  },
+  "description": "Exiles and deserters from the Holy Nation who took over the half-ruined town of the Hub. They are too few to threaten anyone, but they defend their town and let in most travelers."
+}

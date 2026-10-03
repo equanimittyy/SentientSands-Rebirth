@@ -1,0 +1,12 @@
+{
+  "name": "Skeleton",
+  "aliases": [],
+  "weight": 1,
+  "fields": {
+    "type": "machine"
+  },
+  "prose": {
+    "description": "Ancient thinking machines built by the First Empire. Skeletons never age, eat, or sleep; they are repaired with tools and repair kits instead of healed. Many are centuries old and remember the fall of the old empires, though few speak of it. The Holy Nation hunts them as servants of Narko.",
+    "speech": "Measured and economical, with a dry humor. They share old history only with those they trust."
+  }
+}

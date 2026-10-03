@@ -3,6 +3,17 @@
   "name": "Slave Traders",
   "aliases": [],
   "major": true,
-  "fields": {},
-  "description": ""
+  "fields": {
+    "territory": "Great Desert",
+    "bases": [
+      "Eyesocket",
+      "Stone Camp",
+      "Port North",
+      "Port South"
+    ],
+    "enemies": [
+      "Anti-Slavers"
+    ]
+  },
+  "description": "A licensed company that buys, sells, and works slaves under the law of the United Cities. They run slave camps and markets across the Great Desert, and the farms and mines of the Empire depend on their labor. Debtors and the poor are their stock, and Manhunters bring back those who run."
 }

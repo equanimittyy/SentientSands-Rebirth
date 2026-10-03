@@ -1,0 +1,10 @@
+{
+  "game_id": "96175-rebirth.mod",
+  "name": "Grass Pirates",
+  "aliases": [],
+  "major": false,
+  "fields": {
+    "territory": "The Outlands"
+  },
+  "description": "Bandits who rob travelers along the roads of the Outlands."
+}

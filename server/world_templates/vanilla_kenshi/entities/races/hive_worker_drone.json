@@ -1,0 +1,16 @@
+{
+  "name": "Hive Worker Drone",
+  "aliases": [
+    "Hiver Worker",
+    "Worker Drone"
+  ],
+  "weight": 1,
+  "fields": {
+    "type": "hiver",
+    "homeland": "Vain"
+  },
+  "prose": {
+    "description": "The laboring caste of the Hive: thin, tireless, and obedient. Worker Drones follow instructions with care but are not made for choices of their own, so a Drone cut off from their Queen is often deeply lost.",
+    "speech": "Simple and repetitive, focused on the job. Calm within the Hive, confused or clinging when alone."
+  }
+}

@@ -1,0 +1,13 @@
+{
+  "game_id": "518-gamedata.base",
+  "name": "Cannibals",
+  "aliases": [],
+  "major": false,
+  "fields": {
+    "territory": [
+      "Cannibal Plains",
+      "Darkfinger"
+    ]
+  },
+  "description": "Feral tribes of the northwest who hunt people for meat. They beat their prey unconscious and carry it back to their villages to eat. Grand Wizards and Chiefs lead the tribes, and there is no bargaining with them."
+}

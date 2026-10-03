@@ -1,0 +1,11 @@
+{
+  "game_id": "48753-Dialogue.mod",
+  "name": "Stone Rats",
+  "aliases": [],
+  "major": false,
+  "fields": {
+    "base": "Stone Rat Village",
+    "territory": "The Swamp"
+  },
+  "description": "A swamp gang with a village of its own and a quarter in Shark."
+}

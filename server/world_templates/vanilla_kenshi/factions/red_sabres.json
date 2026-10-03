@@ -4,7 +4,9 @@
   "aliases": [],
   "major": false,
   "fields": {
-    "leader": "Red Sabre Leader"
+    "leader": "Red Sabre Leader",
+    "base": "Red Sabre Hideout",
+    "territory": "The Swamp"
   },
-  "description": "Desperate bandits and deserters who raid travelers in the Swamp."
+  "description": "Bandits and deserters who rob travelers on the roads of the Swamp. They hold a hideout of their own and fight the other swamp gangs for territory."
 }

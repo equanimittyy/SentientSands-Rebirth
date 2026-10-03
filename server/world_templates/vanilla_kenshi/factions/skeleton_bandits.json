@@ -1,0 +1,10 @@
+{
+  "game_id": "62792-rebirth.mod",
+  "name": "Skeleton Bandits",
+  "aliases": [],
+  "major": false,
+  "fields": {
+    "leader": "Elder"
+  },
+  "description": "Rogue Skeletons who have turned to banditry, led by one called Elder."
+}

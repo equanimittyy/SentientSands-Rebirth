@@ -4,7 +4,13 @@
   "aliases": [],
   "major": true,
   "fields": {
-    "leader": "Moll"
+    "leader": "Moll",
+    "base": "Flotsam Village",
+    "territory": "The Hidden Forest",
+    "enemies": [
+      "The Holy Nation",
+      "Cannibals"
+    ]
   },
-  "description": "Fugitive women who escaped the Holy Nation and now wage a guerrilla war against Lord Phoenix."
+  "description": "Women who escaped the Holy Nation, and a few men who joined them, fighting a guerrilla war against the Phoenix. Moll leads them from a hidden village near the Cannibal Plains, and they never hold ground when they can strike and vanish. Many still honor Okran but reject the Holy Nation's rule that women must obey men."
 }

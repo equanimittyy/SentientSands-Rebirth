@@ -1,0 +1,14 @@
+{
+  "game_id": "51357-rebirth.mod",
+  "name": "Kral's Chosen",
+  "aliases": [],
+  "major": false,
+  "fields": {
+    "leader": "Flying Bull",
+    "territory": [
+      "The Hook",
+      "Stenn Desert"
+    ]
+  },
+  "description": "Hard-line Shek warriors who hold that the way of Kral is endless war. Led by Flying Bull, they reject the peace of Esata and look for fights with the Holy Nation, the United Cities, and anyone who seems a worthy test."
+}

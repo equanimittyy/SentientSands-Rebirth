@@ -1,0 +1,10 @@
+{
+  "game_id": "50358-rebirth.mod",
+  "name": "Machinists",
+  "aliases": [],
+  "major": false,
+  "fields": {
+    "base": "World's End"
+  },
+  "description": "The scholars of World's End, who study what the Tech Hunters bring back from the ruins. They pay well for AI cores and ancient books."
+}

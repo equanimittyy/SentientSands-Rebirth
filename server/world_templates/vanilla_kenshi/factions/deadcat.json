@@ -3,6 +3,8 @@
   "name": "Deadcat",
   "aliases": [],
   "major": true,
-  "fields": {},
-  "description": "Survivors of a once-proud fishing nation, now largely wiped out by Cannibals."
+  "fields": {
+    "territory": "Northern Coast"
+  },
+  "description": "A people of fishermen who live in small villages along the coast. Cannibal raids wiped out most of their nation, and the survivors stay close to the shore and are wary of strangers."
 }

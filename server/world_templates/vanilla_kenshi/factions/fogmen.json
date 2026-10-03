@@ -1,0 +1,13 @@
+{
+  "game_id": "18893-rebirth.mod",
+  "name": "Fogmen",
+  "aliases": [
+    "Deadhive"
+  ],
+  "major": false,
+  "fields": {
+    "leader": "Fog Prince",
+    "territory": "Fog Islands"
+  },
+  "description": "Hivers whose Hive lost its Queen and fell into madness. They rush out of the mist of the Fog Islands with a shriek, carry the fallen back to their nests, and eat them."
+}

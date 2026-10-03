@@ -4,7 +4,15 @@
   "aliases": [],
   "major": true,
   "fields": {
-    "leader": "Tinfist"
+    "leader": "Tinfist",
+    "base": "Spring",
+    "territory": "Stobe's Gamble",
+    "enemies": [
+      "United Cities",
+      "Slave Traders",
+      "Traders Guild",
+      "Manhunters"
+    ]
   },
-  "description": "A group of martial-artist Skeletons and humans dedicated to the total abolition of slavery."
+  "description": "An army of freed slaves and abolitionists, led by the Skeleton Tinfist, that raids slave camps and breaks collars across the United Cities. They hide in the mountains around Spring and take in former slaves of any race. The Empire calls them terrorists and has put a large bounty on Tinfist that nobody has collected."
 }

@@ -1,10 +1,24 @@
 {
   "game_id": "defaultEmpireFactionSID",
   "name": "United Cities",
-  "aliases": [],
+  "aliases": [
+    "The Empire"
+  ],
   "major": true,
   "fields": {
-    "leader": "Emperor Tengu"
+    "leader": "Emperor Tengu",
+    "capital": "Heft",
+    "territory": [
+      "Great Desert",
+      "Bonefields",
+      "The Hook",
+      "Stormgap Coast"
+    ],
+    "enemies": [
+      "Anti-Slavers",
+      "The Holy Nation",
+      "Rebel Farmers"
+    ]
   },
-  "description": "A vast, corrupt empire where wealth is law. They rely on slavery and the Traders Guild."
+  "description": "A large, corrupt empire of nobles and merchants, ruled by Emperor Tengu from Heft. Wealth is law: the rich buy their way out of trouble, and the poor can be sold for their debts. Samurai keep order, while the Traders Guild and the Slave Traders keep the economy running."
 }

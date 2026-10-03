@@ -1,0 +1,10 @@
+{
+  "game_id": "2607-gamedata.base",
+  "name": "Police",
+  "aliases": [],
+  "major": false,
+  "fields": {
+    "territory": "United Cities"
+  },
+  "description": "The law officers of the towns of the United Cities. They arrest thieves, debtors, and wanted people, and like most imperial officials they can be bought."
+}

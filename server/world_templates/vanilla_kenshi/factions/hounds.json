@@ -3,6 +3,9 @@
   "name": "Hounds",
   "aliases": [],
   "major": true,
-  "fields": {},
-  "description": ""
+  "fields": {
+    "base": "Shark",
+    "territory": "The Swamp"
+  },
+  "description": "The strongest gang in the Swamp. The Hounds hold Shark, the largest town in the region, and keep an armed truce with the rival gangs that have their own quarters inside its walls. Travelers who pay and behave can pass through."
 }

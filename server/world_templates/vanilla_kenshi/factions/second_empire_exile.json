@@ -1,0 +1,14 @@
+{
+  "game_id": "1533874-rebirth.mod",
+  "name": "Second Empire Exile",
+  "aliases": [],
+  "major": false,
+  "fields": {
+    "leader": "Cat-Lon",
+    "territory": [
+      "The Ashlands",
+      "Greyshelf"
+    ]
+  },
+  "description": "The Skeletons who stayed loyal to Cat-Lon after the Second Empire fell. They hold the domes of the Ashlands, where no living thing survives for long, and still guard what remains of their empire."
+}

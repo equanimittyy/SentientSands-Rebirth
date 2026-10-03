@@ -1,0 +1,10 @@
+{
+  "game_id": "14508-gamedata.base",
+  "name": "Bounty Hunters",
+  "aliases": [],
+  "major": false,
+  "fields": {
+    "territory": "United Cities"
+  },
+  "description": "Hunters of wanted people who work under license from the United Cities. They bring their targets in alive when they can, so many favor blunt weapons."
+}

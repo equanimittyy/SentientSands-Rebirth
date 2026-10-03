@@ -1,0 +1,14 @@
+{
+  "game_id": "200-gamedata.base",
+  "name": "Dust Bandits",
+  "aliases": [],
+  "major": false,
+  "fields": {
+    "leader": "Dust King",
+    "territory": [
+      "Border Zone",
+      "Great Desert"
+    ]
+  },
+  "description": "The most common bandits of the Border Zone and the desert edges: desperate men in worn leather and old iron who ambush travelers in groups. Many were farmers or debtors before the desert took everything else."
+}

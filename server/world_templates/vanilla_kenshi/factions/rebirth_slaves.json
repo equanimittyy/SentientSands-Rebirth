@@ -1,0 +1,10 @@
+{
+  "game_id": "49392-rebirth.mod",
+  "name": "Rebirth Slaves",
+  "aliases": [],
+  "major": false,
+  "fields": {
+    "base": "Rebirth"
+  },
+  "description": "Prisoners who labor in the Holy Nation's mine at Rebirth: Shek, Hivers, heretics, and anyone else the Holy Nation condemns."
+}

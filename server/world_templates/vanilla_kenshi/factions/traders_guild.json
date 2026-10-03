@@ -4,7 +4,12 @@
   "aliases": [],
   "major": true,
   "fields": {
-    "leader": "Longen"
+    "leader": "Longen",
+    "base": "Trader's Edge",
+    "territory": "Great Desert",
+    "enemies": [
+      "Anti-Slavers"
+    ]
   },
-  "description": "A powerful commercial alliance that controls much of the world's economy through slave labor and trade."
+  "description": "The merchant guild that controls most trade in the United Cities, from caravans to shops. Longen runs it from Trader's Edge and holds more real power than most nobles. The Guild profits from slave labor, so it works to keep slavery legal."
 }

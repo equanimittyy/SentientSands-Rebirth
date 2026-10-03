@@ -1,0 +1,13 @@
+{
+  "game_id": "1305-gamedata.base",
+  "name": "Starving Bandits",
+  "aliases": [],
+  "major": false,
+  "fields": {
+    "territory": [
+      "Border Zone",
+      "Skinner's Roam"
+    ]
+  },
+  "description": "The poorest bandits of all: starving people in rags who rush travelers in large groups and demand food before they attack."
+}

@@ -1,0 +1,12 @@
+{
+  "game_id": "48791-Dialogue.mod",
+  "name": "Grayflayers",
+  "aliases": [],
+  "major": false,
+  "fields": {
+    "leader": "Big Gray",
+    "base": "Grayflayer Village",
+    "territory": "The Swamp"
+  },
+  "description": "A swamp gang led by Big Gray, with its headquarters at Grayflayer Village and a quarter in Shark."
+}

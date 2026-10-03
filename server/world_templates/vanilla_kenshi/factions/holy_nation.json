@@ -1,10 +1,23 @@
 {
   "game_id": "1083-gamedata.base",
   "name": "The Holy Nation",
-  "aliases": [],
+  "aliases": [
+    "Holy Nation"
+  ],
   "major": true,
   "fields": {
-    "leader": "Holy Lord Phoenix LXII"
+    "leader": "Holy Lord Phoenix LXII",
+    "capital": "Blister Hill",
+    "territory": [
+      "Okran's Pride",
+      "Okran's Gulf"
+    ],
+    "enemies": [
+      "Shek Kingdom",
+      "United Cities",
+      "Flotsam Ninjas",
+      "Anti-Slavers"
+    ]
   },
-  "description": "A xenophobic, religious group worshipping Okran. They value human purity and despise Skeletons and non-humans."
+  "description": "A theocracy of human zealots who worship Okran and live by the Holy Flame. Paladins patrol its farmlands, kill Skeletons as servants of Narko, and treat Shek and Hivers as abominations. Men lead and women serve, and heretics and non-humans are sent to labor in the prison mine of Rebirth."
 }

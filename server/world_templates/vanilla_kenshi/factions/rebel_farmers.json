@@ -1,0 +1,12 @@
+{
+  "game_id": "54297-rebirth.mod",
+  "name": "Rebel Farmers",
+  "aliases": [],
+  "major": false,
+  "fields": {
+    "enemies": [
+      "United Cities"
+    ]
+  },
+  "description": "Farmers who rose up against the taxes and nobles of the United Cities. The Empire treats them as outlaws."
+}

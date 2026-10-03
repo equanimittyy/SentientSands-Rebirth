@@ -3,6 +3,12 @@
   "name": "Mongrel",
   "aliases": [],
   "major": true,
-  "fields": {},
-  "description": "A haven for outcasts and 'Fog-free' exiles in the heart of the Fog Islands."
+  "fields": {
+    "base": "Mongrel",
+    "territory": "Fog Islands",
+    "enemies": [
+      "Fogmen"
+    ]
+  },
+  "description": "The people and guards of Mongrel, a walled town deep in the Fog Islands. Fogmen surround the town on every side, so its guards are among the most hardened fighters in the world. Mongrel takes in anyone who survives the journey, including outcasts that other towns turn away."
 }

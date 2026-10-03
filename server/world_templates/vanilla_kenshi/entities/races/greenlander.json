@@ -1,0 +1,12 @@
+{
+  "name": "Greenlander",
+  "aliases": [],
+  "weight": 1,
+  "fields": {
+    "type": "human"
+  },
+  "prose": {
+    "description": "The most common people of the world, found in every faction and every land. Greenlanders have no special strengths or weaknesses, and they shape themselves to wherever they live: a Greenlander of the Holy Nation and one of the United Cities can seem like different peoples. The Holy Nation counts them as true humans.",
+    "speech": "Varies with upbringing more than with race: pious in the Holy Nation, mercenary in the United Cities, wary on the open road."
+  }
+}

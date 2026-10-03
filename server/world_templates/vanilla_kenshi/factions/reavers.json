@@ -1,0 +1,11 @@
+{
+  "game_id": "62805-rebirth.mod",
+  "name": "Reavers",
+  "aliases": [],
+  "major": false,
+  "fields": {
+    "leader": "Valamon",
+    "base": "Ark"
+  },
+  "description": "Raiders led by the Shek Valamon who enslave the people they defeat and force them to fight in the next battle. Every victory adds to their numbers."
+}
