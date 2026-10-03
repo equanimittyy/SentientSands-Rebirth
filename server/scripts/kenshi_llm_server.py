@@ -2297,6 +2297,10 @@ def record_event_to_history(etype, actor, target, msg, actor_faction="None", tar
         pass  # The event is lost, but the context post that carries it must still update the player's context
 
 def generate_global_narrative_thread():
+    # A rumor without a game time is never culled
+    if "day" not in PLAYER_CONTEXT:
+        logging.debug("NARRATIVE: No game time yet, so no synthesis.")
+        return None
     settings = load_settings()
     ge_count = settings.get("global_events_count", 10)
     last_chunk = campaign_db.recent_events(max(ge_count, 100))
@@ -2443,7 +2447,8 @@ def update_context():
     is_paused = data.get("is_paused", False)
     game_speed = data.get("gamespeed", 1.0)
     
-    if not is_paused and game_speed > 0.05:
+    # An event without a game time is never culled; the plugin sends its recent events again with each post
+    if not is_paused and game_speed > 0.05 and "day" in PLAYER_CONTEXT:
         new_events = data.get("events", [])
         for e in new_events:
             record_event_to_history(

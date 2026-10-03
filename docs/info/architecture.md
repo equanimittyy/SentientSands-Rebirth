@@ -236,6 +236,7 @@ The `character` table holds every character of a campaign in one shape: the cano
 
 - Each edit names the campaign that the page loaded. Another tab can switch the campaign while the page is open, so the server refuses an edit for another campaign instead of writing it into the active one.
 - **Cull Future Data** in the SSR HUB posts to `POST /cull`, which does the same cull without the campaign check, because the game always means the active campaign. The plugin shows the result as a game message.
+- The server writes no world event from a context post and no rumor until a player context gives it the game time, because the cull never deletes a line without a game time. The plugin sends its recent events with each post, so a later post brings the events that the server skipped.
 - An edit of a faction, a character, a race, a location, or a region carries the `updated_at` that the page loaded, and the server refuses it when the row changed after that, for example when the game renamed the player's faction. An edit without `updated_at` counts as stale. The name of the player's faction is not editable, because the next context would undo it.
 - The web app offers no delete for the player's faction. The game reports the faction again, and the server then adds it back with an empty description, so a delete would only lose the description.
 - A rumor edit replaces only the text of its `[RUMOR: ...]` tag and keeps its game time. Brackets in the text become parentheses, because the prompt reads the rumor up to the first `]`.
