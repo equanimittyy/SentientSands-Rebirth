@@ -141,12 +141,12 @@ CREATE TABLE character (
   id         INTEGER PRIMARY KEY,
   npc_id     TEXT NOT NULL UNIQUE,  -- the game ID of proposal_npc_ids.md
   profile    TEXT NOT NULL,         -- JSON: Name, Race, Sex, Faction, Job, Personality, ...
-  origin     TEXT NOT NULL DEFAULT 'campaign',  -- template | campaign
+  origin     TEXT NOT NULL DEFAULT 'campaign',  -- seed | campaign
   favorite   INTEGER NOT NULL DEFAULT 0,
   updated_at TEXT NOT NULL
 );
 
--- The faction store: the template's factions, the player's faction, and factions met in play.
+-- The faction store: the seeded factions, the player's faction, and factions met in play.
 CREATE TABLE faction (
   id          INTEGER PRIMARY KEY,
   faction_id  TEXT NOT NULL UNIQUE,  -- the faction's string ID in the game data
@@ -156,7 +156,7 @@ CREATE TABLE faction (
   fields      TEXT NOT NULL DEFAULT '{}',  -- JSON object, for example the leader
   description TEXT NOT NULL DEFAULT '',
   is_player   INTEGER NOT NULL DEFAULT 0,
-  origin      TEXT NOT NULL DEFAULT 'campaign',  -- template | campaign
+  origin      TEXT NOT NULL DEFAULT 'campaign',  -- seed | campaign
   updated_at  TEXT NOT NULL
 );
 
@@ -168,7 +168,7 @@ CREATE TABLE entity (
   name       TEXT NOT NULL,
   weight     REAL NOT NULL DEFAULT 1,
   seq        INTEGER,            -- timeline order of a history entry
-  origin     TEXT NOT NULL DEFAULT 'template',  -- template | campaign
+  origin     TEXT NOT NULL DEFAULT 'seed',  -- seed | campaign
   updated_at TEXT NOT NULL,
   UNIQUE (category, ext_id)
 );
