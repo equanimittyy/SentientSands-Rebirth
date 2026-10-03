@@ -806,7 +806,7 @@ function render() {
     source === "template" ? renderTemplateBar() : renderCanonBar(),
     (source === "template" ? template : canon) ? el("div", { className: "editor-layout" },
       el("div", { className: "record-panel" }, source === "campaign" ? seededSwitch() : null, search, filterSelect(), el("div", { id: "record-list", className: "record-list" }), newRecordForm()),
-      el("div", { id: "record-form" })) : null);
+      el("div", { id: "record-form" })) : el("p", { className: "hint" }, source === "template" ? "No template to edit." : "Open a campaign to edit its canon."));
   renderList();
   renderForm();
 }
