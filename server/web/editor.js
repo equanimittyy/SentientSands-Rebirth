@@ -761,8 +761,8 @@ function renderTemplateBar() {
     ...(template?.errors ?? []).map((error) => el("p", { className: "hint error" }, error.message)),
     ...(template?.warnings ?? []).map((warning) => el("p", { className: "hint" }, warning.message)),
     el("form", { className: "add", onsubmit: duplicateTemplate }, duplicateName, el("button", { type: "submit" }, "Duplicate"),
-      template ? el("button", { type: "button", onclick: exportTemplate }, "Export") : null,
-      template && !template.builtin ? deleteButton(`Delete the template ${templateTitle()}`, deleteTemplate) : null),
+      template && !template.builtin ? deleteButton(`Delete the template ${templateTitle()}`, deleteTemplate) : null,
+      template ? el("button", { type: "button", onclick: exportTemplate }, "Export") : null),
     el("form", { className: "add", onsubmit: importTemplate }, importFile, importName, el("button", { type: "submit" }, "Import")));
 }
 
