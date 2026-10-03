@@ -356,7 +356,7 @@ function renderList() {
     if (record.key === selected) item.setAttribute("aria-current", "true");
     return item;
   }));
-  if (shown.length === 0) list.append(el("p", { className: "hint" }, "Nothing matches."));
+  if (shown.length === 0) list.append(el("p", { className: "hint" }, "No results."));
 }
 
 function categories() {
