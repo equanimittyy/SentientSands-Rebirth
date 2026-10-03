@@ -30,7 +30,6 @@ class StoreTest(unittest.TestCase):
         self.user = os.path.join(self.root.name, "user", "prompts")
         os.makedirs(self.shipped)
         self.ship("greeting.txt", "Hello {name} the {race}.\r\n")
-        self.ship("bio.txt", "A drifter.")
         self.ship("notes.md", "Not a prompt.")
 
     def tearDown(self):
@@ -41,16 +40,16 @@ class StoreTest(unittest.TestCase):
             f.write(text)
 
     def save(self, name, text):
-        return prompt_store.save(name, text, self.shipped, self.user, ("bio.txt",))
+        return prompt_store.save(name, text, self.shipped, self.user)
 
     def entry(self, name):
-        return next(e for e in prompt_store.listing(self.shipped, self.user, ("bio.txt",)) if e["name"] == name)
+        return next(e for e in prompt_store.listing(self.shipped, self.user) if e["name"] == name)
 
     def load(self, name):
         return prompt_store.load(name, self.shipped, self.user)
 
     def test_lists_only_shipped_prompts(self):
-        self.assertEqual([e["name"] for e in prompt_store.listing(self.shipped, self.user, ("bio.txt",))], ["greeting.txt"])
+        self.assertEqual([e["name"] for e in prompt_store.listing(self.shipped, self.user)], ["greeting.txt"])
 
     def test_without_override_loads_default(self):
         self.assertEqual(self.load("greeting.txt"), "Hello {name} the {race}.")
@@ -104,7 +103,7 @@ class StoreTest(unittest.TestCase):
         self.assertEqual(self.load("greeting.txt"), "Hello {name}.")
 
     def test_only_shipped_prompt_names_are_accepted(self):
-        for name in ("../greeting.txt", "bio.txt", "notes.md", "missing.txt", os.path.join(self.shipped, "greeting.txt")):
+        for name in ("../greeting.txt", "notes.md", "missing.txt", os.path.join(self.shipped, "greeting.txt")):
             with self.assertRaises(ValueError, msg=name):
                 self.save(name, "x")
         self.assertFalse(os.path.exists(self.user))

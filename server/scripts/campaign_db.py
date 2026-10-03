@@ -1,4 +1,4 @@
-"""The campaign's NPC profiles, dialogue, canon, events, and rumors, in one SQLite file per campaign folder.
+"""The campaign's characters, dialogue, canon, events, and rumors, in one SQLite file per campaign folder.
 
 Every write runs in one BEGIN IMMEDIATE transaction, and a profile write merges only the keys that the
 caller passes. Two requests that change one NPC during an LLM call therefore keep both changes.
@@ -15,7 +15,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 DB_NAME = "campaign.db"
-SCHEMA_VERSION = 3
+SCHEMA_VERSION = 4
 MAX_DIALOGUE = 250
 MAX_EVENTS = 500
 
@@ -24,20 +24,21 @@ CREATE TABLE meta (
   key   TEXT PRIMARY KEY,
   value TEXT NOT NULL
 );
-CREATE TABLE npc (
+CREATE TABLE character (
   id         INTEGER PRIMARY KEY,
-  storage_id TEXT NOT NULL COLLATE NOCASE UNIQUE,
+  npc_id     TEXT NOT NULL UNIQUE,
   profile    TEXT NOT NULL,
+  origin     TEXT NOT NULL DEFAULT 'campaign',
   favorite   INTEGER NOT NULL DEFAULT 0,
   updated_at TEXT NOT NULL
 );
 CREATE TABLE dialogue (
-  id        INTEGER PRIMARY KEY,
-  npc_id    INTEGER NOT NULL REFERENCES npc(id) ON DELETE CASCADE,
-  game_time INTEGER,
-  line      TEXT NOT NULL
+  id           INTEGER PRIMARY KEY,
+  character_id INTEGER NOT NULL REFERENCES character(id) ON DELETE CASCADE,
+  game_time    INTEGER,
+  line         TEXT NOT NULL
 );
-CREATE INDEX dialogue_by_npc ON dialogue (npc_id, id);
+CREATE INDEX dialogue_by_character ON dialogue (character_id, id);
 CREATE TABLE event (
   id        INTEGER PRIMARY KEY,
   game_time INTEGER,
@@ -59,13 +60,6 @@ CREATE TABLE faction (
   is_player   INTEGER NOT NULL DEFAULT 0,
   origin      TEXT NOT NULL DEFAULT 'campaign',
   updated_at  TEXT NOT NULL
-);
-CREATE TABLE character (
-  id         INTEGER PRIMARY KEY,
-  game_id    TEXT NOT NULL UNIQUE,
-  profile    TEXT NOT NULL,
-  origin     TEXT NOT NULL DEFAULT 'campaign',
-  updated_at TEXT NOT NULL
 );
 CREATE TABLE entity (
   id         INTEGER PRIMARY KEY,
@@ -143,15 +137,15 @@ def create(folder, seed):
         )
         now = _now()
         conn.executemany(
-            "INSERT INTO faction (faction_id, name, aliases, major, fields, description, origin, updated_at) VALUES (?, ?, ?, ?, ?, ?, 'template', ?)",
+            "INSERT INTO faction (faction_id, name, aliases, major, fields, description, origin, updated_at) VALUES (?, ?, ?, ?, ?, ?, 'seed', ?)",
             [(f["faction_id"], f["name"], json.dumps(f["aliases"]), int(f["major"]), json.dumps(f["fields"]), f["description"], now) for f in seed["factions"]],
         )
         conn.executemany(
-            "INSERT INTO character (game_id, profile, origin, updated_at) VALUES (?, ?, 'template', ?)",
-            [(c["game_id"], json.dumps(c["profile"]), now) for c in seed["characters"]],
+            "INSERT INTO character (npc_id, profile, origin, updated_at) VALUES (?, ?, 'seed', ?)",
+            [(unique_npc_id(c["game_id"]), json.dumps(c["profile"]), now) for c in seed["characters"]],
         )
         conn.executemany(
-            "INSERT INTO entity (category, ext_id, data, origin, updated_at) VALUES (?, ?, ?, 'template', ?)",
+            "INSERT INTO entity (category, ext_id, data, origin, updated_at) VALUES (?, ?, ?, 'seed', ?)",
             [(e["category"], e["id"], json.dumps(e["data"]), now) for e in seed["entities"]],
         )
         conn.execute("COMMIT")
@@ -161,89 +155,84 @@ def create(folder, seed):
     logging.info(f"CAMPAIGN: Created {DB_NAME} in {folder} from the template {seed['template']['name']}")
 
 
-def get_npc(storage_id):
+def unique_npc_id(game_id):
+    return f"u:{game_id}"
+
+
+def get_character(npc_id):
     with _connect() as conn:
-        row = conn.execute("SELECT id, profile FROM npc WHERE storage_id = ?", (_key(storage_id),)).fetchone()
+        row = conn.execute("SELECT id, profile FROM character WHERE npc_id = ?", (npc_id,)).fetchone()
         if not row:
             return None
         profile = json.loads(row[1])
-        profile["ConversationHistory"] = [line for (line,) in conn.execute("SELECT line FROM dialogue WHERE npc_id = ? ORDER BY id", (row[0],))]
+        profile["ConversationHistory"] = [line for (line,) in conn.execute("SELECT line FROM dialogue WHERE character_id = ? ORDER BY id", (row[0],))]
         return profile
 
 
-def npc_exists(storage_id):
+def character_exists(npc_id):
     with _connect() as conn:
-        return conn.execute("SELECT 1 FROM npc WHERE storage_id = ?", (_key(storage_id),)).fetchone() is not None
+        return conn.execute("SELECT 1 FROM character WHERE npc_id = ?", (npc_id,)).fetchone() is not None
 
 
-def upsert_profile(storage_id, fields):
+def upsert_profile(npc_id, fields):
     """Ignores ConversationHistory, so a caller can pass a whole profile."""
     with _connect(write=True) as conn:
-        row = conn.execute("SELECT id, profile FROM npc WHERE storage_id = ?", (_key(storage_id),)).fetchone()
+        row = conn.execute("SELECT id, profile FROM character WHERE npc_id = ?", (npc_id,)).fetchone()
         if not row:
-            _insert_npc(conn, storage_id, fields)
+            _insert_character(conn, npc_id, fields)
             return
         profile = json.loads(row[1])
         profile.update(fields)
-        conn.execute("UPDATE npc SET profile = ?, updated_at = ? WHERE id = ?", (json.dumps(_stored(profile)), _now(), row[0]))
+        conn.execute("UPDATE character SET profile = ?, updated_at = ? WHERE id = ?", (json.dumps(_stored(profile)), _now(), row[0]))
 
 
-def change_relation(storage_id, delta):
-    """Returns the new Relation, clamped to -100..100, or None if the NPC is not stored."""
+def change_relation(npc_id, delta):
+    """Returns the new Relation, clamped to -100..100, or None if the character is not stored."""
     with _connect(write=True) as conn:
-        row = conn.execute("SELECT id, profile FROM npc WHERE storage_id = ?", (_key(storage_id),)).fetchone()
+        row = conn.execute("SELECT id, profile FROM character WHERE npc_id = ?", (npc_id,)).fetchone()
         if not row:
             return None
         profile = json.loads(row[1])
         profile["Relation"] = max(-100, min(100, int(profile.get("Relation", 0)) + delta))
-        conn.execute("UPDATE npc SET profile = ?, updated_at = ? WHERE id = ?", (json.dumps(profile), _now(), row[0]))
+        conn.execute("UPDATE character SET profile = ?, updated_at = ? WHERE id = ?", (json.dumps(profile), _now(), row[0]))
         return profile["Relation"]
 
 
-def append_dialogue(storage_id, lines, profile):
-    """Stores profile first only if the NPC is not stored yet."""
+def append_dialogue(npc_id, lines, profile):
+    """Stores profile first only if the character is not stored yet."""
     with _connect(write=True) as conn:
-        row = conn.execute("SELECT id FROM npc WHERE storage_id = ?", (_key(storage_id),)).fetchone()
+        row = conn.execute("SELECT id FROM character WHERE npc_id = ?", (npc_id,)).fetchone()
         if row:
-            npc_id = row[0]
-            conn.execute("UPDATE npc SET updated_at = ? WHERE id = ?", (_now(), npc_id))
+            character_id = row[0]
+            conn.execute("UPDATE character SET updated_at = ? WHERE id = ?", (_now(), character_id))
         else:
-            npc_id = _insert_npc(conn, storage_id, profile)
-        conn.executemany("INSERT INTO dialogue (npc_id, game_time, line) VALUES (?, ?, ?)", [(npc_id, _game_time(line), line) for line in lines])
+            character_id = _insert_character(conn, npc_id, profile)
+        conn.executemany("INSERT INTO dialogue (character_id, game_time, line) VALUES (?, ?, ?)", [(character_id, _game_time(line), line) for line in lines])
         conn.execute(
-            "DELETE FROM dialogue WHERE npc_id = ? AND id <= (SELECT id FROM dialogue WHERE npc_id = ? ORDER BY id DESC LIMIT 1 OFFSET ?)",
-            (npc_id, npc_id, MAX_DIALOGUE),
+            "DELETE FROM dialogue WHERE character_id = ? AND id <= (SELECT id FROM dialogue WHERE character_id = ? ORDER BY id DESC LIMIT 1 OFFSET ?)",
+            (character_id, character_id, MAX_DIALOGUE),
         )
 
 
-def rename_npc(old_id, new_id, name):
-    """Returns False, and changes nothing, if old_id is not stored or new_id is already taken."""
-    with _connect(write=True) as conn:
-        if conn.execute("SELECT 1 FROM npc WHERE storage_id = ?", (_key(new_id),)).fetchone():
-            return False
-        row = conn.execute("SELECT id, profile FROM npc WHERE storage_id = ?", (_key(old_id),)).fetchone()
-        if not row:
-            return False
-        profile = json.loads(row[1])
-        profile["ID"] = new_id
-        profile["Name"] = name
-        conn.execute("UPDATE npc SET storage_id = ?, profile = ?, updated_at = ? WHERE id = ?", (_key(new_id), json.dumps(profile), _now(), row[0]))
-        return True
-
-
-def list_npcs():
+def list_characters():
     with _connect() as conn:
-        rows = conn.execute("SELECT storage_id, COALESCE(json_extract(profile, '$.Name'), storage_id), favorite, updated_at FROM npc").fetchall()
-    return [{"storage_id": sid, "name": name, "favorite": bool(fav), "updated_at": updated} for sid, name, fav, updated in rows]
+        rows = conn.execute(
+            "SELECT npc_id, json_extract(profile, '$.Name'), origin, favorite, updated_at,"
+            " EXISTS (SELECT 1 FROM dialogue WHERE character_id = character.id) FROM character"
+        ).fetchall()
+    return [
+        {"npc_id": npc_id, "name": name, "origin": origin, "favorite": bool(fav), "updated_at": updated, "has_dialogue": bool(talked)}
+        for npc_id, name, origin, fav, updated, talked in rows
+    ]
 
 
-def toggle_favorite(storage_id):
-    """Returns the new state, or None if the NPC is not stored."""
+def toggle_favorite(npc_id):
+    """Returns the new state, or None if the character is not stored."""
     with _connect(write=True) as conn:
-        row = conn.execute("SELECT id, favorite FROM npc WHERE storage_id = ?", (_key(storage_id),)).fetchone()
+        row = conn.execute("SELECT id, favorite FROM character WHERE npc_id = ?", (npc_id,)).fetchone()
         if not row:
             return None
-        conn.execute("UPDATE npc SET favorite = ? WHERE id = ?", (int(not row[1]), row[0]))
+        conn.execute("UPDATE character SET favorite = ? WHERE id = ?", (int(not row[1]), row[0]))
         return not row[1]
 
 
@@ -448,7 +437,7 @@ def _faction(row):
 
 
 # kind: (table, key columns, JSON column)
-_RECORDS = {"character": ("character", ("game_id",), "profile"), "entity": ("entity", ("category", "ext_id"), "data")}
+_RECORDS = {"character": ("character", ("npc_id",), "profile"), "entity": ("entity", ("category", "ext_id"), "data")}
 
 
 def list_records(kind):
@@ -506,17 +495,13 @@ def _connect(write=False):
         conn.close()
 
 
-def _insert_npc(conn, storage_id, profile):
-    return conn.execute("INSERT INTO npc (storage_id, profile, updated_at) VALUES (?, ?, ?)", (_key(storage_id), json.dumps(_stored(profile)), _now())).lastrowid
+def _insert_character(conn, npc_id, profile):
+    return conn.execute("INSERT INTO character (npc_id, profile, origin, updated_at) VALUES (?, ?, 'game', ?)", (npc_id, json.dumps(_stored(profile)), _now())).lastrowid
 
 
 def _stored(profile):
     # A stored "_transient" would block /rename and make /ambient regenerate the profile on every call
     return {k: v for k, v in profile.items() if k != "ConversationHistory" and not k.startswith("_")}
-
-
-def _key(storage_id):
-    return "".join(c for c in str(storage_id) if c.isalnum() or c in (" ", "_", "-")).strip()
 
 
 def _game_time(line):

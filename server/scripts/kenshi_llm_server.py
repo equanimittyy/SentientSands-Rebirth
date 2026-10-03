@@ -80,8 +80,6 @@ USER_PROMPTS_DIR = os.path.join(KENSHI_SERVER_DIR, "user", "prompts")
 WORLD_TEMPLATES_DIR = os.path.join(KENSHI_SERVER_DIR, "world_templates")
 USER_TEMPLATES_DIR = os.path.join(KENSHI_SERVER_DIR, "user", "world_templates")
 DEFAULT_TEMPLATE = "vanilla_kenshi"
-# The defaults of a new campaign's player profile, not prompts, so the Prompts page leaves them out
-CAMPAIGN_TEXTS = ("character_bio.txt",)
 
 PROFILES_IN_PROGRESS = set()
 PROGRESS_LOCK = threading.Lock()
@@ -276,20 +274,7 @@ def get_campaign_dir():
     if not os.path.exists(cdir):
         os.makedirs(cdir)
         logging.info(f"CAMPAIGN: Created the campaign folder {cdir}")
-        ensure_campaign_seeded(cdir)
     return cdir
-
-def ensure_campaign_seeded(cdir):
-    try:
-        for component in CAMPAIGN_TEXTS:
-            src = os.path.join(PROMPTS_DIR, component)
-            dst = os.path.join(cdir, component)
-            if os.path.exists(src) and not os.path.exists(dst):
-                import shutil
-                shutil.copy2(src, dst)
-                logging.info(f"CAMPAIGN: Seeded '{os.path.basename(cdir)}' with {component}")
-    except Exception as e:
-        logging.error(f"CAMPAIGN: Cannot seed the campaign folder {cdir}: {e}")
 
 def load_campaign_config():
     try:
@@ -408,7 +393,7 @@ KENSHI_NAME_POOL = [
 ]
 
 def get_used_names():
-    return {npc["storage_id"].split("_")[0].lower() for npc in campaign_db.list_npcs()}
+    return {c["name"].lower() for c in campaign_db.list_characters() if c["name"]}
 
 def generate_unique_lore_name(gender="Neutral"):
     used = get_used_names()
@@ -481,8 +466,18 @@ LONG_TERM_MEM = {
     8: "SQUAD_LOST_TO_ME_ONCE", 14: "KILLED_MY_FRIEND", 15: "I_SCREWED_THIS_GUY"
 }
 
-def build_detailed_context_string(npc_name, char_data=None):
-    ctx = LIVE_CONTEXTS.get(npc_name)
+def context_dict(context):
+    if isinstance(context, dict):
+        return context
+    if isinstance(context, str) and context.strip().startswith('{'):
+        try:
+            return json.loads(context)
+        except ValueError:
+            pass
+    return {}
+
+def build_detailed_context_string(npc_name, npc_id, char_data=None):
+    ctx = LIVE_CONTEXTS.get(npc_id)
     
     if not ctx:
         if not char_data:
@@ -797,9 +792,6 @@ def fill_prompt(filename, **values):
         logging.warning(f"PROMPT: {filename} has placeholders that nothing fills, so they stay as text: {', '.join(sorted(unknown))}")
     return prompt_store.render(template, values)
 
-def load_campaign_text(filename):
-    return prompt_store.read(os.path.join(CAMPAIGNS_DIR, ACTIVE_CAMPAIGN, filename)) or prompt_store.read(os.path.join(PROMPTS_DIR, filename))
-
 def format_player_status(player_ctx):
     if not player_ctx: return "No status data."
     res = "PLAYER STATUS:\n"
@@ -854,8 +846,17 @@ def format_player_inventory(player_ctx):
         res += f"\n- ... and {len(bag)-15} more items."
     return res
 
-def build_system_prompt(player_name="Drifter"):
-    player_bio = load_campaign_text("character_bio.txt")
+def describe_bio(profile):
+    if not profile:
+        return ""
+    return "\n".join(f"{label}: {profile[key]}" for key, label in (("Personality", "PERSONALITY"), ("Backstory", "BACKSTORY"), ("SpeechQuirks", "SPEECH QUIRKS")) if profile.get(key))
+
+def build_system_prompt(player_name="Drifter", speaker=None, speaker_profile=None):
+    # Ambient banter has no speaker, so squad slot 1 of the player context stands for the player
+    player = speaker or PLAYER_CONTEXT
+    if speaker_profile is None and player.get("npc_id"):
+        speaker_profile = campaign_db.get_character(player["npc_id"])
+    player_bio = describe_bio(speaker_profile)
     npc_base = load_prompt_component("npc_base.txt")
     world_lore = campaign_db.overview()
     rules = load_prompt_component("response_rules.txt")
@@ -883,8 +884,8 @@ def build_system_prompt(player_name="Drifter"):
         faction_block = f"PLAYER FACTION ({player_faction['name']}):\n{player_faction['description']}\n"
 
     location_tag = "The Wasteland"
-    if PLAYER_CONTEXT:
-        env = PLAYER_CONTEXT.get("environment", {})
+    if player:
+        env = player.get("environment", {})
         if isinstance(env, dict):
             town = env.get("town_name", "")
             biome = env.get("biome", "")
@@ -901,8 +902,8 @@ def build_system_prompt(player_name="Drifter"):
     if language and language.lower() != "english":
         language_instruction = f"\nLANGUAGE: You MUST respond ONLY in {language}. Do not switch to English under any circumstances.\n"
 
-    player_race = PLAYER_CONTEXT.get("race", "Unknown") if PLAYER_CONTEXT else "Unknown"
-    player_gender = PLAYER_CONTEXT.get("gender", "male") if PLAYER_CONTEXT else "male"
+    player_race = player.get("race", "Unknown")
+    player_gender = player.get("gender", "male")
 
     prompt = fill_prompt(
         "prompt_system.txt",
@@ -915,8 +916,8 @@ def build_system_prompt(player_name="Drifter"):
         player_gender=player_gender,
         player_bio=player_bio,
         player_faction=faction_block,
-        player_status=format_player_status(PLAYER_CONTEXT),
-        player_inventory=format_player_inventory(PLAYER_CONTEXT),
+        player_status=format_player_status(player),
+        player_inventory=format_player_inventory(player),
         rules=rules,
         action_tags=action_tags,
         language_instruction=language_instruction
@@ -1045,22 +1046,15 @@ def generate_character_profile(name, context=""):
             "Sex": "Mixed"
         }
 
-    live_ctx = LIVE_CONTEXTS.get(name) or {}
-    
     race = "Unknown"
     gender = "Unknown"
     faction = "Unknown"
     origin_faction = "Unknown"
     job = "None"
-    
-    ctx_data = {}
-    if isinstance(context, dict):
-        ctx_data = context
-    elif isinstance(context, str) and context.strip().startswith('{'):
-        try:
-            ctx_data = json.loads(context)
-        except: pass
-        
+
+    ctx_data = context_dict(context)
+    live_ctx = LIVE_CONTEXTS.get(ctx_data.get("npc_id")) or {}
+
     if ctx_data:
         race = ctx_data.get('race', race)
         gender = ctx_data.get('gender', gender)
@@ -1190,14 +1184,9 @@ def generate_batch_profiles(npc_list):
                                 profile = v
                                 break
                     
-                    if profile:
-                        storage_id = clean_name
-                        
-                        if '|' in str(storage_id):
-                            storage_id = str(storage_id).split('|')[0]
-
+                    npc_id = npc.get('npc_id')
+                    if profile and npc_id:
                         data = {
-                            "ID": storage_id,
                             "Name": clean_name,
                             "OriginalName": clean_name,
                             "Race": npc.get('race', 'Unknown'),
@@ -1210,35 +1199,19 @@ def generate_batch_profiles(npc_list):
                             "SpeechQuirks": profile.get("SpeechQuirks", "None."),
                             "Relation": int(float(npc.get("relation", 0)) / 2)
                         }
-                        campaign_db.upsert_profile(storage_id, data)
-                        logging.debug(f"PROFILE: Batch saved the profile of {clean_name} (ID: {storage_id})")
+                        campaign_db.upsert_profile(npc_id, data)
+                        logging.debug(f"PROFILE: Batch saved the profile of {clean_name} ({npc_id})")
         except Exception as e:
             logging.error(f"PROFILE: Cannot parse the batch profiles: {e}")
 
 def get_character_data(name, context="", skip_generate=False):
-    # Strip the serial so "Name|ID" doesn't create a separate junk profile per serial
-    if '|' in name:
-        name_parts = name.split('|')
-        name = name_parts[0]
+    """The profile of the NPC that the context names by npc_id. Without an npc_id the profile is a stand-in that is never stored."""
+    name = str(name).split('|')[0].strip()
+    ctx_data = context_dict(context)
+    npc_id = ctx_data.get("npc_id")
 
-    # Key profiles by name only; serial and faction-suffixed IDs are unstable
-    name = str(name).strip()
-    storage_id = name
-    
-    if storage_id and '|' in str(storage_id):
-        storage_id = str(storage_id).split('|')[0].strip()
-
-    data = campaign_db.get_npc(storage_id)
+    data = campaign_db.get_character(npc_id) if npc_id else None
     stored = dict(data) if data else {}
-
-    ctx_data = {}
-    if isinstance(context, dict):
-        ctx_data = context
-    elif isinstance(context, str) and context.strip().startswith('{'):
-        try:
-            ctx_data = json.loads(context)
-        except:
-            pass
 
     if ctx_data:
         try:
@@ -1277,15 +1250,14 @@ def get_character_data(name, context="", skip_generate=False):
 
                 # Bypasses should_save_profile, which would drop generic-content profiles
                 if needs_save:
-                    campaign_db.upsert_profile(storage_id, {k: data[k] for k in ("Race", "Sex", "Faction", "OriginFaction", "Job")})
+                    campaign_db.upsert_profile(npc_id, {k: data[k] for k in ("Race", "Sex", "Faction", "OriginFaction", "Job")})
         except Exception as e:
             logging.error(f"PROFILE: Cannot update the profile from the context: {e}")
 
     if not data:
-        if skip_generate:
-             logging.debug(f"PROFILE: Stand-in path 1: {name} (skip_generate=True)")
-             return {
-                "ID": storage_id,
+        if skip_generate or not npc_id:
+            logging.debug(f"PROFILE: Stand-in path 1: {name} (skip_generate={skip_generate}, npc_id={npc_id})")
+            return {
                 "Name": name,
                 "Race": ctx_data.get("race", "Unknown"),
                 "Sex": ctx_data.get("gender", "Unknown"),
@@ -1302,10 +1274,9 @@ def get_character_data(name, context="", skip_generate=False):
 
         # Stops concurrent requests from generating the same NPC twice
         with PROGRESS_LOCK:
-            if storage_id in PROFILES_IN_PROGRESS:
-                logging.debug(f"PROFILE: Stand-in path 2: {name} (Already in progress: {storage_id})")
+            if npc_id in PROFILES_IN_PROGRESS:
+                logging.debug(f"PROFILE: Stand-in path 2: {name} (Already in progress: {npc_id})")
                 return {
-                    "ID": storage_id,
                     "Name": name,
                     "Race": "Unknown",
                     "Sex": "Unknown",
@@ -1319,14 +1290,13 @@ def get_character_data(name, context="", skip_generate=False):
                     "Relation": int(float(ctx_data.get("relation", 0)) / 2),
                     "_transient": True
                 }
-            PROFILES_IN_PROGRESS.add(storage_id)
+            PROFILES_IN_PROGRESS.add(npc_id)
 
         try:
             profile = generate_character_profile(name, context)
             if profile is None:
                 logging.debug(f"PROFILE: Stand-in path 3: {name} (Generator returned None)")
                 return {
-                    "ID": storage_id,
                     "Name": name,
                     "Race": "Unknown",
                     "Sex": "Unknown",
@@ -1341,7 +1311,6 @@ def get_character_data(name, context="", skip_generate=False):
                     "_transient": True
                 }
             data = {
-                "ID": storage_id,
                 "Name": name,
                 "Race": profile.get("Race", "Unknown"),
                 "Sex": profile.get("Sex", "Unknown"),
@@ -1356,17 +1325,16 @@ def get_character_data(name, context="", skip_generate=False):
             }
         finally:
             with PROGRESS_LOCK:
-                if storage_id in PROFILES_IN_PROGRESS:
-                    PROFILES_IN_PROGRESS.remove(storage_id)
-    
-    if should_save_profile(name, storage_id, data):
+                PROFILES_IN_PROGRESS.discard(npc_id)
+
+    if should_save_profile(name, npc_id, data):
         # Only the changed keys, so the write cannot undo a change that another request made since the read
         changes = {k: v for k, v in data.items() if stored.get(k) != v}
         if changes:
-            campaign_db.upsert_profile(storage_id, changes)
+            campaign_db.upsert_profile(npc_id, changes)
     return data
 
-def should_save_profile(name, storage_id, data):
+def should_save_profile(name, npc_id, data):
     if not name or name in ("Unknown", "Someone"):
         return False
         
@@ -1379,18 +1347,6 @@ def should_save_profile(name, storage_id, data):
         
                 
     return True
-
-def extract_id_from_context(context_json):
-    if not context_json: return None
-    try:
-        if isinstance(context_json, str) and context_json.strip().startswith('{'):
-            context_json = json.loads(context_json)
-        if isinstance(context_json, dict):
-            # Prefer storage_id: id is a volatile serial
-            return context_json.get('storage_id') or context_json.get('id')
-    except:
-        pass
-    return None
 
 
 @app.route('/get_batch_identities', methods=['POST'])
@@ -1433,33 +1389,18 @@ def get_batch_identities():
 def rename_character():
     data = request.json
     if not data: return jsonify({"status": "error"}), 400
-    
-    old_name = data.get('old_name')
+
     new_name = data.get('new_name')
-    context = data.get('context', '')
-    
-    if not old_name or not new_name:
-        return jsonify({"status": "error", "message": "Missing names"}), 400
-        
-    logging.debug(f"RENAME: Renaming '{old_name}' to '{new_name}'")
-    
-    char_data = get_character_data(old_name, context, skip_generate=True)
-    if char_data.get("_transient"):
-        logging.info(f"RENAME: No persistent profile for {old_name}, renaming aborted (will create new on next chat)")
+    npc_id = context_dict(data.get('context', '')).get('npc_id')
+    if not npc_id or not new_name:
+        return jsonify({"status": "error", "message": "Missing the NPC ID or the new name"}), 400
+
+    if not campaign_db.character_exists(npc_id):
+        logging.info(f"RENAME: No profile for {npc_id}, so the next chat creates one with the name {new_name}")
         return jsonify({"status": "ok", "message": "No profile to rename"})
 
-    old_id = char_data.get("ID")
-    if not old_id:
-        return jsonify({"status": "error", "message": "Profile ID resolution failed"}), 500
-
-    old_safe = "".join([c for c in old_name if c.isalnum() or c in (' ', '_', '-')]).strip()
-    if str(old_id).startswith(old_safe) or "_" in str(old_id):
-        new_id = new_name
-        if campaign_db.rename_npc(old_id, new_id, new_name):
-            logging.info(f"RENAME: Moved profile {old_id} -> {new_id}")
-            return jsonify({"status": "ok", "new_id": new_id})
-
-    campaign_db.upsert_profile(old_id, {"Name": new_name})
+    campaign_db.upsert_profile(npc_id, {"Name": new_name})
+    logging.info(f"RENAME: {data.get('old_name')} is now {new_name} ({npc_id})")
     return jsonify({"status": "ok"})
 
 @app.route('/ambient', methods=['POST'])
@@ -1617,9 +1558,12 @@ INSTRUCTIONS:
         final_text = "\n".join(lines)
         
         memories = {}
+        npc_ids = {}
         for npc_obj in npc_limit:
             name = npc_obj.get('name') if isinstance(npc_obj, dict) else npc_obj
             memories[name] = get_character_data(name, context=json.dumps(npc_obj) if isinstance(npc_obj, dict) else "", skip_generate=True)
+            if isinstance(npc_obj, dict) and npc_obj.get('npc_id'):
+                npc_ids[name] = npc_obj['npc_id']
 
         banter = []
         for line in lines:
@@ -1633,7 +1577,8 @@ INSTRUCTIONS:
                 record_event_to_history("BANTER", speaker_name, "Nearby", msg.strip(), actor_faction=speaker_faction)
 
         for name, d in memories.items():
-            campaign_db.append_dialogue(d.get("ID", name), banter, d)
+            if name in npc_ids:
+                campaign_db.append_dialogue(npc_ids[name], banter, d)
 
         logging.debug(f"AMBIENT: Banter: {final_text}")
         return jsonify({"status": "ok", "text": final_text})
@@ -1674,23 +1619,21 @@ def chat():
     player_name = data.get('player', 'Drifter')
     mode = data.get('mode', 'talk')
     
+    # Names map to an npc_id only among the NPCs of this request; name assignment keeps them apart
+    npc_ids = {}
     nearby = data.get('nearby', [])
-    if nearby:
-        for n in nearby:
-            name = n.get('name')
-            sid = n.get('storage_id') or n.get('id')
-            if name:
-                LIVE_CONTEXTS[name] = {
-                    "id": f"{name}|{sid}" if sid else name,
-                    "race": n.get('race', 'Unknown'),
-                    "faction": n.get('faction', 'Unknown'),
-                    "gender": n.get('gender', 'Unknown'),
-                    "nearby": [x for x in nearby if x.get('name') != name],
-                    "player_dist": n.get('dist', 999.0)
-                }
-                if name == primary_npc:
-                    LIVE_CONTEXTS[primary_npc]["id"] = f"{name}|{sid}" if sid else name
-    
+    for n in nearby:
+        name, npc_id = n.get('name'), n.get('npc_id')
+        if name and npc_id:
+            npc_ids[name] = npc_id
+            LIVE_CONTEXTS[npc_id] = {
+                "race": n.get('race', 'Unknown'),
+                "faction": n.get('faction', 'Unknown'),
+                "gender": n.get('gender', 'Unknown'),
+                "nearby": [x for x in nearby if x.get('name') != name],
+                "player_dist": n.get('dist', 999.0)
+            }
+
     # Keeps the LLM from being asked to voice the player
     npcs = [n for n in npcs if n != player_name]
     if primary_npc == player_name and len(npcs) > 0:
@@ -1768,34 +1711,30 @@ def chat():
         player_message = "[AMBIENT CONVERSATION TRIGGERED]"
         
     context = data.get('context', '')
-    primary_id = extract_id_from_context(context)
 
     # Batch profile generation reads race/faction from LIVE_CONTEXTS
     if primary_npc and context:
         try:
-            ctx_dict = json.loads(context) if isinstance(context, str) else context
+            ctx_dict = context_dict(context)
             if ctx_dict:
+                note_faction(ctx_dict)
+            if ctx_dict.get('npc_id'):
+                npc_ids[primary_npc] = ctx_dict['npc_id']
                 # Merge rather than replace, to keep the nearby list and other tracked fields
-                if primary_npc not in LIVE_CONTEXTS:
-                    LIVE_CONTEXTS[primary_npc] = {}
-                
-                target = LIVE_CONTEXTS[primary_npc]
-                target["id"] = primary_id if primary_id else (ctx_dict.get('id') or target.get('id', primary_npc))
-                if ctx_dict.get('storage_id'): target["storage_id"] = ctx_dict.get('storage_id')
+                target = LIVE_CONTEXTS.setdefault(ctx_dict['npc_id'], {})
                 if ctx_dict.get('race'): target["race"] = ctx_dict.get('race')
                 if ctx_dict.get('faction'): target["faction"] = ctx_dict.get('faction')
                 if ctx_dict.get('factionID'): target["factionID"] = ctx_dict.get('factionID')
-                note_faction(ctx_dict)
                 if ctx_dict.get('origin_faction'): target["origin_faction"] = ctx_dict.get('origin_faction')
-                
+
                 if "nearby" in ctx_dict:
                     target["nearby"] = ctx_dict["nearby"]
-                
+
                 if "dist" in ctx_dict:
                     target["player_dist"] = ctx_dict["dist"]
         except Exception as e:
             logging.error(f"CHAT: Cannot register the context of the chat target: {e}")
-    
+
     _, talk_radius, yell_radius = get_config_radii()
     
     npcs_in_radius = []
@@ -1829,9 +1768,9 @@ def chat():
             if clean_n == clean_target:
                 return json.dumps(n)
                 
-        if clean_target in LIVE_CONTEXTS:
-            c = LIVE_CONTEXTS[clean_target]
-            return json.dumps(c)
+        npc_id = npc_ids.get(clean_target)
+        if npc_id in LIVE_CONTEXTS:
+            return json.dumps(dict(LIVE_CONTEXTS[npc_id], npc_id=npc_id))
             
         return ""
 
@@ -1848,41 +1787,24 @@ def chat():
 
     # One batch LLM call for every listener missing a profile, instead of one call each
     missing_for_batch = []
-    checked_ids = set()
     for name in listeners:
-        npc_ctx = get_local_context(name)
-        
-        storage_id = name
-        if '|' in str(storage_id): storage_id = str(storage_id).split('|')[0]
-        
-        if storage_id in checked_ids: continue
-        checked_ids.add(storage_id)
-        
-        if not campaign_db.npc_exists(storage_id):
-            # Another request may already be generating this NPC
-            with PROGRESS_LOCK:
-                if storage_id in PROFILES_IN_PROGRESS:
-                    continue
-                PROFILES_IN_PROGRESS.add(storage_id)
-
-            ctx_dict = {}
-            if npc_ctx:
-                try: ctx_dict = json.loads(npc_ctx) if isinstance(npc_ctx, str) else npc_ctx
-                except: pass
-            
-            if not ctx_dict:
-                live = LIVE_CONTEXTS.get(name, {})
-                ctx_dict = {
-                    "name": name,
-                    "race": live.get("race", "Unknown"),
-                    "gender": live.get("gender", "Unknown"),
-                    "faction": live.get("faction", "Unknown"),
-                    "storage_id": storage_id
-                }
-            else:
-                ctx_dict["storage_id"] = storage_id
-                
-            missing_for_batch.append(ctx_dict)
+        npc_id = npc_ids.get(name)
+        if not npc_id or campaign_db.character_exists(npc_id):
+            continue
+        # Another request may already be generating this NPC
+        with PROGRESS_LOCK:
+            if npc_id in PROFILES_IN_PROGRESS:
+                continue
+            PROFILES_IN_PROGRESS.add(npc_id)
+        live = LIVE_CONTEXTS.get(npc_id, {})
+        missing_for_batch.append({
+            "race": live.get("race", "Unknown"),
+            "gender": live.get("gender", "Unknown"),
+            "faction": live.get("faction", "Unknown"),
+            **context_dict(get_local_context(name)),
+            "name": name,
+            "npc_id": npc_id,
+        })
 
     if missing_for_batch:
         try:
@@ -1890,9 +1812,7 @@ def chat():
         finally:
             with PROGRESS_LOCK:
                 for ctx in missing_for_batch:
-                    sid = ctx.get("storage_id")
-                    if sid in PROFILES_IN_PROGRESS:
-                        PROFILES_IN_PROGRESS.remove(sid)
+                    PROFILES_IN_PROGRESS.discard(ctx["npc_id"])
 
     char_datas = {}
     threads = []
@@ -1906,18 +1826,28 @@ def chat():
 
     delay_counter = 0
     for name in listeners:
-        storage_id = name
-        if '|' in str(storage_id): storage_id = str(storage_id).split('|')[0]
-        
         delay = 0
-        if not campaign_db.npc_exists(storage_id):
+        if not campaign_db.character_exists(npc_ids.get(name, "")):
             delay = delay_counter
             delay_counter += 1
             
         t = threading.Thread(target=fetch_npc_thread, args=(name, delay), daemon=True)
         t.start()
         threads.append(t)
-        
+
+    # The squad member who talks; a profile that it lacks is generated like an NPC's
+    speaker = context_dict(data.get('speaker'))
+    speaker_profile = {}
+    def fetch_speaker():
+        try:
+            speaker_profile.update(get_character_data(player_name, speaker))
+        except Exception as e:
+            logging.error(f"PROFILE: Cannot fetch the profile of the speaker {player_name}: {e}")
+    if speaker.get('npc_id'):
+        t = threading.Thread(target=fetch_speaker, daemon=True)
+        t.start()
+        threads.append(t)
+
     for t in threads:
         t.join()
 
@@ -1938,14 +1868,14 @@ def chat():
         npc_profiles += f"\nCHARACTER: {name}\n"
         npc_profiles += f"RACE: {d.get('Race')}\n"
         npc_profiles += f"ORIGIN FACTION: {describe_faction(d.get('OriginFaction', 'Unknown'))}\n"
-        npc_profiles += f"CURRENT FACTION: {describe_faction(d.get('Faction'), LIVE_CONTEXTS.get(name, {}).get('factionID'))}\n"
+        npc_profiles += f"CURRENT FACTION: {describe_faction(d.get('Faction'), LIVE_CONTEXTS.get(npc_ids.get(name), {}).get('factionID'))}\n"
         npc_profiles += f"JOB: {d.get('Job', 'None')}\n"
         npc_profiles += f"PERSONALITY: {d.get('Personality')}\n"
         npc_profiles += f"BACKSTORY: {d.get('Backstory')}\n"
         npc_profiles += f"SPEECH QUIRKS: {d.get('SpeechQuirks') or 'None.'}\n"
         npc_profiles += f"PERSONAL RELATION TO PLAYER: {d.get('Relation', 0)} (Scale: -100 to 100)\n"
         
-        live_context = build_detailed_context_string(name, char_data=d)
+        live_context = build_detailed_context_string(name, npc_ids.get(name), char_data=d)
         if live_context:
             npc_profiles += f"{live_context}\n"
 
@@ -1956,7 +1886,7 @@ def chat():
         dynamic_system_prompt = f"CRITICAL: {primary_npc} is an ANIMAL ({primary_race}). Animals in Kenshi CANNOT speak human languages. They do not use words, symbols, or telegram-style speech. They ONLY react with brief physical actions, sounds, or gestures described within asterisks."
         final_instruction = f"Respond as {primary_npc} (the animal). Provide a single, BRIEF action description or sound in asterisks (e.g. *Growls*, *Tilts head*, *Nuzzles hand*). DO NOT USE WORDS OR SPEECH. Keep it under 6 words."
     else:
-        dynamic_system_prompt = build_system_prompt(player_name)
+        dynamic_system_prompt = build_system_prompt(player_name, speaker or None, speaker_profile or None)
         
         if mode == 'yell':
             volume_status = "The player is addressing everyone nearby at a clear, projected volume."
@@ -2290,11 +2220,11 @@ def chat():
                 player_faction = PLAYER_CONTEXT.get("faction", "None")
                 record_event_to_history("CHAT", primary_npc, player_name, content, actor_faction=primary_faction, target_faction=player_faction)
 
-            storage_id = char_datas[name].get("ID", name)
-            if should_save_profile(name, storage_id, char_datas[name]):
-                campaign_db.append_dialogue(storage_id, char_datas[name]["ConversationHistory"][stored_lines:], char_datas[name])
+            npc_id = npc_ids.get(name)
+            if npc_id and should_save_profile(name, npc_id, char_datas[name]):
+                campaign_db.append_dialogue(npc_id, char_datas[name]["ConversationHistory"][stored_lines:], char_datas[name])
                 if name in relation_deltas:
-                    new_rel = campaign_db.change_relation(storage_id, relation_deltas[name])
+                    new_rel = campaign_db.change_relation(npc_id, relation_deltas[name])
                     logging.info(f"RELATION: {name} personal relation is now {new_rel} (judgment={relation_deltas[name]})")
 
         logging.debug(f"CHAT: Reply: {content} | Actions: {actions}")
@@ -2526,9 +2456,9 @@ def update_context():
         if prev_paused != data.get("is_paused"):
              logging.debug(f"CONTEXT: Player pause state changed to {data.get('is_paused')} (Speed: {data.get('gamespeed')})")
     else:
-        name = data.get("name")
-        if name:
-            LIVE_CONTEXTS[name] = data
+        npc_id = data.get("npc_id")
+        if npc_id:
+            LIVE_CONTEXTS[npc_id] = data
             with STATE_LOCK:
                 LAST_STATE_LOG["npc"] = data
     return jsonify({"status": "ok"})
@@ -2727,7 +2657,6 @@ def create_campaign(name, template):
         import shutil
         shutil.rmtree(cdir, ignore_errors=True)
         raise
-    ensure_campaign_seeded(cdir)
     return safe_name
 
 def switch_campaign(name):
@@ -2899,8 +2828,8 @@ def get_campaign_canon():
                 for f in campaign_db.list_factions()
             ],
             "characters": [
-                {"id": game_id, "data": {"game_id": game_id, "profile": profile}, "origin": origin, "updated_at": updated_at}
-                for (game_id,), profile, origin, updated_at in campaign_db.list_records("character")
+                {"id": npc_id, "data": {"game_id": npc_id.removeprefix("u:"), "profile": profile}, "origin": origin, "updated_at": updated_at}
+                for (npc_id,), profile, origin, updated_at in campaign_db.list_records("character")
             ],
             "entities": [
                 {"category": category, "id": ext_id, "data": data, "origin": origin, "updated_at": updated_at}
@@ -2939,6 +2868,8 @@ def save_campaign_record():
                 character = {"game_id": record_id, "profile": value.get("profile")}
                 errors, _ = world_template.record_problems("character", character, ["characters", data.get("id") or "new"])
                 if errors: return record_refusal(errors)
+                if data.get("id") is None:
+                    record_id = campaign_db.unique_npc_id(record_id)
                 campaign_db.save_record("character", (record_id,), character["profile"], updated_at)
             else:
                 category = data.get("category")
@@ -3061,7 +2992,7 @@ def regenerate_profile_route():
     sid = data.get("sid")
     if not sid: return jsonify({"status": "error", "message": "Missing NPC ID (sid)"}), 400
     
-    char_data = campaign_db.get_npc(sid)
+    char_data = campaign_db.get_character(sid)
     if not char_data:
         logging.warning(f"PROFILE: Regen found no profile for {sid}")
         return jsonify({"status": "error", "message": "Profile not found"}), 404
@@ -3164,7 +3095,7 @@ def reset_llm_config():
 
 @app.route('/api/prompts', methods=['GET'])
 def get_prompts():
-    return jsonify({"status": "ok", "prompts": prompt_store.listing(PROMPTS_DIR, USER_PROMPTS_DIR, CAMPAIGN_TEXTS)})
+    return jsonify({"status": "ok", "prompts": prompt_store.listing(PROMPTS_DIR, USER_PROMPTS_DIR)})
 
 @app.route('/api/prompts', methods=['POST'])
 def save_prompt():
@@ -3173,7 +3104,7 @@ def save_prompt():
     if not isinstance(name, str) or not isinstance(text, str):
         return jsonify({"status": "error", "message": "The request needs a prompt name and its text."}), 400
     try:
-        warnings = prompt_store.save(name, text, PROMPTS_DIR, USER_PROMPTS_DIR, CAMPAIGN_TEXTS)
+        warnings = prompt_store.save(name, text, PROMPTS_DIR, USER_PROMPTS_DIR)
     except ValueError as e:
         return jsonify({"status": "error", "errors": [{"field": [name], "message": str(e)}]}), 400
     logging.info(f"PROMPT: Saved {name} from the web app.")
@@ -3227,17 +3158,9 @@ def get_history():
     logging.debug("HTTP: POST /history")
     data = request.json or {}
     
-    npc_name = data.get('npc', data.get('name', 'Someone'))
-    
-    logging.debug(f"HISTORY: Request for {npc_name}")
-    
-    clean_npc_name = npc_name.split('|')[0] if '|' in npc_name else npc_name
-    context = data.get('context', '')
-    
-    char_data = campaign_db.get_npc(clean_npc_name)
-    if not char_data:
-        logging.debug(f"HISTORY: Falling back to get_character_data for {clean_npc_name}")
-        char_data = get_character_data(clean_npc_name, context)
+    npc_id = data.get('npc', '')
+    logging.debug(f"HISTORY: Request for {npc_id}")
+    char_data = campaign_db.get_character(npc_id) or {}
 
     if "Race" not in char_data: char_data["Race"] = "Unknown"
     if "Faction" not in char_data: char_data["Faction"] = "Unknown"
@@ -3257,7 +3180,7 @@ def get_history():
         return "\n".join(wrapped)
         
     lines = []
-    lines.append(f"--- PROFILE: {char_data.get('Name', clean_npc_name)} ---")
+    lines.append(f"--- PROFILE: {char_data.get('Name', npc_id)} ---")
     lines.append(f"Faction: {char_data.get('Faction', 'Unknown')} | Race: {char_data.get('Race', 'Unknown')}")
     lines.append(generate_relation_bar(char_data.get('Relation', 0)))
     lines.append("-" * 30)
@@ -3278,7 +3201,7 @@ def get_history():
         
     formatted_output = "\n".join(lines)
     
-    logging.debug(f"HISTORY: Returning formatted report for {clean_npc_name} ({len(history)} lines)")
+    logging.debug(f"HISTORY: Returning formatted report for {npc_id} ({len(history)} lines)")
     return jsonify({
         "status": "ok",
         "text": formatted_output
@@ -3290,22 +3213,12 @@ def list_characters():
     sort_mode = data.get("sort", "alphabetical") # alphabetical or latest
     
     logging.debug(f"LIBRARY: Listing the characters of '{ACTIVE_CAMPAIGN}' (sort: {sort_mode})")
-    npc_list = [
-        {"display": n["name"], "sid": n["storage_id"], "updated_at": n["updated_at"], "is_fav": n["favorite"]}
-        for n in campaign_db.list_npcs()
+    # Leaves out the seeded characters that nobody has met, so the template does not fill the library
+    final_list = [
+        {"display": c["name"] or c["npc_id"], "sid": c["npc_id"], "updated_at": c["updated_at"], "is_fav": c["favorite"]}
+        for c in campaign_db.list_characters() if c["has_dialogue"] or c["origin"] != "seed"
     ]
-    favorites = [n["sid"] for n in npc_list if n["is_fav"]]
-
-    unique_npcs = {}
-    for n in npc_list:
-        name = n["display"]
-        if name not in unique_npcs:
-            unique_npcs[name] = n
-        else:
-            if '_' in n["sid"]:
-                unique_npcs[name] = n
-
-    final_list = list(unique_npcs.values())
+    favorites = [n["sid"] for n in final_list if n["is_fav"]]
 
     if sort_mode == "latest":
         final_list.sort(key=lambda x: x["updated_at"], reverse=True)

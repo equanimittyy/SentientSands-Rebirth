@@ -10,8 +10,10 @@ sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."
 
 import campaign_db
 
+BEEP_ID = "u:19576-Dialogue.mod"
+GENERIC_ID = "h:2717040896"
+
 BEEP = {
-    "ID": "Beep",
     "Name": "Beep",
     "Race": "Hive Worker Drone",
     "Personality": "Cheerful.",
@@ -43,9 +45,9 @@ class CampaignTestCase(unittest.TestCase):
 
 
 class OpenTest(CampaignTestCase):
-    def test_a_new_campaign_gets_an_empty_database(self):
+    def test_a_new_campaign_holds_only_the_template_characters(self):
         campaign_db.open_campaign(self.folder, lambda: SEED)
-        self.assertEqual(campaign_db.list_npcs(), [])
+        self.assertEqual([(c["npc_id"], c["name"], c["origin"], c["has_dialogue"]) for c in campaign_db.list_characters()], [(BEEP_ID, "Beep", "seed", False)])
 
     def test_a_creation_that_stops_before_the_rename_runs_again(self):
         with mock.patch.object(campaign_db.os, "replace", side_effect=OSError("crash")):
@@ -54,17 +56,17 @@ class OpenTest(CampaignTestCase):
         self.assertFalse(os.path.exists(os.path.join(self.folder, campaign_db.DB_NAME)))
 
         campaign_db.open_campaign(self.folder, lambda: SEED)
-        self.assertEqual(campaign_db.list_npcs(), [])
+        self.assertEqual(len(campaign_db.list_characters()), 1)
         self.assertFalse(os.path.exists(os.path.join(self.folder, campaign_db.DB_NAME + ".tmp")))
 
     def test_a_new_campaign_copies_the_template(self):
         campaign_db.open_campaign(self.folder, lambda: SEED)
         self.assertEqual(campaign_db.overview(), "Kenshi is a world of rust.")
         self.assertEqual(campaign_db.template_info(), {"name": "vanilla_kenshi", "version": "1.0.0", "hash": "abc"})
-        self.assertEqual([(f["name"], f["origin"]) for f in campaign_db.list_factions()], [("Nameless", "template"), ("The Holy Nation", "template")])
+        self.assertEqual([(f["name"], f["origin"]) for f in campaign_db.list_factions()], [("Nameless", "seed"), ("The Holy Nation", "seed")])
         self.assertEqual(campaign_db.history(), [{"title": "The First Empire", "text": "It fell."}])
-        self.assertEqual([record[:3] for record in campaign_db.list_records("character")], [(("19576-Dialogue.mod",), {"Name": "Beep", "Race": "Hive Worker Drone"}, "template")])
-        self.assertEqual([record[:3] for record in campaign_db.list_records("entity")], [(("locations", "the_hub"), {"name": "The Hub", "fields": {"owner": "Nameless"}}, "template")])
+        self.assertEqual([record[:3] for record in campaign_db.list_records("character")], [((BEEP_ID,), {"Name": "Beep", "Race": "Hive Worker Drone"}, "seed")])
+        self.assertEqual([record[:3] for record in campaign_db.list_records("entity")], [(("locations", "the_hub"), {"name": "The Hub", "fields": {"owner": "Nameless"}}, "seed")])
 
     def test_the_seed_is_read_only_for_a_new_database(self):
         campaign_db.open_campaign(self.folder, lambda: SEED)
@@ -80,96 +82,104 @@ class OpenTest(CampaignTestCase):
         with self.assertRaises(campaign_db.CampaignUnavailable):
             campaign_db.open_campaign(self.folder, lambda: SEED)
         with self.assertRaisesRegex(campaign_db.CampaignUnavailable, "Start a new campaign"):
-            campaign_db.list_npcs()
+            campaign_db.list_characters()
 
     def test_a_missing_database_fails_instead_of_being_created(self):
         campaign_db.open_campaign(self.folder, lambda: SEED)
         os.remove(os.path.join(self.folder, campaign_db.DB_NAME))
         with self.assertRaisesRegex(campaign_db.CampaignUnavailable, "has no campaign.db file"):
-            campaign_db.get_npc("Beep")
+            campaign_db.get_character(BEEP_ID)
         self.assertFalse(os.path.exists(os.path.join(self.folder, campaign_db.DB_NAME)))
 
     def test_a_closed_campaign_fails_with_the_reason(self):
         campaign_db.open_campaign(self.folder, lambda: SEED)
         campaign_db.close_campaign()
         with self.assertRaisesRegex(campaign_db.CampaignUnavailable, "No campaign is selected"):
-            campaign_db.list_npcs()
+            campaign_db.list_characters()
 
 
-class NpcTest(CampaignTestCase):
+class CharacterTest(CampaignTestCase):
     def setUp(self):
         super().setUp()
         campaign_db.open_campaign(self.folder, lambda: SEED)
 
     def test_upsert_with_one_key_keeps_the_other_keys(self):
-        campaign_db.upsert_profile("Beep", BEEP)
-        campaign_db.upsert_profile("Beep", {"Relation": 9})
-        self.assertEqual(campaign_db.get_npc("Beep"), {**BEEP, "Relation": 9, "ConversationHistory": []})
+        campaign_db.upsert_profile(GENERIC_ID, BEEP)
+        campaign_db.upsert_profile(GENERIC_ID, {"Relation": 9})
+        self.assertEqual(campaign_db.get_character(GENERIC_ID), {**BEEP, "Relation": 9, "ConversationHistory": []})
 
     def test_concurrent_appends_keep_the_lines_of_both(self):
-        campaign_db.upsert_profile("Beep", BEEP)
-        threads = [threading.Thread(target=campaign_db.append_dialogue, args=("Beep", [f"line {i}"], BEEP)) for i in range(8)]
+        campaign_db.upsert_profile(GENERIC_ID, BEEP)
+        threads = [threading.Thread(target=campaign_db.append_dialogue, args=(GENERIC_ID, [f"line {i}"], BEEP)) for i in range(8)]
         for t in threads:
             t.start()
         for t in threads:
             t.join()
-        self.assertEqual(sorted(campaign_db.get_npc("Beep")["ConversationHistory"]), [f"line {i}" for i in range(8)])
+        self.assertEqual(sorted(campaign_db.get_character(GENERIC_ID)["ConversationHistory"]), [f"line {i}" for i in range(8)])
 
     def test_concurrent_relation_changes_keep_every_change(self):
-        campaign_db.upsert_profile("Beep", BEEP)
-        threads = [threading.Thread(target=campaign_db.change_relation, args=("Beep", 1)) for _ in range(20)]
+        campaign_db.upsert_profile(GENERIC_ID, BEEP)
+        threads = [threading.Thread(target=campaign_db.change_relation, args=(GENERIC_ID, 1)) for _ in range(20)]
         for t in threads:
             t.start()
         for t in threads:
             t.join()
-        self.assertEqual(campaign_db.get_npc("Beep")["Relation"], 25)
+        self.assertEqual(campaign_db.get_character(GENERIC_ID)["Relation"], 25)
 
-    def test_relation_change_clamps_and_skips_a_missing_npc(self):
-        campaign_db.upsert_profile("Beep", BEEP)
-        self.assertEqual(campaign_db.change_relation("Beep", 200), 100)
-        self.assertEqual(campaign_db.change_relation("Beep", -300), -100)
-        self.assertIsNone(campaign_db.change_relation("Nobody", 1))
+    def test_relation_change_clamps_and_skips_a_missing_character(self):
+        campaign_db.upsert_profile(GENERIC_ID, BEEP)
+        self.assertEqual(campaign_db.change_relation(GENERIC_ID, 200), 100)
+        self.assertEqual(campaign_db.change_relation(GENERIC_ID, -300), -100)
+        self.assertIsNone(campaign_db.change_relation("h:1", 1))
 
     def test_underscore_keys_are_not_stored(self):
-        campaign_db.append_dialogue("Beep", ["a"], {"Name": "Beep", "_transient": True})
-        campaign_db.upsert_profile("Beep", {"Relation": 1, "_transient": True})
-        self.assertEqual(campaign_db.get_npc("Beep"), {"Name": "Beep", "Relation": 1, "ConversationHistory": ["a"]})
+        campaign_db.append_dialogue(GENERIC_ID, ["a"], {"Name": "Beep", "_transient": True})
+        campaign_db.upsert_profile(GENERIC_ID, {"Relation": 1, "_transient": True})
+        self.assertEqual(campaign_db.get_character(GENERIC_ID), {"Name": "Beep", "Relation": 1, "ConversationHistory": ["a"]})
 
     def test_append_stores_the_profile_only_when_missing(self):
-        campaign_db.append_dialogue("Beep", ["a"], {"Name": "Beep"})
-        campaign_db.append_dialogue("Beep", ["b"], {"Name": "Other"})
-        self.assertEqual(campaign_db.get_npc("Beep"), {"Name": "Beep", "ConversationHistory": ["a", "b"]})
+        campaign_db.append_dialogue(GENERIC_ID, ["a"], {"Name": "Beep"})
+        campaign_db.append_dialogue(GENERIC_ID, ["b"], {"Name": "Other"})
+        self.assertEqual(campaign_db.get_character(GENERIC_ID), {"Name": "Beep", "ConversationHistory": ["a", "b"]})
+
+    def test_a_template_character_keeps_its_canon_profile_in_chat(self):
+        campaign_db.append_dialogue(BEEP_ID, ["hello"], {"Name": "Beep", "Personality": "Generated."})
+        self.assertEqual(campaign_db.get_character(BEEP_ID), {"Name": "Beep", "Race": "Hive Worker Drone", "ConversationHistory": ["hello"]})
+        self.assertEqual([(c["origin"], c["has_dialogue"]) for c in campaign_db.list_characters()], [("seed", True)])
+
+    def test_a_character_met_in_play_has_the_game_origin(self):
+        campaign_db.upsert_profile(GENERIC_ID, BEEP)
+        self.assertEqual({c["npc_id"]: c["origin"] for c in campaign_db.list_characters()}[GENERIC_ID], "game")
 
     def test_dialogue_keeps_the_newest_250_lines(self):
-        campaign_db.append_dialogue("Beep", [f"line {i}" for i in range(300)], BEEP)
-        history = campaign_db.get_npc("Beep")["ConversationHistory"]
+        campaign_db.append_dialogue(GENERIC_ID, [f"line {i}" for i in range(300)], BEEP)
+        history = campaign_db.get_character(GENERIC_ID)["ConversationHistory"]
         self.assertEqual(history, [f"line {i}" for i in range(50, 300)])
 
-    def test_storage_ids_keep_the_file_name_sanitizing_and_ignore_case(self):
-        campaign_db.upsert_profile("Beep!", {"Name": "Beep!"})
-        self.assertTrue(campaign_db.npc_exists("beep"))
-        self.assertEqual([n["storage_id"] for n in campaign_db.list_npcs()], ["Beep"])
+    def test_two_npcs_with_one_name_keep_separate_rows(self):
+        campaign_db.append_dialogue("h:1", ["to the first"], {"Name": "Bob"})
+        campaign_db.append_dialogue("h:2", ["to the second"], {"Name": "Bob"})
+        self.assertEqual(campaign_db.get_character("h:1")["ConversationHistory"], ["to the first"])
+        self.assertEqual(campaign_db.get_character("h:2")["ConversationHistory"], ["to the second"])
 
-    def test_rename_keeps_the_dialogue_and_the_favorite(self):
-        campaign_db.append_dialogue("Beep", ["hello"], BEEP)
-        campaign_db.toggle_favorite("Beep")
-        self.assertTrue(campaign_db.rename_npc("Beep", "Bop", "Bop"))
-        self.assertIsNone(campaign_db.get_npc("Beep"))
-        npc = campaign_db.get_npc("Bop")
-        self.assertEqual((npc["ID"], npc["Name"], npc["ConversationHistory"]), ("Bop", "Bop", ["hello"]))
-        self.assertEqual(campaign_db.list_npcs()[0]["favorite"], True)
+    def test_an_npc_id_is_exact(self):
+        campaign_db.upsert_profile("u:5-Mod Name.mod", {"Name": "Ace"})
+        self.assertTrue(campaign_db.character_exists("u:5-Mod Name.mod"))
+        self.assertFalse(campaign_db.character_exists("U:5-mod name.mod"))
 
-    def test_rename_to_a_taken_id_changes_nothing(self):
-        campaign_db.upsert_profile("Beep", BEEP)
-        campaign_db.upsert_profile("Bop", {"Name": "Bop"})
-        self.assertFalse(campaign_db.rename_npc("Beep", "Bop", "Bop"))
-        self.assertEqual(campaign_db.get_npc("Beep")["Name"], "Beep")
+    def test_a_rename_keeps_the_dialogue_and_the_favorite(self):
+        campaign_db.append_dialogue(GENERIC_ID, ["hello"], BEEP)
+        campaign_db.toggle_favorite(GENERIC_ID)
+        campaign_db.upsert_profile(GENERIC_ID, {"Name": "Bop"})
+        character = campaign_db.get_character(GENERIC_ID)
+        self.assertEqual((character["Name"], character["ConversationHistory"]), ("Bop", ["hello"]))
+        self.assertTrue({c["npc_id"]: c["favorite"] for c in campaign_db.list_characters()}[GENERIC_ID])
 
     def test_toggle_favorite(self):
-        campaign_db.upsert_profile("Beep", BEEP)
-        self.assertTrue(campaign_db.toggle_favorite("Beep"))
-        self.assertFalse(campaign_db.toggle_favorite("Beep"))
-        self.assertIsNone(campaign_db.toggle_favorite("Nobody"))
+        campaign_db.upsert_profile(GENERIC_ID, BEEP)
+        self.assertTrue(campaign_db.toggle_favorite(GENERIC_ID))
+        self.assertFalse(campaign_db.toggle_favorite(GENERIC_ID))
+        self.assertIsNone(campaign_db.toggle_favorite("h:1"))
 
 
 class EventTest(CampaignTestCase):
@@ -186,14 +196,14 @@ class EventTest(CampaignTestCase):
         self.assertEqual(campaign_db.recent_events(2), ["event 6", "event 7"])
 
     def test_cull_deletes_only_later_rows(self):
-        campaign_db.append_dialogue("Beep", ["[Day 2, 09:59] early", "[Day 2, 10:01] late", "untimed"], BEEP)
+        campaign_db.append_dialogue(GENERIC_ID, ["[Day 2, 09:59] early", "[Day 2, 10:01] late", "untimed"], BEEP)
         campaign_db.add_event("[Day 2, 10:00] same minute")
         campaign_db.add_event("[Day 3] next day")
         campaign_db.add_rumor("- [Day 1, 00:00] [RUMOR: old]")
         campaign_db.add_rumor("- [Day 5, 00:00] [RUMOR: new]")
 
         self.assertEqual(campaign_db.cull_after(2, 10, 0), {"dialogue": 1, "event": 1, "rumor": 1})
-        self.assertEqual(campaign_db.get_npc("Beep")["ConversationHistory"], ["[Day 2, 09:59] early", "untimed"])
+        self.assertEqual(campaign_db.get_character(GENERIC_ID)["ConversationHistory"], ["[Day 2, 09:59] early", "untimed"])
         self.assertEqual(campaign_db.recent_events(10), ["[Day 2, 10:00] same minute"])
         self.assertEqual([line for _, line in campaign_db.rumors()], ["- [Day 1, 00:00] [RUMOR: old]"])
 

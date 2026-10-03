@@ -28,8 +28,8 @@ def render(template, values):
     return _PLACEHOLDER.sub(lambda match: str(values[match.group(1)]) if match.group(1) in values else match.group(0), template)
 
 
-def names(shipped_dir, exclude=()):
-    return sorted(name for name in os.listdir(shipped_dir) if name.endswith(".txt") and name not in exclude)
+def names(shipped_dir):
+    return sorted(name for name in os.listdir(shipped_dir) if name.endswith(".txt"))
 
 
 def read(path):
@@ -62,11 +62,11 @@ def _hashes(user_dir):
         return {}
 
 
-def listing(shipped_dir, user_dir, exclude=()):
+def listing(shipped_dir, user_dir):
     """default_changed is None for an override with no stored hash, for example one made by hand."""
     hashes = _hashes(user_dir)
     result = []
-    for name in names(shipped_dir, exclude):
+    for name in names(shipped_dir):
         shipped = read(os.path.join(shipped_dir, name))
         override = read(os.path.join(user_dir, name)) or None
         changed = False
@@ -76,9 +76,9 @@ def listing(shipped_dir, user_dir, exclude=()):
     return result
 
 
-def save(name, text, shipped_dir, user_dir, exclude=()):
+def save(name, text, shipped_dir, user_dir):
     """Returns the warnings of the save. A text equal to the default deletes the override, so the prompt keeps getting later default updates."""
-    if name not in names(shipped_dir, exclude):
+    if name not in names(shipped_dir):
         raise ValueError(f"{name} is not a prompt.")
     shipped = read(os.path.join(shipped_dir, name))
     text = text.replace("\r\n", "\n").strip()

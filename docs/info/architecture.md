@@ -86,7 +86,7 @@ The Campaigns and Editor pages hold many records. Save sends one request for eac
 
 The Editor has two subtabs with the same record list and forms. Campaign Canon edits the canon of the active campaign, and Templates edits the world templates that new campaigns copy. The page holds the records of one subtab and one template at a time, so a switch with unsaved changes asks the player first. A shipped template is read-only, so the page offers a duplicate.
 
-On Campaign Canon, the record list hides the records whose `origin` is `template` until the player turns on **Show seeded data**, and the browser remembers the switch. The overview and the history have no `origin`, so they always show.
+On Campaign Canon, the record list hides the records whose `origin` is `seed` until the player turns on **Show seeded data**, and the browser remembers the switch. The overview and the history have no `origin`, so they always show.
 
 ## Settings
 
@@ -106,7 +106,7 @@ Each file in `server/prompts/` is a shipped default, and an update replaces it. 
 
 The Prompts page of the web app reads `GET /api/prompts` and saves each changed prompt through `POST /api/prompts` (`server/scripts/prompt_store.py`).
 
-- A route takes only the name of a shipped `.txt` file, never a path, so a request cannot write outside `server/user/prompts/`. The player profile file `character_bio.txt` is not a prompt, so the page does not list it.
+- A route takes only the name of a shipped `.txt` file, never a path, so a request cannot write outside `server/user/prompts/`.
 - A save equal to the shipped text, or an empty save, deletes the override, so the prompt gets later default updates again. **Use default** and **Reset to defaults** fill the form with the shipped text, and the next save deletes the overrides.
 - Each save of an override stores the SHA-256 of the shipped text in `server/user/prompts/base_hashes.json`. When an update changes the shipped text, the hash no longer matches, and the page marks the override. An override with no stored hash, for example one made by hand, is marked as unknown.
 - An override and `base_hashes.json` are written to a temporary file and then renamed, as `llm_config.save` does.
@@ -148,15 +148,14 @@ On a start without `llm_config.json`, the server builds it from `default_provide
 
 ## Campaign storage
 
-`server/scripts/campaign_db.py` keeps the NPC profiles, the dialogue, the canon, the event history, and the rumors of a campaign in one SQLite file, `campaign.db`, in the campaign folder. The plugin reaches this data only through the server's routes, which keep their request and response shapes. The player bio stays a text file in the campaign folder, `character_bio.txt` (`load_campaign_text`). A new campaign gets a copy of the shipped file of the same name in `server/prompts/`.
+`server/scripts/campaign_db.py` keeps the characters, the dialogue, the canon, the event history, and the rumors of a campaign in one SQLite file, `campaign.db`, in the campaign folder. The plugin reaches this data only through the server's routes.
 
 - Each write runs in one `BEGIN IMMEDIATE` transaction. A profile write merges only the keys that the caller passes, and the dialogue lines are rows of their own. A route that waits for the LLM must write only the keys that it changed, so that it cannot undo a change that another request made during the wait.
 - `/chat` changes the Relation through `change_relation`, which adds the judgment to the stored value in one transaction. Two overlapping chats with the same NPC therefore keep both changes.
 - A profile key that starts with `_` is not stored. Such a key describes only the copy of one request, for example `_transient` on a stand-in profile.
 - Each operation opens a connection with a 5 s busy timeout and closes it. A campaign switch changes only the database path that `open_campaign` sets.
 - The database uses the default rollback journal, not WAL. The campaign folder therefore has no `-wal` or `-shm` file, and a player can copy it while the server is idle.
-- A storage ID is the NPC name with only its letters, digits, spaces, `_`, and `-`, and it ignores case.
-- Each NPC keeps its newest 250 dialogue lines, and the campaign keeps its newest 500 events. An event that the table already holds is not added again.
+- Each character keeps its newest 250 dialogue lines, and the campaign keeps its newest 500 events. An event that the table already holds is not added again.
 - Favorites belong to each campaign.
 
 A new campaign is a copy of a world template (see [World templates](#world-templates)): its canon and the name, version, and content hash of the template. After the copy, the campaign does not depend on the template, so a template edit or a deleted template does not change it. Only the Campaigns page of the web app creates and switches campaigns. The game has no campaign window.
@@ -177,13 +176,13 @@ The canon of a campaign is its copy of the template records: the overview, the h
 |---|---|---|
 | Overview, history | `meta` rows; the history as JSON | None |
 | Faction | `faction` table (see [Factions](#factions)) | The game ID |
-| Character | `character` table; the profile as JSON | The game ID |
+| Character | `character` table (see [Characters](#characters)); the profile as JSON | `u:` and the game ID |
 | Race, location, region | `entity` table, with `races`, `locations`, or `regions` as the category; the whole template record as JSON | The category and the entity ID |
 
-- The chat prompt reads only the overview and the factions. No prompt reads the history, the characters, the races, the locations, or the regions yet, and chat takes NPC profiles only from the `npc` table.
-- `origin` tells where a record came from: `template` (the copy at creation), `game` (a faction that a context reported), or `campaign` (added on the web app).
+- The chat prompt reads the overview, the factions, and the profiles of the characters in the chat. No prompt reads the history, the races, the locations, or the regions yet.
+- `origin` tells where a record came from: `seed` (the copy of the template at creation), `game` (a faction that a context reported, or a character that the server added in play), or `campaign` (added on the web app).
 - A save checks the record with the template validator (`world_template.record_problems`), so a campaign record follows the same rules as a template record. The validator sees only one record, so the database refuses a second faction or character with the same game ID.
-- The game ID of a faction or a character is its key in the campaign, so it cannot change after the record is added.
+- The key of a faction or a character, its game ID or its `npc_id`, cannot change after the record is added.
 
 ### Factions
 
@@ -194,6 +193,22 @@ Each campaign holds its own copy of the factions, keyed by the string ID of the 
 - A faction that a context reports and the copy lacks gets a row with the name that the game gives and an empty description (`note_faction`). The plugin sends the name, or `Neutral`, as the ID of a faction with no string ID, and the server records no row for those.
 - The player's faction is the row of the `factionID` of the player's context. Its name follows the game, because the player can rename the faction in game. Its description is the player faction block of the chat prompt, and an empty description leaves the block out.
 - The server records each reported faction once per campaign in memory (`SEEN_FACTIONS`), because the plugin posts the player's context every 5 s.
+
+### Characters
+
+The `character` table holds every character of a campaign in one shape: the canon characters of the template, the NPCs that the player meets, and the player's squad. Each row is keyed by the `npc_id` that the plugin builds ([proposal_npc_ids.md](../plans/proposal_npc_ids.md#3-id-format)):
+
+| Character | `npc_id` |
+|---|---|
+| A unique NPC, for example Beep | `u:` and the string ID of its template in the game data |
+| Every other character | `h:` and the `serial` of its handle |
+
+- The server stores an `npc_id` exactly as the plugin sends it. It builds an `npc_id` only for a canon character, `u:<game_id>`, so that chat uses the canon profile instead of a generated one. Dialogue adds to the row and does not change the canon profile.
+- The name is only the `Name` key of the profile, so two NPCs with one name keep two rows, and a rename changes only `Name`.
+- A name in the LLM output maps to an `npc_id` only among the characters of the same request. Name assignment gives generic NPCs different names, so the names of one request stay apart.
+- The player bio in the chat prompt is the `Personality`, `Backstory`, and `SpeechQuirks` of the squad member who speaks, the `speaker` of the chat request. A speaker with no profile gets a generated one, as an NPC does. Ambient banter has no speaker, so it uses the stored profile of squad slot 1 from the player's context.
+- The Dialogue Library lists each character with dialogue and each character that is not seeded, so the seeded characters that the player never met stay out of it.
+- `LIVE_CONTEXTS` holds the latest context of each NPC by `npc_id`.
 
 ### Campaign routes of the web app
 
@@ -280,7 +295,7 @@ The plugin and the server write their logs in the same format, so one tool can r
 
 | Location | Contents |
 |---|---|
-| `server/campaigns/<name>/` | One campaign: `campaign.db` (see [Campaign storage](#campaign-storage)) and `character_bio.txt`. |
+| `server/campaigns/<name>/` | One campaign: `campaign.db` (see [Campaign storage](#campaign-storage)). |
 | `server/logs/` | `server.log` and `llm.log` (see [Logging](#logging)). |
 | `server/user/prompts/` | The player's prompt overrides and `base_hashes.json` (see [Prompts](#prompts)). The release does not ship it, so an update keeps the overrides. |
 | `server/user/world_templates/` | The player's world templates (see [World templates](#world-templates)). The release does not ship it, so an update keeps them. |
