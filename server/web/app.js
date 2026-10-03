@@ -42,7 +42,8 @@ showTheme();
 const status = document.getElementById("status");
 const offline = document.getElementById("offline");
 const loaders = { settings: loadSettings, llm: loadLlm, prompts: loadPrompts, campaigns: loadCampaigns, editor: loadEditor };
-const editors = pages.filter((page) => page.id in loaders);
+const loadable = pages.filter((page) => page.id in loaders);
+const editors = pages.filter((page) => page.querySelector(".save"));
 const loaded = new Set();
 const unsaved = new Set();
 let online = true;
@@ -91,10 +92,10 @@ watchConnection((value) => {
   online = value;
   offline.hidden = online;
   updateButtons();
-  if (online) for (const page of editors) if (!loaded.has(page.id)) load(page.id);
+  if (online) for (const page of loadable) if (!loaded.has(page.id)) load(page.id);
 });
 
-for (const page of editors) load(page.id);
+for (const page of loadable) load(page.id);
 poll();
 setInterval(poll, POLL_MS);
 

@@ -19,7 +19,7 @@ const FACTS = {
   regions: { animals: "list", factions: "list", hazards: "list" },
 };
 const TEMPLATE_PARTS = ["manifest", "overview", "history"];
-const SOURCES = [["campaign", "Campaign Canon"], ["template", "Templates"]];
+const SOURCES = [["campaign", "Campaign Canon"], ["events", "Campaign Events"], ["template", "Templates"]];
 const ORIGIN_LABELS = { seed: "Seeded", game: "Met in game", campaign: "Added in this campaign" };
 const IMPORT_PROBLEMS_SHOWN = 10;
 
@@ -31,6 +31,8 @@ let current = "";
 let template = null;
 let records = [];
 const drafts = new Map();
+let log = null;
+let rumorDrafts = {};
 const notes = new Map();
 let selected = "overview";
 let query = "";
@@ -44,7 +46,7 @@ const importing = { name: "" };
 
 const commaList = (text) => text.split(",").map((item) => item.trim()).filter(Boolean);
 const lineList = (text) => text.split("\n").map((item) => item.trim()).filter(Boolean);
-const readOnly = () => (source === "template" ? !template || template.builtin : !canon);
+const readOnly = () => ({ campaign: !canon, events: !log, template: !template || template.builtin })[source];
 const inCampaign = (record) => source === "campaign" && !record.isNew;
 
 function numberOr(text) {
@@ -189,6 +191,8 @@ function isChanged(record) {
 }
 
 const changedRecords = () => allRecords().filter(isChanged);
+const changedRumors = () => (log?.rumors ?? []).filter((rumor) => rumorDrafts[rumor.id].trim() !== rumor.text);
+const hasChanges = () => (source === "events" ? changedRumors() : changedRecords()).length > 0;
 
 function formOf(record) {
   if (!drafts.has(record.key)) drafts.set(record.key, { form: toForm(record.kind, record.data) });
@@ -220,7 +224,7 @@ function filterValue(record) {
 }
 
 function updateUnsaved() {
-  const unsaved = changedRecords().length > 0;
+  const unsaved = hasChanges();
   reportUnsaved(page, unsaved);
   showMessage(message, unsaved ? "Unsaved changes." : "");
 }
@@ -624,12 +628,13 @@ async function openTemplate(name) {
   await fetchRecords(new Map());
 }
 
-const sourceTitle = () => (source === "template" ? templateTitle() : `the campaign ${canon?.name}`);
+const campaignName = () => (source === "events" ? log : canon)?.name;
+const sourceTitle = () => (source === "template" ? templateTitle() : `the campaign ${campaignName()}`);
 
 async function chooseSource(value) {
   if (value === source) return;
   const label = SOURCES.find(([key]) => key === value)[1];
-  if (changedRecords().length > 0 && !(await ask("Discard the changes", "Discard", `Your changes to ${sourceTitle()} are not saved. Open ${label} and lose them?`))) return;
+  if (hasChanges() && !(await ask("Discard the changes", "Discard", `Your changes to ${sourceTitle()} are not saved. Open ${label} and lose them?`))) return;
   const previous = source;
   source = value;
   selected = "overview";
@@ -637,7 +642,7 @@ async function chooseSource(value) {
   kindFilter = "all";
   notes.clear();
   // Save sends the drafts to the URL of the source, so a failed load must not leave them under the other one
-  if (!(await fetchRecords(new Map()))) {
+  if (!(await reload())) {
     source = previous;
     render();
   }
@@ -799,7 +804,58 @@ function renderSubtabs() {
   return list;
 }
 
+function renderRumors() {
+  const rows = log.rumors.map((rumor) => {
+    const note = notes.get(`rumor:${rumor.id}`);
+    const input = control("textarea", rumorDrafts, rumor.id, ["rumors", rumor.id], { rows: 2, label: "Rumor" });
+    if (note?.field) setFieldError(input, note.text);
+    return el("div", { className: "card" },
+      el("div", { className: "inline row" }, input, deleteButton("Delete the rumor", () => deleteLogEntry("rumor", rumor.id))),
+      note ? el("p", { className: `hint${note.error ? " error" : ""}` }, note.text) : null);
+  });
+  return el("fieldset", {},
+    el("legend", {}, `Rumors (${log.rumors.length})`),
+    el("p", { className: "hint" }, "The world news that SSR writes from what happened in game. NPCs mention the newest rumors."),
+    ...(rows.length > 0 ? rows : [el("p", { className: "hint" }, "No rumors yet.")]));
+}
+
+function renderEvents() {
+  const rows = [...log.events].reverse().map((event) => el("li", {},
+    el("span", { className: "detail" }, event.line),
+    deleteButton("Delete the event", () => deleteLogEntry("event", event.id))));
+  return el("fieldset", {},
+    el("legend", {}, `Event history (${log.events.length})`),
+    el("p", { className: "hint" }, "What happened in game, newest first. SSR writes the rumors from it."),
+    rows.length > 0 ? el("details", {}, el("summary", {}, "Show the events"), el("ul", { className: "plain-list" }, ...rows)) : el("p", { className: "hint" }, "No events yet."));
+}
+
+const LOG_DELETES = {
+  rumor: { url: "/api/campaign/rumors/delete", title: "Delete the rumor", effect: "NPCs stop mentioning this rumor." },
+  event: { url: "/api/campaign/events/delete", title: "Delete the event", effect: "Later rumors cannot draw on this event." },
+};
+
+async function deleteLogEntry(kind, id) {
+  const { url, title: heading, effect } = LOG_DELETES[kind];
+  if (!(await ask(heading, "Delete", `${effect} `, "\n\n", el("b", { className: "warning" }, "The delete takes effect immediately.")))) return;
+  try {
+    await sendJson("POST", url, { campaign: log.name, id });
+    await fetchLog(keptRumors());
+  } catch (error) {
+    showMessage(message, `Delete failed: ${error.message}`, true);
+  }
+}
+
+function renderLog() {
+  if (log) return [renderRumors(), renderEvents()];
+  const hint = el("p", { className: "hint" }, "Open a campaign to edit its rumors and events.");
+  return refusal ? [el("p", { className: "hint error" }, refusal), hint] : [hint];
+}
+
 function render() {
+  if (source === "events") {
+    page.replaceChildren(renderSubtabs(), ...renderLog());
+    return;
+  }
   const search = el("input", {
     type: "search",
     value: query,
@@ -823,6 +879,10 @@ function render() {
 async function save() {
   if (readOnly()) {
     showMessage(message, "No changes to save.");
+    return;
+  }
+  if (source === "events") {
+    await saveRumors();
     return;
   }
   const changes = changedRecords();
@@ -850,6 +910,28 @@ async function save() {
   else showMessage(message, source === "template" ? "Saved. Campaigns that you create from this template from now on get the changes." : `Saved to the campaign ${canon.name}.`);
 }
 
+async function saveRumors() {
+  const changes = changedRumors();
+  if (changes.length === 0) {
+    showMessage(message, "No changes to save.");
+    return;
+  }
+  notes.clear();
+  const kept = {};
+  for (const rumor of changes) {
+    try {
+      await sendJson("POST", "/api/campaign/rumors", { campaign: log.name, id: rumor.id, text: rumorDrafts[rumor.id] });
+    } catch (error) {
+      kept[rumor.id] = rumorDrafts[rumor.id];
+      notes.set(`rumor:${rumor.id}`, { error: true, text: error.message, field: error.fieldErrors?.[0]?.field });
+    }
+  }
+  const failed = Object.keys(kept).length;
+  if (!(await fetchLog(kept))) return;
+  if (failed > 0) showMessage(message, `${failed} of ${changes.length} changes were not saved.`, true);
+  else showMessage(message, "Saved. The next chat uses the changes.");
+}
+
 async function fetchTemplates() {
   ({ templates } = await getJson("/api/templates"));
   if (!templates.some((entry) => entry.name === current)) current = templates[0]?.name ?? "";
@@ -865,6 +947,26 @@ async function fetchCanon() {
     canon = null;
     refusal = error.message;
   }
+}
+
+const keptRumors = () => Object.fromEntries(changedRumors().map((rumor) => [rumor.id, rumorDrafts[rumor.id]]));
+
+async function fetchLog(kept) {
+  try {
+    log = await getJson("/api/campaign");
+    refusal = "";
+  } catch (error) {
+    if (!("fieldErrors" in error)) {
+      showMessage(message, `Could not load the campaign events: ${error.message}`, true);
+      return false;
+    }
+    log = null;
+    refusal = error.message;
+  }
+  rumorDrafts = Object.fromEntries((log?.rumors ?? []).map((rumor) => [rumor.id, kept[rumor.id] ?? rumor.text]));
+  render();
+  updateUnsaved();
+  return true;
 }
 
 // Keeps the drafts that failed to save, so the player can fix them.
@@ -889,6 +991,8 @@ async function fetchRecords(kept) {
   return true;
 }
 
+const reload = () => (source === "events" ? fetchLog({}) : fetchRecords(new Map()));
+
 export async function loadEditor() {
   notes.clear();
   if (source === "template") {
@@ -899,12 +1003,15 @@ export async function loadEditor() {
       return false;
     }
   }
-  return fetchRecords(new Map());
+  return reload();
 }
 
 document.getElementById("editor-save").addEventListener("click", save);
 document.addEventListener("campaignchange", (event) => {
-  if (source !== "campaign" || canon?.name === event.detail) return;
-  if (changedRecords().length > 0) showMessage(message, `The game switched to the campaign ${event.detail}. Your changes belong to ${canon.name}, so they cannot be saved. Discard to load ${event.detail}.`, true);
-  else fetchRecords(new Map());
+  if (source === "template" || campaignName() === event.detail) return;
+  if (hasChanges()) showMessage(message, `The game switched to the campaign ${event.detail}. Your changes belong to ${campaignName()}, so they cannot be saved. Discard to load ${event.detail}.`, true);
+  else reload();
+});
+document.addEventListener("campaigncull", () => {
+  if (source === "events") fetchLog(keptRumors());
 });

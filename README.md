@@ -55,11 +55,12 @@ Each task (chat, radiant conversations, NPC profiles, and world events) has an o
 The server keeps this configuration in `server/user/llm_config.json`. A mod update does not replace it, so your keys stay.
 
 ### Campaigns and world templates
-The **Campaigns** page lists your campaigns and creates a new one from a world template. It also edits the rumors and events of the current campaign. To switch campaigns, choose one under **Current Campaign**. The next chat uses it. **Delete** next to a campaign deletes it, but you always keep at least one campaign. Loaded an older save? **Cull future data** makes NPCs forget what happened after it. The in-game SSR HUB (F8) has the same button as **Cull Future Data**.
+The **Campaigns** page lists your campaigns and creates a new one from a world template. To switch campaigns, choose one under **Current Campaign**. The next chat uses it. **Delete** next to a campaign deletes it, but you always keep at least one campaign. Loaded an older save? **Cull future data** makes NPCs forget what happened after it. The in-game SSR HUB (F8) has the same button as **Cull Future Data**.
 
-The **Editor** page edits the canon of a world: the overview that every NPC knows, the history, the factions, the characters, the races, the locations, and the regions. It has two subtabs:
+The **Editor** page edits the canon of a world: the overview that every NPC knows, the history, the factions, the characters, the races, the locations, and the regions. It also edits the rumors and events of the current campaign. It has three subtabs:
 
 - **Campaign Canon** edits the copy that belongs to the current campaign. An edit changes only that campaign. The list shows the seeded entries, which the campaign copied from its template, until you turn off **Show seeded data**. NPCs read the overview and the factions; the history, characters, races, locations, and regions are kept for a later version.
+- **Campaign Events** edits the rumors of the current campaign and deletes its events. SSR writes the rumors from the events, and NPCs mention the newest rumors.
 - **Templates** edits the world templates, the seeds that new campaigns copy. A template edit changes only the campaigns that you create later. SSR Vanilla ships with the mod and is read-only, so duplicate it to make your own. It supports vanilla Kenshi, and it also describes the factions and unique characters of Universal Wasteland Expansion, which apply only when that mod is installed. The server keeps your templates in `server/user/world_templates/`, and a mod update keeps them. **Export** saves a template as one `.json` file that you can share, and **Import** adds a template from such a file. To share or back up a campaign, copy its folder in `server/campaigns/`.
 
 ---
