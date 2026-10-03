@@ -2,7 +2,7 @@
   "game_id": "42088-rebirth.mod",
   "name": "Skeletons",
   "aliases": [],
-  "major": false,
+  "major": true,
   "fields": {
     "base": "Black Desert City"
   },

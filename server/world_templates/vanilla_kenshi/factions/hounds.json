@@ -2,7 +2,7 @@
   "game_id": "48814-Dialogue.mod",
   "name": "Hounds",
   "aliases": [],
-  "major": true,
+  "major": false,
   "fields": {
     "base": "Shark",
     "territory": "The Swamp"
