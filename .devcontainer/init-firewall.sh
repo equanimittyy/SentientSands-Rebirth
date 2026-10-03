@@ -74,6 +74,7 @@ OPTIONAL_DOMAINS=(
     "downloads.claude.ai"
     "kenshi.fandom.com"
     "kenshi.wiki"
+    "steamcommunity.com"
 )
 
 allow_domain() {
