@@ -311,7 +311,7 @@ function characterForm(form, path, record) {
       el("legend", {}, "Other Details"),
       el("p", { className: "hint" }, "The game and your chats set these details."),
       field("Relation (to you)", relationBar(form.details.Relation), null, "How much the character likes you, from -100 to 100. Your chats with the character change it."),
-      field("Original Faction", el("span", {}, form.details.OriginFaction || "Unknown"), null, "The faction that the character comes from. It stays the same after the character joins your squad.")),
+      field("Original Faction", el("span", {}, form.details.OriginFaction || "Unknown"), null, "The faction that the character comes from.")),
   ];
 }
 
