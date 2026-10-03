@@ -508,7 +508,7 @@ async function deleteTemplate() {
 
 function renderTemplateBar() {
   const select = el("select", { onchange: (event) => chooseTemplate(event.target.value) },
-    ...templates.map((entry) => new Option(`${entry.title}${entry.builtin ? " (shipped)" : ""}`, entry.name, false, entry.name === current)));
+    ...templates.map((entry) => new Option(entry.title, entry.name, false, entry.name === current)));
   select.setAttribute("aria-label", "World template");
   const recordCounts = template ? counts(Object.keys(template.factions).length, Object.keys(template.characters).length, Object.values(template.entities).reduce((sum, entries) => sum + Object.keys(entries).length, 0)) : "";
   const duplicateName = el("input", { value: duplication.name, placeholder: "Name of the copy", required: true, oninput: (event) => { duplication.name = event.target.value; } });
