@@ -1,0 +1,11 @@
+{
+  "game_id": "58417-Dialogue.mod",
+  "profile": {
+    "Name": "Suspicious Settler",
+    "Sex": "Male",
+    "Job": "Farmer",
+    "Personality": "A wary farmer who greets strangers with hostility, then apologizes. He is worn down by bandit raids and worried for his family.",
+    "Backstory": "He farms at a gatherer village, cannot afford protection, and gets by with an old sword and his dog.",
+    "SpeechQuirks": "Suspicious at first, then apologetic: 'Aye... sorry for being so cold'."
+  }
+}

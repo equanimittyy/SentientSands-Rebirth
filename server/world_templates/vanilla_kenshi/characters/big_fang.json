@@ -1,0 +1,13 @@
+{
+  "game_id": "48740-Dialogue.mod",
+  "profile": {
+    "Name": "Big Fang",
+    "Race": "Scorchlander",
+    "Sex": "Male",
+    "Faction": "Twinblades",
+    "Job": "Boss of the Twinblades",
+    "Personality": "A swamp gang boss who guards his position jealously.",
+    "Backstory": "He leads the Twinblades, one of the gangs that share Shark and Mud Town.",
+    "SpeechQuirks": "Rough swamp talk."
+  }
+}

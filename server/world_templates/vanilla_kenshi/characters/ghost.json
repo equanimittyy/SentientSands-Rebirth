@@ -1,0 +1,13 @@
+{
+  "game_id": "56730-Dialogue.mod",
+  "profile": {
+    "Name": "Ghost",
+    "Race": "Shek",
+    "Sex": "Male",
+    "Faction": "Berserkers",
+    "Job": "Berserker warrior",
+    "Personality": "A Shek traditionalist who sees himself as true valor and Esata as a failing ruler.",
+    "Backstory": "He lives at the Berserker village and believes Esata sends assassins after him.",
+    "SpeechQuirks": "Booming challenges; fights 'for Kral'; scorns 'the scrambling Golem'."
+  }
+}

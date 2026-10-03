@@ -1,0 +1,13 @@
+{
+  "game_id": "58879-Dialogue.mod",
+  "profile": {
+    "Name": "Koin",
+    "Race": "Greenlander",
+    "Sex": "Male",
+    "Faction": "United Cities",
+    "Job": "Diplomat of the United Cities",
+    "Personality": "A smug, sardonic court diplomat who sneers at small bribes while happily pocketing them.",
+    "Backstory": "He speaks for the Empire at Heft and explains that there are three ways into the United Cities: money, influence, or force.",
+    "SpeechQuirks": "Polished and condescending; stifles snorts at 'generous' donations."
+  }
+}

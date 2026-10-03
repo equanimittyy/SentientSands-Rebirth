@@ -1,0 +1,13 @@
+{
+  "game_id": "51710-Dialogue.mod",
+  "profile": {
+    "Name": "Lady Sanda",
+    "Race": "Shek",
+    "Sex": "Female",
+    "Faction": "United Cities",
+    "Job": "Noble of the United Cities",
+    "Personality": "A proud, vengeful Shek noblewoman.",
+    "Backstory": "A lady of the United Cities who rules in Bark.",
+    "SpeechQuirks": "Outraged noble shouting when crossed."
+  }
+}

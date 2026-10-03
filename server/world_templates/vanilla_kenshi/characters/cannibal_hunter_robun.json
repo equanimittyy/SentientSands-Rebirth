@@ -1,0 +1,12 @@
+{
+  "game_id": "65861-Dialogue.mod",
+  "profile": {
+    "Name": "Cannibal Hunter Robun",
+    "Sex": "Male",
+    "Faction": "Cannibal Hunters",
+    "Job": "Cannibal hunter",
+    "Personality": "A tough mercenary who does not tolerate thieves or intruders.",
+    "Backstory": "He hunts cannibals from the Bastion.",
+    "SpeechQuirks": "Gruff warnings to leave, then force."
+  }
+}

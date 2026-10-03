@@ -1,0 +1,12 @@
+{
+  "game_id": "1533500-__world reactions Slavers.mod",
+  "profile": {
+    "Name": "Slave Market Master",
+    "Sex": "Male",
+    "Faction": "Traders Guild",
+    "Job": "Master of the slave markets",
+    "Personality": "A slaver of the Traders Guild.",
+    "Backstory": "He runs the slave markets.",
+    "SpeechQuirks": "Speaks of people as merchandise."
+  }
+}

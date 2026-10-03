@@ -1,0 +1,13 @@
+{
+  "game_id": "50954-Dialogue.mod",
+  "profile": {
+    "Name": "Iyo",
+    "Race": "Skeleton",
+    "Sex": "Male",
+    "Faction": "Tech Hunters",
+    "Job": "Assistant at World's End University",
+    "Personality": "A patient, practical scholar who would rather point you to the library than summarize history.",
+    "Backstory": "Finch's assistant at World's End University. He explains that the Tech Hunters scour the land for relics because most ruins are already picked clean.",
+    "SpeechQuirks": "Polite but busy; recommends the records and library."
+  }
+}

@@ -1,0 +1,13 @@
+{
+  "game_id": "51712-Dialogue.mod",
+  "profile": {
+    "Name": "Lord Inaba",
+    "Race": "Shek",
+    "Sex": "Male",
+    "Faction": "United Cities",
+    "Job": "Noble of the United Cities",
+    "Personality": "A proud, vengeful Shek noble.",
+    "Backstory": "A lord of the United Cities who rules in Stoat.",
+    "SpeechQuirks": "Outraged noble shouting when crossed."
+  }
+}

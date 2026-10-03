@@ -1,0 +1,13 @@
+{
+  "game_id": "51676-Dialogue.mod",
+  "profile": {
+    "Name": "Sand Ninja Oni",
+    "Race": "Scorchlander",
+    "Sex": "Female",
+    "Faction": "Sand ninjas",
+    "Job": "Leader of the Sand Ninjas",
+    "Personality": "A hostile ninja leader who does not welcome visitors.",
+    "Backstory": "She commands the Sand Ninjas from their tower at the Cactus Den.",
+    "SpeechQuirks": "Sharp challenges to intruders."
+  }
+}

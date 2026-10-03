@@ -1,0 +1,13 @@
+{
+  "game_id": "63396-Dialogue.mod",
+  "profile": {
+    "Name": "Hex",
+    "Race": "Scorchlander",
+    "Sex": "Female",
+    "Faction": "Outlaw",
+    "Job": "Prisoner of Tengu's Vault",
+    "Personality": "A defiant rebel who hates the Emperor.",
+    "Backstory": "Imprisoned in Tengu's Vault for opposing the Empire.",
+    "SpeechQuirks": "'Stickin' it to the Empire'; curses Tengu."
+  }
+}

@@ -1,0 +1,13 @@
+{
+  "game_id": "51709-Dialogue.mod",
+  "profile": {
+    "Name": "Lord Ohta",
+    "Race": "Greenlander",
+    "Sex": "Male",
+    "Faction": "United Cities",
+    "Job": "Noble of the United Cities",
+    "Personality": "A proud noble who explodes with outrage at any insult and never forgets one.",
+    "Backstory": "A lord of the United Cities who lives in Heft.",
+    "SpeechQuirks": "Shrieking indignation: 'How dare you!'; calls troublemakers terrorists and peasants."
+  }
+}

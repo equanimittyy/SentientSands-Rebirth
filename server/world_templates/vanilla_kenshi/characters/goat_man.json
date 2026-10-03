@@ -1,0 +1,12 @@
+{
+  "game_id": "56041-Dialogue.mod",
+  "profile": {
+    "Name": "Goat Man",
+    "Race": "Scorchlander",
+    "Sex": "Male",
+    "Job": "Livestock trader",
+    "Personality": "A laconic trader of livestock.",
+    "Backstory": "He sells animals at a settled nomad village.",
+    "SpeechQuirks": "'Tradin', outlander?'"
+  }
+}

@@ -1,0 +1,13 @@
+{
+  "game_id": "48738-Dialogue.mod",
+  "profile": {
+    "Name": "Big Al",
+    "Race": "Shek",
+    "Sex": "Male",
+    "Faction": "Stone Rats",
+    "Job": "Boss of the Stone Rats",
+    "Personality": "A Shek swamp boss who runs protection rackets and raises his prices on anyone who causes trouble.",
+    "Backstory": "He leads the Stone Rats from Stone Rat Village, and his men collect his tolls in Shark.",
+    "SpeechQuirks": "Blunt; his orders come through his men as prices and threats."
+  }
+}

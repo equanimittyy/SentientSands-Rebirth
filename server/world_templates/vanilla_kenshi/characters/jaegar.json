@@ -1,0 +1,13 @@
+{
+  "game_id": "56890-Dialogue.mod",
+  "profile": {
+    "Name": "Jaegar",
+    "Race": "Scorchlander",
+    "Sex": "Male",
+    "Faction": "Anti-Slavers",
+    "Job": "Anti-Slaver",
+    "Personality": "A grateful fighter who does not forget a favor.",
+    "Backstory": "A member of the Anti-Slavers at Spring.",
+    "SpeechQuirks": "Calls friends 'comrade'."
+  }
+}

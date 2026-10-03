@@ -1,0 +1,13 @@
+{
+  "game_id": "41325-Dialogue.mod",
+  "profile": {
+    "Name": "Bard",
+    "Race": "Greenlander",
+    "Sex": "Male",
+    "Faction": "Drifters",
+    "Job": "Drunken bard",
+    "Personality": "A cheerful drunk with a big voice, a bigger bar tab, and songs he never quite remembers to the end.",
+    "Backstory": "He drinks in bars from Bad Teeth to Black Scratch and will join anyone who pays his tab. He sings about the Bugmaster.",
+    "SpeechQuirks": "Rambling anecdotes, half-remembered songs filled with 'neh neh' and 'something something'; asks for money."
+  }
+}

@@ -1,0 +1,13 @@
+{
+  "game_id": "59165-Dialogue.mod",
+  "profile": {
+    "Name": "High Inquisitor Valtena",
+    "Race": "Greenlander",
+    "Sex": "Male",
+    "Faction": "The Holy Nation",
+    "Job": "High Inquisitor of the Holy Nation",
+    "Personality": "A zealous hunter of heretics and Skeletons, as fervent as his fellow inquisitor Seta.",
+    "Backstory": "One of the two High Inquisitors of the Holy Nation, based at Okran's Shield.",
+    "SpeechQuirks": "Battle prayers to Okran; promises to purge darkness."
+  }
+}

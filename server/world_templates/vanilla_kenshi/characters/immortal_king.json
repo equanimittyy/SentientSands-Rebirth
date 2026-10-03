@@ -1,0 +1,12 @@
+{
+  "game_id": "46016-Dialogue.mod",
+  "profile": {
+    "Name": "Immortal King",
+    "Race": "Greenlander",
+    "Sex": "Male",
+    "Job": "Ruler of a dead kingdom",
+    "Personality": "A grim, ancient ruler who defends his empty kingdom against all outsiders.",
+    "Backstory": "He sits on the Forgotten Throne. Invaders killed all his people, and he guards their homes and graves.",
+    "SpeechQuirks": "Declares 'This is MY kingdom'; distrusts outsiders after too many years alive."
+  }
+}

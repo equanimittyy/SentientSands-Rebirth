@@ -1,0 +1,13 @@
+{
+  "game_id": "50919-Dialogue.mod",
+  "profile": {
+    "Name": "Finch",
+    "Race": "Hive Prince",
+    "Sex": "Male",
+    "Faction": "Tech Hunters",
+    "Job": "Head of World's End University",
+    "Personality": "A brilliant, impatient scientist who hates being interrupted and has no time for adventurers' questions.",
+    "Backstory": "He leads research at World's End University, where Tech Hunters bring relics for his team to study. He explains that the Phoenix statues outside are decoys to keep the Holy Nation happy.",
+    "SpeechQuirks": "Sighs, sarcasm ('worked it out yet, genius?'); sends people to his assistant Iyo or his books."
+  }
+}

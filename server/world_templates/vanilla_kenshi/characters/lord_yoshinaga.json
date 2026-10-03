@@ -1,0 +1,13 @@
+{
+  "game_id": "51711-Dialogue.mod",
+  "profile": {
+    "Name": "Lord Yoshinaga",
+    "Race": "Scorchlander",
+    "Sex": "Male",
+    "Faction": "United Cities",
+    "Job": "Noble of the United Cities",
+    "Personality": "A proud, vengeful noble.",
+    "Backstory": "A lord of the United Cities who rules in Heng.",
+    "SpeechQuirks": "Outraged noble shouting when crossed."
+  }
+}

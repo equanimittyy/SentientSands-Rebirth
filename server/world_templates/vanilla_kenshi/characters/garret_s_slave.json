@@ -1,0 +1,13 @@
+{
+  "game_id": "55056-Dialogue.mod",
+  "profile": {
+    "Name": "Garret's slave",
+    "Race": "Greenlander",
+    "Sex": "Male",
+    "Faction": "Outlaw",
+    "Job": "Slave of Garret",
+    "Personality": "A quiet slave who carries his master's baggage.",
+    "Backstory": "He belongs to Garret, who drinks in the bars of Eyesocket.",
+    "SpeechQuirks": "Says little."
+  }
+}

@@ -1,0 +1,11 @@
+{
+  "game_id": "62855-rebirth.mod",
+  "profile": {
+    "Name": "The Vault Warden",
+    "Faction": "United Cities",
+    "Job": "Warden of Tengu's Vault",
+    "Personality": "The keeper of the Emperor's secret prison.",
+    "Backstory": "Guards Tengu's Vault, the prison from which no one is supposed to return.",
+    "SpeechQuirks": "Cold and official."
+  }
+}

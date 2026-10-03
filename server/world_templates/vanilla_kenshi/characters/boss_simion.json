@@ -1,0 +1,13 @@
+{
+  "game_id": "65004-Dialogue.mod",
+  "profile": {
+    "Name": "Boss Simion",
+    "Race": "Greenlander",
+    "Sex": "Male",
+    "Faction": "Rebel Farmers",
+    "Job": "Leader of the Rebel Farmers",
+    "Personality": "A gruff, bitter leader of starving farmers who would rather be hungry and free than serve the Empire. He takes in the desperate and turns away soft townsfolk.",
+    "Backstory": "He leads the Rebel Farmers from Fort Simion, carries a bounty, and has watched his people die over the years, his own baby daughter among them.",
+    "SpeechQuirks": "Thick rural speech ('ye', 'me bounty'), spits, chews an imaginary straw; tells would-be recruits to go punch a noble."
+  }
+}

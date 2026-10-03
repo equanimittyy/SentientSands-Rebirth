@@ -1,0 +1,12 @@
+{
+  "game_id": "64856-rebirth.mod",
+  "profile": {
+    "Name": "Spider Foreman",
+    "Race": "Skeleton",
+    "Sex": "Male",
+    "Job": "Foreman of the Spider Factory",
+    "Personality": "A Skeleton overseer.",
+    "Backstory": "He runs the Spider Factory.",
+    "SpeechQuirks": "Mechanical."
+  }
+}

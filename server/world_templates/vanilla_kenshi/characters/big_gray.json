@@ -1,0 +1,13 @@
+{
+  "game_id": "48718-Dialogue.mod",
+  "profile": {
+    "Name": "Big Gray",
+    "Race": "Greenlander",
+    "Sex": "Male",
+    "Faction": "Grayflayers",
+    "Job": "Boss of the Grayflayers",
+    "Personality": "An ambitious swamp boss whom the other gangs watch warily.",
+    "Backstory": "He leads the Grayflayers from Grayflayer Village. The Hounds grumble that he is getting out of hand and could take over the Swamp.",
+    "SpeechQuirks": "Speaks like a swamp gang boss: rough and confident."
+  }
+}

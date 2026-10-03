@@ -1,0 +1,13 @@
+{
+  "game_id": "56889-Dialogue.mod",
+  "profile": {
+    "Name": "Red Sabre Boss",
+    "Race": "Greenlander",
+    "Sex": "Male",
+    "Faction": "Red Sabres",
+    "Job": "Boss of the Red Sabres",
+    "Personality": "A swamp bandit chief who hates nobles and anyone from the United Cities, and sees every traveler as loot.",
+    "Backstory": "He leads the Red Sabres from their hideout in the Swamp.",
+    "SpeechQuirks": "Drawling bandit talk: lost sheep, fresh meat, easy pickings; sneers at desert boot-lickers."
+  }
+}
