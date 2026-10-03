@@ -4,8 +4,8 @@ const page = document.getElementById("editor-page");
 const message = document.getElementById("editor-message");
 const PROFILE_KEYS = ["Name", "Race", "Sex", "Faction", "Job", "Personality", "Backstory", "SpeechQuirks"];
 const LONG_PROFILE_KEYS = ["Personality", "Backstory", "SpeechQuirks"];
-const SUGGESTED_CATEGORIES = ["locations", "zones", "items", "races"];
-const KIND_LABELS = { manifest: "Template info", overview: "Overview", history: "History", faction: "Faction", character: "Character", entity: "World entry" };
+const KIND_LABELS = { manifest: "Template info", overview: "Overview", history: "History", faction: "Faction", character: "Character" };
+const CATEGORY_LABELS = { races: "Race", locations: "Location", regions: "Region" };
 const TEMPLATE_PARTS = ["manifest", "overview", "history"];
 const SOURCES = [["campaign", "Campaign Canon"], ["template", "Templates"]];
 const ORIGIN_LABELS = { template: "From the template", game: "Met in game", campaign: "Added in this campaign" };
@@ -23,7 +23,7 @@ let selected = "overview";
 let query = "";
 let kindFilter = "all";
 let newCount = 0;
-const creation = { kind: "faction", category: "locations", name: "" };
+const creation = { kind: "faction", name: "" };
 const duplication = { name: "" };
 
 const commaList = (text) => text.split(",").map((item) => item.trim()).filter(Boolean);
@@ -112,8 +112,8 @@ function savedRecords(loaded) {
   const list = TEMPLATE_PARTS.map((kind) => ({ key: kind, kind, data: loaded[kind] }));
   for (const [id, data] of Object.entries(loaded.factions)) list.push({ key: `faction/${id}`, kind: "faction", id, data });
   for (const [id, data] of Object.entries(loaded.characters)) list.push({ key: `character/${id}`, kind: "character", id, data });
-  for (const [category, entries] of Object.entries(loaded.entities)) {
-    for (const [id, data] of Object.entries(entries)) list.push({ key: `entity/${category}/${id}`, kind: "entity", category, id, data });
+  for (const category of Object.keys(CATEGORY_LABELS)) {
+    for (const [id, data] of Object.entries(loaded.entities[category])) list.push({ key: `entity/${category}/${id}`, kind: "entity", category, id, data });
   }
   return list;
 }
@@ -122,7 +122,9 @@ function canonRecords(loaded) {
   const list = ["overview", "history"].map((kind) => ({ key: kind, kind, data: loaded[kind] }));
   for (const entry of loaded.factions) list.push({ key: `faction/${entry.id}`, kind: "faction", ...entry });
   for (const entry of loaded.characters) list.push({ key: `character/${entry.id}`, kind: "character", ...entry });
-  for (const entry of loaded.entities) list.push({ key: `entity/${entry.category}/${entry.id}`, kind: "entity", ...entry });
+  for (const category of Object.keys(CATEGORY_LABELS)) {
+    for (const entry of loaded.entities.filter((entity) => entity.category === category)) list.push({ key: `entity/${category}/${entry.id}`, kind: "entity", ...entry });
+  }
   return list;
 }
 
@@ -155,11 +157,11 @@ function title(record) {
     const name = form ? form.profile.find((row) => row.key === "Name")?.value : record.data?.profile?.Name;
     return name || record.id || "New character";
   }
-  return (form ? form.name : record.data?.name) || record.id || `New ${KIND_LABELS[record.kind].toLowerCase()}`;
+  return (form ? form.name : record.data?.name) || record.id || `New ${kindLabel(record).toLowerCase()}`;
 }
 
 function kindLabel(record) {
-  return record.kind === "entity" ? record.category : KIND_LABELS[record.kind];
+  return record.kind === "entity" ? CATEGORY_LABELS[record.category] : KIND_LABELS[record.kind];
 }
 
 function searchText(record) {
@@ -169,7 +171,7 @@ function searchText(record) {
 
 function filterValue(record) {
   if (TEMPLATE_PARTS.includes(record.kind)) return "template";
-  return record.kind === "entity" ? `entity:${record.category}` : record.kind;
+  return record.kind === "entity" ? record.category : record.kind;
 }
 
 function updateUnsaved() {
@@ -254,7 +256,7 @@ function characterForm(form, path, record) {
 
 function entityForm(form, path) {
   return [
-    field("Name", control("input", form, "name", [...path, "name"]), null, "The name of the entry, for example a town or a zone."),
+    field("Name", control("input", form, "name", [...path, "name"]), null, "The name that NPCs use for it."),
     field("Aliases", control("input", form, "aliases", [...path, "aliases"]), null, "Other names of the entry, separated by commas."),
     field("Weight", control("input", form, "weight", [...path, "weight"], { inputMode: "decimal", placeholder: "1" }), null, "How strongly the entry competes for a place in a prompt. A higher weight wins."),
     rowsEditor("Fields", "Short facts, for example the owner of a town. A value that names another entry links the two.", form.fields, [...path, "fields"]),
@@ -295,7 +297,7 @@ function manifestForm(form) {
 function recordPath(record) {
   if (record.kind === "faction") return ["factions", record.id ?? "new"];
   if (record.kind === "character") return ["characters", record.id ?? "new"];
-  if (record.kind === "entity") return ["entities", record.category, record.id ?? "new"];
+  if (record.kind === "entity") return [record.category, record.id ?? "new"];
   return [record.kind];
 }
 
@@ -359,12 +361,8 @@ function renderList() {
   if (shown.length === 0) list.append(el("p", { className: "hint" }, "No results."));
 }
 
-function categories() {
-  return [...new Set(allRecords().filter((record) => record.kind === "entity").map((record) => record.category))].sort();
-}
-
 function filterSelect() {
-  const options = [["all", "Everything"], ["template", source === "template" ? "Template info, overview, history" : "Overview, history"], ["faction", "Factions"], ["character", "Characters"], ...categories().map((category) => [`entity:${category}`, `World entries: ${category}`])];
+  const options = [["all", "Everything"], ["template", source === "template" ? "Template info, overview, history" : "Overview, history"], ["faction", "Factions"], ["character", "Characters"], ...Object.entries(CATEGORY_LABELS).map(([category, label]) => [category, `${label}s`])];
   const select = el("select", { onchange: (event) => { kindFilter = event.target.value; renderList(); } }, ...options.map(([value, text]) => new Option(text, value, false, value === kindFilter)));
   select.setAttribute("aria-label", "Show only");
   return select;
@@ -372,20 +370,14 @@ function filterSelect() {
 
 function newRecordForm() {
   if (readOnly()) return null;
-  const kind = el("select", { onchange: (event) => { creation.kind = event.target.value; render(); } },
-    ...["faction", "character", "entity"].map((value) => new Option(KIND_LABELS[value], value, false, value === creation.kind)));
+  const kind = el("select", { onchange: (event) => { creation.kind = event.target.value; } },
+    ...["faction", "character", ...Object.keys(CATEGORY_LABELS)].map((value) => new Option(KIND_LABELS[value] ?? CATEGORY_LABELS[value], value, false, value === creation.kind)));
   kind.setAttribute("aria-label", "Kind of the new entry");
-  const listId = "category-list";
-  const category = el("input", { value: creation.category, placeholder: "Category", oninput: (event) => { creation.category = event.target.value; } });
-  category.setAttribute("list", listId);
-  category.setAttribute("aria-label", "Category of the new world entry");
   const name = el("input", { value: creation.name, placeholder: "Name", required: true, oninput: (event) => { creation.name = event.target.value; } });
   name.setAttribute("aria-label", "Name of the new entry");
   return el("form", { className: "new-record", onsubmit: addRecord },
     el("strong", {}, "New entry"),
     kind,
-    creation.kind === "entity" ? category : null,
-    el("datalist", { id: listId }, ...[...new Set([...SUGGESTED_CATEGORIES, ...categories()])].map((value) => new Option(value, value))),
     name,
     el("button", { type: "submit" }, "Add"));
 }
@@ -393,15 +385,12 @@ function newRecordForm() {
 function addRecord(event) {
   event.preventDefault();
   const name = creation.name.trim();
-  const category = creation.category.trim();
   if (!name) return;
-  if (creation.kind === "entity" && !/^[A-Za-z0-9_-]+$/.test(category)) {
-    showMessage(message, "A category may hold only letters, digits, _ and -, for example zones.", true);
-    return;
-  }
+  const category = CATEGORY_LABELS[creation.kind] ? creation.kind : undefined;
+  const kind = category ? "entity" : creation.kind;
   const key = `new:${++newCount}`;
-  const data = creation.kind === "character" ? { profile: { Name: name } } : { name };
-  drafts.set(key, { isNew: true, key, kind: creation.kind, category: creation.kind === "entity" ? category : undefined, data, form: toForm(creation.kind, data) });
+  const data = kind === "character" ? { profile: { Name: name } } : { name };
+  drafts.set(key, { isNew: true, key, kind, category, data, form: toForm(kind, data) });
   creation.name = "";
   selected = key;
   query = "";
@@ -510,7 +499,7 @@ function renderTemplateBar() {
   const select = el("select", { onchange: (event) => chooseTemplate(event.target.value) },
     ...templates.map((entry) => new Option(entry.title, entry.name, false, entry.name === current)));
   select.setAttribute("aria-label", "World template");
-  const recordCounts = template ? counts(Object.keys(template.factions).length, Object.keys(template.characters).length, Object.values(template.entities).reduce((sum, entries) => sum + Object.keys(entries).length, 0)) : "";
+  const recordCounts = template ? counts() : "";
   const duplicateName = el("input", { value: duplication.name, placeholder: "Name of the copy", required: true, oninput: (event) => { duplication.name = event.target.value; } });
   duplicateName.setAttribute("aria-label", "Name of the copy");
   return el("fieldset", {},
@@ -524,8 +513,9 @@ function renderTemplateBar() {
       template && !template.builtin ? deleteButton(`Delete the template ${templateTitle()}`, deleteTemplate) : null));
 }
 
-function counts(factions, characters, entities) {
-  return `${factions} factions, ${characters} characters, ${entities} world entries`;
+function counts() {
+  const tally = (value, noun) => `${records.filter((record) => filterValue(record) === value).length} ${noun}`;
+  return [tally("faction", "factions"), tally("character", "characters"), ...Object.entries(CATEGORY_LABELS).map(([category, label]) => tally(category, `${label.toLowerCase()}s`))].join(", ");
 }
 
 function renderCanonBar() {
@@ -533,7 +523,7 @@ function renderCanonBar() {
     el("legend", {}, canon ? `Campaign canon: ${canon.name}` : "Campaign canon"),
     el("p", { className: "hint" }, "Changes here apply only to the current campaign, from the next chat on."),
     refusal ? el("p", { className: "hint error" }, refusal) : null,
-    canon ? el("p", { className: "detail" }, counts(canon.factions.length, canon.characters.length, canon.entities.length)) : null);
+    canon ? el("p", { className: "detail" }, counts()) : null);
 }
 
 function renderSubtabs() {

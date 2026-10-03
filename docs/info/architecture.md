@@ -169,16 +169,16 @@ A `campaign.db` that is gone while the server runs, for example because the play
 
 ### Campaign canon
 
-The canon of a campaign is its copy of the template records: the overview, the history, the factions, the characters, and the world entries.
+The canon of a campaign is its copy of the template records: the overview, the history, the factions, the characters, the races, the locations, and the regions.
 
 | Record | Storage | Key |
 |---|---|---|
 | Overview, history | `meta` rows; the history as JSON | None |
 | Faction | `faction` table (see [Factions](#factions)) | The game ID |
 | Character | `character` table; the profile as JSON | The game ID |
-| World entry | `entity` table; the whole template record as JSON | The category and the entity ID |
+| Race, location, region | `entity` table, with `races`, `locations`, or `regions` as the category; the whole template record as JSON | The category and the entity ID |
 
-- The chat prompt reads only the overview and the factions. No prompt reads the history, the characters, or the world entries yet, and chat takes NPC profiles only from the `npc` table.
+- The chat prompt reads only the overview and the factions. No prompt reads the history, the characters, the races, the locations, or the regions yet, and chat takes NPC profiles only from the `npc` table.
 - `origin` tells where a record came from: `template` (the copy at creation), `game` (a faction that a context reported), or `campaign` (added on the web app).
 - A save checks the record with the template validator (`world_template.record_problems`), so a campaign record follows the same rules as a template record. The validator sees only one record, so the database refuses a second faction or character with the same game ID.
 - The game ID of a faction or a character is its key in the campaign, so it cannot change after the record is added.
@@ -203,18 +203,18 @@ Each campaign holds its own copy of the factions, keyed by the string ID of the 
 | `POST /api/campaigns/delete` | Delete a campaign folder, with the same name check. Before it deletes the current campaign, it switches to the first other one. When no other campaign remains, the server has no current campaign (see [Campaign storage](#campaign-storage)). |
 | `GET /api/campaign` | The active campaign: its template, events, and rumors. A refused campaign gives status 409 with the reason. |
 | `GET /api/campaign/canon` | The canon of the active campaign, each record with its `origin` and `updated_at`. A refused campaign gives status 409 with the reason. |
-| `POST /api/campaign/records`, `.../records/delete` | Save or delete one canon record of the active campaign. A faction, character, or world entry with no ID is new. |
+| `POST /api/campaign/records`, `.../records/delete` | Save or delete one canon record of the active campaign. A faction, character, race, location, or region with no ID is new. |
 | `POST /api/campaign/rumors`, `.../rumors/delete`, `.../events/delete` | Edit the rumors and events of the active campaign |
 | `POST /api/campaign/cull` | Delete the dialogue, events, and rumors dated after the current game time, after the player loads an older save. It needs the player's context from the running game, because without it day 0 would count as now and the cull would delete the whole history. |
 
 - Each edit names the campaign that the page loaded. Another tab can switch the campaign while the page is open, so the server refuses an edit for another campaign instead of writing it into the active one.
-- An edit of a faction, a character, or a world entry carries the `updated_at` that the page loaded, and the server refuses it when the row changed after that, for example when the game renamed the player's faction. An edit without `updated_at` counts as stale. The name of the player's faction is not editable, because the next context would undo it.
+- An edit of a faction, a character, a race, a location, or a region carries the `updated_at` that the page loaded, and the server refuses it when the row changed after that, for example when the game renamed the player's faction. An edit without `updated_at` counts as stale. The name of the player's faction is not editable, because the next context would undo it.
 - The web app offers no delete for the player's faction. The game reports the faction again, and the server then adds it back with an empty description, so a delete would only lose the description.
 - A rumor edit replaces only the text of its `[RUMOR: ...]` tag and keeps its game time. Brackets in the text become parentheses, because the prompt reads the rumor up to the first `]`.
 
 ## World templates
 
-A world template is a folder that describes a world: `manifest.json` (format version, name, version, authors, credits), `overview.txt` (the lore that goes into every prompt), `history.json`, `factions/<id>.json`, `characters/<id>.json`, and `entities/<category>/<id>.json`. The format is in [proposal_data_layers.md](../plans/proposal_data_layers.md#3-world-template-format). A new campaign copies every record except the manifest (see [Campaign canon](#campaign-canon)).
+A world template is a folder that describes a world: `manifest.json` (format version, name, version, authors, credits), `overview.txt` (the lore that goes into every prompt), `history.json`, `factions/<id>.json`, `characters/<id>.json`, `races/<id>.json`, `locations/<id>.json`, and `regions/<id>.json`. The format is in [proposal_data_layers.md](../plans/proposal_data_layers.md#3-world-template-format). A new campaign copies every record except the manifest (see [Campaign canon](#campaign-canon)).
 
 | Template | Location | Edits |
 |---|---|---|
@@ -223,9 +223,9 @@ A world template is a folder that describes a world: `manifest.json` (format ver
 
 `server/scripts/world_template.py` reads, validates, and writes templates, and imports only the standard library.
 
-- One validator runs before each write and each campaign creation. It rejects an unknown `format_version`, a JSON file that does not parse, a faction or an entity without a name, a faction or a character without `game_id`, two factions or two characters with one `game_id`, and a character without a `Name` in its profile. A child that names no entity is a warning.
+- One validator runs before each write and each campaign creation. It rejects an unknown `format_version`, a folder that the format does not name, a JSON file that does not parse, a faction or an entity without a name, a faction or a character without `game_id`, two factions or two characters with one `game_id`, and a character without a `Name` in its profile. A child that names no entity is a warning.
 - A faction binds to the game by `game_id`, the string ID of the faction in the game data, so a rename in game does not break the link. The IDs of the vanilla factions come from the `FACTION_PROBE` lines of an in-game test ([development.md](development.md#probes)).
-- A route takes a template name, a record kind, a category, and a record ID, never a path. Each must match a fixed pattern, so a request cannot write outside the template folders. A new record takes its ID from its name.
+- A route takes a template name, a record kind, a category, and a record ID, never a path. The category must be `races`, `locations`, or `regions`, and each other part must match a fixed pattern, so a request cannot write outside the template folders. A new record takes its ID from its name.
 - A duplicate copies every file of the template, its credit and licence files included, so a derived template keeps its attribution.
 
 | Route | Behavior |

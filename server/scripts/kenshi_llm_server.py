@@ -2930,18 +2930,18 @@ def save_campaign_record():
                 campaign_db.save_record("character", (record_id,), character["profile"], updated_at)
             else:
                 category = data.get("category")
-                if not isinstance(category, str) or not category.strip():
-                    return record_refusal([{"field": ["category"], "message": "Give the world entry a category."}])
+                if category not in world_template.CATEGORIES:
+                    return record_refusal([{"field": ["category"], "message": f"{category} is not a category. Use races, locations, or regions."}])
                 stored = campaign_db.list_records("entity")
                 record_id = record_id or world_template.new_id(value, {ext_id for (stored_category, ext_id), *_ in stored if stored_category == category})
                 names = world_template.entity_names([entity for key, entity, *_ in stored if key != (category, record_id)] + [value])
-                errors, warnings = world_template.record_problems("entity", value, ["entities", category, data.get("id") or "new"], names)
+                errors, warnings = world_template.record_problems("entity", value, [category, data.get("id") or "new"], names)
                 if errors: return record_refusal(errors)
                 campaign_db.save_record("entity", (category, record_id), value, updated_at)
         except world_template.TemplateError as e:
             return record_refusal(e.errors)
         except campaign_db.DuplicateRecord:
-            field = ["entities", data.get("category"), "new"] if kind == "entity" else [f"{kind}s", "new", "game_id"]
+            field = [data.get("category"), "new"] if kind == "entity" else [f"{kind}s", "new", "game_id"]
             return record_refusal([{"field": field, "message": f"This campaign already holds the {kind} {record_id}."}])
         except campaign_db.StaleRecord:
             name = value.get("name") or (value.get("profile") or {}).get("Name") or record_id

@@ -16,8 +16,8 @@ FORMAT_VERSION = 1
 MANIFEST = "manifest.json"
 OVERVIEW = "overview.txt"
 HISTORY = "history.json"
-ENTITIES = "entities"
 RECORD_FOLDERS = {"faction": "factions", "character": "characters"}
+CATEGORIES = ("races", "locations", "regions")
 _NAME = re.compile(r"[A-Za-z0-9][A-Za-z0-9 _-]*")
 _ID = re.compile(r"[A-Za-z0-9_-]+")
 
@@ -44,7 +44,7 @@ def listing(shipped_dir, user_dir):
 
 
 def load(name, shipped_dir, user_dir):
-    """The whole template. A file that does not parse is left out and named in "errors"."""
+    """The whole template. A file that does not parse is left out and named in "errors", like a folder that is not a part of a template."""
     path, builtin = _folder(name, shipped_dir, user_dir)
     errors = []
     template = {
@@ -55,13 +55,11 @@ def load(name, shipped_dir, user_dir):
         "history": _read_json(path, HISTORY, [], errors),
         "factions": _read_records(path, "factions", errors),
         "characters": _read_records(path, "characters", errors),
-        "entities": {},
+        "entities": {category: _read_records(path, category, errors) for category in CATEGORIES},
     }
-    entities_dir = os.path.join(path, ENTITIES)
-    if os.path.isdir(entities_dir):
-        for category in sorted(os.listdir(entities_dir)):
-            if os.path.isdir(os.path.join(entities_dir, category)):
-                template["entities"][category] = _read_records(path, os.path.join(ENTITIES, category), errors)
+    for folder in sorted(os.listdir(path)):
+        if os.path.isdir(os.path.join(path, folder)) and folder not in (*RECORD_FOLDERS.values(), *CATEGORIES):
+            errors.append({"field": [folder], "message": f"{folder}/ is not a part of a template. Put each entry in factions/, characters/, races/, locations/, or regions/."})
     template["errors"] = errors
     return template
 
@@ -101,7 +99,7 @@ def validate(template):
     names = entity_names(entity for records in template["entities"].values() for entity in records.values())
     for category, records in template["entities"].items():
         for record_id, entity in records.items():
-            _check_entity(entity, ["entities", category, record_id], names, error, warnings)
+            _check_entity(entity, [category, record_id], names, error, warnings)
     return errors, warnings
 
 
@@ -253,9 +251,9 @@ def _records(template, kind, category):
     if kind in RECORD_FOLDERS:
         return template[RECORD_FOLDERS[kind]], RECORD_FOLDERS[kind]
     if kind == "entity":
-        if not category or not _ID.fullmatch(category):
-            raise TemplateError([{"field": ["category"], "message": "A category may hold only letters, digits, _ and -."}])
-        return template["entities"].setdefault(category, {}), os.path.join(ENTITIES, category)
+        if category not in CATEGORIES:
+            raise TemplateError([{"field": ["category"], "message": f"{category} is not a category. Use races, locations, or regions."}])
+        return template["entities"][category], category
     raise TemplateError([{"field": ["kind"], "message": f"{kind} is not a kind of record."}])
 
 

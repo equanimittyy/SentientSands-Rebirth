@@ -57,9 +57,9 @@ The server keeps this configuration in `server/user/llm_config.json`. A mod upda
 ### Campaigns and world templates
 The **Campaigns** page lists your campaigns and creates a new one from a world template. It also edits the rumors and events of the current campaign. To switch campaigns, choose one under **Current Campaign**. The next chat uses it. **Delete** next to a campaign deletes it, but you always keep at least one campaign. Loaded an older save? **Cull future data** makes NPCs forget what happened after it.
 
-The **Editor** page edits the canon of a world: the overview that every NPC knows, the history, the factions, the characters, and world entries such as towns and zones. It has two subtabs:
+The **Editor** page edits the canon of a world: the overview that every NPC knows, the history, the factions, the characters, the races, the locations, and the regions. It has two subtabs:
 
-- **Campaign Canon** edits the copy that belongs to the current campaign. An edit changes only that campaign. NPCs read the overview and the factions; the history, characters, and world entries are kept for a later version.
+- **Campaign Canon** edits the copy that belongs to the current campaign. An edit changes only that campaign. NPCs read the overview and the factions; the history, characters, races, locations, and regions are kept for a later version.
 - **Templates** edits the world templates, the seeds that new campaigns copy. A template edit changes only the campaigns that you create later. Vanilla Kenshi ships with the mod and is read-only, so duplicate it to make your own. The server keeps your templates in `server/user/world_templates/`, and a mod update keeps them.
 
 ---

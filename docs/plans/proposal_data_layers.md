@@ -52,8 +52,9 @@ A world template is a folder of JSON and text files. A shared template is the sa
   history.json           the lore timeline, in order
   factions/<id>.json     canon factions, copied into the faction store
   characters/<id>.json   canon characters, copied into the character store
-  entities/
-    <category>/<id>.json world lore: locations, items, races, ...
+  races/<id>.json        world lore: the races
+  locations/<id>.json    world lore: cities, settlements, outposts, ruins
+  regions/<id>.json      world lore: the regions of the map
   *.md, *.txt            licence and credit files, optional
 ```
 
@@ -94,7 +95,7 @@ A character file, `characters/beep.json`:
 }
 ```
 
-A world lore entity file, `entities/locations/blister_hill.json`:
+A world lore entity file, `locations/blister_hill.json`:
 
 ```json
 {
@@ -119,7 +120,7 @@ A world lore entity file, `entities/locations/blister_hill.json`:
 
 - A faction and a canon character bind to the game by `game_id`, not by name, so a rename in the game does not break the link ([proposal_npc_ids.md](proposal_npc_ids.md#7-world-templates)). `major` marks a major world power, whose members resist recruitment.
 - The keys of a character's `profile` are the keys of a profile in the character store ([architecture.md](../info/architecture.md#campaign-storage)). Chat uses the canon profile instead of generating one.
-- The entity ID is the file name without `.json`. The category is the folder name. A modded template can add a category.
+- The entity ID is the file name without `.json`. The category is the folder name: `races`, `locations`, or `regions`. A template cannot add a category, so another folder is an error.
 - The values in `fields` feed link expansion. The values in `prose` are retrieved text and never feed link expansion.
 - `children` are weighted links to other entities by name. `access` holds the rules that decide which NPCs know the entity. Phase 5 sets its schema, with the retriever that applies it ([section 10](#10-phases-and-verification)).
 - The order of `history.json` is the timeline order. The loader stores each entry as an entity of category `history`, so retrieval finds it like any entity.
@@ -183,7 +184,7 @@ CREATE TABLE faction (
 -- The world lore: retrieval searches only these tables.
 CREATE TABLE entity (
   id         INTEGER PRIMARY KEY,
-  category   TEXT NOT NULL,      -- locations, items, races, history, ...
+  category   TEXT NOT NULL,      -- races, locations, regions, history
   ext_id     TEXT NOT NULL,      -- the entity ID in the template
   name       TEXT NOT NULL,
   weight     REAL NOT NULL DEFAULT 1,
@@ -280,9 +281,9 @@ SSR writes the vanilla template itself. Today the template holds `overview.txt` 
 |---|---|---|
 | Factions | `factions/` | 23 |
 | Unique NPCs | `characters/` | 64 |
-| Locations: cities, settlements, outposts, ruins, regions | `entities/locations/` | 122 |
-| Items: weapons, armor, food, materials, and more | `entities/items/` | 166 |
-| Races | `entities/races/` | 7 |
+| Locations: cities, settlements, outposts, ruins | `locations/` | 122, with the regions |
+| Regions | `regions/` | In the locations count |
+| Races | `races/` | 7 |
 | World lore: eras, wars, and beliefs | `history.json` | 17 |
 
 ## 8. Retrieval design
@@ -334,10 +335,10 @@ LIMIT :max_files;
 
 | Phase | Deliverable | Acceptance criteria |
 |---|---|---|
-| 1. Templates and factions | Built ([architecture.md](../info/architecture.md#world-templates)). A new campaign copies every template record, and it keeps the characters and the world entries as JSON rows until phases 2 and 5 give them their stores ([architecture.md](../info/architecture.md#campaign-canon)). | |
+| 1. Templates and factions | Built ([architecture.md](../info/architecture.md#world-templates)). A new campaign copies every template record, and it keeps the characters, races, locations, and regions as JSON rows until phases 2 and 5 give them their stores ([architecture.md](../info/architecture.md#campaign-canon)). | |
 | 2. Characters | The character store keyed by game ID ([proposal_npc_ids.md](proposal_npc_ids.md)); canon characters from the template; the speaker picker; the Characters page; tests | The acceptance criteria of the NPC ID proposal; a canon character file gives that NPC its canon profile in a new campaign; a chat uses the bio and context of the picked speaker; a speaker with no profile gets a generated one |
 | 3. Import and export | The template routes; the Templates page | A template exported from one install imports on another with the same files; each unsafe zip in the tests is rejected |
-| 4. Vanilla content | The factions, characters, locations, items, races, and world lore of the vanilla template ([section 7](#7-vanilla-kenshi-template)) | The template covers at least the counts in section 7, and the validator accepts it; each faction and each canon character has its game ID; no record copies text from Kayak or the wiki |
+| 4. Vanilla content | The factions, characters, races, locations, regions, and world lore of the vanilla template ([section 7](#7-vanilla-kenshi-template)) | The template covers at least the counts in section 7, and the validator accepts it; each faction and each canon character has its game ID; no record copies text from Kayak or the wiki |
 | 5. Retrieval | `knowledge_retrieve.py`; the prompt wiring; the INI limits | For each player message in a fixed list, retrieval returns the expected entities in the expected order; chat prompts include the retrieved entities |
 
 Phase 2 waits for the in-game checks of the NPC IDs ([proposal_npc_ids.md](proposal_npc_ids.md#9-not-yet-verified)). The canon characters of phase 4 need the character IDs of phase 2. The other records of phase 4 need no other phase. The tests of phase 5 run on the vanilla content of phase 4.

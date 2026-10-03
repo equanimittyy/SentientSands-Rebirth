@@ -78,15 +78,19 @@ class ValidateTest(TemplateTestCase):
         self.assertEqual(self.fields(), [["characters", "beep", "game_id"], ["characters", "beep", "profile", "Name"]])
 
     def test_an_entity_needs_a_name(self):
-        self.write("base", "entities/locations/hub.json", {"fields": {"owner": "The Holy Nation"}})
-        self.assertEqual(self.fields(), [["entities", "locations", "hub", "name"]])
+        self.write("base", "locations/hub.json", {"fields": {"owner": "The Holy Nation"}})
+        self.assertEqual(self.fields(), [["locations", "hub", "name"]])
+
+    def test_a_folder_of_another_category_is_an_error(self):
+        self.write("base", "items/sword.json", {"name": "Sword"})
+        self.assertEqual(self.fields(), [["items"]])
 
     def test_a_child_that_names_no_entity_is_a_warning(self):
-        self.write("base", "entities/locations/hub.json", {"name": "The Hub", "aliases": ["Hub"], "children": [{"name": "Bar", "weight": 2}]})
-        self.write("base", "entities/locations/bar.json", {"name": "The Bar", "children": [{"name": "hub"}]})
+        self.write("base", "locations/hub.json", {"name": "The Hub", "aliases": ["Hub"], "children": [{"name": "Bar", "weight": 2}]})
+        self.write("base", "locations/bar.json", {"name": "The Bar", "children": [{"name": "hub"}]})
         errors, warnings = self.problems()
         self.assertEqual(errors, [])
-        self.assertEqual([warning["field"] for warning in warnings], [["entities", "locations", "hub", "children"]])
+        self.assertEqual([warning["field"] for warning in warnings], [["locations", "hub", "children"]])
 
     def test_record_problems_checks_one_record(self):
         self.assertEqual(world_template.record_problems("faction", HOLY_NATION, ["f"]), ([], []))
@@ -134,14 +138,16 @@ class SaveTest(TemplateTestCase):
         self.assertEqual(world_template.load("Mine", self.shipped, self.user)["factions"]["holy_nation"]["name"], "The Holy Nation")
 
     def test_an_entity_goes_into_its_category_folder(self):
-        world_template.save_record("Mine", "entity", None, {"name": "Stenn Desert"}, self.shipped, self.user, category="zones")
-        self.assertTrue(os.path.exists(os.path.join(self.user, "Mine", "entities", "zones", "stenn_desert.json")))
+        world_template.save_record("Mine", "entity", None, {"name": "Stenn Desert"}, self.shipped, self.user, category="regions")
+        self.assertTrue(os.path.exists(os.path.join(self.user, "Mine", "regions", "stenn_desert.json")))
 
     def test_unsafe_ids_and_categories_are_refused(self):
         with self.assertRaises(world_template.TemplateError):
             world_template.save_record("Mine", "faction", "../x", HOLY_NATION, self.shipped, self.user)
         with self.assertRaises(world_template.TemplateError):
             world_template.save_record("Mine", "entity", None, {"name": "X"}, self.shipped, self.user, category="../x")
+        with self.assertRaisesRegex(world_template.TemplateError, "items is not a category"):
+            world_template.save_record("Mine", "entity", None, {"name": "X"}, self.shipped, self.user, category="items")
 
     def test_delete_record_and_template(self):
         world_template.delete_record("Mine", "faction", "holy_nation", self.shipped, self.user)
@@ -154,11 +160,11 @@ class SaveTest(TemplateTestCase):
     def test_the_seed_copies_every_kind_of_record(self):
         world_template.save_record("Mine", "history", None, [{"title": "Then", "text": "It was."}], self.shipped, self.user)
         world_template.save_record("Mine", "character", None, {"game_id": "19576-Dialogue.mod", "profile": {"Name": "Beep"}, "note": "dropped"}, self.shipped, self.user)
-        world_template.save_record("Mine", "entity", None, {"name": "Stenn Desert"}, self.shipped, self.user, category="zones")
+        world_template.save_record("Mine", "entity", None, {"name": "Stenn Desert"}, self.shipped, self.user, category="regions")
         seed = world_template.campaign_seed("Mine", self.shipped, self.user)
         self.assertEqual(seed["history"], [{"title": "Then", "text": "It was."}])
         self.assertEqual(seed["characters"], [{"game_id": "19576-Dialogue.mod", "profile": {"Name": "Beep"}}])
-        self.assertEqual(seed["entities"], [{"category": "zones", "id": "stenn_desert", "data": {"name": "Stenn Desert"}}])
+        self.assertEqual(seed["entities"], [{"category": "regions", "id": "stenn_desert", "data": {"name": "Stenn Desert"}}])
 
     def test_a_template_with_an_error_gives_no_campaign_seed(self):
         self.write("Mine", "factions/broken.json", "{", root=self.user)
