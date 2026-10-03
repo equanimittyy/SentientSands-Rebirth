@@ -29,6 +29,7 @@ Non-goals:
 | Every other character, the player's squad included | `h:<serial>` | `npc->getHandle().serial` |
 
 - A unique NPC has the same ID in every save and every campaign. A canon character of a world template therefore binds to the game character by ID, not by name ([section 7](#7-world-templates)).
+- Rejected: a hash of the `stringID`. The template loader in Python and the plugin in C++ would have to compute the same hash, and a hash does not show which template and which mod the ID comes from. The raw `stringID` can hold spaces, `'`, and parentheses, for example `2757496-Bele'coz.mod`, but JSON and SQLite carry it unchanged.
 - Many generic NPCs share one template, so a generic NPC has no template ID of its own. The `serial` of its handle identifies it, because only the `serial` survives a save and a load, a town reload, and a recruit ([kenshi_internals.md](../info/kenshi_internals.md#character-identity)).
 - The rest of the handle cannot be in the ID, because it names the squad of the NPC and its place in that squad, so a recruit changes it.
 - The instance ID (`getInstanceID()->uid`) and the layout instance ID (`getLayoutInstanceID`) are empty for unique and generic NPCs, so neither can be the ID.
