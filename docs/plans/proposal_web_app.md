@@ -14,7 +14,7 @@ The editor works on the user world templates and the active campaign database. O
 
 | Tab | Still to build |
 |---|---|
-| Editor | Import and export of templates, with the authors and credits shown before an import. A form for the access rules, when the Kayak converter sets their schema. |
+| Editor | Import and export of templates, with the authors and credits shown before an import. A form for the access rules, when phase 5 of the data layers proposal sets their schema. |
 | Campaigns | The profile, dialogue history, and favorite of each character of the active campaign, NPCs and player characters alike, with the bio of each player character ([data layers proposal, section 6.1](proposal_data_layers.md#61-player-characters)). |
 
 Non-goals:

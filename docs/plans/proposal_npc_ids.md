@@ -75,4 +75,3 @@ The `ID_PROBE` line answers the questions about the game ([development.md](../in
 - Whether a recruited NPC keeps its handle when it joins the player's faction.
 - Whether a template `stringID` stays the same when the player changes the mod list.
 - Whether a generic NPC that the game unloads and loads again, for example a town guard, keeps its handle.
-- Whether Kayak's `persistent_id` and `runtime_id` ([proposal_data_layers.md](proposal_data_layers.md#not-yet-verified)) are the template `stringID` and the handle. If they are, the Kayak converter can fill `game_id`.

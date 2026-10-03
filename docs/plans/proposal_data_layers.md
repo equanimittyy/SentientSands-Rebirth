@@ -16,8 +16,7 @@ The proposal builds on the campaign database ([architecture.md](../info/architec
 Non-goals:
 
 - Changes to the C++ plugin other than the speaker picker and the game IDs.
-- Kayak's prompt token system, its economy support, and its HTTP API on port 5001.
-- Export to Kayak's folder format. The Kayak converter is one-way.
+- Any use of Kayak's code, data, or folder format. SSR writes its own vanilla content ([section 7](#7-vanilla-kenshi-template)).
 - Starting rumors and pre-written dialogue in templates.
 - Saving a campaign as a template. Play state never leaves its campaign.
 - Vector search or embeddings.
@@ -33,7 +32,7 @@ Non-goals:
 
 The INI stays in the mod root, because the plugin reads it from there at start ([architecture.md](../info/architecture.md#settings)).
 
-Five pieces of data move to their class:
+Four pieces of data move to their class:
 
 | Data | From | To | Reason |
 |---|---|---|---|
@@ -41,7 +40,6 @@ Five pieces of data move to their class:
 | Player faction description | `player_faction_description.txt` in each campaign | The player's faction in the faction store | The player's faction is a faction like any other ([section 6.2](#62-factions)). |
 | Faction lore | `FACTION_METADATA` and `MAJOR_FACTIONS` in `kenshi_llm_server.py` | `factions/` of the vanilla template | A modded world must be able to replace it, and a campaign must be able to edit its copy. |
 | World lore | `server/prompts/world_lore.txt` | `overview.txt` of the vanilla template | It describes the world, so a modded template must be able to replace it. |
-| Retrieval limits | Kayak's `core_config.txt` | The INI | They tune the server, not the world. |
 
 ## 3. World template format
 
@@ -67,7 +65,7 @@ A world template is a folder of JSON and text files. A shared template is the sa
   "name": "Vanilla Kenshi",
   "version": "1.0.0",
   "authors": ["Sentient Sands Rebirth"],
-  "credits": ["SentientSands Kayak by Harvicus and Pineaxe."]
+  "credits": []
 }
 ```
 
@@ -122,8 +120,8 @@ A world lore entity file, `entities/locations/blister_hill.json`:
 - A faction and a canon character bind to the game by `game_id`, not by name, so a rename in the game does not break the link ([proposal_npc_ids.md](proposal_npc_ids.md#7-world-templates)). `major` marks a major world power, whose members resist recruitment.
 - The keys of a character's `profile` are the keys of a profile in the character store ([architecture.md](../info/architecture.md#campaign-storage)). Chat uses the canon profile instead of generating one.
 - The entity ID is the file name without `.json`. The category is the folder name. A modded template can add a category.
-- The values in `fields` feed link expansion. The values in `prose` are retrieved text and never feed link expansion, the same as Kayak's `$` fields.
-- `children` are weighted links to other entities by name. `access` holds the rules that decide which NPCs know the entity. The converter sets its schema when it parses Kayak's `[RULE]` blocks ([section 10](#not-yet-verified)).
+- The values in `fields` feed link expansion. The values in `prose` are retrieved text and never feed link expansion.
+- `children` are weighted links to other entities by name. `access` holds the rules that decide which NPCs know the entity. Phase 5 sets its schema, with the retriever that applies it ([section 10](#10-phases-and-verification)).
 - The order of `history.json` is the timeline order. The loader stores each entry as an entity of category `history`, so retrieval finds it like any entity.
 - One validator runs on each load, import, and edit. It rejects an unknown `format_version`, a JSON file that does not parse, a faction or an entity without `name`, a faction or a character without `game_id`, and a character without a `Name` in its profile. A child that names no entity is a warning, not an error.
 
@@ -272,41 +270,33 @@ Built. Each campaign holds its own copy of the factions, and the player edits th
 
 ## 7. Vanilla Kenshi template
 
-The vanilla template is a conversion of Kayak's English `KayakDB/Template` (405 entities: 29 factions, 166 items, 122 locations, 7 races, 64 unique NPCs, 17 world lore entries).
+SSR writes the vanilla template itself. Today the template holds `overview.txt` and 17 factions, and phase 4 adds the rest.
 
-- `scripts/convert_kayak.py` is a development tool, not part of the release. It converts a Kayak template folder into a world template folder, and reports each field that it drops.
-- The converted template is committed under `server/world_templates/vanilla_kenshi/`. For a newer Kayak release, the converter runs again on a branch, and git merges the result with the local fixes.
-- `overview.txt` starts as today's `world_lore.txt`. Until the conversion, the vanilla template holds only `overview.txt` and the factions of `FACTION_METADATA` and `MAJOR_FACTIONS`.
-- The import source is the official English Kayak release. The inspected copy came from a Russian fork and has Russian `display_name` values.
+- The facts come from the game: its data files, which the Forgotten Construction Set (FCS) opens, and play. The Kenshi wiki can help to find a fact, but no text comes from the wiki or from Kayak ([section 9](#9-licence)).
+- The template of Kayak v0.5.0 ([section 13](#13-references)) is only a checklist of the records that a vanilla world needs. Phase 4 covers at least the counts in the table.
+- Each faction and each canon character has its game ID. The faction IDs come from the `FACTION_PROBE` line, and the character IDs come from the NPC IDs of phase 2.
 
-| Kayak | World template |
-|---|---|
-| Entity folder name, `display_name` | `name` |
-| `aliases`, `weight` | The keys of the same name |
-| Other `entity.txt` fields | `fields` |
-| Fields with a leading `$` | `prose` |
-| Price fields (`average_price`, `base_price_cats`, `price_modifier`) | Dropped, because economy is a non-goal |
-| `id`, `persistent_id`, `runtime_id` | The file name comes from `id`. The other two are dropped ([section 10](#not-yet-verified)). |
-| `who_knows_me.txt` `[RULE]` blocks | `access` |
-| `define_children.txt` `W = <weight> <name>` lines | `children` |
-| The faction category | `factions/` |
-| The unique NPC category | `characters/`. The Kayak fields that match profile keys fill `profile`. |
-| World lore entries | `history.json`, in Kayak's order |
-| `IGN_` files, `ph_` prompt files, runtime files, comments | Skipped |
-| `core_config.txt` retrieval limits | The INI defaults |
+| Records | Location in the template | Kayak v0.5.0 count |
+|---|---|---|
+| Factions | `factions/` | 23 |
+| Unique NPCs | `characters/` | 64 |
+| Locations: cities, settlements, outposts, ruins, regions | `entities/locations/` | 122 |
+| Items: weapons, armor, food, materials, and more | `entities/items/` | 166 |
+| Races | `entities/races/` | 7 |
+| World lore: eras, wars, and beliefs | `history.json` | 17 |
 
 ## 8. Retrieval design
 
-The retriever, `server/scripts/knowledge_retrieve.py`, follows the algorithm of Kayak's `indexer.py` and `retriever.py` on the campaign database. The embedded Windows runtime ships SQLite 3.49.1, which has FTS5 ([development.md](../info/development.md#probes) has the check for a later runtime).
+The retriever, `server/scripts/knowledge_retrieve.py`, searches the world lore of the campaign database. The embedded Windows runtime ships SQLite 3.49.1, which has FTS5 ([development.md](../info/development.md#probes) has the check for a later runtime).
 
-1. Extract keywords from the player message with Kayak's stop-word approach, limited by `max_keywords`.
+1. Extract keywords from the player message: drop the stop words, and keep at most `max_keywords`.
 2. Layer 0: FTS5 match against the name, the aliases, and the fields.
 3. Layers 1 to N: follow the precomputed `link` table, up to `max_layers`.
 4. Rank by layer, then entity weight, then FTS rank. Apply `max_matches_per_layer` and `max_files`.
 5. Apply the access rules for the speaking NPC.
 6. Honor `timeout_ms` as a hard ceiling.
 
-The limits are INI settings with Kayak's defaults: `max_keywords` 3, `max_layers` 1, `max_matches_per_layer` 3, `max_files` 4, and `timeout_ms` 500. The retrieved entities go into the prompt after the overview.
+The limits are INI settings with these defaults: `max_keywords` 3, `max_layers` 1, `max_matches_per_layer` 3, `max_files` 4, and `timeout_ms` 500. The retrieved entities go into the prompt after the overview.
 
 Illustrative query for steps 2 and 3:
 
@@ -331,49 +321,36 @@ ORDER BY layer, e.weight DESC
 LIMIT :max_files;
 ```
 
-Known differences to handle: Kayak uses its own stemming (`stem_key`) and tokenizer, and FTS5's `porter` tokenizer does not match it exactly. `max_matches_per_layer` is a per-source-entity limit and needs a window function or Python-side handling. Priority entities, such as the target NPC, sit on top of the file limit, per Kayak's documented behavior.
+`max_matches_per_layer` limits the matches that each source entity adds, so it needs a window function or Python-side handling.
 
-## 9. Licence and attribution
+## 9. Licence
 
-- Kayak and SentientSands are GPLv3. Rebirth is also GPLv3, so combining them is compatible.
-- Kayak adds an attribution condition under GPLv3 section 7(b) (`Kayak/ADDITIONAL_TERMS.md`). It applies when Kayak material, or a work derived from it, is conveyed to others.
-- The vanilla template is derived from Kayak material, so:
-  - its `manifest.json` carries the credit line "SentientSands Kayak by Harvicus and Pineaxe."
-  - its folder holds a copy of `ADDITIONAL_TERMS.md`
-  - a duplicate keeps both, so an exported template that derives from vanilla carries them
-  - the README shows the credit line with the official project links (source repos, Nexus Mods, and Steam Workshop)
-- Some lore text paraphrases the Kenshi wiki, and the underlying game content belongs to Lo-Fi Games. The wiki's licence was not checked. This must be reviewed before the vanilla content ships.
+- Rebirth is GPLv3, as is the original SentientSands that it derives from.
+- The vanilla template copies no text from Kayak or the Kenshi wiki ([section 7](#7-vanilla-kenshi-template)). Kayak's attribution condition under GPLv3 section 7(b) (`Kayak/ADDITIONAL_TERMS.md`) applies only to Kayak material and works derived from it, so the template carries no Kayak credit or terms file. The wiki's licence also does not apply, because no wiki text is copied.
+- The names, places, and story of Kenshi belong to Lo-Fi Games, as for any Kenshi mod.
 - This document is not legal advice.
 
 ## 10. Phases and verification
 
 | Phase | Deliverable | Acceptance criteria |
 |---|---|---|
-| 0. Prep | README credit section; the official English Kayak release | Attribution text in place; source release chosen |
 | 1. Templates and factions | Built ([architecture.md](../info/architecture.md#world-templates)). A new campaign copies every template record, and it keeps the characters and the world entries as JSON rows until phases 2 and 5 give them their stores ([architecture.md](../info/architecture.md#campaign-canon)). | |
 | 2. Characters | The character store keyed by game ID ([proposal_npc_ids.md](proposal_npc_ids.md)); canon characters from the template; the speaker picker; the Characters page; tests | The acceptance criteria of the NPC ID proposal; a canon character file gives that NPC its canon profile in a new campaign; a chat uses the bio and context of the picked speaker; a speaker with no profile gets a generated one |
 | 3. Import and export | The template routes; the Templates page | A template exported from one install imports on another with the same files; each unsafe zip in the tests is rejected |
-| 4. Vanilla content | `convert_kayak.py`; the converted template; the licence review | All 405 entities convert; the converter lists each dropped field |
-| 5. Retrieval | `knowledge_retrieve.py`; the prompt wiring; the INI limits | Retrieval matches Kayak on a fixed set of queries within documented differences; chat prompts include the retrieved entities |
+| 4. Vanilla content | The factions, characters, locations, items, races, and world lore of the vanilla template ([section 7](#7-vanilla-kenshi-template)) | The template covers at least the counts in section 7, and the validator accepts it; each faction and each canon character has its game ID; no record copies text from Kayak or the wiki |
+| 5. Retrieval | `knowledge_retrieve.py`; the prompt wiring; the INI limits | For each player message in a fixed list, retrieval returns the expected entities in the expected order; chat prompts include the retrieved entities |
 
-Phase 2 waits for the in-game checks of the NPC IDs ([proposal_npc_ids.md](proposal_npc_ids.md#9-not-yet-verified)). Import and export come before the vanilla content, so modded templates do not wait for the licence review.
+Phase 2 waits for the in-game checks of the NPC IDs ([proposal_npc_ids.md](proposal_npc_ids.md#9-not-yet-verified)). The canon characters of phase 4 need the character IDs of phase 2. The other records of phase 4 need no other phase. The tests of phase 5 run on the vanilla content of phase 4.
 
 Tests:
 
-- Golden tests: a fixed list of player messages runs through Kayak's own retriever and through the new retriever on the converted template, and the tests compare the returned entity sets and their order.
+- Retrieval tests: a fixed list of player messages, each with its expected entities in order, runs on the vanilla template.
 - Template round trip: a template folder, exported to a zip and imported again, gives the same files.
 - Unsafe zips: an entry with `..`, an absolute path, an oversized archive, and invalid JSON are all rejected, and nothing is left on disk.
 - Performance check against the 500 ms `timeout_ms` default on the full vanilla template.
 
 ### Not yet verified
 
-- The full retrieval logic in Kayak was not traced end to end. Only the file layouts, headers, configuration, and keyword searches were read.
-- The grammar of Kayak's `[RULE]` blocks, so the `access` schema is not set yet.
-- What Kayak uses `persistent_id` and `runtime_id` for.
-- Which Kayak fields of a unique NPC match the keys of an NPC profile.
-- The official English template and release were not inspected, only the Russian fork's copy.
-- The official `Starswimmer/Kayak` repository contained only a README and a licence when checked, so Kayak's server code was read from the Russian fork's bundle, which can include that author's changes.
-- The licence of the Kenshi wiki text that the lore entries paraphrase.
 - Whether the string IDs of the factions stay the same when the player changes the mod list. The `FACTION_PROBE` line of the first in-game test listed the IDs for one mod list ([development.md](../info/development.md#probes)), and the faction files of the vanilla template take their `game_id` from it.
 - The KenshiLib calls for the current squad and its members (`PlayerInterface::getCurrentPlatoon`, `Character::getPlatoon`). The `SQUAD_PROBE` line checks them ([development.md](../info/development.md#probes)).
 
@@ -381,26 +358,21 @@ Tests:
 
 | Risk | Impact | Mitigation |
 |---|---|---|
-| Lore licensing | The vanilla content cannot ship | Phases 1 to 3 do not depend on it; the vanilla template ships with only its overview and factions until the review passes |
+| A vanilla record copies text from Kayak or the wiki | Their licence terms then apply to the template | Each record is written from the facts of the game, never from the text of Kayak or the wiki |
 | A shared template carries text that steers the LLM | NPCs act against the player's intent, for example through action tags | The same trust as a Kenshi mod; the Templates page shows the authors and credits before an import |
 | An unsafe zip | Files written outside the template folder, or a full disk | The import checks in section 4 |
 | Attribution lost in a derived template | Licence non-compliance | A duplicate keeps the credits and the licence files; an export includes them |
 | A format change | Older templates do not load | `format_version`; the loader reads each earlier version |
-| Retrieval drift from Kayak (stemming, ranking) | Different prompt context than upstream | Golden tests, documented differences |
 
 ## 12. Open questions
 
 1. Should the name pools (`names.json`, `generic_names.json`) be customizable? The options are a player override, as for the system prompts, or a part of each world template, so that a modded template can add its own generic NPC types and names.
 2. Should an existing campaign be able to take a newer version of its template, and how does that merge with `origin = 'campaign'` changes?
-3. Should the release include the Kayak converter, so that players can convert Kayak content packs?
-4. Should retrieval also search the faction and character stores, so that a question about the Holy Nation or Beep brings their records into the prompt? Should a lore field, such as the owner of a town, link to a faction?
+3. Should retrieval also search the faction and character stores, so that a question about the Holy Nation or Beep brings their records into the prompt? Should a lore field, such as the owner of a town, link to a faction?
 
 ## 13. References
 
 - Original mod: `github.com/harvicusdev-glitch/SentientSands` (GPL-3.0, includes the C++ `src/` folder)
-- Kayak source repo listed in the project links: `github.com/Starswimmer/Kayak`
-- Kayak on Nexus Mods: `nexusmods.com/kenshi/mods/2067`
 - SentientSands on Nexus Mods: `nexusmods.com/kenshi/mods/1872`
 - SentientSands on Steam Workshop: item `3675880187`
-- Kayak bundle used for inspection: `github.com/Mitt776/SentientSands-RU` (Russian adaptation, GPL-3.0-or-later)
-- Required credit line: "SentientSands Kayak by Harvicus and Pineaxe."
+- Kayak, the checklist of [section 7](#7-vanilla-kenshi-template): `github.com/Starswimmer/Kayak`, release `V0.41_betatest` (version 0.5.0)
