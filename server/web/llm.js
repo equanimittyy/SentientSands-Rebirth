@@ -412,6 +412,7 @@ function renderProfile(name, profile) {
     field("Extra request parameters (JSON)", textInput(profile, "paramsText", path("params"), { tag: "textarea", className: "mono", rows: 3 }, paramsError), null, 'Optional model settings as JSON, for example {"top_p": 0.9}. They replace the same settings of the task.'),
     el("div", { className: "card-actions" },
       button("Test", () => testProfile(name), `Test ${name}`),
+      result && !result.pending ? el("span", { className: `test-mark ${result.ok ? "ok" : "fail"}` }, icon(result.ok ? "check" : "x")) : null,
       el("span", { className: `message${result && !result.ok && !result.pending ? " error" : ""}` }, result?.text ?? ""),
       deleteButton(`Delete ${name}`, () => removeProfile(name))));
 }

@@ -329,6 +329,18 @@ button.danger {
   color: var(--on-accent);
 }
 
+.test-mark {
+  font-size: 1.3em;
+}
+
+.test-mark.ok {
+  color: var(--ok);
+}
+
+.test-mark.fail {
+  color: var(--error);
+}
+
 :focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 1px;
