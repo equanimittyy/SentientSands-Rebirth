@@ -85,9 +85,15 @@ class OpenTest(CampaignTestCase):
     def test_a_missing_database_fails_instead_of_being_created(self):
         campaign_db.open_campaign(self.folder, lambda: SEED)
         os.remove(os.path.join(self.folder, campaign_db.DB_NAME))
-        with self.assertRaises(sqlite3.OperationalError):
+        with self.assertRaisesRegex(campaign_db.CampaignUnavailable, "has no campaign.db file"):
             campaign_db.get_npc("Beep")
         self.assertFalse(os.path.exists(os.path.join(self.folder, campaign_db.DB_NAME)))
+
+    def test_a_closed_campaign_fails_with_the_reason(self):
+        campaign_db.open_campaign(self.folder, lambda: SEED)
+        campaign_db.close_campaign()
+        with self.assertRaisesRegex(campaign_db.CampaignUnavailable, "No campaign is selected"):
+            campaign_db.list_npcs()
 
 
 class NpcTest(CampaignTestCase):
