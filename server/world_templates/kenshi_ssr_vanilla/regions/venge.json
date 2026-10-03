@@ -14,19 +14,19 @@
   },
   "children": [
     {
-      "name": "Old Control Tower",
+      "entry": "locations/old_control_tower",
       "weight": 1
     },
     {
-      "name": "Ruined Control Tower",
+      "entry": "locations/ruined_control_tower",
       "weight": 1
     },
     {
-      "name": "Tower of Abuse",
+      "entry": "locations/tower_of_abuse",
       "weight": 1
     },
     {
-      "name": "Waystation Ruins",
+      "entry": "locations/waystation_ruins",
       "weight": 1
     }
   ]

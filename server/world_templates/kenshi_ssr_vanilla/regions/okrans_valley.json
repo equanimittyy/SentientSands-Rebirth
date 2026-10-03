@@ -20,11 +20,11 @@
   },
   "children": [
     {
-      "name": "Farm Ruins",
+      "entry": "locations/farm_ruins",
       "weight": 1
     },
     {
-      "name": "Holy Farms",
+      "entry": "locations/holy_farms",
       "weight": 2
     }
   ]

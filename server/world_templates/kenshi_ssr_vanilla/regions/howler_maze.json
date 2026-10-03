@@ -18,15 +18,15 @@
   },
   "children": [
     {
-      "name": "Archive Town",
+      "entry": "locations/archive_town",
       "weight": 1
     },
     {
-      "name": "Looted Ruins",
+      "entry": "locations/looted_ruins",
       "weight": 1
     },
     {
-      "name": "Lost Town",
+      "entry": "locations/lost_town",
       "weight": 1
     }
   ]

@@ -18,15 +18,15 @@
   },
   "children": [
     {
-      "name": "Lost Armoury",
+      "entry": "locations/lost_armoury",
       "weight": 1
     },
     {
-      "name": "Police Barracks",
+      "entry": "locations/police_barracks",
       "weight": 1
     },
     {
-      "name": "Sniper Tower",
+      "entry": "locations/sniper_tower",
       "weight": 1
     }
   ]

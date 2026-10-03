@@ -20,15 +20,15 @@
   },
   "children": [
     {
-      "name": "Barrier Tower",
+      "entry": "locations/barrier_tower",
       "weight": 2
     },
     {
-      "name": "Skinhouse",
+      "entry": "locations/skinhouse",
       "weight": 2
     },
     {
-      "name": "Skinhouse HQ",
+      "entry": "locations/skinhouse_hq",
       "weight": 2
     }
   ]

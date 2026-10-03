@@ -14,15 +14,15 @@
   },
   "children": [
     {
-      "name": "Black Dog HQ",
+      "entry": "locations/black_dog_hq",
       "weight": 1
     },
     {
-      "name": "Black Scratch",
+      "entry": "locations/black_scratch",
       "weight": 3
     },
     {
-      "name": "Reaver Camp",
+      "entry": "locations/reaver_camp",
       "weight": 2
     }
   ]

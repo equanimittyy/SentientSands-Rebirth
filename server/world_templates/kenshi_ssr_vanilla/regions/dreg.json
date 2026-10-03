@@ -22,15 +22,15 @@
   },
   "children": [
     {
-      "name": "Gatherer Village",
+      "entry": "locations/gatherer_village",
       "weight": 2
     },
     {
-      "name": "Hive Village",
+      "entry": "locations/hive_village",
       "weight": 2
     },
     {
-      "name": "Settled Nomad Village",
+      "entry": "locations/settled_nomad_village",
       "weight": 2
     }
   ]

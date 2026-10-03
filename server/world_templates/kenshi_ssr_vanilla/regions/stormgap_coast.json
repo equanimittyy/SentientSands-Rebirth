@@ -26,19 +26,19 @@
   },
   "children": [
     {
-      "name": "Brink",
+      "entry": "locations/brink",
       "weight": 3
     },
     {
-      "name": "Cult Village",
+      "entry": "locations/cult_village",
       "weight": 2
     },
     {
-      "name": "Eyesocket",
+      "entry": "locations/eyesocket",
       "weight": 2
     },
     {
-      "name": "Farming Village",
+      "entry": "locations/farming_village",
       "weight": 2
     }
   ]

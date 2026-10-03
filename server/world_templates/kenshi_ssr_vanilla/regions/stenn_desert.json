@@ -21,35 +21,35 @@
   },
   "children": [
     {
-      "name": "Admag",
+      "entry": "locations/admag",
       "weight": 3
     },
     {
-      "name": "Empty Ruins",
+      "entry": "locations/empty_ruins",
       "weight": 1
     },
     {
-      "name": "Exile Camp",
+      "entry": "locations/exile_camp",
       "weight": 1
     },
     {
-      "name": "Fallen Tower",
+      "entry": "locations/fallen_tower",
       "weight": 1
     },
     {
-      "name": "New Kralia",
+      "entry": "locations/new_kralia",
       "weight": 2
     },
     {
-      "name": "Shek Ruins",
+      "entry": "locations/shek_ruins",
       "weight": 1
     },
     {
-      "name": "The Great Fortress",
+      "entry": "locations/the_great_fortress",
       "weight": 2
     },
     {
-      "name": "Waystation",
+      "entry": "locations/waystation",
       "weight": 1
     }
   ]

@@ -18,19 +18,19 @@
   },
   "children": [
     {
-      "name": "Distant Hive Village",
+      "entry": "locations/distant_hive_village",
       "weight": 2
     },
     {
-      "name": "Fort Simion",
+      "entry": "locations/fort_simion",
       "weight": 2
     },
     {
-      "name": "The Bastion",
+      "entry": "locations/the_bastion",
       "weight": 2
     },
     {
-      "name": "Tower of Goats",
+      "entry": "locations/tower_of_goats",
       "weight": 1
     }
   ]

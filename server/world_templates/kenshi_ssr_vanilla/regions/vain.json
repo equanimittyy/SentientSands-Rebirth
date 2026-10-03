@@ -24,23 +24,23 @@
   },
   "children": [
     {
-      "name": "Hive Village",
+      "entry": "locations/hive_village",
       "weight": 2
     },
     {
-      "name": "Lost Library",
+      "entry": "locations/lost_library",
       "weight": 1
     },
     {
-      "name": "Post-Ancient Workshop",
+      "entry": "locations/post_ancient_workshop",
       "weight": 1
     },
     {
-      "name": "Tower of Fog",
+      "entry": "locations/tower_of_fog",
       "weight": 1
     },
     {
-      "name": "Western Hive",
+      "entry": "locations/western_hive",
       "weight": 2
     }
   ]

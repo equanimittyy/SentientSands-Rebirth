@@ -12,7 +12,7 @@
   },
   "children": [
     {
-      "name": "Cactus Den",
+      "entry": "locations/cactus_den",
       "weight": 1
     }
   ]

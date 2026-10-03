@@ -20,7 +20,7 @@
   },
   "children": [
     {
-      "name": "Crab Village",
+      "entry": "locations/crab_village",
       "weight": 2
     }
   ]

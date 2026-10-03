@@ -13,19 +13,19 @@
   },
   "children": [
     {
-      "name": "Okran's Fist",
+      "entry": "locations/okrans_fist",
       "weight": 2
     },
     {
-      "name": "Okran's Shield",
+      "entry": "locations/okrans_shield",
       "weight": 2
     },
     {
-      "name": "Watchtower",
+      "entry": "locations/watchtower",
       "weight": 1
     },
     {
-      "name": "World's End",
+      "entry": "locations/worlds_end",
       "weight": 3
     }
   ]

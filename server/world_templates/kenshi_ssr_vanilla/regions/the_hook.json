@@ -25,31 +25,31 @@
   },
   "children": [
     {
-      "name": "Abandoned Town",
+      "entry": "locations/abandoned_town",
       "weight": 1
     },
     {
-      "name": "Clownsteady",
+      "entry": "locations/clownsteady",
       "weight": 3
     },
     {
-      "name": "Drifter's Last",
+      "entry": "locations/drifters_last",
       "weight": 3
     },
     {
-      "name": "Library Ruins",
+      "entry": "locations/library_ruins",
       "weight": 1
     },
     {
-      "name": "Manhunter Base",
+      "entry": "locations/manhunter_base",
       "weight": 2
     },
     {
-      "name": "Slave Farm South",
+      "entry": "locations/slave_farm_south",
       "weight": 2
     },
     {
-      "name": "Waystation",
+      "entry": "locations/waystation",
       "weight": 1
     }
   ]

@@ -13,11 +13,11 @@
   },
   "children": [
     {
-      "name": "Empty Lab",
+      "entry": "locations/empty_lab",
       "weight": 1
     },
     {
-      "name": "Lab Ruin",
+      "entry": "locations/lab_ruin",
       "weight": 1
     }
   ]

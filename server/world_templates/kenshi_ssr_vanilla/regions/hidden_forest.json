@@ -19,7 +19,7 @@
   },
   "children": [
     {
-      "name": "Flotsam Village",
+      "entry": "locations/flotsam_village",
       "weight": 2
     }
   ]

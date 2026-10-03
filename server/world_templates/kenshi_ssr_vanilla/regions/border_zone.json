@@ -22,35 +22,35 @@
   },
   "children": [
     {
-      "name": "Dust King Tower",
+      "entry": "locations/dust_king_tower",
       "weight": 1
     },
     {
-      "name": "Rebel Base",
+      "entry": "locations/rebel_base",
       "weight": 1
     },
     {
-      "name": "Ruined Holy Outpost",
+      "entry": "locations/ruined_holy_outpost",
       "weight": 1
     },
     {
-      "name": "Squin",
+      "entry": "locations/squin",
       "weight": 3
     },
     {
-      "name": "The Hub",
+      "entry": "locations/the_hub",
       "weight": 3
     },
     {
-      "name": "Tiny Settlement",
+      "entry": "locations/tiny_settlement",
       "weight": 1
     },
     {
-      "name": "Tower Of Ninjas",
+      "entry": "locations/tower_of_ninjas",
       "weight": 1
     },
     {
-      "name": "Waystation",
+      "entry": "locations/waystation",
       "weight": 1
     }
   ]

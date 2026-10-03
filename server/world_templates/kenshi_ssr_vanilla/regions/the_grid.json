@@ -8,7 +8,7 @@
   },
   "children": [
     {
-      "name": "Workshop Complex",
+      "entry": "locations/workshop_complex",
       "weight": 1
     }
   ]

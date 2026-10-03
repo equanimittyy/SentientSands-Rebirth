@@ -20,7 +20,7 @@
   },
   "children": [
     {
-      "name": "Waystation",
+      "entry": "locations/waystation",
       "weight": 1
     }
   ]

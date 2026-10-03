@@ -1,4 +1,4 @@
-import { ask, deleteButton, el, field, getJson, progress, reportUnsaved, sendJson, setFieldError, showMessage, tell } from "./api.js";
+import { ask, deleteButton, el, field, getJson, progress, reportUnsaved, sendJson, setFieldError, showMessage, tell, withHelp } from "./api.js";
 
 const page = document.getElementById("editor-page");
 const message = document.getElementById("editor-message");
@@ -77,15 +77,16 @@ function toForm(kind, data) {
     const known = PROFILE_KEYS.map((key) => ({ key, value: profile[key] === undefined ? "" : String(profile[key]), list: false, original: profile[key] }));
     return { game_id: data.game_id ?? "", profile: [...known, ...rows(rest(profile, PROFILE_KEYS))], extra: rest(data, ["game_id", "profile"]) };
   }
+  const labels = entryLabels();
   return {
     name: data.name ?? "", aliases: (data.aliases ?? []).join(", "), weight: data.weight === undefined ? "" : String(data.weight), fields: rows(data.fields), prose: rows(data.prose),
-    children: (data.children ?? []).map((child) => ({ name: child.name ?? "", weight: child.weight === undefined ? "" : String(child.weight) })),
+    children: (data.children ?? []).map((child) => ({ entry: child.entry ?? "", text: labels.get(child.entry) ?? child.entry ?? "", weight: child.weight === undefined ? "" : String(child.weight) })),
     access: JSON.stringify(data.access ?? []),
     extra: rest(data, ["name", "aliases", "weight", "fields", "prose", "children", "access"]),
   };
 }
 
-// Throws when the access rules are not valid JSON.
+// Throws when the access rules are not valid JSON or a relation names no entry.
 function toData(kind, form) {
   if (kind === "overview") return form.text.trim();
   if (kind === "history") return form.entries.map((entry) => ({ title: entry.title.trim(), text: entry.text.trim() }));
@@ -107,9 +108,29 @@ function toData(kind, form) {
     ...(form.weight.trim() ? { weight: numberOr(form.weight) } : {}),
     fields: fromRows(form.fields),
     prose: fromRows(form.prose),
-    children: form.children.filter((child) => child.name.trim()).map((child) => ({ name: child.name.trim(), ...(child.weight.trim() ? { weight: numberOr(child.weight) } : {}) })),
+    children: form.children.filter((child) => child.text.trim()).map((child) => {
+      if (!child.entry) throw new Error(`${child.text.trim()} is not an entry. Choose one from the list.`);
+      return { entry: child.entry, ...(child.weight.trim() ? { weight: numberOr(child.weight) } : {}) };
+    }),
     access,
   };
+}
+
+const entryKey = (record) => `${record.category}/${record.id}`;
+
+// A label names one entry, so two entries with one name and category also show their IDs.
+function entryLabels() {
+  const entries = records.filter((record) => record.kind === "entity");
+  const plain = (record) => `${title(record)} (${CATEGORY_LABELS[record.category]})`;
+  const seen = new Set();
+  const repeated = new Set();
+  for (const record of entries) (seen.has(plain(record)) ? repeated : seen).add(plain(record));
+  return new Map(entries.map((record) => [entryKey(record), repeated.has(plain(record)) ? `${title(record)} (${CATEGORY_LABELS[record.category]}, ${record.id})` : plain(record)]));
+}
+
+function entryOf(label) {
+  const wanted = label.trim().toLowerCase();
+  return [...entryLabels()].find(([, text]) => text.toLowerCase() === wanted)?.[0] ?? "";
 }
 
 function savedRecords(loaded) {
@@ -258,21 +279,61 @@ function characterForm(form, path, record) {
   ];
 }
 
-function entityForm(form, path) {
+function relationEntry(child, path) {
+  const input = el("input", {
+    value: child.text,
+    placeholder: "Type to search",
+    disabled: readOnly(),
+    oninput: (event) => {
+      child.text = event.target.value;
+      child.entry = entryOf(child.text);
+      setFieldError(event.target, child.text.trim() && !child.entry ? "Choose an entry from the list." : "");
+      changed();
+    },
+  });
+  input.dataset.field = JSON.stringify(path);
+  input.setAttribute("aria-label", "Related entry");
+  input.setAttribute("list", "relation-entries");
+  return input;
+}
+
+function relationsEditor(form, path, record) {
+  const labels = entryLabels();
+  const self = record.id ? entryKey(record) : null;
+  const parents = records.filter((entry) => entry.kind === "entity").flatMap((entry) =>
+    (drafts.get(entry.key)?.form.children ?? entry.data.children ?? []).filter((child) => child.entry === self).map((child) => ({ entry, weight: child.weight })));
+  return el("fieldset", {},
+    el("legend", {}, "Relations"),
+    el("p", { className: "hint" }, "The entries that belong to this one, and the entries that it belongs to."),
+    el("div", { className: "relation-grid" },
+      withHelp("Entry", "The race, location, or region on the other side of the relation. Type to search, then choose one from the list."),
+      withHelp("Relationship", "Child: the entry belongs to this one, for example a town in its region. Parent: this one belongs to the entry. Open the parent to change that relation."),
+      withHelp("Weight", "How strong the relation is. A higher number marks a closer link. Empty counts as 1."),
+      el("span"),
+      ...form.children.flatMap((child, index) => [
+        relationEntry(child, [...path, "children", index, "entry"]),
+        el("span", {}, "Child"),
+        control("input", child, "weight", [...path, "children", index, "weight"], { placeholder: "1", inputMode: "decimal", label: "Relation weight" }),
+        removeButton(form.children, index, "Delete the relation"),
+      ]),
+      ...parents.flatMap(({ entry, weight }) => [
+        el("span", {}, labels.get(entryKey(entry))),
+        el("span", {}, "Parent"),
+        el("span", {}, weight === undefined || weight === "" ? "1" : String(weight)),
+        el("button", { type: "button", onclick: () => { selected = entry.key; renderList(); renderForm(); } }, "Open"),
+      ])),
+    el("datalist", { id: "relation-entries" }, ...[...labels].filter(([key]) => key !== self).map(([, text]) => el("option", { value: text }))),
+    addButton("Add child", () => form.children.push({ entry: "", text: "", weight: "" })));
+}
+
+function entityForm(form, path, record) {
   return [
     field("Name", control("input", form, "name", [...path, "name"]), null, "The name that NPCs use for it."),
     field("Aliases", control("input", form, "aliases", [...path, "aliases"]), null, "Other names of the entry, separated by commas."),
     field("Weight", control("input", form, "weight", [...path, "weight"], { inputMode: "decimal", placeholder: "1" }), null, "How strongly the entry competes for a place in a prompt. A higher weight wins."),
     rowsEditor("Fields", "Short facts, for example the owner of a town. A value that names another entry links the two.", form.fields, [...path, "fields"]),
     rowsEditor("Prose", "Longer text about the entry, for example its description.", form.prose, [...path, "prose"], { long: true, placeholder: "Name, for example description" }),
-    el("fieldset", {},
-      el("legend", {}, "Children"),
-      el("p", { className: "hint" }, "Other entries that belong to this one, for example the buildings of a town, by name."),
-      ...form.children.map((child, index) => el("div", { className: "inline row" },
-        control("input", child, "name", [...path, "children", index, "name"], { placeholder: "Name of an entry", label: "Child name" }),
-        control("input", child, "weight", [...path, "children", index, "weight"], { placeholder: "Weight", inputMode: "decimal", className: "short", label: "Child weight" }),
-        removeButton(form.children, index, "Delete the child"))),
-      addButton("Add child", () => form.children.push({ name: "", weight: "" }))),
+    relationsEditor(form, path, record),
     field("Access rules (JSON)", control("textarea", form, "access", [...path, "access"], { className: "mono", rows: 3 }), null, "Which NPCs know this entry. Leave [] for every NPC."),
   ];
 }
@@ -328,7 +389,7 @@ function renderForm() {
   else if (record.kind === "manifest") body = manifestForm(form);
   else if (record.kind === "faction") body = factionForm(form, path, record);
   else if (record.kind === "character") body = characterForm(form, path, record);
-  else body = entityForm(form, path);
+  else body = entityForm(form, path, record);
   // The game reports the player's faction again, so a delete would only lose its description
   const deletable = !TEMPLATE_PARTS.includes(record.kind) && !record.is_player;
   container.replaceChildren(el("div", { className: "card" },

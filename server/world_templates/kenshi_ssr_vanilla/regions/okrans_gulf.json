@@ -21,19 +21,19 @@
   },
   "children": [
     {
-      "name": "Deadhive Overrun",
+      "entry": "locations/deadhive_overrun",
       "weight": 1
     },
     {
-      "name": "Holy Military Base",
+      "entry": "locations/holy_military_base",
       "weight": 2
     },
     {
-      "name": "Holy Mines",
+      "entry": "locations/holy_mines",
       "weight": 2
     },
     {
-      "name": "Stack",
+      "entry": "locations/stack",
       "weight": 3
     }
   ]

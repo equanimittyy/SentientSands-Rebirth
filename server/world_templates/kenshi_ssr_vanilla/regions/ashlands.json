@@ -16,27 +16,27 @@
   },
   "children": [
     {
-      "name": "Ashland Dome I",
+      "entry": "locations/ashland_dome_i",
       "weight": 1
     },
     {
-      "name": "Ashland Dome II",
+      "entry": "locations/ashland_dome_ii",
       "weight": 1
     },
     {
-      "name": "Ashland Dome III",
+      "entry": "locations/ashland_dome_iii",
       "weight": 1
     },
     {
-      "name": "Ashland Dome IV",
+      "entry": "locations/ashland_dome_iv",
       "weight": 1
     },
     {
-      "name": "Ashland Dome Ruin",
+      "entry": "locations/ashland_dome_ruin",
       "weight": 1
     },
     {
-      "name": "Cat-Lon's Exile",
+      "entry": "locations/cat_lons_exile",
       "weight": 3
     }
   ]

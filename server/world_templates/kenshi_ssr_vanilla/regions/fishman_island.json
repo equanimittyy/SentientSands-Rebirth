@@ -15,11 +15,11 @@
   },
   "children": [
     {
-      "name": "Fish Isle",
+      "entry": "locations/fish_isle",
       "weight": 3
     },
     {
-      "name": "Island Lab",
+      "entry": "locations/island_lab",
       "weight": 1
     }
   ]

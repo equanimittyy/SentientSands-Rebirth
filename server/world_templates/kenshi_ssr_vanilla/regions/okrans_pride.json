@@ -20,15 +20,15 @@
   },
   "children": [
     {
-      "name": "Bad Teeth",
+      "entry": "locations/bad_teeth",
       "weight": 3
     },
     {
-      "name": "Blister Hill",
+      "entry": "locations/blister_hill",
       "weight": 3
     },
     {
-      "name": "Holy Farms",
+      "entry": "locations/holy_farms",
       "weight": 2
     }
   ]

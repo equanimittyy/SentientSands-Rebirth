@@ -18,15 +18,15 @@
   },
   "children": [
     {
-      "name": "Hiver-Claimed Armoury",
+      "entry": "locations/hiver_claimed_armoury",
       "weight": 1
     },
     {
-      "name": "Southern Hive",
+      "entry": "locations/southern_hive",
       "weight": 3
     },
     {
-      "name": "Southern Hive Village",
+      "entry": "locations/southern_hive_village",
       "weight": 2
     }
   ]

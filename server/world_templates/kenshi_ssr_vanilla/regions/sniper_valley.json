@@ -17,11 +17,11 @@
   },
   "children": [
     {
-      "name": "Old Empire Supply Outpost",
+      "entry": "locations/old_empire_supply_outpost",
       "weight": 1
     },
     {
-      "name": "Police Barracks",
+      "entry": "locations/police_barracks",
       "weight": 1
     }
   ]

@@ -19,7 +19,7 @@
   },
   "children": [
     {
-      "name": "Tengu's Vault",
+      "entry": "locations/tengus_vault",
       "weight": 2
     }
   ]

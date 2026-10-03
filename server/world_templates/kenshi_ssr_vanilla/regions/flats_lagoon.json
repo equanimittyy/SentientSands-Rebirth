@@ -20,7 +20,7 @@
   },
   "children": [
     {
-      "name": "Flats Lagoon",
+      "entry": "locations/flats_lagoon",
       "weight": 3
     }
   ]

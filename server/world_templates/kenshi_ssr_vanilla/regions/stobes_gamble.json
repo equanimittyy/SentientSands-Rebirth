@@ -24,31 +24,31 @@
   },
   "children": [
     {
-      "name": "Crumbling Labs",
+      "entry": "locations/crumbling_labs",
       "weight": 1
     },
     {
-      "name": "Expedition 5",
+      "entry": "locations/expedition_5",
       "weight": 1
     },
     {
-      "name": "Free Settlement",
+      "entry": "locations/free_settlement",
       "weight": 1
     },
     {
-      "name": "Lost Armour Store",
+      "entry": "locations/lost_armour_store",
       "weight": 1
     },
     {
-      "name": "Old Empire Supply Outpost",
+      "entry": "locations/old_empire_supply_outpost",
       "weight": 1
     },
     {
-      "name": "Secret Drug Farm",
+      "entry": "locations/secret_drug_farm",
       "weight": 2
     },
     {
-      "name": "Spring",
+      "entry": "locations/spring",
       "weight": 3
     }
   ]

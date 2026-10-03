@@ -26,43 +26,43 @@
   },
   "children": [
     {
-      "name": "Bark",
+      "entry": "locations/bark",
       "weight": 3
     },
     {
-      "name": "Distant Hive Village",
+      "entry": "locations/distant_hive_village",
       "weight": 2
     },
     {
-      "name": "Fort Mirage",
+      "entry": "locations/fort_mirage",
       "weight": 2
     },
     {
-      "name": "Heft",
+      "entry": "locations/heft",
       "weight": 3
     },
     {
-      "name": "Old Village",
+      "entry": "locations/old_village",
       "weight": 1
     },
     {
-      "name": "Port North",
+      "entry": "locations/port_north",
       "weight": 2
     },
     {
-      "name": "Port South",
+      "entry": "locations/port_south",
       "weight": 2
     },
     {
-      "name": "Sho-Battai",
+      "entry": "locations/sho_battai",
       "weight": 3
     },
     {
-      "name": "Stoat",
+      "entry": "locations/stoat",
       "weight": 3
     },
     {
-      "name": "Stone Camp",
+      "entry": "locations/stone_camp",
       "weight": 2
     }
   ]

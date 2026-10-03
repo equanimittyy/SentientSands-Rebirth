@@ -21,23 +21,23 @@
   },
   "children": [
     {
-      "name": "Armoury Ruin",
+      "entry": "locations/armoury_ruin",
       "weight": 1
     },
     {
-      "name": "Cannibal Capital",
+      "entry": "locations/cannibal_capital",
       "weight": 3
     },
     {
-      "name": "Cannibal Village",
+      "entry": "locations/cannibal_village",
       "weight": 2
     },
     {
-      "name": "Old Village",
+      "entry": "locations/old_village",
       "weight": 1
     },
     {
-      "name": "Scout Post",
+      "entry": "locations/scout_post",
       "weight": 1
     }
   ]

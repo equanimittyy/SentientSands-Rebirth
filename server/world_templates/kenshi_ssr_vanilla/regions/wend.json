@@ -12,7 +12,7 @@
   },
   "children": [
     {
-      "name": "Drowned Ruins",
+      "entry": "locations/drowned_ruins",
       "weight": 1
     }
   ]

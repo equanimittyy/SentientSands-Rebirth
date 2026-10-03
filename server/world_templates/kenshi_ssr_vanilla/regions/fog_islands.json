@@ -14,7 +14,7 @@
   },
   "children": [
     {
-      "name": "Mongrel",
+      "entry": "locations/mongrel",
       "weight": 3
     }
   ]

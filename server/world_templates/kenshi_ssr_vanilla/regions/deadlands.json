@@ -16,27 +16,27 @@
   },
   "children": [
     {
-      "name": "Armoury Ruin",
+      "entry": "locations/armoury_ruin",
       "weight": 1
     },
     {
-      "name": "Black Desert City",
+      "entry": "locations/black_desert_city",
       "weight": 3
     },
     {
-      "name": "Deadland Workshop",
+      "entry": "locations/deadland_workshop",
       "weight": 1
     },
     {
-      "name": "Lost Armoury",
+      "entry": "locations/lost_armoury",
       "weight": 1
     },
     {
-      "name": "Reprogramming Workshop",
+      "entry": "locations/reprogramming_workshop",
       "weight": 1
     },
     {
-      "name": "Scraphouse",
+      "entry": "locations/scraphouse",
       "weight": 1
     }
   ]

@@ -23,39 +23,39 @@
   },
   "children": [
     {
-      "name": "Grayflayer Village",
+      "entry": "locations/grayflayer_village",
       "weight": 2
     },
     {
-      "name": "Infested Lab",
+      "entry": "locations/infested_lab",
       "weight": 1
     },
     {
-      "name": "Mud Town",
+      "entry": "locations/mud_town",
       "weight": 2
     },
     {
-      "name": "Red Sabre Hideout",
+      "entry": "locations/red_sabre_hideout",
       "weight": 1
     },
     {
-      "name": "Rot",
+      "entry": "locations/rot",
       "weight": 2
     },
     {
-      "name": "Shark",
+      "entry": "locations/shark",
       "weight": 3
     },
     {
-      "name": "Stone Rat Village",
+      "entry": "locations/stone_rat_village",
       "weight": 2
     },
     {
-      "name": "Swamp Village",
+      "entry": "locations/swamp_village",
       "weight": 2
     },
     {
-      "name": "Swamped Lab",
+      "entry": "locations/swamped_lab",
       "weight": 1
     }
   ]

@@ -851,6 +851,27 @@ input[type="search"] {
   color: var(--error);
 }
 
+.relation-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) max-content 5rem max-content;
+  align-items: center;
+  gap: 0.4rem 0.6rem;
+  margin: 0.4rem 0 0.6rem;
+}
+
+.relation-grid > .label-text {
+  position: relative;
+  display: flex;
+  align-items: baseline;
+  gap: 0.35em;
+}
+
+/* The right-hand headers open their tip leftward, so it stays inside the card. */
+.relation-grid > .label-text:not(:first-child) .tip {
+  left: auto;
+  right: 0;
+}
+
 .new-record {
   display: flex;
   flex-direction: column;

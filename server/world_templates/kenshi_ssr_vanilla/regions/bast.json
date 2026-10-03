@@ -21,23 +21,23 @@
   },
   "children": [
     {
-      "name": "Bast",
+      "entry": "locations/bast",
       "weight": 1
     },
     {
-      "name": "Drin",
+      "entry": "locations/drin",
       "weight": 1
     },
     {
-      "name": "Endin",
+      "entry": "locations/endin",
       "weight": 1
     },
     {
-      "name": "Guard Outpost",
+      "entry": "locations/guard_outpost",
       "weight": 1
     },
     {
-      "name": "Ravaged Hamlet",
+      "entry": "locations/ravaged_hamlet",
       "weight": 1
     }
   ]

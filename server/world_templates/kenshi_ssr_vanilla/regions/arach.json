@@ -12,11 +12,11 @@
   },
   "children": [
     {
-      "name": "Fallen Tower",
+      "entry": "locations/fallen_tower",
       "weight": 1
     },
     {
-      "name": "Throne of the Bugmaster",
+      "entry": "locations/throne_of_the_bugmaster",
       "weight": 1
     }
   ]

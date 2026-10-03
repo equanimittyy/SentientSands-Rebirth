@@ -17,7 +17,7 @@
   },
   "children": [
     {
-      "name": "Farm Ruin",
+      "entry": "locations/farm_ruin",
       "weight": 1
     }
   ]

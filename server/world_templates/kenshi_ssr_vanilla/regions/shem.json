@@ -22,11 +22,11 @@
   },
   "children": [
     {
-      "name": "Settled Nomads",
+      "entry": "locations/settled_nomads",
       "weight": 2
     },
     {
-      "name": "Smugglers Bar",
+      "entry": "locations/smugglers_bar",
       "weight": 1
     }
   ]

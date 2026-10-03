@@ -18,11 +18,11 @@
   },
   "children": [
     {
-      "name": "Iron HQ",
+      "entry": "locations/iron_hq",
       "weight": 2
     },
     {
-      "name": "Old Empire Supply Outpost",
+      "entry": "locations/old_empire_supply_outpost",
       "weight": 1
     }
   ]

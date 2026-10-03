@@ -105,7 +105,7 @@ A world lore entity file, `locations/blister_hill.json`:
   "weight": 1,
   "fields": {"owner": "Holy Nation"},
   "prose": {"description": "The capital of the Holy Nation..."},
-  "children": [{"name": "...", "weight": 2}],
+  "children": [{"entry": "locations/...", "weight": 2}],
   "access": []
 }
 ```
@@ -123,9 +123,9 @@ A world lore entity file, `locations/blister_hill.json`:
 - The keys of a character's `profile` are the keys of a profile in the character store ([architecture.md](../info/architecture.md#campaign-storage)). Chat uses the canon profile instead of generating one.
 - The entity ID is the file name without `.json`. The category is the folder name: `races`, `locations`, or `regions`. A template cannot add a category, so another folder is an error.
 - The values in `fields` feed link expansion. The values in `prose` are retrieved text and never feed link expansion.
-- `children` are weighted links to other entities by name. `access` holds the rules that decide which NPCs know the entity. Phase 5 sets its schema, with the retriever that applies it ([section 10](#10-phases-and-verification)).
+- `children` are weighted links to other entities. Each child names its entity as `<category>/<entity ID>`, not by name, because a location and a region can share a name, for example Bast. `access` holds the rules that decide which NPCs know the entity. Phase 5 sets its schema, with the retriever that applies it ([section 10](#10-phases-and-verification)).
 - The order of `history.json` is the timeline order. The loader stores each entry as an entity of category `history`, so retrieval finds it like any entity.
-- One validator runs on each load, import, and edit. It rejects an unknown `format_version`, a JSON file that does not parse, a faction or an entity without `name`, a faction or a character without `game_id`, and a character without a `Name` in its profile. A child that names no entity is a warning, not an error.
+- One validator runs on each load, import, and edit. It rejects an unknown `format_version`, a JSON file that does not parse, a faction or an entity without `name`, a faction or a character without `game_id`, and a character without a `Name` in its profile. A child whose `entry` names no entity is a warning, not an error.
 
 ## 4. Templates on disk
 
@@ -198,10 +198,10 @@ CREATE TABLE link (
 );
 
 CREATE TABLE child (
-  parent_id  INTEGER NOT NULL REFERENCES entity(id) ON DELETE CASCADE,
-  child_name TEXT NOT NULL,
-  child_id   INTEGER REFERENCES entity(id) ON DELETE SET NULL,
-  weight     REAL NOT NULL
+  parent_id   INTEGER NOT NULL REFERENCES entity(id) ON DELETE CASCADE,
+  child_entry TEXT NOT NULL,  -- <category>/<entity ID>
+  child_id    INTEGER REFERENCES entity(id) ON DELETE SET NULL,
+  weight      REAL NOT NULL
 );
 
 CREATE TABLE access_rule (

@@ -19,15 +19,15 @@
   },
   "children": [
     {
-      "name": "Berserker Village",
+      "entry": "locations/berserker_village",
       "weight": 2
     },
     {
-      "name": "Last Stand",
+      "entry": "locations/last_stand",
       "weight": 2
     },
     {
-      "name": "Old Frontlines",
+      "entry": "locations/old_frontlines",
       "weight": 1
     }
   ]

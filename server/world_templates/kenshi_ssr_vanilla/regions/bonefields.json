@@ -22,15 +22,15 @@
   },
   "children": [
     {
-      "name": "Catun",
+      "entry": "locations/catun",
       "weight": 3
     },
     {
-      "name": "Mourn",
+      "entry": "locations/mourn",
       "weight": 3
     },
     {
-      "name": "The Old Prison",
+      "entry": "locations/the_old_prison",
       "weight": 1
     }
   ]

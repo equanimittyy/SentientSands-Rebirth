@@ -12,7 +12,7 @@
   },
   "children": [
     {
-      "name": "Ancient Tech Lab",
+      "entry": "locations/ancient_tech_lab",
       "weight": 1
     }
   ]

@@ -88,6 +88,8 @@ The Editor has two subtabs with the same record list and forms. Campaign Canon e
 
 On Campaign Canon, the record list hides the records whose `origin` is `seed` until the player turns on **Show seeded data**, and the browser remembers the switch. The overview and the history have no `origin`, so they always show.
 
+The Relations section of a race, location, or region lists its children, which the entry stores, and its parents, which are the entries whose children name it. A parent row is read-only and opens the parent, because the relation is stored in the parent entry.
+
 ## Settings
 
 The server is the only writer of `SentientSands_Config.ini`. The plugin reads the INI once at start, because it starts before the server. After that, it takes changes only through `SET_CONFIG` on the pipe. Two writers with no lock between them would undo each other's changes.
@@ -241,7 +243,7 @@ A world template is a folder that describes a world: `manifest.json` (format ver
 
 `server/scripts/world_template.py` reads, validates, and writes templates, and imports only the standard library.
 
-- One validator runs before each write and each campaign creation. It rejects an unknown `format_version`, a `version` that is not text, a folder that the format does not name, a JSON file that does not parse, a faction or an entity without a name, a faction or a character without `game_id`, two factions or two characters with one `game_id`, and a character without a `Name` in its profile. A child that names no entity is a warning.
+- One validator runs before each write and each campaign creation. It rejects an unknown `format_version`, a `version` that is not text, a folder that the format does not name, a JSON file that does not parse, a faction or an entity without a name, a faction or a character without `game_id`, two factions or two characters with one `game_id`, and a character without a `Name` in its profile. A child whose `entry` names no race, location, or region of the template is a warning.
 - A faction binds to the game by `game_id`, the string ID of the faction in the game data, so a rename in game does not break the link. The IDs of the vanilla factions come from the `FACTION_PROBE` lines of an in-game test ([kenshi_internals.md](kenshi_internals.md#factions)).
 - SSR Vanilla also holds the factions and the unique characters of Universal Wasteland Expansion (UWE). They bind by the `game_id` of a UWE record, which a game without UWE never reports, so they change nothing there. The overview, the history, and the entities do not bind by `game_id`, so they hold only facts that are true with and without UWE. Where UWE changes a fact of a vanilla record, for example the race of Bugmaster, the vanilla record leaves that field out.
 - A route takes a template name, a record kind, a category, and a record ID, never a path. The category must be `races`, `locations`, or `regions`, and each other part must match a fixed pattern, so a request cannot write outside the template folders. A new record takes its ID from its name.

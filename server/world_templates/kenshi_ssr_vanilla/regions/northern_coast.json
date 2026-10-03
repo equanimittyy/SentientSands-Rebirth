@@ -24,11 +24,11 @@
   },
   "children": [
     {
-      "name": "Fishing Village",
+      "entry": "locations/fishing_village",
       "weight": 2
     },
     {
-      "name": "Ghost Village",
+      "entry": "locations/ghost_village",
       "weight": 2
     }
   ]

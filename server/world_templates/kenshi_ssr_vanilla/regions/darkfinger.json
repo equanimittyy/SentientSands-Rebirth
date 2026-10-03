@@ -21,15 +21,15 @@
   },
   "children": [
     {
-      "name": "Cannibal Village",
+      "entry": "locations/cannibal_village",
       "weight": 2
     },
     {
-      "name": "First Village",
+      "entry": "locations/first_village",
       "weight": 2
     },
     {
-      "name": "Lost Library",
+      "entry": "locations/lost_library",
       "weight": 1
     }
   ]

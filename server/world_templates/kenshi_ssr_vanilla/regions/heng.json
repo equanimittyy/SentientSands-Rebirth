@@ -27,19 +27,19 @@
   },
   "children": [
     {
-      "name": "Heng",
+      "entry": "locations/heng",
       "weight": 3
     },
     {
-      "name": "Slave Farm",
+      "entry": "locations/slave_farm",
       "weight": 2
     },
     {
-      "name": "South Stone Camp",
+      "entry": "locations/south_stone_camp",
       "weight": 2
     },
     {
-      "name": "Trader's Edge",
+      "entry": "locations/traders_edge",
       "weight": 2
     }
   ]

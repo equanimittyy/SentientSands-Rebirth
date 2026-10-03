@@ -12,7 +12,7 @@
   },
   "children": [
     {
-      "name": "Raptor Island",
+      "entry": "locations/raptor_island",
       "weight": 1
     }
   ]

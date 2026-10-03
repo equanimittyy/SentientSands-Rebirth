@@ -23,19 +23,19 @@
   },
   "children": [
     {
-      "name": "Fallen Tower",
+      "entry": "locations/fallen_tower",
       "weight": 1
     },
     {
-      "name": "Lost Armoury",
+      "entry": "locations/lost_armoury",
       "weight": 1
     },
     {
-      "name": "Lost Library",
+      "entry": "locations/lost_library",
       "weight": 1
     },
     {
-      "name": "Old Empire Watchtower",
+      "entry": "locations/old_empire_watchtower",
       "weight": 1
     }
   ]

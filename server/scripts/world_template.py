@@ -103,17 +103,17 @@ def validate(template):
     for record_id, character in template["characters"].items():
         _check_character(character, ["characters", record_id], game_ids, error)
 
-    names = entity_names(entity for records in template["entities"].values() for entity in records.values())
+    entries = {f"{category}/{record_id}" for category, records in template["entities"].items() for record_id in records}
     for category, records in template["entities"].items():
         for record_id, entity in records.items():
-            _check_entity(entity, [category, record_id], names, error, warnings)
+            _check_entity(entity, [category, record_id], entries, error, warnings)
     return errors, warnings
 
 
-def record_problems(kind, data, field, names=frozenset()):
+def record_problems(kind, data, field, entries=frozenset()):
     """The (errors, warnings) of one record outside a template, for example its copy in a campaign.
 
-    names holds the entity names and aliases that a child may name, from entity_names.
+    entries holds the "<category>/<id>" of each race, location, and region that a child may point to.
     """
     errors, warnings = [], []
 
@@ -130,18 +130,10 @@ def record_problems(kind, data, field, names=frozenset()):
     elif kind == "character":
         _check_character(data, field, {}, error)
     elif kind == "entity":
-        _check_entity(data, field, names, error, warnings)
+        _check_entity(data, field, entries, error, warnings)
     else:
         error(["kind"], f"{kind} is not a kind of record.")
     return errors, warnings
-
-
-def entity_names(entities):
-    names = set()
-    for entity in entities:
-        if isinstance(entity, dict):
-            names.update(_norm(name) for name in [entity.get("name")] + list(entity.get("aliases") or []) if isinstance(name, str))
-    return names
 
 
 def campaign_seed(name, shipped_dir, user_dir):
@@ -305,7 +297,7 @@ _FORMAT_KEYS = {
     "factions": {"game_id", "name", "aliases", "major", "fields", "description"},
     "characters": {"game_id", "profile"},
     "entity": {"name", "aliases", "weight", "fields", "prose", "children", "access"},
-    "child": {"name", "weight"},
+    "child": {"entry", "weight"},
 }
 
 
@@ -348,7 +340,7 @@ def _place(data, field):
         record = record.get("profile")
     name = record.get("Name" if field[0] == "characters" else "name") if isinstance(record, dict) else None
     place = f"{name if _is_text(name) else field[1]} ({_KIND_LABELS[field[0]]})"
-    return f"{place}, child {field[3] + 1}" if field[2:3] == ["children"] and len(field) > 3 else place
+    return f"{place}, relation {field[3] + 1}" if field[2:3] == ["children"] and len(field) > 3 else place
 
 
 def delete(name, shipped_dir, user_dir):
@@ -499,7 +491,7 @@ def _check_character(character, field, game_ids, error):
         error(field + ["profile"], "Each profile value must be text or a number.")
 
 
-def _check_entity(entity, field, names, error, warnings):
+def _check_entity(entity, field, entries, error, warnings):
     if not _check_object(entity, field, error):
         return
     if not _is_text(entity.get("name")):
@@ -512,12 +504,12 @@ def _check_entity(entity, field, names, error, warnings):
     if not isinstance(prose, dict) or not all(isinstance(value, str) for value in prose.values()):
         error(field + ["prose"], "Each prose value must be text.")
     children = entity.get("children", [])
-    if not isinstance(children, list) or not all(isinstance(child, dict) and _is_text(child.get("name")) and _is_number(child.get("weight", 1)) for child in children):
-        error(field + ["children"], "Each child needs a name and a number as its weight.")
+    if not isinstance(children, list) or not all(isinstance(child, dict) and _is_text(child.get("entry")) and _is_number(child.get("weight", 1)) for child in children):
+        error(field + ["children"], "Each relation needs an entry and a number as its weight.")
     else:
         for child in children:
-            if _norm(child["name"]) not in names:
-                warnings.append({"field": field + ["children"], "message": f"The child {child['name']} of {entity.get('name', field[-1])} names no entry."})
+            if child["entry"] not in entries:
+                warnings.append({"field": field + ["children"], "message": f"The relation {child['entry']} of {entity.get('name', field[-1])} names no entry."})
     access = entity.get("access", [])
     if not isinstance(access, list) or not all(isinstance(rule, dict) for rule in access):
         error(field + ["access"], "The access rules must be a list of objects.")
@@ -560,10 +552,6 @@ def _is_text_list(value):
 
 def _is_number(value):
     return isinstance(value, (int, float)) and not isinstance(value, bool)
-
-
-def _norm(name):
-    return name.strip().casefold()
 
 
 def _write(path, text):

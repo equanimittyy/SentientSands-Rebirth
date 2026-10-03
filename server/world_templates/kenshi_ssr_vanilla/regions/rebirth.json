@@ -13,11 +13,11 @@
   },
   "children": [
     {
-      "name": "Flotsam Safehouse",
+      "entry": "locations/flotsam_safehouse",
       "weight": 1
     },
     {
-      "name": "Rebirth",
+      "entry": "locations/rebirth",
       "weight": 2
     }
   ]

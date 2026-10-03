@@ -19,19 +19,19 @@
   },
   "children": [
     {
-      "name": "Holy Mine Ruin",
+      "entry": "locations/holy_mine_ruin",
       "weight": 1
     },
     {
-      "name": "Holy Mines",
+      "entry": "locations/holy_mines",
       "weight": 2
     },
     {
-      "name": "Narko's Trap",
+      "entry": "locations/narkos_trap",
       "weight": 2
     },
     {
-      "name": "Okran's Shield",
+      "entry": "locations/okrans_shield",
       "weight": 2
     }
   ]

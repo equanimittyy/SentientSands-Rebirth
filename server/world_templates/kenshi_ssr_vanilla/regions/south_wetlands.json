@@ -18,11 +18,11 @@
   },
   "children": [
     {
-      "name": "Slave Markets",
+      "entry": "locations/slave_markets",
       "weight": 2
     },
     {
-      "name": "Swamp Ninja Base",
+      "entry": "locations/swamp_ninja_base",
       "weight": 1
     }
   ]
