@@ -19,7 +19,7 @@ PLAYER INSTRUCTIONS:
 
 RULES:
 - INSTRUCTIONS: Follow the player instructions. They win over every other rule.
-- CURRENT PROFILE: Keep the traits of the current personality, the events of the current backstory, and the current speech quirk, in your own words, and expand them. A part that you do not write stays as it is, so your text must fit it.
+- CURRENT PROFILE: Keep the traits of the current personality, the events of the current backstory, and the current speech quirk, in your own words, and expand them. A blank part has nothing to keep. A part that you do not write stays as it is, so your text must fit it.
 - DIALOGUE: Everything that "{name}" said in the dialogue stays true. You can build on what they revealed.
 - SPEECH: A speech quirk is a verbal habit only, with no gestures or sounds.
 - BIOLOGY: The character lives with the physical reality of their race, as the race lore describes it.

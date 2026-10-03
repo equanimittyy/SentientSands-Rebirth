@@ -1,5 +1,6 @@
 import json
 import os
+import re
 import sys
 import tempfile
 import unittest
@@ -25,6 +26,12 @@ class ShippedTemplateTest(unittest.TestCase):
         holy_nation = next(f for f in seed["factions"] if f["faction_id"] == "1083-gamedata.base")
         self.assertEqual(holy_nation["name"], "The Holy Nation")
         self.assertEqual(len(seed["template"]["hash"]), 64)
+
+    def test_no_vanilla_character_text_says_that_its_data_is_missing(self):
+        characters = world_template.load("kenshi_ssr_vanilla", SHIPPED, os.devnull)["characters"]
+        for record_id, character in characters.items():
+            for key in ("Personality", "Backstory", "SpeechQuirks"):
+                self.assertNotRegex(character["profile"].get(key, ""), re.compile(r"\b(?:is|are) (?:recorded|unknown)\b", re.IGNORECASE), f"{record_id} {key}")
 
 
 class TemplateTestCase(unittest.TestCase):

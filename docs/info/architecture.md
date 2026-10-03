@@ -377,6 +377,7 @@ SSR writes the content of SSR Vanilla itself. Each fact comes from the game: its
 - The facts and the descriptions describe the start of a game, because a new campaign does not know which world states changed. The `factions` and `animals` of a region therefore leave out each squad that needs a world state other than "a character is alive", such as the death of a leader.
 - SSR Vanilla also holds the factions and the unique characters of Universal Wasteland Expansion (UWE). They bind by the `game_id` of a UWE record, which a game without UWE never reports, so they change nothing there. The overview, the history, and the entities do not bind by `game_id`, so they hold only facts that are true with and without UWE. Where UWE changes a fact of a vanilla record, for example the race of Bugmaster, the vanilla record sets that field to `Unknown`, so the game fills it (see [Characters](#characters)).
 - The `OriginFaction` of an SSR Vanilla character is the character's own faction in the game data. A character without one, which takes its faction from the squad that spawns it, has its `Faction` there.
+- A character text that no source supports stays blank, and no text says that its data is missing. The system prompt tells the LLM what a blank field means, so a note such as "his past is unknown" would only take tokens, and the LLM could read it as a trait.
 
 ## Logging
 

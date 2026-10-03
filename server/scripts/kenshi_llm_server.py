@@ -666,9 +666,9 @@ def describe_npc(name, profile, npc_id):
         job=profile.get("Job", "None"),
         current_faction=current_faction,
         origin_faction=describe_origin(describe_faction(profile.get("OriginFaction", "Unknown")), current_faction),
-        personality=profile.get("Personality"),
-        backstory=profile.get("Backstory") or "None.",
-        speech_quirks=profile.get("SpeechQuirks") or "None.",
+        personality=profile.get("Personality") or "",
+        backstory=profile.get("Backstory") or "",
+        speech_quirks=profile.get("SpeechQuirks") or "",
     )
 
 def build_system_prompt():
@@ -870,7 +870,7 @@ def write_bio(profile, parts, instructions, history, race_lore, faction):
         faction=faction,
         job=profile.get("Job") or "None",
         race_lore=race_lore,
-        current="\n".join(f"{part}: {profile.get(part) or 'None.'}" for part in BIO_PARTS),
+        current="\n".join(f"{part}: {profile.get(part) or ''}" for part in BIO_PARTS),
         history="\n".join(history) or "None yet.",
         instructions=instructions.strip() or "None.",
     )
@@ -993,7 +993,7 @@ def get_character_data(name, context=""):
                 "Job": ctx_data.get("job", "None"),
                 "Personality": "A quiet traveler.",
                 "Backstory": f"A {ctx_data.get('race', 'person')} from {ctx_data.get('faction', 'the borderlands')}.",
-                "SpeechQuirks": "None.",
+                "SpeechQuirks": "",
                 "ConversationHistory": [],
                 "Relation": int(float(ctx_data.get("relation", 0)) / 2),
             }
@@ -1108,7 +1108,7 @@ def ambient_event():
             # "Name|ID" lets the plugin map each banter line to the right NPC
             health = npc.get('health', 'Healthy')
             gear = npc.get('equipment', 'nothing notable')
-            char_profiles += f"\n- {name}|{nid} ({reported_sex(npc.get('race'), npc.get('gender'))} {npc.get('race')}, {npc.get('faction')}) | Health: {health} | Gear: {gear} | Personality: {d.get('Personality', 'A traveler.')} | Speech quirks: {d.get('SpeechQuirks') or 'None.'}"
+            char_profiles += f"\n- {name}|{nid} ({reported_sex(npc.get('race'), npc.get('gender'))} {npc.get('race')}, {npc.get('faction')}) | Health: {health} | Gear: {gear} | Personality: {d.get('Personality') or ''} | Speech quirks: {d.get('SpeechQuirks') or ''}"
         else:
             name_to_id[npc] = 0
             d = get_character_data(npc, "")
@@ -1116,7 +1116,7 @@ def ambient_event():
             if d.get("ConversationHistory"):
                 recent_dialogue.extend(d["ConversationHistory"][-15:])
                 
-            char_profiles += f"\n- {npc} (A traveler): {d.get('Personality', 'A traveler.')} | Speech quirks: {d.get('SpeechQuirks') or 'None.'}"
+            char_profiles += f"\n- {npc} (A traveler): {d.get('Personality') or ''} | Speech quirks: {d.get('SpeechQuirks') or ''}"
 
     all_history = list(recent_dialogue)
     
@@ -1454,7 +1454,7 @@ def chat():
     primary_data = char_datas.get(primary_npc)
     if not primary_data:
         logging.warning(f"PROFILE: No profile for {primary_npc}, so the chat uses a generic one.")
-        primary_data = char_datas[primary_npc] = {"Name": primary_npc, "Personality": "A generic NPC.", "Backstory": "Unknown", "ConversationHistory": []}
+        primary_data = char_datas[primary_npc] = {"Name": primary_npc, "Personality": "A generic NPC.", "Backstory": "", "ConversationHistory": []}
 
     logging.info(f"CHAT: {mode} with {primary_npc} ({len(listeners) - 1} others hear it)...")
 
