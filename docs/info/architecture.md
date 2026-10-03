@@ -236,7 +236,7 @@ A world template is a folder that describes a world: `manifest.json` (format ver
 
 | Template | Location | Edits |
 |---|---|---|
-| SSR Vanilla | `server/world_templates/vanilla_kenshi/`, shipped | None. An update replaces it, so the player duplicates it first. |
+| SSR Vanilla | `server/world_templates/kenshi_ssr_vanilla/`, shipped | None. An update replaces it, so the player duplicates it first. |
 | User templates | `server/user/world_templates/<name>/` | The web app, or by hand |
 
 `server/scripts/world_template.py` reads, validates, and writes templates, and imports only the standard library.

@@ -23,7 +23,7 @@ BEEP = {
 
 
 SEED = {
-    "template": {"name": "vanilla_kenshi", "version": "1.0.0", "hash": "abc"},
+    "template": {"name": "kenshi_ssr_vanilla", "version": "1.0.0", "hash": "abc"},
     "overview": "Kenshi is a world of rust.",
     "factions": [
         {"faction_id": "1083-gamedata.base", "name": "The Holy Nation", "aliases": ["Okranites"], "major": True, "fields": {"leader": "Phoenix"}, "description": "Zealots."},
@@ -62,7 +62,7 @@ class OpenTest(CampaignTestCase):
     def test_a_new_campaign_copies_the_template(self):
         campaign_db.open_campaign(self.folder, lambda: SEED)
         self.assertEqual(campaign_db.overview(), "Kenshi is a world of rust.")
-        self.assertEqual(campaign_db.template_info(), {"name": "vanilla_kenshi", "version": "1.0.0", "hash": "abc"})
+        self.assertEqual(campaign_db.template_info(), {"name": "kenshi_ssr_vanilla", "version": "1.0.0", "hash": "abc"})
         self.assertEqual([(f["name"], f["origin"]) for f in campaign_db.list_factions()], [("Nameless", "seed"), ("The Holy Nation", "seed")])
         self.assertEqual(campaign_db.history(), [{"title": "The First Empire", "text": "It fell."}])
         self.assertEqual([record[:3] for record in campaign_db.list_records("character")], [((BEEP_ID,), {"Name": "Beep", "Race": "Hive Worker Drone"}, "seed")])

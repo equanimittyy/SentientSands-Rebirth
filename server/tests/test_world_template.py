@@ -20,7 +20,7 @@ class ShippedTemplateTest(unittest.TestCase):
             self.assertEqual(world_template.validate(template), ([], []), entry["name"])
 
     def test_the_vanilla_seed_holds_the_overview_and_the_factions(self):
-        seed = world_template.campaign_seed("vanilla_kenshi", SHIPPED, os.devnull)
+        seed = world_template.campaign_seed("kenshi_ssr_vanilla", SHIPPED, os.devnull)
         self.assertIn("KENSHI WORLD LORE", seed["overview"])
         holy_nation = next(f for f in seed["factions"] if f["faction_id"] == "1083-gamedata.base")
         self.assertEqual(holy_nation["name"], "The Holy Nation")
@@ -199,7 +199,7 @@ class ExchangeTest(TemplateTestCase):
         self.assertEqual(world_template.export_template("Shared", self.shipped, self.user), dict(exported, manifest=dict(exported["manifest"], name="Shared")))
 
     def test_the_vanilla_template_survives_a_round_trip(self):
-        exported = world_template.export_template("vanilla_kenshi", SHIPPED, self.user)
+        exported = world_template.export_template("kenshi_ssr_vanilla", SHIPPED, self.user)
         world_template.import_template(json.loads(json.dumps(exported)), "Vanilla copy", SHIPPED, self.user)
         imported = world_template.export_template("Vanilla copy", SHIPPED, self.user)
         self.assertEqual(imported, dict(exported, manifest=dict(exported["manifest"], name="Vanilla copy")))

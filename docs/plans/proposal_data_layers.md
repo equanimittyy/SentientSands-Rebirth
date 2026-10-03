@@ -27,7 +27,7 @@ Non-goals:
 |---|---|---|---|---|
 | App data | System prompts; UI translations, name pools, default LLM providers and models | Defaults in `server/prompts/` and `server/config/`; prompt overrides in `server/user/prompts/` | Defaults replaced; overrides kept | Shipped files, with a reset for prompts |
 | Settings | Gameplay settings; LLM providers, profiles, routes, and API keys | `SentientSands_Config.ini` in the mod root; `server/user/llm_config.json` | Kept | Shipped defaults, with a reset |
-| World templates | Canon factions, canon characters, world lore entities, lore timeline, overview | `server/world_templates/vanilla_kenshi/`; `server/user/world_templates/<name>/` | Vanilla replaced; user templates kept | SSR Vanilla |
+| World templates | Canon factions, canon characters, world lore entities, lore timeline, overview | `server/world_templates/kenshi_ssr_vanilla/`; `server/user/world_templates/<name>/` | Vanilla replaced; user templates kept | SSR Vanilla |
 | Campaigns | The character store (NPCs and player characters, with dialogue and favorites), the faction store (the player's faction included), the copied world lore, events, rumors, logs | `server/campaigns/<name>/` | Kept | Created from a template |
 
 The INI stays in the mod root, because the plugin reads it from there at start ([architecture.md](../info/architecture.md#settings)).

@@ -79,7 +79,7 @@ PROMPTS_DIR = os.path.join(KENSHI_SERVER_DIR, "prompts")
 USER_PROMPTS_DIR = os.path.join(KENSHI_SERVER_DIR, "user", "prompts")
 WORLD_TEMPLATES_DIR = os.path.join(KENSHI_SERVER_DIR, "world_templates")
 USER_TEMPLATES_DIR = os.path.join(KENSHI_SERVER_DIR, "user", "world_templates")
-DEFAULT_TEMPLATE = "vanilla_kenshi"
+DEFAULT_TEMPLATE = "kenshi_ssr_vanilla"
 
 PROFILES_IN_PROGRESS = set()
 PROGRESS_LOCK = threading.Lock()
