@@ -1,4 +1,4 @@
-import { ask, deleteButton, el, field, getJson, reportUnsaved, sendJson, setFieldError, showMessage } from "./api.js";
+import { ask, deleteButton, el, field, getJson, reportUnsaved, sendJson, setFieldError, showMessage, tell } from "./api.js";
 
 const page = document.getElementById("editor-page");
 const message = document.getElementById("editor-message");
@@ -9,6 +9,7 @@ const CATEGORY_LABELS = { races: "Race", locations: "Location", regions: "Region
 const TEMPLATE_PARTS = ["manifest", "overview", "history"];
 const SOURCES = [["campaign", "Campaign Canon"], ["template", "Templates"]];
 const ORIGIN_LABELS = { template: "From the template", game: "Met in game", campaign: "Added in this campaign" };
+const IMPORT_PROBLEMS_SHOWN = 10;
 
 let source = "campaign";
 let canon = null;
@@ -25,6 +26,7 @@ let kindFilter = "all";
 let newCount = 0;
 const creation = { kind: "faction", name: "" };
 const duplication = { name: "" };
+const importing = { name: "" };
 
 const commaList = (text) => text.split(",").map((item) => item.trim()).filter(Boolean);
 const lineList = (text) => text.split("\n").map((item) => item.trim()).filter(Boolean);
@@ -481,6 +483,63 @@ async function duplicateTemplate(event) {
   }
 }
 
+async function exportTemplate() {
+  try {
+    const data = await getJson(`/api/templates/${encodeURIComponent(current)}/export`);
+    const url = URL.createObjectURL(new Blob([`${JSON.stringify(data, null, 2)}\n`], { type: "application/json" }));
+    el("a", { href: url, download: `${current}.json` }).click();
+    setTimeout(() => URL.revokeObjectURL(url));
+  } catch (error) {
+    showMessage(message, `Export failed: ${error.message}`, true);
+  }
+}
+
+async function readTemplateFile(input) {
+  const file = input.files[0];
+  try {
+    return JSON.parse(await file.text());
+  } catch {
+    throw new Error(`SSR cannot read ${file?.name ?? "the file"}. Choose a file that the Export button saved.`);
+  }
+}
+
+async function prefillImportName(event, nameInput) {
+  const data = await readTemplateFile(event.target).catch(() => null);
+  importing.name = typeof data?.manifest?.name === "string" ? data.manifest.name : "";
+  nameInput.value = importing.name;
+}
+
+async function importTemplate(event) {
+  event.preventDefault();
+  let data;
+  try {
+    data = await readTemplateFile(event.target.elements.file);
+  } catch (error) {
+    showMessage(message, `Import failed: ${error.message}`, true);
+    return;
+  }
+  const manifest = data?.manifest ?? {};
+  const names = (value) => (Array.isArray(value) && value.length > 0 ? value.join(", ") : "none");
+  if (!(await ask(`Import ${importing.name}`, "Import", `Authors: ${names(manifest.authors)}\nCredits: ${names(manifest.credits)}`))) return;
+  try {
+    const reply = await sendJson("POST", "/api/templates/import", { name: importing.name, template: data });
+    importing.name = "";
+    await fetchTemplates();
+    await chooseTemplate(reply.name);
+    showMessage(message, `Imported ${reply.name}. You can edit it now.`);
+  } catch (error) {
+    const problems = error.fieldErrors?.map((problem) => problem.message) ?? [];
+    if (problems.length <= 1) {
+      showMessage(message, `Import failed: ${error.message}`, true);
+      return;
+    }
+    showMessage(message, `Import failed: the file has ${problems.length} problems.`, true);
+    const shown = problems.slice(0, IMPORT_PROBLEMS_SHOWN).map((problem) => `• ${problem}`);
+    if (problems.length > shown.length) shown.push(`…and ${problems.length - shown.length} more.`);
+    tell("Import failed", `SSR did not import the file, because it has these problems:\n\n${shown.join("\n")}`);
+  }
+}
+
 async function deleteTemplate() {
   if (!(await ask(`Delete ${templateTitle()}`, "Delete", "This deletes the template and all its entries. Campaigns that you made from it keep their copy. ",
     "\n\n", el("b", { className: "warning" }, "The delete takes effect immediately and is irreversible!")))) return;
@@ -502,6 +561,10 @@ function renderTemplateBar() {
   const recordCounts = template ? counts() : "";
   const duplicateName = el("input", { value: duplication.name, placeholder: "Name of the copy", required: true, oninput: (event) => { duplication.name = event.target.value; } });
   duplicateName.setAttribute("aria-label", "Name of the copy");
+  const importName = el("input", { value: importing.name, placeholder: "Name of the imported template", required: true, oninput: (event) => { importing.name = event.target.value; } });
+  importName.setAttribute("aria-label", "Name of the imported template");
+  const importFile = el("input", { type: "file", name: "file", accept: ".json,application/json", required: true, onchange: (event) => prefillImportName(event, importName) });
+  importFile.setAttribute("aria-label", "Template file to import");
   return el("fieldset", {},
     el("legend", {}, "World template"),
     el("p", { className: "hint" }, "A new campaign starts as a copy of its template, so changes here apply only to campaigns that you create later."),
@@ -510,7 +573,9 @@ function renderTemplateBar() {
     ...(template?.errors ?? []).map((error) => el("p", { className: "hint error" }, error.message)),
     ...(template?.warnings ?? []).map((warning) => el("p", { className: "hint" }, warning.message)),
     el("form", { className: "add", onsubmit: duplicateTemplate }, duplicateName, el("button", { type: "submit" }, "Duplicate"),
-      template && !template.builtin ? deleteButton(`Delete the template ${templateTitle()}`, deleteTemplate) : null));
+      template ? el("button", { type: "button", onclick: exportTemplate }, "Export") : null,
+      template && !template.builtin ? deleteButton(`Delete the template ${templateTitle()}`, deleteTemplate) : null),
+    el("form", { className: "add", onsubmit: importTemplate }, importFile, importName, el("button", { type: "submit" }, "Import")));
 }
 
 function counts() {

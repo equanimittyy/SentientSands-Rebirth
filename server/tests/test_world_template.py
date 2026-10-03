@@ -179,5 +179,56 @@ class SaveTest(TemplateTestCase):
             world_template.campaign_seed("Mine", self.shipped, self.user)
 
 
+class ExchangeTest(TemplateTestCase):
+    def test_an_export_imports_as_the_same_template_under_the_new_name(self):
+        exported = world_template.export_template("base", self.shipped, self.user)
+        self.assertEqual(list(exported), ["manifest", "overview", "history", "factions", "characters", "races", "locations", "regions"])
+        self.assertEqual(world_template.import_template(exported, "Shared", self.shipped, self.user), "Shared")
+        self.assertEqual(world_template.export_template("Shared", self.shipped, self.user), dict(exported, manifest=dict(exported["manifest"], name="Shared")))
+
+    def test_the_vanilla_template_survives_a_round_trip(self):
+        exported = world_template.export_template("vanilla_kenshi", SHIPPED, self.user)
+        world_template.import_template(json.loads(json.dumps(exported)), "Vanilla copy", SHIPPED, self.user)
+        imported = world_template.export_template("Vanilla copy", SHIPPED, self.user)
+        self.assertEqual(imported, dict(exported, manifest=dict(exported["manifest"], name="Vanilla copy")))
+        self.assertEqual(world_template.validate(world_template.load("Vanilla copy", SHIPPED, self.user)), ([], []))
+
+    def test_an_unsafe_or_invalid_file_leaves_nothing_on_disk(self):
+        exported = world_template.export_template("base", self.shipped, self.user)
+        cases = {
+            "not an object": ([exported], "Shared"),
+            "an unknown part": (dict(exported, items={}), "Shared"),
+            "an ID with a path": (dict(exported, factions={"../escape": HOLY_NATION}), "Shared"),
+            "records that are not an object": (dict(exported, races=[{"name": "Shek"}]), "Shared"),
+            "an invalid record": (dict(exported, characters={"beep": {"profile": {"Name": "Beep"}}}), "Shared"),
+            "a version that is not text": (dict(exported, manifest=dict(exported["manifest"], version=2)), "Shared"),
+            "an unknown key in the manifest": (dict(exported, manifest=dict(exported["manifest"], licence="GPL")), "Shared"),
+            "an unknown key in a history entry": (dict(exported, history=[{"title": "Then", "text": "It was.", "year": 1}]), "Shared"),
+            "an unknown key in a record": (dict(exported, factions={"holy_nation": dict(HOLY_NATION, descripton="Zealots.")}), "Shared"),
+            "an unknown key in a child": (dict(exported, races={"shek": {"name": "Shek", "children": [{"name": "Shek", "colour": "red"}]}}), "Shared"),
+            "IDs that differ only in case": (dict(exported, characters={"beep": {"game_id": "1", "profile": {"Name": "Beep"}}, "Beep": {"game_id": "2", "profile": {"Name": "Beep"}}}), "Shared"),
+            "a taken name": (exported, "BASE"),
+            "an unsafe name": (exported, "../escape"),
+        }
+        for case, (data, name) in cases.items():
+            with self.assertRaises(world_template.TemplateError, msg=case):
+                world_template.import_template(data, name, self.shipped, self.user)
+            self.assertEqual(os.listdir(self.user) if os.path.isdir(self.user) else [], [], case)
+
+    def test_each_problem_names_its_place_in_the_file(self):
+        exported = world_template.export_template("base", self.shipped, self.user)
+
+        def messages(data):
+            with self.assertRaises(world_template.TemplateError) as raised:
+                world_template.import_template(data, "Shared", self.shipped, self.user)
+            return [error["message"] for error in raised.exception.errors]
+
+        self.assertEqual(messages({"campaign": "Default"}), ["This file is not an SSR world template. Choose a file that the Export button saved."])
+        self.assertEqual(messages(dict(exported, factions={"holy_nation": dict(HOLY_NATION, descripton="Zealots.")})), ["The Holy Nation (faction): SSR does not use descripton. Check the spelling, or remove it."])
+        self.assertEqual(messages(dict(exported, characters={"beep": {"profile": {"Name": "Beep"}}})), ["Beep (character): Give the character its game ID."])
+        self.assertEqual(messages(dict(exported, races={"shek": {"name": "Shek", "children": [{"name": "Shek", "colour": "red"}]}})), ["Shek (race), child 1: SSR does not use colour. Check the spelling, or remove it."])
+        self.assertEqual(messages(dict(exported, history=[{"title": "Then", "text": "It was.", "year": 1}])), ["History entry 1: SSR does not use year. Check the spelling, or remove it."])
+
+
 if __name__ == "__main__":
     unittest.main()

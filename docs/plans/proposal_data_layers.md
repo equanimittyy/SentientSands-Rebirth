@@ -43,7 +43,7 @@ Four pieces of data move to their class:
 
 ## 3. World template format
 
-A world template is a folder of JSON and text files. A shared template is the same folder in a zip file.
+A world template is a folder of JSON and text files. A shared template is one JSON file that holds the folder ([architecture.md](../info/architecture.md#world-templates)).
 
 ```
 <template>/
@@ -128,29 +128,7 @@ A world lore entity file, `locations/blister_hill.json`:
 
 ## 4. Templates on disk
 
-| Template | Location | Edits |
-|---|---|---|
-| Vanilla Kenshi | `server/world_templates/vanilla_kenshi/`, shipped | None. An update replaces it, so the player duplicates it first. |
-| User templates | `server/user/world_templates/<name>/` | The web app, or by hand |
-
-The release does not ship `server/user/`, so an update keeps the user templates.
-
-`server/scripts/world_template.py` imports only the standard library. It holds the validator, the loader into a campaign database, and the operations below.
-
-| Operation | Route | Behavior |
-|---|---|---|
-| List | `GET /api/templates` | The manifest and the entity count of each template |
-| Export | `GET /api/templates/<name>/export` | A zip of the template folder |
-| Import | `POST /api/templates/import` | A zip upload, with the checks below |
-| Duplicate | `POST /api/templates/<name>/duplicate` | A copy as a new user template, with its credits and licence files |
-| Delete | `POST /api/templates/<name>/delete` | User templates only. Campaigns made from it keep their copy. |
-
-An imported zip comes from another player, so the import treats it as untrusted:
-
-1. Reject an entry with an absolute path, a `..` part, or a path outside the layout in section 3.
-2. Reject a zip with an uncompressed size above 50 MB or more than 10,000 entries.
-3. Extract into a temporary folder in `server/user/world_templates/`, run the validator, and then rename the folder to the template name. A failed import leaves nothing behind.
-4. Refuse a name that already exists. The player deletes or renames the old template first.
+Built. [architecture.md](../info/architecture.md#world-templates) describes the template folders, the routes, and the import and export of a template as one JSON file. A campaign is a folder, so a player shares or backs up a campaign by copying its folder.
 
 ## 5. Data model
 
@@ -337,7 +315,7 @@ LIMIT :max_files;
 |---|---|---|
 | 1. Templates and factions | Built ([architecture.md](../info/architecture.md#world-templates)). A new campaign copies every template record, and it keeps the characters, races, locations, and regions as JSON rows until phases 2 and 5 give them their stores ([architecture.md](../info/architecture.md#campaign-canon)). | |
 | 2. Characters | The character store keyed by game ID ([proposal_npc_ids.md](proposal_npc_ids.md)); canon characters from the template; the speaker picker; the Characters page; tests | The acceptance criteria of the NPC ID proposal; a canon character file gives that NPC its canon profile in a new campaign; a chat uses the bio and context of the picked speaker; a speaker with no profile gets a generated one |
-| 3. Import and export | The template routes; the Templates page | A template exported from one install imports on another with the same files; each unsafe zip in the tests is rejected |
+| 3. Import and export | Built ([architecture.md](../info/architecture.md#world-templates)). | |
 | 4. Vanilla content | The factions, characters, races, locations, regions, and world lore of the vanilla template ([section 7](#7-vanilla-kenshi-template)) | The template covers at least the counts in section 7, and the validator accepts it; each faction and each canon character has its game ID; no record copies text from Kayak or the wiki |
 | 5. Retrieval | `knowledge_retrieve.py`; the prompt wiring; the INI limits | For each player message in a fixed list, retrieval returns the expected entities in the expected order; chat prompts include the retrieved entities |
 
@@ -346,8 +324,6 @@ Phase 2 waits for the in-game checks of the NPC IDs ([proposal_npc_ids.md](propo
 Tests:
 
 - Retrieval tests: a fixed list of player messages, each with its expected entities in order, runs on the vanilla template.
-- Template round trip: a template folder, exported to a zip and imported again, gives the same files.
-- Unsafe zips: an entry with `..`, an absolute path, an oversized archive, and invalid JSON are all rejected, and nothing is left on disk.
 - Performance check against the 500 ms `timeout_ms` default on the full vanilla template.
 
 ### Not yet verified
@@ -361,8 +337,7 @@ Tests:
 |---|---|---|
 | A vanilla record copies text from Kayak or the wiki | Their licence terms then apply to the template | Each record is written from the facts of the game, never from the text of Kayak or the wiki |
 | A shared template carries text that steers the LLM | NPCs act against the player's intent, for example through action tags | The same trust as a Kenshi mod; the Templates page shows the authors and credits before an import |
-| An unsafe zip | Files written outside the template folder, or a full disk | The import checks in section 4 |
-| Attribution lost in a derived template | Licence non-compliance | A duplicate keeps the credits and the licence files; an export includes them |
+| Attribution lost in a derived template | Licence non-compliance | A duplicate keeps the credits and the licence files; an export keeps the credits of the manifest |
 | A format change | Older templates do not load | `format_version`; the loader reads each earlier version |
 
 ## 12. Open questions

@@ -2788,6 +2788,25 @@ def duplicate_template(name):
     logging.info(f"TEMPLATE: Duplicated {name} as {new_name}")
     return jsonify({"status": "ok", "name": new_name})
 
+@app.route('/api/templates/<name>/export', methods=['GET'])
+def export_template(name):
+    try:
+        data = world_template.export_template(name, WORLD_TEMPLATES_DIR, USER_TEMPLATES_DIR)
+    except world_template.TemplateError as e:
+        return template_error(e)
+    # Not jsonify: it sorts the keys, and the shared file reads best in the order of the template folder
+    return app.response_class(json.dumps(data, ensure_ascii=False), mimetype="application/json")
+
+@app.route('/api/templates/import', methods=['POST'])
+def import_template():
+    data = request.get_json(silent=True) or {}
+    try:
+        name = world_template.import_template(data.get("template"), data.get("name"), WORLD_TEMPLATES_DIR, USER_TEMPLATES_DIR)
+    except world_template.TemplateError as e:
+        return template_error(e)
+    logging.info(f"TEMPLATE: Imported {name}")
+    return jsonify({"status": "ok", "name": name})
+
 @app.route('/api/templates/<name>/delete', methods=['POST'])
 def delete_template(name):
     try:

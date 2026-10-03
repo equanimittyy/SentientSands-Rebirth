@@ -224,10 +224,14 @@ A world template is a folder that describes a world: `manifest.json` (format ver
 
 `server/scripts/world_template.py` reads, validates, and writes templates, and imports only the standard library.
 
-- One validator runs before each write and each campaign creation. It rejects an unknown `format_version`, a folder that the format does not name, a JSON file that does not parse, a faction or an entity without a name, a faction or a character without `game_id`, two factions or two characters with one `game_id`, and a character without a `Name` in its profile. A child that names no entity is a warning.
+- One validator runs before each write and each campaign creation. It rejects an unknown `format_version`, a `version` that is not text, a folder that the format does not name, a JSON file that does not parse, a faction or an entity without a name, a faction or a character without `game_id`, two factions or two characters with one `game_id`, and a character without a `Name` in its profile. A child that names no entity is a warning.
 - A faction binds to the game by `game_id`, the string ID of the faction in the game data, so a rename in game does not break the link. The IDs of the vanilla factions come from the `FACTION_PROBE` lines of an in-game test ([development.md](development.md#probes)).
 - A route takes a template name, a record kind, a category, and a record ID, never a path. The category must be `races`, `locations`, or `regions`, and each other part must match a fixed pattern, so a request cannot write outside the template folders. A new record takes its ID from its name.
 - A duplicate copies every file of the template, its credit and licence files included, so a derived template keeps its attribution.
+- Players share a template as one JSON file that holds the manifest, the overview, the history, and each record by its ID. The file leaves out other files, such as licence files, so the `credits` of the manifest carry the attribution.
+- An imported file can come from anyone, so each record ID must match the ID pattern before it becomes a file name, and the whole template must pass the validator before anything is written.
+- An import is stricter than the validator. It also rejects a key that the format does not name, at any level of the file, so a typo such as `descripton` cannot drop text without notice. The validator accepts such a key, because the editor keeps a key that someone added to a template folder by hand. An import also rejects two IDs in one section that differ only in case, because Windows would save them as one file.
+- The import writes into a staging folder whose name starts with a dot, which the template list ignores, and then renames it, so a failed import leaves no template behind.
 
 | Route | Behavior |
 |---|---|
@@ -235,6 +239,8 @@ A world template is a folder that describes a world: `manifest.json` (format ver
 | `GET /api/templates/<name>` | The whole template, with its errors and warnings |
 | `POST /api/templates/<name>/records`, `.../records/delete` | Save or delete one record of a user template |
 | `POST /api/templates/<name>/duplicate`, `.../delete` | Copy a template as a user template, or delete a user template |
+| `GET /api/templates/<name>/export` | The shared file of a template |
+| `POST /api/templates/import` | Write a shared file as a new user template with the name that the player gives |
 
 ## Logging
 

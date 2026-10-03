@@ -79,9 +79,11 @@ def validate(template):
         error(["manifest"], f"{MANIFEST} must hold a JSON object.")
         manifest = {}
     if manifest.get("format_version") != FORMAT_VERSION:
-        error(["manifest", "format_version"], f"The format version must be {FORMAT_VERSION}. This template was made for another version of SSR.")
+        error(["manifest", "format_version"], "This template was made for another version of SSR, so this version cannot read it.")
     if not _is_text(manifest.get("name")):
         error(["manifest", "name"], "Give the template a name.")
+    if "version" in manifest and not isinstance(manifest["version"], str):
+        error(["manifest", "version"], 'The template version must be in quotes, for example "1.0.0".')
     for key in ("authors", "credits"):
         if key in manifest and not _is_text_list(manifest[key]):
             error(["manifest", key], f"The {key} must be a list of names.")
@@ -215,6 +217,122 @@ def duplicate(name, new_name, shipped_dir, user_dir):
     return new_name
 
 
+def export_template(name, shipped_dir, user_dir):
+    """The whole template as one JSON object: the file that players share, which import_template reads."""
+    template = load(name, shipped_dir, user_dir)
+    return {**{key: template[key] for key in ("manifest", "overview", "history", "factions", "characters")}, **template["entities"]}
+
+
+def import_template(data, new_name, shipped_dir, user_dir):
+    """Writes the object of export_template as the user template new_name.
+
+    The file can come from another player, so each record ID must match _ID before it becomes a file name, and nothing
+    reaches the disk before the whole template passes the validator and _unknown_keys.
+    """
+    if not isinstance(data, dict) or not isinstance(data.get("manifest"), dict):
+        raise TemplateError([{"field": [], "message": "This file is not an SSR world template. Choose a file that the Export button saved."}])
+    record_keys = ("factions", "characters", *CATEGORIES)
+    errors = [{"field": [key], "message": f"SSR does not use the section {key}. Check the spelling, or remove it."} for key in data if key not in ("manifest", "overview", "history", *record_keys)]
+    for key in record_keys:
+        records = data.get(key, {})
+        if not isinstance(records, dict):
+            errors.append({"field": [key], "message": f"The section {key} must list each entry under its ID."})
+            continue
+        seen = {}
+        for record_id in records:
+            other = seen.setdefault(record_id.lower(), record_id)
+            if not _ID.fullmatch(record_id):
+                errors.append({"field": [key, record_id], "message": f"The ID {record_id} in {key} is not valid. An ID can hold only letters, digits, _ and -."})
+            elif other != record_id:
+                # Windows file names ignore case, so the second entry would overwrite the first
+                errors.append({"field": [key, record_id], "message": f"The IDs {other} and {record_id} in {key} differ only in capital letters, so SSR cannot keep both. Give one of them another ID."})
+    if errors:
+        raise TemplateError(errors)
+    new_name = _check_new_name(new_name, shipped_dir, user_dir)
+    manifest = data.get("manifest", {})
+    if isinstance(manifest, dict):
+        manifest = dict(manifest, name=new_name)
+    template = {
+        "manifest": manifest,
+        "overview": data.get("overview", ""),
+        "history": data.get("history", []),
+        "factions": data.get("factions", {}),
+        "characters": data.get("characters", {}),
+        "entities": {category: data.get(category, {}) for category in CATEGORIES},
+    }
+    errors, _ = validate(template)
+    errors = [dict(error, message=f"{_place(data, error['field'])}: {error['message']}") if error["field"][0] in record_keys else error for error in errors]
+    errors += _unknown_keys(data)
+    if errors:
+        raise TemplateError(errors)
+    files = {MANIFEST: manifest, OVERVIEW: template["overview"], HISTORY: template["history"]}
+    for key in record_keys:
+        files.update({f"{key}/{record_id}.json": record for record_id, record in data.get(key, {}).items()})
+    os.makedirs(user_dir, exist_ok=True)
+    # The dot keeps a folder that a crash leaves behind out of the template list
+    staging = tempfile.mkdtemp(dir=user_dir, prefix=".import-")
+    try:
+        for relative, content in files.items():
+            _write(os.path.join(staging, relative), content if isinstance(content, str) else json.dumps(content, indent=2, ensure_ascii=False) + "\n")
+        os.rename(staging, os.path.join(user_dir, new_name))
+    except BaseException:
+        shutil.rmtree(staging, ignore_errors=True)
+        raise
+    return new_name
+
+
+_FORMAT_KEYS = {
+    "manifest": {"format_version", "name", "version", "authors", "credits"},
+    "history": {"title", "text"},
+    "factions": {"game_id", "name", "aliases", "major", "fields", "description"},
+    "characters": {"game_id", "profile"},
+    "entity": {"name", "aliases", "weight", "fields", "prose", "children", "access"},
+    "child": {"name", "weight"},
+}
+
+
+def _unknown_keys(data):
+    """The keys of an imported file that the format does not name, such as the typo "descripton", whose text no campaign would read.
+
+    Only an import refuses them, because the editor keeps a key that someone added to a template folder by hand.
+    """
+    errors = []
+
+    def check(record, kind, field):
+        if isinstance(record, dict):
+            errors.extend({"field": field + [key], "message": f"{_place(data, field)}: SSR does not use {key}. Check the spelling, or remove it."} for key in record if key not in _FORMAT_KEYS[kind])
+
+    check(data.get("manifest"), "manifest", ["manifest"])
+    history = data.get("history")
+    for index, entry in enumerate(history if isinstance(history, list) else []):
+        check(entry, "history", ["history", index])
+    for key in ("factions", "characters", *CATEGORIES):
+        for record_id, record in data.get(key, {}).items():
+            kind = key if key in _FORMAT_KEYS else "entity"
+            check(record, kind, [key, record_id])
+            children = record.get("children") if kind == "entity" and isinstance(record, dict) else None
+            for index, child in enumerate(children if isinstance(children, list) else []):
+                check(child, "child", [key, record_id, "children", index])
+    return errors
+
+
+_KIND_LABELS = {"factions": "faction", "characters": "character", "races": "race", "locations": "location", "regions": "region"}
+
+
+def _place(data, field):
+    """Names the part of an imported file that an error points to, because the editor cannot mark a field of a file."""
+    if field[0] == "manifest":
+        return "Template info"
+    if field[0] == "history":
+        return f"History entry {field[1] + 1}"
+    record = data[field[0]][field[1]]
+    if field[0] == "characters" and isinstance(record, dict):
+        record = record.get("profile")
+    name = record.get("Name" if field[0] == "characters" else "name") if isinstance(record, dict) else None
+    place = f"{name if _is_text(name) else field[1]} ({_KIND_LABELS[field[0]]})"
+    return f"{place}, child {field[3] + 1}" if field[2:3] == ["children"] and len(field) > 3 else place
+
+
 def delete(name, shipped_dir, user_dir):
     path, builtin = _folder(name, shipped_dir, user_dir)
     if builtin:
@@ -275,7 +393,7 @@ def _check_new_name(new_name, shipped_dir, user_dir):
     if not _NAME.fullmatch(new_name):
         raise TemplateError([{"field": ["new_name"], "message": "A template name may hold only letters, digits, spaces, _ and -."}])
     if any(name.lower() == new_name.lower() for name, _ in _names(shipped_dir, user_dir)) or os.path.exists(os.path.join(user_dir, new_name)):
-        raise TemplateError([{"field": ["new_name"], "message": f"A template named {new_name} already exists."}])
+        raise TemplateError([{"field": ["new_name"], "message": f"A template named {new_name} already exists. Choose another name."}])
     return new_name
 
 
@@ -329,7 +447,7 @@ def _content_hash(path):
 
 def _check_history(history, error):
     if not isinstance(history, list):
-        error(["history"], f"{HISTORY} must hold a list of entries.")
+        error(["history"], "The history must be a list of entries.")
         return
     for index, entry in enumerate(history):
         if not isinstance(entry, dict) or not _is_text(entry.get("title")) or not isinstance(entry.get("text"), str):
@@ -388,7 +506,7 @@ def _check_entity(entity, field, names, error, warnings):
 def _check_object(record, field, error):
     if isinstance(record, dict):
         return True
-    error(field, "The file must hold a JSON object.")
+    error(field, "The entry must be a JSON object.")
     return False
 
 

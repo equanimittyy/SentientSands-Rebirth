@@ -60,7 +60,7 @@ The **Campaigns** page lists your campaigns and creates a new one from a world t
 The **Editor** page edits the canon of a world: the overview that every NPC knows, the history, the factions, the characters, the races, the locations, and the regions. It has two subtabs:
 
 - **Campaign Canon** edits the copy that belongs to the current campaign. An edit changes only that campaign. NPCs read the overview and the factions; the history, characters, races, locations, and regions are kept for a later version.
-- **Templates** edits the world templates, the seeds that new campaigns copy. A template edit changes only the campaigns that you create later. Vanilla Kenshi ships with the mod and is read-only, so duplicate it to make your own. The server keeps your templates in `server/user/world_templates/`, and a mod update keeps them.
+- **Templates** edits the world templates, the seeds that new campaigns copy. A template edit changes only the campaigns that you create later. Vanilla Kenshi ships with the mod and is read-only, so duplicate it to make your own. The server keeps your templates in `server/user/world_templates/`, and a mod update keeps them. **Export** saves a template as one `.json` file that you can share, and **Import** adds a template from such a file. To share or back up a campaign, copy its folder in `server/campaigns/`.
 
 ---
 
