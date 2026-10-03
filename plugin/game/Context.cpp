@@ -179,7 +179,14 @@ std::string GetStorageIDFor(Character *npc, const std::string &name,
   return name;
 }
 
-// For in-game checks of which candidate NPC IDs survive a save and load, a recruit, and a reload
+static std::string HandleMember(const std::string &key, unsigned int value,
+                                unsigned int shared) {
+  return " " + key + "=" + ToString(value) + " (" + ToString(shared) +
+         " shared)";
+}
+
+// For in-game checks of which candidate NPC IDs survive a save and load, a
+// recruit, and a reload, and how many other loaded characters share each one
 void LogNpcIdentity(Character *npc) {
   std::string name = "?";
   try {
@@ -190,6 +197,37 @@ void LogNpcIdentity(Character *npc) {
   std::string handle = "?";
   try {
     handle = npc->getHandle().toString();
+  } catch (...) {
+  }
+
+  std::string members = "?";
+  try {
+    const hand &h = npc->getHandle();
+    unsigned int container = 0, containerSerial = 0, index = 0, serial = 0;
+    GameWorld *world = ppWorld ? *ppWorld : NULL;
+    if (world) {
+      const auto &chars = world->getCharacterUpdateList();
+      for (auto it = chars.begin(); it != chars.end(); ++it) {
+        Character *other = *it;
+        if (!other || (uintptr_t)other <= 0x1000 || other == npc)
+          continue;
+        const hand &o = other->getHandle();
+        if (o.container == h.container)
+          ++container;
+        if (o.containerSerial == h.containerSerial)
+          ++containerSerial;
+        if (o.index == h.index)
+          ++index;
+        if (o.serial == h.serial)
+          ++serial;
+      }
+    }
+    members = "type=" + ToString((int)h.type) +
+              HandleMember("container", h.container, container) +
+              HandleMember("containerSerial", h.containerSerial,
+                           containerSerial) +
+              HandleMember("index", h.index, index) +
+              HandleMember("serial", h.serial, serial);
   } catch (...) {
   }
 
@@ -214,8 +252,8 @@ void LogNpcIdentity(Character *npc) {
   } catch (...) {
   }
 
-  Log(LOG_INFO, "ID_PROBE: name=" + name + " handle=" + handle +
-                    " template=" + templateID + " (" + templateName +
+  Log(LOG_INFO, "ID_PROBE: name=" + name + " handle=" + handle + " " +
+                    members + " template=" + templateID + " (" + templateName +
                     ") faction=" + factionName + " unique=" + unique);
 }
 
