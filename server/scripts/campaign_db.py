@@ -541,7 +541,7 @@ def _insert_character(conn, npc_id, profile):
 
 
 def _stored(profile):
-    return {k: v for k, v in profile.items() if k != "ConversationHistory" and not k.startswith("_")}
+    return {k: v for k, v in profile.items() if k != "ConversationHistory"}
 
 
 def _game_time(line):

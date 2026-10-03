@@ -154,11 +154,6 @@ class CharacterTest(CampaignTestCase):
         self.assertEqual(campaign_db.get_character(GENERIC_ID)["Personality"], "Written.")
         self.assertFalse(campaign_db.promote_profile("h:1", {"Personality": "Written."}))
 
-    def test_underscore_keys_are_not_stored(self):
-        campaign_db.append_dialogue(GENERIC_ID, ["a"], {"Name": "Beep", "_transient": True})
-        campaign_db.upsert_profile(GENERIC_ID, {"Relation": 1, "_transient": True})
-        self.assertEqual(campaign_db.get_character(GENERIC_ID), {"Name": "Beep", "Relation": 1, "ConversationHistory": ["a"]})
-
     def test_append_stores_the_profile_only_when_missing(self):
         campaign_db.append_dialogue(GENERIC_ID, ["a"], {"Name": "Beep"})
         campaign_db.append_dialogue(GENERIC_ID, ["b"], {"Name": "Other"})
