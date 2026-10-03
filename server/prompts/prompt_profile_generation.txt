@@ -27,7 +27,7 @@ RULES:
 
 PARTS:
 - Personality: 1-2 sentences on their internal drive.
-- Backstory: What they survived before this moment.
+- Backstory: 2-3 sentences on the life they had, the event that changed it, and where it left them now.
 - SpeechQuirks: Their verbal habits.
 
 JSON OUTPUT ONLY: an object with exactly these keys: {parts}.

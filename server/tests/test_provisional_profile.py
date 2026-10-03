@@ -13,7 +13,8 @@ import provisional_profile
 TEMPLATE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "world_templates", "kenshi_ssr_vanilla")
 TRAITS = {trait["id"]: trait for trait in provisional_profile.TRAITS}
 TIER_TEXTS = {tier["text"]: (index, trait) for trait in provisional_profile.TRAITS for index, tier in enumerate(trait["tiers"])}
-ALL_TEXTS = [*TIER_TEXTS, *provisional_profile.ANIMAL_PERSONALITIES, *provisional_profile.BACKSTORIES, *provisional_profile.SPEECH_QUIRKS]
+BACKSTORY_TEXTS = [story["text"] for story in provisional_profile.BACKSTORIES]
+ALL_TEXTS = [*TIER_TEXTS, *provisional_profile.ANIMAL_PERSONALITIES, *BACKSTORY_TEXTS, *provisional_profile.SPEECH_QUIRKS]
 
 
 def template_names():
@@ -52,6 +53,9 @@ class DataTest(unittest.TestCase):
         self.assertEqual(set(TRAITS) - skeleton, {"lustful", "chaste", "gluttonous", "temperate"})
         self.assertTrue(all(set(trait["kinds"]) <= {"person", "skeleton"} for trait in TRAITS.values()))
 
+    def test_each_backstory_fits_a_person_or_a_skeleton(self):
+        self.assertTrue(all(story["kinds"] and set(story["kinds"]) <= {"person", "skeleton"} for story in provisional_profile.BACKSTORIES))
+
     def test_no_text_names_a_template_entry_or_has_a_gendered_pronoun_or_a_stage_direction(self):
         names = re.compile(r"\b(?:" + "|".join(re.escape(name) for name in sorted(template_names(), key=len, reverse=True)) + r")\b")
         for text in ALL_TEXTS:
@@ -81,8 +85,14 @@ class RollTest(unittest.TestCase):
 
     def test_a_person_gets_a_backstory_and_a_speech_quirk(self):
         profile = provisional_profile.roll("h:1", "person")
-        self.assertIn(profile["Backstory"], provisional_profile.BACKSTORIES)
+        self.assertIn(profile["Backstory"], BACKSTORY_TEXTS)
         self.assertIn(profile["SpeechQuirks"], provisional_profile.SPEECH_QUIRKS)
+
+    def test_a_person_and_a_skeleton_roll_only_backstories_of_their_kind(self):
+        for kind in ("person", "skeleton"):
+            stories = {story["text"] for story in provisional_profile.BACKSTORIES if kind in story["kinds"]}
+            for n in range(300):
+                self.assertIn(provisional_profile.roll(f"h:{n}", kind)["Backstory"], stories, kind)
 
     def test_an_animal_gets_one_personality_and_nothing_else(self):
         profile = provisional_profile.roll("h:1", "animal")

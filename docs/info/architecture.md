@@ -269,10 +269,11 @@ A character without a stored profile gets one rolled in code at its first meetin
 | Kind | Profile |
 |---|---|
 | A person | Three personality traits from `server/config/personality_traits.json`, the highest tier first, one backstory from `backstories.json`, and one speech quirk from `speech_quirks.json` |
-| A skeleton (`is_skeleton`) | The same, without the traits about food and lust |
+| A skeleton (`is_skeleton`) | The same, without the traits about food and lust, and with a backstory that fits a skeleton |
 | An animal (`ANIMAL_RACES`) | One entry of `animal_personalities.json`, and no backstory or speech quirk. The roll is final, because a bio would give the animal a backstory and a speech quirk. |
 
 - The traits are the 36 personality traits of the CK3 mod [More Personality Depth](https://steamcommunity.com/sharedfiles/filedetails/?id=3717989134), each in three tiers. A roll takes three traits that are not opposites, with tier 1 at 60%, tier 2 at 30%, and tier 3 at 10%, so an extreme trait is rare. SSR uses only the trait concepts and the tier names of the mod, and it writes its own text for Kenshi.
+- A backstory tells a short story in three parts: the life that the character had, the event that changed it, and where that event left the character now. The last part gives the LLM a motive or an open thread to use in dialogue. Each backstory has `kinds`, as each trait has, because a story about a childhood or about food does not fit a skeleton.
 - Each text uses "they" and no name, so a rename cannot make it wrong. The tests check that no text names an SSR Vanilla faction, race, location, or region, and that no text has a gendered pronoun.
 - An animal personality describes temperament and tendencies that the animal shows where it stands, such as nudging someone, but never a movement, such as wandering off. The game moves the animal, so the player would see it stand still.
 - The roll is seeded by the `npc_id`. Banter and a chat can meet a new NPC at the same moment, and both write its profile, so both must roll the same one.

@@ -44,6 +44,6 @@ def roll(npc_id, kind):
     rolled.sort(key=lambda pair: -pair[0])
     return {
         "Personality": " ".join(trait["tiers"][tier]["text"] for tier, trait in rolled),
-        "Backstory": rng.choice(BACKSTORIES),
+        "Backstory": rng.choice([story["text"] for story in BACKSTORIES if kind in story["kinds"]]),
         "SpeechQuirks": rng.choice(SPEECH_QUIRKS),
     }
