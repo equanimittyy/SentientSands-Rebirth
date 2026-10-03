@@ -129,11 +129,13 @@ A chat request is ordered for a provider's prompt cache, which reuses only an id
 
 | Part | Content | Changes |
 |---|---|---|
-| System message | `prompt_chat_template.txt`: `prompt_system.txt`, then `npc_chat_template.txt` | When the campaign, the speaker, or the NPC changes |
+| System message | `prompt_chat_template.txt`: `prompt_system.txt`, `npc_chat_template.txt`, then `prompt_chat_scene.txt`: the place, the world events, the player's state, and the relation and condition of the NPC | When a new conversation starts |
 | History | The stored dialogue of the NPC, as user and assistant turns | One exchange more each turn |
-| Last user message | `prompt_chat_scene.txt`: the place, the world events, the player's state, the relation and condition of the NPC, the volume, the final instruction, and the player's line | Every turn |
+| Last user message | `prompt_chat_turn.txt`: the volume, the final instruction, and the player's line | Every turn |
 
 From one turn to the next, only the newest exchange and the last message are new, so the cache can serve the rest. Chats with different NPCs and banter share the start of the system message.
+
+The scene is a snapshot that the server takes when a conversation starts, and it keeps it for the whole conversation (`CONVERSATION_SCENE`). A conversation lasts until the player chats with another NPC, speaks as another squad member, or switches the campaign, because the plugin sends no signal when a conversation ends. A later relation or a new world event therefore reaches the prompt only in the next conversation. The history of the NPC stays across conversations.
 
 `prompt_system.txt` holds the rules, the world lore, and the player character, and `build_system_prompt` fills it. `scene_values` fills the parts that change on each call, for the chat scene and for banter. A block that appears only with data, such as the events or the player faction description, keeps its heading in the code, because a placeholder has no conditions. The `{world_lore}` placeholder takes the overview of the campaign (see [Campaign storage](#campaign-storage)).
 

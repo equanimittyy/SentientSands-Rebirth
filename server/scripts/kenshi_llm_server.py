@@ -86,6 +86,8 @@ PROFILES_IN_PROGRESS = set()
 PROGRESS_LOCK = threading.Lock()
 LIVE_CONTEXTS = {}
 PLAYER_CONTEXT = {}
+# The scene stays fixed for a whole conversation, so the prompt cache can serve it; a chat with another NPC, or as another squad member, starts a new one
+CONVERSATION_SCENE = {}
 PLAYER2_SESSION_KEY = None
 EVENT_THROTTLE = {} 
 THROTTLE_LOCK = threading.Lock()
@@ -1891,20 +1893,22 @@ def chat():
     time_prefix = get_current_time_prefix()
     full_player_entry = f"{time_prefix}{whisper_tag}{player_name}: {player_message}"
 
-    system = fill_prompt("prompt_chat_template.txt", system_prompt=system_prompt, primary_npc=primary_npc, npc_profiles=describe_npc(primary_npc, primary_data, npc_ids.get(primary_npc)))
-    scene = fill_prompt(
-        "prompt_chat_scene.txt",
-        **scene_values(speaker or PLAYER_CONTEXT),
-        npc_name=primary_npc,
-        relation=primary_data.get("Relation", 0),
-        condition=build_detailed_context_string(primary_npc, npc_ids.get(primary_npc), char_data=primary_data),
-        volume=volume,
-        final_instruction=final_instruction,
-        judgment=judgment,
-        player_line=full_player_entry,
-    )
+    conversation = (speaker.get("npc_id"), npc_ids.get(primary_npc) or primary_npc)
+    scene = CONVERSATION_SCENE.get(conversation)
+    if scene is None:
+        scene = fill_prompt(
+            "prompt_chat_scene.txt",
+            **scene_values(speaker or PLAYER_CONTEXT),
+            npc_name=primary_npc,
+            relation=primary_data.get("Relation", 0),
+            condition=build_detailed_context_string(primary_npc, npc_ids.get(primary_npc), char_data=primary_data),
+        )
+        CONVERSATION_SCENE.clear()
+        CONVERSATION_SCENE[conversation] = scene
+    system = fill_prompt("prompt_chat_template.txt", system_prompt=system_prompt, primary_npc=primary_npc, npc_profiles=describe_npc(primary_npc, primary_data, npc_ids.get(primary_npc)), scene=scene)
+    turn = fill_prompt("prompt_chat_turn.txt", volume=volume, final_instruction=final_instruction, judgment=judgment, player_line=full_player_entry)
     history = chat_prompt.history_window(primary_data["ConversationHistory"], campaign_db.DIALOGUE_BLOCK)
-    messages = chat_prompt.chat_messages(system, chat_prompt.history_turns(history, primary_npc), scene)
+    messages = chat_prompt.chat_messages(system, chat_prompt.history_turns(history, primary_npc), turn)
 
     content = call_llm("chat", messages)
     if not content:
@@ -2440,6 +2444,7 @@ def switch_campaign(name):
         save_settings({"current_campaign": name})
         LIVE_CONTEXTS.clear()
         SEEN_FACTIONS.clear()
+        CONVERSATION_SCENE.clear()
         load_campaign_config()
         return True
     return False

@@ -1,0 +1,8 @@
+{volume}
+
+[FINAL INSTRUCTION]
+{final_instruction}
+{judgment}
+
+[PLAYER SAYS]
+{player_line}

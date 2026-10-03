@@ -3,3 +3,5 @@
 
 [CURRENT CHARACTER: {primary_npc}]
 {npc_profiles}
+
+{scene}

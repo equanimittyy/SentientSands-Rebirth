@@ -8,12 +8,3 @@ CURRENT LOCATION: {location}
 
 RELATION OF {npc_name} TO THE PLAYER: {relation} (Scale: -100 to 100)
 {condition}
-
-{volume}
-
-[FINAL INSTRUCTION]
-{final_instruction}
-{judgment}
-
-[PLAYER SAYS]
-{player_line}
