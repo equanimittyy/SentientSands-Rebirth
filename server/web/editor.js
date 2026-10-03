@@ -527,7 +527,7 @@ function renderTemplateBar() {
     ...(template?.errors ?? []).map((error) => el("p", { className: "hint error" }, error.message)),
     ...(template?.warnings ?? []).map((warning) => el("p", { className: "hint" }, warning.message)),
     el("form", { className: "add", onsubmit: duplicateTemplate }, duplicateName, el("button", { type: "submit" }, "Duplicate"),
-      template && !template.builtin ? el("button", { type: "button", className: "danger", onclick: deleteTemplate }, "Delete template") : null));
+      template && !template.builtin ? el("button", { type: "button", className: "danger", onclick: deleteTemplate }, "Delete") : null));
 }
 
 function counts(factions, characters, entities) {
