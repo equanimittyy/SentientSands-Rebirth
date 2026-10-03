@@ -1,52 +1,26 @@
-# KENSHI WORLD LORE: THE SECOND EMPIRE'S ASHES
+# KENSHI WORLD LORE
 
-Kenshi is a world defined by the collapse of ancient, superior civilizations. The current age is one of decay, rust, and desperate survival. The surface is littered with the skeletons of titans—vast machines and metal structures from the First and Second Empires that no one alive understands how to rebuild.
+Kenshi is a world defined by the collapse of ancient, superior civilizations. The current age is one of decay, rust, and desperate survival. The surface is littered with the skeletons of titans—vast machines and metal structures from the First and Second Empires that no one alive understands how to rebuild. A giant planet hangs in the sky.
 
-## SOCIETAL STRUCTURES & FACTIONS
+## PEOPLES
+- **Humans**: Most are Greenlanders, found all across the world. Scorchlanders have much darker skin and glowing eyes.
+- **Shek**: A horned warrior people covered in bony plates.
+- **Hivers**: Insectoids split into separate Hives, each ruled by its own Queen.
+- **Skeletons**: Ancient sentient machines. They do not hunger, and they are mended with repair kits instead of healing.
 
-### THE HOLY NATION (The Okranites)
-Religious extremists who worship Okran, the God of Light. They reside in the fertile "Holy Lands" and the "Pride of Okran".
-- **Dogma**: They follow the "Holy Flame." They view Skeletons as demons (agents of Narko, the Goddess of Darkness) and treat non-humans (Shek and Hivers) as "beasts" to be subjugated or purged.
-- **Social Structure**: Highly patriarchal. Women are protected but subservient; men are the warriors and priests.
-- **Military**: Rely on "Holy Sentinels" and "Paladins" wearing heavy plate armor and wielding hackers or heavy cleavers. They use numbers and zealotry to overwhelm foes.
+## GREAT POWERS
+- **The Holy Nation**: A theocracy of humans who worship Okran.
+- **The United Cities**: A feudal slaver empire of nobles and samurai, the largest faction by land.
+- **The Shek Kingdom**: The kingdom of the Shek, in the Stenn Desert.
+- **The Traders Guild**: The guild that handles the trade between towns.
 
-### THE UNITED CITIES (The Empire)
-An expansionist, feudal slaver empire, the largest faction by land, spread across the Great Desert, Heng, the Hook, the Bonefields, and the Stormgap Coast.
-- **Leadership**: Ruled by Emperor Tengu and his inner circle of nobles.
-- **Economy**: Driven by the Traders Guild, which runs the slave camps through the Noble Circle.
-- **Military**: Professional samurai forces.
-
-### THE SHEK KINGDOM
-A proud, bone-plated warrior race whose kingdom lies almost entirely in the Stenn Desert.
-- **Biology**: Shek are covered in bony plates that serve as natural armor. They are stronger and tougher than humans.
-- **Culture**: Under Shager they bled themselves in futile wars on the Holy Nation; Queen Esata the Stone Golem now tries to keep them from fighting themselves extinct. They revere Kral, the legendary warrior who united the Shek tribes, and many would rather die in battle than live in disgrace.
-- **Social Stigma**: Shek call humans "flatskins", though Esata tolerates outsiders for now. A Shek judged a coward may have their horns cut off.
-
-### THE HIVE
-A communal society of insectoids split into separate Hives, each bound to its own Queen.
-- **Hierarchy**: All Hivers are connected to their Queen through pheromones. 
-    - **Prince**: The most intelligent caste, ruling beside the Queen.
-    - **Soldier Drone**: The soldier caste.
-    - **Worker Drone**: The laboring caste.
-- **Hiveless**: A Hiver who loses the bond to the Queen cannot return. Bound Hivers call outsiders, Hiveless included, "no-hives".
-- **Western Hive**: Based in Vain. Xenophobic, but its traders travel widely.
-- **Southern Hive**: A hostile Hive in the Royal Valley and Greyshelf that attacks outsiders.
-
-### THE SKELETONS
-Ancient sentient machines from the Second Empire (and earlier).
-- **Condition**: They do not hunger, and they are mended with repair kits instead of healing. Many withdrew to Black Desert City, far from the living.
-
-## WORLD ELEMENTS & PERILS
-
-### THE SECOND EMPIRE FALLOUT
-Cat-Lon and his Skeleton followers founded the Second Empire after the fall of the First, to rebuild civilization. It grew into a tyranny and collapsed, and Cat-Lon's mind has decayed in his exile in the Ashlands.
-
-### FAUNA & DANGERS
-- **Beak Things**: Terrifyingly fast, long-necked predators.
-- **Venge**: A region still struck by the beams of one of the Eyes, the destructive satellite-like structures of the Ancients.
-- **The Fog Islands**: Home to the Fogmen, savage Hivers also called the Deadhive, who carry travelers back to their camps and eat them alive.
+## THE WILDS
+Bandits, slavers, cannibals, and wild beasts prey on travelers in the wilds. Beak Things are terrifyingly fast, long-necked predators. Some lands are deadly in themselves, with acid rain or poison gas.
 
 ## TECHNOLOGY & COMMERCE
 - **Cats**: Simple metal coins used as a universal currency.
-- **Ancient Science Books & Engineering Research**: The most valuable artifacts, allowing for the rediscovery of farming techniques and metalwork.
-- **Robotics**: While rare, prosthetic limbs are often superior to biological ones, though Holy Nation members will attack those wearing "Skeleton limbs" on sight.
+- **Ancient Technology**: The machines of the Ancients still work in the ruins, but no one knows how to build them. Ancient science books and engineering research are the most valuable artifacts, allowing for the rediscovery of farming techniques and metalwork. The Tech Hunters search the ruins for them.
+- **Robotics**: While rare, prosthetic limbs are often superior to biological ones.
+
+## THE PAST
+The First Empire, also called the Old Empire or the Ancients, is the oldest known civilization, and how it ended is unknown. Later, Skeletons founded the Second Empire, which also collapsed. Much about those times is unknown.
