@@ -4,7 +4,7 @@ Status: Draft for review
 
 ## 1. Summary
 
-Today the plugin names each generic NPC as soon as it sees it, and the new name replaces the name that the game gives it, such as Holy Sentinel ([section 2](#2-current-state)). This proposal names a generic NPC only when the player speaks to it, and it keeps the game name as a title in front of the new name. A recruit drops the title. The player sees each change in game at the moment that it happens:
+Today the plugin names each generic NPC as soon as it sees it, and the new name replaces the name that the game gives it, such as Holy Sentinel ([section 2](#2-current-state)). This proposal names a generic NPC only when the player speaks to it, and it keeps the game name as a title in front of the new name. A recruit drops the title. A name changes in game only for an NPC with no name of its own, and only as often as it must. The player sees each change at the moment that it happens:
 
 | Moment | Name in game |
 |---|---|
@@ -44,7 +44,7 @@ Non-goals:
 At a chat turn that the player sends to a generic NPC:
 
 1. The plugin adds `generic_name` to the context of the NPC (`GetDetailedContext`, `plugin/game/Context.cpp:327`). The value comes from `IsGenericName`. Only the plugin can make this check in each game language, because only the plugin sees the game data.
-2. If the profile has no `GivenName` and `generic_name` is true, the server rolls a given name. It stores `GivenName`, and it stores the game name and the given name as `Name`.
+2. If the profile has no `GivenName` and `generic_name` is true, the server rolls a given name. It stores `GivenName`, and it stores the game name and the given name as `Name`. An NPC that is already in the player's faction gets the given name with no title ([section 5](#5-recruits)), so its name changes once, not twice.
 3. If the profile has a `GivenName`, `generic_name` is true, and the game name is not the stored `Name`, the game lost the name, for example after the load of an earlier save. The server takes the stored `Name` and rolls no new name.
 4. In steps 2 and 3, the server sends `NPC_RENAME: <serial>|<name>` through the pipe before the LLM call. The name therefore changes in game while the player waits for the reply.
 5. The prompt and the dialogue history use the new name. The reply names the NPC as `<name>|<serial>`, as banter does. The plugin then finds the NPC by its serial and not by the old name of the request (`ChatResponseThread`, `plugin/ui/ChatWindow.cpp`).
@@ -59,7 +59,7 @@ A generic NPC that joins the player's faction drops its title, so Starving Bandi
 1. The plugin posts the context of the selected character every 1.5 s (`plugin/main.cpp:1246`). After a recruit, the player selects the new squad member, so the server sees the new faction at once.
 2. `/context` checks an NPC context when the `npc_id` starts with `h:` and the faction of the NPC is the player's faction, by name or by `factionID`, as `npc_scene` does.
 3. If the profile has a `GivenName`, and the game name is the stored `Name`, the server sets `Name` to `GivenName` and sends `NPC_RENAME`. A game name that differs from the stored `Name` is a name that the player gave, so the server keeps it.
-4. If the profile has no `GivenName`, the server rolls one, sets `Name` to it with no title, and sends `NPC_RENAME`. A squad member is a character that the player deals with all the time, so it needs a name.
+4. If the profile has no `GivenName`, the server changes nothing. The recruit keeps its game name until the player speaks to it, and its first chat gives it the given name with no title.
 
 - The server checks each NPC only once in each server session (a set of `npc_id` in memory). A selected squad member therefore costs one database read, not one read every 1.5 s.
 - A context post writes a profile only for this rename, once for each recruit.
@@ -84,10 +84,6 @@ Within one chat or banter request, the server keys each NPC by `npc_id`, not by 
 | Phase | Deliverable | Acceptance criteria |
 |---|---|---|
 | 1. Keys | [Section 6](#6-keys-by-npc_id) in chat and banter, with tests | A chat with two listeners of one name stores the overheard lines of each. A banter with two speakers of one name stores the banter of each. |
-| 2. Names | `generic_name` in the plugin context, [section 4](#4-naming-at-the-first-chat), [section 5](#5-recruits), and [section 7](#7-removed). The plugin part needs a Windows build. | In game, a generic NPC near the player keeps its game name until the player speaks to it. At the first chat, its name changes to the title and a given name before the reply appears, and the reply bubble appears over that NPC. A recruit loses its title when the player selects it. A name from `/name` does not change. After the load of an earlier save, the next chat gives back the stored name. |
+| 2. Names | `generic_name` in the plugin context, [section 4](#4-naming-at-the-first-chat), [section 5](#5-recruits), and [section 7](#7-removed). The plugin part needs a Windows build. | In game, a generic NPC near the player keeps its game name until the player speaks to it. At the first chat, its name changes to the title and a given name before the reply appears, and the reply bubble appears over that NPC. A recruit loses its title when the player selects it. A recruit that the player never spoke to keeps its game name, and its first chat gives it a given name with no title. A name from `/name` does not change. After the load of an earlier save, the next chat gives back the stored name. |
 
 Phase 1 runs in the dev container. Phase 2 needs the game.
-
-## 9. Open questions
-
-1. Should a recruit that the player never spoke to get a given name at the recruit, as [section 5](#5-recruits) says, or keep its game name until the player speaks to it?

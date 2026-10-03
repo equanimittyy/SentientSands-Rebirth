@@ -8,8 +8,8 @@ Today each NPC that the player meets gets a full profile: the canon profile of t
 
 | Kind | Source | Who gets it |
 |---|---|---|
-| Full | The canon profile of the world template, or a bio that the LLM writes | A canon character, a unique NPC without a canon profile, and a provisional NPC after promotion |
-| Provisional | Code only, with no LLM: three rolled personality traits, a backstory, and a speech quirk | Each generic NPC at its first meeting |
+| Full | The canon profile of the world template, or a bio that the LLM writes | A canon character, and a provisional NPC after promotion |
+| Provisional | Code only, with no LLM: three rolled personality traits, a backstory, and a speech quirk | Each other NPC at its first meeting |
 
 A provisional profile becomes full when the player's chats with the NPC reach a threshold, or when the player asks for a bio ([section 5](#5-promotion-to-a-full-profile)).
 
@@ -21,6 +21,7 @@ Non-goals:
 
 - Traits for a full profile. A full profile keeps the shape that it has today.
 - Traits that change over time, such as the event shifts of the mod.
+- Trait chances that depend on the faction or the race. Each trait that fits the kind of a character has the same chance.
 
 ## 2. Current state
 
@@ -38,8 +39,10 @@ The kind of a new profile comes from the `npc_id` ([architecture.md](../info/arc
 | Character | `npc_id` | Profile |
 |---|---|---|
 | A canon character of the world template | `u:` with a canon row | Full, from the template |
-| A unique NPC without a canon row | `u:` | Full, from the LLM, as today |
+| A unique NPC without a canon row | `u:` | Provisional |
 | A generic NPC, a recruit included | `h:` | Provisional |
+
+At a first meeting, the LLM has only the race, the faction, and the job of the NPC, so a bio from the LLM would be no better than the roll. A unique NPC without a canon row therefore starts provisional too. The LLM writes a bio only at promotion, when it has the traits and the dialogue to build on ([section 5](#5-promotion-to-a-full-profile)).
 
 A provisional profile has the keys of a full profile, and two more:
 
@@ -49,6 +52,8 @@ A provisional profile has the keys of a full profile, and two more:
 | `Interactions` | The number of chat turns in which the NPC replied to the player. An overheard turn and banter do not count. |
 
 - The server counts `Interactions` only while the profile is provisional.
+- Provisional profiles replace each LLM call at a first meeting: batch generation (`generate_batch_profiles` and `prompt_batch_profile_generation.txt`), which served the NPCs that overhear a chat and the speakers of banter, and the first call of `generate_character_profile`.
+- The stand-ins for a generation in progress and for a failed generation go too, because a first meeting no longer waits for the LLM. The stand-in for a request without an `npc_id` stays.
 - Rejected: a count from the dialogue history. A banter line has no tag, so it looks like a reply to the player, and the history keeps only the newest 260 lines.
 - An edit of `Personality`, `Backstory`, or `SpeechQuirks` on Campaign Canon clears `Provisional`, because a later bio would overwrite the player's text.
 
@@ -56,7 +61,7 @@ A provisional profile has the keys of a full profile, and two more:
 
 ### 4.1 Traits
 
-Each NPC gets three traits. No two of them are opposites, and each trait has a tier from 1 to 3:
+Each person and each skeleton gets three traits. No two of them are opposites, and each trait has a tier from 1 to 3:
 
 | Tier | Chance | Why |
 |---|---|---|
@@ -92,27 +97,39 @@ Each trait names the kinds of character that it fits. The server finds the kind 
 
 | Kind | Race | Traits |
 |---|---|---|
-| Animal | A race that matches `ANIMAL_RACES` | Only Brave, Craven, Wrathful, Calm, Shy, Gregarious, Paranoid, Trusting, Lazy, Diligent, Gluttonous, Patient, Impatient, and Stubborn |
-| Skeleton | `is_skeleton` | Each trait except Lustful, Chaste, Gluttonous, and Temperate, because a skeleton does not eat and has no sex |
-| Person | Every other race | Each trait |
+| Animal | A race that matches `ANIMAL_RACES` | None. An animal gets an animal personality ([section 4.2](#42-animal-personalities)). |
+| Skeleton | `is_skeleton` | Each trait of the table above except Lustful, Chaste, Gluttonous, and Temperate, because a skeleton does not eat and has no sex |
+| Person | Every other race | Each trait of the table above |
 
-### 4.2 Trait text
+### 4.2 Animal personalities
+
+An animal gets no traits, no backstory, and no speech quirk. Its `Personality` is one entry, rolled from a list of 20 short texts that are written in advance, as the backstories are.
+
+- One or two sentences, with "They" as the subject.
+- Only behavior that any animal can show, so each entry fits each species. It names no species, place, or person.
+
+| Animal personality |
+|---|
+| They are wary of strangers, but they follow anyone who feeds them. |
+| They are restless and curious, and they poke at everything new. |
+| They are slow and placid, and they turn fierce only when cornered. |
+
+### 4.3 Trait text
 
 Each tier of a trait has one sentence. `Personality` holds the three sentences, the highest tier first.
 
 - The subject is "They", with the plural verb, as in the chat scene. The text therefore needs no gendered pronoun and no name, so a rename cannot make it wrong.
 - The sentence describes behavior, not a label. Tier 1 is mild, and tier 3 is extreme.
 - The text fits Kenshi: cats, squads, and the wasteland, not courts and councils. It names no place, faction, race, or person.
-- The text of a trait that fits animals describes only behavior that an animal can show, with no speech, money, or beliefs. One sentence then fits an animal and a person.
 
 | Trait | Tier 1 | Tier 2 | Tier 3 |
 |---|---|---|---|
 | Greedy | They count every cat and spend few of them. | They weigh every favor by what it pays, and they haggle over everything. | They would sell a friend for the right price, and no amount of money is ever enough. |
 | Brave | They take risks that make others hesitate. | They stand their ground when others run. | Nothing frightens them, not even certain death. |
-| Paranoid | They keep strangers at a distance until those strangers prove themselves. | They suspect a threat in every stranger. | They trust no one, and they treat every approach as an attack. |
+| Paranoid | They keep strangers at a distance until those strangers prove themselves. | They suspect a threat in every stranger. | They trust no one, and they see a plot behind every kindness. |
 | Zealous | Their beliefs guide their days. | They hold their beliefs above comfort, and they judge others by them. | They would kill or die for their beliefs, and they treat doubt as betrayal. |
 
-### 4.3 Backstories and speech quirks
+### 4.4 Backstories and speech quirks
 
 Each person and each skeleton gets one backstory and one speech quirk, rolled from a list of 100 each. An animal gets neither, so its `Backstory` and `SpeechQuirks` are empty.
 
@@ -135,10 +152,10 @@ Speech quirk rules:
 | They owe a debt to someone they would rather not name. | Calls people by their trade instead of their name. |
 | They spent a long season alone in the wilds and came back with little to say about it. | Repeats the last words of the other speaker before answering. |
 
-### 4.4 Roll and data
+### 4.5 Roll and data
 
 - A new module, `server/scripts/provisional_profile.py`, rolls the profile. It uses the standard library only and has its own unit tests, as `scene_text.py` does.
-- The lists are data files next to `names.json`: `server/config/personality_traits.json`, `server/config/backstories.json`, and `server/config/speech_quirks.json`. A trait record holds its ID, its opposites, its kinds, and the name and the sentence of each tier.
+- The lists are data files next to `names.json`: `server/config/personality_traits.json`, `server/config/animal_personalities.json`, `server/config/backstories.json`, and `server/config/speech_quirks.json`. A trait record holds its ID, its opposites, its kinds, and the name and the sentence of each tier.
 - The roll uses `random.Random(npc_id)`. Banter and a chat can meet a new NPC at the same time, and each request writes the profile. The same seed gives the same roll, so the second write changes nothing.
 - The text is in English. The system prompt sets the reply language, so replies still follow the language setting. A bio is written in the language of the setting, as today.
 - Rejected: the lists as a part of the world template. Each template today describes Kenshi, and a template part needs the validator, the editor, the import, and the export.
@@ -157,7 +174,7 @@ The threshold is a new setting, `bio_interactions`, with a default of 5. A value
 
 Bio generation:
 
-- A new prompt, `prompt_bio_generation.txt`, takes the values of `prompt_profile_generation.txt` and two more: `{provisional}`, the provisional `Personality`, `Backstory`, and `SpeechQuirks`, and `{history}`, the dialogue lines of the NPC.
+- `prompt_profile_generation.txt` becomes the bio prompt, because no first meeting uses it any more. It keeps its values and gets two more: `{provisional}`, the provisional `Personality`, `Backstory`, and `SpeechQuirks`, and `{history}`, the dialogue lines of the NPC.
 - The prompt tells the LLM to keep the traits, to expand the backstory so that it fits the race, the faction, and the job, and to keep true everything that the NPC said in the dialogue. The reply has the JSON keys of a profile today.
 - The write holds only `Personality`, `Backstory`, and `SpeechQuirks`, and it clears `Provisional` and `Interactions`. A route that waits for the LLM must write only the keys that it changed ([architecture.md](../info/architecture.md#campaign-storage)).
 - `PROFILES_IN_PROGRESS` stops a threshold bio and a requested bio for the same NPC from running together.
@@ -172,7 +189,7 @@ Bio generation:
 - A provisional record has a Generate bio button. The route carries the campaign that the page loaded, as each edit does.
 - A save that changes `Personality`, `Backstory`, or `SpeechQuirks` clears the mark ([section 3](#3-profile-kinds)).
 - The Settings page gets a field for `bio_interactions`. Its help: "How many times you talk to a generic NPC before the LLM writes its full bio. 0 writes a bio only when you ask for one."
-- The Prompts page describes `prompt_bio_generation.txt`.
+- The Prompts page describes the new values of `prompt_profile_generation.txt`.
 
 ## 7. Example
 
@@ -185,7 +202,7 @@ SEX: Male
 JOB: Patrol
 CURRENT FACTION: The Holy Nation: …
 ORIGIN FACTION: Same as the current faction.
-PERSONALITY: They trust no one, and they treat every approach as an attack. They hold their beliefs above comfort, and they judge others by them. They take risks that make others hesitate.
+PERSONALITY: They trust no one, and they see a plot behind every kindness. They hold their beliefs above comfort, and they judge others by them. They take risks that make others hesitate.
 BACKSTORY: They once lost everything they carried to raiders on an empty road, and they have kept a weapon close ever since.
 SPEECH QUIRKS: Answers a question with a question before giving a real answer.
 ```
@@ -194,16 +211,9 @@ SPEECH QUIRKS: Answers a question with a question before giving a real answer.
 
 | Phase | Deliverable | Acceptance criteria |
 |---|---|---|
-| 1. Roll | The three data files, `provisional_profile.py`, and tests | The tests show 100 unique backstories and 100 unique quirks, three tiers with text for each trait, opposites that name each other, no gendered pronoun, and no name of an SSR Vanilla faction, race, location, or region in any text. A roll gives three traits with no opposites, only traits of its kind, and the same result for the same `npc_id`. The player reviews each text before the merge. |
-| 2. Provisional profiles | The wiring in `get_character_data`, chat listeners, and banter | A first chat with a generic NPC stores a provisional profile and makes no profile LLM call. A banter with new generic NPCs makes no profile LLM call. A unique NPC without a canon profile still gets an LLM bio. |
+| 1. Roll | The four data files, `provisional_profile.py`, and tests | The tests show 20 unique animal personalities, 100 unique backstories, and 100 unique quirks, three tiers with text for each trait, opposites that name each other, no gendered pronoun, and no name of an SSR Vanilla faction, race, location, or region in any text. A roll gives three traits with no opposites, only traits of its kind, and the same result for the same `npc_id`. The player reviews each text before the merge. |
+| 2. Provisional profiles | The wiring in `get_character_data`, chat listeners, and banter, and the removal of the LLM calls at a first meeting | A first chat with a generic NPC or with a unique NPC without a canon profile stores a provisional profile and makes no profile LLM call. A banter with new NPCs makes no profile LLM call. |
 | 3. Promotion | `Interactions`, the setting, the prompt, the background bio, and the Regenerate change | The fifth chat turn starts a bio, and the next turn holds it. A failed call keeps the profile provisional and tries again at the next turn. Regenerate promotes an NPC without dialogue. |
 | 4. Web app and docs | [Section 6](#6-web-app), and the Characters, Prompts, and Settings sections of `architecture.md` | A provisional character shows its mark and count. Generate bio promotes it. A save of its personality clears the mark. |
 
 The checks run against a temporary campaign that is seeded from SSR Vanilla, never against the live campaign of the server.
-
-## 9. Open questions
-
-1. With provisional profiles, batch generation serves only unique NPCs without a canon profile, which are rare. Should `generate_batch_profiles` and `prompt_batch_profile_generation.txt` go, so that such an NPC goes through the single generation?
-2. Should the faction or the race of an NPC weight the roll, for example Zealous more often in The Holy Nation? The faction entry in the prompt already tells the LLM what the faction values.
-3. Should animals get a provisional profile with animal traits only, as [section 4.1](#41-traits) says, or keep the LLM bio of today?
-4. Is 5 chats the right default for the threshold?
