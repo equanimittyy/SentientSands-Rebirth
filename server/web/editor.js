@@ -4,6 +4,11 @@ const page = document.getElementById("editor-page");
 const message = document.getElementById("editor-message");
 const PROFILE_KEYS = ["Name", "Race", "Sex", "Faction", "Job", "Personality", "Backstory", "SpeechQuirks"];
 const LONG_PROFILE_KEYS = ["Personality", "Backstory", "SpeechQuirks"];
+const CHOICE_KEYS = ["Race", "Sex", "Faction"];
+const CHOICE_HELP = {
+  Race: "The choices are the race entries. Unknown also stands for a race that has no entry.",
+  Faction: "The choices are the factions. Unknown also stands for a faction that has no record.",
+};
 const KIND_LABELS = { manifest: "Template info", overview: "Overview", history: "History", faction: "Faction", character: "Character" };
 const CATEGORY_LABELS = { races: "Race", locations: "Location", regions: "Region" };
 const TEMPLATE_PARTS = ["manifest", "overview", "history"];
@@ -94,7 +99,10 @@ function toData(kind, form) {
   if (kind === "faction") {
     return { ...form.extra, game_id: form.game_id.trim(), name: form.name.trim(), aliases: commaList(form.aliases), major: form.major, fields: fromRows(form.fields), description: form.description.trim() };
   }
-  if (kind === "character") return { ...form.extra, game_id: form.game_id.trim(), profile: fromRows(form.profile, PROFILE_KEYS) };
+  if (kind === "character") {
+    const profile = form.profile.map((row) => (CHOICE_KEYS.includes(row.key) ? { ...row, value: choice(row.key, row.value) } : row));
+    return { ...form.extra, game_id: form.game_id.trim(), profile: fromRows(profile, PROFILE_KEYS) };
+  }
   let access;
   try {
     access = JSON.parse(form.access.trim() || "[]");
@@ -114,6 +122,20 @@ function toData(kind, form) {
     }),
     access,
   };
+}
+
+function choices(key) {
+  if (key === "Sex") return [{ name: "Male", aliases: [] }, { name: "Female", aliases: [] }];
+  const owners = allRecords().filter((record) => (key === "Race" ? record.category === "races" : record.kind === "faction"));
+  return owners.map((record) => {
+    const form = drafts.get(record.key)?.form;
+    return { name: (form ? form.name : record.data?.name ?? "").trim(), aliases: form ? commaList(form.aliases) : record.data?.aliases ?? [] };
+  }).filter((option) => option.name);
+}
+
+function choice(key, value) {
+  const text = String(value).trim().toLowerCase();
+  return choices(key).find((option) => [option.name, ...option.aliases].some((name) => name.toLowerCase() === text))?.name ?? "Unknown";
 }
 
 const entryKey = (record) => `${record.category}/${record.id}`;
@@ -268,7 +290,9 @@ function characterForm(form, path, record) {
   const others = form.profile.filter((row) => !PROFILE_KEYS.includes(row.key));
   return [
     gameIdField(form, path, record, "The string ID of the character's template in the game data, for example 19576-Dialogue.mod. The Forgotten Construction Set (FCS) shows it."),
-    ...known.map((row) => field(row.key, control(LONG_PROFILE_KEYS.includes(row.key) ? "textarea" : "input", row, "value", [...path, "profile", row.key], { rows: 4 }))),
+    ...known.map((row) => (CHOICE_KEYS.includes(row.key)
+      ? field(row.key, choiceControl(row, [...path, "profile", row.key]), null, CHOICE_HELP[row.key])
+      : field(row.key, control(LONG_PROFILE_KEYS.includes(row.key) ? "textarea" : "input", row, "value", [...path, "profile", row.key], { rows: 4 })))),
     el("fieldset", {},
       el("legend", {}, "Other profile keys"),
       ...others.map((row) => el("div", { className: "inline row" },
@@ -277,6 +301,14 @@ function characterForm(form, path, record) {
         removeButton(form.profile, form.profile.indexOf(row), "Delete the profile key"))),
       addButton("Add profile key", () => form.profile.push({ key: "", value: "", list: false }))),
   ];
+}
+
+function choiceControl(row, path) {
+  const select = control("select", row, "value", path);
+  const names = [...new Set(choices(row.key).map((option) => option.name))].sort((a, b) => a.localeCompare(b));
+  select.append(...["Unknown", ...names].map((name) => new Option(name, name)));
+  select.value = choice(row.key, row.value);
+  return select;
 }
 
 function relationEntry(child, path, open) {

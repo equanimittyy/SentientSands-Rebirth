@@ -90,6 +90,8 @@ On Campaign Canon, **Show seeded data** starts on, and the record list hides the
 
 The Relations section of a race, location, or region lists its children, which the entry stores, and its parents, which are the entries whose children name it. Each row opens its entry. A parent row is read-only, because the relation is stored in the parent entry.
 
+The Race, Sex, and Faction of a character are choices, not free text (`choice` in `server/web/editor.js`). Race offers the race entries of the page, Faction offers its factions, and Sex offers Male and Female. A stored value selects the choice whose name or alias it matches, with case ignored. A blank value or a value that matches no choice shows as Unknown, and a save of the character writes Unknown.
+
 ## Settings
 
 The server is the only writer of `SentientSands_Config.ini`. The plugin reads the INI once at start, because it starts before the server. After that, it takes changes only through `SET_CONFIG` on the pipe. Two writers with no lock between them would undo each other's changes.
