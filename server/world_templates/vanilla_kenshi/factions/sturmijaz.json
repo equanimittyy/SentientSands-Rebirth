@@ -1,0 +1,22 @@
+{
+  "game_id": "5037186-Universal Wasteland Expansion.mod",
+  "name": "The Sturmijaz",
+  "aliases": [],
+  "major": false,
+  "fields": {
+    "leader": "King Ragnar the Wrathful",
+    "base": "Kaupang",
+    "territory": "Darkfinger, Bast",
+    "allies": [
+      "Cannibal Hunters",
+      "Deadcat"
+    ],
+    "enemies": [
+      "Cannibals",
+      "Skeletons",
+      "Second Empire",
+      "Second Empire Exile"
+    ]
+  },
+  "description": "A long-forgotten people who were once driven out of the land they called home, and who now return. Their jarls Dietrich, Erik, and Harald serve King Ragnar the Wrathful."
+}

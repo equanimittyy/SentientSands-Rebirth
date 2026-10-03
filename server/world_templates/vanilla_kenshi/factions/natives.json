@@ -1,0 +1,18 @@
+{
+  "game_id": "5009691-Universal Wasteland Expansion.mod",
+  "name": "Natives",
+  "aliases": [],
+  "major": false,
+  "fields": {
+    "leader": "Chief Idzuon",
+    "bases": [
+      "Skarbo",
+      "Natives Camp"
+    ],
+    "territory": "Okran's Valley",
+    "enemies": [
+      "Herdsmen"
+    ]
+  },
+  "description": "The native people of Okran's Valley. They fight the Herdsmen, who have already taken much of their land and want to drive them out of the rest."
+}

@@ -1,0 +1,17 @@
+{
+  "game_id": "2757468-Swamps Expanded.mod",
+  "name": "Blue Cleavers",
+  "aliases": [],
+  "major": false,
+  "fields": {
+    "leader": "Blue Cleaver Boss",
+    "base": "Blue Cleaver Hideout",
+    "territory": "The Swamp",
+    "enemies": [
+      "Swamp Ninjas",
+      "Red Sabres",
+      "Green Katanas"
+    ]
+  },
+  "description": "A gang of the Swamp that takes in many discontented recruits from the Shek lands. The Shek recruits made the gang hard, and its fighters attack in a frenzy with cleaver-like weapons."
+}

@@ -1,0 +1,15 @@
+{
+  "game_id": "1535107-Mist Ghouls.mod",
+  "name": "Mist Creatures",
+  "aliases": [],
+  "major": false,
+  "fields": {
+    "leader": "Mother of the Mist",
+    "base": "Tower of Mist",
+    "territory": "Fog Islands, Obedience",
+    "allies": [
+      "Fogmen"
+    ]
+  },
+  "description": "Mist ghouls of the Fog Islands and Obedience, hostile to everyone except the Fogmen."
+}

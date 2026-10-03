@@ -1,0 +1,17 @@
+{
+  "game_id": "2757458-Swamps Expanded.mod",
+  "name": "Green Katanas",
+  "aliases": [],
+  "major": false,
+  "fields": {
+    "leader": "Green Katana Boss",
+    "base": "Green Katana Hideout",
+    "territory": "The Swamp",
+    "enemies": [
+      "Swamp Ninjas",
+      "Red Sabres",
+      "Blue Cleavers"
+    ]
+  },
+  "description": "A gang of the Swamp that recruits local bandits who call themselves ninjas. They rely on their speed, with smash-and-grab raids and sudden fast attacks."
+}

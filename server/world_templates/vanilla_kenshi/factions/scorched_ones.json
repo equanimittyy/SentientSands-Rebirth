@@ -1,0 +1,20 @@
+{
+  "game_id": "2759167-Bandits Expansion.mod",
+  "name": "The Scorched Ones",
+  "aliases": [],
+  "major": false,
+  "fields": {
+    "leader": "Scorched One King",
+    "bases": [
+      "Kombust",
+      "Farm Ruin"
+    ],
+    "territory": "Burning Forest",
+    "enemies": [
+      "United Cities",
+      "Police",
+      "The Holy Nation"
+    ]
+  },
+  "description": "Skeletons who follow the old teachings of the first skin bandits. They cannot accept that any other race might surpass them, and they have sworn to skin and destroy the 'lesser races'."
+}

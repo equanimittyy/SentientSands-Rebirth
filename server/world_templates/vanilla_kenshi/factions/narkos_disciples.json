@@ -1,0 +1,23 @@
+{
+  "game_id": "2757337-Narko's Disciples.mod",
+  "name": "Narko's Disciples",
+  "aliases": [
+    "Narkoites"
+  ],
+  "major": false,
+  "fields": {
+    "leader": "Countess Basilisk",
+    "base": "Narko's Refuge",
+    "territory": "Iron Valleys",
+    "allies": [
+      "Skeletons",
+      "Holy Nation Outlaws",
+      "Flotsam Ninjas"
+    ],
+    "enemies": [
+      "The Holy Nation",
+      "Inhuman Hunters"
+    ]
+  },
+  "description": "Zealous followers of Narko, whose faith is old and fading. They once matched the followers of Okran in land and numbers, but infighting cost them war after war until they were almost wiped out. With the help of the Skeletons they took refuge deep in the Iron Valleys, in a city behind a barrier of acid rain, and they wait for the time to take back what they hold to be theirs."
+}

@@ -1,0 +1,17 @@
+{
+  "game_id": "1533849-Northern Bandits Expanded.mod",
+  "name": "The Bastards",
+  "aliases": [],
+  "major": false,
+  "fields": {
+    "leader": "Bastard King",
+    "base": "Bastion Overlook",
+    "territory": "Bast",
+    "enemies": [
+      "United Cities",
+      "Police",
+      "The Holy Nation"
+    ]
+  },
+  "description": "Upstart bandits who grew rich on plunder in Bast, using the power vacuum that the wars there left. They attack groups already weakened by battle and loot battlefields and storehouses, so they are as well armed as if they made their own weapons. They mean to take all of Bast for themselves."
+}

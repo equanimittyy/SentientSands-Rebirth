@@ -1,0 +1,16 @@
+{
+  "game_id": "2757483-Bele'coz.mod",
+  "name": "Bele'coz",
+  "aliases": [],
+  "major": false,
+  "fields": {
+    "leader": "Kraz the Unsane",
+    "base": "Sakar",
+    "territory": "Stenn Desert, Spider Plains",
+    "enemies": [
+      "Shek Kingdom",
+      "The Holy Nation"
+    ]
+  },
+  "description": "A sect of Shek warriors who never accepted the loss of Kral or of King Shager, and who refuse Esata's rule because she is a woman. Most of them are Dra'ak, with Shek and Kezok in their ranks. They are hostile to anyone outside the Shek peoples and let no outsider into their lands in the southern Stenn Desert."
+}

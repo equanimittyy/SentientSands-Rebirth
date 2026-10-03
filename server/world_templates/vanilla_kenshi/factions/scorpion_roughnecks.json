@@ -1,0 +1,23 @@
+{
+  "game_id": "5033966-Universal Wasteland Expansion.mod",
+  "name": "Scorpion Roughnecks",
+  "aliases": [],
+  "major": false,
+  "fields": {
+    "base": "Burrow",
+    "territory": "Gut",
+    "allies": [
+      "Crab Raiders"
+    ],
+    "enemies": [
+      "United Cities",
+      "The Dominion",
+      "Northern Nobles",
+      "Southern Nobles",
+      "Western Nobles",
+      "Skeleton Bandits",
+      "Reavers"
+    ]
+  },
+  "description": "A group of mostly Scorchlanders based at Burrow in Gut, allied with the Crab Raiders and opposed to slavery."
+}

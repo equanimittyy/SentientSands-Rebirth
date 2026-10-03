@@ -1,0 +1,18 @@
+{
+  "game_id": "2758449-Minor Factions Expansion.mod",
+  "name": "Frontier Tamers",
+  "aliases": [],
+  "major": false,
+  "fields": {
+    "bases": [
+      "Land Bat Animal Trader",
+      "Leviathan Animal Trader",
+      "Spider Animal Trader"
+    ],
+    "allies": [
+      "Tech Hunters",
+      "Machinists"
+    ]
+  },
+  "description": "A group that set out to tame the frontiers of the land. They run the animal traders that deal in land bats, leviathans, and spiders."
+}

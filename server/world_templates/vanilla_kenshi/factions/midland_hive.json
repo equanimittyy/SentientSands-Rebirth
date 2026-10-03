@@ -1,0 +1,19 @@
+{
+  "game_id": "1533842-Midland Hivers.mod",
+  "name": "Midland Hive",
+  "aliases": [],
+  "major": false,
+  "fields": {
+    "leader": "Queen of the Midlands",
+    "base": "Midland Hive",
+    "territory": "Dreg",
+    "allies": [
+      "Western Hive",
+      "Northern Hive"
+    ],
+    "enemies": [
+      "Southern Hive"
+    ]
+  },
+  "description": "A hive with its own Queen in Dreg. It was made to weaken the rising Western Hive, but it allied with the Western Hive almost at once, to the dismay of the Bugmaster and its other neighbors. Midland Hivers are skilled at stealth and at robbing caravans, and their villages form a buffer between the Western Hive and the Fogmen."
+}

@@ -1,0 +1,20 @@
+{
+  "game_id": "5007591-Holy Order of Chitrin.mod",
+  "name": "The Order of Chitrin",
+  "aliases": [
+    "Chitrinites"
+  ],
+  "major": true,
+  "fields": {
+    "leader": "Grand Marshall Krug",
+    "base": "Ancient Tech Lab",
+    "territory": "Shun, then the lands of its crusade",
+    "enemies": [
+      "The Holy Nation",
+      "Narko's Disciples",
+      "Inhuman Hunters",
+      "The Dominion"
+    ]
+  },
+  "description": "Crusading armies of the god Chitrin, who were driven off the land in the past. They hold that Chitrin did not split into Okran and Narko to save the land, but that Okran and Narko betrayed him and cast him adrift. They claim every land of the followers of Okran and Narko and mean to take it by force, starting from Shun. Marshal Karl, Marshal Martin, and Seneschal Rodrick are among their leaders."
+}

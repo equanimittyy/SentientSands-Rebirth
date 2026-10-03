@@ -1,0 +1,22 @@
+{
+  "game_id": "2757432-Dune Rebels.mod",
+  "name": "Dune Renegades",
+  "aliases": [],
+  "major": false,
+  "fields": {
+    "leader": "Jeremiah the Entrenched",
+    "base": "Shraff",
+    "territory": "The Great Desert, Sinkuun, Spine Canyon",
+    "allies": [
+      "Rebel Farmers",
+      "Empire Peasants",
+      "Hook Raiders"
+    ],
+    "enemies": [
+      "United Cities",
+      "Traders Guild",
+      "Slave Traders"
+    ]
+  },
+  "description": "Farmers, laborers, and other common people who took up arms against the United Cities, which treated them badly. They want to bring down the Empire and replace it with a meritocracy, where skill counts for more than a rich father. They rob trade caravans and travelers, and the Empire's corruption keeps it from crushing them."
+}

@@ -1,0 +1,19 @@
+{
+  "game_id": "1531903-Northern Hivers.mod",
+  "name": "Northern Hive",
+  "aliases": [],
+  "major": false,
+  "fields": {
+    "leader": "Queen of the North",
+    "base": "Northern Hive",
+    "territory": "Northern Coast, Sinkuun",
+    "allies": [
+      "Western Hive",
+      "Midland Hive"
+    ],
+    "enemies": [
+      "Southern Hive"
+    ]
+  },
+  "description": "A hive with its own Queen, made to weaken the rising Western Hive. Northern Hivers despise every race except Hivers and let no non-Hiver into their lands. They are more aggressive than other Hivers, closest in temper to the Southern Hive, which is their sworn enemy. They colonized the empty stretches of the Northern Coast."
+}

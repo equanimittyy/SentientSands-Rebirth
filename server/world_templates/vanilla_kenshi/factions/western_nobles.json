@@ -1,0 +1,28 @@
+{
+  "game_id": "11-UC Warring Factions.mod",
+  "name": "Western Nobles",
+  "aliases": [],
+  "major": true,
+  "fields": {
+    "nobles": [
+      "Lord Yoshinaga",
+      "Lord Inaba",
+      "Lady Tsugi"
+    ],
+    "bases": [
+      "Heng",
+      "Stoat",
+      "Brink"
+    ],
+    "territory": "Heng, the western Great Desert",
+    "enemies": [
+      "Northern Nobles",
+      "Southern Nobles",
+      "The Holy Nation",
+      "Dune Renegades",
+      "Hook Raiders",
+      "The Dominion"
+    ]
+  },
+  "description": "Nobles of the United Cities in Heng and the western Great Desert who reach for the throne after the death of the Emperor. They hold Heng, the financial capital of the Empire, and have far more money than their rivals, but enemies press them on every side."
+}

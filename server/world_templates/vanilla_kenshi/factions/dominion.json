@@ -1,0 +1,30 @@
+{
+  "game_id": "5034100-Universal Wasteland Expansion.mod",
+  "name": "The Dominion",
+  "aliases": [
+    "The Shogunate"
+  ],
+  "major": true,
+  "fields": {
+    "leader": "Shogun Kazuhiro",
+    "base": "Yakusokutsu",
+    "territory": "Toi Shima, Heng, The Great Desert",
+    "allies": [
+      "Traders Guild",
+      "Slave Traders",
+      "Police"
+    ],
+    "enemies": [
+      "United Cities",
+      "Northern Nobles",
+      "Southern Nobles",
+      "Western Nobles",
+      "Dune Renegades",
+      "Hook Raiders",
+      "Crab Raiders",
+      "Scorpion Roughnecks",
+      "The Order of Chitrin"
+    ]
+  },
+  "description": "A distant trading partner of the United Cities that was long away from the land. It dealt in slaves and gave the United Cities food and goods in return. It is said to have laid the ground for the Empire's beliefs on slavery and inequality, and it is all that the Empire wanted to be. If its supply of slaves is cut, it takes harsh revenge to get what it is owed. It is ruled by a shogun, with daimyos over its cities."
+}

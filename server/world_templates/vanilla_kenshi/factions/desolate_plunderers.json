@@ -1,0 +1,16 @@
+{
+  "game_id": "2758392-Bandits Expansion.mod",
+  "name": "Desolate Plunderers",
+  "aliases": [],
+  "major": false,
+  "fields": {
+    "leader": "Desolate Plunderer King",
+    "base": "Fort Desolation",
+    "territory": "Shun",
+    "enemies": [
+      "United Cities",
+      "Police"
+    ]
+  },
+  "description": "Bandits who settled in Shun, where few others go. They have the local ruins almost to themselves and strip them of anything of value."
+}

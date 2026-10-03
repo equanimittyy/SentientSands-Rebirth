@@ -1,0 +1,20 @@
+{
+  "game_id": "5039631-Universal Wasteland Expansion.mod",
+  "name": "Third Empire",
+  "aliases": [
+    "The Third Empire"
+  ],
+  "major": false,
+  "fields": {
+    "leader": "Mad Cat-Lon",
+    "base": "Cat-Lon's Exile",
+    "territory": "Ashlands, Sonorous Dark, Greyshelf",
+    "allies": [
+      "Second Empire",
+      "Skeleton Legion",
+      "Skeleton Bandits",
+      "The Scorched Ones"
+    ]
+  },
+  "description": "An army led by a madman, held back for hundreds of years and eager for war to swell its numbers. It wants to conquer and enslave the whole land, and it carries on much of the Second Empire."
+}

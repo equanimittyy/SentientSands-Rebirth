@@ -1,0 +1,18 @@
+{
+  "game_id": "5009692-Universal Wasteland Expansion.mod",
+  "name": "Herdsmen",
+  "aliases": [],
+  "major": false,
+  "fields": {
+    "leader": "Commodore Thomas",
+    "bases": [
+      "Buck",
+      "Herdsmen Camp"
+    ],
+    "territory": "Okran's Valley",
+    "enemies": [
+      "Natives"
+    ]
+  },
+  "description": "Cattle herders of Okran's Valley who want more grazing land. They fight the Natives for the valley and resent that the Holy Nation will not help them drive the Natives out."
+}

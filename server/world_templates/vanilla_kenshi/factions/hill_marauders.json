@@ -1,0 +1,16 @@
+{
+  "game_id": "2757329-Hill Bandits.mod",
+  "name": "Hill Marauders",
+  "aliases": [],
+  "major": false,
+  "fields": {
+    "leader": "Hill Marauder King",
+    "base": "Hill Marauder King Tower",
+    "territory": "Border Zone",
+    "enemies": [
+      "United Cities",
+      "Police"
+    ]
+  },
+  "description": "Bandits of the Border Zone. They demand a fee from anyone they find on their land and leave in peace only when it is paid."
+}

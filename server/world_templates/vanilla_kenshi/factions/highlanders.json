@@ -1,0 +1,21 @@
+{
+  "game_id": "1531900-Highlanders.mod",
+  "name": "Highlanders",
+  "aliases": [],
+  "major": false,
+  "fields": {
+    "bases": [
+      "Craggy Pass",
+      "Edgecrest",
+      "Scramond",
+      "Summit",
+      "Highlanders Prison Camp"
+    ],
+    "territory": "Border Zone, Okran's Pride, Okran's Gulf, Arm of Okran, Wend, Skinner's Roam, Stenn Desert",
+    "allies": [
+      "Police",
+      "Mercenary Police"
+    ]
+  },
+  "description": "A band of bounty hunters founded to bring justice to lawless lands. They soon found that human trafficking pays better, and they became slave traders without scruples. They buy any captive as a slave. Jason the Marshal, Dexter the Lawman, Mitch the Constable, and Shane the Deputy are among their officers, and James the Warden runs their prison camp."
+}

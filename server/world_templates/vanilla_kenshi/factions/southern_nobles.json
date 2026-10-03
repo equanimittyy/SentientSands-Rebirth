@@ -1,0 +1,26 @@
+{
+  "game_id": "12-UC Warring Factions.mod",
+  "name": "Southern Nobles",
+  "aliases": [],
+  "major": true,
+  "fields": {
+    "nobles": [
+      "Lady Merin",
+      "Lord Daichi"
+    ],
+    "bases": [
+      "Drifter's Last",
+      "Clownsteady"
+    ],
+    "territory": "The Hook",
+    "enemies": [
+      "Northern Nobles",
+      "Western Nobles",
+      "The Holy Nation",
+      "Dune Renegades",
+      "Hook Raiders",
+      "The Dominion"
+    ]
+  },
+  "description": "Nobles of the United Cities in the Hook who reach for the throne after the death of the Emperor. The war is far from their cities, so they fight it with mercenaries, proxies, and desperate fighters."
+}

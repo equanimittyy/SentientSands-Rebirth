@@ -1,0 +1,22 @@
+{
+  "game_id": "2757451-Hook Rebels.mod",
+  "name": "Hook Raiders",
+  "aliases": [],
+  "major": false,
+  "fields": {
+    "leader": "Hooch the Bootlegger",
+    "base": "Kopek",
+    "territory": "The Hook, Shun",
+    "allies": [
+      "Rebel Farmers",
+      "Empire Peasants",
+      "Dune Renegades"
+    ],
+    "enemies": [
+      "United Cities",
+      "Traders Guild",
+      "Slave Traders"
+    ]
+  },
+  "description": "A group founded to harass the United Cities. They call themselves pirates and strike fast from boats, and with little competition nearby they raid freely across the Hook."
+}

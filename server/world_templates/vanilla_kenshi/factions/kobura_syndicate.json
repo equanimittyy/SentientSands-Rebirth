@@ -1,0 +1,11 @@
+{
+  "game_id": "2760605-Minor Factions Expansion.mod",
+  "name": "Kobura Syndicate",
+  "aliases": [],
+  "major": false,
+  "fields": {
+    "leader": "Kobura King",
+    "base": "Kobura Dojo"
+  },
+  "description": "A group based at the Kobura Dojo and led by the Kobura King."
+}

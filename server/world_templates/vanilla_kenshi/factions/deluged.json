@@ -1,0 +1,18 @@
+{
+  "game_id": "1533851-Northern Bandits Expanded.mod",
+  "name": "The Deluged",
+  "aliases": [],
+  "major": false,
+  "fields": {
+    "leader": "Deluged King",
+    "base": "Flooded Oasis",
+    "territory": "Floodlands",
+    "enemies": [
+      "United Cities",
+      "Police",
+      "Cannibals",
+      "The Holy Nation"
+    ]
+  },
+  "description": "Bandits of the Floodlands. The Tech Hunters and the Holy Nation set up their fort together as a defense against cannibal raids, but the isolated men killed their loyal leaders and turned to banditry. Both founders ignore them, and cannibal raids into Holy Nation and Tech Hunter lands are now rare."
+}

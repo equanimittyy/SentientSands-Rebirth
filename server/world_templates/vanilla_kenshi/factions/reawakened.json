@@ -1,0 +1,16 @@
+{
+  "game_id": "5039229-Universal Wasteland Expansion.mod",
+  "name": "The Reawakened",
+  "aliases": [],
+  "major": false,
+  "fields": {
+    "territory": "Ashlands, Sonorous Dark, Greyshelf",
+    "allies": [
+      "Second Empire",
+      "Skeleton Legion",
+      "Skeleton Bandits",
+      "The Scorched Ones"
+    ]
+  },
+  "description": "The surviving officials of the Second Empire, who form an army after Cat-Lon's death and rebuild their thrall armies. They want back the lands they once ruled, and with no common enemy they strike in every direction to make their rule legitimate."
+}

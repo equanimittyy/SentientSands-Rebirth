@@ -1,0 +1,16 @@
+{
+  "game_id": "2757403-Swamp Bandits.mod",
+  "name": "Swamp Ruffians",
+  "aliases": [],
+  "major": false,
+  "fields": {
+    "leader": "Swamp Ruffian King",
+    "base": "Swamp Ruffian King Tower",
+    "territory": "The Swamp, South Wetlands",
+    "enemies": [
+      "United Cities",
+      "Police"
+    ]
+  },
+  "description": "Outcast bandits of the Swamp and the South Wetlands. They compete with many other gangs for travelers and unguarded shops, and they take a share of the drug trade."
+}

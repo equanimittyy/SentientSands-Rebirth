@@ -1,0 +1,20 @@
+{
+  "game_id": "2757484-Shek Hunters.mod",
+  "name": "Inhuman Hunters",
+  "aliases": [
+    "Hiningenteki Hantas"
+  ],
+  "major": false,
+  "fields": {
+    "leader": "Yoshinga the Slayer",
+    "base": "Ashigakari",
+    "territory": "Border Zone, Stenn Desert, Vain",
+    "enemies": [
+      "Shek Kingdom",
+      "Western Hive",
+      "Skeletons",
+      "Narko's Disciples"
+    ]
+  },
+  "description": "Extremists who broke away from the Holy Nation in a schism and were driven out of its lands, so they took the fight to the horned ones. Unlike the Holy Nation, they deny that labor can turn a non-human into a human; to them the only salvation for a non-human is death by the blade."
+}
