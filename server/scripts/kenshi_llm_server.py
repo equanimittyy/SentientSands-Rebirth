@@ -44,6 +44,7 @@ from browser_launch import PanelTabs, open_when_ready
 import llm_config
 import llm_router
 import chat_prompt
+import scene_text
 import campaign_db
 import prompt_store
 import world_template
@@ -478,17 +479,6 @@ def generate_relation_bar(rel):
 
 
 
-# Keys are Kenshi's memory-tag enum values
-SHORT_TERM_MEM = {
-    1: "INTRUDER", 2: "AGGRESSOR", 3: "TEMPORARY_ALLY", 4: "TEMPORARY_ENEMY",
-    5: "PRISONER", 6: "HAS_BEEN_LOOTED", 7: "CRIMINAL"
-}
-LONG_TERM_MEM = {
-    1: "MY_INTRUDER", 2: "MY_LIFESAVER", 3: "FREED_ME", 4: "STOLE_FROM_ME",
-    5: "MY_CAPTOR", 6: "FRIENDLY_AQUAINTANCE", 7: "DEFEATED_MY_SQUAD_ONCE",
-    8: "SQUAD_LOST_TO_ME_ONCE", 14: "KILLED_MY_FRIEND", 15: "I_SCREWED_THIS_GUY"
-}
-
 def context_dict(context):
     if isinstance(context, dict):
         return context
@@ -502,168 +492,25 @@ def context_dict(context):
 # The game reports a skeleton as male. The prefixes cover the skeleton races of vanilla Kenshi and UWE.
 SKELETON_RACE_PREFIXES = ("skeleton", "p2 unit", "p4 unit", "screamer", "soldierbot")
 
+def is_skeleton(race):
+    return str(race).strip().lower().startswith(SKELETON_RACE_PREFIXES)
+
 def reported_sex(race, gender):
-    return "Other" if str(race).strip().lower().startswith(SKELETON_RACE_PREFIXES) else gender
+    return "Other" if is_skeleton(race) else gender
 
-def build_detailed_context_string(npc_name, npc_id, char_data=None):
-    ctx = LIVE_CONTEXTS.get(npc_id)
-    
-    if not ctx:
-        if not char_data:
-            return ""
-        ctx = char_data
-    
-    lines = [f"CURRENT CONDITION of {npc_name}:"]
-
-    char_state = ctx.get("character_state", "normal")
-    state_labels = {
-        "imprisoned":     f"CRITICAL: {npc_name} is currently IMPRISONED. They are locked up and cannot move freely. They should speak with desperation, resignation, or defiance.",
-        "enslaved":       f"CRITICAL: {npc_name} is ENSLAVED and wearing shackles. They are bound to a master. They should speak with fear, exhaustion, or suppressed rage.",
-        "escaped-slave":  f"CRITICAL: {npc_name} is an ESCAPED SLAVE — no longer chained but hunted. They should be paranoid, guarded, and desperate.",
-        "unconscious":    f"CRITICAL: {npc_name} is UNCONSCIOUS and cannot speak.",
-        "dead":           f"CRITICAL: {npc_name} is DEAD.",
-    }
-    if char_state in state_labels:
-        lines.append(state_labels[char_state])
-
-    faction = ctx.get("faction") or ctx.get("Faction", "Unknown")
-    job = ctx.get("job") or ctx.get("Job", "None")
-    money = ctx.get("money") or 0
-    relation = ctx.get("relation")
-
-    lines.append(f"- FACTION: {faction}")
-    
-    is_trader = ctx.get("is_trader", False)
-    in_shop = ctx.get("in_shop", False)
-    building_name = ctx.get("building_name", "Unknown")
-    
-    if is_trader or in_shop or "shopkeeper" in job.lower():
-        shop_note = f"ROLE: {npc_name} is a SHOPKEEPER/TRADER."
-        if in_shop:
-            shop_note += f" They are currently IN THEIR SHOP ({building_name})."
-        lines.append(shop_note)
-    
-    if ctx.get("is_leader", False):
-        lines.append(f"ROLE: {npc_name} is the LEADER of their faction. They speak with authority and make final decisions for their group.")
-
-    lines.append(f"- CURRENT GOAL/JOB: {job}")
-    if relation is not None:
-        lines.append(f"- FACTION RELATION TO PLAYER: {relation} (Stance: {'ALLIED' if relation >= 50 else 'FRIENDLY' if relation > 0 else 'NEUTRAL' if relation == 0 else 'HOSTILE' if relation <= -30 else 'UNFRIENDLY'})")
-    lines.append(f"- MONEY: {money} cats")
-
-    player_faction = PLAYER_CONTEXT.get('faction', 'Nameless')
+def npc_scene(npc_id, profile, player_name):
+    context = LIVE_CONTEXTS.get(npc_id) or profile
+    faction = context.get("faction") or context.get("Faction", "Unknown")
+    player_faction = PLAYER_CONTEXT.get("faction", "Nameless")
     player_faction_id = PLAYER_CONTEXT.get("factionID")
-    if faction == player_faction or (player_faction_id and ctx.get("factionID") == player_faction_id):
-        lines.append(f"CRITICAL CONTEXT: {npc_name} is a member of the PLAYER'S FACTION ({player_faction}).")
-        lines.append(f"THE PLAYER IS THE LEADER of this group. {npc_name} understand that they and the player are cooperating, this can take many forms such as direct leadership, partnership, or even just individuals traveling together.")
-    elif (campaign_db.find_faction(ctx.get("factionID"), faction) or {}).get("major"):
-        lines.append(f"LOYALTY NOTE: {npc_name} belongs to {faction}, a major world power. They are deeply rooted in their society. They will NOT desert their faction to join the player's minor squad without an EXTREMELY compelling narrative reason, high reputation, or having their life saved multiple times. Be highly resistant to recruitment.")
-    med = ctx.get("medical", {})
-    if med:
-        blood = med.get("blood", 100)
-        hunger = med.get("hunger", 300)
-        limbs = med.get("limbs", {})
-        
-        status_parts = []
-        
-        if hunger < 100: status_parts.append("STARVING")
-        elif hunger < 250: status_parts.append("HUNGRY")
-        else: status_parts.append("WELL FED") 
-        
-        max_blood = med.get("max_blood", 100)
-        blood_pct = blood / max_blood if max_blood > 0 else 1.0
-        blood_rate = med.get("blood_rate", 0.0)
-        
-        if blood_rate > 0.01:
-            status_parts.append("BLEEDING")
-        elif blood_pct < 0.5:
-            status_parts.append("WEAK FROM BLOODLOSS")
-        elif blood_pct < 0.85:
-            status_parts.append("INJURED")
-            
-        if med.get("is_unconscious"): status_parts.append("UNCONSCIOUS")
-        
-        lines.append(f"- CONDITION: {', '.join(status_parts) if status_parts else 'Healthy'}")
-        
-        injuries = []
-        base_limbs = [l for l in limbs.keys() if not l.endswith("_max")]
-        for limb in base_limbs:
-            hp = limbs.get(limb, 100)
-            hp_max = limbs.get(f"{limb}_max", 100)
-            hp_pct = hp / hp_max if hp_max > 0 else 1.0
-            
-            if hp <= -hp_max: 
-                injuries.append(f"{limb.upper()} GONE/SEVERED")
-            elif hp < 0: 
-                injuries.append(f"{limb.upper()} IS CRIPPLED")
-            elif hp_pct < 0.5: 
-                injuries.append(f"{limb.upper()} IS INJURED")
-            
-        if injuries: 
-            lines.append(f"- INJURIES: {', '.join(injuries)}")
-        else:
-            lines.append("- INJURIES: None")
-    
-    env = ctx.get("environment", {})
-    if env:
-        loc = []
-        if env.get("indoors"): loc.append("Indoors")
-        if env.get("in_town"): loc.append(f"In town ({env.get('town_name', 'Unknown')})")
-        if loc: lines.append(f"- LOCATION: {', '.join(loc)}")
-
-    stats = ctx.get("stats", {})
-    if stats:
-        lines.append(f"VISIBLE POWER of {npc_name}:")
-        core = [f"{k[:3].upper()}: {int(float(stats.get(k, 0)))}" for k in ["strength", "dexterity", "toughness", "perception"]]
-        lines.append(f"- ATTRIBUTES: {' | '.join(core)}")
-        
-        notable = []
-        combat_skills = ["melee_attack", "melee_defence", "dodge", "katanas", "sabres", "hackers", "heavy_weapons", "blunt", "polearms", "martial_arts", "crossbows", "turrets", "stealth", "athletics"]
-        for s in combat_skills:
-            val = int(float(stats.get(s, 0)))
-            if val > 15:
-                notable.append(f"{s.replace('_', ' ').capitalize()}: {val}")
-        if notable:
-            lines.append(f"- NOTABLE SKILLS: {', '.join(notable)}")
-
-    mem = ctx.get("memories", {})
-    st = [SHORT_TERM_MEM.get(m, str(m)) for m in mem.get("short_term", [])]
-    lt = [LONG_TERM_MEM.get(m, str(m)) for m in mem.get("long_term", [])]
-    
-    if st or lt:
-        lines.append(f"PERCEPTION OF PLAYER:")
-        if st: lines.append(f"- SHORT TERM: {', '.join(st)}")
-        if lt: lines.append(f"- HISTORY TAGS: {', '.join(lt)}")
-        
-    worn = [item for item in ctx.get("inventory", []) if item.get("equipped")]
-    if worn:
-        lines.append(f"EQUIPMENT WORN by {npc_name}:")
-        for item in worn:
-            lines.append(f"- {item['name']} (x{item.get('count', 1)}) [{item['slot'].upper()}]")
-
-    nearby = ctx.get("nearby", [])
-    if nearby:
-        lines.append(f"PEOPLE NEARBY (Visual Awareness):")
-        for p in nearby:
-            dist = float(p.get("dist", 0))
-            dist_str = "Immediate proximity" if dist < 2.5 else f"{int(dist)}m away"
-            p_name = p.get("name", "Someone")
-            p_race = p.get("race", "Unknown")
-            p_gender = reported_sex(p_race, p.get("gender", "Unknown"))
-            p_fact = p.get("faction", "Unknown")
-            p_fact_display = p_fact
-            if p_fact == "Nameless" or p_fact == PLAYER_CONTEXT.get('faction', 'Nameless'):
-                p_fact_display = f"Player's Squad: {p_fact}"
-            
-            p_health = p.get("health", "Healthy")
-            p_equip = p.get("equipment", "")
-            
-            p_desc = f"- {p_name} ({p_gender} {p_race}, {p_fact_display}) | Health: {p_health} | {dist_str}"
-            if p_equip:
-                p_desc += f" | Visible Gear: {p_equip}"
-            lines.append(p_desc)
-
-    return "\n".join(lines)
+    in_player_faction = faction == player_faction or bool(player_faction_id and context.get("factionID") == player_faction_id)
+    major = not in_player_faction and bool((campaign_db.find_faction(context.get("factionID"), faction) or {}).get("major"))
+    people = [{**other, "gender": reported_sex(other.get("race", ""), other.get("gender", "Unknown"))} for other in context.get("nearby", [])]
+    return {
+        "npc": scene_text.npc_text(context, profile, player_name, player_faction, met=bool(profile.get("ConversationHistory")),
+                                   major=major, in_player_faction=in_player_faction, feels_hunger=not is_skeleton(profile.get("Race", ""))),
+        "nearby": scene_text.nearby_text(people, player_name, player_faction),
+    }
 
 # SetHotkeyFromString in the plugin parses only these keys
 CHAT_HOTKEYS = ["\\", "[", "P", "T", "J", "U", "K"]
@@ -801,43 +648,6 @@ def fill_prompt(filename, **values):
         logging.warning(f"PROMPT: {filename} has placeholders that nothing fills, so they stay as text: {', '.join(sorted(unknown))}")
     return prompt_store.render(template, values)
 
-def format_player_status(player_ctx, player_name):
-    if not player_ctx: return "No status data."
-    race = player_ctx.get('race', 'Unknown')
-    race_entry = find_race(race)
-    res = f"PLAYER STATUS ({player_name}):\n"
-    res += f"- Race: {describe_record(race_entry) if race_entry else race}\n"
-    res += f"- Gender: {reported_sex(race, player_ctx.get('gender', 'male'))}\n"
-    med =player_ctx.get("medical", {})
-    if med:
-        hunger = med.get("hunger", 300)
-        blood = med.get("blood", 100)
-        max_blood = med.get("max_blood", 100)
-        blood_pct = blood / max_blood if max_blood > 0 else 1.0
-        blood_rate = med.get("blood_rate", 0.0)
-        status = []
-        if hunger < 80: status.append("STARVING")
-        elif hunger < 200: status.append("VERY HUNGRY")
-        elif hunger < 250: status.append("HUNGRY")
-        
-        if blood_rate > 0.01: 
-            status.append("BLEEDING")
-        elif blood_pct < 0.5: 
-            status.append("CRITICAL BLOODLOSS")
-        elif blood_pct < 0.85: 
-            status.append("INJURED")
-            
-        res += f"- Condition: {', '.join(status) if status else 'Healthy/Fed'}\n"
-    res += f"- Money: {player_ctx.get('money', 0)} cats\n"
-    player_faction = campaign_db.player_faction()
-    description = player_faction["description"].strip() if player_faction else ""
-    res += f"- Faction: {player_ctx.get('faction', 'Nameless')}{f': {description}' if description else ''}\n"
-    return res
-
-def format_player_equipment(player_ctx):
-    worn = [f"- {item.get('name', 'Unknown Item')} [{item.get('slot', 'none').upper()}]" for item in player_ctx.get("inventory", []) if item.get("equipped")]
-    return "PLAYER EQUIPMENT (Worn/Held):\n" + ("\n".join(worn) if worn else "- Nothing visible.")
-
 def describe_npc(name, profile, npc_id):
     race = profile.get("Race", "Unknown")
     current_faction = describe_faction(profile.get("Faction"), LIVE_CONTEXTS.get(npc_id, {}).get("factionID"))
@@ -872,33 +682,22 @@ def build_system_prompt():
     )
     return prompt.strip()
 
-def scene_values(player, player_name):
-    """The prompt values that change from one call to the next, which a prompt places after its cached start."""
+def scene_values(player, player_name, facing=True):
+    """facing is False for banter, which has no NPC in front of the player."""
     rumors = [line for _, line in campaign_db.rumors() if line.startswith("- [")][-PROMPT_RUMORS:]
-    events_block = ""
-    if rumors:
-        events_block = "RUMORS (Hearsay):\n"
-        events_block += "The following rumors circulate in the wasteland. Do NOT prioritize these over your core identity or immediate situation. Mention them only if relevant to the conversation.\n"
-        events_block += "\n".join(rumors)
-
-    location_tag = "The Wasteland"
-    if player:
-        env = player.get("environment", {})
-        if isinstance(env, dict):
-            town = env.get("town_name", "")
-            biome = env.get("biome", "")
-            if town and biome:
-                location_tag = f"{town} (within {biome})"
-            elif town:
-                location_tag = town
-            elif biome:
-                location_tag = biome
-
+    race = player.get("race", "Unknown")
+    race_entry = find_race(race)
+    player_faction = campaign_db.player_faction()
     return {
-        "location": location_tag,
-        "events": events_block,
-        "player_status": format_player_status(player, player_name),
-        "player_equipment": format_player_equipment(player),
+        "location": scene_text.location_text(player.get("environment") or {}),
+        "rumors": scene_text.rumors_text(rumors, PLAYER_CONTEXT.get("day")),
+        "player": scene_text.player_text(
+            player_name, facing, race, reported_sex(race, player.get("gender", "Unknown")),
+            race_entry.get("description", "") if race_entry else "",
+            player.get("medical") or {}, not is_skeleton(race),
+            player.get("faction", "Nameless"), player_faction["description"].strip() if player_faction else "",
+            player.get("inventory") or [],
+        ),
     }
 
 
@@ -1482,16 +1281,15 @@ def ambient_event():
         history_block = "\nRECENT LOCAL DIALOGUE (DO NOT REPEAT TOPICS OR JOKES FROM HERE):\n" + "\n".join(unique_history)
 
     dynamic_system_prompt = build_system_prompt()
-    scene = scene_values(PLAYER_CONTEXT, player_name)
+    scene = scene_values(PLAYER_CONTEXT, player_name, facing=False)
 
     ambient_system_prompt = f"""{dynamic_system_prompt}
 
-CURRENT LOCATION: {scene['location']}
+{scene['location']}
 
-{scene['events']}
+{scene['rumors']}
 
-{scene['player_status']}
-{scene['player_equipment']}
+{scene['player']}
 
 [RADIANT DIALOGUE SYSTEM - BANTER MODE]
 You are generating a short, atmospheric back-and-forth conversation (banter) between NPCs in Kenshi.
@@ -1862,9 +1660,7 @@ def chat():
         scene = fill_prompt(
             "prompt_chat_scene.txt",
             **scene_values(speaker or PLAYER_CONTEXT, player_name),
-            npc_name=primary_npc,
-            relation=primary_data.get("Relation", 0),
-            condition=build_detailed_context_string(primary_npc, npc_ids.get(primary_npc), char_data=primary_data),
+            **npc_scene(npc_ids.get(primary_npc), primary_data, player_name),
         )
         CONVERSATION_SCENE.clear()
         CONVERSATION_SCENE[conversation] = scene

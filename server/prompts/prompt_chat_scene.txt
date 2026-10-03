@@ -1,10 +1,10 @@
 [SCENE]
-CURRENT LOCATION: {location}
+{location}
 
-{events}
+{rumors}
 
-{player_status}
-{player_equipment}
+{player}
 
-RELATION OF {npc_name} TO THE PLAYER: {relation} (Scale: -100 to 100)
-{condition}
+{npc}
+
+{nearby}
