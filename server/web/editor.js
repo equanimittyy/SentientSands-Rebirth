@@ -125,7 +125,7 @@ function toData(kind, form) {
 }
 
 function choices(key) {
-  if (key === "Sex") return [{ name: "Male", aliases: [] }, { name: "Female", aliases: [] }];
+  if (key === "Sex") return ["Male", "Female", "Other"].map((name) => ({ name, aliases: [] }));
   const owners = allRecords().filter((record) => (key === "Race" ? record.category === "races" : record.kind === "faction"));
   return owners.map((record) => {
     const form = drafts.get(record.key)?.form;
