@@ -16,7 +16,7 @@ Sentient Sands Rebirth has three parts: a C++ plugin that runs inside Kenshi, a 
 | `server/web/` | The web app: plain HTML, CSS, JavaScript, fonts, and images, which the server serves at `http://127.0.0.1:5000/`. |
 | `server/tests/` | Unit tests that run with the standard library only. See [development.md](development.md#tests). |
 | `server/config/` | The default providers and models that seed the LLM configuration, and the name and localization JSON. |
-| `server/prompts/` | The system prompts, and the default player profile of a new campaign. |
+| `server/prompts/` | The system prompts. |
 | `server/world_templates/` | The shipped world templates. See [World templates](#world-templates). |
 | `mod/` | The files at the root of the installed mod folder: `mod.info`, `SentientSandsRebirth.mod`, and `RE_Kenshi.json`. A server that runs from the repo also writes its `SentientSands_Config.ini` here, which git ignores. |
 | `scripts/` | Release tooling. See [development.md](development.md#release). |

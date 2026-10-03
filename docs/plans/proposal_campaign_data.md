@@ -1,4 +1,4 @@
-# Proposal: Campaign Data: Lore Retrieval, Faction Check, and Dialogue Pages
+# Proposal: Campaign Data: Lore Retrieval, Faction Check, and Campaign Dialogue
 
 Status: Draft for review
 
@@ -10,7 +10,7 @@ The campaign database, the world templates, the character store keyed by game ID
 |---|---|
 | Lore retrieval ([section 2](#2-lore-data-model), [section 3](#3-retrieval)) | The chat prompt gets the world lore entries that the player's message names. Today no prompt reads the history, the locations, or the regions. |
 | Faction check ([section 4](#4-faction-of-an-npc)) | The prompt follows an NPC that changes faction in game. |
-| Dialogue pages ([section 5](#5-dialogue-on-the-web-app)) | The web app shows the dialogue history and the favorite of each character. |
+| Campaign Dialogue ([section 5](#5-campaign-dialogue)) | The Editor of the web app shows the dialogue history and the favorite of each character. |
 
 Non-goals:
 
@@ -122,9 +122,12 @@ The profile `Faction` is the faction that SSR tells the LLM. Today the server wr
 - The server checks the faction of an NPC only when a chat or ambient banter uses the NPC. It compares the profile `Faction` with the faction in the context of that request, and it writes the profile only when the two are different.
 - The server does not check on each context post. The plugin posts the context of the selected character every 1.5 s (`plugin/main.cpp:1246`), so a check there would run all the time, also for an NPC that no prompt uses.
 
-## 5. Dialogue on the web app
+## 5. Campaign Dialogue
 
-The web app shows the dialogue history of each character of the active campaign, NPCs and player characters alike, and sets its favorite, as the Dialogue Library does in game. Campaign Canon already edits the profile of each character.
+A Campaign Dialogue subtab of the Editor shows the dialogue of the active campaign, as the Dialogue Library does in game. Both views stay, so the player can read the dialogue in the game or in the browser. Campaign Canon already edits the profile of each character.
+
+- The subtab lists the same characters as the Dialogue Library ([architecture.md](../info/architecture.md#characters)), NPCs and player characters alike. The player searches the list by name.
+- The subtab shows the dialogue history of the selected character and sets its favorite.
 
 ## 6. Phases and verification
 
@@ -132,7 +135,7 @@ The web app shows the dialogue history of each character of the active campaign,
 |---|---|---|
 | 1. Retrieval | The lore data model; `knowledge_retrieve.py`; the prompt wiring; the INI limits; tests | For each player message in a fixed list, retrieval on SSR Vanilla returns the expected entities in the expected order; chat prompts include the retrieved entities; an entity edit on Campaign Canon appears in the next prompt that retrieves it; a search finds a renamed entity; a query on the full SSR Vanilla template stays under the 500 ms `timeout_ms` default |
 | 2. Faction check | The check of [section 4](#4-faction-of-an-npc); tests | A recruit's next chat prompt names its new faction; a context post alone writes no profile |
-| 3. Dialogue pages | The pages of [section 5](#5-dialogue-on-the-web-app) | The web app shows the same history as the Dialogue Library; a favorite set on one shows on the other |
+| 3. Campaign Dialogue | The subtab of [section 5](#5-campaign-dialogue) | The subtab lists the same characters and shows the same history as the Dialogue Library; a favorite set in one shows in the other |
 
 The phases do not depend on each other.
 
