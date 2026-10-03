@@ -26,10 +26,11 @@ Non-goals:
 | Character | ID | Source |
 |---|---|---|
 | A unique NPC, for example Beep | `u:<stringID>` | `npc->data->stringID`, the ID of the character's template in the game data |
-| Every other character, the player's squad included | `h:<handle>` | `npc->getHandle().toString()` |
+| Every other character, the player's squad included | `h:<serial>` | `npc->getHandle().serial` |
 
 - A unique NPC has the same ID in every save and every campaign. A canon character of a world template therefore binds to the game character by ID, not by name ([section 7](#7-world-templates)).
-- Many generic NPCs share one template, so a generic NPC has no template ID of its own. Its handle is unique in a save.
+- Many generic NPCs share one template, so a generic NPC has no template ID of its own. The `serial` of its handle identifies it ([section 9](#9-in-game-results)).
+- The rest of the handle cannot be in the ID. `hand::toString()` gives `index-serial-container-containerSerial-type`. `container` and `containerSerial` name the squad, and `index` is the place of the NPC in that squad, so a recruit changes all three.
 - The instance ID (`getInstanceID()->uid`) and the layout instance ID (`getLayoutInstanceID`) are empty for unique and generic NPCs, so neither can be the ID.
 - `Character::isUnique` separates the two rows. In the first in-game test, two named characters (Ruka and Harenga the Loud) gave `1` and their own templates, and two generic NPCs gave `0` and templates with a generated name, such as `Barman /GENNAME/`.
 - The plugin builds the ID, because only the plugin sees the game objects. The server treats the ID as an opaque string.
@@ -67,11 +68,14 @@ The LLM names each speaker by name, for example `Beep: Hello`. The server maps a
 - A generic NPC has the same ID after a save and a load.
 - A recruited NPC keeps its profile and its dialogue in the player's squad.
 
-## 9. Not yet verified
+## 9. In-game results
 
-The `ID_PROBE` line answers the questions about the game ([development.md](../info/development.md#probes)).
+The `ID_PROBE` lines of the in-game tests answered the questions about the game ([development.md](../info/development.md#probes)).
 
-- Whether `hand::toString()` gives the same text after a save and a load. Kenshi stores handles in its save files.
-- Whether a recruited NPC keeps its handle when it joins the player's faction.
-- Whether a template `stringID` stays the same when the player changes the mod list.
-- Whether a generic NPC that the game unloads and loads again, for example a town guard, keeps its handle.
+| Question | Result |
+|---|---|
+| Does the handle survive a save and a load? | Yes. The whole handle stayed the same. |
+| Does the handle survive a town reload? | Yes. A generic trader kept the whole handle after the player left the town and came back. |
+| Does the handle survive a recruit? | Only its `serial`. The recruit changed `index`, `container`, and `containerSerial`. |
+| Is the `serial` unique? | Among the loaded characters, yes. In seven chats with about 100 loaded characters, no other character had the `serial` of the target. A `serial` is 32 bits and looks random, so a clash in a long campaign is possible but unlikely. |
+| Does a string ID survive a change of the mod list? | Not tested. A string ID holds the name of the mod file that adds the record, for example `44420-Dialogue.mod`, so only the removal of that mod is expected to change it. |

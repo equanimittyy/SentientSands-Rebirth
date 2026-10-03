@@ -53,23 +53,19 @@ Some questions of the plans need data from the game. The plugin writes probe lin
 
 | Line | Written | Function | Answers |
 |---|---|---|---|
-| `ID_PROBE` | At each chat, for the target NPC | `LogNpcIdentity` | Which candidate ID of an NPC stays the same, and how many other loaded characters share each member of its handle ([proposal_npc_ids.md](../plans/proposal_npc_ids.md#9-not-yet-verified)) |
+| `ID_PROBE` | At each chat, for the target NPC | `LogNpcIdentity` | Which candidate ID of an NPC stays the same, and how many other loaded characters share each member of its handle ([proposal_npc_ids.md](../plans/proposal_npc_ids.md#9-in-game-results)) |
 | `ZONE_PROBE` | At each chat, for the target NPC. The first chat also lists every zone record. | `LogNpcZone` | Which slot of the zone object (`AreaBiomeGroup`) holds its zone record, so that the context can name the zone, for example Stenn Desert. `ZoneManager::getBiome` gives only the ground type, such as Canyonland FlatTop, so it cannot name the zone. |
-| `FACTION_PROBE` | At the first chat of each game, one line for each faction | `LogFactionList` | Whether the string ID of each faction stays the same when the mod list changes ([proposal_data_layers.md](../plans/proposal_data_layers.md#not-yet-verified)) |
+| `FACTION_PROBE` | At the first chat of each game, one line for each faction | `LogFactionList` | Whether the string ID of each faction stays the same when the mod list changes ([proposal_data_layers.md](../plans/proposal_data_layers.md#in-game-results)) |
 | `SQUAD_PROBE` | At each chat | `LogCurrentSquad` | Whether `PlayerInterface::getCurrentPlatoon` gives the squad that the player selected, which the speaker picker needs |
 
-One test session gives the data for all of them. The label of each step names the question that it answers.
+The in-game tests answered each question:
 
-1. **Setup.** Build the plugin, and load a save that has two squads.
-2. **IDs and zones.** In a town, chat with a unique NPC, for example Beep, and with a generic NPC, for example a barman. Then chat with someone outside a town in two different zones, and note the zone name that the map shows for each.
-3. **Squad.** Select the other squad, and chat again.
-4. **Save and load: does the handle survive a load?** Save, load the save, and chat with the same NPCs again.
-5. **Town reload: does the handle survive an unload?** Travel far from the town until it unloads, come back, and chat with the same generic NPC again.
-6. **Recruit: does the handle survive a move into the player's squad?** Recruit an NPC, and chat with it again.
-7. **Mod list, optional: do the IDs survive a change of the mod list?** Change the mod list, start the game again, and chat with the same NPCs. The restart moves the earlier lines to `SentientSands_SDK.old.log`.
-8. **Collect.** Copy `SentientSands_SDK.log` and `SentientSands_SDK.old.log` from the Kenshi folder into `temp/` in the repo, which git ignores.
-
-A generic NPC has only its handle as an ID, so a handle that changes in step 4, 5, or 6 makes the NPC a stranger to its campaign: it loses its profile, its dialogue memory, and its relation to the player. A unique NPC uses the ID of its template, which only the removal of its mod changes.
+| Line | Result |
+|---|---|
+| `ID_PROBE` | The `serial` of a handle stays the same through a save and a load, a town reload, and a recruit, and no other loaded character has it, so it is the ID of a generic NPC. The other members of the handle name the squad, so a recruit changes them ([proposal_npc_ids.md](../plans/proposal_npc_ids.md#9-in-game-results)). |
+| `ZONE_PROBE` | Slot `0x10` of the zone object holds the zone record. |
+| `FACTION_PROBE` | The string ID of each faction for one mod list. A change of the mod list is not tested ([proposal_data_layers.md](../plans/proposal_data_layers.md#in-game-results)). |
+| `SQUAD_PROBE` | `getCurrentPlatoon` gives the squad that the player selected. |
 
 Two questions need no probe:
 

@@ -254,7 +254,7 @@ SSR writes the vanilla template itself. Today the template holds the overview, 1
 
 - The facts come from the game: its data files, which the Forgotten Construction Set (FCS) opens, and play. The Kenshi wiki can help to find a fact, but no text comes from the wiki or from Kayak ([section 9](#9-licence)).
 - The template of Kayak v0.5.0 ([section 13](#13-references)) is only a checklist of the records that a vanilla world needs. Phase 4 covers at least the counts in the table.
-- Each faction and each canon character has its game ID. The faction IDs come from the `FACTION_PROBE` line, and the character IDs come from the NPC IDs of phase 2.
+- Each faction and each canon character has its game ID. The faction IDs come from the `FACTION_PROBE` line, and the character ID is the string ID of the character's template in the game data ([proposal_npc_ids.md](proposal_npc_ids.md#3-id-format)).
 - A region is a named zone of the game data (record type 95), such as Border Zone or Shem. Record type 28 is a ground texture set and type 99 is a soil type, so neither is a region. Six zones have no wiki page, no towns, and almost no data, so the template leaves them out: Akakus, Central, Desert, Empire, Rim Sands, and The Desert.
 - A location is a town of the game data (record type 13) that the wiki places in a zone. The game data does not say which zone holds a town, so the zone comes from the wiki's town infobox, joined to the game data on the string ID. A camp that a zone places at random (a nest) is not a location.
 - The `factions` and `animals` fields of a region hold only the squads that are in the zone at the start of a game. A squad that needs a world state other than "a character is alive", such as the death of a leader, is left out, because a new campaign does not know which states have changed. The descriptions also describe the start of a game.
@@ -323,17 +323,17 @@ LIMIT :max_files;
 | 4. Vanilla content | The factions, characters, races, locations, regions, and world lore of the vanilla template ([section 7](#7-ssr-vanilla-template)) | The template covers at least the counts in section 7, and the validator accepts it; each faction and each canon character has its game ID; no record copies text from Kayak or the wiki |
 | 5. Retrieval | `knowledge_retrieve.py`; the prompt wiring; the INI limits | For each player message in a fixed list, retrieval returns the expected entities in the expected order; chat prompts include the retrieved entities |
 
-Phase 2 waits for the in-game checks of the NPC IDs ([proposal_npc_ids.md](proposal_npc_ids.md#9-not-yet-verified)). The canon characters of phase 4 need the character IDs of phase 2. The other records of phase 4 need no other phase. The tests of phase 5 run on the vanilla content of phase 4.
+Phase 4 needs no other phase. The tests of phase 5 run on the vanilla content of phase 4.
 
 Tests:
 
 - Retrieval tests: a fixed list of player messages, each with its expected entities in order, runs on the vanilla template.
 - Performance check against the 500 ms `timeout_ms` default on the full vanilla template.
 
-### Not yet verified
+### In-game results
 
-- Whether the string IDs of the factions stay the same when the player changes the mod list. The `FACTION_PROBE` line of the first in-game test listed the IDs for one mod list ([development.md](../info/development.md#probes)), and the faction files of the vanilla template take their `game_id` from it.
-- The KenshiLib calls for the current squad and its members (`PlayerInterface::getCurrentPlatoon`, `Character::getPlatoon`). The `SQUAD_PROBE` line checks them ([development.md](../info/development.md#probes)).
+- `PlayerInterface::getCurrentPlatoon` gives the squad that the player selected, and `Character::getPlatoon` tells which squad members are in it. The speaker picker can therefore list the current squad. The `SQUAD_PROBE` lines showed this ([development.md](../info/development.md#probes)).
+- The faction files of the vanilla template take their `game_id` from the `FACTION_PROBE` lines of one mod list. A change of the mod list is not tested. A string ID holds the name of the mod file that adds the faction, for example `58229-Dialogue.mod`, so only the removal of that mod is expected to change it.
 
 ## 11. Risks
 
