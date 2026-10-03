@@ -3018,6 +3018,14 @@ def cull_campaign():
     data = request.get_json(silent=True) or {}
     refused = campaign_write(data)
     if refused: return refused
+    return cull_future_data()
+
+# The game always means the active campaign, so this route has no campaign check
+@app.route('/cull', methods=['POST'])
+def cull_from_game():
+    return cull_future_data()
+
+def cull_future_data():
     # Without a game, day 0 would count as now, and the cull would delete the whole history
     if "day" not in PLAYER_CONTEXT:
         return jsonify({"status": "error", "message": "Cull needs the game running, because it deletes what is dated after the current game time."}), 409

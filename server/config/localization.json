@@ -43,7 +43,17 @@
         "Dynamic World Events Log": "Dynamic World Events Log",
         "Generate World Event": "Generate World Event",
         "Select an entry to view details.": "Select an entry to view details.",
-        "CLOSE": "CLOSE"
+        "CLOSE": "CLOSE",
+        "Cull Future Data": "Cull Future Data",
+        "This deletes every NPC memory, event, and rumor of the active campaign": "This deletes every NPC memory, event, and rumor of the active campaign",
+        "dated after the current game time.": "dated after the current game time.",
+        "The cull takes effect immediately and is irreversible!": "The cull takes effect immediately and is irreversible!",
+        "Cull": "Cull",
+        "Culled the data dated after: ": "Culled the data dated after: ",
+        "Dialogue lines: ": "Dialogue lines: ",
+        "events: ": "events: ",
+        "rumors: ": "rumors: ",
+        "Cull failed: ": "Cull failed: "
     },
     "Spanish": {
         "Talking to: ": "Hablando con: ",
@@ -89,7 +99,17 @@
         "Dynamic World Events Log": "Registro de eventos dinámicos del mundo",
         "Generate World Event": "Generar evento mundial",
         "Select an entry to view details.": "Selecciona una entrada para ver los detalles.",
-        "CLOSE": "CERRAR"
+        "CLOSE": "CERRAR",
+        "Cull Future Data": "Purgar datos futuros",
+        "This deletes every NPC memory, event, and rumor of the active campaign": "Esto borra todos los recuerdos de NPC, eventos y rumores de la campaña activa",
+        "dated after the current game time.": "con fecha posterior a la hora actual del juego.",
+        "The cull takes effect immediately and is irreversible!": "¡La purga es inmediata e irreversible!",
+        "Cull": "Purgar",
+        "Culled the data dated after: ": "Datos purgados posteriores a: ",
+        "Dialogue lines: ": "Líneas de diálogo: ",
+        "events: ": "eventos: ",
+        "rumors: ": "rumores: ",
+        "Cull failed: ": "Purga fallida: "
     },
     "French": {
         "Talking to: ": "Discussion avec : ",
@@ -135,7 +155,17 @@
         "Dynamic World Events Log": "Journal des événements dynamiques du monde",
         "Generate World Event": "Générer un événement mondial",
         "Select an entry to view details.": "Sélectionnez une entrée pour afficher les détails.",
-        "CLOSE": "FERMER"
+        "CLOSE": "FERMER",
+        "Cull Future Data": "Purger les données futures",
+        "This deletes every NPC memory, event, and rumor of the active campaign": "Ceci supprime tous les souvenirs de PNJ, événements et rumeurs de la campagne active",
+        "dated after the current game time.": "postérieurs à l'heure actuelle du jeu.",
+        "The cull takes effect immediately and is irreversible!": "La purge est immédiate et irréversible !",
+        "Cull": "Purger",
+        "Culled the data dated after: ": "Données purgées postérieures à : ",
+        "Dialogue lines: ": "Lignes de dialogue : ",
+        "events: ": "événements : ",
+        "rumors: ": "rumeurs : ",
+        "Cull failed: ": "Échec de la purge : "
     },
     "Japanese": {
         "Talking to: ": "会話相手: ",
@@ -181,7 +211,17 @@
         "Dynamic World Events Log": "動的ワールドイベントログ",
         "Generate World Event": "ワールドイベントを生成",
         "Select an entry to view details.": "エントリーを選択して詳細を表示します。",
-        "CLOSE": "閉じる"
+        "CLOSE": "閉じる",
+        "Cull Future Data": "未来のデータを削除",
+        "This deletes every NPC memory, event, and rumor of the active campaign": "アクティブなキャンペーンのNPCの記憶・イベント・噂のうち、",
+        "dated after the current game time.": "現在のゲーム時刻より後の日付のものをすべて削除します。",
+        "The cull takes effect immediately and is irreversible!": "削除は即座に実行され、元に戻せません!",
+        "Cull": "削除",
+        "Culled the data dated after: ": "次の時刻より後のデータを削除しました: ",
+        "Dialogue lines: ": "会話: ",
+        "events: ": "イベント: ",
+        "rumors: ": "噂: ",
+        "Cull failed: ": "削除失敗: "
     },
     "Russian": {
         "Talking to: ": "Разговор с: ",
@@ -227,6 +267,16 @@
         "Dynamic World Events Log": "Журнал динамических событий мира",
         "Generate World Event": "Создать мировое событие",
         "Select an entry to view details.": "Выберите запись для просмотра деталей.",
-        "CLOSE": "ЗАКРЫТЬ"
+        "CLOSE": "ЗАКРЫТЬ",
+        "Cull Future Data": "Удалить будущие данные",
+        "This deletes every NPC memory, event, and rumor of the active campaign": "Это удалит все воспоминания NPC, события и слухи активной кампании,",
+        "dated after the current game time.": "датированные позже текущего игрового времени.",
+        "The cull takes effect immediately and is irreversible!": "Удаление происходит сразу и необратимо!",
+        "Cull": "Удалить",
+        "Culled the data dated after: ": "Удалены данные после: ",
+        "Dialogue lines: ": "Строки диалогов: ",
+        "events: ": "события: ",
+        "rumors: ": "слухи: ",
+        "Cull failed: ": "Удаление не удалось: "
     }
 }

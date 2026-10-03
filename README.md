@@ -55,7 +55,7 @@ Each task (chat, radiant conversations, NPC profiles, and world events) has an o
 The server keeps this configuration in `server/user/llm_config.json`. A mod update does not replace it, so your keys stay.
 
 ### Campaigns and world templates
-The **Campaigns** page lists your campaigns and creates a new one from a world template. It also edits the rumors and events of the current campaign. To switch campaigns, choose one under **Current Campaign**. The next chat uses it. **Delete** next to a campaign deletes it, but you always keep at least one campaign. Loaded an older save? **Cull future data** makes NPCs forget what happened after it.
+The **Campaigns** page lists your campaigns and creates a new one from a world template. It also edits the rumors and events of the current campaign. To switch campaigns, choose one under **Current Campaign**. The next chat uses it. **Delete** next to a campaign deletes it, but you always keep at least one campaign. Loaded an older save? **Cull future data** makes NPCs forget what happened after it. The in-game SSR HUB (F8) has the same button as **Cull Future Data**.
 
 The **Editor** page edits the canon of a world: the overview that every NPC knows, the history, the factions, the characters, the races, the locations, and the regions. It has two subtabs:
 
