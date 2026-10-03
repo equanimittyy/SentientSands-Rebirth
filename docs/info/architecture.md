@@ -146,6 +146,8 @@ From one turn to the next, only the newest exchange and the last message are new
 
 The server answers a Yell with one NPC, as a Talk. A Yell differs only in that the NPCs within the yell radius overhear it, and the scene tells the NPC that the player speaks loudly.
 
+The reply text of `/chat` starts with the name of the NPC, because the plugin takes the text before a first colon as the speaker (`plugin/ui/ChatWindow.cpp`). A reply such as "Listen: ..." therefore stays with the NPC. The server removes a `*stage direction*` from a person's reply, but an animal replies only in `*actions*`, so those stay.
+
 The two profile prompts take `{race_lore}` from the race entries of the campaign (`describe_race`), matched by name or alias with case ignored. A template that describes its races therefore shapes new profiles, and a race with no entry gets a line that says so.
 
 ## LLM routing

@@ -2048,36 +2048,40 @@ def chat():
         content = content.replace('"', '').strip()
         
         lines = content.split('\n')
+        other_names = {name.lower() for name in [*npcs, *npc_ids]} - {primary_npc.lower()}
         filtered_lines = []
         for line in lines:
             line = line.strip()
             if not line: continue
             
             line = re.sub(r'\[\s*[^\]]+\s*\]', '', line).strip()
+            if not is_animal:
+                # An animal speaks only in *actions*; a person's *nods* is a stage direction, so it goes and the words stay
+                line = re.sub(r'\*[^*]*\*', '', line).replace('*', '').strip()
             if not line: continue
 
             lower_line = line.lower()
             if any(lower_line.startswith(prefix) for prefix in [
                 "thought:", "thinking:", "observation:", "note:", "(thinking", 
-                "*", "as an ai", "i cannot", "here is", "raw llm response:", 
+                "as an ai", "i cannot", "here is", "raw llm response:", 
                 "timestamp:", "request for:", "prompt:", "user message:",
                 "history:", "character:", "personality:", "backstory:", "current condition"
             ]):
                 continue
             
-            if line.startswith('=') or line.startswith('-') or len(set(line)) <= 2:
+            # A divider such as "===" holds no letters, but an animal's "Grr" does
+            if not any(c.isalnum() for c in line):
                 continue
                 
-            prefix_match = re.match(r'^([A-Za-z0-9 _\-\.]+):\s*', line)
+            # Only a known name counts as a speaker, so a reply such as "Listen: ..." keeps its first word
+            prefix_match = re.match(r'^([^:]{1,63}):\s*', line)
             if prefix_match:
                 p = prefix_match.group(1).strip().lower()
-                if p == player_name.lower():
-                    logging.debug(f"CHAT: Filter: Discarded player entry {line}")
+                if p == player_name.lower() or p in other_names:
+                    logging.debug(f"CHAT: Filter: Discarded a line voiced as {p} (expected {primary_npc})")
                     continue
-                if p != primary_npc.lower():
-                    logging.debug(f"CHAT: Filter: Discarded line from {p} (expected {primary_npc})")
-                    continue
-            line = re.sub(r'^[A-Za-z0-9 _\-\.]+:\s*', '', line)
+                if p == primary_npc.lower():
+                    line = line[prefix_match.end():]
             
             if line:
                 filtered_lines.append(line)
@@ -2116,7 +2120,8 @@ def chat():
                     logging.info(f"RELATION: {name} personal relation is now {new_rel} (judgment={relation_deltas[name]})")
 
         logging.debug(f"CHAT: Reply: {content} | Actions: {actions}")
-        return jsonify({"text": content, "actions": actions})
+        # The plugin takes the text before a first colon as the speaker, so the reply names its NPC first
+        return jsonify({"text": f"{primary_npc}: {content}", "actions": actions})
     return jsonify({"text": "...", "actions": []})
 
 
