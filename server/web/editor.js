@@ -613,7 +613,7 @@ const recordsUrl = () => (source === "template" ? `/api/templates/${encodeURICom
 const target = () => (source === "template" ? {} : { campaign: canon.name });
 
 async function deleteRecord(record) {
-  if (!(await ask(`Delete ${title(record)}`, "Delete", deleteEffect(record), "\n\n", el("b", { className: "warning" }, "The delete takes effect immediately.")))) return;
+  if (!(await ask(`Delete ${title(record)}`, "Delete", deleteEffect(record), "\n\n", el("b", { className: "warning" }, "The delete takes effect immediately and is irreversible.")))) return;
   if (drafts.get(record.key)?.isNew) {
     drafts.delete(record.key);
     selected = "overview";
@@ -773,7 +773,7 @@ async function importTemplate(event) {
 
 async function deleteTemplate() {
   if (!(await ask(`Delete ${templateTitle()}`, "Delete", "This deletes the template and all its entries. Campaigns that you made from it keep their copy. ",
-    "\n\n", el("b", { className: "warning" }, "The delete takes effect immediately and is irreversible!")))) return;
+    "\n\n", el("b", { className: "warning" }, "The delete takes effect immediately and is irreversible.")))) return;
   try {
     await sendJson("POST", `/api/templates/${encodeURIComponent(current)}/delete`, {});
     drafts.clear();
@@ -866,7 +866,7 @@ const LOG_DELETES = {
 
 async function deleteLogEntry(kind, id) {
   const { url, title: heading, effect } = LOG_DELETES[kind];
-  if (!(await ask(heading, "Delete", `${effect} `, "\n\n", el("b", { className: "warning" }, "The delete takes effect immediately.")))) return;
+  if (!(await ask(heading, "Delete", `${effect} `, "\n\n", el("b", { className: "warning" }, "The delete takes effect immediately and is irreversible.")))) return;
   try {
     await sendJson("POST", url, { campaign: log.name, id });
     await fetchLog(keptRumors());

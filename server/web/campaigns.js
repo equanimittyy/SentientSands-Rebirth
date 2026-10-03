@@ -86,7 +86,7 @@ async function deleteCampaign(campaign) {
   const switchNote = next ? `SSR switches to ${next} first` : "SSR has no current campaign until you create and choose one";
   if (!(await ask(`Delete ${campaign.name}`, "Delete", `This deletes the campaign ${campaign.name} with its NPC memories, factions, world events, and rumors. `,
     campaign.active ? `It is the current campaign, so ${switchNote}. ` : "",
-    "\n\n", el("b", { className: "warning" }, "The delete takes effect immediately and is irreversible!")))) return;
+    "\n\n", el("b", { className: "warning" }, "The delete takes effect immediately and is irreversible.")))) return;
   const switching = campaign.active && next;
   const steps = progress("Deleting the campaign", ...(switching ? [`Opening ${next}`] : []), `Deleting ${campaign.name}`, "Loading the campaign");
   try {
