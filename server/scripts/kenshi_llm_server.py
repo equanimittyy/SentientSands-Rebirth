@@ -2821,14 +2821,7 @@ def campaign_names():
 
 @app.route('/api/campaigns', methods=['GET'])
 def list_campaigns():
-    campaigns = []
-    for name in campaign_names():
-        meta = campaign_db.read_meta(os.path.join(CAMPAIGNS_DIR, name))
-        campaigns.append({
-            "name": name,
-            "active": name == ACTIVE_CAMPAIGN,
-            "template": meta.get("template_name", ""),
-        })
+    campaigns = [{"name": name, "active": name == ACTIVE_CAMPAIGN} for name in campaign_names()]
     return jsonify({"status": "ok", "campaigns": campaigns, "templates": world_template.listing(WORLD_TEMPLATES_DIR, USER_TEMPLATES_DIR), "default_template": DEFAULT_TEMPLATE})
 
 @app.route('/api/campaigns', methods=['POST'])
@@ -2880,7 +2873,6 @@ def get_active_campaign():
         return jsonify({
             "status": "ok",
             "name": ACTIVE_CAMPAIGN,
-            "template": campaign_db.template_info(),
             "events": [{"id": event_id, "line": line} for event_id, line in campaign_db.events()],
             "rumors": rumors,
         })

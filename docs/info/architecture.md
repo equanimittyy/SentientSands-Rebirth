@@ -197,11 +197,11 @@ Each campaign holds its own copy of the factions, keyed by the string ID of the 
 
 | Route | Behavior |
 |---|---|
-| `GET /api/campaigns` | Each campaign with its template |
+| `GET /api/campaigns` | Each campaign, and the templates for a new campaign |
 | `POST /api/campaigns` | Create a campaign from a template, with no switch |
 | `POST /api/campaigns/switch` | Make a campaign the current one. The name must be a folder that the campaign list shows, so a name such as `../x` cannot point outside `server/campaigns/`. |
 | `POST /api/campaigns/delete` | Delete a campaign folder, with the same name check. Before it deletes the current campaign, it switches to the first other one. When no other campaign remains, the server has no current campaign (see [Campaign storage](#campaign-storage)). |
-| `GET /api/campaign` | The active campaign: its template, events, and rumors. A refused campaign gives status 409 with the reason. |
+| `GET /api/campaign` | The active campaign: its events and rumors. A refused campaign gives status 409 with the reason. |
 | `GET /api/campaign/canon` | The canon of the active campaign, each record with its `origin` and `updated_at`. A refused campaign gives status 409 with the reason. |
 | `POST /api/campaign/records`, `.../records/delete` | Save or delete one canon record of the active campaign. A faction, character, race, location, or region with no ID is new. |
 | `POST /api/campaign/rumors`, `.../rumors/delete`, `.../events/delete` | Edit the rumors and events of the active campaign |

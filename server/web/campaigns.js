@@ -40,8 +40,6 @@ function textInput(object, key, path, { tag = "input", label, ...props } = {}) {
   return input;
 }
 
-const templateTitle = (name) => templates.find((template) => template.name === name)?.title ?? name;
-
 function render() {
   page.replaceChildren(...renderCurrent(), renderCampaigns(), ...renderActive());
   for (const note of notes.values()) {
@@ -53,7 +51,6 @@ function render() {
 function renderCampaigns() {
   const rows = campaigns.map((campaign) => el("li", {},
     el("strong", { className: "name" }, campaign.name),
-    campaign.template ? el("span", { className: "detail" }, `from ${templateTitle(campaign.template)}`) : null,
     campaign.active ? el("span", { className: "badge ok" }, "Current") : null,
     deleteButton(`Delete the campaign ${campaign.name}`, () => deleteCampaign(campaign))));
   const description = el("p", { className: "hint" });
@@ -81,10 +78,9 @@ function renderCurrent() {
   const choice = el("select", { onchange: (event) => switchCampaign(event.target.value) },
     campaigns.some((campaign) => campaign.name === current) ? null : el("option", { value: "", disabled: true, selected: true }, "None"),
     ...campaigns.map((campaign) => new Option(campaign.name, campaign.name, false, campaign.name === current)));
-  const template = active?.template.name ? `Made from ${templateTitle(active.template.name)} ${active.template.version ?? ""}`.trim() : null;
   return [el("fieldset", {},
     el("legend", {}, "Current Campaign"),
-    field("Campaign", choice, template ? el("span", { className: "detail" }, template) : null, "The campaign that the game plays. Choose another one to switch to it. The next chat uses it."),
+    field("Campaign", choice, null, "The campaign that the game plays. Choose another one to switch to it. The next chat uses it."),
     refusal ? el("p", { className: "hint error" }, refusal) : null,
     ...(active ? [
       el("p", { className: "hint" }, "Loaded an older save? Cull makes NPCs forget everything dated after the current game time."),
