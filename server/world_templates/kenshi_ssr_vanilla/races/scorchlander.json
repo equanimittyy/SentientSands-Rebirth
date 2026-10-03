@@ -1,11 +1,8 @@
 {
   "name": "Scorchlander",
   "aliases": [],
-  "weight": 1,
   "fields": {
     "type": "human"
   },
-  "prose": {
-    "description": "Humans with much darker skin than Greenlanders, glowing eyes, and often silvery hair. They heal quickly and can stomach raw meat."
-  }
+  "description": "Humans with much darker skin than Greenlanders, glowing eyes, and often silvery hair. They heal quickly and can stomach raw meat."
 }

@@ -1,7 +1,6 @@
 {
   "name": "Old Village",
   "aliases": [],
-  "weight": 1,
   "fields": {
     "type": "ruins",
     "zone": [
@@ -13,7 +12,5 @@
       "Empire Peasants"
     ]
   },
-  "prose": {
-    "description": "Old Village is the name of two ruined villages. One lies in the Cannibal Plains and belongs to Deadcat; the other lies in the eastern Great Desert and belongs to the Empire Peasants."
-  }
+  "description": "Old Village is the name of two ruined villages. One lies in the Cannibal Plains and belongs to Deadcat; the other lies in the eastern Great Desert and belongs to the Empire Peasants."
 }

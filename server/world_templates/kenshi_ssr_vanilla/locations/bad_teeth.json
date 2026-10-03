@@ -1,13 +1,14 @@
 {
   "name": "Bad Teeth",
   "aliases": [],
-  "weight": 1,
   "fields": {
     "type": "town",
-    "zone": "Okran's Pride",
-    "owner": "The Holy Nation"
+    "zone": [
+      "Okran's Pride"
+    ],
+    "owner": [
+      "The Holy Nation"
+    ]
   },
-  "prose": {
-    "description": "Bad Teeth is a Holy Nation town in Okran's Pride that watches over a mountain pass leading from the fertile valley out to the wild Skinner's Roam. It has a temple, three bars, a bakery, barracks, and shops for weapons and armour, and its gate guards often kill river raptors that roam close."
-  }
+  "description": "Bad Teeth is a Holy Nation town in Okran's Pride that watches over a mountain pass leading from the fertile valley out to the wild Skinner's Roam. It has a temple, three bars, a bakery, barracks, and shops for weapons and armour, and its gate guards often kill river raptors that roam close."
 }

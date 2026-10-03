@@ -5,8 +5,12 @@
   "major": false,
   "fields": {
     "leader": "Blue Cleaver Boss",
-    "base": "Blue Cleaver Hideout",
-    "territory": "The Swamp",
+    "bases": [
+      "Blue Cleaver Hideout"
+    ],
+    "territory": [
+      "The Swamp"
+    ],
     "enemies": [
       "Swamp Ninjas",
       "Red Sabres",

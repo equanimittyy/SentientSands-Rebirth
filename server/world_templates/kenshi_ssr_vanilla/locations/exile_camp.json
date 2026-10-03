@@ -1,13 +1,14 @@
 {
   "name": "Exile Camp",
   "aliases": [],
-  "weight": 1,
   "fields": {
     "type": "point of interest",
-    "zone": "Stenn Desert",
-    "owner": "Band of Bones"
+    "zone": [
+      "Stenn Desert"
+    ],
+    "owner": [
+      "Band of Bones"
+    ]
   },
-  "prose": {
-    "description": "Exile Camp is a small camp in the Stenn Desert, southwest of Squin and just south of the local waystation. It is the only holding of the Band of Bones and the home of their leader, Tora the Fearless. Its exiles rush out to drive off any group that comes near."
-  }
+  "description": "Exile Camp is a small camp in the Stenn Desert, southwest of Squin and just south of the local waystation. It is the only holding of the Band of Bones and the home of their leader, Tora the Fearless. Its exiles rush out to drive off any group that comes near."
 }

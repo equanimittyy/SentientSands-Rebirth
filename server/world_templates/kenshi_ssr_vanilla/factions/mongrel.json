@@ -4,8 +4,12 @@
   "aliases": [],
   "major": false,
   "fields": {
-    "base": "Mongrel",
-    "territory": "Fog Islands",
+    "bases": [
+      "Mongrel"
+    ],
+    "territory": [
+      "Fog Islands"
+    ],
     "enemies": [
       "Fogmen"
     ]

@@ -1,12 +1,11 @@
 {
   "name": "Workshop Complex",
   "aliases": [],
-  "weight": 1,
   "fields": {
     "type": "ruins",
-    "zone": "The Grid"
+    "zone": [
+      "The Grid"
+    ]
   },
-  "prose": {
-    "description": "The Workshop Complex is a set of ancient workshops in the Grid: three finished hangar-like halls and two others left unfinished or sunk under water. Iron lies in the ground nearby, and beak things from the neighbouring Crater sometimes wander in."
-  }
+  "description": "The Workshop Complex is a set of ancient workshops in the Grid: three finished hangar-like halls and two others left unfinished or sunk under water. Iron lies in the ground nearby, and beak things from the neighbouring Crater sometimes wander in."
 }

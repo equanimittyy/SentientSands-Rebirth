@@ -1,7 +1,6 @@
 {
   "name": "Spider Plains",
   "aliases": [],
-  "weight": 1,
   "fields": {
     "factions": [
       "Band of Bones",
@@ -14,9 +13,7 @@
       "Skin Spider"
     ]
   },
-  "prose": {
-    "description": "The Spider Plains are wide, hilly fields overrun by skin spiders, which eat the fallen. The Shek Kingdom holds Last Stand, a walled fortress with a bar and shops, where older Shek prepare to die with honor fighting the Bugmaster of neighboring Arach. The hostile Berserkers keep a ruined village here under their leader Ghost, and bands of Kral's Chosen and the Band of Bones also roam."
-  },
+  "description": "The Spider Plains are wide, hilly fields overrun by skin spiders, which eat the fallen. The Shek Kingdom holds Last Stand, a walled fortress with a bar and shops, where older Shek prepare to die with honor fighting the Bugmaster of neighboring Arach. The hostile Berserkers keep a ruined village here under their leader Ghost, and bands of Kral's Chosen and the Band of Bones also roam.",
   "children": [
     {
       "entry": "locations/berserker_village",

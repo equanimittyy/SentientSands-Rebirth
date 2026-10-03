@@ -1,16 +1,15 @@
 {
   "name": "Abandoned Town",
   "aliases": [],
-  "weight": 1,
   "fields": {
     "type": "ruins",
     "zone": [
       "Shun",
       "The Hook"
     ],
-    "owner": "United Cities"
+    "owner": [
+      "United Cities"
+    ]
   },
-  "prose": {
-    "description": "Abandoned Town is the name given to ancient ruins in the far south of the Hook and in Shun. The United Cities officially claims them."
-  }
+  "description": "Abandoned Town is the name given to ancient ruins in the far south of the Hook and in Shun. The United Cities officially claims them."
 }

@@ -1,13 +1,14 @@
 {
   "name": "Ark",
   "aliases": [],
-  "weight": 1,
   "fields": {
     "type": "outpost",
-    "zone": "Stobe's Garden",
-    "owner": "Reavers"
+    "zone": [
+      "Stobe's Garden"
+    ],
+    "owner": [
+      "Reavers"
+    ]
   },
-  "prose": {
-    "description": "Ark is the stronghold of the Reavers, a little north of the middle of Stobe's Garden, and home to their leader Valamon. It has prisoner cages and a training ground, and Valamon greets each new conscript with a welcome to his revolution."
-  }
+  "description": "Ark is the stronghold of the Reavers, a little north of the middle of Stobe's Garden, and home to their leader Valamon. It has prisoner cages and a training ground, and Valamon greets each new conscript with a welcome to his revolution."
 }

@@ -1,7 +1,6 @@
 {
   "name": "High Bonefields",
   "aliases": [],
-  "weight": 1,
   "fields": {
     "factions": [
       "Band of Bones"
@@ -14,7 +13,5 @@
       "Skin Spider"
     ]
   },
-  "prose": {
-    "description": "The High Bonefields are a mountain range north of Catun, bordering the Bonefields, the South Wetlands, and the Burning Forest. No town stands there. Beak things and Boneyard Wolves keep their dens in the heights, skin spiders and great packs of bonedogs roam, and Shek of the Band of Bones wander through."
-  }
+  "description": "The High Bonefields are a mountain range north of Catun, bordering the Bonefields, the South Wetlands, and the Burning Forest. No town stands there. Beak things and Boneyard Wolves keep their dens in the heights, skin spiders and great packs of bonedogs roam, and Shek of the Band of Bones wander through."
 }

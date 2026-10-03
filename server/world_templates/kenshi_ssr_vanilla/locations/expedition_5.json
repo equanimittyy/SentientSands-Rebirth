@@ -1,12 +1,13 @@
 {
   "name": "Expedition 5",
   "aliases": [],
-  "weight": 1,
   "fields": {
-    "zone": "Stobe's Gamble",
-    "owner": "Tech Hunters"
+    "zone": [
+      "Stobe's Gamble"
+    ],
+    "owner": [
+      "Tech Hunters"
+    ]
   },
-  "prose": {
-    "description": "Expedition 5 is a partly ruined town in Stobe's Gamble, south of the Reaver Camp and east of Spring. It dates from the fifth expedition the Tech Hunters sent south. Machine components lie scattered around its buildings."
-  }
+  "description": "Expedition 5 is a partly ruined town in Stobe's Gamble, south of the Reaver Camp and east of Spring. It dates from the fifth expedition the Tech Hunters sent south. Machine components lie scattered around its buildings."
 }

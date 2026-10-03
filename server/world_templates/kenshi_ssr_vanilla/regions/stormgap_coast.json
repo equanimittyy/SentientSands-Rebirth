@@ -1,7 +1,6 @@
 {
   "name": "Stormgap Coast",
   "aliases": [],
-  "weight": 1,
   "fields": {
     "factions": [
       "Bounty Hunters",
@@ -21,9 +20,7 @@
       "acid rain"
     ]
   },
-  "prose": {
-    "description": "The Stormgap Coast is United Cities land on the frontier that divides the Empire from the wild southeast and the Reavers of the Outlands. Lady Tsugi governs the town of Brink, which lives on supplies from Eyesocket, a slave camp run by Slave Master Grande. A small farming village and the village of the Preacher's cult also stand here. Grass Pirates, Rebel Farmers, and Beak Things roam the wilds, and acid rain sometimes falls."
-  },
+  "description": "The Stormgap Coast is United Cities land on the frontier that divides the Empire from the wild southeast and the Reavers of the Outlands. Lady Tsugi governs the town of Brink, which lives on supplies from Eyesocket, a slave camp run by Slave Master Grande. A small farming village and the village of the Preacher's cult also stand here. Grass Pirates, Rebel Farmers, and Beak Things roam the wilds, and acid rain sometimes falls.",
   "children": [
     {
       "entry": "locations/brink",

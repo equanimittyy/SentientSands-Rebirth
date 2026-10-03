@@ -5,7 +5,9 @@
   "major": false,
   "fields": {
     "leader": "Kobura King",
-    "base": "Kobura Dojo"
+    "bases": [
+      "Kobura Dojo"
+    ]
   },
   "description": "A group based at the Kobura Dojo and led by the Kobura King."
 }

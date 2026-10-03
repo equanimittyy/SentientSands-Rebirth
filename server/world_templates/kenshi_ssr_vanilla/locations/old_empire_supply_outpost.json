@@ -1,7 +1,6 @@
 {
   "name": "Old Empire Supply Outpost",
   "aliases": [],
-  "weight": 1,
   "fields": {
     "type": "ruins",
     "zone": [
@@ -10,9 +9,9 @@
       "The Crags",
       "The Pits East"
     ],
-    "owner": "Second Empire"
+    "owner": [
+      "Second Empire"
+    ]
   },
-  "prose": {
-    "description": "Old Empire Supply Outposts are Second Empire ruins in Stobe's Gamble, Sniper Valley, the Crags and the Pits East. Each is stocked like a town store with everything an outpost needs, including plenty of medical supplies and ancient nutri-rations found nowhere else. A few security spiders may guard them."
-  }
+  "description": "Old Empire Supply Outposts are Second Empire ruins in Stobe's Gamble, Sniper Valley, the Crags and the Pits East. Each is stocked like a town store with everything an outpost needs, including plenty of medical supplies and ancient nutri-rations found nowhere else. A few security spiders may guard them."
 }

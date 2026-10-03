@@ -5,8 +5,13 @@
   "major": false,
   "fields": {
     "leader": "King Ragnar the Wrathful",
-    "base": "Kaupang",
-    "territory": "Darkfinger, Bast",
+    "bases": [
+      "Kaupang"
+    ],
+    "territory": [
+      "Darkfinger",
+      "Bast"
+    ],
     "allies": [
       "Cannibal Hunters",
       "Deadcat"

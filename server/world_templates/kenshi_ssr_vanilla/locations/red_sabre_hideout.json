@@ -1,13 +1,14 @@
 {
   "name": "Red Sabre Hideout",
   "aliases": [],
-  "weight": 1,
   "fields": {
     "type": "point of interest",
-    "zone": "The Swamp",
-    "owner": "Red Sabres"
+    "zone": [
+      "The Swamp"
+    ],
+    "owner": [
+      "Red Sabres"
+    ]
   },
-  "prose": {
-    "description": "The Red Sabre Hideout in the southwest of the Swamp is the headquarters of the Red Sabres. About twenty-two of the gang live there with their leader, the Red Sabre Boss, who wields a meitou horse chopper."
-  }
+  "description": "The Red Sabre Hideout in the southwest of the Swamp is the headquarters of the Red Sabres. About twenty-two of the gang live there with their leader, the Red Sabre Boss, who wields a meitou horse chopper."
 }

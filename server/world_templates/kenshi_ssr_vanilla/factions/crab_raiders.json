@@ -5,7 +5,9 @@
   "major": false,
   "fields": {
     "leader": "Crab Queen",
-    "base": "Crab Town",
+    "bases": [
+      "Crab Town"
+    ],
     "territory": [
       "The Pits East",
       "Greenbeach",

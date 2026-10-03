@@ -1,13 +1,14 @@
 {
   "name": "Mongrel",
   "aliases": [],
-  "weight": 1,
   "fields": {
     "type": "town",
-    "zone": "Fog Islands",
-    "owner": "Mongrel"
+    "zone": [
+      "Fog Islands"
+    ],
+    "owner": [
+      "Mongrel"
+    ]
   },
-  "prose": {
-    "description": "Mongrel is an outlaw town deep in the Fog Islands, home to Shinobi Thieves, some Tech Hunters and other criminals, most of them stranded there. Strong guards hold its gates against Fogmen who try to carry off captives. It has three bars and many shops with goods not sold in the Holy Nation, and the swordsman Arc lives there."
-  }
+  "description": "Mongrel is an outlaw town deep in the Fog Islands, home to Shinobi Thieves, some Tech Hunters and other criminals, most of them stranded there. Strong guards hold its gates against Fogmen who try to carry off captives. It has three bars and many shops with goods not sold in the Holy Nation, and the swordsman Arc lives there."
 }

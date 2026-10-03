@@ -5,7 +5,9 @@
   "major": true,
   "fields": {
     "leader": "Tinfist",
-    "base": "Spring",
+    "bases": [
+      "Spring"
+    ],
     "enemies": [
       "The Holy Nation",
       "United Cities",

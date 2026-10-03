@@ -1,16 +1,15 @@
 {
   "name": "Southern Hive Village",
   "aliases": [],
-  "weight": 1,
   "fields": {
     "type": "village",
     "zone": [
       "Greyshelf",
       "Royal Valley"
     ],
-    "owner": "Southern Hive"
+    "owner": [
+      "Southern Hive"
+    ]
   },
-  "prose": {
-    "description": "Southern Hive Villages are settlements of the Southern Hive in Greyshelf and the Royal Valley. Crowds of worker drones mine and farm in them by day and sleep at night, while a few Droneguards defend each one. Their sheer numbers make them dangerous."
-  }
+  "description": "Southern Hive Villages are settlements of the Southern Hive in Greyshelf and the Royal Valley. Crowds of worker drones mine and farm in them by day and sleep at night, while a few Droneguards defend each one. Their sheer numbers make them dangerous."
 }

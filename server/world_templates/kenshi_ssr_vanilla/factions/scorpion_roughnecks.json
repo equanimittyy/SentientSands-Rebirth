@@ -4,8 +4,12 @@
   "aliases": [],
   "major": false,
   "fields": {
-    "base": "Burrow",
-    "territory": "Gut",
+    "bases": [
+      "Burrow"
+    ],
+    "territory": [
+      "Gut"
+    ],
     "allies": [
       "Crab Raiders"
     ],

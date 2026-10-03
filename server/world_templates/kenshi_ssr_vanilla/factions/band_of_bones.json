@@ -5,7 +5,9 @@
   "major": false,
   "fields": {
     "leader": "Tora The Fearless",
-    "base": "Exile Camp",
+    "bases": [
+      "Exile Camp"
+    ],
     "territory": [
       "The Swamp",
       "southern United Cities"

@@ -5,7 +5,9 @@
   "major": false,
   "fields": {
     "leader": "Cat-Lon",
-    "territory": "The Ashlands"
+    "territory": [
+      "The Ashlands"
+    ]
   },
   "description": "The faction of Cat-Lon himself, found only at Cat-Lon's Exile in the Ashlands."
 }

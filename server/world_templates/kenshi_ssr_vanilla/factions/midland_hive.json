@@ -5,8 +5,12 @@
   "major": false,
   "fields": {
     "leader": "Queen of the Midlands",
-    "base": "Midland Hive",
-    "territory": "Dreg",
+    "bases": [
+      "Midland Hive"
+    ],
+    "territory": [
+      "Dreg"
+    ],
     "allies": [
       "Western Hive",
       "Northern Hive"

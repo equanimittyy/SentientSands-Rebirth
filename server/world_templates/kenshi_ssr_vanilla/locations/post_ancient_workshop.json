@@ -1,7 +1,6 @@
 {
   "name": "Post-Ancient Workshop",
   "aliases": [],
-  "weight": 1,
   "fields": {
     "type": "ruins",
     "zone": [
@@ -9,7 +8,5 @@
       "Vain"
     ]
   },
-  "prose": {
-    "description": "Post-Ancient Workshops are huge, hangar-like ancient ruins in the Purple Sands and western Vain. They are among the few places where engineering research can still be found."
-  }
+  "description": "Post-Ancient Workshops are huge, hangar-like ancient ruins in the Purple Sands and western Vain. They are among the few places where engineering research can still be found."
 }

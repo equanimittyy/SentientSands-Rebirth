@@ -1,13 +1,14 @@
 {
   "name": "Guard Outpost",
   "aliases": [],
-  "weight": 1,
   "fields": {
     "type": "point of interest",
-    "zone": "Bast",
-    "owner": "United Cities"
+    "zone": [
+      "Bast"
+    ],
+    "owner": [
+      "United Cities"
+    ]
   },
-  "prose": {
-    "description": "Guard Outpost is the name of two United Cities watchtowers in western Bast, one in the north and one in the south. Imperial soldiers man both, on the border with the Holy Nation."
-  }
+  "description": "Guard Outpost is the name of two United Cities watchtowers in western Bast, one in the north and one in the south. Imperial soldiers man both, on the border with the Holy Nation."
 }

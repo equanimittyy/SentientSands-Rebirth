@@ -1,11 +1,8 @@
 {
   "name": "Greenlander",
   "aliases": [],
-  "weight": 1,
   "fields": {
     "type": "human"
   },
-  "prose": {
-    "description": "The most common human people, found all across the world and most numerous in the Holy Nation. Greenlanders have no particular strengths or weaknesses."
-  }
+  "description": "The most common human people, found all across the world and most numerous in the Holy Nation. Greenlanders have no particular strengths or weaknesses."
 }

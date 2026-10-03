@@ -1,13 +1,14 @@
 {
   "name": "Deadhive Overrun",
   "aliases": [],
-  "weight": 1,
   "fields": {
     "type": "ruins",
-    "zone": "Okran's Gulf",
-    "owner": "Fogmen"
+    "zone": [
+      "Okran's Gulf"
+    ],
+    "owner": [
+      "Fogmen"
+    ]
   },
-  "prose": {
-    "description": "Deadhive Overrun is a ruined town at the northern edge of Okran's Gulf, near the Fog Islands, overrun by Fogmen, and a Fog Prince dwells among the ruins. The remains of a Holy Nation outpost stand there too, but how the place came to ruin is not known."
-  }
+  "description": "Deadhive Overrun is a ruined town at the northern edge of Okran's Gulf, near the Fog Islands, overrun by Fogmen, and a Fog Prince dwells among the ruins. The remains of a Holy Nation outpost stand there too, but how the place came to ruin is not known."
 }

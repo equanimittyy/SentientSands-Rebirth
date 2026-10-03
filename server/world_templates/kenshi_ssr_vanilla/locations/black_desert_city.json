@@ -1,13 +1,14 @@
 {
   "name": "Black Desert City",
   "aliases": [],
-  "weight": 1,
   "fields": {
     "type": "town",
-    "zone": "Deadlands",
-    "owner": "Skeletons"
+    "zone": [
+      "Deadlands"
+    ],
+    "owner": [
+      "Skeletons"
+    ]
   },
-  "prose": {
-    "description": "Black Desert City is a Skeleton town at the heart of the Deadlands. It has a bar, an armory, and a robotics shop, and a bridge at its edge leads to the hill of the Scraphouse. Acid rain falls across the region."
-  }
+  "description": "Black Desert City is a Skeleton town at the heart of the Deadlands. It has a bar, an armory, and a robotics shop, and a bridge at its edge leads to the hill of the Scraphouse. Acid rain falls across the region."
 }

@@ -1,13 +1,14 @@
 {
   "name": "Settled Nomads",
   "aliases": [],
-  "weight": 1,
   "fields": {
     "type": "village",
-    "zone": "Shem",
-    "owner": "Nomads"
+    "zone": [
+      "Shem"
+    ],
+    "owner": [
+      "Nomads"
+    ]
   },
-  "prose": {
-    "description": "Settled Nomads is a small Nomad village in Shem, south of Skinner's Roam. It has four homes and an animal shop that sells young bonedogs, pack bulls, garrus and goats. With no walls or guards, it lies open to the dust bandits and beak things common in the area."
-  }
+  "description": "Settled Nomads is a small Nomad village in Shem, south of Skinner's Roam. It has four homes and an animal shop that sells young bonedogs, pack bulls, garrus and goats. With no walls or guards, it lies open to the dust bandits and beak things common in the area."
 }

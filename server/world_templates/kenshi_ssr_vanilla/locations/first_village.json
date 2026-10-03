@@ -1,13 +1,14 @@
 {
   "name": "First Village",
   "aliases": [],
-  "weight": 1,
   "fields": {
     "type": "village",
-    "zone": "Darkfinger",
-    "owner": "Cannibals"
+    "zone": [
+      "Darkfinger"
+    ],
+    "owner": [
+      "Cannibals"
+    ]
   },
-  "prose": {
-    "description": "First Village is the largest cannibal village in Darkfinger, set apart at the peninsula's northern tip. Meat Lord lives there with his chiefs, among metal shacks and tents set around a cluster of cages. Crowds of cannibals fill its centre, and raiding bands set out from it."
-  }
+  "description": "First Village is the largest cannibal village in Darkfinger, set apart at the peninsula's northern tip. Meat Lord lives there with his chiefs, among metal shacks and tents set around a cluster of cages. Crowds of cannibals fill its centre, and raiding bands set out from it."
 }

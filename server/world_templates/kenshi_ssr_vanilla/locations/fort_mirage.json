@@ -1,12 +1,11 @@
 {
   "name": "Fort Mirage",
   "aliases": [],
-  "weight": 1,
   "fields": {
     "type": "outpost",
-    "zone": "The Great Desert"
+    "zone": [
+      "The Great Desert"
+    ]
   },
-  "prose": {
-    "description": "Fort Mirage is a small fort in the Great Desert, held by Lord Mirage and home to nearly ten City Heroes, Greenlander xenophobes who target non-humans. Manned crossbow turrets sit on its roof, and the City Heroes attack those who enter."
-  }
+  "description": "Fort Mirage is a small fort in the Great Desert, held by Lord Mirage and home to nearly ten City Heroes, Greenlander xenophobes who target non-humans. Manned crossbow turrets sit on its roof, and the City Heroes attack those who enter."
 }

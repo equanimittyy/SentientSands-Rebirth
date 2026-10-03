@@ -1,7 +1,6 @@
 {
   "name": "Howler Maze",
   "aliases": [],
-  "weight": 1,
   "fields": {
     "factions": [
       "Empire Peasants"
@@ -13,9 +12,7 @@
       "acid rain"
     ]
   },
-  "prose": {
-    "description": "The Howler Maze lies on an island off Heng and Gut, joined to the mainland in the north by land bridges under shallow water. Crabs rule it, and slaves escaping the United Cities wander in. The remains of an old city lie scattered across it in ruins, and acid rain falls at times."
-  },
+  "description": "The Howler Maze lies on an island off Heng and Gut, joined to the mainland in the north by land bridges under shallow water. Crabs rule it, and slaves escaping the United Cities wander in. The remains of an old city lie scattered across it in ruins, and acid rain falls at times.",
   "children": [
     {
       "entry": "locations/archive_town",

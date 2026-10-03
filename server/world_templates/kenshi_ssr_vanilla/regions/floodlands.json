@@ -1,7 +1,6 @@
 {
   "name": "Floodlands",
   "aliases": [],
-  "weight": 1,
   "fields": {
     "factions": [
       "Skeletons"
@@ -10,9 +9,7 @@
       "Iron Spider"
     ]
   },
-  "prose": {
-    "description": "The Floodlands are a drowned, dead marsh between the Cannibal Plains and Okran's Gulf, under rain that never ends. It is a remnant of the old world, where wonders of technology were once made in vast numbers, and its labs and towers now stand in ruins. Nothing grows there, and only Iron Spiders and Skeletons roam it. The Skeleton Burn keeps a lonely tower in the north."
-  },
+  "description": "The Floodlands are a drowned, dead marsh between the Cannibal Plains and Okran's Gulf, under rain that never ends. It is a remnant of the old world, where wonders of technology were once made in vast numbers, and its labs and towers now stand in ruins. Nothing grows there, and only Iron Spiders and Skeletons roam it. The Skeleton Burn keeps a lonely tower in the north.",
   "children": [
     {
       "entry": "locations/ancient_labs",

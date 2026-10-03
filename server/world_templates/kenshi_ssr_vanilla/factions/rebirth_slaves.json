@@ -4,7 +4,9 @@
   "aliases": [],
   "major": false,
   "fields": {
-    "base": "Rebirth"
+    "bases": [
+      "Rebirth"
+    ]
   },
   "description": "Slaves at Rebirth, the labor camp of the Holy Nation: mostly Shek who fought in Holy Nation lands, human bandits and criminals, and some Hivers. No Skeletons are sent there, because the Holy Nation holds that they have no soul to be reborn."
 }

@@ -1,16 +1,15 @@
 {
   "name": "Hive Village",
   "aliases": [],
-  "weight": 1,
   "fields": {
     "type": "village",
     "zone": [
       "Dreg",
       "Vain"
     ],
-    "owner": "Western Hive"
+    "owner": [
+      "Western Hive"
+    ]
   },
-  "prose": {
-    "description": "Hive Villages are the small settlements of the Western Hive in Vain and Dreg. Each has a factory, a robotics shop, and a trader who is a prince; unarmed worker drones do the labour while soldier drones stand guard. Beak things and gorillos often attack the villages in Vain."
-  }
+  "description": "Hive Villages are the small settlements of the Western Hive in Vain and Dreg. Each has a factory, a robotics shop, and a trader who is a prince; unarmed worker drones do the labour while soldier drones stand guard. Beak things and gorillos often attack the villages in Vain."
 }

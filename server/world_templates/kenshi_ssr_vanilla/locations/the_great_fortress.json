@@ -1,13 +1,14 @@
 {
   "name": "The Great Fortress",
   "aliases": [],
-  "weight": 1,
   "fields": {
     "type": "military",
-    "zone": "Stenn Desert",
-    "owner": "Shek Kingdom"
+    "zone": [
+      "Stenn Desert"
+    ],
+    "owner": [
+      "Shek Kingdom"
+    ]
   },
-  "prose": {
-    "description": "The Great Fortress is a Shek Kingdom military outpost in the Stenn Desert, near New Kralia. For all its name, many of its buildings lie in ruins, and only a police station and a headquarters remain in use. Hundred Guardians guard it."
-  }
+  "description": "The Great Fortress is a Shek Kingdom military outpost in the Stenn Desert, near New Kralia. For all its name, many of its buildings lie in ruins, and only a police station and a headquarters remain in use. Hundred Guardians guard it."
 }

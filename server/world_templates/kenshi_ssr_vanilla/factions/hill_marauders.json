@@ -5,8 +5,12 @@
   "major": false,
   "fields": {
     "leader": "Hill Marauder King",
-    "base": "Hill Marauder King Tower",
-    "territory": "Border Zone",
+    "bases": [
+      "Hill Marauder King Tower"
+    ],
+    "territory": [
+      "Border Zone"
+    ],
     "enemies": [
       "United Cities",
       "Police"

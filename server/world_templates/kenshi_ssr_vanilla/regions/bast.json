@@ -1,7 +1,6 @@
 {
   "name": "Bast",
   "aliases": [],
-  "weight": 1,
   "fields": {
     "factions": [
       "Cannibals",
@@ -16,9 +15,7 @@
       "Skimmer"
     ]
   },
-  "prose": {
-    "description": "Bast is a war-torn frontier in the northeast where the lands of the Holy Nation and the United Cities meet. The Holy Nation destroyed its city in one day, roasting the head noble alive and taking the young to Rebirth, and the towns of Bast, Drin, and Endin now lie in ruins. The United Cities keep a garrison in half-ruined Drin, and Holy Nation and Empire patrols still clash across the land. Rebel farmers, escaped slaves, cannibal raiders, bonedogs, and skimmers roam there too."
-  },
+  "description": "Bast is a war-torn frontier in the northeast where the lands of the Holy Nation and the United Cities meet. The Holy Nation destroyed its city in one day, roasting the head noble alive and taking the young to Rebirth, and the towns of Bast, Drin, and Endin now lie in ruins. The United Cities keep a garrison in half-ruined Drin, and Holy Nation and Empire patrols still clash across the land. Rebel farmers, escaped slaves, cannibal raiders, bonedogs, and skimmers roam there too.",
   "children": [
     {
       "entry": "locations/bast",

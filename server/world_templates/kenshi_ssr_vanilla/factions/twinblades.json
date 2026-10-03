@@ -5,8 +5,12 @@
   "major": false,
   "fields": {
     "leader": "Big Fang",
-    "base": "Mud Town",
-    "territory": "The Swamp"
+    "bases": [
+      "Mud Town"
+    ],
+    "territory": [
+      "The Swamp"
+    ]
   },
   "description": "The smallest gang of the Swamp, made up of Scorchlanders. They kidnap people for ransom, kill those who cannot pay and harvest their organs, and extort doctors for organs as well."
 }

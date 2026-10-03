@@ -1,13 +1,14 @@
 {
   "name": "New Kralia",
   "aliases": [],
-  "weight": 1,
   "fields": {
     "type": "outpost",
-    "zone": "Stenn Desert",
-    "owner": "Kral's Chosen"
+    "zone": [
+      "Stenn Desert"
+    ],
+    "owner": [
+      "Kral's Chosen"
+    ]
   },
-  "prose": {
-    "description": "New Kralia is the stronghold of Kral's Chosen in the Stenn Desert, south of Admag. Their leader, Flying Bull, lives there among some fifteen to twenty of his warriors, who turn on anyone who comes near the gates."
-  }
+  "description": "New Kralia is the stronghold of Kral's Chosen in the Stenn Desert, south of Admag. Their leader, Flying Bull, lives there among some fifteen to twenty of his warriors, who turn on anyone who comes near the gates."
 }

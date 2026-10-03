@@ -1,13 +1,14 @@
 {
   "name": "Bark",
   "aliases": [],
-  "weight": 1,
   "fields": {
     "type": "town",
-    "zone": "The Great Desert",
-    "owner": "United Cities"
+    "zone": [
+      "The Great Desert"
+    ],
+    "owner": [
+      "United Cities"
+    ]
   },
-  "prose": {
-    "description": "Bark is a United Cities town on the northeast coast of the Great Desert, built around natural lagoons like an old port. Lady Sanda governs it from her noble house. It has a bar, a slave shop, and an armour shop, but no police station, so anyone arrested is caged at the slave shop and enslaved."
-  }
+  "description": "Bark is a United Cities town on the northeast coast of the Great Desert, built around natural lagoons like an old port. Lady Sanda governs it from her noble house. It has a bar, a slave shop, and an armour shop, but no police station, so anyone arrested is caged at the slave shop and enslaved."
 }

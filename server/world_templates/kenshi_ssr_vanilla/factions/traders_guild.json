@@ -5,7 +5,9 @@
   "major": true,
   "fields": {
     "leader": "Longen",
-    "base": "Trader's Edge",
+    "bases": [
+      "Trader's Edge"
+    ],
     "enemies": [
       "Anti-Slavers"
     ]

@@ -9,7 +9,9 @@
       "Kombust",
       "Farm Ruin"
     ],
-    "territory": "Burning Forest",
+    "territory": [
+      "Burning Forest"
+    ],
     "enemies": [
       "United Cities",
       "Police",

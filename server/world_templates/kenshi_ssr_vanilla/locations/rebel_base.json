@@ -1,12 +1,13 @@
 {
   "name": "Rebel Base",
   "aliases": [],
-  "weight": 1,
   "fields": {
-    "zone": "Border Zone",
-    "owner": "Holy Nation Outlaws"
+    "zone": [
+      "Border Zone"
+    ],
+    "owner": [
+      "Holy Nation Outlaws"
+    ]
   },
-  "prose": {
-    "description": "Rebel Base is a lone bar in the Border Zone, close to the Hub. It nominally belongs to the Holy Nation Outlaws, but only Trade Ninjas live there; they also run the Hub's bar, and their guards often fight off roaming bandits. Its black market bar sells crossbows, building materials and food, and buys stolen goods."
-  }
+  "description": "Rebel Base is a lone bar in the Border Zone, close to the Hub. It nominally belongs to the Holy Nation Outlaws, but only Trade Ninjas live there; they also run the Hub's bar, and their guards often fight off roaming bandits. Its black market bar sells crossbows, building materials and food, and buys stolen goods."
 }

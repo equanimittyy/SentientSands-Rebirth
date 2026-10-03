@@ -1,13 +1,14 @@
 {
   "name": "Ashland Dome III",
   "aliases": [],
-  "weight": 1,
   "fields": {
     "type": "ruins",
-    "zone": "Ashlands",
-    "owner": "Second Empire"
+    "zone": [
+      "Ashlands"
+    ],
+    "owner": [
+      "Second Empire"
+    ]
   },
-  "prose": {
-    "description": "Ashland Dome III is a great multi-storey dome in the Ashlands, northeast of Dome II, with two doorways and a spiral stair rising through its centre. General Jang, leader of the Second Empire's Hydraulic Knights, holds it with five of his knights."
-  }
+  "description": "Ashland Dome III is a great multi-storey dome in the Ashlands, northeast of Dome II, with two doorways and a spiral stair rising through its centre. General Jang, leader of the Second Empire's Hydraulic Knights, holds it with five of his knights."
 }

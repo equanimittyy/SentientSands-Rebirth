@@ -5,8 +5,12 @@
   "major": false,
   "fields": {
     "leader": "Deluged King",
-    "base": "Flooded Oasis",
-    "territory": "Floodlands",
+    "bases": [
+      "Flooded Oasis"
+    ],
+    "territory": [
+      "Floodlands"
+    ],
     "enemies": [
       "United Cities",
       "Police",

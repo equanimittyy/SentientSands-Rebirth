@@ -1,13 +1,14 @@
 {
   "name": "Ruined Holy Outpost",
   "aliases": [],
-  "weight": 1,
   "fields": {
     "type": "ruins",
-    "zone": "Border Zone",
-    "owner": "The Holy Nation"
+    "zone": [
+      "Border Zone"
+    ],
+    "owner": [
+      "The Holy Nation"
+    ]
   },
-  "prose": {
-    "description": "Between the Hub and Tiny Settlement in the Border Zone lies the Ruined Holy Outpost, a small Holy Nation ruin. Many old weapons lie scattered on the ground there."
-  }
+  "description": "Between the Hub and Tiny Settlement in the Border Zone lies the Ruined Holy Outpost, a small Holy Nation ruin. Many old weapons lie scattered on the ground there."
 }

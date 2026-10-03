@@ -1,13 +1,14 @@
 {
   "name": "Shark",
   "aliases": [],
-  "weight": 1,
   "fields": {
     "type": "town",
-    "zone": "The Swamp",
-    "owner": "Swampers"
+    "zone": [
+      "The Swamp"
+    ],
+    "owner": [
+      "Swampers"
+    ]
   },
-  "prose": {
-    "description": "Shark, at the centre of the Swamp, is its trading hub: a town of Swampers, outlaws and gangs, where Big Grim's Hounds call the shots. Big Darkbrow's Blackshifters run a casino bar, and the Dancing Skeleton is the place for trade and news. Blood spiders, drunk thugs and raids by Red Sabres and Swamp Ninjas keep it dangerous."
-  }
+  "description": "Shark, at the centre of the Swamp, is its trading hub: a town of Swampers, outlaws and gangs, where Big Grim's Hounds call the shots. Big Darkbrow's Blackshifters run a casino bar, and the Dancing Skeleton is the place for trade and news. Blood spiders, drunk thugs and raids by Red Sabres and Swamp Ninjas keep it dangerous."
 }

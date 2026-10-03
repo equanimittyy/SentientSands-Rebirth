@@ -4,11 +4,8 @@
     "Hiver Soldier",
     "Soldier Drone"
   ],
-  "weight": 1,
   "fields": {
     "type": "hiver"
   },
-  "prose": {
-    "description": "The soldier caste of the Hive. Soldier Drones cannot wear helmets and are immune to acid rain. Like other Hivers, those still bound to a Queen live for the Hive."
-  }
+  "description": "The soldier caste of the Hive. Soldier Drones cannot wear helmets and are immune to acid rain. Like other Hivers, those still bound to a Queen live for the Hive."
 }

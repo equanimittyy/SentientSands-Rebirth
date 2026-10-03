@@ -5,8 +5,12 @@
   "major": false,
   "fields": {
     "leader": "Big Gray",
-    "base": "Grayflayer Village",
-    "territory": "The Swamp"
+    "bases": [
+      "Grayflayer Village"
+    ],
+    "territory": [
+      "The Swamp"
+    ]
   },
   "description": "One of the five gangs of the Swamp, led by Big Gray from Grayflayer Village, with members in Shark. Like the other gangs they deal in hashish."
 }

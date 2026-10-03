@@ -1,13 +1,14 @@
 {
   "name": "Mourn",
   "aliases": [],
-  "weight": 1,
   "fields": {
     "type": "town",
-    "zone": "Bonefields",
-    "owner": "Tech Hunters"
+    "zone": [
+      "Bonefields"
+    ],
+    "owner": [
+      "Tech Hunters"
+    ]
   },
-  "prose": {
-    "description": "Mourn is a Tech Hunter town in the Bonefields, built inside an ancient metal structure between Catun and Flats Lagoon. It was a mining town until a slave revolt wrecked it; no guards hold its gates, and beak things prowl outside. It has a bar, where the smuggler Blue Eyes drinks, and a Tech Hunter shop."
-  }
+  "description": "Mourn is a Tech Hunter town in the Bonefields, built inside an ancient metal structure between Catun and Flats Lagoon. It was a mining town until a slave revolt wrecked it; no guards hold its gates, and beak things prowl outside. It has a bar, where the smuggler Blue Eyes drinks, and a Tech Hunter shop."
 }

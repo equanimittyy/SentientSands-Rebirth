@@ -5,7 +5,9 @@
   "major": false,
   "fields": {
     "leader": "Flying Bull",
-    "base": "New Kralia",
+    "bases": [
+      "New Kralia"
+    ],
     "enemies": [
       "Shek Kingdom"
     ]

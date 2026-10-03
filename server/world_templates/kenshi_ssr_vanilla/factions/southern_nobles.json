@@ -12,7 +12,9 @@
       "Drifter's Last",
       "Clownsteady"
     ],
-    "territory": "The Hook",
+    "territory": [
+      "The Hook"
+    ],
     "enemies": [
       "Northern Nobles",
       "Western Nobles",

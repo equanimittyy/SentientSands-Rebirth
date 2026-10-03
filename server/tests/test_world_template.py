@@ -82,8 +82,20 @@ class ValidateTest(TemplateTestCase):
         self.assertEqual(self.fields(), [["characters", "beep", "game_id"], ["characters", "beep", "profile", "Name"]])
 
     def test_an_entity_needs_a_name(self):
-        self.write("base", "locations/hub.json", {"fields": {"owner": "The Holy Nation"}})
+        self.write("base", "locations/hub.json", {"fields": {"owner": ["The Holy Nation"]}})
         self.assertEqual(self.fields(), [["locations", "hub", "name"]])
+
+    def test_a_fact_needs_a_category_of_its_kind(self):
+        self.write("base", "locations/hub.json", {"name": "The Hub", "fields": {"leader": "Phoenix"}})
+        self.assertEqual([error["message"] for error in self.problems()[0]], ["leader is not a fact of a location. Choose one of type, zone, owner."])
+
+    def test_a_fact_needs_the_shape_of_its_category(self):
+        self.write("base", "factions/holy_nation.json", dict(HOLY_NATION, fields={"leader": ["Phoenix"], "enemies": "Shek Kingdom"}))
+        self.assertEqual([error["message"] for error in self.problems()[0]], ["The fact leader must be text.", "The fact enemies must be a list of text."])
+
+    def test_an_entity_description_must_be_text(self):
+        self.write("base", "locations/hub.json", {"name": "The Hub", "description": {"text": "Bars."}})
+        self.assertEqual(self.fields(), [["locations", "hub", "description"]])
 
     def test_a_folder_of_another_category_is_an_error(self):
         self.write("base", "items/sword.json", {"name": "Sword"})
@@ -106,8 +118,8 @@ class ValidateTest(TemplateTestCase):
         self.assertEqual([e["field"] for e in world_template.record_problems("faction", dict(HOLY_NATION, major="yes"), ["f"])[0]], [["f", "major"]])
         self.assertEqual([e["field"] for e in world_template.record_problems("character", {"game_id": "x", "profile": {}}, ["c"])[0]], [["c", "profile", "Name"]])
         hub = {"name": "The Hub", "children": [{"entry": "locations/bar"}]}
-        self.assertEqual(len(world_template.record_problems("entity", hub, ["e"])[1]), 1)
-        self.assertEqual(world_template.record_problems("entity", hub, ["e"], {"locations/bar"}), ([], []))
+        self.assertEqual(len(world_template.record_problems("entity", hub, ["locations", "hub"])[1]), 1)
+        self.assertEqual(world_template.record_problems("entity", hub, ["locations", "hub"], {"locations/bar"}), ([], []))
         self.assertEqual([e["field"] for e in world_template.record_problems("history", [{"title": ""}], ["history"])[0]], [["history", 0]])
 
 

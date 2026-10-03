@@ -1,13 +1,14 @@
 {
   "name": "Ashland Dome IV",
   "aliases": [],
-  "weight": 1,
   "fields": {
     "type": "ruins",
-    "zone": "Ashlands",
-    "owner": "Second Empire"
+    "zone": [
+      "Ashlands"
+    ],
+    "owner": [
+      "Second Empire"
+    ]
   },
-  "prose": {
-    "description": "Ashland Dome IV is a great multi-storey dome in the Ashlands, south of Dome III, with two doorways and a spiral stair rising through its centre. General Hat-12, once chief of the Second Empire's police, holds it with several Old Empire Police Captains."
-  }
+  "description": "Ashland Dome IV is a great multi-storey dome in the Ashlands, south of Dome III, with two doorways and a spiral stair rising through its centre. General Hat-12, once chief of the Second Empire's police, holds it with several Old Empire Police Captains."
 }

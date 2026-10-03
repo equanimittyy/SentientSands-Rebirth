@@ -1,12 +1,11 @@
 {
   "name": "Raptor Island",
   "aliases": [],
-  "weight": 1,
   "fields": {
     "type": "point of interest",
-    "zone": "Raptor Island"
+    "zone": [
+      "Raptor Island"
+    ]
   },
-  "prose": {
-    "description": "In the heart of the Raptor Island region stands an ancient citadel that raptors have made their nest, ruled by a megaraptor. The nest lies half sunk in water that slows anyone wading through it."
-  }
+  "description": "In the heart of the Raptor Island region stands an ancient citadel that raptors have made their nest, ruled by a megaraptor. The nest lies half sunk in water that slows anyone wading through it."
 }

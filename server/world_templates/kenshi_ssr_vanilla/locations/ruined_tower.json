@@ -1,12 +1,11 @@
 {
   "name": "Ruined Tower",
   "aliases": [],
-  "weight": 1,
   "fields": {
     "type": "ruins",
-    "zone": "Floodlands"
+    "zone": [
+      "Floodlands"
+    ]
   },
-  "prose": {
-    "description": "The Ruined Tower is a landmark of the Floodlands, between the Empty Ruins and the ancient labs. It stands empty."
-  }
+  "description": "The Ruined Tower is a landmark of the Floodlands, between the Empty Ruins and the ancient labs. It stands empty."
 }

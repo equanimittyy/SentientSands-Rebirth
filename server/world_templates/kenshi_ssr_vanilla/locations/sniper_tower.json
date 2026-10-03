@@ -1,12 +1,11 @@
 {
   "name": "Sniper Tower",
   "aliases": [],
-  "weight": 1,
   "fields": {
     "type": "point of interest",
-    "zone": "The Pits"
+    "zone": [
+      "The Pits"
+    ]
   },
-  "prose": {
-    "description": "Sniper Tower is a tower in the Pits. Skeleton watchbots man the harpoon turrets on its roof, and every turret faces north. Acid surrounds it."
-  }
+  "description": "Sniper Tower is a tower in the Pits. Skeleton watchbots man the harpoon turrets on its roof, and every turret faces north. Acid surrounds it."
 }

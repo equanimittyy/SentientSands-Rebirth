@@ -5,11 +5,13 @@
   "major": false,
   "fields": {
     "leader": "Big Grim",
-    "base": "Shark",
     "bases": [
+      "Shark",
       "Rot"
     ],
-    "territory": "The Swamp"
+    "territory": [
+      "The Swamp"
+    ]
   },
   "description": "The most powerful gang of the Swamp, led by Big Grim, who is said to be crazy but clever. They grow most of the hemp for hashish and hold Shark and the village of Rot."
 }

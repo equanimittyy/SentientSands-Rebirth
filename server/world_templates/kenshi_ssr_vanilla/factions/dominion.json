@@ -7,8 +7,14 @@
   "major": true,
   "fields": {
     "leader": "Shogun Kazuhiro",
-    "base": "Yakusokutsu",
-    "territory": "Toi Shima, Heng, The Great Desert",
+    "bases": [
+      "Yakusokutsu"
+    ],
+    "territory": [
+      "Toi Shima",
+      "Heng",
+      "The Great Desert"
+    ],
     "allies": [
       "Traders Guild",
       "Slave Traders",

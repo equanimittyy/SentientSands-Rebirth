@@ -1,7 +1,6 @@
 {
   "name": "Ancient Labs",
   "aliases": [],
-  "weight": 1,
   "fields": {
     "type": "ruins",
     "zone": [
@@ -9,7 +8,5 @@
       "Obedience"
     ]
   },
-  "prose": {
-    "description": "Ancient Labs are wrecked laboratories of a long-gone advanced civilisation, one at the heart of the Floodlands and one in Obedience. Security Spiders still guard them, and anyone hoping to salvage the old technology inside must fight past them."
-  }
+  "description": "Ancient Labs are wrecked laboratories of a long-gone advanced civilisation, one at the heart of the Floodlands and one in Obedience. Security Spiders still guard them, and anyone hoping to salvage the old technology inside must fight past them."
 }

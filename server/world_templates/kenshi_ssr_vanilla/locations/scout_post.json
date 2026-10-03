@@ -1,13 +1,14 @@
 {
   "name": "Scout Post",
   "aliases": [],
-  "weight": 1,
   "fields": {
     "type": "point of interest",
-    "zone": "Cannibal Plains",
-    "owner": "Flotsam Ninjas"
+    "zone": [
+      "Cannibal Plains"
+    ],
+    "owner": [
+      "Flotsam Ninjas"
+    ]
   },
-  "prose": {
-    "description": "The Scout Posts are two Flotsam Ninja lookouts on the border of the Hidden Forest and the Cannibal Plains. A handful of ninjas guard each one, and Mani leads one of them. They can fend off small cannibal bands, but larger cannibal forces and the beak things that sometimes wander by can overwhelm them."
-  }
+  "description": "The Scout Posts are two Flotsam Ninja lookouts on the border of the Hidden Forest and the Cannibal Plains. A handful of ninjas guard each one, and Mani leads one of them. They can fend off small cannibal bands, but larger cannibal forces and the beak things that sometimes wander by can overwhelm them."
 }

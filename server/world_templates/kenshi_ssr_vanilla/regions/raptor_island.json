@@ -1,15 +1,12 @@
 {
   "name": "Raptor Island",
   "aliases": [],
-  "weight": 1,
   "fields": {
     "hazards": [
       "acid rain"
     ]
   },
-  "prose": {
-    "description": "Raptor Island is a large, sandy landmass on the western coast, just north of the Fog Islands, with a small mountain range at its center and scattered shrubs and trees. Swamp raptors nest all over it; they are not aggressive but grow angry at anyone who stands near their nests. In the middle of the island an ancient citadel has become a nest, where a megaraptor dwells. Acid rain falls at times."
-  },
+  "description": "Raptor Island is a large, sandy landmass on the western coast, just north of the Fog Islands, with a small mountain range at its center and scattered shrubs and trees. Swamp raptors nest all over it; they are not aggressive but grow angry at anyone who stands near their nests. In the middle of the island an ancient citadel has become a nest, where a megaraptor dwells. Acid rain falls at times.",
   "children": [
     {
       "entry": "locations/raptor_island",

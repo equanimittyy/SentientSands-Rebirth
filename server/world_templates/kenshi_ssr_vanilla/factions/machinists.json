@@ -5,7 +5,9 @@
   "major": false,
   "fields": {
     "leader": "Finch",
-    "base": "World's End"
+    "bases": [
+      "World's End"
+    ]
   },
   "description": "The University of the Machinists at World's End: scholars who research the world's history and lost technology and spread what they learn in books. Finch leads them, and the Skeleton Iyo deals with visitors."
 }

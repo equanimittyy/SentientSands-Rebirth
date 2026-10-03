@@ -1,12 +1,11 @@
 {
   "name": "Tower of Goats",
   "aliases": [],
-  "weight": 1,
   "fields": {
     "type": "point of interest",
-    "zone": "Sinkuun"
+    "zone": [
+      "Sinkuun"
+    ]
   },
-  "prose": {
-    "description": "The Tower of Goats, in Sinkuun, is packed with goats. A trader who sells tame goats lives inside, and the trader and the goats turn on anyone who walks in."
-  }
+  "description": "The Tower of Goats, in Sinkuun, is packed with goats. A trader who sells tame goats lives inside, and the trader and the goats turn on anyone who walks in."
 }

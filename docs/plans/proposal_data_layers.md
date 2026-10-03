@@ -102,9 +102,8 @@ A world lore entity file, `locations/blister_hill.json`:
 {
   "name": "Blister Hill",
   "aliases": [],
-  "weight": 1,
-  "fields": {"owner": "Holy Nation"},
-  "prose": {"description": "The capital of the Holy Nation..."},
+  "fields": {"owner": ["Holy Nation"]},
+  "description": "The capital of the Holy Nation...",
   "children": [{"entry": "locations/...", "weight": 2}],
   "access": []
 }
@@ -122,7 +121,8 @@ A world lore entity file, `locations/blister_hill.json`:
 - A faction and a canon character bind to the game by `game_id`, not by name, so a rename in the game does not break the link ([proposal_npc_ids.md](proposal_npc_ids.md#7-world-templates)). `major` marks a major world power, whose members resist recruitment.
 - The keys of a character's `profile` are the keys of a profile in the character store ([architecture.md](../info/architecture.md#campaign-storage)). Chat uses the canon profile instead of generating one.
 - The entity ID is the file name without `.json`. The category is the folder name: `races`, `locations`, or `regions`. A template cannot add a category, so another folder is an error.
-- The values in `fields` feed link expansion. The values in `prose` are retrieved text and never feed link expansion.
+- The values in `fields` feed link expansion. The `description` is retrieved text and never feeds link expansion.
+- Each kind of record has fixed `fields` categories, and each category holds one text or a list of text (`FACTS` in `server/scripts/world_template.py`). The validator refuses another category, so each template uses the same keys.
 - `children` are weighted links to other entities. Each child names its entity as `<category>/<entity ID>`, not by name, because a location and a region can share a name, for example Bast. `access` holds the rules that decide which NPCs know the entity. Phase 5 sets its schema, with the retriever that applies it ([section 10](#10-phases-and-verification)).
 - The order of `history.json` is the timeline order. The loader stores each entry as an entity of category `history`, so retrieval finds it like any entity.
 - One validator runs on each load, import, and edit. It rejects an unknown `format_version`, a JSON file that does not parse, a faction or an entity without `name`, a faction or a character without `game_id`, and a character without a `Name` in its profile. A child whose `entry` names no entity is a warning, not an error.
@@ -162,14 +162,14 @@ CREATE TABLE faction (
 
 -- The world lore: retrieval searches only these tables.
 CREATE TABLE entity (
-  id         INTEGER PRIMARY KEY,
-  category   TEXT NOT NULL,      -- races, locations, regions, history
-  ext_id     TEXT NOT NULL,      -- the entity ID in the template
-  name       TEXT NOT NULL,
-  weight     REAL NOT NULL DEFAULT 1,
-  seq        INTEGER,            -- timeline order of a history entry
-  origin     TEXT NOT NULL DEFAULT 'seed',  -- seed | campaign
-  updated_at TEXT NOT NULL,
+  id          INTEGER PRIMARY KEY,
+  category    TEXT NOT NULL,      -- races, locations, regions, history
+  ext_id      TEXT NOT NULL,      -- the entity ID in the template
+  name        TEXT NOT NULL,
+  description TEXT NOT NULL DEFAULT '',
+  seq         INTEGER,            -- timeline order of a history entry
+  origin      TEXT NOT NULL DEFAULT 'seed',  -- seed | campaign
+  updated_at  TEXT NOT NULL,
   UNIQUE (category, ext_id)
 );
 
@@ -178,7 +178,6 @@ CREATE TABLE field (
   key       TEXT NOT NULL,
   seq       INTEGER NOT NULL DEFAULT 0,  -- a list value gives one row per item
   value     TEXT NOT NULL,
-  is_prose  INTEGER NOT NULL DEFAULT 0,
   PRIMARY KEY (entity_id, key, seq)
 );
 
@@ -224,7 +223,7 @@ CREATE VIRTUAL TABLE entity_fts USING fts5(
 ## 6. Campaign model
 
 - The Campaigns tab of the web app creates a campaign from any template, and from SSR Vanilla by default.
-- The server loads the template into the new campaign database in one transaction: the canon factions into the faction store, the canon characters into the character store under `u:<game_id>`, the lore entities with their fields, aliases, children, and access rules, the history entries, the links, the FTS index, and the overview.
+- The server loads the template into the new campaign database in one transaction: the canon factions into the faction store, the canon characters into the character store under `u:<game_id>`, the lore entities with their descriptions, fields, aliases, children, and access rules, the history entries, the links, the FTS index, and the overview.
 - After creation, the campaign does not depend on its template. A template edit, a new template version, or a deleted template does not change the campaign.
 - A campaign database of an earlier schema version is not upgraded. `open_campaign` refuses it and logs that the player must start a new campaign.
 - The prompt takes the overview from `meta`.
@@ -275,7 +274,7 @@ The retriever, `server/scripts/knowledge_retrieve.py`, searches the world lore o
 1. Extract keywords from the player message: drop the stop words, and keep at most `max_keywords`.
 2. Layer 0: FTS5 match against the name, the aliases, and the fields.
 3. Layers 1 to N: follow the precomputed `link` table, up to `max_layers`.
-4. Rank by layer, then entity weight, then FTS rank. Apply `max_matches_per_layer` and `max_files`.
+4. Rank by layer, then FTS rank. Apply `max_matches_per_layer` and `max_files`.
 5. Apply the access rules for the speaking NPC.
 6. Honor `timeout_ms` as a hard ceiling.
 
@@ -300,7 +299,7 @@ SELECT e.*, MIN(h.layer) AS layer
 FROM hit h
 JOIN entity e ON e.id = h.entity_id
 GROUP BY e.id
-ORDER BY layer, e.weight DESC
+ORDER BY layer
 LIMIT :max_files;
 ```
 

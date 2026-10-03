@@ -1,13 +1,14 @@
 {
   "name": "Ashland Dome I",
   "aliases": [],
-  "weight": 1,
   "fields": {
     "type": "ruins",
-    "zone": "Ashlands",
-    "owner": "Second Empire"
+    "zone": [
+      "Ashlands"
+    ],
+    "owner": [
+      "Second Empire"
+    ]
   },
-  "prose": {
-    "description": "Ashland Dome I is a great multi-storey dome in the Ashlands, southeast of the Skinhouse, with two doorways and a spiral stair rising through its centre. The Second Empire's Head of Agriculture lives there with several Legion Thralls."
-  }
+  "description": "Ashland Dome I is a great multi-storey dome in the Ashlands, southeast of the Skinhouse, with two doorways and a spiral stair rising through its centre. The Second Empire's Head of Agriculture lives there with several Legion Thralls."
 }

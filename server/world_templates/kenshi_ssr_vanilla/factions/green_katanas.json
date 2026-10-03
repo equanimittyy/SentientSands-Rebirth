@@ -5,8 +5,12 @@
   "major": false,
   "fields": {
     "leader": "Green Katana Boss",
-    "base": "Green Katana Hideout",
-    "territory": "The Swamp",
+    "bases": [
+      "Green Katana Hideout"
+    ],
+    "territory": [
+      "The Swamp"
+    ],
     "enemies": [
       "Swamp Ninjas",
       "Red Sabres",

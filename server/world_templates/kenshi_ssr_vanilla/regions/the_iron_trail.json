@@ -1,15 +1,12 @@
 {
   "name": "The Iron Trail",
   "aliases": [],
-  "weight": 1,
   "fields": {
     "hazards": [
       "acid rain"
     ]
   },
-  "prose": {
-    "description": "The Iron Trail, a narrow flatland of sparse growth, runs west from the Cannibal Plains all the way to the sea and ends at an island. Its glassy ground has a sapphire color, and iron spiders stand all along it, some still and some active. An ancient lab lies in ruins there, and acid rain falls at times."
-  },
+  "description": "The Iron Trail, a narrow flatland of sparse growth, runs west from the Cannibal Plains all the way to the sea and ends at an island. Its glassy ground has a sapphire color, and iron spiders stand all along it, some still and some active. An ancient lab lies in ruins there, and acid rain falls at times.",
   "children": [
     {
       "entry": "locations/ancient_tech_lab",

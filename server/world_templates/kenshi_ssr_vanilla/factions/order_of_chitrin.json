@@ -7,8 +7,12 @@
   "major": true,
   "fields": {
     "leader": "Grand Marshall Krug",
-    "base": "Ancient Tech Lab",
-    "territory": "Shun, then the lands of its crusade",
+    "bases": [
+      "Ancient Tech Lab"
+    ],
+    "territory": [
+      "Shun"
+    ],
     "enemies": [
       "The Holy Nation",
       "Narko's Disciples",

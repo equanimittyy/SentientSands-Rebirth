@@ -14,7 +14,10 @@
       "Stoat",
       "Brink"
     ],
-    "territory": "Heng, the western Great Desert",
+    "territory": [
+      "Heng",
+      "the western Great Desert"
+    ],
     "enemies": [
       "Northern Nobles",
       "Southern Nobles",

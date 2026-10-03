@@ -733,6 +733,10 @@ input[type="search"] {
   flex: 0 0 6rem;
 }
 
+.row > select {
+  flex: 0 0 9rem;
+}
+
 .subtabs {
   display: flex;
   gap: 0.25rem;

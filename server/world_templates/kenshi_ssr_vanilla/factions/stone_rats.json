@@ -5,8 +5,12 @@
   "major": false,
   "fields": {
     "leader": "Big Al",
-    "base": "Stone Rat Village",
-    "territory": "The Swamp"
+    "bases": [
+      "Stone Rat Village"
+    ],
+    "territory": [
+      "The Swamp"
+    ]
   },
   "description": "One of the gangs of the Swamp, led by Big Al from Stone Rat Village, with members in Shark. They defer to the Hounds and take care not to anger them, and the Hounds mock them as dim."
 }

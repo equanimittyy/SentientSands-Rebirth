@@ -1,13 +1,14 @@
 {
   "name": "Bast",
   "aliases": [],
-  "weight": 1,
   "fields": {
     "type": "ruins",
-    "zone": "Bast",
-    "owner": "United Cities"
+    "zone": [
+      "Bast"
+    ],
+    "owner": [
+      "United Cities"
+    ]
   },
-  "prose": {
-    "description": "Bast is the ruin of a United Cities city in the land of the same name, destroyed not long ago by the Holy Nation. Travellers say it fell in a single day, its head noble roasted alive in Okran's name and its young carried off to Rebirth. Squatters loyal to the United Cities live there now."
-  }
+  "description": "Bast is the ruin of a United Cities city in the land of the same name, destroyed not long ago by the Holy Nation. Travellers say it fell in a single day, its head noble roasted alive in Okran's name and its young carried off to Rebirth. Squatters loyal to the United Cities live there now."
 }

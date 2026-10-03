@@ -1,12 +1,11 @@
 {
   "name": "Grayflayer Village",
   "aliases": [],
-  "weight": 1,
   "fields": {
     "type": "village",
-    "zone": "The Swamp"
+    "zone": [
+      "The Swamp"
+    ]
   },
-  "prose": {
-    "description": "Grayflayer Village is a village in the Swamp, run by the Grayflayers from their headquarters there under Big Gray. It has a makeshift gate, a store selling fish and drugs, and fields of hemp and riceweed."
-  }
+  "description": "Grayflayer Village is a village in the Swamp, run by the Grayflayers from their headquarters there under Big Gray. It has a makeshift gate, a store selling fish and drugs, and fields of hemp and riceweed."
 }

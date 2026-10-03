@@ -1,12 +1,13 @@
 {
   "name": "Expedition 4",
   "aliases": [],
-  "weight": 1,
   "fields": {
-    "zone": "Stobe's Garden",
-    "owner": "Tech Hunters"
+    "zone": [
+      "Stobe's Garden"
+    ],
+    "owner": [
+      "Tech Hunters"
+    ]
   },
-  "prose": {
-    "description": "Expedition 4 is an abandoned Tech Hunter town in Stobe's Garden, now in ruins. Salvage lies scattered in and around its broken buildings. Its wind generator still works, which few ruins can claim."
-  }
+  "description": "Expedition 4 is an abandoned Tech Hunter town in Stobe's Garden, now in ruins. Salvage lies scattered in and around its broken buildings. Its wind generator still works, which few ruins can claim."
 }

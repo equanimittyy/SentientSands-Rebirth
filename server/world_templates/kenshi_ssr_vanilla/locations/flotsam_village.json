@@ -1,13 +1,14 @@
 {
   "name": "Flotsam Village",
   "aliases": [],
-  "weight": 1,
   "fields": {
     "type": "village",
-    "zone": "Hidden Forest",
-    "owner": "Flotsam Ninjas"
+    "zone": [
+      "Hidden Forest"
+    ],
+    "owner": [
+      "Flotsam Ninjas"
+    ]
   },
-  "prose": {
-    "description": "Flotsam Village lies in the Hidden Forest, west of World's End and north of Rebirth, and is home to the Flotsam Ninjas and their leader Moll. Most villagers fled or deserted the Holy Nation, and many still worship Okran. It has a bar and an armoury, and cannibals roam the surrounding land."
-  }
+  "description": "Flotsam Village lies in the Hidden Forest, west of World's End and north of Rebirth, and is home to the Flotsam Ninjas and their leader Moll. Most villagers fled or deserted the Holy Nation, and many still worship Okran. It has a bar and an armoury, and cannibals roam the surrounding land."
 }

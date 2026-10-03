@@ -1,16 +1,15 @@
 {
   "name": "Waystation Ruins",
   "aliases": [],
-  "weight": 1,
   "fields": {
     "type": "ruins",
     "zone": [
       "Stobe's Garden",
       "Venge"
     ],
-    "owner": "Tech Hunters"
+    "owner": [
+      "Tech Hunters"
+    ]
   },
-  "prose": {
-    "description": "Two ruined waystations stand in the south-east, one in Venge and one in Stobe's Garden. They belong to the Tech Hunters but lie in ruins."
-  }
+  "description": "Two ruined waystations stand in the south-east, one in Venge and one in Stobe's Garden. They belong to the Tech Hunters but lie in ruins."
 }

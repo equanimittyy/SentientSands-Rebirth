@@ -5,8 +5,12 @@
   "major": false,
   "fields": {
     "leader": "Big Darkbrow",
-    "base": "Shark",
-    "territory": "The Swamp"
+    "bases": [
+      "Shark"
+    ],
+    "territory": [
+      "The Swamp"
+    ]
   },
   "description": "A gang of Hiver ronin, one of the five gangs of the Swamp. They run the casinos of Mud Town and Shark, where they are said to cheat, and squeeze money out of anyone who owes them."
 }

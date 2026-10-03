@@ -1,7 +1,6 @@
 {
   "name": "The Hook",
   "aliases": [],
-  "weight": 1,
   "fields": {
     "factions": [
       "Band of Bones",
@@ -20,9 +19,7 @@
       "Goat"
     ]
   },
-  "prose": {
-    "description": "The Hook is a stretch of the south coast and, with the Bonefields, one of the two southern lands of the United Cities. Lady Merin, one of the Noble Circle, lives in Drifter's Last, a farming town often raided by outlaw farmers, and the Empire also holds Clownsteady. Slave Mistress Grace runs Slave Farm South, and the Manhunters keep their only base here, so anyone who falls risks being enslaved. Band of Bones raiders and bonedog packs also roam."
-  },
+  "description": "The Hook is a stretch of the south coast and, with the Bonefields, one of the two southern lands of the United Cities. Lady Merin, one of the Noble Circle, lives in Drifter's Last, a farming town often raided by outlaw farmers, and the Empire also holds Clownsteady. Slave Mistress Grace runs Slave Farm South, and the Manhunters keep their only base here, so anyone who falls risks being enslaved. Band of Bones raiders and bonedog packs also roam.",
   "children": [
     {
       "entry": "locations/abandoned_town",

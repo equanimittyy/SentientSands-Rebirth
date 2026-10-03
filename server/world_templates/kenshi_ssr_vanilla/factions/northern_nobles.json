@@ -14,7 +14,9 @@
       "Heft",
       "Bark"
     ],
-    "territory": "The Great Desert",
+    "territory": [
+      "The Great Desert"
+    ],
     "enemies": [
       "Southern Nobles",
       "Western Nobles",

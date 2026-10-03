@@ -1,12 +1,11 @@
 {
   "name": "Ravaged Hamlet",
   "aliases": [],
-  "weight": 1,
   "fields": {
     "type": "point of interest",
-    "zone": "Bast"
+    "zone": [
+      "Bast"
+    ]
   },
-  "prose": {
-    "description": "Ravaged Hamlets are the ruins of nine villages scattered across Bast, a land of the United Cities. Bast was once rich farmland, until the Holy Nation invaded and burned its towns and farms."
-  }
+  "description": "Ravaged Hamlets are the ruins of nine villages scattered across Bast, a land of the United Cities. Bast was once rich farmland, until the Holy Nation invaded and burned its towns and farms."
 }

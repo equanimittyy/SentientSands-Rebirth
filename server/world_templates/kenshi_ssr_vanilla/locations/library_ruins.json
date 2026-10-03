@@ -1,16 +1,15 @@
 {
   "name": "Library Ruins",
   "aliases": [],
-  "weight": 1,
   "fields": {
     "type": "ruins",
     "zone": [
       "Shun",
       "The Hook"
     ],
-    "owner": "Second Empire"
+    "owner": [
+      "Second Empire"
+    ]
   },
-  "prose": {
-    "description": "Library Ruins are the remains of Second Empire libraries in the Hook and on the shore of Shun, destroyed long ago. Whatever knowledge they held is gone, and damaged books lie scattered through them in great numbers."
-  }
+  "description": "Library Ruins are the remains of Second Empire libraries in the Hook and on the shore of Shun, destroyed long ago. Whatever knowledge they held is gone, and damaged books lie scattered through them in great numbers."
 }

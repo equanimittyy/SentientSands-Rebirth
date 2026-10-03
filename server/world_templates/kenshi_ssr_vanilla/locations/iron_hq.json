@@ -1,13 +1,14 @@
 {
   "name": "Iron HQ",
   "aliases": [],
-  "weight": 1,
   "fields": {
     "type": "outpost",
-    "zone": "The Crags",
-    "owner": "Skeleton Bandits"
+    "zone": [
+      "The Crags"
+    ],
+    "owner": [
+      "Skeleton Bandits"
+    ]
   },
-  "prose": {
-    "description": "Iron HQ is an outpost in the Crags and the sole settlement of the Skeleton Bandits, who keep their headquarters there. It consists of metal wallhouses and a headquarters building, where their leader Elder stays in the central lab. The bandits there are hostile to humans."
-  }
+  "description": "Iron HQ is an outpost in the Crags and the sole settlement of the Skeleton Bandits, who keep their headquarters there. It consists of metal wallhouses and a headquarters building, where their leader Elder stays in the central lab. The bandits there are hostile to humans."
 }

@@ -1,12 +1,11 @@
 {
   "name": "Dead Fishing Village",
   "aliases": [],
-  "weight": 1,
   "fields": {
     "type": "village",
-    "zone": "Cheaters Run"
+    "zone": [
+      "Cheaters Run"
+    ]
   },
-  "prose": {
-    "description": "The Dead Fishing Village in Cheaters Run is a cluster of old storm houses and two watchtowers held by more than thirty Skeletons of the Old Machines, who try to 'arrest' anyone who enters. An attack on one house brings the rest out in force. Acid rain falls here, and Iron Spiders roam nearby in large groups."
-  }
+  "description": "The Dead Fishing Village in Cheaters Run is a cluster of old storm houses and two watchtowers held by more than thirty Skeletons of the Old Machines, who try to 'arrest' anyone who enters. An attack on one house brings the rest out in force. Acid rain falls here, and Iron Spiders roam nearby in large groups."
 }

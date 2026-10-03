@@ -3,11 +3,8 @@
   "aliases": [
     "Hiver Prince"
   ],
-  "weight": 1,
   "fields": {
     "type": "hiver"
   },
-  "prose": {
-    "description": "The most intelligent caste of the Hive. Princes rule beside the Queen, and free Princes, made to be more independent, can live apart from the Hive for long periods. The Southern Hive and the Fogmen have Princes of their own."
-  }
+  "description": "The most intelligent caste of the Hive. Princes rule beside the Queen, and free Princes, made to be more independent, can live apart from the Hive for long periods. The Southern Hive and the Fogmen have Princes of their own."
 }

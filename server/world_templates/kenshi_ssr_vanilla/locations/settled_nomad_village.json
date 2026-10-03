@@ -1,13 +1,14 @@
 {
   "name": "Settled Nomad Village",
   "aliases": [],
-  "weight": 1,
   "fields": {
     "type": "village",
-    "zone": "Dreg",
-    "owner": "Nomads"
+    "zone": [
+      "Dreg"
+    ],
+    "owner": [
+      "Nomads"
+    ]
   },
-  "prose": {
-    "description": "Settled Nomad Village is a small Nomad village in Dreg, south of Raptor Island. It has three homes and an animal shop that sells bonedogs, bulls, garrus and goats. A goat named Cornelius lives there."
-  }
+  "description": "Settled Nomad Village is a small Nomad village in Dreg, south of Raptor Island. It has three homes and an animal shop that sells bonedogs, bulls, garrus and goats. A goat named Cornelius lives there."
 }

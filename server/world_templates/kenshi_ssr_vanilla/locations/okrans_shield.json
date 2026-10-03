@@ -1,7 +1,6 @@
 {
   "name": "Okran's Shield",
   "aliases": [],
-  "weight": 1,
   "fields": {
     "type": "military",
     "zone": [
@@ -9,9 +8,9 @@
       "Iron Valleys",
       "Skinner's Roam"
     ],
-    "owner": "The Holy Nation"
+    "owner": [
+      "The Holy Nation"
+    ]
   },
-  "prose": {
-    "description": "Okran's Shield is a Holy Nation stronghold on the eastern border, where the Arm of Okran, the Iron Valleys and Skinner's Roam meet. A fortified chokepoint splits it in two, and Holy Nation patrols pass through often. High Inquisitor Valtena is based there, and it has barracks, an armoury and a hospital."
-  }
+  "description": "Okran's Shield is a Holy Nation stronghold on the eastern border, where the Arm of Okran, the Iron Valleys and Skinner's Roam meet. A fortified chokepoint splits it in two, and Holy Nation patrols pass through often. High Inquisitor Valtena is based there, and it has barracks, an armoury and a hospital."
 }

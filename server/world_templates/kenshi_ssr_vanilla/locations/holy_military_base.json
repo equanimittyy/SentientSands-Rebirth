@@ -1,13 +1,14 @@
 {
   "name": "Holy Military Base",
   "aliases": [],
-  "weight": 1,
   "fields": {
     "type": "military",
-    "zone": "Okran's Gulf",
-    "owner": "The Holy Nation"
+    "zone": [
+      "Okran's Gulf"
+    ],
+    "owner": [
+      "The Holy Nation"
+    ]
   },
-  "prose": {
-    "description": "Holy Military Base is the name of two Holy Nation army bases on the western edge of Okran's Gulf, close to the Fog Islands. Holy Sentinels guard their gates, and patrols of paladins and holy servants under a High Paladin march from them. The southern base has a bakery, a hospital, and an armour shop."
-  }
+  "description": "Holy Military Base is the name of two Holy Nation army bases on the western edge of Okran's Gulf, close to the Fog Islands. Holy Sentinels guard their gates, and patrols of paladins and holy servants under a High Paladin march from them. The southern base has a bakery, a hospital, and an armour shop."
 }

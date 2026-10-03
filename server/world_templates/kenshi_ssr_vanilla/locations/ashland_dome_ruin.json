@@ -1,12 +1,11 @@
 {
   "name": "Ashland Dome Ruin",
   "aliases": [],
-  "weight": 1,
   "fields": {
     "type": "ruins",
-    "zone": "Ashlands"
+    "zone": [
+      "Ashlands"
+    ]
   },
-  "prose": {
-    "description": "Two ancient, ruined domes in the Ashlands share the name Ashland Dome Ruin, one in the east and one in the west."
-  }
+  "description": "Two ancient, ruined domes in the Ashlands share the name Ashland Dome Ruin, one in the east and one in the west."
 }

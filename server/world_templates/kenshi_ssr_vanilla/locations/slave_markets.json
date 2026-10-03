@@ -1,13 +1,14 @@
 {
   "name": "Slave Markets",
   "aliases": [],
-  "weight": 1,
   "fields": {
     "type": "outpost",
-    "zone": "South Wetlands",
-    "owner": "Slave Traders"
+    "zone": [
+      "South Wetlands"
+    ],
+    "owner": [
+      "Slave Traders"
+    ]
   },
-  "prose": {
-    "description": "The Slave Markets is a Slave Traders outpost in the South Wetlands where slavers trade their captives. The Slave Market Master runs it. Nobody farms or mines here; it has a slave shop, a slaver bar, a used clothing shop, and heavy guards."
-  }
+  "description": "The Slave Markets is a Slave Traders outpost in the South Wetlands where slavers trade their captives. The Slave Market Master runs it. Nobody farms or mines here; it has a slave shop, a slaver bar, a used clothing shop, and heavy guards."
 }

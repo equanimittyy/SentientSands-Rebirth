@@ -4,8 +4,12 @@
   "aliases": [],
   "major": false,
   "fields": {
-    "base": "Savage Hive Village",
-    "territory": "Purple Sands"
+    "bases": [
+      "Savage Hive Village"
+    ],
+    "territory": [
+      "Purple Sands"
+    ]
   },
   "description": "Hivers abandoned by their hives, desperate and starving in the Purple Sands. Some say they caught the sickness of that region, which brings hunger and indifference to the suffering of others. They survive by cannibalism and behave much like Fogmen."
 }

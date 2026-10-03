@@ -5,7 +5,9 @@
   "major": false,
   "fields": {
     "leader": "Shade",
-    "base": "Swamp Ninja Base",
+    "bases": [
+      "Swamp Ninja Base"
+    ],
     "territory": [
       "The Swamp",
       "South Wetlands"

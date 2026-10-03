@@ -1,7 +1,6 @@
 {
   "name": "Lost Library",
   "aliases": [],
-  "weight": 1,
   "fields": {
     "type": "ruins",
     "zone": [
@@ -10,9 +9,9 @@
       "Shun",
       "Vain"
     ],
-    "owner": "Second Empire"
+    "owner": [
+      "Second Empire"
+    ]
   },
-  "prose": {
-    "description": "Lost Libraries are old Second Empire archives in Darkfinger, the Leviathan Coast, Shun and Vain, left to rot. Ancient science books can still turn up inside. Large packs of blood spiders sometimes guard them."
-  }
+  "description": "Lost Libraries are old Second Empire archives in Darkfinger, the Leviathan Coast, Shun and Vain, left to rot. Ancient science books can still turn up inside. Large packs of blood spiders sometimes guard them."
 }

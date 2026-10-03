@@ -1,12 +1,11 @@
 {
   "name": "Rebirth",
   "aliases": [],
-  "weight": 1,
   "fields": {
     "type": "slave camp",
-    "zone": "Rebirth"
+    "zone": [
+      "Rebirth"
+    ]
   },
-  "prose": {
-    "description": "Rebirth is the Holy Nation's labour camp, set in a pit within a great mountain north of its main lands. Criminals of every race but Skeletons, whom the Holy Nation holds soulless, are sent there to labour and repent so they may be reborn as children of Okran. Guards watch the cages, and a priest keeps its church."
-  }
+  "description": "Rebirth is the Holy Nation's labour camp, set in a pit within a great mountain north of its main lands. Criminals of every race but Skeletons, whom the Holy Nation holds soulless, are sent there to labour and repent so they may be reborn as children of Okran. Guards watch the cages, and a priest keeps its church."
 }

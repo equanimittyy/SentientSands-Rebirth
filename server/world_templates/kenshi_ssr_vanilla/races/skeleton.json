@@ -1,11 +1,8 @@
 {
   "name": "Skeleton",
   "aliases": [],
-  "weight": 1,
   "fields": {
     "type": "machine"
   },
-  "prose": {
-    "description": "Sentient machines from ancient times. Skeletons feel no hunger, shrug off the weather, walk through water and acid, and are mended with repair kits instead of healing. Many withdrew to Black Desert City. The Holy Nation hates them as agents of Narko."
-  }
+  "description": "Sentient machines from ancient times. Skeletons feel no hunger, shrug off the weather, walk through water and acid, and are mended with repair kits instead of healing. Many withdrew to Black Desert City. The Holy Nation hates them as agents of Narko."
 }

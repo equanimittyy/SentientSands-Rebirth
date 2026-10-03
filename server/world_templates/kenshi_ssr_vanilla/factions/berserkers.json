@@ -5,7 +5,9 @@
   "major": false,
   "fields": {
     "leader": "Ghost",
-    "territory": "Berserker Country"
+    "territory": [
+      "Berserker Country"
+    ]
   },
   "description": "Rogue Shek warriors who left the Shek Kingdom to return to the old tribal ways and seek out fights. Many went north to Berserker Country; others stayed near the Kingdom with their leader, Ghost."
 }

@@ -1,15 +1,12 @@
 {
   "name": "Arach",
   "aliases": [],
-  "weight": 1,
   "fields": {
     "animals": [
       "Skin Spider"
     ]
   },
-  "prose": {
-    "description": "Arach is a spider-ridden crater bordering Watcher's Rim, the Spider Plains, and Shun, and the Bugmaster lives there on his throne. Skin Spiders roam it in packs and great swarms, which makes it one of the deadliest places in the land. Nothing grows there, there is no water, and red rain falls. Rumor says the Bugmaster hoards endless riches in his tower, and Shek elders go there to find their way to the Gateway by facing him."
-  },
+  "description": "Arach is a spider-ridden crater bordering Watcher's Rim, the Spider Plains, and Shun, and the Bugmaster lives there on his throne. Skin Spiders roam it in packs and great swarms, which makes it one of the deadliest places in the land. Nothing grows there, there is no water, and red rain falls. Rumor says the Bugmaster hoards endless riches in his tower, and Shek elders go there to find their way to the Gateway by facing him.",
   "children": [
     {
       "entry": "locations/fallen_tower",

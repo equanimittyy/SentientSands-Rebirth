@@ -1,12 +1,11 @@
 {
   "name": "Ruined Control Tower",
   "aliases": [],
-  "weight": 1,
   "fields": {
     "type": "ruins",
-    "zone": "Venge"
+    "zone": [
+      "Venge"
+    ]
   },
-  "prose": {
-    "description": "The Ruined Control Tower stands in Venge, with the Tower of Abuse to its west and the Old Control Tower to its east. It is an empty landmark."
-  }
+  "description": "The Ruined Control Tower stands in Venge, with the Tower of Abuse to its west and the Old Control Tower to its east. It is an empty landmark."
 }

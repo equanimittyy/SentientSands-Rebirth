@@ -1,7 +1,6 @@
 {
   "name": "Lost Armoury",
   "aliases": [],
-  "weight": 1,
   "fields": {
     "type": "ruins",
     "zone": [
@@ -11,9 +10,9 @@
       "Shun",
       "The Pits"
     ],
-    "owner": "Second Empire"
+    "owner": [
+      "Second Empire"
+    ]
   },
-  "prose": {
-    "description": "Lost Armouries are ruins of the Second Empire, found in the Deadlands, the Iron Valleys, the Leviathan Coast, Shun and the Pits. They store well-kept ancient weapons and armour behind some of the toughest locks anywhere. Security spiders sometimes guard them."
-  }
+  "description": "Lost Armouries are ruins of the Second Empire, found in the Deadlands, the Iron Valleys, the Leviathan Coast, Shun and the Pits. They store well-kept ancient weapons and armour behind some of the toughest locks anywhere. Security spiders sometimes guard them."
 }

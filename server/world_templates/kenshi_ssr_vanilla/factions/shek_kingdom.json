@@ -6,7 +6,9 @@
   "fields": {
     "leader": "Esata the Stone Golem",
     "capital": "Admag",
-    "territory": "Stenn Desert",
+    "territory": [
+      "Stenn Desert"
+    ],
     "enemies": [
       "The Holy Nation",
       "United Cities"

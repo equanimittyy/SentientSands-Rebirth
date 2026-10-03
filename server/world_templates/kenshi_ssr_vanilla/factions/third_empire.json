@@ -7,8 +7,14 @@
   "major": false,
   "fields": {
     "leader": "Mad Cat-Lon",
-    "base": "Cat-Lon's Exile",
-    "territory": "Ashlands, Sonorous Dark, Greyshelf",
+    "bases": [
+      "Cat-Lon's Exile"
+    ],
+    "territory": [
+      "Ashlands",
+      "Sonorous Dark",
+      "Greyshelf"
+    ],
     "allies": [
       "Second Empire",
       "Skeleton Legion",

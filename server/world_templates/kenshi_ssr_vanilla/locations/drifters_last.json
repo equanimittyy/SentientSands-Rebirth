@@ -1,13 +1,14 @@
 {
   "name": "Drifter's Last",
   "aliases": [],
-  "weight": 1,
   "fields": {
     "type": "town",
-    "zone": "The Hook",
-    "owner": "United Cities"
+    "zone": [
+      "The Hook"
+    ],
+    "owner": [
+      "United Cities"
+    ]
   },
-  "prose": {
-    "description": "Drifter's Last is a United Cities town in the Hook, ringed by farms outside its walls and ruled by Lady Merin, a member of the Noble Circle. It has a bar, barracks, and shops for armour, travel gear, and general goods. Outlaw farmers raid the area often, and criminals caught here are enslaved and sent to Slave Farm South."
-  }
+  "description": "Drifter's Last is a United Cities town in the Hook, ringed by farms outside its walls and ruled by Lady Merin, a member of the Noble Circle. It has a bar, barracks, and shops for armour, travel gear, and general goods. Outlaw farmers raid the area often, and criminals caught here are enslaved and sent to Slave Farm South."
 }

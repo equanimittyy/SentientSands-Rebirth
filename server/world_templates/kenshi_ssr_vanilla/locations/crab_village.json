@@ -1,16 +1,15 @@
 {
   "name": "Crab Village",
   "aliases": [],
-  "weight": 1,
   "fields": {
     "type": "outpost",
     "zone": [
       "Greenbeach",
       "Stobe's Garden"
     ],
-    "owner": "Crab Raiders"
+    "owner": [
+      "Crab Raiders"
+    ]
   },
-  "prose": {
-    "description": "Crab Village is the name of two Crab Raider outposts, one in Greenbeach and one in Stobe's Garden, the second on a high plateau beside what looks like the overturned wreck of a Flats Lagoon platform. They have smithies and iron refineries, and crabs are sold there."
-  }
+  "description": "Crab Village is the name of two Crab Raider outposts, one in Greenbeach and one in Stobe's Garden, the second on a high plateau beside what looks like the overturned wreck of a Flats Lagoon platform. They have smithies and iron refineries, and crabs are sold there."
 }

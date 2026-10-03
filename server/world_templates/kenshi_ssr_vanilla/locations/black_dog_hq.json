@@ -1,12 +1,11 @@
 {
   "name": "Black Dog HQ",
   "aliases": [],
-  "weight": 1,
   "fields": {
     "type": "point of interest",
-    "zone": "The Outlands"
+    "zone": [
+      "The Outlands"
+    ]
   },
-  "prose": {
-    "description": "Black Dog HQ, the walled stronghold of the Black Dog faction, stands in the Outlands a short way west of Black Scratch. A snailhouse stands behind its heavy wall and gate, guarded by Black Dog bodyguards and bonedogs, and breaking in raises the alarm at once."
-  }
+  "description": "Black Dog HQ, the walled stronghold of the Black Dog faction, stands in the Outlands a short way west of Black Scratch. A snailhouse stands behind its heavy wall and gate, guarded by Black Dog bodyguards and bonedogs, and breaking in raises the alarm at once."
 }

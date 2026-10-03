@@ -1,13 +1,14 @@
 {
   "name": "Black Scratch",
   "aliases": [],
-  "weight": 1,
   "fields": {
     "type": "town",
-    "zone": "The Outlands",
-    "owner": "Tech Hunters"
+    "zone": [
+      "The Outlands"
+    ],
+    "owner": [
+      "Tech Hunters"
+    ]
   },
-  "prose": {
-    "description": "Black Scratch is the Tech Hunters' town in the Outlands, built on a hill around what looks like an ancient structure. Their headquarters, the Tech Hunter Bar, stands here beside the Great Library, and the town has a mercenary guild, a bookshop, and shops for robotics, crossbows, and hats. Bo of the Anti-Slavers lives here."
-  }
+  "description": "Black Scratch is the Tech Hunters' town in the Outlands, built on a hill around what looks like an ancient structure. Their headquarters, the Tech Hunter Bar, stands here beside the Great Library, and the town has a mercenary guild, a bookshop, and shops for robotics, crossbows, and hats. Bo of the Anti-Slavers lives here."
 }

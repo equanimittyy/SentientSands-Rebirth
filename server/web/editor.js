@@ -11,6 +11,13 @@ const CHOICE_HELP = {
 };
 const KIND_LABELS = { manifest: "Template info", overview: "Overview", history: "History", faction: "Faction", character: "Character" };
 const CATEGORY_LABELS = { races: "Race", locations: "Location", regions: "Region" };
+// Mirrors FACTS in server/scripts/world_template.py, whose validator refuses any other category.
+const FACTS = {
+  factions: { leader: "text", capital: "text", founder: "text", nobles: "list", bases: "list", territory: "list", allies: "list", enemies: "list" },
+  races: { type: "text", homeland: "text", faction: "text" },
+  locations: { type: "text", zone: "list", owner: "list" },
+  regions: { animals: "list", factions: "list", hazards: "list" },
+};
 const TEMPLATE_PARTS = ["manifest", "overview", "history"];
 const SOURCES = [["campaign", "Campaign Canon"], ["template", "Templates"]];
 const ORIGIN_LABELS = { seed: "Seeded", game: "Met in game", campaign: "Added in this campaign" };
@@ -84,10 +91,10 @@ function toForm(kind, data) {
   }
   const labels = entryLabels();
   return {
-    name: data.name ?? "", aliases: (data.aliases ?? []).join(", "), weight: data.weight === undefined ? "" : String(data.weight), fields: rows(data.fields), prose: rows(data.prose),
+    name: data.name ?? "", aliases: (data.aliases ?? []).join(", "), fields: rows(data.fields), description: data.description ?? "",
     children: (data.children ?? []).map((child) => ({ entry: child.entry ?? "", text: labels.get(child.entry) ?? child.entry ?? "", weight: child.weight === undefined ? "" : String(child.weight) })),
     access: JSON.stringify(data.access ?? []),
-    extra: rest(data, ["name", "aliases", "weight", "fields", "prose", "children", "access"]),
+    extra: rest(data, ["name", "aliases", "fields", "description", "children", "access"]),
   };
 }
 
@@ -113,9 +120,8 @@ function toData(kind, form) {
     ...form.extra,
     name: form.name.trim(),
     aliases: commaList(form.aliases),
-    ...(form.weight.trim() ? { weight: numberOr(form.weight) } : {}),
     fields: fromRows(form.fields),
-    prose: fromRows(form.prose),
+    description: form.description.trim(),
     children: form.children.filter((child) => child.text.trim()).map((child) => {
       if (!child.entry) throw new Error(`${child.text.trim()} is not an entry. Choose one from the list.`);
       return { entry: child.entry, ...(child.weight.trim() ? { weight: numberOr(child.weight) } : {}) };
@@ -256,15 +262,33 @@ function removeButton(list, index, label) {
   return deleteButton(label, () => { list.splice(index, 1); changed(); renderForm(); }, readOnly());
 }
 
-function rowsEditor(legend, hint, list, path, { long = false, placeholder = "Name" } = {}) {
+function factsEditor(list, path, hint, categories) {
+  const free = Object.keys(categories).filter((key) => !list.some((row) => row.key === key));
+  const add = addButton("Add fact", () => list.push({ key: free[0], value: "", list: categories[free[0]] === "list" }));
+  add.disabled ||= free.length === 0;
   return el("fieldset", {},
-    el("legend", {}, legend),
+    el("legend", {}, "Facts"),
     el("p", { className: "hint" }, hint),
     ...list.map((row, index) => el("div", { className: "inline row" },
-      control("input", row, "key", [...path, index, "key"], { placeholder, label: `${legend} name` }),
-      control(long ? "textarea" : "input", row, "value", [...path, index, "value"], { placeholder: row.list ? "Values, separated by commas" : "Value", rows: 3, label: `${legend} value` }),
-      removeButton(list, index, `Delete the ${legend.toLowerCase()} row`))),
-    addButton(`Add ${legend.toLowerCase().replace(/s$/, "")}`, () => list.push({ key: "", value: "", list: false })));
+      factCategory(row, free, categories),
+      control("input", row, "value", [...path, index, "value"], { placeholder: row.list ? "Values, separated by commas" : "Value", label: "Fact value" }),
+      removeButton(list, index, "Delete the fact"))),
+    add);
+}
+
+function factCategory(row, free, categories) {
+  const keys = new Set([...Object.keys(categories).filter((key) => key === row.key || free.includes(key)), row.key]);
+  const select = el("select", {
+    disabled: readOnly(),
+    onchange: (event) => {
+      row.key = event.target.value;
+      row.list = categories[row.key] === "list";
+      changed();
+      renderForm();
+    },
+  }, ...[...keys].map((key) => new Option(key[0].toUpperCase() + key.slice(1), key, false, key === row.key)));
+  select.setAttribute("aria-label", "Fact category");
+  return select;
 }
 
 function gameIdField(form, path, record, help) {
@@ -280,8 +304,8 @@ function factionForm(form, path, record) {
       record.is_player ? "The name of your faction in game. Rename your faction in game to change it." : "The name that NPCs use for the faction."),
     field("Aliases", control("input", form, "aliases", [...path, "aliases"]), null, "Other names of the faction, separated by commas."),
     el("label", { className: "check" }, major, "Major world power. Its members resist an offer to join your squad."),
-    rowsEditor("Fields", "Short facts about the faction, for example its leader.", form.fields, [...path, "fields"]),
     field("Description", control("textarea", form, "description", [...path, "description"], { rows: 5 }), null, record.is_player ? "What every NPC knows about your squad." : "What NPCs know about the faction."),
+    factsEditor(form.fields, [...path, "fields"], "Short facts about the faction, for example its leader.", FACTS.factions),
   ];
 }
 
@@ -380,11 +404,10 @@ function entityForm(form, path, record) {
   return [
     field("Name", control("input", form, "name", [...path, "name"]), null, "The name that NPCs use for it."),
     field("Aliases", control("input", form, "aliases", [...path, "aliases"]), null, "Other names of the entry, separated by commas."),
-    field("Weight", control("input", form, "weight", [...path, "weight"], { inputMode: "decimal", placeholder: "1" }), null, "How strongly the entry competes for a place in a prompt. A higher weight wins."),
-    rowsEditor("Fields", "Short facts, for example the owner of a town. A value that names another entry links the two.", form.fields, [...path, "fields"]),
-    rowsEditor("Prose", "Longer text about the entry, for example its description.", form.prose, [...path, "prose"], { long: true, placeholder: "Name, for example description" }),
-    relationsEditor(form, path, record),
+    field("Description", control("textarea", form, "description", [...path, "description"], { rows: 5 }), null, `What NPCs know about the ${CATEGORY_LABELS[record.category].toLowerCase()}.`),
+    factsEditor(form.fields, [...path, "fields"], "Short facts, for example the owner of a town. A value that names another entry links the two.", FACTS[record.category]),
     field("Access rules (JSON)", control("textarea", form, "access", [...path, "access"], { className: "mono", rows: 3 }), null, "Which NPCs know this entry. Leave [] for every NPC."),
+    relationsEditor(form, path, record),
   ];
 }
 

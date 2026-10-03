@@ -1,13 +1,14 @@
 {
   "name": "Sho-Battai",
   "aliases": [],
-  "weight": 1,
   "fields": {
     "type": "town",
-    "zone": "The Great Desert",
-    "owner": "United Cities"
+    "zone": [
+      "The Great Desert"
+    ],
+    "owner": [
+      "United Cities"
+    ]
   },
-  "prose": {
-    "description": "Sho-Battai is a United Cities town in the heart of the Great Desert, governed by Lord Nagata and dependent on supplies from Port North. It has two bars, a bakery, a slave shop, a crossbow shop, the only hat shop in the Empire and a thieves guild. Members of the United Heroes League walk its streets and harass non-humans."
-  }
+  "description": "Sho-Battai is a United Cities town in the heart of the Great Desert, governed by Lord Nagata and dependent on supplies from Port North. It has two bars, a bakery, a slave shop, a crossbow shop, the only hat shop in the Empire and a thieves guild. Members of the United Heroes League walk its streets and harass non-humans."
 }

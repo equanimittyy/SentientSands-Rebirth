@@ -1,16 +1,15 @@
 {
   "name": "Cannibal Village",
   "aliases": [],
-  "weight": 1,
   "fields": {
     "type": "village",
     "zone": [
       "Cannibal Plains",
       "Darkfinger"
     ],
-    "owner": "Cannibals"
+    "owner": [
+      "Cannibals"
+    ]
   },
-  "prose": {
-    "description": "Cannibal Villages are camps where the Cannibals rest and gather for raids: three around the Cannibal Capital in the Cannibal Plains, and more in Darkfinger. They are made of tents, rough metal shacks, and prisoner cages, which often hold captured Shrieking Bandits."
-  }
+  "description": "Cannibal Villages are camps where the Cannibals rest and gather for raids: three around the Cannibal Capital in the Cannibal Plains, and more in Darkfinger. They are made of tents, rough metal shacks, and prisoner cages, which often hold captured Shrieking Bandits."
 }

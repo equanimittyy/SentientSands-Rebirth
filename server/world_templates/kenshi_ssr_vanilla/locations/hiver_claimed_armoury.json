@@ -1,15 +1,14 @@
 {
   "name": "Hiver-Claimed Armoury",
   "aliases": [],
-  "weight": 1,
   "fields": {
     "zone": [
       "Greyshelf",
       "Royal Valley"
     ],
-    "owner": "Southern Hive"
+    "owner": [
+      "Southern Hive"
+    ]
   },
-  "prose": {
-    "description": "Hiver-Claimed Armoury is the name of three ruined armouries that the Southern Hive holds: a pair in Greyshelf and a third in the Royal Valley. Southern Hive droneguard and drones guard them, together with a prince."
-  }
+  "description": "Hiver-Claimed Armoury is the name of three ruined armouries that the Southern Hive holds: a pair in Greyshelf and a third in the Royal Valley. Southern Hive droneguard and drones guard them, together with a prince."
 }

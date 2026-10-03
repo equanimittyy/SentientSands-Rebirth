@@ -1,11 +1,10 @@
 {
   "name": "Tiny Settlement",
   "aliases": [],
-  "weight": 1,
   "fields": {
-    "zone": "Border Zone"
+    "zone": [
+      "Border Zone"
+    ]
   },
-  "prose": {
-    "description": "Tiny Settlement stands on a mountaintop at the eastern edge of the Border Zone."
-  }
+  "description": "Tiny Settlement stands on a mountaintop at the eastern edge of the Border Zone."
 }

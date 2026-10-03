@@ -1,9 +1,6 @@
 {
   "name": "The Shrieking Forest",
   "aliases": [],
-  "weight": 1,
   "fields": {},
-  "prose": {
-    "description": "The Shrieking Forest is a land of dense growth. It lies south of the Purple Sands, west of the Floodlands, and north of the Fog Islands. It takes its name from the large, territorial bands of Shrieking Bandits who live there and scream day and night. The land is fertile and water is plentiful, but the bandits let no one settle."
-  }
+  "description": "The Shrieking Forest is a land of dense growth. It lies south of the Purple Sands, west of the Floodlands, and north of the Fog Islands. It takes its name from the large, territorial bands of Shrieking Bandits who live there and scream day and night. The land is fertile and water is plentiful, but the bandits let no one settle."
 }

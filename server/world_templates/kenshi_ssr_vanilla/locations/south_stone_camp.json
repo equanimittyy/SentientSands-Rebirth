@@ -1,13 +1,14 @@
 {
   "name": "South Stone Camp",
   "aliases": [],
-  "weight": 1,
   "fields": {
     "type": "slave camp",
-    "zone": "Heng",
-    "owner": "Slave Traders"
+    "zone": [
+      "Heng"
+    ],
+    "owner": [
+      "Slave Traders"
+    ]
   },
-  "prose": {
-    "description": "South Stone Camp is a Slave Traders slave camp in Heng, where slaves work the stone mines. Slave Master 'Sly' Ruben runs it from his noble house. It supplies Heft, Heng, and Trader's Edge."
-  }
+  "description": "South Stone Camp is a Slave Traders slave camp in Heng, where slaves work the stone mines. Slave Master 'Sly' Ruben runs it from his noble house. It supplies Heft, Heng, and Trader's Edge."
 }

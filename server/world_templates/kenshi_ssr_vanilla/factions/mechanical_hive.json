@@ -5,8 +5,15 @@
   "major": false,
   "fields": {
     "leader": "Mechanical Queen",
-    "base": "Mechanical Hive",
-    "territory": "Grey Desert, The Black Desert, Iron Valleys, The Iron Trail",
+    "bases": [
+      "Mechanical Hive"
+    ],
+    "territory": [
+      "Grey Desert",
+      "The Black Desert",
+      "Iron Valleys",
+      "The Iron Trail"
+    ],
     "enemies": [
       "Southern Hive"
     ]

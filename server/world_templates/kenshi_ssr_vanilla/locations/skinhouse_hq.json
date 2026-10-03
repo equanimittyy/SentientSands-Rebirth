@@ -1,13 +1,14 @@
 {
   "name": "Skinhouse HQ",
   "aliases": [],
-  "weight": 1,
   "fields": {
     "type": "outpost",
-    "zone": "Sonorous Dark",
-    "owner": "Skin Bandits"
+    "zone": [
+      "Sonorous Dark"
+    ],
+    "owner": [
+      "Skin Bandits"
+    ]
   },
-  "prose": {
-    "description": "Skinhouse HQ is the main base of the Skin Bandits in the Sonorous Dark, home to their leader Savant and some sixteen to twenty-two of his followers. Humans caught there are skinned alive in peeler machines. Skeletons, Shek and Hivers may walk in unharmed, but any who fall unconscious inside meet the same fate."
-  }
+  "description": "Skinhouse HQ is the main base of the Skin Bandits in the Sonorous Dark, home to their leader Savant and some sixteen to twenty-two of his followers. Humans caught there are skinned alive in peeler machines. Skeletons, Shek and Hivers may walk in unharmed, but any who fall unconscious inside meet the same fate."
 }

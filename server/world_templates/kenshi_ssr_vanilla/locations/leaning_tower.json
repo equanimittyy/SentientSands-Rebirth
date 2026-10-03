@@ -1,12 +1,11 @@
 {
   "name": "Leaning Tower",
   "aliases": [],
-  "weight": 1,
   "fields": {
     "type": "ruins",
-    "zone": "Floodlands"
+    "zone": [
+      "Floodlands"
+    ]
   },
-  "prose": {
-    "description": "Leaning Tower is a tilting ruined tower in the Floodlands. Nothing hostile lives inside it, but many iron spiders roam the Floodlands around it."
-  }
+  "description": "Leaning Tower is a tilting ruined tower in the Floodlands. Nothing hostile lives inside it, but many iron spiders roam the Floodlands around it."
 }

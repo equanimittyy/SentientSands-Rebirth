@@ -1,13 +1,14 @@
 {
   "name": "Fishing Village",
   "aliases": [],
-  "weight": 1,
   "fields": {
     "type": "village",
-    "zone": "Northern Coast",
-    "owner": "Deadcat"
+    "zone": [
+      "Northern Coast"
+    ],
+    "owner": [
+      "Deadcat"
+    ]
   },
-  "prose": {
-    "description": "Fishing Village is a Deadcat village of piers and shacks on the Northern Coast, north of World's End. It has a bar, a fish seller, and a general trader. Its people complain of the cannibals nearby."
-  }
+  "description": "Fishing Village is a Deadcat village of piers and shacks on the Northern Coast, north of World's End. It has a bar, a fish seller, and a general trader. Its people complain of the cannibals nearby."
 }

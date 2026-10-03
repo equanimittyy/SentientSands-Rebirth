@@ -1,12 +1,11 @@
 {
   "name": "Farm Ruin",
   "aliases": [],
-  "weight": 1,
   "fields": {
     "type": "ruins",
-    "zone": "Burning Forest"
+    "zone": [
+      "Burning Forest"
+    ]
   },
-  "prose": {
-    "description": "Farm Ruin is a ruined farm in the Burning Forest, made up of two wrecked storm houses and three wrecked shacks."
-  }
+  "description": "Farm Ruin is a ruined farm in the Burning Forest, made up of two wrecked storm houses and three wrecked shacks."
 }

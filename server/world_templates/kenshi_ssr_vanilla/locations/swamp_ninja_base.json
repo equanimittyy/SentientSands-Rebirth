@@ -1,13 +1,14 @@
 {
   "name": "Swamp Ninja Base",
   "aliases": [],
-  "weight": 1,
   "fields": {
     "type": "point of interest",
-    "zone": "South Wetlands",
-    "owner": "Swamp Ninjas"
+    "zone": [
+      "South Wetlands"
+    ],
+    "owner": [
+      "Swamp Ninjas"
+    ]
   },
-  "prose": {
-    "description": "The Swamp Ninja Base is the hideout of the Swamp Ninjas in the South Wetlands, south-east of Shark. Their leader Shade lives here among ninjas of every rank, and they attack intruders."
-  }
+  "description": "The Swamp Ninja Base is the hideout of the Swamp Ninjas in the South Wetlands, south-east of Shark. Their leader Shade lives here among ninjas of every rank, and they attack intruders."
 }

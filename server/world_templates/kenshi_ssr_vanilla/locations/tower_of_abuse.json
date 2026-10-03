@@ -1,12 +1,11 @@
 {
   "name": "Tower of Abuse",
   "aliases": [],
-  "weight": 1,
   "fields": {
     "type": "ruins",
-    "zone": "Venge"
+    "zone": [
+      "Venge"
+    ]
   },
-  "prose": {
-    "description": "The Thrall Masters are based in the Tower of Abuse, an ancient lab in Venge. Their leaders, Screamer the False and Ponk, live inside with their thralls, and a prisoner named Agnu is held on the second level. Its top floor has two Skeleton repair beds."
-  }
+  "description": "The Thrall Masters are based in the Tower of Abuse, an ancient lab in Venge. Their leaders, Screamer the False and Ponk, live inside with their thralls, and a prisoner named Agnu is held on the second level. Its top floor has two Skeleton repair beds."
 }

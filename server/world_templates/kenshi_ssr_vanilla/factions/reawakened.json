@@ -4,7 +4,11 @@
   "aliases": [],
   "major": false,
   "fields": {
-    "territory": "Ashlands, Sonorous Dark, Greyshelf",
+    "territory": [
+      "Ashlands",
+      "Sonorous Dark",
+      "Greyshelf"
+    ],
     "allies": [
       "Second Empire",
       "Skeleton Legion",

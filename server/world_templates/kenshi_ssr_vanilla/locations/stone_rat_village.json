@@ -1,13 +1,14 @@
 {
   "name": "Stone Rat Village",
   "aliases": [],
-  "weight": 1,
   "fields": {
     "type": "village",
-    "zone": "The Swamp",
-    "owner": "Stone Rats"
+    "zone": [
+      "The Swamp"
+    ],
+    "owner": [
+      "Stone Rats"
+    ]
   },
-  "prose": {
-    "description": "Stone Rat Village is the home of the Stone Rats in the Swamp, and their boss Big Al lives here. Makeshift gates and lookout towers guard it, and it has riceweed farms, a travellers' shop, and a dealer in fish and drugs."
-  }
+  "description": "Stone Rat Village is the home of the Stone Rats in the Swamp, and their boss Big Al lives here. Makeshift gates and lookout towers guard it, and it has riceweed farms, a travellers' shop, and a dealer in fish and drugs."
 }

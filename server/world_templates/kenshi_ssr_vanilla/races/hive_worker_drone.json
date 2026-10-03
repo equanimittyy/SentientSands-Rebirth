@@ -4,11 +4,8 @@
     "Hiver Worker",
     "Worker Drone"
   ],
-  "weight": 1,
   "fields": {
     "type": "hiver"
   },
-  "prose": {
-    "description": "The worker caste of the Hive: frail of limb, but skilled builders and thieves, and immune to acid rain. Like other Hivers, those still bound to a Queen live for the Hive."
-  }
+  "description": "The worker caste of the Hive: frail of limb, but skilled builders and thieves, and immune to acid rain. Like other Hivers, those still bound to a Queen live for the Hive."
 }

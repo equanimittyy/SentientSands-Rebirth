@@ -1,13 +1,14 @@
 {
   "name": "Shek Ruins",
   "aliases": [],
-  "weight": 1,
   "fields": {
     "type": "ruins",
-    "zone": "Stenn Desert",
-    "owner": "Shek Kingdom"
+    "zone": [
+      "Stenn Desert"
+    ],
+    "owner": [
+      "Shek Kingdom"
+    ]
   },
-  "prose": {
-    "description": "The Shek Ruins are a cluster of wrecked Shek Kingdom buildings, among them two watchtowers, on a rocky hilltop east of Admag, on the way to Squin. Odds and ends lie strewn across the site."
-  }
+  "description": "The Shek Ruins are a cluster of wrecked Shek Kingdom buildings, among them two watchtowers, on a rocky hilltop east of Admag, on the way to Squin. Odds and ends lie strewn across the site."
 }

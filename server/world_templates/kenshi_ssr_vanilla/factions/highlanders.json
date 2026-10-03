@@ -11,7 +11,15 @@
       "Summit",
       "Highlanders Prison Camp"
     ],
-    "territory": "Border Zone, Okran's Pride, Okran's Gulf, Arm of Okran, Wend, Skinner's Roam, Stenn Desert",
+    "territory": [
+      "Border Zone",
+      "Okran's Pride",
+      "Okran's Gulf",
+      "Arm of Okran",
+      "Wend",
+      "Skinner's Roam",
+      "Stenn Desert"
+    ],
     "allies": [
       "Police",
       "Mercenary Police"

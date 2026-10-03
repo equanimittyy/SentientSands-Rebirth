@@ -1,7 +1,6 @@
 {
   "name": "Fallen Tower",
   "aliases": [],
-  "weight": 1,
   "fields": {
     "type": "ruins",
     "zone": [
@@ -11,7 +10,5 @@
       "Stenn Desert"
     ]
   },
-  "prose": {
-    "description": "Fallen Tower is the name of old watchtowers that have collapsed in Arach, the Floodlands, the Leviathan Coast, and the Stenn Desert. Each lies in ruin, often toppled onto the ground."
-  }
+  "description": "Fallen Tower is the name of old watchtowers that have collapsed in Arach, the Floodlands, the Leviathan Coast, and the Stenn Desert. Each lies in ruin, often toppled onto the ground."
 }

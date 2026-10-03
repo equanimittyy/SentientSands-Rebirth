@@ -1,12 +1,11 @@
 {
   "name": "Barrier Tower",
   "aliases": [],
-  "weight": 1,
   "fields": {
     "type": "military",
-    "zone": "Sonorous Dark"
+    "zone": [
+      "Sonorous Dark"
+    ]
   },
-  "prose": {
-    "description": "Barrier Tower is a fortified military tower in the Sonorous Dark, manned by Skeleton watchbots who work its harpoon turrets. Its walls block the easy road along the side of the Sonorous Dark into the Ashlands, and the only gap means swimming through acid water under the tower's guns."
-  }
+  "description": "Barrier Tower is a fortified military tower in the Sonorous Dark, manned by Skeleton watchbots who work its harpoon turrets. Its walls block the easy road along the side of the Sonorous Dark into the Ashlands, and the only gap means swimming through acid water under the tower's guns."
 }

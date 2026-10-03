@@ -1,13 +1,14 @@
 {
   "name": "Manhunter Base",
   "aliases": [],
-  "weight": 1,
   "fields": {
     "type": "outpost",
-    "zone": "The Hook",
-    "owner": "Manhunters"
+    "zone": [
+      "The Hook"
+    ],
+    "owner": [
+      "Manhunters"
+    ]
   },
-  "prose": {
-    "description": "The Manhunter Base in the Hook is the headquarters of the Manhunters and the only place they hold. It stands near Slave Farm South and the Slave Markets. No one but Manhunters lives there."
-  }
+  "description": "The Manhunter Base in the Hook is the headquarters of the Manhunters and the only place they hold. It stands near Slave Farm South and the Slave Markets. No one but Manhunters lives there."
 }

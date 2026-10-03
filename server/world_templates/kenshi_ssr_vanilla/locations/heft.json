@@ -1,13 +1,14 @@
 {
   "name": "Heft",
   "aliases": [],
-  "weight": 1,
   "fields": {
     "type": "town",
-    "zone": "The Great Desert",
-    "owner": "United Cities"
+    "zone": [
+      "The Great Desert"
+    ],
+    "owner": [
+      "United Cities"
+    ]
   },
-  "prose": {
-    "description": "Heft is the capital of the United Cities, in the Great Desert northeast of Heng. Emperor Tengu rules from his palace there, and Lord Ohta and the diplomat Koin also live in the city. Its many shops include the finest armoury in the Empire, a thieves guild, a robotics workshop, a slave shop, and two big bars."
-  }
+  "description": "Heft is the capital of the United Cities, in the Great Desert northeast of Heng. Emperor Tengu rules from his palace there, and Lord Ohta and the diplomat Koin also live in the city. Its many shops include the finest armoury in the Empire, a thieves guild, a robotics workshop, a slave shop, and two big bars."
 }

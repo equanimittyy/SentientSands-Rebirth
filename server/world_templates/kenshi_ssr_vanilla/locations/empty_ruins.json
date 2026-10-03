@@ -1,16 +1,15 @@
 {
   "name": "Empty Ruins",
   "aliases": [],
-  "weight": 1,
   "fields": {
     "type": "ruins",
     "zone": [
       "Floodlands",
       "Stenn Desert"
     ],
-    "owner": "Second Empire"
+    "owner": [
+      "Second Empire"
+    ]
   },
-  "prose": {
-    "description": "Empty Ruins are damaged Second Empire structures standing in the Floodlands and the Stenn Desert. Nothing of value remains in them."
-  }
+  "description": "Empty Ruins are damaged Second Empire structures standing in the Floodlands and the Stenn Desert. Nothing of value remains in them."
 }

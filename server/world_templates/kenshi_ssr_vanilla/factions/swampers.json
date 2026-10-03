@@ -4,7 +4,9 @@
   "aliases": [],
   "major": false,
   "fields": {
-    "territory": "The Swamp"
+    "territory": [
+      "The Swamp"
+    ]
   },
   "description": "The people of the Swamp, often tied to no gang: outcasts, outlaws, exiles, and criminals in a violent, dog-eat-dog society where trivial insults start street fights. Five gangs, each under a Big Boss, run the region: the Hounds, the Blackshifters, the Grayflayers, the Stone Rats, and the Twinblades."
 }

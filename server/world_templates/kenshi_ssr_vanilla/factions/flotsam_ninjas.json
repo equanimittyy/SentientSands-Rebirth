@@ -5,8 +5,12 @@
   "major": true,
   "fields": {
     "leader": "Moll",
-    "base": "Flotsam Village",
-    "territory": "The Hidden Forest",
+    "bases": [
+      "Flotsam Village"
+    ],
+    "territory": [
+      "The Hidden Forest"
+    ],
     "enemies": [
       "The Holy Nation",
       "Cannibals"

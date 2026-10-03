@@ -1,13 +1,14 @@
 {
   "name": "Old Empire Watchtower",
   "aliases": [],
-  "weight": 1,
   "fields": {
     "type": "ruins",
-    "zone": "Leviathan Coast",
-    "owner": "Second Empire"
+    "zone": [
+      "Leviathan Coast"
+    ],
+    "owner": [
+      "Second Empire"
+    ]
   },
-  "prose": {
-    "description": "The Old Empire Watchtowers are two ruined Second Empire watchtowers, both on the Leviathan Coast. Old parts and supplies still lie scattered around them."
-  }
+  "description": "The Old Empire Watchtowers are two ruined Second Empire watchtowers, both on the Leviathan Coast. Old parts and supplies still lie scattered around them."
 }

@@ -5,8 +5,12 @@
   "major": false,
   "fields": {
     "leader": "Desolate Plunderer King",
-    "base": "Fort Desolation",
-    "territory": "Shun",
+    "bases": [
+      "Fort Desolation"
+    ],
+    "territory": [
+      "Shun"
+    ],
     "enemies": [
       "United Cities",
       "Police"

@@ -1,12 +1,11 @@
 {
   "name": "Horrible Ruin",
   "aliases": [],
-  "weight": 1,
   "fields": {
     "type": "ruins",
-    "zone": "Cheaters Run"
+    "zone": [
+      "Cheaters Run"
+    ]
   },
-  "prose": {
-    "description": "Horrible Ruin is a crumbling village in eastern Cheaters Run, where Skin Bandits live."
-  }
+  "description": "Horrible Ruin is a crumbling village in eastern Cheaters Run, where Skin Bandits live."
 }

@@ -5,8 +5,13 @@
   "major": false,
   "fields": {
     "leader": "Julius the Fork-Tongued",
-    "base": "Raft",
-    "territory": "The Swamp, South Wetlands"
+    "bases": [
+      "Raft"
+    ],
+    "territory": [
+      "The Swamp",
+      "South Wetlands"
+    ]
   },
   "description": "Reptiloids hiding deep in the Swamp. The Reptiloids once tried to take the Swamp for themselves, but the United Cities crushed them to protect its drug trade and human trafficking there, and the Holy Nation joined in hunting the 'lizardmen'. Years of hunting left almost none alive. The Cold Bloods formed from the survivors, and they want revenge and the Swamp. How the Reptiloids came to be is disputed: some say an experiment made them, others that they come from the Swamp."
 }

@@ -1,12 +1,11 @@
 {
   "name": "Empty Lab",
   "aliases": [],
-  "weight": 1,
   "fields": {
     "type": "ruins",
-    "zone": "The Crater"
+    "zone": [
+      "The Crater"
+    ]
   },
-  "prose": {
-    "description": "Empty Lab is the name of three ancient labs in The Crater. Nothing of use is left inside them."
-  }
+  "description": "Empty Lab is the name of three ancient labs in The Crater. Nothing of use is left inside them."
 }

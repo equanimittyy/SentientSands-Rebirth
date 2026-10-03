@@ -5,8 +5,13 @@
   "major": false,
   "fields": {
     "leader": "Swamp Ruffian King",
-    "base": "Swamp Ruffian King Tower",
-    "territory": "The Swamp, South Wetlands",
+    "bases": [
+      "Swamp Ruffian King Tower"
+    ],
+    "territory": [
+      "The Swamp",
+      "South Wetlands"
+    ],
     "enemies": [
       "United Cities",
       "Police"

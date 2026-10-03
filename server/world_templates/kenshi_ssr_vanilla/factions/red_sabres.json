@@ -5,7 +5,9 @@
   "major": false,
   "fields": {
     "leader": "Red Sabre Boss",
-    "base": "Red Sabre Hideout",
+    "bases": [
+      "Red Sabre Hideout"
+    ],
     "territory": [
       "The Swamp",
       "South Wetlands"

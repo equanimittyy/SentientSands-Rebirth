@@ -1,7 +1,6 @@
 {
   "name": "The Eye",
   "aliases": [],
-  "weight": 1,
   "fields": {
     "factions": [
       "Grass Pirates",
@@ -14,7 +13,5 @@
       "Skimmer"
     ]
   },
-  "prose": {
-    "description": "The Eye is an empty stretch of desert around a huge ring-shaped structure that churns out dust and sand and lies half hidden in the storm around it. No town or outpost stands there, and water is scarce. Skimmers and bonedog packs roam, along with Bloodraiders, Sand Ninjas, Grass Pirates, and Manhunter patrols."
-  }
+  "description": "The Eye is an empty stretch of desert around a huge ring-shaped structure that churns out dust and sand and lies half hidden in the storm around it. No town or outpost stands there, and water is scarce. Skimmers and bonedog packs roam, along with Bloodraiders, Sand Ninjas, Grass Pirates, and Manhunter patrols."
 }

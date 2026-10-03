@@ -1,7 +1,6 @@
 {
   "name": "The Unwanted Zone",
   "aliases": [],
-  "weight": 1,
   "fields": {
     "animals": [
       "Beak Thing",
@@ -17,7 +16,5 @@
       "acid rain"
     ]
   },
-  "prose": {
-    "description": "The Unwanted Zone lies between Stobe's Gamble and the Outlands, and travelers between the two do well to go around it. Beak Things and crabs crowd the land and often fight one another, and their nests and those of swamp raptors are everywhere. The water is acidic, and acid rain falls."
-  }
+  "description": "The Unwanted Zone lies between Stobe's Gamble and the Outlands, and travelers between the two do well to go around it. Beak Things and crabs crowd the land and often fight one another, and their nests and those of swamp raptors are everywhere. The water is acidic, and acid rain falls."
 }

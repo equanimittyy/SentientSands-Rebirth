@@ -5,8 +5,13 @@
   "major": false,
   "fields": {
     "leader": "Hooch the Bootlegger",
-    "base": "Kopek",
-    "territory": "The Hook, Shun",
+    "bases": [
+      "Kopek"
+    ],
+    "territory": [
+      "The Hook",
+      "Shun"
+    ],
     "allies": [
       "Rebel Farmers",
       "Empire Peasants",

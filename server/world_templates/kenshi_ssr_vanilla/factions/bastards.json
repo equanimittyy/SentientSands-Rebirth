@@ -5,8 +5,12 @@
   "major": false,
   "fields": {
     "leader": "Bastard King",
-    "base": "Bastion Overlook",
-    "territory": "Bast",
+    "bases": [
+      "Bastion Overlook"
+    ],
+    "territory": [
+      "Bast"
+    ],
     "enemies": [
       "United Cities",
       "Police",

@@ -4,7 +4,9 @@
   "aliases": [],
   "major": false,
   "fields": {
-    "territory": "United Cities"
+    "territory": [
+      "United Cities"
+    ]
   },
   "description": "The law officers of the towns of the United Cities, who arrest thieves and wanted people."
 }

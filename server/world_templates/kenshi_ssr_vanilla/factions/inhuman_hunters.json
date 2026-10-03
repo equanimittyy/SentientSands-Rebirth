@@ -7,8 +7,14 @@
   "major": false,
   "fields": {
     "leader": "Yoshinga the Slayer",
-    "base": "Ashigakari",
-    "territory": "Border Zone, Stenn Desert, Vain",
+    "bases": [
+      "Ashigakari"
+    ],
+    "territory": [
+      "Border Zone",
+      "Stenn Desert",
+      "Vain"
+    ],
     "enemies": [
       "Shek Kingdom",
       "Western Hive",

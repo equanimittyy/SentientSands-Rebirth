@@ -9,7 +9,9 @@
       "Buck",
       "Herdsmen Camp"
     ],
-    "territory": "Okran's Valley",
+    "territory": [
+      "Okran's Valley"
+    ],
     "enemies": [
       "Natives"
     ]

@@ -1,13 +1,14 @@
 {
   "name": "Slave Farm South",
   "aliases": [],
-  "weight": 1,
   "fields": {
     "type": "slave camp",
-    "zone": "The Hook",
-    "owner": "Slave Traders"
+    "zone": [
+      "The Hook"
+    ],
+    "owner": [
+      "Slave Traders"
+    ]
   },
-  "prose": {
-    "description": "Slave Farm South is a Slave Traders slave camp in the Hook, and Slave Mistress Grace lives here. Slavers bring their captives here, and lawbreakers caught in Drifter's Last end up here too. Slaves work the fields outside its walls, and the camp has slave cages, slave shops, and a slaver barracks."
-  }
+  "description": "Slave Farm South is a Slave Traders slave camp in the Hook, and Slave Mistress Grace lives here. Slavers bring their captives here, and lawbreakers caught in Drifter's Last end up here too. Slaves work the fields outside its walls, and the camp has slave cages, slave shops, and a slaver barracks."
 }

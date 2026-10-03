@@ -5,8 +5,13 @@
   "major": false,
   "fields": {
     "leader": "Kraz the Unsane",
-    "base": "Sakar",
-    "territory": "Stenn Desert, Spider Plains",
+    "bases": [
+      "Sakar"
+    ],
+    "territory": [
+      "Stenn Desert",
+      "Spider Plains"
+    ],
     "enemies": [
       "Shek Kingdom",
       "The Holy Nation"

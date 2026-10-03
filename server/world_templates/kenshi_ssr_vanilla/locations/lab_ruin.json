@@ -1,12 +1,11 @@
 {
   "name": "Lab Ruin",
   "aliases": [],
-  "weight": 1,
   "fields": {
     "type": "ruins",
-    "zone": "The Crater"
+    "zone": [
+      "The Crater"
+    ]
   },
-  "prose": {
-    "description": "Lab Ruin is what remains of an old lab in The Crater, and little of value is left inside."
-  }
+  "description": "Lab Ruin is what remains of an old lab in The Crater, and little of value is left inside."
 }

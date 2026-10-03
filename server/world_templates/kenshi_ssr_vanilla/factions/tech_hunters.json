@@ -4,8 +4,8 @@
   "aliases": [],
   "major": false,
   "fields": {
-    "base": "Black Scratch",
     "bases": [
+      "Black Scratch",
       "World's End",
       "Flats Lagoon",
       "Mourn"

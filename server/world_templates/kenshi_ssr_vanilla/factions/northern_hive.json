@@ -5,8 +5,13 @@
   "major": false,
   "fields": {
     "leader": "Queen of the North",
-    "base": "Northern Hive",
-    "territory": "Northern Coast, Sinkuun",
+    "bases": [
+      "Northern Hive"
+    ],
+    "territory": [
+      "Northern Coast",
+      "Sinkuun"
+    ],
     "allies": [
       "Western Hive",
       "Midland Hive"

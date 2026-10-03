@@ -5,8 +5,13 @@
   "major": false,
   "fields": {
     "leader": "Mother of the Mist",
-    "base": "Tower of Mist",
-    "territory": "Fog Islands, Obedience",
+    "bases": [
+      "Tower of Mist"
+    ],
+    "territory": [
+      "Fog Islands",
+      "Obedience"
+    ],
     "allies": [
       "Fogmen"
     ]

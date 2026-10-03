@@ -18,6 +18,12 @@ OVERVIEW = "overview.txt"
 HISTORY = "history.json"
 RECORD_FOLDERS = {"faction": "factions", "character": "characters"}
 CATEGORIES = ("races", "locations", "regions")
+FACTS = {
+    "factions": {"leader": str, "capital": str, "founder": str, "nobles": list, "bases": list, "territory": list, "allies": list, "enemies": list},
+    "races": {"type": str, "homeland": str, "faction": str},
+    "locations": {"type": str, "zone": list, "owner": list},
+    "regions": {"animals": list, "factions": list, "hazards": list},
+}
 _NAME = re.compile(r"[A-Za-z0-9][A-Za-z0-9 _-]*")
 _ID = re.compile(r"[A-Za-z0-9_-]+")
 
@@ -296,7 +302,7 @@ _FORMAT_KEYS = {
     "history": {"title", "text"},
     "factions": {"game_id", "name", "aliases", "major", "fields", "description"},
     "characters": {"game_id", "profile"},
-    "entity": {"name", "aliases", "weight", "fields", "prose", "children", "access"},
+    "entity": {"name", "aliases", "fields", "description", "children", "access"},
     "child": {"entry", "weight"},
 }
 
@@ -475,7 +481,7 @@ def _check_faction(faction, field, game_ids, error):
     _check_aliases(faction, field, error)
     if "major" in faction and not isinstance(faction["major"], bool):
         error(field + ["major"], "Major must be true or false.")
-    _check_fields(faction.get("fields", {}), field + ["fields"], error)
+    _check_fields(faction.get("fields", {}), "factions", field + ["fields"], error)
     if not isinstance(faction.get("description", ""), str):
         error(field + ["description"], "The description must be text.")
 
@@ -497,12 +503,9 @@ def _check_entity(entity, field, entries, error, warnings):
     if not _is_text(entity.get("name")):
         error(field + ["name"], "Give the entry a name.")
     _check_aliases(entity, field, error)
-    if "weight" in entity and not _is_number(entity["weight"]):
-        error(field + ["weight"], "The weight must be a number.")
-    _check_fields(entity.get("fields", {}), field + ["fields"], error)
-    prose = entity.get("prose", {})
-    if not isinstance(prose, dict) or not all(isinstance(value, str) for value in prose.values()):
-        error(field + ["prose"], "Each prose value must be text.")
+    _check_fields(entity.get("fields", {}), field[0], field + ["fields"], error)
+    if not isinstance(entity.get("description", ""), str):
+        error(field + ["description"], "The description must be text.")
     children = entity.get("children", [])
     if not isinstance(children, list) or not all(isinstance(child, dict) and _is_text(child.get("entry")) and _is_number(child.get("weight", 1)) for child in children):
         error(field + ["children"], "Each relation needs an entry and a number as its weight.")
@@ -537,9 +540,18 @@ def _check_aliases(record, field, error):
         error(field + ["aliases"], "The aliases must be a list of names.")
 
 
-def _check_fields(fields, field, error):
-    if not isinstance(fields, dict) or not all(isinstance(value, str) or _is_text_list(value) for value in fields.values()):
-        error(field, "Each field value must be text or a list of text.")
+def _check_fields(fields, kind, field, error):
+    if not isinstance(fields, dict):
+        error(field, "The facts must be an object of categories and values.")
+        return
+    categories = FACTS[kind]
+    for key, value in fields.items():
+        if key not in categories:
+            error(field, f"{key} is not a fact of a {_KIND_LABELS[kind]}. Choose one of {', '.join(categories)}.")
+        elif categories[key] is list and not _is_text_list(value):
+            error(field, f"The fact {key} must be a list of text.")
+        elif categories[key] is str and not isinstance(value, str):
+            error(field, f"The fact {key} must be text.")
 
 
 def _is_text(value):

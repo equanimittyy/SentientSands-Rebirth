@@ -1,13 +1,14 @@
 {
   "name": "Southern Hive",
   "aliases": [],
-  "weight": 1,
   "fields": {
     "type": "town",
-    "zone": "Royal Valley",
-    "owner": "Southern Hive"
+    "zone": [
+      "Royal Valley"
+    ],
+    "owner": [
+      "Southern Hive"
+    ]
   },
-  "prose": {
-    "description": "The Southern Hive is the town of the Southern Hive in the south of the Royal Valley. The Queen of the South keeps her throne here, attended by elite Droneguards and the one called the King. Worker drones toil here under guard."
-  }
+  "description": "The Southern Hive is the town of the Southern Hive in the south of the Royal Valley. The Queen of the South keeps her throne here, attended by elite Droneguards and the one called the King. Worker drones toil here under guard."
 }

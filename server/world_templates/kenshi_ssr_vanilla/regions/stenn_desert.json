@@ -1,7 +1,6 @@
 {
   "name": "Stenn Desert",
   "aliases": [],
-  "weight": 1,
   "fields": {
     "factions": [
       "Band of Bones",
@@ -16,9 +15,7 @@
       "Skin Spider"
     ]
   },
-  "prose": {
-    "description": "The Stenn Desert is the barren, thinly peopled homeland of the Shek, with Vain to the west and north and the Border Zone to the east. Esata the Stone Golem rules the Shek Kingdom from its hilltop capital, Admag, and the Kingdom also holds the Great Fortress. Kral's Chosen hold New Kralia and the Band of Bones keep Exile Camp, while Berserkers, bonedog packs, and skin spiders roam. It never rains, though desert storms blow."
-  },
+  "description": "The Stenn Desert is the barren, thinly peopled homeland of the Shek, with Vain to the west and north and the Border Zone to the east. Esata the Stone Golem rules the Shek Kingdom from its hilltop capital, Admag, and the Kingdom also holds the Great Fortress. Kral's Chosen hold New Kralia and the Band of Bones keep Exile Camp, while Berserkers, bonedog packs, and skin spiders roam. It never rains, though desert storms blow.",
   "children": [
     {
       "entry": "locations/admag",

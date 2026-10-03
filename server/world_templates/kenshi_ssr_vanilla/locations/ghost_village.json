@@ -1,13 +1,14 @@
 {
   "name": "Ghost Village",
   "aliases": [],
-  "weight": 1,
   "fields": {
     "type": "village",
-    "zone": "Northern Coast",
-    "owner": "Deadcat"
+    "zone": [
+      "Northern Coast"
+    ],
+    "owner": [
+      "Deadcat"
+    ]
   },
-  "prose": {
-    "description": "Ghost Village is a Deadcat village on the Northern Coast."
-  }
+  "description": "Ghost Village is a Deadcat village on the Northern Coast."
 }

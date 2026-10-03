@@ -1,7 +1,6 @@
 {
   "name": "Berserker Country",
   "aliases": [],
-  "weight": 1,
   "fields": {
     "factions": [
       "Berserkers",
@@ -11,7 +10,5 @@
       "Wild Bull"
     ]
   },
-  "prose": {
-    "description": "Berserker Country is a barren land of red rock between the Shrieking Forest and the Purple Sands, named for the Berserkers who roam it. These rogue Shek warriors clash there with cannibal raiders, and herds of wild bulls wander the land. Little of use can be found there, and inactive Iron Spiders line its coast."
-  }
+  "description": "Berserker Country is a barren land of red rock between the Shrieking Forest and the Purple Sands, named for the Berserkers who roam it. These rogue Shek warriors clash there with cannibal raiders, and herds of wild bulls wander the land. Little of use can be found there, and inactive Iron Spiders line its coast."
 }

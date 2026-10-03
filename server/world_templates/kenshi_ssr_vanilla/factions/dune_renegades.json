@@ -5,8 +5,14 @@
   "major": false,
   "fields": {
     "leader": "Jeremiah the Entrenched",
-    "base": "Shraff",
-    "territory": "The Great Desert, Sinkuun, Spine Canyon",
+    "bases": [
+      "Shraff"
+    ],
+    "territory": [
+      "The Great Desert",
+      "Sinkuun",
+      "Spine Canyon"
+    ],
     "allies": [
       "Rebel Farmers",
       "Empire Peasants",

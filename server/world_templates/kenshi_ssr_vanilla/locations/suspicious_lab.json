@@ -1,13 +1,14 @@
 {
   "name": "Suspicious Lab",
   "aliases": [],
-  "weight": 1,
   "fields": {
     "type": "ruins",
-    "zone": "Floodlands",
-    "owner": "Cannibals"
+    "zone": [
+      "Floodlands"
+    ],
+    "owner": [
+      "Cannibals"
+    ]
   },
-  "prose": {
-    "description": "The Suspicious Lab, an ancient lab in the Floodlands, has been taken over by a horde of cannibals who camp on its second floor. The cannibals lay a trail of books and food running up to their camp, and the floor above holds cages."
-  }
+  "description": "The Suspicious Lab, an ancient lab in the Floodlands, has been taken over by a horde of cannibals who camp on its second floor. The cannibals lay a trail of books and food running up to their camp, and the floor above holds cages."
 }

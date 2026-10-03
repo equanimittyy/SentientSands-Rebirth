@@ -1,13 +1,14 @@
 {
   "name": "Burn's Tower",
   "aliases": [],
-  "weight": 1,
   "fields": {
     "type": "ruins",
-    "zone": "Floodlands",
-    "owner": "Skeletons"
+    "zone": [
+      "Floodlands"
+    ],
+    "owner": [
+      "Skeletons"
+    ]
   },
-  "prose": {
-    "description": "Burn's Tower stands in the north of the Floodlands. Burn, a Skeleton who gave up adventuring, keeps watch outside it and calls it a hiding place rather than a home, though he likes to share shelter and stories with other adventurers. Spider bots in the region keep most hostile trespassers away."
-  }
+  "description": "Burn's Tower stands in the north of the Floodlands. Burn, a Skeleton who gave up adventuring, keeps watch outside it and calls it a hiding place rather than a home, though he likes to share shelter and stories with other adventurers. Spider bots in the region keep most hostile trespassers away."
 }

@@ -1,13 +1,14 @@
 {
   "name": "Lost Armour Store",
   "aliases": [],
-  "weight": 1,
   "fields": {
     "type": "ruins",
-    "zone": "Stobe's Gamble",
-    "owner": "Second Empire"
+    "zone": [
+      "Stobe's Gamble"
+    ],
+    "owner": [
+      "Second Empire"
+    ]
   },
-  "prose": {
-    "description": "Lost Armour Store is a Second Empire armoury in the north-east of Stobe's Gamble. The building's door is heavily locked, and inside stand armour-making stations and storage boxes for armour parts."
-  }
+  "description": "Lost Armour Store is a Second Empire armoury in the north-east of Stobe's Gamble. The building's door is heavily locked, and inside stand armour-making stations and storage boxes for armour parts."
 }
