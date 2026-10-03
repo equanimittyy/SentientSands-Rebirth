@@ -9,7 +9,7 @@ const openCards = new Set();
 
 const OTHER = "Other prompts";
 const PROMPT_INFO = {
-  "prompt_system.txt": { group: "Conversations", title: "System prompt", blurb: "The frame of every chat and radiant conversation. It places the prompts below, the location, the player, and the recent world events." },
+  "prompt_system.txt": { group: "Conversations", title: "System prompt", blurb: "The frame of every chat and radiant conversation. It places the reply rules, the action tags, the location, the player, and the recent world events." },
   "npc_base.txt": { group: "Conversations", title: "NPC persona", blurb: "The base persona of every NPC. The profile of each NPC adds to it." },
   "response_rules.txt": { group: "Conversations", title: "Reply rules", blurb: "The rules for how an NPC writes a reply." },
   "prompt_action_tags.txt": { group: "Conversations", title: "Action tags", blurb: "The game actions that an NPC can take from a reply, such as attack, join your squad, or give an item." },
@@ -19,7 +19,7 @@ const PROMPT_INFO = {
   "prompt_world_synthesis.txt": { group: "World events", title: "World events", blurb: "Turns the recent events of the world into one new rumor that NPCs can mention." },
 };
 const GROUPS = [...new Set(Object.values(PROMPT_INFO).map((info) => info.group)), OTHER];
-const promptOrder = Object.keys(PROMPT_INFO);
+const titleOf = (prompt) => PROMPT_INFO[prompt.name]?.title ?? prompt.name;
 
 const savedText = (prompt) => prompt.override ?? prompt.shipped;
 const changedPrompts = () => prompts.filter((prompt) => drafts.get(prompt.name) !== savedText(prompt));
@@ -55,7 +55,7 @@ function card(prompt) {
   });
   textarea.dataset.name = prompt.name;
   const info = PROMPT_INFO[prompt.name];
-  textarea.setAttribute("aria-label", info?.title ?? prompt.name);
+  textarea.setAttribute("aria-label", titleOf(prompt));
   const note = notes.get(prompt.name);
   if (note?.error) setFieldError(textarea, note.text);
   const details = el("details", {
@@ -67,7 +67,7 @@ function card(prompt) {
     },
   },
   el("summary", {},
-    el("strong", {}, info?.title ?? prompt.name),
+    el("strong", {}, titleOf(prompt)),
     info ? el("span", { className: "detail" }, prompt.name) : null,
     ...badges(prompt),
     info ? el("span", { className: "blurb" }, info.blurb) : null),
@@ -94,7 +94,7 @@ async function fetchPrompts(kept) {
   list.replaceChildren(...GROUPS.map((group) => {
     const members = prompts
       .filter((prompt) => (PROMPT_INFO[prompt.name]?.group ?? OTHER) === group)
-      .sort((a, b) => promptOrder.indexOf(a.name) - promptOrder.indexOf(b.name));
+      .sort((a, b) => titleOf(a).localeCompare(titleOf(b)));
     return members.length > 0 ? el("fieldset", {}, el("legend", {}, group), ...members.map(card)) : null;
   }).filter(Boolean));
   updateUnsaved();
