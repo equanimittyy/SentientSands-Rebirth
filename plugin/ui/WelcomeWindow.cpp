@@ -4,7 +4,6 @@
 #include "../core/Utils.h"
 
 #include <mygui/MyGUI_Button.h>
-#include <mygui/MyGUI_ComboBox.h>
 #include <mygui/MyGUI_Delegate.h>
 #include <mygui/MyGUI_Gui.h>
 #include <mygui/MyGUI_TextBox.h>
