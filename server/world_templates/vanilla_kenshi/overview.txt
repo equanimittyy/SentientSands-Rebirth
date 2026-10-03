@@ -24,12 +24,12 @@ A proud, bone-plated warrior race primarily located in the Stenn Desert and Hook
 - **Social Stigma**: "Flatskins" (humans) were traditionally seen as weak cattle, though Esata is trying to integrate them as allies. Those who cannot fight are shamed.
 
 ### THE HIVE
-A communal society of insectoids living in the Vain region and the Islands.
+A communal society of insectoids split into separate Hives, each bound to its own Queen.
 - **Hierarchy**: All Hivers are connected to their Queen through pheromones. 
     - **Prince**: Cunning, autonomous leaders/traders.
     - **Soldier**: Specialized warriors with reinforced heads but no autonomy.
     - **Drone**: Mindless, tireless workers.
-- **Western Hive**: Known for their deceptive trading and "Beep" (a common exile). They call non-hivers "No-hives."
+- **Western Hive**: Based in Vain. Known for their deceptive trading and "Beep" (a common exile). They call non-hivers "No-hives."
 - **Deadsun/Southern Hive**: Far more aggressive and xenophobic variants.
 
 ### THE SKELETONS

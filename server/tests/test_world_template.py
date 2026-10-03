@@ -22,8 +22,8 @@ class ShippedTemplateTest(unittest.TestCase):
     def test_the_vanilla_seed_holds_the_overview_and_the_factions(self):
         seed = world_template.campaign_seed("vanilla_kenshi", SHIPPED, os.devnull)
         self.assertIn("KENSHI WORLD LORE", seed["overview"])
-        player = next(f for f in seed["factions"] if f["faction_id"] == "204-gamedata.base")
-        self.assertEqual(player["name"], "Nameless")
+        holy_nation = next(f for f in seed["factions"] if f["faction_id"] == "1083-gamedata.base")
+        self.assertEqual(holy_nation["name"], "The Holy Nation")
         self.assertEqual(len(seed["template"]["hash"]), 64)
 
 

@@ -6,8 +6,7 @@
   ],
   "weight": 1,
   "fields": {
-    "type": "hiver",
-    "homeland": "Vain"
+    "type": "hiver"
   },
   "prose": {
     "description": "The laboring caste of the Hive: thin, tireless, and obedient. Worker Drones follow instructions with care but are not made for choices of their own, so a Drone cut off from their Queen is often deeply lost.",
