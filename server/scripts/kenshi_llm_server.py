@@ -2799,7 +2799,6 @@ def list_campaigns():
             "name": name,
             "active": name == ACTIVE_CAMPAIGN,
             "template": meta.get("template_name", ""),
-            "outdated": bool(meta) and meta.get("schema_version") != str(campaign_db.SCHEMA_VERSION),
         })
     return jsonify({"status": "ok", "campaigns": campaigns, "templates": world_template.listing(WORLD_TEMPLATES_DIR, USER_TEMPLATES_DIR), "default_template": DEFAULT_TEMPLATE})
 
@@ -2823,6 +2822,25 @@ def switch_campaign_from_web():
         return jsonify({"status": "error", "message": f"There is no campaign named {name}."}), 404
     switch_campaign(name)
     logging.info(f"CAMPAIGN: Switched to '{name}' from the web app")
+    return jsonify({"status": "ok", "current": ACTIVE_CAMPAIGN})
+
+@app.route('/api/campaigns/delete', methods=['POST'])
+def delete_campaign():
+    name = (request.get_json(silent=True) or {}).get("name")
+    names = campaign_names()
+    if name not in names:
+        return jsonify({"status": "error", "message": f"There is no campaign named {name}."}), 404
+    if len(names) == 1:
+        return jsonify({"status": "error", "message": f"{name} is your only campaign. Create another campaign before you delete it."}), 409
+    if name == ACTIVE_CAMPAIGN:
+        switch_campaign(next(other for other in names if other != name))
+    import shutil
+    try:
+        shutil.rmtree(os.path.join(CAMPAIGNS_DIR, name))
+    except OSError as e:
+        logging.error(f"CAMPAIGN: Cannot delete the campaign '{name}': {e}")
+        return jsonify({"status": "error", "message": f"Cannot delete {name}: {e}"}), 500
+    logging.info(f"CAMPAIGN: Deleted the campaign '{name}' from the web app")
     return jsonify({"status": "ok", "current": ACTIVE_CAMPAIGN})
 
 @app.route('/api/campaign', methods=['GET'])

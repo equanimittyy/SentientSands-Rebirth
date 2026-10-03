@@ -1,4 +1,4 @@
-import { ask, el, field, getJson, icon, reportUnsaved, sendJson, setFieldError, showMessage } from "./api.js";
+import { ask, el, field, getJson, icon, reportUnsaved, sendJson, setFieldError, showMessage, tell } from "./api.js";
 
 const page = document.getElementById("campaigns-page");
 const message = document.getElementById("campaigns-message");
@@ -61,14 +61,13 @@ function renderCampaigns() {
     el("strong", { className: "name" }, campaign.name),
     campaign.template ? el("span", { className: "detail" }, `from ${templateTitle(campaign.template)}`) : null,
     campaign.active ? el("span", { className: "badge ok" }, "Current") : null,
-    campaign.outdated ? el("span", { className: "badge fail" }, "Made by an earlier version") : null,
-    campaign.active || campaign.outdated ? null : el("button", { type: "button", onclick: () => switchCampaign(campaign.name) }, "Switch")));
+    iconButton("trash", `Delete the campaign ${campaign.name}`, () => deleteCampaign(campaign))));
   const template = el("select", { onchange: (event) => { creation.template = event.target.value; } },
     ...templates.map((entry) => new Option(entry.title, entry.name, false, entry.name === creation.template)));
   template.setAttribute("aria-label", "World template of the new campaign");
   return el("fieldset", {},
     el("legend", {}, "Campaign Manager"),
-    el("p", { className: "hint" }, "A campaign is one playthrough with its own NPC memories, factions, and world events. Switch makes a campaign the current one, and the next chat uses it."),
+    el("p", { className: "hint" }, "A campaign is one playthrough with its own NPC memories, factions, and world events."),
     el("ul", { className: "plain-list" }, ...rows),
     el("form", { className: "add", onsubmit: createCampaign },
       textInput(creation, "name", ["create", "name"], { placeholder: "New campaign name", required: true, label: "New campaign name" }),
@@ -79,15 +78,19 @@ function renderCampaigns() {
 }
 
 function renderCurrent() {
-  if (refusal) return [el("fieldset", {}, el("legend", {}, "Current Campaign"), el("p", { className: "hint error" }, refusal))];
-  if (!active) return [];
-  const template = active.template.name ? `${templateTitle(active.template.name)} ${active.template.version ?? ""}`.trim() : "an unknown template";
+  const current = campaigns.find((campaign) => campaign.active)?.name ?? active?.name;
+  const choice = el("select", { onchange: (event) => switchCampaign(event.target.value) },
+    ...campaigns.map((campaign) => new Option(campaign.name, campaign.name, false, campaign.name === current)));
+  const template = active?.template.name ? `Made from ${templateTitle(active.template.name)} ${active.template.version ?? ""}`.trim() : null;
   return [el("fieldset", {},
     el("legend", {}, "Current Campaign"),
-    el("p", {}, el("strong", { className: "name" }, active.name), " ", el("span", { className: "detail" }, `made from ${template}`)),
-    el("p", { className: "hint" }, "Changes on this page apply only to this campaign, from the next chat on."),
-    el("p", { className: "hint" }, "Loaded an older save? Cull deletes the NPC memories, events, and rumors dated after the current game time, so NPCs forget what has not happened yet in this save."),
-    el("div", { className: "card-actions" }, el("button", { type: "button", className: "danger", onclick: cull }, "Cull future data")))];
+    field("Campaign", choice, template ? el("span", { className: "detail" }, template) : null, "The campaign that the game plays. Choose another one to switch to it. The next chat uses it."),
+    refusal ? el("p", { className: "hint error" }, refusal) : null,
+    ...(active ? [
+      el("p", { className: "hint" }, "Changes on this page apply only to this campaign, from the next chat on."),
+      el("p", { className: "hint" }, "Loaded an older save? Cull deletes the NPC memories, events, and rumors dated after the current game time, so NPCs forget what has not happened yet in this save."),
+      el("div", { className: "card-actions" }, el("button", { type: "button", className: "danger", onclick: cull }, "Cull future data")),
+    ] : []))];
 }
 
 function renderActive() {
@@ -121,7 +124,7 @@ async function createCampaign(event) {
   try {
     const reply = await sendJson("POST", "/api/campaigns", creation);
     creation.name = "";
-    notes.set("create", { text: `Created ${reply.name}. Press Switch to play it.` });
+    notes.set("create", { text: `Created ${reply.name}. Choose it under Current Campaign to play it.` });
     const list = await getJson("/api/campaigns");
     campaigns = list.campaigns;
   } catch (error) {
@@ -130,8 +133,29 @@ async function createCampaign(event) {
   render();
 }
 
+async function deleteCampaign(campaign) {
+  if (campaigns.length === 1) {
+    await tell("Cannot delete the campaign", `${campaign.name} is your only campaign. Create another campaign before you delete it.`);
+    return;
+  }
+  const next = campaigns.find((other) => other !== campaign).name;
+  if (!(await ask(`Delete ${campaign.name}`, "Delete", `This deletes the campaign ${campaign.name} with its NPC memories, factions, world events, and rumors. `,
+    campaign.active ? `It is the current campaign, so SSR switches to ${next} first${hasChanges() ? ", and your unsaved changes are lost" : ""}. ` : "",
+    "\n\n", el("b", { className: "warning" }, "The delete takes effect immediately and is irreversible!")))) return;
+  try {
+    await sendJson("POST", "/api/campaigns/delete", { name: campaign.name });
+  } catch (error) {
+    await tell("Cannot delete the campaign", error.message);
+    return;
+  }
+  if (await (campaign.active ? loadCampaigns() : fetchAll(unsavedDrafts()))) showMessage(message, `Deleted ${campaign.name}.`);
+}
+
 async function switchCampaign(name) {
-  if (hasChanges() && !(await ask("Discard the changes", "Discard", `Your changes to ${active.name} are not saved. Switch to ${name} and lose them?`))) return;
+  if (hasChanges() && !(await ask("Discard the changes", "Discard", `Your changes to ${active.name} are not saved. Switch to ${name} and lose them?`))) {
+    render();
+    return;
+  }
   try {
     await sendJson("POST", "/api/campaigns/switch", { name });
   } catch (error) {
@@ -144,7 +168,7 @@ async function switchCampaign(name) {
 
 async function cull() {
   if (!(await ask("Cull future data", "Cull", `This deletes every NPC memory, event, and rumor of ${active.name} dated after the current game time. `,
-    el("b", { className: "warning" }, "The cull takes effect immediately and is irreversible!")))) return;
+    "\n\n", el("b", { className: "warning" }, "The cull takes effect immediately and is irreversible!")))) return;
   try {
     const reply = await sendJson("POST", "/api/campaign/cull", { campaign: active.name });
     const { dialogue, event, rumor } = reply.culled;
@@ -161,7 +185,7 @@ const DELETES = {
 
 async function deleteRow(kind, id) {
   const { url, title, effect } = DELETES[kind];
-  if (!(await ask(title, "Delete", `${effect} `, el("b", { className: "warning" }, "The delete takes effect immediately.")))) return;
+  if (!(await ask(title, "Delete", `${effect} `, "\n\n", el("b", { className: "warning" }, "The delete takes effect immediately.")))) return;
   try {
     await sendJson("POST", url, { campaign: active.name, id });
     await fetchAll(unsavedDrafts());

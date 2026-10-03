@@ -87,11 +87,16 @@ export function ask(title, action, ...text) {
   const dialog = document.getElementById("confirm");
   dialog.querySelector("h2").textContent = title;
   dialog.querySelector("p").replaceChildren(...text);
-  dialog.querySelector(".danger").textContent = action;
+  const danger = dialog.querySelector(".danger");
+  danger.textContent = action ?? "";
+  danger.hidden = !action;
+  dialog.querySelector('[value="cancel"]').textContent = action ? "Cancel" : "OK";
   dialog.returnValue = "";
   dialog.showModal();
   return new Promise((resolve) => dialog.addEventListener("close", () => resolve(dialog.returnValue === "ok"), { once: true }));
 }
+
+export const tell = (title, ...text) => ask(title, null, ...text);
 
 export const confirmReset = (page, ...notes) =>
   ask("Reset to defaults", "Reset", "Are you sure you want to reset all settings on ", el("b", {}, page), " to their defaults?", ...notes.flatMap((note) => ["\n\n", note]));

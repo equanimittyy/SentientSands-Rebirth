@@ -55,7 +55,7 @@ Each task (chat, radiant conversations, NPC profiles, and world events) has an o
 The server keeps this configuration in `server/user/llm_config.json`. A mod update does not replace it, so your keys stay.
 
 ### Campaigns and world templates
-The **Campaigns** page lists your campaigns and creates a new one from a world template. It also edits the rumors and events of the current campaign. **Switch** makes a campaign the current one, and the next chat uses it. Loaded an older save? **Cull future data** makes NPCs forget what happened after it.
+The **Campaigns** page lists your campaigns and creates a new one from a world template. It also edits the rumors and events of the current campaign. To switch campaigns, choose one under **Current Campaign**. The next chat uses it. The bin next to a campaign deletes it, but you always keep at least one campaign. Loaded an older save? **Cull future data** makes NPCs forget what happened after it.
 
 The **Editor** page edits the canon of a world: the overview that every NPC knows, the history, the factions, the characters, and world entries such as towns and zones. It has two subtabs:
 
