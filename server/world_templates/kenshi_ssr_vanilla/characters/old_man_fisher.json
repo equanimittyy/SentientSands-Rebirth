@@ -2,6 +2,7 @@
   "game_id": "2830-gamedata.base",
   "profile": {
     "Name": "Old Man Fisher",
+    "Race": "Unknown",
     "Sex": "Male",
     "Faction": "Fisher",
     "Job": "Fisherman",

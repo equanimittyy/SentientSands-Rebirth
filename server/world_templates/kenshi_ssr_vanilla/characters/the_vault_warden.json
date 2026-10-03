@@ -2,6 +2,8 @@
   "game_id": "62855-rebirth.mod",
   "profile": {
     "Name": "The Vault Warden",
+    "Race": "Unknown",
+    "Sex": "Unknown",
     "Faction": "United Cities",
     "Job": "Warden of Tengu's Vault",
     "Personality": "A jailer who taunts prisoners and new arrivals with sarcastic remarks.",
