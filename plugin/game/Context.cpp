@@ -16,7 +16,10 @@
 #include <kenshi/PlayerInterface.h>
 #include <kenshi/RaceData.h>
 #include <kenshi/Town.h>
+// Weather.h redefines WeatherRegion from PhysicsCollection.h; rename its copy
+#define WeatherRegion WeatherRegion_WeatherH
 #include <kenshi/Weather.h>
+#undef WeatherRegion
 #include <kenshi/util/hand.h>
 #include <set>
 #include <sstream>
