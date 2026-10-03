@@ -1,0 +1,13 @@
+{
+  "name": "Endin",
+  "aliases": [],
+  "weight": 1,
+  "fields": {
+    "type": "ruins",
+    "zone": "Bast",
+    "owner": "United Cities"
+  },
+  "prose": {
+    "description": "Endin is a ruined United Cities city in Bast, largely wrecked by the Holy Nation's army. No samurai guard it, and only peasants, exiles, and outlaws live there. A storm house is the only building still whole, and some vagrants and exiles shelter in it."
+  }
+}

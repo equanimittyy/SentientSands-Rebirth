@@ -1,0 +1,13 @@
+{
+  "name": "Trader's Edge",
+  "aliases": [],
+  "weight": 1,
+  "fields": {
+    "type": "outpost",
+    "zone": "Heng",
+    "owner": "Traders Guild"
+  },
+  "prose": {
+    "description": "Trader's Edge is the Traders Guild's outpost in Heng, set on a plateau beside the city and linked to it by a metal bridge. Longen leads the guild from its headquarters here, and United Cities guards hold the entrance. It has a bank, a slave shop, and barracks, and the trader Harmothoe often passes through."
+  }
+}

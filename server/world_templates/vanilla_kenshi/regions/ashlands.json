@@ -1,0 +1,43 @@
+{
+  "name": "Ashlands",
+  "aliases": [],
+  "weight": 1,
+  "fields": {
+    "factions": [
+      "Second Empire Exile"
+    ],
+    "animals": [
+      "Cleanser Unit",
+      "Iron Spider"
+    ]
+  },
+  "prose": {
+    "description": "The Ashlands are a waste of falling ash that the Second Empire once held. Skeleton Legion patrols and Iron Spiders roam it, Cleanser Units appear, and clouds of poison gas drift through. Nothing grows and there is no water, but the ground is rich in iron, copper, and carbon. The Tech Hunters count it unsurvivable, yet its domes draw treasure seekers, and Cat-Lon sits in exile there."
+  },
+  "children": [
+    {
+      "name": "Ashland Dome I",
+      "weight": 1
+    },
+    {
+      "name": "Ashland Dome II",
+      "weight": 1
+    },
+    {
+      "name": "Ashland Dome III",
+      "weight": 1
+    },
+    {
+      "name": "Ashland Dome IV",
+      "weight": 1
+    },
+    {
+      "name": "Ashland Dome Ruin",
+      "weight": 1
+    },
+    {
+      "name": "Cat-Lon's Exile",
+      "weight": 3
+    }
+  ]
+}

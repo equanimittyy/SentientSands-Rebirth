@@ -1,0 +1,13 @@
+{
+  "name": "Swamp Village",
+  "aliases": [],
+  "weight": 1,
+  "fields": {
+    "type": "village",
+    "zone": "The Swamp",
+    "owner": "Swampers"
+  },
+  "prose": {
+    "description": "Two small Swamper villages in the Swamp share this name: one in the north-west by the Stenn Desert, and one south-west of Shark. Swampers guard both, and each has a big shop, a hashish dealer, and riceweed farms. Only the northern one has a fence."
+  }
+}

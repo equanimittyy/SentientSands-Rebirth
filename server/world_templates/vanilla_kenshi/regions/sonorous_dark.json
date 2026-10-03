@@ -1,0 +1,35 @@
+{
+  "name": "Sonorous Dark",
+  "aliases": [],
+  "weight": 1,
+  "fields": {
+    "factions": [
+      "Skin Bandits"
+    ],
+    "animals": [
+      "Black Gorillo",
+      "Iron Spider"
+    ],
+    "hazards": [
+      "acidic water",
+      "acid rain"
+    ]
+  },
+  "prose": {
+    "description": "Sonorous Dark belongs to the Skin Bandits, Skeletons who hunt the living for their skin, sometimes seizing people from the Pits or Sniper Valley. The zone opens onto the peninsula of the Ashlands, and a Skeleton-held tower walls off one route in. Acid rain falls, the water is acidic, and nothing grows, though the ground is rich in ore. Iron spiders, black gorillos, and sniper robots roam."
+  },
+  "children": [
+    {
+      "name": "Barrier Tower",
+      "weight": 2
+    },
+    {
+      "name": "Skinhouse",
+      "weight": 2
+    },
+    {
+      "name": "Skinhouse HQ",
+      "weight": 2
+    }
+  ]
+}

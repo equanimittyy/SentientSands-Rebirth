@@ -1,0 +1,13 @@
+{
+  "name": "Scraphouse",
+  "aliases": [],
+  "weight": 1,
+  "fields": {
+    "type": "point of interest",
+    "zone": "Deadlands",
+    "owner": "Skeletons"
+  },
+  "prose": {
+    "description": "The Scraphouse is a Skeleton shop in an ancient factory in the Deadlands, just east of Black Desert City, where acid rain falls. Its trader, Quin, sells weapons and rare ancient goods such as AI cores and science books. Soldierbot guards and security spiders protect it."
+  }
+}

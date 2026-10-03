@@ -1,0 +1,13 @@
+{
+  "name": "Gatherer Village",
+  "aliases": [],
+  "weight": 1,
+  "fields": {
+    "type": "village",
+    "zone": "Dreg",
+    "owner": "Deadcat"
+  },
+  "prose": {
+    "description": "Gatherer Village is the name of two small Deadcat settlements in Dreg, where a few Deadcat fishermen live. Fogmen and Holy Nation Outlaws often prowl around them. The western one is fenced in behind a locked gate, and in the eastern one a wary settler lives with his goat and dog."
+  }
+}

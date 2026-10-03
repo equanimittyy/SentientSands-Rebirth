@@ -1,0 +1,35 @@
+{
+  "name": "Northern Coast",
+  "aliases": [],
+  "weight": 1,
+  "fields": {
+    "factions": [
+      "Cannibals",
+      "Deadcat",
+      "Nomads",
+      "Skeletons",
+      "Starving Bandits"
+    ],
+    "animals": [
+      "Bonedog",
+      "Goat",
+      "River Raptor"
+    ],
+    "hazards": [
+      "acid rain"
+    ]
+  },
+  "prose": {
+    "description": "The Northern Coast is the far northern edge of Holy Nation land, lying between Darkfinger and the Cannibal Plains. The Deadcat refugees live there in a fishing village north of World's End. Cannibals often wander in, and Cannibal Hunters and starving bandits roam the coast as well. Nomad goatherds camp there, bonedogs and river raptors make their dens, and acid rain falls at times."
+  },
+  "children": [
+    {
+      "name": "Fishing Village",
+      "weight": 2
+    },
+    {
+      "name": "Ghost Village",
+      "weight": 2
+    }
+  ]
+}

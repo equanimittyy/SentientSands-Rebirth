@@ -1,0 +1,13 @@
+{
+  "name": "Watchtower",
+  "aliases": [],
+  "weight": 1,
+  "fields": {
+    "type": "point of interest",
+    "zone": "Arm of Okran",
+    "owner": "The Holy Nation"
+  },
+  "prose": {
+    "description": "The Watchtower is a Holy Nation watchtower in the Arm of Okran. A few guards keep watch outside in shifts while many more sleep inside, where food, armour, weapons, and beds are kept."
+  }
+}

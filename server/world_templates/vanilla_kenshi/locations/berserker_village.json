@@ -1,0 +1,13 @@
+{
+  "name": "Berserker Village",
+  "aliases": [],
+  "weight": 1,
+  "fields": {
+    "type": "outpost",
+    "zone": "Spider Plains",
+    "owner": "Berserkers"
+  },
+  "prose": {
+    "description": "Berserker Village is a small, hostile Berserker outpost in the Spider Plains, east of Last Stand, built among ruined buildings and broken walls. Ghost, the leader of the Berserkers, lives here with other Berserkers and believes Esata sends outsiders to take his head."
+  }
+}

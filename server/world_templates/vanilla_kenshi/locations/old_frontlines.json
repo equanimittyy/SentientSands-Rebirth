@@ -1,0 +1,13 @@
+{
+  "name": "Old Frontlines",
+  "aliases": [],
+  "weight": 1,
+  "fields": {
+    "type": "ruins",
+    "zone": "Spider Plains",
+    "owner": "Shek Kingdom"
+  },
+  "prose": {
+    "description": "The Old Frontlines are a Shek Kingdom ruin on the edge of the Spider Plains, close to Arach. Many damaged buildings stand inside its wall."
+  }
+}

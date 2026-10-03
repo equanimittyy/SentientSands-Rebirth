@@ -1,0 +1,37 @@
+{
+  "name": "Sinkuun",
+  "aliases": [],
+  "weight": 1,
+  "fields": {
+    "factions": [
+      "Nomads",
+      "Rebel Farmers",
+      "Western Hive"
+    ],
+    "animals": [
+      "Goat",
+      "Skimmer"
+    ]
+  },
+  "prose": {
+    "description": "Sinkuun is a large peninsula northwest of the Great Desert, where many outcasts of the United Cities end up. Peasants driven out by slavery, taxes, and hunger have turned to banditry as the Rebel Farmers, led by Boss Simion from Fort Simion. Cannibal Hunters hold the Bastion on the Darkfinger border and keep the cannibals out, and a small group of Western Hivers lives in two distant villages. Yabuta's outlaws, lone skimmers, and goats roam the dry land."
+  },
+  "children": [
+    {
+      "name": "Distant Hive Village",
+      "weight": 2
+    },
+    {
+      "name": "Fort Simion",
+      "weight": 2
+    },
+    {
+      "name": "The Bastion",
+      "weight": 2
+    },
+    {
+      "name": "Tower of Goats",
+      "weight": 1
+    }
+  ]
+}

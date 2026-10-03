@@ -1,0 +1,13 @@
+{
+  "name": "Heng",
+  "aliases": [],
+  "weight": 1,
+  "fields": {
+    "type": "town",
+    "zone": "Heng",
+    "owner": "United Cities"
+  },
+  "prose": {
+    "description": "Heng is a United Cities town on a rocky plateau southwest of Heft, joined by a metal bridge to Trader's Edge and the Traders Guild headquarters. It is the Empire's chief centre of trade and is strongly guarded. Lord Yoshinaga lives in its noble house, and it has two bars, a thieves guild, and a robotics workshop."
+  }
+}

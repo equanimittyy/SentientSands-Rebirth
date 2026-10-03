@@ -1,0 +1,12 @@
+{
+  "name": "Cactus Den",
+  "aliases": [],
+  "weight": 1,
+  "fields": {
+    "type": "point of interest",
+    "zone": "Spine Canyon"
+  },
+  "prose": {
+    "description": "Cactus Den is a watchtower at the centre of Spine Canyon, a short way northwest of Tengu's Vault. The Sand Ninjas and their leader, Sand Ninja Oni, live there, and they turn on anyone who forces their way inside."
+  }
+}

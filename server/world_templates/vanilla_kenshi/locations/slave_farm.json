@@ -1,0 +1,13 @@
+{
+  "name": "Slave Farm",
+  "aliases": [],
+  "weight": 1,
+  "fields": {
+    "type": "slave camp",
+    "zone": "Heng",
+    "owner": "Slave Traders"
+  },
+  "prose": {
+    "description": "The Slave Farm is a Slave Traders camp in Heng, where slaves tend more than ten huge cactus farms. Slave Mistress Ren keeps a noble house there, and the camp has slave shops, a bakery and a bar. It is the main source of food for Heft, the capital, and also supplies Stoat."
+  }
+}

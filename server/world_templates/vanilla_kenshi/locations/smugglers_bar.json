@@ -1,0 +1,13 @@
+{
+  "name": "Smugglers Bar",
+  "aliases": [],
+  "weight": 1,
+  "fields": {
+    "type": "point of interest",
+    "zone": "Shem",
+    "owner": "Grayflayers"
+  },
+  "prose": {
+    "description": "Smugglers Bar is a bar in Shem held by the Grayflayers, though it lies outside the Swamp. Smugglers gather here, and the barman buys illegal goods. Its upper floor has plenty of beds."
+  }
+}

@@ -1,0 +1,42 @@
+{
+  "name": "Leviathan Coast",
+  "aliases": [],
+  "weight": 1,
+  "fields": {
+    "factions": [
+      "Tech Hunters"
+    ],
+    "animals": [
+      "Beak Thing",
+      "Bonedog",
+      "Garru",
+      "Leviathan",
+      "Swamp Raptor",
+      "River Raptor"
+    ],
+    "hazards": [
+      "acid rain"
+    ]
+  },
+  "prose": {
+    "description": "The Leviathan Coast lies in the far northwest, north of the Cannibal Plains and the Iron Trail. Leviathans are common there and are hunted for their pearls, while garru herds fall prey to the many beak things, and swamp raptors, river raptors, and bonedogs make their dens there too. Ruins of the Second Empire dot the coast, and Tech Hunters come to search them. Acid rain falls at times."
+  },
+  "children": [
+    {
+      "name": "Fallen Tower",
+      "weight": 1
+    },
+    {
+      "name": "Lost Armoury",
+      "weight": 1
+    },
+    {
+      "name": "Lost Library",
+      "weight": 1
+    },
+    {
+      "name": "Old Empire Watchtower",
+      "weight": 1
+    }
+  ]
+}

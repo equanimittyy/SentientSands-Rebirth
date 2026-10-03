@@ -1,0 +1,13 @@
+{
+  "name": "Stone Camp",
+  "aliases": [],
+  "weight": 1,
+  "fields": {
+    "type": "slave camp",
+    "zone": "The Great Desert",
+    "owner": "Slave Traders"
+  },
+  "prose": {
+    "description": "Stone Camp is a Slave Traders slave camp in the Great Desert, about halfway along the road from Stoat to Sho-Battai. Slaves work its many stone mines, and Slave Master Haga lives here. The camp supplies Stoat, Heng, and Trader's Edge."
+  }
+}

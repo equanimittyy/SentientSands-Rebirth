@@ -1,0 +1,13 @@
+{
+  "name": "Ashland Dome II",
+  "aliases": [],
+  "weight": 1,
+  "fields": {
+    "type": "ruins",
+    "zone": "Ashlands",
+    "owner": "Second Empire"
+  },
+  "prose": {
+    "description": "Ashland Dome II is a great multi-storey dome in the Ashlands, south of Dome I, with two doorways and a spiral stair rising through its centre. Rhinobot, a Skeleton once high in the Second Empire, lives there with several Screamer Units."
+  }
+}

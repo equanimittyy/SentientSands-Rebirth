@@ -1,0 +1,13 @@
+{
+  "name": "Farming Village",
+  "aliases": [],
+  "weight": 1,
+  "fields": {
+    "type": "village",
+    "zone": "Stormgap Coast",
+    "owner": "United Cities"
+  },
+  "prose": {
+    "description": "Farming Village is a small outpost of the United Cities on the Stormgap Coast, east of Eyesocket. It has a bar, a barracks, a farm shop, and a shop selling travel gear."
+  }
+}

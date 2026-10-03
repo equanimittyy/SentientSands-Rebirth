@@ -1,0 +1,13 @@
+{
+  "name": "Cat-Lon's Exile",
+  "aliases": [],
+  "weight": 1,
+  "fields": {
+    "type": "town",
+    "zone": "Ashlands",
+    "owner": "Second Empire Exile"
+  },
+  "prose": {
+    "description": "Cat-Lon's Exile lies deep in the Ashlands: two intact domes in a giant pit, reached only by a broad ramp on the west, beneath a great piece of wreckage hanging in the sky. Mad Cat-Lon, once emperor of the Second Empire, sits on his throne in one dome, and a horde of Stormthralls fills the other."
+  }
+}

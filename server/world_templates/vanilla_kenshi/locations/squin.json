@@ -1,0 +1,13 @@
+{
+  "name": "Squin",
+  "aliases": [],
+  "weight": 1,
+  "fields": {
+    "type": "town",
+    "zone": "Border Zone",
+    "owner": "Shek Kingdom"
+  },
+  "prose": {
+    "description": "Squin is a Shek Kingdom town in a narrow canyon of the Border Zone, east of Admag and far less crowded than the capital. It runs on wind alone, so its power often fails. It has two bars, weapon and armour shops, a general store, and a police station, and dust and hungry bandits prowl nearby."
+  }
+}

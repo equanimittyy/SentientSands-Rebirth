@@ -1,0 +1,13 @@
+{
+  "name": "Dust King Tower",
+  "aliases": [],
+  "weight": 1,
+  "fields": {
+    "type": "point of interest",
+    "zone": "Border Zone",
+    "owner": "Dust Bandits"
+  },
+  "prose": {
+    "description": "Dust King Tower is the fortress of the Dust King, on a clifftop above the river in the Border Zone. Walls, a gate, and mounted crossbows protect it, and some twenty Dust Bandits and their bosses defend it. Captives are caged on its third floor, among them Cat, held for a ransom nobody has paid."
+  }
+}

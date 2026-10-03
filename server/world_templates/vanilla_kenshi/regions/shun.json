@@ -1,0 +1,46 @@
+{
+  "name": "Shun",
+  "aliases": [],
+  "weight": 1,
+  "fields": {
+    "factions": [
+      "Band of Bones",
+      "Tech Hunters"
+    ],
+    "animals": [
+      "Garru",
+      "Goat",
+      "Gorillo",
+      "Skin Spider"
+    ]
+  },
+  "prose": {
+    "description": "Shun is an abandoned land in the southwestern corner of the continent, scattered with ancient ruins: lost libraries, armories, and labs. No town or outpost stands there. Skin spider packs, gorillos, goats, and garru roam, along with Band of Bones raiders and Tech Hunters who search the ruins. The Tech Hunters here may attack travelers without provocation."
+  },
+  "children": [
+    {
+      "name": "Abandoned Town",
+      "weight": 1
+    },
+    {
+      "name": "Ancient Tech Lab",
+      "weight": 1
+    },
+    {
+      "name": "Armoury Ruin",
+      "weight": 1
+    },
+    {
+      "name": "Library Ruins",
+      "weight": 1
+    },
+    {
+      "name": "Lost Armoury",
+      "weight": 1
+    },
+    {
+      "name": "Lost Library",
+      "weight": 1
+    }
+  ]
+}

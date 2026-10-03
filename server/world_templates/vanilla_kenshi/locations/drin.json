@@ -1,0 +1,13 @@
+{
+  "name": "Drin",
+  "aliases": [],
+  "weight": 1,
+  "fields": {
+    "type": "ruins",
+    "zone": "Bast",
+    "owner": "United Cities"
+  },
+  "prose": {
+    "description": "Drin is a half-ruined United Cities garrison town in Bast and the largest Empire military post in the region. A large force of samurai is stationed in its barracks, and it has a bar, an armory, and a storehouse."
+  }
+}

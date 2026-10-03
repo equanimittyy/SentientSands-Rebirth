@@ -1,0 +1,13 @@
+{
+  "name": "Tower of Fog",
+  "aliases": [],
+  "weight": 1,
+  "fields": {
+    "type": "point of interest",
+    "zone": "Vain",
+    "owner": "Fogmen"
+  },
+  "prose": {
+    "description": "The Tower of Fog, a solitary watchtower, stands on an island off Vain's west coast. Fogmen fill it, with a single Fog Prince among them."
+  }
+}

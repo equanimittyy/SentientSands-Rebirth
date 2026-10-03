@@ -250,11 +250,14 @@ Built. Each campaign holds its own copy of the factions, and the player edits th
 
 ## 7. SSR Vanilla template
 
-SSR writes the vanilla template itself. Today the template holds `overview.txt` and 17 factions, and phase 4 adds the rest.
+SSR writes the vanilla template itself. Today the template holds the overview, 17 history entries, 80 factions, 211 characters, 7 races, 69 regions, and 164 locations.
 
 - The facts come from the game: its data files, which the Forgotten Construction Set (FCS) opens, and play. The Kenshi wiki can help to find a fact, but no text comes from the wiki or from Kayak ([section 9](#9-licence)).
 - The template of Kayak v0.5.0 ([section 13](#13-references)) is only a checklist of the records that a vanilla world needs. Phase 4 covers at least the counts in the table.
 - Each faction and each canon character has its game ID. The faction IDs come from the `FACTION_PROBE` line, and the character IDs come from the NPC IDs of phase 2.
+- A region is a named zone of the game data (record type 95), such as Border Zone or Shem. Record type 28 is a ground texture set and type 99 is a soil type, so neither is a region. Six zones have no wiki page, no towns, and almost no data, so the template leaves them out: Akakus, Central, Desert, Empire, Rim Sands, and The Desert.
+- A location is a town of the game data (record type 13) that the wiki places in a zone. The game data does not say which zone holds a town, so the zone comes from the wiki's town infobox, joined to the game data on the string ID. A camp that a zone places at random (a nest) is not a location.
+- The `factions` and `animals` fields of a region hold only the squads that are in the zone at the start of a game. A squad that needs a world state other than "a character is alive", such as the death of a leader, is left out, because a new campaign does not know which states have changed. The descriptions also describe the start of a game.
 
 | Records | Location in the template | Kayak v0.5.0 count |
 |---|---|---|

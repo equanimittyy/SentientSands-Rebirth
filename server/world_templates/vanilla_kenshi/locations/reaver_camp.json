@@ -1,0 +1,13 @@
+{
+  "name": "Reaver Camp",
+  "aliases": [],
+  "weight": 1,
+  "fields": {
+    "type": "outpost",
+    "zone": "The Outlands",
+    "owner": "Reavers"
+  },
+  "prose": {
+    "description": "Reaver Camp is a Reaver outpost in the Outlands. Reaver warriors live there with their whelps and keep slaves in the camp."
+  }
+}

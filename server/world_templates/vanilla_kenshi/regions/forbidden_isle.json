@@ -1,0 +1,25 @@
+{
+  "name": "Forbidden Isle",
+  "aliases": [],
+  "weight": 1,
+  "fields": {
+    "factions": [
+      "Tech Hunters"
+    ],
+    "animals": [
+      "Iron Spider"
+    ],
+    "hazards": [
+      "acid rain"
+    ]
+  },
+  "prose": {
+    "description": "The Forbidden Isle lies east of the Stormgap Coast and is a hostile, miserable place. Legions of Iron Spiders roam it, and the Spider Factory stands at its center, run by a deadly Skeleton called the Spider Foreman. Aggressive Tech Hunters prowl its ruins in search of lost secrets, and acid rain often blankets the island."
+  },
+  "children": [
+    {
+      "name": "Spider Factory",
+      "weight": 1
+    }
+  ]
+}

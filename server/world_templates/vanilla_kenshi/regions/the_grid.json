@@ -1,0 +1,15 @@
+{
+  "name": "The Grid",
+  "aliases": [],
+  "weight": 1,
+  "fields": {},
+  "prose": {
+    "description": "The Grid lies between the Crater to the southwest and the Swamp to the northeast, a land of huge rock spikes set out in a grid. No one lives there, nothing grows, and there is no water to draw. Its one notable site is an ancient workshop complex of great hangar-like buildings."
+  },
+  "children": [
+    {
+      "name": "Workshop Complex",
+      "weight": 1
+    }
+  ]
+}

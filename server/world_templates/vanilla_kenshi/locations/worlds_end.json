@@ -1,0 +1,13 @@
+{
+  "name": "World's End",
+  "aliases": [],
+  "weight": 1,
+  "fields": {
+    "type": "town",
+    "zone": "Arm of Okran",
+    "owner": "Tech Hunters"
+  },
+  "prose": {
+    "description": "World's End is a Tech Hunter town on a mountaintop in the Arm of Okran and home to the Machinists' University, which studies ancient lost tech. Finch says its Okran statues fool the Holy Nation into leaving it alone. Many Skeletons live here, hired ninjas guard it, and it has the most shops in Holy Nation lands."
+  }
+}

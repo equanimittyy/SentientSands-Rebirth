@@ -1,0 +1,38 @@
+{
+  "name": "Skinner's Roam",
+  "aliases": [],
+  "weight": 1,
+  "fields": {
+    "factions": [
+      "Dust Bandits",
+      "Holy Nation Outlaws",
+      "Starving Bandits",
+      "The Holy Nation"
+    ],
+    "animals": [
+      "Bonedog",
+      "Wild Bull"
+    ]
+  },
+  "prose": {
+    "description": "Skinner's Roam is a large, rocky desert held by the Holy Nation, which works three slave mines there; those nearest the Deadlands lie abandoned. Where it meets the Iron Valleys stand the Holy Nation forts of Okran's Shield and Narko's Trap. Few patrols cross its open ground, so huge mobs of starving bandits prey on travelers, and Dust Bandits make camp. Great herds of wild bulls roam, dust storms blow through, and a huge wall of dust marks the land."
+  },
+  "children": [
+    {
+      "name": "Holy Mine Ruin",
+      "weight": 1
+    },
+    {
+      "name": "Holy Mines",
+      "weight": 2
+    },
+    {
+      "name": "Narko's Trap",
+      "weight": 2
+    },
+    {
+      "name": "Okran's Shield",
+      "weight": 2
+    }
+  ]
+}

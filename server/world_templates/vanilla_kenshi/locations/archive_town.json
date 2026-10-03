@@ -1,0 +1,13 @@
+{
+  "name": "Archive Town",
+  "aliases": [],
+  "weight": 1,
+  "fields": {
+    "type": "ruins",
+    "zone": "Howler Maze",
+    "owner": "Second Empire"
+  },
+  "prose": {
+    "description": "Archive Town is a ruined Second Empire town in the Howler Maze. Most of it lies in rubble, but a few buildings still stand, among them an old library, and crabs infest parts of it."
+  }
+}

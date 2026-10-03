@@ -1,0 +1,16 @@
+{
+  "name": "Holy Mines",
+  "aliases": [],
+  "weight": 1,
+  "fields": {
+    "type": "village",
+    "zone": [
+      "Okran's Gulf",
+      "Skinner's Roam"
+    ],
+    "owner": "The Holy Nation"
+  },
+  "prose": {
+    "description": "Holy Mines are Holy Nation mining camps worked by slaves, three in Skinner's Roam and two in Okran's Gulf. A High Overseer runs each one, while Holy Sentinels and paladins guard and drive the slaves. Lower Servants and captured bandits are locked in cages at night and put to work by day."
+  }
+}

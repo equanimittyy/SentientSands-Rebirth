@@ -1,0 +1,13 @@
+{
+  "name": "Crab Town",
+  "aliases": [],
+  "weight": 1,
+  "fields": {
+    "type": "outpost",
+    "zone": "The Pits East",
+    "owner": "Crab Raiders"
+  },
+  "prose": {
+    "description": "Crab Town, the Crab Raiders' capital, lies in the northeastern Pits East, and the Crab Queen keeps her palace here. Its people welcome most visitors, though not friends of the Skin Bandits or Skeleton Bandits. It has a bar, a smithy, and a shop that sells crabs."
+  }
+}

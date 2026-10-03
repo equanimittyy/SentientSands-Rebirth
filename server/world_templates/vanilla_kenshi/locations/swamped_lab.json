@@ -1,0 +1,12 @@
+{
+  "name": "Swamped Lab",
+  "aliases": [],
+  "weight": 1,
+  "fields": {
+    "type": "ruins",
+    "zone": "The Swamp"
+  },
+  "prose": {
+    "description": "The Swamped Lab, an ancient lab in the Swamp, lies south-west of Shark. Blood spiders surround it, and Red Sabre and Swamp Ninja gangs often come to fight them. Inside, its Security Spiders stand dormant."
+  }
+}

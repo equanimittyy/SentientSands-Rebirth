@@ -1,0 +1,14 @@
+{
+  "name": "The Black Desert",
+  "aliases": [],
+  "weight": 1,
+  "fields": {
+    "hazards": [
+      "acidic ground",
+      "acidic water"
+    ]
+  },
+  "prose": {
+    "description": "The Black Desert lies beside the Deadlands and the Iron Valleys, and is named for its dark sand and the dark clouds of poison gas that drift across it. The gas harms the chest and stomach, the acidic ground burns bare feet, and nothing grows, though red-leaved trees still stand among the dead ones. The Black Desert Ninjas roam there."
+  }
+}

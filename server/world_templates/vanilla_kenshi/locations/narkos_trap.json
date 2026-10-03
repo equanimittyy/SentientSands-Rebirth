@@ -1,0 +1,16 @@
+{
+  "name": "Narko's Trap",
+  "aliases": [],
+  "weight": 1,
+  "fields": {
+    "type": "military",
+    "zone": [
+      "Iron Valleys",
+      "Skinner's Roam"
+    ],
+    "owner": "The Holy Nation"
+  },
+  "prose": {
+    "description": "Narko's Trap is a small Holy Nation fort on the border of Skinner's Roam and the Iron Valleys. The Holy Nation built it around Narko's Evil Tower, the only ancient laboratory known in its lands, to keep thieves and tech hunters out. Paladins attack anyone who trespasses, and security spiders lurk in the walled lab."
+  }
+}

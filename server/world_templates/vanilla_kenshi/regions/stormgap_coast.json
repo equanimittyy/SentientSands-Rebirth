@@ -1,0 +1,45 @@
+{
+  "name": "Stormgap Coast",
+  "aliases": [],
+  "weight": 1,
+  "fields": {
+    "factions": [
+      "Bounty Hunters",
+      "Grass Pirates",
+      "Reavers",
+      "Rebel Farmers",
+      "Slave Traders",
+      "Tech Hunters",
+      "Traders Guild",
+      "United Cities"
+    ],
+    "animals": [
+      "Beak Thing",
+      "Bonedog"
+    ],
+    "hazards": [
+      "acid rain"
+    ]
+  },
+  "prose": {
+    "description": "The Stormgap Coast is United Cities land on the frontier that divides the Empire from the wild southeast and the Reavers of the Outlands. Lady Tsugi governs the town of Brink, which lives on supplies from Eyesocket, a slave camp run by Slave Master Grande. A small farming village and the village of the Preacher's cult also stand here. Grass Pirates, Rebel Farmers, and Beak Things roam the wilds, and acid rain sometimes falls."
+  },
+  "children": [
+    {
+      "name": "Brink",
+      "weight": 3
+    },
+    {
+      "name": "Cult Village",
+      "weight": 2
+    },
+    {
+      "name": "Eyesocket",
+      "weight": 2
+    },
+    {
+      "name": "Farming Village",
+      "weight": 2
+    }
+  ]
+}

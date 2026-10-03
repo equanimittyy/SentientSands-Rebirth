@@ -1,0 +1,37 @@
+{
+  "name": "Dreg",
+  "aliases": [],
+  "weight": 1,
+  "fields": {
+    "factions": [
+      "Cannibals",
+      "Deadcat",
+      "Drifters",
+      "Fogmen",
+      "Holy Nation Outlaws",
+      "Nomads",
+      "Starving Bandits",
+      "Western Hive"
+    ],
+    "hazards": [
+      "acid rain"
+    ]
+  },
+  "prose": {
+    "description": "Dreg is a wide, thinly settled land west of Okran's Gulf and north of Vain, on the frontier of the Holy Nation. Hivers of the Western Hive live there in hive villages, alongside settled nomads and Deadcat fishermen in their gatherer villages. The land is dead and dotted with sparse trees; nothing can be farmed, water is poor, and acid rain falls at times. Escaped Holy Nation servants, starving bandits, stray Fogmen, and scrawny cannibals wander through."
+  },
+  "children": [
+    {
+      "name": "Gatherer Village",
+      "weight": 2
+    },
+    {
+      "name": "Hive Village",
+      "weight": 2
+    },
+    {
+      "name": "Settled Nomad Village",
+      "weight": 2
+    }
+  ]
+}

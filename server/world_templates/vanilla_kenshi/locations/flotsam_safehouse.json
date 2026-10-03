@@ -1,0 +1,13 @@
+{
+  "name": "Flotsam Safehouse",
+  "aliases": [],
+  "weight": 1,
+  "fields": {
+    "type": "point of interest",
+    "zone": "Rebirth",
+    "owner": "Flotsam Ninjas"
+  },
+  "prose": {
+    "description": "Flotsam Safehouse is a lone shack of the Flotsam Ninjas north of Rebirth. It serves as a waypoint where slaves who escape Rebirth can rest and regain their strength, and it keeps some food, simple gear, and two beds."
+  }
+}

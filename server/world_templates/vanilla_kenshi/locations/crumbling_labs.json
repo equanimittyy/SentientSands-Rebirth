@@ -1,0 +1,12 @@
+{
+  "name": "Crumbling Labs",
+  "aliases": [],
+  "weight": 1,
+  "fields": {
+    "type": "ruins",
+    "zone": "Stobe's Gamble"
+  },
+  "prose": {
+    "description": "The Crumbling Labs are an ancient laboratory in Stobe's Gamble, northeast of Spring, standing in an acid lake that must be swum to reach them. Of their two buildings, one is a nest held by the giant King Gorillo, and the other is guarded by Security Spiders."
+  }
+}

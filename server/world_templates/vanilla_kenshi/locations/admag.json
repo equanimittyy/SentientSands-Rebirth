@@ -1,0 +1,13 @@
+{
+  "name": "Admag",
+  "aliases": [],
+  "weight": 1,
+  "fields": {
+    "type": "town",
+    "zone": "Stenn Desert",
+    "owner": "Shek Kingdom"
+  },
+  "prose": {
+    "description": "Admag is the Shek Kingdom's capital, a hilltop town in the Stenn Desert with one entrance, home to most of the kingdom's Shek. Esata the Stone Golem rules here with Bayan and Seto, guarded by the Five Invincibles, while Hundred Guardians defend the town. It has two bars, armour and weapon shops, and a thieves' guild."
+  }
+}

@@ -1,0 +1,13 @@
+{
+  "name": "Clownsteady",
+  "aliases": [],
+  "weight": 1,
+  "fields": {
+    "type": "town",
+    "zone": "The Hook",
+    "owner": "United Cities"
+  },
+  "prose": {
+    "description": "Clownsteady is a compact United Cities town in the Hook, near the Swamp, supplied by Slave Farm South and the Slave Markets. It has a bar, two police stations, a thieves' guild, and shops for weapons and general goods, and it is the only large Empire town with no noble in residence. Its merchants pay well for sake."
+  }
+}

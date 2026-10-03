@@ -1,0 +1,24 @@
+{
+  "name": "Burning Forest",
+  "aliases": [],
+  "weight": 1,
+  "fields": {
+    "animals": [
+      "Blood Spider",
+      "Swamp Raptor",
+      "Swamp Turtle"
+    ],
+    "hazards": [
+      "acid rain"
+    ]
+  },
+  "prose": {
+    "description": "The Burning Forest is a marshy woodland bordering the Swamp, the South Wetlands, Shem, and the Bonefields, and it takes its name from the acid rain that often falls there. Blood spiders infest it, sometimes in swarms of young, and swamp raptors and swamp turtles live there too. Water is plentiful, and the forest hides an ancient lab guarded by security spiders and a ruined United Cities farm."
+  },
+  "children": [
+    {
+      "name": "Farm Ruin",
+      "weight": 1
+    }
+  ]
+}

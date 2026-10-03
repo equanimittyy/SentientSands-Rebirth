@@ -1,0 +1,13 @@
+{
+  "name": "Looted Ruins",
+  "aliases": [],
+  "weight": 1,
+  "fields": {
+    "type": "ruins",
+    "zone": "Howler Maze",
+    "owner": "Second Empire"
+  },
+  "prose": {
+    "description": "These Second Empire ruins stand on the Howler Maze's northern coast: a few wrecked buildings and one outpost that is still whole but empty. Crabs infest the site, and a crab nest may lie close by."
+  }
+}

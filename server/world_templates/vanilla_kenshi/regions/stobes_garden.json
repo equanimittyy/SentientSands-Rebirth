@@ -1,0 +1,41 @@
+{
+  "name": "Stobe's Garden",
+  "aliases": [],
+  "weight": 1,
+  "fields": {
+    "factions": [
+      "Bounty Hunters",
+      "Crab Raiders",
+      "Reavers"
+    ],
+    "animals": [
+      "Black Gorillo",
+      "Land Bat"
+    ]
+  },
+  "prose": {
+    "description": "The Reavers make their home in Stobe's Garden, and their leader Valamon rules from Ark near its center. Crab Raiders hold a village on a plateau, and Reavers, Crab Raiders, and Skeleton Bandits often skirmish across the land. The remains of Stobe, whom the Skeleton Bandits revere as a god, lie here. Land bats, black gorillos, Black Dragon Ninjas, and bounty hunters roam, and an old watchtower teems with blood spiders."
+  },
+  "children": [
+    {
+      "name": "Ark",
+      "weight": 2
+    },
+    {
+      "name": "Crab Village",
+      "weight": 2
+    },
+    {
+      "name": "Expedition 4",
+      "weight": 1
+    },
+    {
+      "name": "Tower of Spiders",
+      "weight": 1
+    },
+    {
+      "name": "Waystation Ruins",
+      "weight": 1
+    }
+  ]
+}

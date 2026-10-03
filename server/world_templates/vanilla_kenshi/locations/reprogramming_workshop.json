@@ -1,0 +1,12 @@
+{
+  "name": "Reprogramming Workshop",
+  "aliases": [],
+  "weight": 1,
+  "fields": {
+    "type": "ruins",
+    "zone": "Deadlands"
+  },
+  "prose": {
+    "description": "The Reprogramming Workshop is a forgotten workshop in the Deadlands. Some twenty-five to twenty-eight faulty Skeletons wait inside, among six dormant Skeleton repair benches, and an ancient vault lies upstairs."
+  }
+}

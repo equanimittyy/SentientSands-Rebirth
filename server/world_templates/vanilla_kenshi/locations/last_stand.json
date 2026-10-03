@@ -1,0 +1,13 @@
+{
+  "name": "Last Stand",
+  "aliases": [],
+  "weight": 1,
+  "fields": {
+    "type": "military",
+    "zone": "Spider Plains",
+    "owner": "Shek Kingdom"
+  },
+  "prose": {
+    "description": "Last Stand is a Shek Kingdom fortress in the Spider Plains, split into two walled compounds. Aging Shek come there to make ready for an honourable death fighting the Bugmaster in neighbouring Arach. It has a bar, a weapon shop, and an armoury, whose guards attack allies of the Holy Nation."
+  }
+}

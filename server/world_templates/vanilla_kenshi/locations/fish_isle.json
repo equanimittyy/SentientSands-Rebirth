@@ -1,0 +1,12 @@
+{
+  "name": "Fish Isle",
+  "aliases": [],
+  "weight": 1,
+  "fields": {
+    "type": "town",
+    "zone": "Fishman Island"
+  },
+  "prose": {
+    "description": "Fish Isle is a town on Fishman Island that lies wholly in ruins. Fishmen live there, as they do across the island. Walls surround part of the town, and its gates are broken."
+  }
+}

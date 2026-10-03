@@ -1,0 +1,13 @@
+{
+  "name": "Flats Lagoon",
+  "aliases": [],
+  "weight": 1,
+  "fields": {
+    "type": "town",
+    "zone": "Flats Lagoon",
+    "owner": "Tech Hunters"
+  },
+  "prose": {
+    "description": "Flats Lagoon is a major Tech Hunter town in the zone of the same name. It has two bars, an armour shop, a headgear shop, a ranger shop, a travel and repair shop, and a mercenary guild. Wild animals and bandits seldom trouble it."
+  }
+}

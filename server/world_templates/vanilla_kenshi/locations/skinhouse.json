@@ -1,0 +1,13 @@
+{
+  "name": "Skinhouse",
+  "aliases": [],
+  "weight": 1,
+  "fields": {
+    "type": "outpost",
+    "zone": "Sonorous Dark",
+    "owner": "Skin Bandits"
+  },
+  "prose": {
+    "description": "Skinhouses are outposts of the Skin Bandits in the Sonorous Dark, each fitted with peeler machines and held by eight to twelve of the gang. They revere their leader Savant as the land's greatest master of science."
+  }
+}

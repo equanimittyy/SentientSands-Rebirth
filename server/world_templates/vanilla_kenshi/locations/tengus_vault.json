@@ -1,0 +1,13 @@
+{
+  "name": "Tengu's Vault",
+  "aliases": [],
+  "weight": 1,
+  "fields": {
+    "type": "prison",
+    "zone": "Skimsands",
+    "owner": "United Cities"
+  },
+  "prose": {
+    "description": "Tengu's Vault is a United Cities prison at the southern end of rocky Skimsands. The Vault Warden runs it, and samurai guard it and attack anyone who will not keep away. Its inmates include Luquin, Psycho, Espher, Sinklyde, Screamy, Hex, and Yabuta of the Sands, and they say nobody escapes."
+  }
+}

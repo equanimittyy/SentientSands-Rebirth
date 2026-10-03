@@ -1,0 +1,13 @@
+{
+  "name": "Fort Simion",
+  "aliases": [],
+  "weight": 1,
+  "fields": {
+    "type": "outpost",
+    "zone": "Sinkuun",
+    "owner": "Rebel Farmers"
+  },
+  "prose": {
+    "description": "Fort Simion is the stronghold of the Rebel Farmers in Sinkuun, and their leader Boss Simion keeps to its headquarters. Rebel farmers guard its gate and fill its barracks and hideout huts. Rebel bands around the fort may attack strangers who come too close."
+  }
+}

@@ -1,0 +1,40 @@
+{
+  "name": "Okran's Gulf",
+  "aliases": [],
+  "weight": 1,
+  "fields": {
+    "factions": [
+      "Drifters",
+      "Holy Nation Outlaws",
+      "Nomads",
+      "Shek Kingdom",
+      "Starving Bandits",
+      "The Holy Nation"
+    ],
+    "animals": [
+      "Bonedog",
+      "Wild Bull"
+    ]
+  },
+  "prose": {
+    "description": "Okran's Gulf forms the Holy Nation's western frontier: flat, dry, mostly fertile land that rises into mountains near Rebirth and borders the Fog Islands. Its chief town is Stack, home of High Inquisitor Seta, who holds back the Shek to the south, and two Holy military bases stand near its edge. Fogmen hold a ruined town in the north. Holy patrols and inquisitors police the land, while starving bandits, escaped servants, wild bulls, and bonedogs roam."
+  },
+  "children": [
+    {
+      "name": "Deadhive Overrun",
+      "weight": 1
+    },
+    {
+      "name": "Holy Military Base",
+      "weight": 2
+    },
+    {
+      "name": "Holy Mines",
+      "weight": 2
+    },
+    {
+      "name": "Stack",
+      "weight": 3
+    }
+  ]
+}

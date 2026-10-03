@@ -1,0 +1,13 @@
+{
+  "name": "Catun",
+  "aliases": [],
+  "weight": 1,
+  "fields": {
+    "type": "town",
+    "zone": "Bonefields",
+    "owner": "United Cities"
+  },
+  "prose": {
+    "description": "Catun is a small, isolated United Cities town on a raised plateau in a Bonefields valley, walled like a fortress with towers. Lord Shiro of the Noble Circle lives here, beside the Catun Scrapmasters, weaponsmiths who call themselves the finest in the world. Its samurai often fight off skin spiders, boneyard wolves, and beak things."
+  }
+}

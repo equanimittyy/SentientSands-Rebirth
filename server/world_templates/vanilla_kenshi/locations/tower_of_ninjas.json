@@ -1,0 +1,12 @@
+{
+  "name": "Tower Of Ninjas",
+  "aliases": [],
+  "weight": 1,
+  "fields": {
+    "type": "point of interest",
+    "zone": "Border Zone"
+  },
+  "prose": {
+    "description": "The Black Dragon Ninjas live in the Tower of Ninjas, in the north-east of the Border Zone. They attack anyone who enters, and four crossbow turrets stand on its roof, manned by their genin. The Holy Nation has put a 20,000-cat bounty on each of their leaders, Dimak and Buzan."
+  }
+}

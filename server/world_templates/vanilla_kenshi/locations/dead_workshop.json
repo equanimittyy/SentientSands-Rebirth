@@ -1,0 +1,12 @@
+{
+  "name": "Dead Workshop",
+  "aliases": [],
+  "weight": 1,
+  "fields": {
+    "type": "ruins",
+    "zone": "The Pits East"
+  },
+  "prose": {
+    "description": "The Dead Workshop is a vast, hangar-like ancient workshop in the Pits East, with a deep square pool before its doors. At times Soldierbots guard it."
+  }
+}

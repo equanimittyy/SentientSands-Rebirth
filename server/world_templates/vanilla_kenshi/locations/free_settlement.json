@@ -1,0 +1,13 @@
+{
+  "name": "Free Settlement",
+  "aliases": [],
+  "weight": 1,
+  "fields": {
+    "type": "ruins",
+    "zone": "Stobe's Gamble",
+    "owner": "United Cities"
+  },
+  "prose": {
+    "description": "Free Settlement is an empty United Cities town south of Brink, in Stobe's Gamble. No one lives there and no guards patrol it. Building materials, iron plates, and fuel lie in some of its ruined buildings, and what laid it waste is unknown."
+  }
+}

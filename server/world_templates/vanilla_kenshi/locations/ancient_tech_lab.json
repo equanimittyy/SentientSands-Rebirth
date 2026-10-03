@@ -1,0 +1,15 @@
+{
+  "name": "Ancient Tech Lab",
+  "aliases": [],
+  "weight": 1,
+  "fields": {
+    "type": "ruins",
+    "zone": [
+      "Shun",
+      "The Iron Trail"
+    ]
+  },
+  "prose": {
+    "description": "Ancient Tech Labs are decaying stores of old knowledge and robotics, one at the western end of the Iron Trail and one in northwestern Shun. Security Spiders and Broken Skeletons still occupy them, and the way to the Iron Trail lab is crowded with Iron Spiders."
+  }
+}

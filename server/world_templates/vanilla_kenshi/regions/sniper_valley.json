@@ -1,0 +1,28 @@
+{
+  "name": "Sniper Valley",
+  "aliases": [],
+  "weight": 1,
+  "fields": {
+    "animals": [
+      "Black Gorillo",
+      "Goat",
+      "Leviathan"
+    ],
+    "hazards": [
+      "acidic water"
+    ]
+  },
+  "prose": {
+    "description": "Sniper Valley is a corner of the far southeast, close to the Ashlands. Unseen sniper robots shoot at those who pass. Nothing grows, the water is acidic, and black ash falls. Black gorillos, goats, scavengers, and Crab Raider scouts wander past an old supply outpost and an empty police barracks."
+  },
+  "children": [
+    {
+      "name": "Old Empire Supply Outpost",
+      "weight": 1
+    },
+    {
+      "name": "Police Barracks",
+      "weight": 1
+    }
+  ]
+}

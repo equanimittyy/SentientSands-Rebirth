@@ -1,0 +1,13 @@
+{
+  "name": "Blister Hill",
+  "aliases": [],
+  "weight": 1,
+  "fields": {
+    "type": "town",
+    "zone": "Okran's Pride",
+    "owner": "The Holy Nation"
+  },
+  "prose": {
+    "description": "Blister Hill is the Holy Nation's capital, in the north of Okran's Pride. Holy Lord Phoenix holds court in its walled inner city among High Paladins and Protectors of the Flame, while the outer town has temples, three bars, a police station, and many shops."
+  }
+}

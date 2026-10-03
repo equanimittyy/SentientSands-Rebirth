@@ -1,0 +1,44 @@
+{
+  "name": "Cannibal Plains",
+  "aliases": [],
+  "weight": 1,
+  "fields": {
+    "factions": [
+      "Berserkers",
+      "Cannibals",
+      "Flotsam Ninjas",
+      "Holy Nation Outlaws"
+    ],
+    "animals": [
+      "Beak Thing"
+    ],
+    "hazards": [
+      "acid rain"
+    ]
+  },
+  "prose": {
+    "description": "The Cannibal Plains lie in the northwest, between the Hidden Forest, the Northern Coast, the Floodlands, and the Purple Sands. Cannibals roam them in endless numbers, and their capital is Deadcat, a town that fell to them. Shrieking bandits and Berserkers join the fighting, Cannibal Hunters come to hunt the cannibals and are sometimes hunted in turn, and beak things nest there. Flotsam Ninjas hold two scout posts on the edge of the Hidden Forest, and acid rain falls at times."
+  },
+  "children": [
+    {
+      "name": "Armoury Ruin",
+      "weight": 1
+    },
+    {
+      "name": "Cannibal Capital",
+      "weight": 3
+    },
+    {
+      "name": "Cannibal Village",
+      "weight": 2
+    },
+    {
+      "name": "Old Village",
+      "weight": 1
+    },
+    {
+      "name": "Scout Post",
+      "weight": 1
+    }
+  ]
+}

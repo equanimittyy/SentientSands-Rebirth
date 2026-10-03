@@ -1,0 +1,13 @@
+{
+  "name": "Spring",
+  "aliases": [],
+  "weight": 1,
+  "fields": {
+    "type": "town",
+    "zone": "Stobe's Gamble",
+    "owner": "Anti-Slavers"
+  },
+  "prose": {
+    "description": "The Anti-Slavers are based in Spring, on a mountaintop in the south-west of Stobe's Gamble. Their leader Tinfist keeps to its headquarters, and Jaegar lives here too."
+  }
+}

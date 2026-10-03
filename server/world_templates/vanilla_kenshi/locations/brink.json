@@ -1,0 +1,13 @@
+{
+  "name": "Brink",
+  "aliases": [],
+  "weight": 1,
+  "fields": {
+    "type": "town",
+    "zone": "Stormgap Coast",
+    "owner": "United Cities"
+  },
+  "prose": {
+    "description": "Brink is a United Cities town on the Stormgap Coast, governed by Lady Tsugi, who holds the Empire's southern border there. It lives on supplies from Eyesocket and has two bars, a police station, and shops for weapons, clothing, and farm goods. Reaver patrols are often seen nearby."
+  }
+}

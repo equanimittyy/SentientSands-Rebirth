@@ -1,0 +1,12 @@
+{
+  "name": "Drowned Ruins",
+  "aliases": [],
+  "weight": 1,
+  "fields": {
+    "zone": "Wend",
+    "owner": "Skeletons"
+  },
+  "prose": {
+    "description": "The Drowned Ruins are the half-sunken remains of Catch, once a thriving Second Empire market town, in Wend midway along the river between Rebirth and the Hidden Forest; only swimmers can reach them. The Skeleton Armour King has run his armour shop here for 937 years, with a royal guard and three Thralls he brought from the Ashlands."
+  }
+}

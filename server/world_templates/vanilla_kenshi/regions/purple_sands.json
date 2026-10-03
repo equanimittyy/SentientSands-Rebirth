@@ -1,0 +1,23 @@
+{
+  "name": "Purple Sands",
+  "aliases": [],
+  "weight": 1,
+  "fields": {
+    "factions": [
+      "Cannibals"
+    ],
+    "animals": [
+      "Beak Thing",
+      "Garru"
+    ]
+  },
+  "prose": {
+    "description": "The Purple Sands are a large desert of purple sand between the Shrieking Forest to the south and the Iron Trail to the north, strewn with half-buried, satellite-like structures. There is no water, nothing grows, and the ground holds almost no ore, which makes it one of the most forbidding lands there is. Cannibals, shrieking bandits, beak things, and garru wander in from the lands around, and an old workshop lies in ruins."
+  },
+  "children": [
+    {
+      "name": "Post-Ancient Workshop",
+      "weight": 1
+    }
+  ]
+}

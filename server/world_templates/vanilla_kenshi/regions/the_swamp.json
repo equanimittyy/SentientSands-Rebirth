@@ -1,0 +1,62 @@
+{
+  "name": "The Swamp",
+  "aliases": [],
+  "weight": 1,
+  "fields": {
+    "factions": [
+      "Band of Bones",
+      "Hounds",
+      "Red Sabres",
+      "Shinobi Thieves",
+      "Stone Rats",
+      "Swamp Ninjas",
+      "Swampers"
+    ],
+    "animals": [
+      "Blood Spider",
+      "Swamp Raptor",
+      "Swamp Turtle"
+    ]
+  },
+  "prose": {
+    "description": "The Swamp is a large, foggy marsh of dense growth, south of the Border Zone and north of the South Wetlands, and it is easy to get lost there. No one person rules it: the Swampers share its villages with five gangs who deal in hashish, and the Hounds run the city of Shark and the village of Rot. The Red Sabres keep a hideout here and Swamp Ninjas patrol. Swamp raptors and blood spiders are common, and swamp turtles live here."
+  },
+  "children": [
+    {
+      "name": "Grayflayer Village",
+      "weight": 2
+    },
+    {
+      "name": "Infested Lab",
+      "weight": 1
+    },
+    {
+      "name": "Mud Town",
+      "weight": 2
+    },
+    {
+      "name": "Red Sabre Hideout",
+      "weight": 1
+    },
+    {
+      "name": "Rot",
+      "weight": 2
+    },
+    {
+      "name": "Shark",
+      "weight": 3
+    },
+    {
+      "name": "Stone Rat Village",
+      "weight": 2
+    },
+    {
+      "name": "Swamp Village",
+      "weight": 2
+    },
+    {
+      "name": "Swamped Lab",
+      "weight": 1
+    }
+  ]
+}

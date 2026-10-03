@@ -1,0 +1,55 @@
+{
+  "name": "Stobe's Gamble",
+  "aliases": [],
+  "weight": 1,
+  "fields": {
+    "factions": [
+      "Anti-Slavers",
+      "Blackshifters",
+      "Bounty Hunters",
+      "Drifters"
+    ],
+    "animals": [
+      "Black Gorillo",
+      "Goat",
+      "Land Bat",
+      "Leviathan"
+    ],
+    "hazards": [
+      "acidic water"
+    ]
+  },
+  "prose": {
+    "description": "The Anti-Slavers make their home in Stobe's Gamble, and their leader Tinfist lives in the mountaintop town of Spring. Nothing grows, the water is acidic, and ash falls, yet old ruins abound, among them the lab where King Gorillo nests and a Blackshifter drug farm guarded by security spiders. Swarms of land bats, black gorillos, and Southern Hive patrols roam, along with Karate Drifters, Skeleton Bandits, and Crab Raiders."
+  },
+  "children": [
+    {
+      "name": "Crumbling Labs",
+      "weight": 1
+    },
+    {
+      "name": "Expedition 5",
+      "weight": 1
+    },
+    {
+      "name": "Free Settlement",
+      "weight": 1
+    },
+    {
+      "name": "Lost Armour Store",
+      "weight": 1
+    },
+    {
+      "name": "Old Empire Supply Outpost",
+      "weight": 1
+    },
+    {
+      "name": "Secret Drug Farm",
+      "weight": 2
+    },
+    {
+      "name": "Spring",
+      "weight": 3
+    }
+  ]
+}

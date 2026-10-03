@@ -1,0 +1,15 @@
+{
+  "name": "Distant Hive Village",
+  "aliases": [],
+  "weight": 1,
+  "fields": {
+    "type": "village",
+    "zone": [
+      "Sinkuun",
+      "The Great Desert"
+    ]
+  },
+  "prose": {
+    "description": "Distant Hive Villages are Hive settlements in Sinkuun and the Great Desert. Hive workers live in them, and each has a Hive trader."
+  }
+}

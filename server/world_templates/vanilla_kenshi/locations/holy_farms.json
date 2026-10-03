@@ -1,0 +1,16 @@
+{
+  "name": "Holy Farms",
+  "aliases": [],
+  "weight": 1,
+  "fields": {
+    "type": "village",
+    "zone": [
+      "Okran's Pride",
+      "Okran's Valley"
+    ],
+    "owner": "The Holy Nation"
+  },
+  "prose": {
+    "description": "Holy Farms are Holy Nation farming villages, four in Okran's Pride and two in Okran's Valley. Greenlander farmers tend fields of greenfruit, cotton, or wheat, and the northernmost farm grows cactus; soldiers are posted at each. Each farm's leader sells crops and farm animals."
+  }
+}

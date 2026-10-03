@@ -1,0 +1,43 @@
+{
+  "name": "Deadlands",
+  "aliases": [],
+  "weight": 1,
+  "fields": {
+    "factions": [
+      "Skeletons"
+    ],
+    "hazards": [
+      "acidic ground",
+      "acidic water"
+    ]
+  },
+  "prose": {
+    "description": "The Deadlands are a dark, poisoned waste bordering the Grey Desert, Skinner's Roam, the Iron Valleys, Shem, and Venge. Acid rain falls without end, the ground and lakes are acid, nothing grows, and there is no clean water, so it is no place for humans. The Skeletons keep Black Desert City there, with the Scraphouse beside it, as a refuge far from the Holy Nation. Iron Spiders wander among abandoned workshops and armories."
+  },
+  "children": [
+    {
+      "name": "Armoury Ruin",
+      "weight": 1
+    },
+    {
+      "name": "Black Desert City",
+      "weight": 3
+    },
+    {
+      "name": "Deadland Workshop",
+      "weight": 1
+    },
+    {
+      "name": "Lost Armoury",
+      "weight": 1
+    },
+    {
+      "name": "Reprogramming Workshop",
+      "weight": 1
+    },
+    {
+      "name": "Scraphouse",
+      "weight": 1
+    }
+  ]
+}

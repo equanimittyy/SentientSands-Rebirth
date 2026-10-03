@@ -1,0 +1,13 @@
+{
+  "name": "Farm Ruins",
+  "aliases": [],
+  "weight": 1,
+  "fields": {
+    "type": "ruins",
+    "zone": "Okran's Valley",
+    "owner": "The Holy Nation"
+  },
+  "prose": {
+    "description": "Farm Ruins is a destroyed farm at the northern tip of Okran's Valley, on Holy Nation land, where wrecked buildings stand with four camp beds among them."
+  }
+}

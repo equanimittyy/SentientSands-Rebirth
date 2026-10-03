@@ -1,0 +1,12 @@
+{
+  "name": "Old Control Tower",
+  "aliases": [],
+  "weight": 1,
+  "fields": {
+    "type": "ruins",
+    "zone": "Venge"
+  },
+  "prose": {
+    "description": "The Old Control Tower lies in Venge, with the Tower of Abuse and the Ruined Control Tower to its west. The Scavengers live there under their leader, Gutterhead. Most of the tower has been stripped bare."
+  }
+}

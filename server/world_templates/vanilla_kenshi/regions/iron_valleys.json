@@ -1,0 +1,35 @@
+{
+  "name": "Iron Valleys",
+  "aliases": [],
+  "weight": 1,
+  "fields": {
+    "factions": [
+      "Skeletons",
+      "The Holy Nation"
+    ],
+    "animals": [
+      "Iron Spider"
+    ],
+    "hazards": [
+      "acidic ground",
+      "acidic water"
+    ]
+  },
+  "prose": {
+    "description": "The Iron Valleys are rocky valleys north of the Deadlands, bordering Skinner's Roam, Skimsands, and the Black Desert, with bridges linking some of the heights. Constant acid rain, acid ground and water, and dead soil make them a natural barrier. Iron Spiders patrol them, and Skeleton wanderers and Black Desert ninjas pass through. On the edge the Holy Nation holds Okran's Shield and Narko's Trap, a fort built around an ancient lab to keep thieves and tech hunters out."
+  },
+  "children": [
+    {
+      "name": "Lost Armoury",
+      "weight": 1
+    },
+    {
+      "name": "Narko's Trap",
+      "weight": 2
+    },
+    {
+      "name": "Okran's Shield",
+      "weight": 2
+    }
+  ]
+}

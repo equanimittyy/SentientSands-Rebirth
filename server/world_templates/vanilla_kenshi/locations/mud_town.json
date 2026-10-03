@@ -1,0 +1,12 @@
+{
+  "name": "Mud Town",
+  "aliases": [],
+  "weight": 1,
+  "fields": {
+    "type": "village",
+    "zone": "The Swamp"
+  },
+  "prose": {
+    "description": "Mud Town is a village in the Swamp, north of Shark. The Blackshifters run its bar, and it also has a shop and a hashish dealer."
+  }
+}

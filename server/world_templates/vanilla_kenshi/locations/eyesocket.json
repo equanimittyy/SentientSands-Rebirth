@@ -1,0 +1,13 @@
+{
+  "name": "Eyesocket",
+  "aliases": [],
+  "weight": 1,
+  "fields": {
+    "type": "slave camp",
+    "zone": "Stormgap Coast",
+    "owner": "Slave Traders"
+  },
+  "prose": {
+    "description": "Eyesocket is a Slave Traders camp on a small hill on the Stormgap Coast, run by the noble Slave Master Grande. It supplies Brink, Heng, and Trader's Edge. It has a slaver bar, a slave shop, barracks, and a platform where slaves are sold."
+  }
+}

@@ -1,0 +1,12 @@
+{
+  "name": "Strange Camp",
+  "aliases": [],
+  "weight": 1,
+  "fields": {
+    "type": "point of interest",
+    "zone": "Gut"
+  },
+  "prose": {
+    "description": "Strange Camp is a lonely camp on a small island in Gut. Its only resident is No-Face, a wanted man who attacks anyone who comes onto his island, shouting that he will not go back to politics."
+  }
+}

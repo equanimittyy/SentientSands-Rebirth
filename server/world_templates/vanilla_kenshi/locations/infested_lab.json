@@ -1,0 +1,12 @@
+{
+  "name": "Infested Lab",
+  "aliases": [],
+  "weight": 1,
+  "fields": {
+    "type": "ruins",
+    "zone": "The Swamp"
+  },
+  "prose": {
+    "description": "Infested Lab is an ancient lab in the Swamp, southeast of Shark. Little is left of it but an empty ruin, and blood spiders infest it, from a handful to as many as twenty."
+  }
+}

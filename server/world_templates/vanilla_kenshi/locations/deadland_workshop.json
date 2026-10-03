@@ -1,0 +1,12 @@
+{
+  "name": "Deadland Workshop",
+  "aliases": [],
+  "weight": 1,
+  "fields": {
+    "type": "ruins",
+    "zone": "Deadlands"
+  },
+  "prose": {
+    "description": "The Deadland Workshops are three vast, hangar-like ancient workshops in the Deadlands, full of old machines and tool stations. Broken Model 30s man their harpoon turrets, and acid rain falls on the area almost without pause."
+  }
+}

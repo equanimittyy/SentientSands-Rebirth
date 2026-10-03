@@ -1,0 +1,13 @@
+{
+  "name": "Port South",
+  "aliases": [],
+  "weight": 1,
+  "fields": {
+    "type": "slave camp",
+    "zone": "The Great Desert",
+    "owner": "Slave Traders"
+  },
+  "prose": {
+    "description": "Port South is a Slave Traders camp near the middle of the Great Desert's eastern shore, where slaves mine stone and ore. Slave Master Wada lives there in a noble house. It has slave shops, supplies Bark and Heft, and skimmers often attack it."
+  }
+}

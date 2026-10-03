@@ -1,0 +1,13 @@
+{
+  "name": "Stack",
+  "aliases": [],
+  "weight": 1,
+  "fields": {
+    "type": "town",
+    "zone": "Okran's Gulf",
+    "owner": "The Holy Nation"
+  },
+  "prose": {
+    "description": "Stack is a large Holy Nation town in Okran's Gulf, at the south-west edge of the nation's lands, and High Inquisitor Seta rules it. It has three bars, two barracks, an armoury, a bakery, and many other shops. Starving bandits, dust bandits, and bonedogs roam the land around it."
+  }
+}

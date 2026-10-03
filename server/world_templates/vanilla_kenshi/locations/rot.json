@@ -1,0 +1,13 @@
+{
+  "name": "Rot",
+  "aliases": [],
+  "weight": 1,
+  "fields": {
+    "type": "village",
+    "zone": "The Swamp",
+    "owner": "Hounds"
+  },
+  "prose": {
+    "description": "Rot is a Hounds village in the Swamp, and its Swamper gate guards answer to the gang. It has a big shop, a fish and drugs seller, a lookout tower and riceweed farms."
+  }
+}

@@ -1,0 +1,12 @@
+{
+  "name": "Island Lab",
+  "aliases": [],
+  "weight": 1,
+  "fields": {
+    "type": "ruins",
+    "zone": "Fishman Island"
+  },
+  "prose": {
+    "description": "Island Lab is a ruined ancient lab on Fishman Island, where the Fishmen dwell. King Gurgler, the boss of the Fishmen, is found there."
+  }
+}

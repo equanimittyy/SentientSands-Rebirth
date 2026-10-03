@@ -1,0 +1,12 @@
+{
+  "name": "Western Hive",
+  "aliases": [],
+  "weight": 1,
+  "fields": {
+    "zone": "Vain",
+    "owner": "Western Hive"
+  },
+  "prose": {
+    "description": "The Western Hive is the island village of the Western Hive in Vain, ringed by acid water that harms Shek and humans. Swarms of soldier drones patrol it, and the Queen lives in its hill hut with her royal soldier drones."
+  }
+}

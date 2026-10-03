@@ -1,0 +1,19 @@
+{
+  "name": "Wend",
+  "aliases": [],
+  "weight": 1,
+  "fields": {
+    "factions": [
+      "Skeletons"
+    ]
+  },
+  "prose": {
+    "description": "Wend follows a stretch of the river of the same name along both banks, dividing Rebirth in the west from the northeastern lands of the Holy Nation. In the Drowned Ruins, a half-sunken town, a Skeleton who calls himself the Armour King keeps his shop. A few Skeletons wander the area, and strange objects hang across the mountains."
+  },
+  "children": [
+    {
+      "name": "Drowned Ruins",
+      "weight": 1
+    }
+  ]
+}

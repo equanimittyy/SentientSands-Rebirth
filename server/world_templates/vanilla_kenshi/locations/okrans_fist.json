@@ -1,0 +1,13 @@
+{
+  "name": "Okran's Fist",
+  "aliases": [],
+  "weight": 1,
+  "fields": {
+    "type": "military",
+    "zone": "Arm of Okran",
+    "owner": "The Holy Nation"
+  },
+  "prose": {
+    "description": "Okran's Fist is a fortified Holy Nation garrison set into the eastern Arm of Okran, guarding the northeastern way into Holy Nation lands. Paladins and Holy Sentinels man its walls. It has barracks, an armoury and a bakery."
+  }
+}

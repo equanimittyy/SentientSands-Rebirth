@@ -1,0 +1,13 @@
+{
+  "name": "Holy Mine Ruin",
+  "aliases": [],
+  "weight": 1,
+  "fields": {
+    "type": "ruins",
+    "zone": "Skinner's Roam",
+    "owner": "The Holy Nation"
+  },
+  "prose": {
+    "description": "Holy Mine Ruin is the name of two ruined Holy Nation mines at the edges of Skinner's Roam. No one lives there, though materials for building lie in the ruins. Like other ruined Holy sites nearby, they show that Holy Nation land once reached this far."
+  }
+}

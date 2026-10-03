@@ -1,0 +1,16 @@
+{
+  "name": "Waystation",
+  "aliases": [],
+  "weight": 1,
+  "fields": {
+    "zone": [
+      "Border Zone",
+      "Grey Desert",
+      "Stenn Desert",
+      "The Hook"
+    ]
+  },
+  "prose": {
+    "description": "Waystations are small Tech Hunter outposts in the Border Zone, the Grey Desert, the Stenn Desert, and the Hook. Each has a bar and a mechanical shop, and travellers stop at them to rest. The one in the Border Zone also has a robotics workshop."
+  }
+}

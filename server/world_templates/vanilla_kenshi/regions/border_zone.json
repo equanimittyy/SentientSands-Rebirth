@@ -1,0 +1,57 @@
+{
+  "name": "Border Zone",
+  "aliases": [],
+  "weight": 1,
+  "fields": {
+    "factions": [
+      "Dust Bandits",
+      "Holy Nation Outlaws",
+      "Nomads",
+      "Shek Kingdom",
+      "Shinobi Thieves",
+      "Starving Bandits"
+    ],
+    "animals": [
+      "Bonedog",
+      "Garru",
+      "Goat"
+    ]
+  },
+  "prose": {
+    "description": "The Border Zone is a dry, lawless stretch between the Holy Nation and the Shek Kingdom, east of Vain and below Okran's Pride, and the Holy Nation's old settlements there are in ruins. The Shek hold the canyon town of Squin, the Tech Hunters keep a waystation in the southeast, and outlaws squat in the Hub, a ruined Holy Nation town. Dust bandits, based at the Dust King's tower, and mobs of starving bandits prey on travelers and each other. Slave hunters, nomads, and bonedog packs roam there too."
+  },
+  "children": [
+    {
+      "name": "Dust King Tower",
+      "weight": 1
+    },
+    {
+      "name": "Rebel Base",
+      "weight": 1
+    },
+    {
+      "name": "Ruined Holy Outpost",
+      "weight": 1
+    },
+    {
+      "name": "Squin",
+      "weight": 3
+    },
+    {
+      "name": "The Hub",
+      "weight": 3
+    },
+    {
+      "name": "Tiny Settlement",
+      "weight": 1
+    },
+    {
+      "name": "Tower Of Ninjas",
+      "weight": 1
+    },
+    {
+      "name": "Waystation",
+      "weight": 1
+    }
+  ]
+}

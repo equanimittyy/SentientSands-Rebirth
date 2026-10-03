@@ -1,0 +1,12 @@
+{
+  "name": "The Old Prison",
+  "aliases": [],
+  "weight": 1,
+  "fields": {
+    "type": "ruins",
+    "zone": "Bonefields"
+  },
+  "prose": {
+    "description": "The Old Prison is a ruin in the Bonefields' south-east corner, nearly due south of Mourn. It is the den of the Gorrillo Bandits and their leader Gorrillo. It has a main tower like an ancient lab, well-built walls, and a wrecked watchtower."
+  }
+}

@@ -1,0 +1,17 @@
+{
+  "name": "Police Barracks",
+  "aliases": [],
+  "weight": 1,
+  "fields": {
+    "type": "ruins",
+    "zone": [
+      "Cheaters Run",
+      "Sniper Valley",
+      "The Pits"
+    ],
+    "owner": "Second Empire"
+  },
+  "prose": {
+    "description": "Police Barracks are Second Empire ruins in Cheaters Run, Sniper Valley and the Pits. Old police robots occupy some of them; in the Pits they shout \"Police!\", attack anyone who enters and hunt them down without end. The barracks in Sniper Valley is empty."
+  }
+}

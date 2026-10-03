@@ -1,0 +1,69 @@
+{
+  "name": "The Great Desert",
+  "aliases": [],
+  "weight": 1,
+  "fields": {
+    "factions": [
+      "Bounty Hunters",
+      "Drifters",
+      "Empire Peasants",
+      "Manhunters",
+      "Nomads",
+      "Rebel Farmers",
+      "Shinobi Thieves",
+      "Slave Traders",
+      "Traders Guild",
+      "United Cities",
+      "Western Hive"
+    ],
+    "animals": [
+      "Garru",
+      "Skimmer"
+    ]
+  },
+  "prose": {
+    "description": "The Great Desert, a vast, dry, and mostly empty sea of dunes in the northeast of the continent, belongs to the United Cities. Emperor Tengu rules from the capital, Heft, while Lady Sanda holds Bark and Lord Inaba holds Stoat; Sho-Battai is the fourth town. Slavers keep work camps and markets, and Rebel Farmers, Manhunters, Sand Ninjas, starving vagrants, and skimmers roam. Water is scarce and farming poor, but metal and stone abound."
+  },
+  "children": [
+    {
+      "name": "Bark",
+      "weight": 3
+    },
+    {
+      "name": "Distant Hive Village",
+      "weight": 2
+    },
+    {
+      "name": "Fort Mirage",
+      "weight": 2
+    },
+    {
+      "name": "Heft",
+      "weight": 3
+    },
+    {
+      "name": "Old Village",
+      "weight": 1
+    },
+    {
+      "name": "Port North",
+      "weight": 2
+    },
+    {
+      "name": "Port South",
+      "weight": 2
+    },
+    {
+      "name": "Sho-Battai",
+      "weight": 3
+    },
+    {
+      "name": "Stoat",
+      "weight": 3
+    },
+    {
+      "name": "Stone Camp",
+      "weight": 2
+    }
+  ]
+}

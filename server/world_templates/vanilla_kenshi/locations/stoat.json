@@ -1,0 +1,13 @@
+{
+  "name": "Stoat",
+  "aliases": [],
+  "weight": 1,
+  "fields": {
+    "type": "town",
+    "zone": "The Great Desert",
+    "owner": "United Cities"
+  },
+  "prose": {
+    "description": "Stoat, a United Cities town in the Great Desert's south-west, is the last large town for travellers heading east across the desert. Lord Inaba rules it from his noble house. It depends on goods from the Slave Farm and Stone Camp, and samurai guard all four of its gates."
+  }
+}

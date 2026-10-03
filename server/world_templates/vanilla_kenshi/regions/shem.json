@@ -1,0 +1,33 @@
+{
+  "name": "Shem",
+  "aliases": [],
+  "weight": 1,
+  "fields": {
+    "factions": [
+      "Band of Bones",
+      "Dust Bandits",
+      "Grayflayers",
+      "Nomads",
+      "Starving Bandits",
+      "Tech Hunters"
+    ],
+    "animals": [
+      "Beak Thing",
+      "Blood Spider",
+      "Garru"
+    ]
+  },
+  "prose": {
+    "description": "Shem is a sandy oasis near the middle of the continent, bordered by Skinner's Roam, the Border Zone, Venge, and the Swamp. Few people live there: Nomads keep a small village with an animal shop, and Grayflayer smugglers run a bar with beds upstairs. No faction collects taxes on its flat ground, but Dust Bandits, starving bandit mobs, Beak Things, and blood spiders roam it."
+  },
+  "children": [
+    {
+      "name": "Settled Nomads",
+      "weight": 2
+    },
+    {
+      "name": "Smugglers Bar",
+      "weight": 1
+    }
+  ]
+}

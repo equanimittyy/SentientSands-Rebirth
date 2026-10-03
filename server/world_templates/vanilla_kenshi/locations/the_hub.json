@@ -1,0 +1,13 @@
+{
+  "name": "The Hub",
+  "aliases": [],
+  "weight": 1,
+  "fields": {
+    "type": "town",
+    "zone": "Border Zone",
+    "owner": "Holy Nation Outlaws"
+  },
+  "prose": {
+    "description": "The Hub is a largely ruined town near the middle of the Border Zone, now held by Holy Nation outlaws. It once belonged to the Holy Nation; the Shek razed it, and the Holy Nation retook it and later abandoned it. The Trade Ninjas own its black-market bar, and the Shinobi Thieves hold a watchtower at its far end."
+  }
+}

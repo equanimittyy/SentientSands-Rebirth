@@ -1,0 +1,24 @@
+{
+  "name": "The Crater",
+  "aliases": [],
+  "weight": 1,
+  "fields": {
+    "animals": [
+      "Beak Thing",
+      "Swamp Raptor"
+    ]
+  },
+  "prose": {
+    "description": "The Crater lies in the far southwest, ringed on every side by high walls. Inside, Beak Things nest and feast on packs of swamp raptors, and the land is very hostile. Nothing grows, there is no water to draw, and most of the ancient labs within are ruined or empty."
+  },
+  "children": [
+    {
+      "name": "Empty Lab",
+      "weight": 1
+    },
+    {
+      "name": "Lab Ruin",
+      "weight": 1
+    }
+  ]
+}

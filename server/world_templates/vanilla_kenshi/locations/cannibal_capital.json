@@ -1,0 +1,13 @@
+{
+  "name": "Cannibal Capital",
+  "aliases": [],
+  "weight": 1,
+  "fields": {
+    "type": "town",
+    "zone": "Cannibal Plains",
+    "owner": "Cannibals"
+  },
+  "prose": {
+    "description": "Cannibal Capital was once the town of Deadcat in the Cannibal Plains, until it fell to the Cannibals. Hordes of cannibals now fill it behind broken gates, and several Cannibal Chiefs guard their leader, the Cannibal Grand Wizard."
+  }
+}

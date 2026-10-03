@@ -1,0 +1,18 @@
+{
+  "name": "Armoury Ruin",
+  "aliases": [],
+  "weight": 1,
+  "fields": {
+    "type": "ruins",
+    "zone": [
+      "Cannibal Plains",
+      "Deadlands",
+      "Greyshelf",
+      "Shun"
+    ],
+    "owner": "Second Empire"
+  },
+  "prose": {
+    "description": "Armoury Ruins are damaged armouries of the old Second Empire, found in the Cannibal Plains, the Deadlands, Greyshelf, and Shun. Unlike the sealed Lost Armouries, they are no longer locked tight."
+  }
+}

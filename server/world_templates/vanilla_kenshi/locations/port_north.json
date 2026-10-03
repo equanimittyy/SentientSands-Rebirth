@@ -1,0 +1,13 @@
+{
+  "name": "Port North",
+  "aliases": [],
+  "weight": 1,
+  "fields": {
+    "type": "slave camp",
+    "zone": "The Great Desert",
+    "owner": "Slave Traders"
+  },
+  "prose": {
+    "description": "Port North is a Slave Traders camp in the middle of the Great Desert's northern shore, where slaves work stone mines and processing yards. Lady Kana lives there in a noble house under hooded guards and calls it the biggest slave farm in the outlands. It has slave shops and supplies Bark and Sho-Battai."
+  }
+}

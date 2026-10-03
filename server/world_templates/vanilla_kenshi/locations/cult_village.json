@@ -1,0 +1,12 @@
+{
+  "name": "Cult Village",
+  "aliases": [],
+  "weight": 1,
+  "fields": {
+    "type": "village",
+    "zone": "Stormgap Coast"
+  },
+  "prose": {
+    "description": "Cult Village is the walled home of the Preacher and its followers on the Stormgap Coast, with farmers working the fields outside. The cultists pray to the moons for rain and believe that blood spilled on the soil brings a harvest. They lock captives to prisoner poles, and when every pole is full they beat prisoners to death."
+  }
+}
