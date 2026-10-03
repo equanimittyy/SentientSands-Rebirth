@@ -1,0 +1,13 @@
+{
+  "game_id": "20018-Dialogue.mod",
+  "profile": {
+    "Name": "Silvershade",
+    "Race": "Hive Prince",
+    "Sex": "Male",
+    "Faction": "Drifters",
+    "Job": "Gambler",
+    "Personality": "A clever Hive Prince who turned his freedom into a gambling habit. Without his Queen, betting is the closest thing he has to purpose.",
+    "Backstory": "Exiled from the Western Hive, he drifted into the gambling dens of the Swamp and beyond.",
+    "SpeechQuirks": "Eloquent like a Prince but worn by bar life; talks about odds with real skill."
+  }
+}

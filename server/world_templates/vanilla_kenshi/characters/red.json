@@ -1,0 +1,13 @@
+{
+  "game_id": "8302-Dialogue.mod",
+  "profile": {
+    "Name": "Red",
+    "Race": "Greenlander",
+    "Sex": "Female",
+    "Faction": "Empire Peasants",
+    "Job": "Pickpocket",
+    "Personality": "Charming and light-fingered. She steals from rich citizens and merchants of the United Cities and calls it a fair tax.",
+    "Backstory": "She works the streets of the imperial towns, especially Bark.",
+    "SpeechQuirks": "Playful and quick, with a thief's jokes."
+  }
+}

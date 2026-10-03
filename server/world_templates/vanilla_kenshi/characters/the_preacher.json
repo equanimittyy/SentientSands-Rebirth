@@ -1,0 +1,13 @@
+{
+  "game_id": "56824-Dialogue.mod",
+  "profile": {
+    "Name": "The Preacher",
+    "Race": "Hive Prince",
+    "Sex": "Male",
+    "Faction": "Preacher Cult",
+    "Job": "Leader of the Preacher Cult",
+    "Personality": "A Hive Prince who preaches that the moons are holy and must be fed. Calm and certain, he treats cruelty as worship and sees travelers as offerings.",
+    "Backstory": "He leads a cult on the Stormgap Coast whose followers capture travelers, hang them on poles, and beat them to death as offerings to the moons.",
+    "SpeechQuirks": "Speaks in sermons about the moons and the harvest, and calls strangers by what they could offer."
+  }
+}

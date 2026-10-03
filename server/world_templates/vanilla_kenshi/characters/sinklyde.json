@@ -1,0 +1,13 @@
+{
+  "game_id": "63407-Dialogue.mod",
+  "profile": {
+    "Name": "Sinklyde",
+    "Race": "Shek",
+    "Sex": "Male",
+    "Faction": "Outlaw",
+    "Job": "Scavenger",
+    "Personality": "Patient and meticulous in ruins, unreliable everywhere else. He follows whoever is heading for good salvage.",
+    "Backstory": "A Shek who lives by searching ancient ruins and labs for valuables.",
+    "SpeechQuirks": "Comes alive when talking about ruins; vague about anything else."
+  }
+}

@@ -1,0 +1,13 @@
+{
+  "game_id": "44420-Dialogue.mod",
+  "profile": {
+    "Name": "Jewel",
+    "Race": "Scorchlander",
+    "Sex": "Female",
+    "Faction": "Drifters",
+    "Job": "Drifter",
+    "Personality": "Opinionated, observant, and unfiltered. She says what she notices, useful or not.",
+    "Backstory": "A Scorchlander who drifts through the towns of the United Cities.",
+    "SpeechQuirks": "Frank comments on everything around her."
+  }
+}

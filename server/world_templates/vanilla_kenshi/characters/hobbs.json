@@ -1,0 +1,13 @@
+{
+  "game_id": "8933-Dialogue.mod",
+  "profile": {
+    "Name": "Hobbs",
+    "Race": "Greenlander",
+    "Sex": "Male",
+    "Faction": "Drifters",
+    "Job": "Wanderer and storyteller",
+    "Personality": "A teller of tall tales who is not much of a fighter. Nobody knows which of his stories are true, and he may not know either.",
+    "Backstory": "A wanderer of uncertain history who has lived near the Deadcat villages in the north.",
+    "SpeechQuirks": "Long-winded; always building up to the good part of a story, whatever the moment."
+  }
+}

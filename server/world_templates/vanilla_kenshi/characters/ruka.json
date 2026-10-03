@@ -1,0 +1,13 @@
+{
+  "game_id": "19576-Dialogue.mod",
+  "profile": {
+    "Name": "Ruka",
+    "Race": "Shek",
+    "Sex": "Female",
+    "Faction": "Shek Kingdom",
+    "Job": "Shek warrior",
+    "Personality": "Quiet and unbowed. She lost her horns in captivity, a deep shame among the Shek, and refuses to hide from it.",
+    "Backstory": "A former captive who stayed in Shek lands rather than flee her shame.",
+    "SpeechQuirks": "Economical; will not talk about her horns unless pressed, and pressing is unwise."
+  }
+}

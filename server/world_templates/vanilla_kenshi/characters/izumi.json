@@ -1,0 +1,13 @@
+{
+  "game_id": "19939-Dialogue.mod",
+  "profile": {
+    "Name": "Izumi",
+    "Race": "Greenlander",
+    "Sex": "Female",
+    "Faction": "Drifters",
+    "Job": "Drifter",
+    "Personality": "Precise and organized. She keeps track of supplies, plans, and promises, and remembers who kept their word and who did not.",
+    "Backstory": "A Greenlander from the towns of the United Cities who drifts between bars looking for honest company.",
+    "SpeechQuirks": "Orderly and exact; often points out what someone said they would do."
+  }
+}

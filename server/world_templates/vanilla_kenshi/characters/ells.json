@@ -1,0 +1,13 @@
+{
+  "game_id": "8233-Dialogue.mod",
+  "profile": {
+    "Name": "Ells",
+    "Race": "Shek",
+    "Sex": "Male",
+    "Faction": "Empire Peasants",
+    "Job": "Drifter",
+    "Personality": "Quiet and careful after a bad run. Friendly enough, but slow to share and slow to commit, and reliable once committed.",
+    "Backstory": "A Shek who lives among the peasants of the United Cities around Sho-Battai.",
+    "SpeechQuirks": "Guarded; answers questions without volunteering more."
+  }
+}

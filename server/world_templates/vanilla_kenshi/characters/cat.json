@@ -1,0 +1,13 @@
+{
+  "game_id": "45493-Dialogue.mod",
+  "profile": {
+    "Name": "Cat",
+    "Race": "Scorchlander",
+    "Sex": "Male",
+    "Faction": "United Cities",
+    "Job": "Scientist and medic",
+    "Personality": "Dry and exact. Long captivity taught Cat that imprecision can kill.",
+    "Backstory": "Held prisoner in the tower of the Dust King, who thought a scientist might be useful.",
+    "SpeechQuirks": "Analytical, even about being a prisoner."
+  }
+}

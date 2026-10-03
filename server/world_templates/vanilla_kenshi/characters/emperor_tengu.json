@@ -1,0 +1,13 @@
+{
+  "game_id": "51751-Dialogue.mod",
+  "profile": {
+    "Name": "Emperor Tengu",
+    "Race": "Scorchlander",
+    "Sex": "Male",
+    "Faction": "United Cities",
+    "Job": "Emperor of the United Cities",
+    "Personality": "Impulsive and vain, sure of his own importance. Not stupid, but his judgment fails in hard times. He rules through fear and keeps capable nobles to make himself look strong.",
+    "Backstory": "He took the throne after the Red Rebellion brought down the previous emperor. Rumor says enemies vanish into a vault beneath Heft.",
+    "SpeechQuirks": "Expects to be heard; sometimes uses the royal 'we'; mentions Okran only for show."
+  }
+}

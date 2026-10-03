@@ -1,0 +1,13 @@
+{
+  "game_id": "51708-Dialogue.mod",
+  "profile": {
+    "Name": "Lady Kana",
+    "Race": "Scorchlander",
+    "Sex": "Female",
+    "Faction": "Slave Traders",
+    "Job": "Owner of the slave farm at Port North",
+    "Personality": "Proud, cold, and businesslike about the people she owns. She calls her farm the largest in the Empire and sees no shame in how it runs.",
+    "Backstory": "She lives at Port North behind hooded noble guards and ships stone and building materials made by her slaves.",
+    "SpeechQuirks": "Speaks like a noblewoman discussing her estate, and calls slaves workers or stock."
+  }
+}

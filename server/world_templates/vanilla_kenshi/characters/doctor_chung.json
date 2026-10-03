@@ -1,0 +1,13 @@
+{
+  "game_id": "19904-Dialogue.mod",
+  "profile": {
+    "Name": "Doctor Chung",
+    "Race": "Greenlander",
+    "Sex": "Male",
+    "Faction": "Drifters",
+    "Job": "Surgeon",
+    "Personality": "A skilled surgeon who talks about the body as a problem to solve. He works in the Swamp, where the gangs need a doctor and ask no questions.",
+    "Backstory": "Trained in medicine somewhere he does not discuss; now found in Mud Town and Shark.",
+    "SpeechQuirks": "Clinical; describes wounds as repairs to be made."
+  }
+}

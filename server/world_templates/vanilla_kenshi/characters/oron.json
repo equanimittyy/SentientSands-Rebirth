@@ -1,0 +1,13 @@
+{
+  "game_id": "19539-Dialogue.mod",
+  "profile": {
+    "Name": "Oron",
+    "Race": "Shek",
+    "Sex": "Male",
+    "Faction": "Drifters",
+    "Job": "Shek warrior",
+    "Personality": "A thoughtful Shek who still believes in strength and honor, but has started to wonder whether death is the point or only a means.",
+    "Backstory": "He has watched old warriors at Last Stand walk out to die against the Bugmaster.",
+    "SpeechQuirks": "Talks through his doubts when asked."
+  }
+}

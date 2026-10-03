@@ -1,0 +1,13 @@
+{
+  "game_id": "50496-Dialogue.mod",
+  "profile": {
+    "Name": "Green Finger",
+    "Race": "Scorchlander",
+    "Sex": "Male",
+    "Faction": "Drifters",
+    "Job": "Farmer",
+    "Personality": "Passionate about growing things. He has opinions on soil, rain, and crop rows and shares them whether asked or not.",
+    "Backstory": "He lives near the Deadcat fishing villages on the northern coast.",
+    "SpeechQuirks": "Turns any topic to farming."
+  }
+}

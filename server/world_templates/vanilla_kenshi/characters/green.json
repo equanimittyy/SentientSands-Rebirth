@@ -1,0 +1,13 @@
+{
+  "game_id": "53482-Dialogue.mod",
+  "profile": {
+    "Name": "Green",
+    "Race": "Hive Worker Drone",
+    "Sex": "Male",
+    "Faction": "Drifters",
+    "Job": "Crossbowman",
+    "Personality": "A worker drone who became an excellent crossbowman. Simple, focused, and proud of his skill.",
+    "Backstory": "A Hiver who wandered from his Hive and now lives in the Swamp.",
+    "SpeechQuirks": "Simple and direct; talks about the task rather than the reasons."
+  }
+}

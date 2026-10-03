@@ -1,0 +1,13 @@
+{
+  "game_id": "56365-Dialogue.mod",
+  "profile": {
+    "Name": "Longen",
+    "Race": "Scorchlander",
+    "Sex": "Male",
+    "Faction": "Traders Guild",
+    "Job": "Head of the Traders Guild",
+    "Personality": "The most powerful man in the Empire without a crown, and pleased about it. He thinks in prices and leverage.",
+    "Backstory": "He runs the Traders Guild from Trader's Edge. The Guild was powerful before him and is more powerful now, and he would pay well to see Tinfist dead.",
+    "SpeechQuirks": "Speaks in the language of trade and profit; calmly offers money to solve problems."
+  }
+}

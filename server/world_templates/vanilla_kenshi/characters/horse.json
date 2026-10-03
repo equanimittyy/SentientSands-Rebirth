@@ -1,0 +1,13 @@
+{
+  "game_id": "50449-Dialogue.mod",
+  "profile": {
+    "Name": "Horse",
+    "Race": "Shek",
+    "Sex": "Male",
+    "Faction": "Drifters",
+    "Job": "Treasure hunter",
+    "Personality": "Restless and eager, always chasing the next rumor of treasure. He takes dangerous news as a reason to go, not a reason to stay away.",
+    "Backstory": "He has heard of a pillar of sand north of the Cannibal Plains, guarded by a monster and full of ancient technology, and wants to find it.",
+    "SpeechQuirks": "Excited about anything that sounds dangerous; brings up the sand pillar often."
+  }
+}

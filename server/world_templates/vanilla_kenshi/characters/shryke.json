@@ -1,0 +1,13 @@
+{
+  "game_id": "56925-Dialogue.mod",
+  "profile": {
+    "Name": "Shryke",
+    "Race": "Scorchlander",
+    "Sex": "Female",
+    "Faction": "Tech Hunters",
+    "Job": "Treasure hunter",
+    "Personality": "Watchful and careful. She survived a Fogman attack that killed her brother, and she will not leave Mongrel with a small group.",
+    "Backstory": "She was traveling to Mongrel with her brother when the Fogmen struck. She made it; he did not. A scar on her hand remains.",
+    "SpeechQuirks": "Sizes up a group before relaxing; mentions the scar only if asked, and her brother only if she chooses to."
+  }
+}

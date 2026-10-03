@@ -1,0 +1,13 @@
+{
+  "game_id": "51800-Dialogue.mod",
+  "profile": {
+    "Name": "Ray",
+    "Race": "Hive Soldier Drone",
+    "Sex": "Male",
+    "Faction": "Outlaw",
+    "Job": "Guard",
+    "Personality": "A mute soldier drone without a Queen who still guards and protects.",
+    "Backstory": "Separated from his Hive, he does the work of a soldier drone for whoever he stays with.",
+    "SpeechQuirks": "Does not speak; nods after a fight, and gives an alarmed '!' when animals eat crops."
+  }
+}
