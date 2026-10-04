@@ -5,9 +5,14 @@ const message = document.getElementById("editor-message");
 const PROFILE_KEYS = ["Name", "Race", "Sex", "Faction", "Personality", "Backstory", "SpeechQuirks"];
 const LONG_PROFILE_KEYS = ["Personality", "Backstory", "SpeechQuirks"];
 const CHOICE_KEYS = ["Race", "Sex", "Faction"];
-const CHOICE_HELP = {
+const PROFILE_HELP = {
+  Name: "The name of the character. The game shows this name, but a name that you give a squad member in the game replaces it.",
   Race: "The race of the character.",
+  Sex: "The sex of the character.",
   Faction: "The faction that SSR tells the LLM the character belongs to.",
+  Personality: "The traits of the character. The LLM plays the character to match them.",
+  Backstory: "The past life of the character. It shapes what the character says about where they come from.",
+  SpeechQuirks: "How the character tends to talk, for example a catchphrase.",
 };
 const KIND_LABELS = { manifest: "Template info", overview: "Overview", history: "History", faction: "Faction", character: "Character" };
 const CATEGORY_LABELS = { races: "Race", locations: "Location", regions: "Region" };
@@ -327,8 +332,8 @@ function characterForm(form, path, record) {
   return [
     gameIdField(form, path, record, "The string ID of the character's template in the game data, for example 19576-Dialogue.mod. The Forgotten Construction Set (FCS) shows it."),
     ...form.profile.map((row) => (CHOICE_KEYS.includes(row.key)
-      ? field(row.key, choiceControl(row, [...path, "profile", row.key]), null, CHOICE_HELP[row.key])
-      : field(row.key, control(LONG_PROFILE_KEYS.includes(row.key) ? "textarea" : "input", row, "value", [...path, "profile", row.key], { rows: 4 })))),
+      ? field(row.key, choiceControl(row, [...path, "profile", row.key]), null, PROFILE_HELP[row.key])
+      : field(row.key, control(LONG_PROFILE_KEYS.includes(row.key) ? "textarea" : "input", row, "value", [...path, "profile", row.key], { rows: 4 }), null, PROFILE_HELP[row.key]))),
     el("fieldset", {},
       el("legend", {}, "Other Details"),
       el("p", { className: "hint" }, "The game and your chats set these details."),
@@ -336,7 +341,7 @@ function characterForm(form, path, record) {
       source === "campaign" ? field("Current Faction", el("span", {}, record.current_faction || "Unknown"), null, "The faction that the game reports for the character. It shows after you select the character or talk near it while the game runs.") : null,
       field("Original Faction", el("span", {}, form.details.OriginFaction || "Unknown"), null, "The faction that the character comes from."),
       isProvisional(record) ? field("Chats", el("span", {}, chatCount(form.details[PROVISIONAL])), null, "How many times you talked to the character. Its personality, backstory, and speech quirks are rolled, not written. When the count reaches Chats before a bio on the Settings page, the LLM writes its full bio.") : null,
-      source === "campaign" ? field("Current Job", el("span", {}, form.details.CurrentJob || "Unknown"), null, "What the character does in the game now, for example Guarding a building. It updates when you talk to the character or it takes part in banter while the game runs.") : null),
+      source === "campaign" ? field("Current Job", el("span", {}, form.details.CurrentJob || "Unknown"), null, "What the character does in the game, for example Guarding a building. It updates each time the character chats or banters.") : null),
   ];
 }
 
