@@ -845,7 +845,7 @@ function renderTemplateBar() {
     el("p", { className: "hint" }, "A new campaign starts as a copy of its template, so changes here apply only to campaigns that you create later."),
     field("Template", select, el("span", { className: "detail" }, recordCounts)),
     template?.manifest?.description ? el("p", { className: "hint" }, template.manifest.description) : null,
-    template?.builtin ? el("p", { className: "hint" }, `${templateTitle()} ships with SSR and is read-only. Duplicate it to make your own copy.`) : null,
+    template?.builtin ? el("p", { className: "hint error" }, `${templateTitle()} ships with SSR and is read-only. Duplicate it to make your own copy.`) : null,
     ...(template?.errors ?? []).map((error) => el("p", { className: "hint error" }, error.message)),
     ...(template?.warnings ?? []).map((warning) => el("p", { className: "hint" }, warning.message)),
     el("form", { className: "add", onsubmit: duplicateTemplate }, duplicateName, el("button", { type: "submit" }, "Duplicate"),
