@@ -420,7 +420,7 @@ button:disabled {
   cursor: default;
 }
 
-button.save {
+button.save:not(:disabled) {
   border-color: var(--accent-strong);
   background: var(--accent-strong);
   color: var(--on-accent);

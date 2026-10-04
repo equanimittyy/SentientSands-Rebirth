@@ -65,7 +65,7 @@ let writes = null;
 // A page that did not load has empty fields, and its Save would write them over the stored values.
 function updateButtons() {
   for (const page of editors) {
-    page.querySelector(".save").disabled = !online || !loaded.has(page.id);
+    page.querySelector(".save").disabled = !online || !loaded.has(page.id) || !unsaved.has(page.id);
     page.querySelector(".discard").disabled = !online || !unsaved.has(page.id);
   }
   for (const button of refreshButtons) button.disabled = !online;
