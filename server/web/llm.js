@@ -482,9 +482,9 @@ function renderRoutes() {
       TASK_HINTS[task] ? el("p", { className: "hint" }, TASK_HINTS[task]) : null,
       el("ol", { className: "chain" }, ...chain),
       profileNames.length > 0 ? addProfileSelect(route, label) : el("p", { className: "hint" }, "Add a profile to a provider first."),
-      field("Max tokens", numberInput(route, "max_tokens", path("max_tokens"), { step: 1, min: 1 })),
-      field("Temperature", numberInput(route, "temperature", path("temperature"), { step: 0.05, min: 0, max: 2 })),
-      field("Deadline (s)", numberInput(route, "deadline", path("deadline"), { step: 1, min: 1 }, deadlineWarning)));
+      field("Max tokens", numberInput(route, "max_tokens", path("max_tokens"), { step: 1, min: 1 }), null, "The longest reply, in tokens. A token is about 3/4 of a word. Too low cuts replies short."),
+      field("Temperature", numberInput(route, "temperature", path("temperature"), { step: 0.05, min: 0, max: 2 }), null, "How random the replies are. Lower is more predictable, higher is more varied."),
+      field("Deadline (s)", numberInput(route, "deadline", path("deadline"), { step: 1, min: 1 }, deadlineWarning), null, "The total time that this task waits for a reply, over all of its profiles."));
   });
   return el("fieldset", {},
     el("legend", {}, "Tasks ", el("span", { className: "optional" }, "(Optional)")),
