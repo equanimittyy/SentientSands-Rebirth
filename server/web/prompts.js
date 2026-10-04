@@ -152,9 +152,11 @@ export async function refreshPrompts() {
   const shown = JSON.stringify(prompts);
   const unsaved = changedPrompts().length > 0;
   const kept = new Map(changedPrompts().map((prompt) => [prompt.name, drafts.get(prompt.name)]));
-  if (!(await getPrompts()) || JSON.stringify(prompts) === shown) return;
+  if (!(await getPrompts())) return;
+  if (JSON.stringify(prompts) === shown) return "current";
   showPrompts(kept);
   if (changedPrompts().length > 0 !== unsaved) updateUnsaved();
+  return "loaded";
 }
 
 document.getElementById("prompts-save").addEventListener("click", save);

@@ -1215,16 +1215,17 @@ const showing = () => `${source}/${current}`;
 async function refreshLog() {
   const opened = showing();
   const fresh = await getCampaign("/api/campaign");
-  if (showing() !== opened || JSON.stringify(fresh) === JSON.stringify([log, refusal])) return;
+  if (showing() !== opened || JSON.stringify(fresh) === JSON.stringify([log, refusal])) return "current";
   const unsaved = hasChanges();
   // The drafts belong to the campaign that the page loaded
-  if (unsaved && fresh[0]?.name !== log?.name) return;
+  if (unsaved && fresh[0]?.name !== log?.name) return "kept";
   const kept = keptRumors();
   [log, refusal] = fresh;
   const scrolls = ["#thread-list", "#thread-lines"].map((selector) => [selector, page.querySelector(selector)?.scrollTop ?? 0]);
   showLog(kept);
   for (const [selector, scroll] of scrolls) page.querySelector(selector)?.scrollTo(0, scroll);
   if (hasChanges() !== unsaved) updateUnsaved();
+  return "loaded";
 }
 
 // A changed record keeps the version that the page loaded, so its save still fails as stale when the record changed
@@ -1239,9 +1240,9 @@ async function refreshRecords() {
     fresh = [list, name, name ? (await getJson(`/api/templates/${encodeURIComponent(name)}`)).template : null];
   }
   const shown = source === "campaign" ? [canon, refusal] : [templates, current, template];
-  if (showing() !== opened || JSON.stringify(fresh) === JSON.stringify(shown)) return;
+  if (showing() !== opened || JSON.stringify(fresh) === JSON.stringify(shown)) return "current";
   const unsaved = hasChanges();
-  if (unsaved && (source === "campaign" ? fresh[0]?.name !== canon?.name : fresh[1] !== current)) return;
+  if (unsaved && (source === "campaign" ? fresh[0]?.name !== canon?.name : fresh[1] !== current)) return "kept";
   const kept = keptDrafts();
   const bases = new Map(records.filter((record) => kept.has(record.key)).map((record) => [record.key, record]));
   if (source === "campaign") [canon, refusal] = fresh;
@@ -1250,14 +1251,15 @@ async function refreshRecords() {
   showRecords(kept, bases);
   page.querySelector("#record-list")?.scrollTo(0, scroll);
   if (hasChanges() !== unsaved) updateUnsaved();
+  return "loaded";
 }
 
 const reload = () => (source === "events" ? fetchLog({}) : fetchRecords(new Map()));
 
 export async function refreshEditor() {
   try {
-    if (source === "events") await refreshLog();
-    else await refreshRecords();
+    if (source === "events") return await refreshLog();
+    return await refreshRecords();
   } catch (error) {
     showMessage(message, `Refresh failed: ${error.message}`, true);
   }

@@ -163,7 +163,9 @@ export async function loadCampaigns() {
 export async function refreshCampaigns() {
   try {
     const list = await getJson("/api/campaigns");
-    if (JSON.stringify(list) !== shownList) show(list);
+    if (JSON.stringify(list) === shownList) return "current";
+    show(list);
+    return "loaded";
   } catch (error) {
     showMessage(message, `Could not load the campaigns: ${error.message}`, true);
   }

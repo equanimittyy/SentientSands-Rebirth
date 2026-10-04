@@ -532,6 +532,19 @@ button.save:focus-visible {
   margin-left: auto;
 }
 
+.save-bar > .tip {
+  right: 0;
+  left: auto;
+}
+
+.save-bar > .tip:not([hidden]) {
+  display: block;
+}
+
+.tip.error {
+  color: var(--error);
+}
+
 /* Campaign actions apply at once, so this bar only carries the status message and Refresh, and is not a save boundary. */
 #campaigns .save-bar::before {
   content: none;

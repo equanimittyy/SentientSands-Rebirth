@@ -102,8 +102,11 @@ export async function loadSettings() {
 
 export async function refreshSettings() {
   const unsaved = hasChanges();
+  const shown = JSON.stringify(saved);
   const kept = Object.entries(snapshot()).filter(([name, value]) => value !== saved[name]);
-  if ((await fetchSettings(kept)) && hasChanges() !== unsaved) updateUnsaved();
+  if (!(await fetchSettings(kept))) return;
+  if (hasChanges() !== unsaved) updateUnsaved();
+  return JSON.stringify(saved) === shown ? "current" : "loaded";
 }
 
 form.addEventListener("submit", save);

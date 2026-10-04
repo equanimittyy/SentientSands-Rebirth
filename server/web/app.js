@@ -1,4 +1,4 @@
-import { getJson, idle, watchConnection } from "./api.js";
+import { el, getJson, idle, watchConnection } from "./api.js";
 import { loadCampaigns, refreshCampaigns } from "./campaigns.js";
 import { loadEditor, refreshEditor } from "./editor.js";
 import { loadLlm, refreshLlm } from "./llm.js";
@@ -6,6 +6,7 @@ import { loadPrompts, refreshPrompts } from "./prompts.js";
 import { loadSettings, refreshSettings } from "./settings.js";
 
 const POLL_MS = 3000;
+const REFRESH_NOTE_MS = 2500;
 
 const pages = [...document.querySelectorAll("main > section")];
 const links = [...document.querySelectorAll("nav a")];
@@ -43,8 +44,14 @@ const status = document.getElementById("status");
 const offline = document.getElementById("offline");
 const loaders = { settings: loadSettings, llm: loadLlm, prompts: loadPrompts, campaigns: loadCampaigns, editor: loadEditor };
 // A refresher keeps the unsaved drafts. It changes the bar message only when the unsaved state changes, so a change from
-// elsewhere does not hide a "Saved." that the player did not read yet.
+// elsewhere does not hide a "Saved." that the player did not read yet. It returns a key of REFRESH_NOTES, or nothing
+// when it failed and the bar message says why.
 const refreshers = { settings: refreshSettings, llm: refreshLlm, prompts: refreshPrompts, campaigns: refreshCampaigns, editor: refreshEditor };
+const REFRESH_NOTES = {
+  loaded: "Loaded new data.",
+  current: "Already up to date.",
+  kept: "Kept your unsaved changes. Discard loads the new data.",
+};
 const loadable = pages.filter((page) => page.id in loaders);
 const editors = pages.filter((page) => page.querySelector(".save"));
 const refreshButtons = [...document.querySelectorAll(".refresh")];
@@ -83,11 +90,29 @@ for (const page of editors) page.querySelector(".discard").addEventListener("cli
 // A page that did not load has no drafts to keep, so it loads in full.
 async function refresh(id) {
   stale.delete(id);
-  if (loaded.has(id)) await refreshers[id]();
-  else await load(id);
+  if (loaded.has(id)) return refreshers[id]();
+  await load(id);
+  if (loaded.has(id)) return "loaded";
 }
 
-for (const button of refreshButtons) button.addEventListener("click", () => refresh(button.closest("section").id));
+const refreshNote = el("span", { className: "tip", hidden: true });
+refreshNote.setAttribute("role", "status");
+let refreshNoteTimer;
+
+for (const button of refreshButtons) {
+  button.addEventListener("click", async () => {
+    const bar = button.parentElement;
+    const note = REFRESH_NOTES[await refresh(button.closest("section").id)];
+    refreshNote.textContent = note ?? bar.querySelector(".message").textContent;
+    refreshNote.classList.toggle("error", !note);
+    refreshNote.hidden = false;
+    bar.append(refreshNote);
+    clearTimeout(refreshNoteTimer);
+    refreshNoteTimer = setTimeout(() => {
+      refreshNote.hidden = true;
+    }, REFRESH_NOTE_MS);
+  });
+}
 
 const typingIn = (page) => page.contains(document.activeElement) && document.activeElement.matches("textarea, select, input:not([type=checkbox], [type=radio])");
 

@@ -607,9 +607,13 @@ export async function refreshLlm() {
     showMessage(message, `Could not load the LLM settings: ${error.message}`, true);
     return;
   }
-  if (JSON.stringify(config) === shownConfig) return;
-  if (unsaved) showMessage(message, "Another tab changed the models. Save overwrites that change, and Discard loads it.", true);
-  else load(config);
+  if (JSON.stringify(config) === shownConfig) return "current";
+  if (unsaved) {
+    showMessage(message, "Another tab changed the models. Save overwrites that change, and Discard loads it.", true);
+    return "kept";
+  }
+  load(config);
+  return "loaded";
 }
 
 document.getElementById("llm-save").addEventListener("click", save);
