@@ -16,7 +16,7 @@ Two limits keep a wrong hit cheap and the context small. At most 3 entries go in
 Non-goals:
 
 - Vector search or embeddings.
-- A filter by what the speaking NPC knows. That needs a knowledge bank for each character, which does not exist, so each NPC gets the same entries for the same message.
+- A filter by what the speaking NPC knows. That needs a knowledge bank for each character, which does not exist, so each NPC gets the same entries for the same message. Any NPC can therefore speak of any entry, even of a secret of the history such as Kenshi is a Moon. This is a known trade-off, which a later NPC knowledge system is to fix.
 - The entries that a hit links to, such as the region of a town. The limit of 3 entries leaves no room for them.
 
 ## 2. Records
@@ -51,7 +51,7 @@ An SQLite FTS5 table holds one row for each record, with the columns name, alias
 3. The search is an OR of these words, ranked by BM25 with the weights 10 for the name, 10 for the aliases, 3 for the fields, and 1 for the text.
 4. A hit whose score is below 60% of the best score of the search is dropped.
 
-The weights, the ratio, and the tenth are starting values, which the fixed list of [section 7](#7-verification) tunes.
+The weights, the ratio, and the tenth are starting values, which the fixed list of [section 8](#8-verification) and the test search of [section 7](#7-test-search) tune.
 
 The vocabulary keeps chat words out of the search. Chat words are rare in the lore, so BM25 ranks them high, and lore words are common. In a prototype with every word of the message, "How are you doing today?" found Fish Isle, The Shek Extinction Crisis, and Hive Village, and "I need a doctor." found Twinblades. "doing", "need", and "doctor" each appear in 1 to 5 records, but "shek" appears in 32 and "holy" in 68.
 
@@ -61,6 +61,7 @@ Rejected:
 
 - A search with every word of the message. The examples above show the result.
 - A search without the words that appear in many records, and without the vocabulary. It keeps "doing" and "need" and drops "shek" and "iron", which is the opposite of what the search needs.
+- A content search without the name and alias columns, so that only name matching finds a record by its name. In the prototype, "Any work for a mercenary?" lost Mercenary Guild and "Any bounties around here?" lost Bounty Hunters, while "my teeth hurt" still found Bad Teeth through its own text, and through Okran's Pride when the index also left each record's own name out of its text.
 
 ## 5. Order and limit
 
@@ -76,8 +77,9 @@ Rejected:
 - The stored dialogue holds only the lines, so the entries of a turn are gone from the next request. The lore of a conversation therefore costs the same on each turn and does not grow.
 - When a message gives no entry, the turn repeats the entries of the message before it, so "Tell me more about it" keeps the lore of the topic. The entries carry for one message only, so small talk after a topic does not keep the lore in front of the NPC. The server keeps the entries of the last message in memory for the pair of the speaker and the NPC. A message from another pair, or a campaign switch, drops them.
 - An animal gets no entries, because it replies only in actions. Banter gets no entries, because it has no message from the player.
-- Each entry gives its name, its kind, and its text. The heading and the closing note stay in the code, as for the rumors, so an empty list leaves neither.
-- The closing note tells the NPC that the lore can be unrelated to the line, that the NPC may know less than it says, and that a reply must not recite it. A search finds words, not meaning, so some hits are wrong, and a model tends to use all the text that it gets. The note sits directly before the player's line, where the model reads it last.
+- Each entry gives its name, its kind, and its text. The block around the entries stays in the code, as for the rumors, so an empty list leaves no block.
+- The block is in parentheses and starts with "Background, not said aloud", as the final instruction of the turn is in parentheses. The block is part of the user message, so without this mark a model can take the lore for words of the player. Some chat templates accept a system message only at the start of a chat, so the block cannot be a system message of its own.
+- The note at the end of the block tells the NPC that the lore can be unrelated to the line, that the NPC may know less than it says, and that a reply must not recite it or turn the talk towards it. A search finds words, not meaning, so some hits are wrong, and a model tends to use all the text that it gets. The note sits directly before the player's line, where the model reads it last.
 
 Rejected:
 
@@ -87,17 +89,27 @@ Rejected:
 Example: Izumi speaks to Jorge.
 
 ```
-Lore that Izumi's words may touch on:
+(Background, not said aloud. Lore that Izumi's words may touch on:
 - Admag (location): Admag is the Shek Kingdom's capital, a hilltop town in the Stenn Desert with one entrance, home to most of the kingdom's Shek. Esata the Stone Golem rules here with Bayan and Seto, guarded by the Five Invincibles, while Hundred Guardians defend the town. It has two bars, armour and weapon shops, and a thieves' guild.
 - Bad Teeth (location): Bad Teeth is a Holy Nation town in Okran's Pride that watches over a mountain pass leading from the fertile valley out to the wild Skinner's Roam. It has a temple, three bars, a bakery, barracks, and shops for weapons and armour, and its gate guards often kill river raptors that roam close.
-This lore may have nothing to do with what Izumi means, and you may know less than it says. Use it only where it fits your reply, and never recite it or turn the talk towards it.
+This lore may have nothing to do with what Izumi means, and you may know less than it says. Use it only where it fits your reply, and never recite it or turn the talk towards it.)
 
 [Day 12, 14:05] Izumi: I came from Admag through the Bad Teeth.
 
 (Reply as Jorge. End with [JUDGMENT: n].)
 ```
 
-## 7. Verification
+## 7. Test search
+
+A Test Lore Search panel on the Campaign Canon and Templates subtabs of the Editor shows what a line of the player finds. A template author sees why a line finds nothing, and the starting values of [section 4](#4-content-search) get tuned on real lines.
+
+- The player types a line, and the panel lists the entries in their prompt order. Each entry shows its kind and how it was found: by its name, or by the words that found it.
+- The panel also lists each word of the line that did not search, with the reason: a common English word, not a word of the lore, or a word in too many entries.
+- Campaign Canon searches the active campaign, and Templates searches the open template. The search reads the saved records, so an unsaved edit counts only after Save.
+- The panel has no NPC, so it skips no entry that the system message of a chat would hold, and it does not repeat the entries of the message before.
+- The routes are `GET /api/campaign/lore?message=...` and `GET /api/templates/<name>/lore?message=...`. A search changes nothing, and a POST under `/api/` counts as a write, which makes every open page refresh (`count_write_requests` in `server/scripts/kenshi_llm_server.py`).
+
+## 8. Verification
 
 1. `server/tests/test_lore_retrieval.py` covers each rule of [section 3](#3-name-matching), [section 4](#4-content-search), and [section 5](#5-order-and-limit): case, punctuation, and the possessive; the final "s"; the leading "the"; the order of the words; a longer match over a shorter one; two records with one name; a word outside the vocabulary; a word in more than a tenth of the records; the score cut; a record that both steps find; an empty text; the records that the system message holds; the limit and the order; the cut of a long text; a history title.
 2. On SSR Vanilla, these messages give no entry: "Where can I buy food?", "How are you doing today?", "I need a doctor.", "My feet are killing me", "Nice weather.", "Want to join my squad?", "Who rules this town?".
@@ -118,11 +130,12 @@ This lore may have nothing to do with what Izumi means, and you may know less th
    | Ever met Longen? | Traders Guild |
 
 4. In the server, a message that finds an entry gives a turn that holds it. The next message, which finds nothing, gives the same entries, and the message after that gives none. The system message of these turns is the same. An entry that Campaign Canon edits shows the edit in the next message, and a renamed entry matches by its new name.
-5. The full server test suite passes.
+5. On the test search of a new SSR Vanilla campaign, "Any work for a mercenary?" lists Mercenary Guild as found by "mercenary", "work" as not a word of the lore, and "any", "for", and "a" as common English words. The Templates subtab gives the same result for SSR Vanilla.
+6. The full server test suite passes.
 
-These messages still give wrong or arbitrary entries in the prototype, and the limit and the closing note bound their cost: "my teeth hurt" finds Bad Teeth, "Where can I get a prosthetic arm?" finds Arm of Okran, and "Any bonedogs around?" finds 3 of the many regions with bonedogs.
+These messages still give wrong or arbitrary entries in the prototype, and the limit and the note of the block bound their cost: "my teeth hurt" finds Bad Teeth, "Where can I get a prosthetic arm?" finds Arm of Okran, and "Any bonedogs around?" finds 3 of the many regions with bonedogs.
 
-## 8. Open questions
+## 9. Open questions
 
 1. Should retrieval also find characters, such as Beep or Tinfist? Today "Tinfist" finds the Anti-Slavers, whose `leader` field names Tinfist, but not the profile of Tinfist.
 2. Should a content hit in the NPC's current region or location rank first? "Any bonedogs around?" would then find the region that the NPC stands in.
