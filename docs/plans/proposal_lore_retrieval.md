@@ -179,7 +179,7 @@ A Test Search panel on the Campaign Canon and Templates subtabs of the Editor sh
 - On Campaign Canon, the player can also pick a member of a chat thread with a memory, from the threads that `GET /api/campaign` already returns. The panel then lists the hits of a chat with that character in their prompt order: first the memories, each with how it was found, by a name or by the words that found it, then the entries in the slots that are left. It skips the memories that the system message of the character holds, as a chat does. A template has no memories.
 - Campaign Canon searches the active campaign, and Templates searches the open template. The search reads the saved records, so an unsaved edit counts only after Save.
 - The panel skips no entry that the system message of a chat would hold, and it has no earlier turns, so the guard holds back no hit.
-- The routes are `GET /api/campaign/search?message=...&npc=...`, where `npc` is optional, and `GET /api/templates/<name>/search?message=...`. A search changes nothing, and a POST under `/api/` counts as a write, which makes every open page refresh (`count_write_requests` in `server/main.py`).
+- The routes are `GET /api/campaign/search?message=...&npc=...`, where `npc` is optional, and `GET /api/templates/<name>/search?message=...`. A search changes nothing, and a POST under `/api/` counts as a write, which makes every open page refresh (`count_write_requests` in `server/core/app.py`).
 
 ## 9. Verification
 

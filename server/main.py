@@ -15,29 +15,22 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 import os
-import ctypes
 import json
 import logging
-import subprocess
 import requests
 import re
 import time
 import threading
 import random
-import configparser
-import mimetypes
-from flask import Flask, Response, request, jsonify
-from werkzeug.exceptions import HTTPException
+from flask import Response, request, jsonify
 import sys
 
 SERVER_DIR = os.path.dirname(os.path.abspath(__file__))
-KENSHI_MOD_DIR = os.path.dirname(SERVER_DIR)
 
 # The embedded runtime's ._pth file runs Python isolated, which leaves the script dir off sys.path
 if SERVER_DIR not in sys.path:
     sys.path.insert(0, SERVER_DIR)
 
-from core.request_guard import is_request_allowed
 from dashboard.browser_launch import PanelTabs, open_when_ready
 from chat import llm_config
 from chat import llm_router
@@ -51,61 +44,28 @@ from chat import prompt_store
 from store import world_template
 from core import log_setup
 from core.log_setup import llm_log
+from core import state
+from core.app import app
+from core.paths import (CAMPAIGNS_DIR, DEFAULT_MODELS_PATH, DEFAULT_PROVIDERS_PATH, DEFAULT_TEMPLATE, LLM_CONFIG_PATH, PROMPTS_DIR,
+                        USER_PROMPTS_DIR, USER_TEMPLATES_DIR, WORLD_TEMPLATES_DIR)
+from core.pipe import send_to_pipe
+from core.process import kill_old_servers, monitor_kenshi_process
+from core.settings import (CHAT_HOTKEYS, SETTINGS_DEFAULTS, _save_settings_raw, get_config_radii, load_configs, load_settings,
+                           push_settings_to_plugin, save_settings, settings_page_values)
 
-def resolve_mod_file(filename):
-    """Falls back to the repo's mod/ subdirectory when run from a source checkout."""
-    path = os.path.join(KENSHI_MOD_DIR, filename)
-    if os.path.exists(path):
-        return path
-        
-    dev_dir = os.path.join(KENSHI_MOD_DIR, "mod")
-    if os.path.isdir(dev_dir):
-        return os.path.join(dev_dir, filename)
 
-    return path
 
-INI_PATH = resolve_mod_file("SentientSands_Config.ini")
-DEFAULTS_DIR = os.path.join(SERVER_DIR, "data", "defaults")
-LLM_CONFIG_PATH = os.path.join(SERVER_DIR, "config", "llm_config.json")
-DEFAULT_MODELS_PATH = os.path.join(DEFAULTS_DIR, "default_models.json")
-DEFAULT_PROVIDERS_PATH = os.path.join(DEFAULTS_DIR, "default_providers.json")
-NAMES_PATH = os.path.join(DEFAULTS_DIR, "names.json")
-LOCALIZATION_PATH = os.path.join(DEFAULTS_DIR, "localization.json")
-WEB_DIR = os.path.join(SERVER_DIR, "dashboard", "web")
-
-NAMES_CONFIG = {}
-ACTIVE_CAMPAIGN = "Default"
-
-CAMPAIGNS_DIR = os.path.join(SERVER_DIR, "data", "campaigns")
-PROMPTS_DIR = os.path.join(SERVER_DIR, "data", "prompts")
-USER_PROMPTS_DIR = os.path.join(SERVER_DIR, "config", "prompts")
-WORLD_TEMPLATES_DIR = os.path.join(SERVER_DIR, "data", "templates")
-USER_TEMPLATES_DIR = os.path.join(SERVER_DIR, "data", "user_templates")
-DEFAULT_TEMPLATE = "kenshi_ssr_vanilla"
 
 PROFILES_IN_PROGRESS = set()
 PROGRESS_LOCK = threading.Lock()
-LIVE_CONTEXTS = {}
-PLAYER_CONTEXT = {}
 PROMPT_RUMORS = 5
 RUMOR_SYNTHESIS = False
-# The scene stays fixed for a whole conversation, so the prompt cache can serve it; a chat with another NPC or as another squad member, a new name or faction of the NPC, or a first exchange with it starts a new one
-CONVERSATION_SCENE = {}
-# {"key": (npc_id of the squad member, npc_id of the NPC), "id": thread ID, "replied": time.monotonic() of the last reply}
-CURRENT_THREAD = {}
-# Held while a chat picks its thread and while the distillation ends the current thread, so a chat never adds lines to a thread whose memory is being written
-THREAD_LOCK = threading.Lock()
-# Starts with the server, so the threads that a restart left pending get their memories one quiet period after the start
-QUIET_SINCE = time.monotonic()
 PLAYER2_SESSION_KEY = None
 EVENT_THROTTLE = {} 
 THROTTLE_LOCK = threading.Lock()
 LAST_STATE_LOG = {} # {"<target>|<etype>": last message}
 STATE_LOCK = threading.Lock()
 SYNTHESIS_STATUS = {"elapsed": 0, "interval": 60}
-WRITE_REQUESTS = 0
-SEEN_FACTIONS = set()
-GAME_REPORTED = threading.Event()
 
 ANIMAL_RACES = [
     "Bonedog", "Boneyard Wolf", "Garru", "Beak Thing", "Gorillo",
@@ -152,22 +112,16 @@ def note_faction(ctx, is_player=False):
     if not faction_id or not name or faction_id in (name, "Neutral"):
         return
     key = (faction_id, name, is_player)
-    if key in SEEN_FACTIONS:
+    if key in state.SEEN_FACTIONS:
         return
     try:
         campaign_db.note_faction(faction_id, name, is_player)
-        SEEN_FACTIONS.add(key)
+        state.SEEN_FACTIONS.add(key)
     except campaign_db.CampaignUnavailable:
         pass  # load_campaign_config already logged why
     except Exception as e:
         logging.warning(f"CAMPAIGN: Cannot record the faction {name}: {e}")
 
-def get_config_radii():
-    settings = load_settings()
-    r = float(settings.get('radiant_range', 100.0))
-    t = float(settings.get('talk_radius', 50.0))
-    y = float(settings.get('yell_radius', 100.0))
-    return r, t, y
 def sanitize_llm_text(text):
     if not text: return ""
     # Kenshi's engine chokes on these non-ASCII characters
@@ -216,53 +170,7 @@ def robust_json_parse(text):
 
 log_setup.setup(os.path.join(SERVER_DIR, "logs"))
 
-def kill_old_servers():
-    try:
-        result = subprocess.run(
-            ['netstat', '-aon'], capture_output=True, text=True, shell=True
-        )
-        for line in result.stdout.splitlines():
-            if ':5000' in line and 'LISTENING' in line:
-                parts = line.strip().split()
-                pid = int(parts[-1])
-                if pid > 0 and pid != os.getpid():
-                    logging.info(f"SYSTEM: Stopping the old server process (PID {pid}) on port 5000.")
-                    subprocess.run(['taskkill', '/F', '/PID', str(pid)], 
-                                 capture_output=True, shell=True)
-                    time.sleep(1)
-    except Exception as e:
-        logging.warning(f"SYSTEM: Cannot check port 5000 for an old server: {e}")
-
 kill_old_servers()
-
-# A Windows registry entry can map .js to text/plain, and browsers refuse to run a module script with that type
-mimetypes.add_type("text/javascript", ".js")
-app = Flask(__name__, static_folder=WEB_DIR, static_url_path="/web")
-# ASCII-only responses: the plugin's UnescapeJSON decodes the \u escapes
-app.json.ensure_ascii = True
-
-@app.errorhandler(Exception)
-def handle_exception(e):
-    if isinstance(e, HTTPException):
-        return jsonify({"error": e.description, "status": "error"}), e.code
-    if isinstance(e, campaign_db.CampaignUnavailable):
-        logging.warning(f"HTTP: {request.path} needs a campaign: {e}")
-        return jsonify({"error": str(e), "status": "error"}), 409
-    logging.exception(f"HTTP: Unhandled exception in {request.path}: {e}")
-    try:
-        if request.json:
-            logging.debug(f"HTTP: Request body: {json.dumps(request.json)}")
-    except:
-        pass
-    return jsonify({"error": str(e), "status": "error"}), 500
-
-@app.before_request
-def reject_foreign_requests():
-    host = request.headers.get("Host")
-    origin = request.headers.get("Origin")
-    if not is_request_allowed(host, origin):
-        logging.warning(f"HTTP: Rejected request to {request.path}: Host={host}, Origin={origin}")
-        return jsonify({"status": "error", "message": "Forbidden"}), 403
 
 def adopt_canon(node):
     """Gives each NPC whose template is a canon character the npc_id of that character, and marks it unique, so it uses the
@@ -297,46 +205,12 @@ def adopt_canon_ids():
         except campaign_db.CampaignUnavailable:
             pass  # No campaign, so no canon
 
-# The web app polls this count with campaign_db.writes, so an open page loads a change from another tab or the game.
-# A POST that only reads, such as a model test, costs an open page one needless load.
-@app.after_request
-def count_write_requests(response):
-    global WRITE_REQUESTS
-    if request.method == "POST" and response.status_code < 400 and (request.path.startswith("/api/") or request.path == "/settings"):
-        WRITE_REQUESTS += 1
-    return response
-
-def load_configs():
-    global NAMES_CONFIG
-    logging.debug("CONFIG: Loading the name and localization files.")
-    
-    if not os.path.exists(DEFAULTS_DIR):
-        os.makedirs(DEFAULTS_DIR)
-
-    if os.path.exists(NAMES_PATH):
-        try:
-            with open(NAMES_PATH, "r") as f:
-                NAMES_CONFIG = json.load(f)
-            logging.debug(f"CONFIG: Loaded {len(NAMES_CONFIG)} gender pools from names.json.")
-        except Exception as e:
-            logging.error(f"CONFIG: Cannot load names.json: {e}")
-
-    global LOCALIZATION_CONFIG
-    LOCALIZATION_CONFIG = {}
-    if os.path.exists(LOCALIZATION_PATH):
-        try:
-            with open(LOCALIZATION_PATH, "r", encoding="utf-8") as f:
-                LOCALIZATION_CONFIG = json.load(f)
-            logging.debug(f"CONFIG: Loaded {len(LOCALIZATION_CONFIG)} language localizations.")
-        except Exception as e:
-            logging.error(f"CONFIG: Cannot load localization.json: {e}")
-
 def get_campaign_dir():
     if not os.path.exists(CAMPAIGNS_DIR):
         os.makedirs(CAMPAIGNS_DIR)
         logging.info(f"CAMPAIGN: Created the campaigns folder {CAMPAIGNS_DIR}")
         
-    cdir = os.path.join(CAMPAIGNS_DIR, ACTIVE_CAMPAIGN)
+    cdir = os.path.join(CAMPAIGNS_DIR, state.ACTIVE_CAMPAIGN)
     if not os.path.exists(cdir):
         os.makedirs(cdir)
         logging.info(f"CAMPAIGN: Created the campaign folder {cdir}")
@@ -344,49 +218,12 @@ def get_campaign_dir():
 
 def load_campaign_config():
     try:
-        if ACTIVE_CAMPAIGN:
+        if state.ACTIVE_CAMPAIGN:
             campaign_db.open_campaign(get_campaign_dir(), lambda: world_template.campaign_seed(DEFAULT_TEMPLATE, WORLD_TEMPLATES_DIR, USER_TEMPLATES_DIR))
         else:
             campaign_db.close_campaign()
     except Exception as e:
         logging.error(f"CAMPAIGN: Cannot load the campaign: {e}")
-
-def send_to_pipe(cmd):
-    """The plugin dispatches on these prefixes; anything else is sent as a "CMD: " command."""
-    if not (cmd.startswith("CMD:") or cmd.startswith("NPC_") or cmd.startswith("PLAYER_") or cmd.startswith("NOTIFY:")):
-        cmd = "CMD: " + cmd
-
-    # The plugin re-creates its only pipe instance after each message, so a send right after another one can find no instance for a moment
-    deadline = time.monotonic() + 0.25
-    while True:
-        try:
-            with open(r'\\.\pipe\SentientSands', 'wb') as f:
-                f.write(cmd.encode('utf-8'))
-            return
-        except OSError:
-            if time.monotonic() >= deadline:
-                return
-            time.sleep(0.01)
-
-def push_settings_to_plugin():
-    """On a first start the plugin finds no INI and runs on the defaults of LoadPluginConfig, so the server sends each value that the plugin holds."""
-    settings = load_settings()
-    for var, value in (
-        ("g_enableAmbient", "1" if settings["enable_ambient"] else "0"),
-        ("g_ambientIntervalSeconds", settings["radiant_delay"]),
-        ("g_radiantRange", settings["radiant_range"]),
-        ("g_proximityRadius", settings["talk_radius"]),
-        ("g_yellRadius", settings["yell_radius"]),
-        ("g_chatHotkey", settings["chat_hotkey"]),
-        ("g_enableWelcome", "1" if settings["enable_welcome"] else "0"),
-        ("g_logLevel", settings["log_level"]),
-        ("g_dialogueSpeedSeconds", settings["dialogue_speed_seconds"]),
-        ("g_speechBubbleLife", settings["bubble_life"]),
-    ):
-        send_to_pipe(f"SET_CONFIG: {var}: {value}")
-    logging.debug("PIPE: Sent the settings to the plugin.")
-
-
 
 KENSHI_NAME_POOL = [
     "Kaelen", "Korg", "Vayn", "Sark", "Mina", "Rook", "Drake", "Silas", "Tane", "Kuna",
@@ -411,9 +248,9 @@ def generate_unique_lore_name(gender="Neutral"):
     if gender.lower() == "male": gender_key = "Male"
     elif gender.lower() == "female": gender_key = "Female"
     
-    pool = NAMES_CONFIG.get(gender_key, [])
+    pool = state.NAMES_CONFIG.get(gender_key, [])
     if not pool and gender_key != "Neutral":
-        pool = NAMES_CONFIG.get("Neutral", [])
+        pool = state.NAMES_CONFIG.get("Neutral", [])
     
     if not pool:
         pool = KENSHI_NAME_POOL
@@ -430,7 +267,7 @@ def generate_unique_lore_name(gender="Neutral"):
     return random.choice(available)
 
 def get_current_time_prefix(ctx=None):
-    ctx = PLAYER_CONTEXT if ctx is None else ctx
+    ctx = state.PLAYER_CONTEXT if ctx is None else ctx
     if "day" in ctx:
         day = ctx['day']
         hour = int(ctx.get('hour', 0))
@@ -491,8 +328,8 @@ def character_kind(race):
     return "animal" if is_animal(race) else "skeleton" if is_skeleton(race) else "person"
 
 def is_player_faction(faction, faction_id):
-    player_faction_id = PLAYER_CONTEXT.get("factionID")
-    return faction == PLAYER_CONTEXT.get("faction", "Nameless") or bool(player_faction_id and faction_id == player_faction_id)
+    player_faction_id = state.PLAYER_CONTEXT.get("factionID")
+    return faction == state.PLAYER_CONTEXT.get("faction", "Nameless") or bool(player_faction_id and faction_id == player_faction_id)
 
 def npc_serial(npc_id):
     """The handle serial in the npc_id of a generic NPC, or None for a unique NPC."""
@@ -500,7 +337,7 @@ def npc_serial(npc_id):
 
 def npc_scene(context, profile, player_name, met, companions, player_stats):
     faction = context.get("faction") or context.get("Faction", "Unknown")
-    player_faction = PLAYER_CONTEXT.get("faction", "Nameless")
+    player_faction = state.PLAYER_CONTEXT.get("faction", "Nameless")
     in_player_faction = is_player_faction(faction, context.get("factionID"))
     record = campaign_db.find_faction(context.get("factionID"), faction) or {}
     major = not in_player_faction and bool(record.get("major"))
@@ -510,123 +347,14 @@ def npc_scene(context, profile, player_name, met, companions, player_stats):
                                major=major, in_player_faction=in_player_faction, feels_hunger=not is_skeleton(profile.get("Race", "")),
                                faction_description=faction_description, companions=companions, player_stats=player_stats)
 
-# SetHotkeyFromString in the plugin parses only these keys
-CHAT_HOTKEYS = ["\\", "[", "P", "T", "J", "U", "K"]
-
-# The plugin reads the same [Settings] keys, so renaming one breaks it
-INI_KEY_MAP = {
-    "current_campaign": "ActiveCampaign",
-    "enable_ambient": "EnableAmbientConversations",
-    "radiant_delay": "RadiantDelay",
-    "synthesis_interval_minutes": "SynthesisIntervalMinutes",
-    "radiant_range": "RadiantRange",
-    "talk_radius": "TalkRadius",
-    "yell_radius": "YellRadius",
-    "enable_welcome": "EnableWelcomePopup",
-    "dialogue_speed_seconds": "DialogueSpeed",
-    "bubble_life": "SpeechBubbleLife",
-    "language": "Language",
-    "chat_hotkey": "ChatHotkey",
-    "open_web_panel_on_start": "OpenWebPanelOnStart",
-    "log_level": "LogLevel",
-    "bio_interactions": "BioInteractions",
-    "conversation_timeout_minutes": "ConversationTimeoutMinutes"
-}
-
-def _save_settings_raw(settings):
-    try:
-        config = configparser.ConfigParser()
-        if os.path.exists(INI_PATH):
-            config.read(INI_PATH)
-        
-        if 'Settings' not in config:
-            config['Settings'] = {}
-            
-        for k, v in settings.items():
-            ini_key = INI_KEY_MAP.get(k)
-            if ini_key:
-                if isinstance(v, list):
-                    config['Settings'][ini_key] = ",".join(v)
-                elif isinstance(v, bool):
-                    config['Settings'][ini_key] = "1" if v else "0"
-                else:
-                    config['Settings'][ini_key] = str(v)
-        
-        with open(INI_PATH, "w") as f:
-            config.write(f)
-    except Exception as e:
-        logging.error(f"SETTINGS: Cannot save the INI at {INI_PATH}: {e}")
-
-SETTINGS_DEFAULTS = {
-    "current_campaign": "Default",
-    "enable_ambient": False,
-    "radiant_delay": 240,
-    "synthesis_interval_minutes": 5,
-    "radiant_range": 100,
-    "talk_radius": 50,
-    "yell_radius": 100,
-    "enable_welcome": True,
-    "dialogue_speed_seconds": 5,
-    "bubble_life": 15.0,
-    "language": "English",
-    "chat_hotkey": "\\",
-    "open_web_panel_on_start": True,
-    "log_level": log_setup.DEFAULT_LEVEL,
-    "bio_interactions": 5,
-    "conversation_timeout_minutes": 3
-}
-
-def load_settings():
-    settings = SETTINGS_DEFAULTS.copy()
-    if os.path.exists(INI_PATH):
-        try:
-            config = configparser.ConfigParser()
-            config.read(INI_PATH)
-            if 'Settings' in config:
-                for k in SETTINGS_DEFAULTS.keys():
-                    ini_key = INI_KEY_MAP.get(k)
-                    if ini_key and ini_key in config['Settings']:
-                        val = config['Settings'][ini_key]
-                        if isinstance(SETTINGS_DEFAULTS[k], bool):
-                            settings[k] = (val == "1" or val.lower() == "true")
-                        elif isinstance(SETTINGS_DEFAULTS[k], int):
-                            try: settings[k] = int(val)
-                            except: pass
-                        elif isinstance(SETTINGS_DEFAULTS[k], float):
-                            try: settings[k] = float(val)
-                            except: pass
-                        elif isinstance(SETTINGS_DEFAULTS[k], list):
-                            settings[k] = [x.strip() for x in val.split(",") if x.strip()]
-                        else:
-                            settings[k] = val
-        except Exception as e:
-            logging.error(f"SETTINGS: Cannot read the INI: {e}")
-            
-    return settings
-
-def save_settings(new_settings):
-    flat_changes = {}
-    for k, v in new_settings.items():
-        if k == "radii" and isinstance(v, dict):
-            if "radiant" in v: flat_changes["radiant_range"] = v["radiant"]
-            if "talk" in v: flat_changes["talk_radius"] = v["talk"]
-            if "yell" in v: flat_changes["yell_radius"] = v["yell"]
-        else:
-            flat_changes[k] = v
-            
-    settings = load_settings()
-    settings.update(flat_changes)
-    _save_settings_raw(settings)
-
 load_configs()
 
 def init_server_state():
-    global ACTIVE_CAMPAIGN
     try:
         settings = load_settings()
         log_setup.set_level(settings["log_level"])
-        ACTIVE_CAMPAIGN = settings.get("current_campaign", "Default")
-        logging.info(f"CAMPAIGN: Active campaign: {ACTIVE_CAMPAIGN or 'none'}")
+        state.ACTIVE_CAMPAIGN = settings.get("current_campaign", "Default")
+        logging.info(f"CAMPAIGN: Active campaign: {state.ACTIVE_CAMPAIGN or 'none'}")
         
         # Backfills missing keys into the INI with defaults
         _save_settings_raw(settings)
@@ -658,7 +386,7 @@ def job_of(ctx):
     """The Current Job from the context of one NPC, or None. The faction of a banter NPC is its identity faction, so only
     in_player_faction marks a squad member there."""
     in_squad = ctx.get("in_player_faction") or is_player_faction(ctx.get("faction"), ctx.get("factionID"))
-    return current_job.current_job(ctx, in_squad, PLAYER_CONTEXT.get("faction", "Nameless"))
+    return current_job.current_job(ctx, in_squad, state.PLAYER_CONTEXT.get("faction", "Nameless"))
 
 def job_field(ctx):
     """The CurrentJob of a new profile. Only a context from the plugin carries the squad jobs."""
@@ -676,7 +404,7 @@ def location_field(ctx):
 
 def describe_npc(name, profile, npc_id):
     race = profile.get("Race", "Unknown")
-    current_faction = describe_faction(profile.get("Faction"), LIVE_CONTEXTS.get(npc_id, {}).get("factionID"))
+    current_faction = describe_faction(profile.get("Faction"), state.LIVE_CONTEXTS.get(npc_id, {}).get("factionID"))
     return fill_prompt(
         "npc_chat_template.txt",
         name=name,
@@ -716,7 +444,7 @@ def scene_values(player, player_name, facing=True):
     player_faction = campaign_db.player_faction()
     return {
         "location": scene_text.location_text(player.get("environment") or {}),
-        "rumors": scene_text.rumors_text(rumors, PLAYER_CONTEXT.get("day")),
+        "rumors": scene_text.rumors_text(rumors, state.PLAYER_CONTEXT.get("day")),
         "player": scene_text.player_text(
             player_name, facing, race, reported_sex(race, player.get("gender", "Unknown")),
             race_entry.get("description", "") if race_entry else "",
@@ -859,7 +587,7 @@ def new_profile(name, npc_id, ctx_data):
     """The profile of an NPC at its first meeting, rolled in code. The LLM would know no more than the race, the faction, and
     the job yet, so the roll loses nothing; the LLM writes the bio later (generate_bio). An animal's roll is final, because a
     bio would give it a backstory and a speech quirk."""
-    live_ctx = LIVE_CONTEXTS.get(npc_id) or {}
+    live_ctx = state.LIVE_CONTEXTS.get(npc_id) or {}
 
     def fact(key, missing="Unknown"):
         value = ctx_data.get(key, missing)
@@ -927,7 +655,7 @@ def generate_bio(npc_id):
             logging.debug(f"PROFILE: The LLM is already writing the bio of {npc_id}.")
             return
         PROFILES_IN_PROGRESS.add(npc_id)
-    campaign = ACTIVE_CAMPAIGN
+    campaign = state.ACTIVE_CAMPAIGN
     try:
         profile = campaign_db.get_character(npc_id)
         if campaign_db.PROVISIONAL not in (profile or {}):
@@ -941,13 +669,13 @@ def generate_bio(npc_id):
             "",
             recorded_history(npc_id),
             describe_race(race),
-            describe_faction(profile.get("Faction"), (LIVE_CONTEXTS.get(npc_id) or {}).get("factionID")),
+            describe_faction(profile.get("Faction"), (state.LIVE_CONTEXTS.get(npc_id) or {}).get("factionID")),
         )
         if not bio:
             logging.warning(f"PROFILE: The LLM gave no usable bio for {name}, so the profile stays as it is.")
             return
         # A thread can outlive a campaign switch, and the same npc_id can name another character in the new campaign
-        if ACTIVE_CAMPAIGN != campaign:
+        if state.ACTIVE_CAMPAIGN != campaign:
             logging.info(f"PROFILE: Dropped the bio of {name}, because the active campaign changed while the LLM wrote it.")
             return
         if not campaign_db.promote_profile(npc_id, bio):
@@ -965,10 +693,6 @@ def quiet_seconds():
     """The plugin sends no signal when a conversation ends, so this long without a chat ends a chat thread."""
     return load_settings()["conversation_timeout_minutes"] * 60
 
-def restart_quiet_clock():
-    global QUIET_SINCE
-    QUIET_SINCE = time.monotonic()
-
 def write_memory(thread, members, campaign):
     """Has the LLM write the memory of a pending chat thread and stores it. A failed call leaves the thread pending."""
     prompt = fill_prompt("prompt_thread_memory.txt", lines="\n".join(thread["lines"]))
@@ -980,7 +704,7 @@ def write_memory(thread, members, campaign):
         logging.warning(f"MEMORY: The LLM gave no memory for the chat thread {thread['id']}, so it stays pending.")
         return
     # A thread can outlive a campaign switch, and the same thread ID can name another thread in the new campaign
-    if ACTIVE_CAMPAIGN != campaign:
+    if state.ACTIVE_CAMPAIGN != campaign:
         logging.info(f"MEMORY: Dropped the memory of the chat thread {thread['id']}, because the active campaign changed while the LLM wrote it.")
         return
     memory = chat_prompt.mark_names(" ".join(text.split()), [(npc_id, name) for npc_id, name, _, _ in members])
@@ -991,7 +715,7 @@ def write_memory(thread, members, campaign):
 
 def distill_threads():
     """Writes the memory of each pending chat thread of the active campaign, the oldest first, while the chat stays quiet."""
-    campaign = ACTIVE_CAMPAIGN
+    campaign = state.ACTIVE_CAMPAIGN
     try:
         pending = campaign_db.pending_threads()
     except campaign_db.CampaignUnavailable:
@@ -1002,13 +726,13 @@ def distill_threads():
     logging.info(f"MEMORY: Writing the memories of the pending chat threads ({len(pending)})...")
     for thread in pending:
         timeout = quiet_seconds()
-        with THREAD_LOCK:
+        with state.THREAD_LOCK:
             # Before each call, so a chat that starts during the distillation waits for one call at most
-            if time.monotonic() - QUIET_SINCE < timeout:
+            if time.monotonic() - state.QUIET_SINCE < timeout:
                 logging.info("MEMORY: A chat started, so the other chat threads wait for the next quiet period.")
                 return
             # A chat during the call then starts a new thread, so each memory covers a whole thread
-            CURRENT_THREAD.clear()
+            state.CURRENT_THREAD.clear()
         write_memory(thread, members.get(thread["id"], []), campaign)
 
 def get_character_data(name, context=""):
@@ -1229,8 +953,8 @@ def ambient_event():
     all_history = list(recent_dialogue)
     
     location = ""
-    if PLAYER_CONTEXT:
-        env = PLAYER_CONTEXT.get("environment", {})
+    if state.PLAYER_CONTEXT:
+        env = state.PLAYER_CONTEXT.get("environment", {})
         location = env.get("town_name", "") if isinstance(env, dict) else ""
 
     for evt in reversed(campaign_db.recent_events(campaign_db.MAX_EVENTS)):
@@ -1261,7 +985,7 @@ def ambient_event():
         history_block = "\nRECENT LOCAL DIALOGUE (DO NOT REPEAT TOPICS OR JOKES FROM HERE):\n" + "\n".join(unique_history)
 
     dynamic_system_prompt = build_system_prompt()
-    scene = scene_values(PLAYER_CONTEXT, player_name, facing=False)
+    scene = scene_values(state.PLAYER_CONTEXT, player_name, facing=False)
 
     ambient_system_prompt = f"""{dynamic_system_prompt}
 
@@ -1397,7 +1121,7 @@ def chat():
     for n in nearby:
         npc_id = n.get('npc_id')
         if n.get('name') and npc_id:
-            LIVE_CONTEXTS[npc_id] = {
+            state.LIVE_CONTEXTS[npc_id] = {
                 "race": n.get('race', 'Unknown'),
                 "faction": n.get('faction', 'Unknown'),
                 "gender": n.get('gender', 'Unknown'),
@@ -1448,7 +1172,7 @@ def chat():
         elif cmd == "take_cats": test_action = f"[ACTION: TAKE_CATS: {args}]"
         elif cmd == "take_item": test_action = f"[ACTION: TAKE_ITEM: {args}]"
         elif cmd == "take":
-            inv = PLAYER_CONTEXT.get("inventory", [])
+            inv = state.PLAYER_CONTEXT.get("inventory", [])
             if inv:
                 item_name = inv[0].get("name", "Unknown Item")
                 test_action = f"[ACTION: TAKE_ITEM: {item_name}]"
@@ -1476,14 +1200,14 @@ def chat():
     ctx_dict = context_dict(context)
     primary_id = ctx_dict.get('npc_id')
 
-    # A new profile and the scene read race/faction from LIVE_CONTEXTS
+    # A new profile and the scene read race/faction from state.LIVE_CONTEXTS
     if primary_npc and context:
         try:
             if ctx_dict:
                 note_faction(ctx_dict)
             if primary_id:
                 # Merge rather than replace, to keep the nearby list and other tracked fields
-                target = LIVE_CONTEXTS.setdefault(ctx_dict['npc_id'], {})
+                target = state.LIVE_CONTEXTS.setdefault(ctx_dict['npc_id'], {})
                 if ctx_dict.get('race'): target["race"] = ctx_dict.get('race')
                 if ctx_dict.get('faction'): target["faction"] = ctx_dict.get('faction')
                 if ctx_dict.get('factionID'): target["factionID"] = ctx_dict.get('factionID')
@@ -1506,9 +1230,9 @@ def chat():
         npc_name(speaker)
     thread_key = (speaker_id, primary_id)
     timeout = quiet_seconds()
-    with THREAD_LOCK:
-        current_thread = CURRENT_THREAD.get("id") if CURRENT_THREAD.get("key") == thread_key and time.monotonic() - CURRENT_THREAD["replied"] < timeout else None
-        restart_quiet_clock()
+    with state.THREAD_LOCK:
+        current_thread = state.CURRENT_THREAD.get("id") if state.CURRENT_THREAD.get("key") == thread_key and time.monotonic() - state.CURRENT_THREAD["replied"] < timeout else None
+        state.restart_quiet_clock()
 
     _, talk_radius, yell_radius = get_config_radii()
     # A whisper is one-on-one: nobody overhears
@@ -1551,24 +1275,24 @@ def chat():
     time_prefix = get_current_time_prefix()
     full_player_entry = f"{time_prefix}{mode_tag}{player_name}: {player_message}"
 
-    live = LIVE_CONTEXTS.get(primary_id, {})
+    live = state.LIVE_CONTEXTS.get(primary_id, {})
     rows = campaign_db.dialogue(primary_id)
     spoken = chat_prompt.spoken_with(rows, campaign_db.thread_partners(primary_id), primary_id)
     met = speaker_id in spoken
     conversation = (speaker.get("npc_id"), primary_id or primary_npc, primary_npc, live.get("faction"), met)
-    scene = CONVERSATION_SCENE.get(conversation)
+    scene = state.CONVERSATION_SCENE.get(conversation)
     if scene is None:
         others = [npc_id for npc_id in spoken if npc_id != speaker_id]
         names = campaign_db.names_of(others)
-        squad = set(PLAYER_CONTEXT.get("squad") or [])
-        player = speaker or PLAYER_CONTEXT
+        squad = set(state.PLAYER_CONTEXT.get("squad") or [])
+        player = speaker or state.PLAYER_CONTEXT
         scene = fill_prompt(
             "prompt_chat_scene.txt",
             **scene_values(player, player_name),
             npc=npc_scene(ctx_dict or primary_data, primary_data, player_name, met, [names[i] for i in others if names.get(i) in squad], player.get("stats") or {}),
         )
-        CONVERSATION_SCENE.clear()
-        CONVERSATION_SCENE[conversation] = scene
+        state.CONVERSATION_SCENE.clear()
+        state.CONVERSATION_SCENE[conversation] = scene
     # Read on each turn, not with the scene, so a memory that the distillation writes during a conversation reaches the next turn
     memories = chat_prompt.memories_block(campaign_db.memories_of(primary_id, chat_prompt.MEMORY_LIMIT), primary_id)
     system = fill_prompt("prompt_chat_template.txt", system_prompt=system_prompt, judgment=judgment, primary_npc=primary_npc, npc_profiles=describe_npc(primary_npc, primary_data, primary_id), scene=scene, memories=memories)
@@ -1578,7 +1302,7 @@ def chat():
     messages = chat_prompt.chat_messages(system, chat_prompt.history_turns(chat_prompt.with_notes(history, notes), primary_id), turn)
 
     content = call_llm("chat", messages)
-    restart_quiet_clock()
+    state.restart_quiet_clock()
     if not content:
         logging.error("CHAT: No reply from the LLM.")
     
@@ -1640,7 +1364,7 @@ def chat():
         if len(content) > 500:
             content = content[:497] + "..."
         
-        player_faction = PLAYER_CONTEXT.get("faction", "None")
+        player_faction = state.PLAYER_CONTEXT.get("faction", "None")
         primary_faction = primary_data.get("Faction", "None")
         record_event_to_history("CHAT", player_name, primary_npc, player_message, actor_faction=player_faction, target_faction=primary_faction)
         record_event_to_history("CHAT", primary_npc, player_name, content, actor_faction=primary_faction, target_faction=player_faction)
@@ -1668,7 +1392,7 @@ def chat():
         if primary_id:
             members = [(npc_id, "speaker" if npc_id in (primary_id, speaker_id) else "overheard", in_squad.get(npc_id, False)) for npc_id, _, _ in copies]
             thread_id = campaign_db.join_thread(current_thread, members, campaign_db.game_time(time_prefix))
-            CURRENT_THREAD.update(key=thread_key, id=thread_id, replied=time.monotonic())
+            state.CURRENT_THREAD.update(key=thread_key, id=thread_id, replied=time.monotonic())
         for npc_id, name, new_lines in copies:
             campaign_db.append_dialogue(npc_id, new_lines, char_datas[npc_id], thread_id)
             if npc_id == primary_id and judgment_value:
@@ -1696,7 +1420,7 @@ def record_event_to_history(etype, actor, target, msg, actor_faction="None", tar
     global EVENT_THROTTLE, LAST_STATE_LOG
     if not msg: return
     
-    p_fact = PLAYER_CONTEXT.get('faction', 'Nameless')
+    p_fact = state.PLAYER_CONTEXT.get('faction', 'Nameless')
     a_fact_display = actor_faction
     if actor_faction == "Nameless" or actor_faction == p_fact:
         a_fact_display = f"Player's Squad: {p_fact}"
@@ -1709,8 +1433,8 @@ def record_event_to_history(etype, actor, target, msg, actor_faction="None", tar
     target_part = f"{target} ({t_fact_display})" if t_fact_display and t_fact_display != "None" else target
     
     if when is None:
-        env = PLAYER_CONTEXT.get("environment", {})
-        when = {**PLAYER_CONTEXT, "town": env.get("town_name", "") if isinstance(env, dict) else ""}
+        env = state.PLAYER_CONTEXT.get("environment", {})
+        when = {**state.PLAYER_CONTEXT, "town": env.get("town_name", "") if isinstance(env, dict) else ""}
     location = f" @ {when['town']}" if when.get("town") else ""
     
     time_str = get_current_time_prefix(when).strip()
@@ -1751,7 +1475,7 @@ def record_event_to_history(etype, actor, target, msg, actor_faction="None", tar
 
 def generate_global_narrative_thread():
     # A rumor without a game time is never culled
-    if "day" not in PLAYER_CONTEXT:
+    if "day" not in state.PLAYER_CONTEXT:
         logging.debug("NARRATIVE: No game time yet, so no synthesis.")
         return None
     settings = load_settings()
@@ -1793,7 +1517,7 @@ def generate_global_narrative_thread():
     if rumor_lines:
         past_rumors_block = "\nPREVIOUS RUMORS (Do NOT repeat these):\n" + "\n".join(rumor_lines[-5:])
 
-    p_fact = PLAYER_CONTEXT.get("faction", "The Nameless")
+    p_fact = state.PLAYER_CONTEXT.get("faction", "The Nameless")
     
     prompt = fill_prompt("prompt_world_synthesis.txt", events_text=events_text, past_rumors_block=past_rumors_block, p_fact=p_fact)
 
@@ -1824,7 +1548,7 @@ def generate_global_narrative_thread():
                 campaign_db.add_rumor(rumor_tagged)
                 logging.info(f"NARRATIVE: Generated and saved new global event: {rumor_tagged}")
                 notice = "A new world rumor is spreading."
-                send_to_pipe("NOTIFY: " + LOCALIZATION_CONFIG.get(language, {}).get(notice, notice))
+                send_to_pipe("NOTIFY: " + state.LOCALIZATION_CONFIG.get(language, {}).get(notice, notice))
                 return rumor_tagged
             except Exception as e:
                 logging.error(f"NARRATIVE: Cannot save the rumor: {e}")
@@ -1897,9 +1621,8 @@ def events_content():
 def take_report(player, events):
     """Keeps the player's context and records the game events that a request from the plugin carries. The plugin sends
     neither on a timer, so the player's context is the one of the latest request."""
-    global PLAYER_CONTEXT
     if player:
-        PLAYER_CONTEXT = player
+        state.PLAYER_CONTEXT = player
         note_faction(player, is_player=True)
     for e in events or []:
         record_event_to_history(e.get("type", "EVENT"), e.get("actor", "Unknown"), e.get("target", "None"), e.get("msg", ""),
@@ -1909,59 +1632,38 @@ def take_report(player, events):
 def game_report():
     data = request.get_json(silent=True) or {}
     take_report(data.get("player"), data.get("events"))
-    GAME_REPORTED.set()
+    state.GAME_REPORTED.set()
     return jsonify({"status": "ok"})
 
 def report_from_game(timeout=5):
     """Asks the game for a report and waits for it. False when no report comes, for example from the main menu."""
-    GAME_REPORTED.clear()
+    state.GAME_REPORTED.clear()
     send_to_pipe("REPORT:")
-    return GAME_REPORTED.wait(timeout)
+    return state.GAME_REPORTED.wait(timeout)
 
 
 @app.route('/context', methods=['GET'])
 def get_context():
     last_npc = None
-    if LIVE_CONTEXTS:
-        last_npc_id = list(LIVE_CONTEXTS.keys())[-1]
-        last_npc = LIVE_CONTEXTS[last_npc_id]
+    if state.LIVE_CONTEXTS:
+        last_npc_id = list(state.LIVE_CONTEXTS.keys())[-1]
+        last_npc = state.LIVE_CONTEXTS[last_npc_id]
     
     elapsed = SYNTHESIS_STATUS.get("elapsed", 0)
     interval = SYNTHESIS_STATUS.get("interval", 60)
 
     return jsonify({
         "status": "ok",
-        "player": PLAYER_CONTEXT or LAST_STATE_LOG.get("player", {}),
+        "player": state.PLAYER_CONTEXT or LAST_STATE_LOG.get("player", {}),
         "npc": last_npc or {},
-        "campaign": ACTIVE_CAMPAIGN,
+        "campaign": state.ACTIVE_CAMPAIGN,
         # Both counts only grow, so the sum changes when either does
-        "writes": campaign_db.writes + WRITE_REQUESTS,
+        "writes": campaign_db.writes + state.WRITE_REQUESTS,
         "synthesis": {
             "elapsed": elapsed,
             "interval": interval
         }
     })
-
-def settings_page_values(settings):
-    return {
-        "enable_ambient": settings["enable_ambient"],
-        "ambient_timer": settings["radiant_delay"],
-        "synthesis_timer": settings["synthesis_interval_minutes"],
-        "dialogue_speed": settings["dialogue_speed_seconds"],
-        "bubble_life": settings["bubble_life"],
-        "radii": {
-            "radiant": settings["radiant_range"],
-            "talk": settings["talk_radius"],
-            "yell": settings["yell_radius"]
-        },
-        "language": settings["language"],
-        "chat_hotkey": settings["chat_hotkey"],
-        "enable_welcome": settings["enable_welcome"],
-        "open_web_panel_on_start": settings["open_web_panel_on_start"],
-        "log_level": log_setup.parse_level(settings["log_level"]),
-        "bio_interactions": settings["bio_interactions"],
-        "conversation_timeout_minutes": settings["conversation_timeout_minutes"]
-    }
 
 @app.route('/settings/defaults')
 def settings_defaults():
@@ -1986,10 +1688,10 @@ def settings_endpoint():
         return jsonify({
             "status": "ok",
             **settings_page_values(settings),
-            "supported_languages": list(LOCALIZATION_CONFIG.keys()),
+            "supported_languages": list(state.LOCALIZATION_CONFIG.keys()),
             "chat_hotkeys": CHAT_HOTKEYS,
             "log_levels": list(log_setup.LEVELS),
-            "ui_translation": LOCALIZATION_CONFIG.get(settings["language"], {})
+            "ui_translation": state.LOCALIZATION_CONFIG.get(settings["language"], {})
         })
 
     logging.debug(f"SETTINGS: Update request: {json.dumps(data)}")
@@ -2024,7 +1726,7 @@ def settings_endpoint():
     lang = data.get("language")
     if lang is not None:
         changes["language"] = lang
-        send_to_pipe("APPLY_TRANSLATION: " + json.dumps({"ui_translation": LOCALIZATION_CONFIG.get(lang, {})}))
+        send_to_pipe("APPLY_TRANSLATION: " + json.dumps({"ui_translation": state.LOCALIZATION_CONFIG.get(lang, {})}))
         logging.info(f"SETTINGS: Language set to {lang}")
 
     hotkey = data.get("chat_hotkey")
@@ -2097,8 +1799,8 @@ def settings_endpoint():
     campaign = data.get("current_campaign")
     if campaign:
         if switch_campaign(campaign):
-            changes["current_campaign"] = ACTIVE_CAMPAIGN
-            logging.info(f"CAMPAIGN: Switched to {ACTIVE_CAMPAIGN}")
+            changes["current_campaign"] = state.ACTIVE_CAMPAIGN
+            logging.info(f"CAMPAIGN: Switched to {state.ACTIVE_CAMPAIGN}")
 
     if changes:
         save_settings(changes)
@@ -2126,16 +1828,15 @@ def create_campaign(name, template):
     return safe_name
 
 def switch_campaign(name):
-    global ACTIVE_CAMPAIGN, LIVE_CONTEXTS
     cdir = os.path.join(CAMPAIGNS_DIR, name)
     if not name or os.path.exists(cdir):
-        ACTIVE_CAMPAIGN = name
+        state.ACTIVE_CAMPAIGN = name
         save_settings({"current_campaign": name})
-        LIVE_CONTEXTS.clear()
-        SEEN_FACTIONS.clear()
-        CONVERSATION_SCENE.clear()
-        CURRENT_THREAD.clear()
-        restart_quiet_clock()
+        state.LIVE_CONTEXTS.clear()
+        state.SEEN_FACTIONS.clear()
+        state.CONVERSATION_SCENE.clear()
+        state.CURRENT_THREAD.clear()
+        state.restart_quiet_clock()
         load_campaign_config()
         return True
     return False
@@ -2219,7 +1920,7 @@ def campaign_names():
 
 @app.route('/api/campaigns', methods=['GET'])
 def list_campaigns():
-    campaigns = [{"name": name, "active": name == ACTIVE_CAMPAIGN} for name in campaign_names()]
+    campaigns = [{"name": name, "active": name == state.ACTIVE_CAMPAIGN} for name in campaign_names()]
     return jsonify({"status": "ok", "campaigns": campaigns, "refusal": campaign_db.unavailable_reason(), "templates": world_template.listing(WORLD_TEMPLATES_DIR, USER_TEMPLATES_DIR), "default_template": DEFAULT_TEMPLATE})
 
 @app.route('/api/campaigns', methods=['POST'])
@@ -2242,7 +1943,7 @@ def switch_campaign_from_web():
         return jsonify({"status": "error", "message": f"There is no campaign named {name}."}), 404
     switch_campaign(name)
     logging.info(f"CAMPAIGN: Switched to '{name}' from the web app")
-    return jsonify({"status": "ok", "current": ACTIVE_CAMPAIGN})
+    return jsonify({"status": "ok", "current": state.ACTIVE_CAMPAIGN})
 
 @app.route('/api/campaigns/delete', methods=['POST'])
 def delete_campaign():
@@ -2250,7 +1951,7 @@ def delete_campaign():
     names = campaign_names()
     if name not in names:
         return jsonify({"status": "error", "message": f"There is no campaign named {name}."}), 404
-    if name == ACTIVE_CAMPAIGN:
+    if name == state.ACTIVE_CAMPAIGN:
         switch_campaign(next((other for other in names if other != name), ""))
     import shutil
     try:
@@ -2259,7 +1960,7 @@ def delete_campaign():
         logging.error(f"CAMPAIGN: Cannot delete the campaign '{name}': {e}")
         return jsonify({"status": "error", "message": f"Cannot delete {name}: {e}"}), 500
     logging.info(f"CAMPAIGN: Deleted the campaign '{name}' from the web app")
-    return jsonify({"status": "ok", "current": ACTIVE_CAMPAIGN})
+    return jsonify({"status": "ok", "current": state.ACTIVE_CAMPAIGN})
 
 @app.route('/api/campaign', methods=['GET'])
 def get_active_campaign():
@@ -2270,7 +1971,7 @@ def get_active_campaign():
             rumors.append({"id": rumor_id, "line": line, "text": match.group(1).strip() if match else line})
         return jsonify({
             "status": "ok",
-            "name": ACTIVE_CAMPAIGN,
+            "name": state.ACTIVE_CAMPAIGN,
             "events": [{"id": event_id, "line": line} for event_id, line in campaign_db.events()],
             "rumors": rumors,
             "threads": [
@@ -2285,12 +1986,12 @@ def get_active_campaign():
             ],
         })
     except campaign_db.CampaignUnavailable as e:
-        return jsonify({"status": "error", "name": ACTIVE_CAMPAIGN, "message": str(e)}), 409
+        return jsonify({"status": "error", "name": state.ACTIVE_CAMPAIGN, "message": str(e)}), 409
 
 def campaign_write(data):
     """An error reply when the player switched the campaign in game after the page loaded it, else None."""
-    if data.get("campaign") != ACTIVE_CAMPAIGN:
-        return jsonify({"status": "error", "message": f"The active campaign is now {ACTIVE_CAMPAIGN}. Discard to load it."}), 409
+    if data.get("campaign") != state.ACTIVE_CAMPAIGN:
+        return jsonify({"status": "error", "message": f"The active campaign is now {state.ACTIVE_CAMPAIGN}. Discard to load it."}), 409
     return None
 
 @app.route('/api/campaign/canon', methods=['GET'])
@@ -2298,7 +1999,7 @@ def get_campaign_canon():
     try:
         return jsonify({
             "status": "ok",
-            "name": ACTIVE_CAMPAIGN,
+            "name": state.ACTIVE_CAMPAIGN,
             "template": campaign_db.template_info(),
             "bio_interactions": load_settings()["bio_interactions"],
             "overview": campaign_db.overview(),
@@ -2308,7 +2009,7 @@ def get_campaign_canon():
                 for f in campaign_db.list_factions()
             ],
             "characters": [
-                {"id": npc_id, "data": {"game_id": npc_id.removeprefix("u:"), "profile": profile}, "origin": origin, "updated_at": updated_at, "current_faction": LIVE_CONTEXTS.get(npc_id, {}).get("faction")}
+                {"id": npc_id, "data": {"game_id": npc_id.removeprefix("u:"), "profile": profile}, "origin": origin, "updated_at": updated_at, "current_faction": state.LIVE_CONTEXTS.get(npc_id, {}).get("faction")}
                 for (npc_id,), profile, origin, updated_at in campaign_db.list_records("character")
             ],
             "entities": [
@@ -2317,7 +2018,7 @@ def get_campaign_canon():
             ],
         })
     except campaign_db.CampaignUnavailable as e:
-        return jsonify({"status": "error", "name": ACTIVE_CAMPAIGN, "message": str(e)}), 409
+        return jsonify({"status": "error", "name": state.ACTIVE_CAMPAIGN, "message": str(e)}), 409
 
 def record_refusal(errors):
     return jsonify({"status": "error", "errors": errors}), 400
@@ -2378,7 +2079,7 @@ def save_campaign_record():
             return jsonify({"status": "error", "message": f"The {kind} {name} changed after the page loaded it, for example in game. Discard to load it again."}), 409
     else:
         return record_refusal([{"field": ["kind"], "message": f"{kind} is not a kind of record."}])
-    logging.info(f"CAMPAIGN: Saved the {kind} {record_id or ''} of '{ACTIVE_CAMPAIGN}' from the web app")
+    logging.info(f"CAMPAIGN: Saved the {kind} {record_id or ''} of '{state.ACTIVE_CAMPAIGN}' from the web app")
     return jsonify({"status": "ok", "id": record_id, "warnings": warnings})
 
 def bio_refusal(data):
@@ -2456,7 +2157,7 @@ def delete_campaign_record():
         campaign_db.delete_record("entity", (data.get("category"), record_id))
     else:
         return record_refusal([{"field": ["kind"], "message": f"{kind} is not a kind of record."}])
-    logging.info(f"CAMPAIGN: Deleted the {kind} {record_id} of '{ACTIVE_CAMPAIGN}' from the web app")
+    logging.info(f"CAMPAIGN: Deleted the {kind} {record_id} of '{state.ACTIVE_CAMPAIGN}' from the web app")
     return jsonify({"status": "ok"})
 
 @app.route('/api/campaign/rumors', methods=['POST'])
@@ -2526,27 +2227,27 @@ def cull_from_game():
 
 def cull_future_data():
     # Without a game, day 0 would count as now, and the cull would delete the whole history
-    if "day" not in PLAYER_CONTEXT:
+    if "day" not in state.PLAYER_CONTEXT:
         return jsonify({"status": "error", "message": "Cull needs the game running, because it deletes what is dated after the current game time."}), 409
-    day, hour, minute = int(PLAYER_CONTEXT["day"]), int(PLAYER_CONTEXT.get("hour", 0)), int(PLAYER_CONTEXT.get("minute", 0))
+    day, hour, minute = int(state.PLAYER_CONTEXT["day"]), int(state.PLAYER_CONTEXT.get("hour", 0)), int(state.PLAYER_CONTEXT.get("minute", 0))
     culled = campaign_db.cull_after(day, hour, minute)
     # The player loaded an earlier save, so the next chat starts a conversation of its own
-    CURRENT_THREAD.clear()
-    restart_quiet_clock()
-    logging.info(f"CAMPAIGN: Culled {culled['dialogue']} dialogue lines, {culled['event']} events, and {culled['rumor']} rumors after [Day {day}, {hour:02d}:{minute:02d}] in '{ACTIVE_CAMPAIGN}'")
+    state.CURRENT_THREAD.clear()
+    state.restart_quiet_clock()
+    logging.info(f"CAMPAIGN: Culled {culled['dialogue']} dialogue lines, {culled['event']} events, and {culled['rumor']} rumors after [Day {day}, {hour:02d}:{minute:02d}] in '{state.ACTIVE_CAMPAIGN}'")
     return jsonify({"status": "ok", "time": f"Day {day}, {hour:02d}:{minute:02d}", "culled": culled})
 
 @app.route('/write_bio', methods=['POST'])
 def write_library_bio():
     data = request.get_json(silent=True) or {}
-    campaign, sid = ACTIVE_CAMPAIGN, str(data.get("sid") or "")
+    campaign, sid = state.ACTIVE_CAMPAIGN, str(data.get("sid") or "")
     profile = campaign_db.get_character(sid)
     if not profile:
         return jsonify({"status": "error", "message": "The character has no profile."}), 404
     data["profile"] = profile
     refused = bio_refusal(data)
     if refused: return refused
-    faction = describe_faction(profile.get("Faction"), (LIVE_CONTEXTS.get(sid) or {}).get("factionID"))
+    faction = describe_faction(profile.get("Faction"), (state.LIVE_CONTEXTS.get(sid) or {}).get("factionID"))
     # The Library sends the campaign back with Keep, because the same npc_id can name another character in another campaign
     return bio_reply(data, recorded_history(sid), describe_race(profile.get("Race", "Unknown")), faction, campaign=campaign)
 
@@ -2554,7 +2255,7 @@ def write_library_bio():
 def read_library_bio():
     """Answers in the shape of /write_bio, so Edit Bio in the Dialogue Library opens the same editor as Generate Bio."""
     data = request.get_json(silent=True) or {}
-    campaign, sid = ACTIVE_CAMPAIGN, str(data.get("sid") or "")
+    campaign, sid = state.ACTIVE_CAMPAIGN, str(data.get("sid") or "")
     profile = campaign_db.get_character(sid)
     if not profile:
         return jsonify({"status": "error", "message": "The character has no profile."}), 404
@@ -2735,7 +2436,7 @@ def list_characters():
     data = request.json or {}
     sort_mode = data.get("sort", "alphabetical") # alphabetical or latest
     
-    logging.debug(f"LIBRARY: Listing the characters of '{ACTIVE_CAMPAIGN}' (sort: {sort_mode})")
+    logging.debug(f"LIBRARY: Listing the characters of '{state.ACTIVE_CAMPAIGN}' (sort: {sort_mode})")
     # Leaves out the seeded characters that nobody has met, so the template does not fill the library, and the characters
     # that only overheard chats, because every NPC near a chat overhears it
     final_list = [
@@ -2797,7 +2498,7 @@ def synthesis_loop():
             for _ in range(6):
                 time.sleep(10)
             
-            speed = PLAYER_CONTEXT.get("gamespeed", 1.0)
+            speed = state.PLAYER_CONTEXT.get("gamespeed", 1.0)
             
             if speed > 0.1:
                 elapsed_minutes += 1
@@ -2823,7 +2524,7 @@ def memory_loop():
     distilled = None
     while True:
         time.sleep(10)
-        since = QUIET_SINCE
+        since = state.QUIET_SINCE
         if since == distilled or time.monotonic() - since < quiet_seconds():
             continue
         distilled = since
@@ -2864,44 +2565,6 @@ def player2_ping_loop():
         time.sleep(60)
 
 threading.Thread(target=player2_ping_loop, daemon=True).start()
-
-def monitor_kenshi_process():
-    """The plugin launches the server, so the parent is Kenshi; exit when it does."""
-    try:
-        ppid = os.getppid()
-        if ppid <= 1:
-            logging.info("SYSTEM: Parent PID is 0 or 1, skipping auto-shutdown monitor.")
-            return
-            
-        logging.info(f"SYSTEM: Monitoring parent process (PID {ppid}) for auto-shutdown.")
-        
-        PROCESS_QUERY_INFORMATION = 0x0400
-        STILL_ACTIVE = 259
-        
-        kernel32 = ctypes.windll.kernel32
-        
-        while True:
-            handle = kernel32.OpenProcess(PROCESS_QUERY_INFORMATION, False, ppid)
-            if not handle:
-                logging.info(f"SYSTEM: Parent Kenshi process (PID {ppid}) no longer found. Shutting down server.")
-                os._exit(0)
-                
-            exit_code = ctypes.c_ulong()
-            if kernel32.GetExitCodeProcess(handle, ctypes.byref(exit_code)):
-                if exit_code.value != STILL_ACTIVE:
-                    kernel32.CloseHandle(handle)
-                    logging.info(f"SYSTEM: Parent Kenshi process (PID {ppid}) has exited. Shutting down server.")
-                    os._exit(0)
-            else:
-                kernel32.CloseHandle(handle)
-                logging.warning(f"SYSTEM: Failed to query parent process state. Assuming it closed. Shutting down server.")
-                os._exit(0)
-            
-            kernel32.CloseHandle(handle)
-            time.sleep(5) 
-            
-    except Exception as e:
-        logging.error(f"SYSTEM: Error in kenshi process monitor: {e}")
 
 threading.Thread(target=monitor_kenshi_process, daemon=True).start()
 
