@@ -27,7 +27,6 @@ A Campaign Dialogue subtab of the Editor shows the dialogue of the active campai
 
 - The subtab lists the same characters as the Dialogue Library ([architecture.md](../info/architecture.md#characters)), NPCs and player characters alike. The player searches the list by name.
 - The subtab shows the dialogue history of the selected character and sets its favorite.
-- The subtab also shows the memories of the selected character ([proposal_thread_distillation.md](proposal_thread_distillation.md#5-views)).
 
 ## 4. Phases and verification
 

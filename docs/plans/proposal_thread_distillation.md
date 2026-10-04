@@ -103,14 +103,14 @@ Stick asked Jorge for work. Jorge offered a job as a guard at the bar for 200 ca
 Izumi asked the barman where to sell skeleton parts. The barman named no buyer and told Izumi to speak more quietly.
 ```
 
-## 5. Views
+## 5. Memory viewer
 
-The Dialogue Library and the Campaign Dialogue subtab ([proposal_campaign_data.md](proposal_campaign_data.md#3-campaign-dialogue)) show the memories of a character. Each view follows the existing design of its UI.
+A Campaign Memories subtab of the Editor lists the memories of the active campaign. The Dialogue Library and the Campaign Dialogue subtab do not show memories.
 
-- The Dialogue Library gets a MEMORIES block between the profile and the conversation log, with a title as the PERSONALITY block has. The server builds the text of `/history`, so the plugin does not change.
-- The Campaign Dialogue subtab shows the memories above the dialogue history of the selected character.
-- A view shows the memories that the chat prompt of the character reads: the newest 10, the oldest first. The view therefore shows what the NPC remembers, and the in-game window, which freezes on a long text, gets no more than 10.
-- The header in a view names the character in the third person: `[Day 3, 14:05] Jorge spoke with Stick. Izumi heard it.` The view builds the names from the IDs, as the prompt does.
+- The subtab follows the event log of Campaign Events: a search field above a table of 50 rows on each page, the newest first.
+- Each row shows the game time, the speakers, the overhearers, and the text of a memory. The names are the current names, built from the IDs, as in the prompt.
+- The search matches the text of a memory and the names of its members, with case ignored. The player can therefore find a memory by what was said or by who has it.
+- The subtab shows every memory, not only the newest 10 of each character that the prompt reads.
 
 ## 6. Phases and verification
 
@@ -119,9 +119,9 @@ The Dialogue Library and the Campaign Dialogue subtab ([proposal_campaign_data.m
 | 1. Threads | [proposal_dialogue_threads.md](proposal_dialogue_threads.md) | As in that proposal |
 | 2. Distillation | The quiet period, the `memory` task and prompt, and the storage of [section 2](#2-distillation) and [section 3](#3-storage) | 3 minutes after the last reply, each thread of the chat has a memory, and the next exchange with the same NPC starts a new thread. A chat during a distillation gets its reply after one call at most. A failed call leaves its thread pending. A cull deletes the memories after the cut. |
 | 3. Memories in the chat prompt | The prompt of [section 4](#4-prompt) | The chat prompt of the NPC, the squad member, and an overhearer holds the memory and no line of the thread. An NPC whose threads all have memories gets no history turns. A memory written during a conversation reaches the next turn. After a rename, the next prompt has the new name in the header and the text of each memory. |
-| 4. Views | The memories in the Dialogue Library and the Campaign Dialogue subtab of [section 5](#5-views) | Both views show the memories that the chat prompt of the character reads, with the third-person header and the current names. |
+| 4. Memory viewer | The Campaign Memories subtab of [section 5](#5-memory-viewer) | The subtab lists every memory with its speakers, its overhearers, and the current names. A search for a word of a memory, or for the name of a member, finds the memory. |
 
-Phases 2 and 3 each need the phase before them. Phase 4 needs phase 2, and its subtab part needs the Campaign Dialogue subtab ([proposal_campaign_data.md](proposal_campaign_data.md#4-phases-and-verification)).
+Phases 2 and 3 each need the phase before them. Phase 4 needs phase 2.
 
 1. `server/tests/test_chat_prompt.py` covers the history without the lines of a thread with a memory and without banter, the header for a speaker and for an overhearer, the limit of 10 and the order, and a request with no history turns. It also covers the name marks: whole words, the longest name first, a name that two members share, and a rename.
 2. `server/tests/test_campaign_db.py` covers a memory that stays after the trim of its last line, the order of the pending threads, and a cull that deletes a memory after the cut and makes its thread pending.
