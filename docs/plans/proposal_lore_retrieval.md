@@ -13,7 +13,7 @@ Retrieval has two steps:
 
 The memories use the same two steps ([section 6](#6-memories)). The system message keeps the newest memories of the conversations in which the NPC was a speaker. The search finds the older memories and the memories of the conversations that the NPC overheard.
 
-Two limits keep a wrong hit cheap and the context small. A turn has a number of slots that the player sets, 3 by default. The memories that the message finds take the first slots, newest first, up to a cap that the player sets, and lore entries fill the slots that are left ([section 6](#order-and-limit)). The hits go only into the last user message, so they never pile up in the history ([section 7](#7-prompt)).
+Two limits keep a wrong hit cheap and the context small. A turn has a number of slots that the player sets, 3 by default. The memories that the message finds take the first slots, newest first, up to a cap that the player sets, and lore entries fill the slots that are left ([section 6](#order-and-limit)). A hit that only content search finds does not come back for a number of turns that the player sets, 1 by default. The hits go only into the last user message, so they never pile up in the history ([section 7](#7-prompt)).
 
 Non-goals:
 
@@ -77,9 +77,10 @@ Rejected:
 
 ### Starting memories
 
-The system message gives the NPC the newest 10 memories of the chat threads in which it was a speaker, oldest first. Today it also gives the memories of the threads that the NPC only overheard ([architecture.md](../info/architecture.md#conversation-memories)).
+The system message gives the NPC the newest 5 memories of the chat threads in which it was a speaker, oldest first. Today it gives the newest 10, also of the threads that the NPC only overheard ([architecture.md](../info/architecture.md#conversation-memories)).
 
-- An NPC that stands near many chats, such as a barman, overhears more conversations than it has. Its overheard memories would push its own conversations out of the newest 10.
+- The search finds the older memories, so the system message needs fewer of them, and each memory there costs its tokens on every turn.
+- An NPC that stands near many chats, such as a barman, overhears more conversations than it has. Its overheard memories would push its own conversations out of the newest 5.
 - An overheard memory reaches the prompt only when the player's message finds it.
 - The system message changes only when the server writes a memory of a thread in which the NPC spoke, so the memory of a chat that the NPC overheard no longer costs a miss of the prompt cache.
 - The Dialogue Library and the bio prompt still read every memory of the character, also the overheard ones.
@@ -116,12 +117,15 @@ The 2 words and the ratio are starting values. No campaign holds enough memories
 
 ### Order and limit
 
+- A hit that only content search finds is held back when it was a hit in one of the last N turns of the conversation, where N is the Retrieval cooldown of the Settings page (`retrieval_cooldown_turns`, default 1). A name match always passes. A held-back hit leaves its slot to the next hit.
+- A content hit comes from shared words, not from the topic that the player asked about, so the same words in the next lines would bring it back on each turn, and a model tends to talk about the text that it gets. A name match passes because the player asked about it, and the hits of a turn are not in the next request ([section 7](#7-prompt)).
+- The server keeps the hits of the last N turns for the pair of the speaker and the NPC. A message from another pair, or a campaign switch, drops them. A Retrieval cooldown of 0 turns the guard off.
 - The memories that the two steps find come first, newest first, up to the Memory slots of the Settings page (`memory_slots`, default 3). A memory that both steps find counts once.
 - The lore entries of [section 5](#5-order-and-limit) follow, in their own order, until the turn holds as many hits as the Retrieval slots of the Settings page (`retrieval_slots`, default 3). With the defaults, a message that finds 3 memories therefore gets no lore.
 - A memory is what this NPC lived through, and every NPC gets the same lore entries for the same message, so a memory goes first. A newer memory goes before an older one, because it is closer to how things stand now.
 - A slot costs up to about 175 tokens on each turn, so a player with a small local model can lower the Retrieval slots. A lower Memory slots value keeps slots for the lore when a message finds many memories.
 - 0 Retrieval slots turns the search off, and 0 Memory slots gives every slot to the lore. Memory slots above Retrieval slots count as Retrieval slots, so the page does not check one value against the other.
-- The server keeps both values in the INI with the other settings and does not send them to the plugin, which does not use them.
+- The server keeps the three values in the INI with the other settings and does not send them to the plugin, which does not use them.
 - The text of a memory ends as in [section 5](#5-order-and-limit), because the player can edit a memory to any length.
 - Each memory gets the header from the view of the NPC that the system message gives it, such as `[Day 3, 14:05] You overheard Stick and Jorge.` (`chat_prompt.memories_block`).
 
@@ -129,7 +133,6 @@ The 2 words and the ratio are starting values. No campaign holds enough memories
 
 - The entries and the memories go into the last user message (`prompt_chat_turn.txt`), before the player's line. They change on each turn, and the cache can serve only an identical start of a request, so they stay out of the system message and the history ([architecture.md](../info/architecture.md#prompts)).
 - The stored dialogue holds only the lines, so the entries and the memories of a turn are gone from the next request. The lore and the memories of a conversation therefore cost the same on each turn and do not grow.
-- When a message finds no entry and no memory, the turn repeats the entries and the memories of the message before it, so "Tell me more about it" keeps the lore of the topic. A message that finds either one has a topic of its own, so it drops both. The hits carry for one message only, so small talk after a topic does not keep the lore in front of the NPC. The server keeps the entries and the memories of the last message for the pair of the speaker and the NPC. A message from another pair, or a campaign switch, drops them.
 - An animal gets no search, because it replies only in actions. It keeps its starting memories. Banter gets no search, because it has no message from the player.
 - Each memory gives its header and its text, and each entry gives its name, its kind, and its text. The memories come before the entries, in the order of [section 6](#order-and-limit). The block and the heading of each list stay in the code, as for the rumors, so an empty list leaves no heading, and two empty lists leave no block.
 - The block is in parentheses and starts with "Background, not said aloud", as the final instruction of the turn is in parentheses. The block is part of the user message, so without this mark a model can take the lore or a memory for words of the player. Some chat templates accept a system message only at the start of a chat, so the block cannot be a system message of its own.
@@ -137,8 +140,9 @@ The 2 words and the ratio are starting values. No campaign holds enough memories
 
 Rejected:
 
-- A cache that skips the entries that the conversation already sent. The entries of a turn are not in the next request, so a skipped entry would be missing: a second question about Admag would get no lore about Admag.
-- Entries that stay in the history, so that the cache above could work. The context would grow with each new entry, and the stored dialogue, which the Dialogue Library and the bio prompt read, would hold lore.
+- A guard that also holds back a name match. The entries of a turn are not in the next request, so a held-back entry would be missing: a second question about Admag would get no lore about Admag.
+- A carry of the hits of the message before to a message that finds nothing, such as "Tell me more about it". It would repeat the hits that the guard holds back. The NPC answers a vague follow-up from its own last reply.
+- Entries that stay in the history, so that the guard could hold back every repeat. The context would grow with each new entry, and the stored dialogue, which the Dialogue Library and the bio prompt read, would hold lore.
 
 Example: Izumi speaks to Jorge, whose memories are all in the system message.
 
@@ -174,14 +178,14 @@ A Test Search panel on the Campaign Canon and Templates subtabs of the Editor sh
 - The panel also lists each word of the line that did not search the lore, with the reason: a common English word, not a word of the lore, or a word in too many entries.
 - On Campaign Canon, the player can also pick a member of a chat thread with a memory, from the threads that `GET /api/campaign` already returns. The panel then lists the hits of a chat with that character in their prompt order: first the memories, each with how it was found, by a name or by the words that found it, then the entries in the slots that are left. It skips the memories that the system message of the character holds, as a chat does. A template has no memories.
 - Campaign Canon searches the active campaign, and Templates searches the open template. The search reads the saved records, so an unsaved edit counts only after Save.
-- The panel skips no entry that the system message of a chat would hold, and it does not repeat the hits of the message before.
+- The panel skips no entry that the system message of a chat would hold, and it has no earlier turns, so the guard holds back no hit.
 - The routes are `GET /api/campaign/search?message=...&npc=...`, where `npc` is optional, and `GET /api/templates/<name>/search?message=...`. A search changes nothing, and a POST under `/api/` counts as a write, which makes every open page refresh (`count_write_requests` in `server/scripts/kenshi_llm_server.py`).
 
 ## 9. Verification
 
 1. `server/tests/test_retrieval.py` covers each rule of [section 3](#3-name-matching), [section 4](#4-content-search), and [section 5](#5-order-and-limit): case, punctuation, and the possessive; the final "s"; the leading "the"; the order of the words; a longer match over a shorter one; two records with one name; a word outside the vocabulary; a word in more than a tenth of the records; the score cut; a record that both steps find; an empty text; the records that the system message holds; the limit and the order; the cut of a long text; a history title.
-2. `server/tests/test_retrieval.py` covers each rule of [section 6](#6-memories): a member's name; the NPC's own name; a lore name in the text; a lore name whose entry the system message holds; a renamed member; one shared word against two; a word of the NPC's name; the score cut; a memory that both steps find; an overheard memory; a memory that the system message holds; the newest memory first; the lore in the slots that the memories leave; the Memory slots cap; as many memories as Retrieval slots, and no lore; 0 Retrieval slots; 0 Memory slots; Memory slots above Retrieval slots; the cut of a long text.
-3. On an SSR Vanilla campaign with the memories of the examples of [section 7](#7-prompt), these messages give these first hits:
+2. `server/tests/test_retrieval.py` covers each rule of [section 6](#6-memories): a member's name; the NPC's own name; a lore name in the text; a lore name whose entry the system message holds; a renamed member; one shared word against two; a word of the NPC's name; the score cut; a memory that both steps find; an overheard memory; a memory that the system message holds; the newest memory first; the lore in the slots that the memories leave; the Memory slots cap; as many memories as Retrieval slots, and no lore; 0 Retrieval slots; 0 Memory slots; Memory slots above Retrieval slots; a content hit of the last N turns; a name match of the last N turns; a hit older than N turns; a Retrieval cooldown of 0; the cut of a long text.
+3. On an SSR Vanilla campaign with the memories of the examples of [section 7](#7-prompt), these messages, each the first message of a conversation, give these first hits:
 
    | NPC | Message | First hits |
    |---|---|---|
@@ -192,7 +196,7 @@ A Test Search panel on the Campaign Canon and Templates subtabs of the Editor sh
    | Paladin Abel | How are you doing today? | None |
    | Jorge | Did Stick ever find work? | No memory, because the system message holds it |
 
-4. In the server, the system message of an NPC that spoke in one thread and overheard another holds only the memory of the thread in which it spoke. The Dialogue Library of the NPC lists both memories.
+4. In the server, the system message of an NPC that spoke in one thread and overheard another holds only the memory of the thread in which it spoke. The Dialogue Library of the NPC lists both memories. An NPC with 6 memories of threads in which it spoke gets the newest 5 in its system message.
 5. On SSR Vanilla, these messages give no entry: "Where can I buy food?", "How are you doing today?", "I need a doctor.", "My feet are killing me", "Nice weather.", "Want to join my squad?", "Who rules this town?".
 6. On SSR Vanilla, these messages give these first entries:
 
@@ -210,8 +214,8 @@ A Test Search panel on the Campaign Canon and Templates subtabs of the Editor sh
    | Where can I find Tinfist? | Anti-Slavers |
    | Ever met Longen? | Traders Guild |
 
-7. In the server, a message that finds an entry and a memory gives a turn that holds both. The next message, which finds nothing, gives the same entry and memory, and the message after that gives none. The system message of these turns is the same. An entry that Campaign Canon edits shows the edit in the next message, and a renamed entry matches by its new name.
-8. The Settings page saves Retrieval slots and Memory slots to the INI, and Reset to defaults fills 3 for each. The next chat message uses the saved values.
+7. In the server, with the defaults, a message that finds an entry by content only gives a turn that holds it. The next message, which finds the same entry by content only, gives a turn without it, and the message after that gives it again. A message that names the entry gives it on each turn. The system message of these turns is the same. An entry that Campaign Canon edits shows the edit in the next message, and a renamed entry matches by its new name.
+8. The Settings page saves Retrieval slots, Memory slots, and Retrieval cooldown to the INI, and Reset to defaults fills 3, 3, and 1. The next chat message uses the saved values.
 9. On the test search of a new SSR Vanilla campaign, "Any work for a mercenary?" lists Mercenary Guild as found by "mercenary", "work" as not a word of the lore, and "any", "for", and "a" as common English words. The Templates subtab gives the same result for SSR Vanilla. On a campaign with the memories of the examples, "Who keeps the trouble out of here at night?" with Paladin Abel lists the memory of Stick and Jorge as found by "trouble" and "night".
 10. The full server test suite passes.
 
