@@ -13,6 +13,10 @@ import campaign_db
 BEEP_ID = "u:19576-Dialogue.mod"
 GENERIC_ID = "h:2717040896"
 
+def spoken(speaker, *lines):
+    return [(line, speaker) for line in lines]
+
+
 BEEP = {
     "Name": "Beep",
     "Race": "Hive Worker Drone",
@@ -117,14 +121,23 @@ class CharacterTest(CampaignTestCase):
         self.assertEqual(campaign_db.get_character(GENERIC_ID), {**BEEP, "Relation": 9, "ConversationHistory": []})
 
     def test_a_rename_relabels_only_the_lines_of_the_character(self):
-        lines = ["[Day 1, 08:00] Drifter: Hello Zabuza", "[Day 1, 08:00] Zabuza: Zabuza: a fine name.", "Zabuza: No time.", "[Day 2] (Overheard) Zabuza: Hm."]
+        lines = [
+            *spoken("h:1", "[Day 1, 08:00] Drifter: Hello Zabuza"),
+            *spoken(GENERIC_ID, "[Day 1, 08:00] Zabuza: Zabuza: a fine name.", "Zabuza: No time."),
+            *spoken("h:7", "[Day 2] Zabuza: I am another Zabuza."),
+        ]
         campaign_db.append_dialogue(GENERIC_ID, lines, {"Name": "Zabuza"})
         campaign_db.rename_character(GENERIC_ID, "Zabuza", "Poopyhead", "Poopyhead")
         self.assertEqual(campaign_db.get_character(GENERIC_ID), {
             "Name": "Poopyhead",
             "GivenName": "Poopyhead",
-            "ConversationHistory": ["[Day 1, 08:00] Drifter: Hello Zabuza", "[Day 1, 08:00] Poopyhead: Zabuza: a fine name.", "Poopyhead: No time.", "[Day 2] (Overheard) Zabuza: Hm."],
+            "ConversationHistory": ["[Day 1, 08:00] Drifter: Hello Zabuza", "[Day 1, 08:00] Poopyhead: Zabuza: a fine name.", "Poopyhead: No time.", "[Day 2] Zabuza: I am another Zabuza."],
         })
+
+    def test_the_dialogue_keeps_the_speaker_of_each_line(self):
+        campaign_db.append_dialogue(GENERIC_ID, [("Drifter: hi", None), ("Zabuza: Hm.", GENERIC_ID)], {"Name": "Zabuza"})
+        self.assertEqual(campaign_db.dialogue(GENERIC_ID), [("Drifter: hi", None), ("Zabuza: Hm.", GENERIC_ID)])
+        self.assertEqual(campaign_db.dialogue("h:1"), [])
 
     def test_the_names_hold_each_given_name(self):
         campaign_db.upsert_profile(GENERIC_ID, {"Name": "Dust Bandit"})
@@ -133,7 +146,7 @@ class CharacterTest(CampaignTestCase):
 
     def test_concurrent_appends_keep_the_lines_of_both(self):
         campaign_db.upsert_profile(GENERIC_ID, BEEP)
-        threads = [threading.Thread(target=campaign_db.append_dialogue, args=(GENERIC_ID, [f"line {i}"], BEEP)) for i in range(8)]
+        threads = [threading.Thread(target=campaign_db.append_dialogue, args=(GENERIC_ID, spoken(None, f"line {i}"), BEEP)) for i in range(8)]
         for t in threads:
             t.start()
         for t in threads:
@@ -170,12 +183,12 @@ class CharacterTest(CampaignTestCase):
         self.assertFalse(campaign_db.promote_profile("h:1", {"Personality": "Written."}))
 
     def test_append_stores_the_profile_only_when_missing(self):
-        campaign_db.append_dialogue(GENERIC_ID, ["a"], {"Name": "Beep"})
-        campaign_db.append_dialogue(GENERIC_ID, ["b"], {"Name": "Other"})
+        campaign_db.append_dialogue(GENERIC_ID, spoken(None, "a"), {"Name": "Beep"})
+        campaign_db.append_dialogue(GENERIC_ID, spoken(None, "b"), {"Name": "Other"})
         self.assertEqual(campaign_db.get_character(GENERIC_ID), {"Name": "Beep", "ConversationHistory": ["a", "b"]})
 
     def test_a_template_character_keeps_its_canon_profile_in_chat(self):
-        campaign_db.append_dialogue(BEEP_ID, ["hello"], {"Name": "Beep", "Personality": "Generated."})
+        campaign_db.append_dialogue(BEEP_ID, spoken(None, "hello"), {"Name": "Beep", "Personality": "Generated."})
         self.assertEqual(campaign_db.get_character(BEEP_ID), {"Name": "Beep", "Race": "Hive Worker Drone", "ConversationHistory": ["hello"]})
         self.assertEqual([(c["origin"], c["has_dialogue"]) for c in campaign_db.list_characters()], [("seed", True)])
 
@@ -184,14 +197,14 @@ class CharacterTest(CampaignTestCase):
         self.assertEqual({c["npc_id"]: c["origin"] for c in campaign_db.list_characters()}[GENERIC_ID], "game")
 
     def test_dialogue_drops_its_oldest_lines_in_whole_blocks(self):
-        campaign_db.append_dialogue(GENERIC_ID, [f"line {i}" for i in range(300)], BEEP)
+        campaign_db.append_dialogue(GENERIC_ID, spoken(None, *(f"line {i}" for i in range(300))), BEEP)
         self.assertEqual(campaign_db.get_character(GENERIC_ID)["ConversationHistory"], [f"line {i}" for i in range(40, 300)])
-        campaign_db.append_dialogue(GENERIC_ID, ["line 300"], BEEP)
+        campaign_db.append_dialogue(GENERIC_ID, spoken(None, "line 300"), BEEP)
         self.assertEqual(campaign_db.get_character(GENERIC_ID)["ConversationHistory"][0], "line 60")
 
     def test_two_npcs_with_one_name_keep_separate_rows(self):
-        campaign_db.append_dialogue("h:1", ["to the first"], {"Name": "Bob"})
-        campaign_db.append_dialogue("h:2", ["to the second"], {"Name": "Bob"})
+        campaign_db.append_dialogue("h:1", spoken(None, "to the first"), {"Name": "Bob"})
+        campaign_db.append_dialogue("h:2", spoken(None, "to the second"), {"Name": "Bob"})
         self.assertEqual(campaign_db.get_character("h:1")["ConversationHistory"], ["to the first"])
         self.assertEqual(campaign_db.get_character("h:2")["ConversationHistory"], ["to the second"])
 
@@ -201,7 +214,7 @@ class CharacterTest(CampaignTestCase):
         self.assertFalse(campaign_db.character_exists("U:5-mod name.mod"))
 
     def test_a_rename_keeps_the_dialogue_and_the_favorite(self):
-        campaign_db.append_dialogue(GENERIC_ID, ["hello"], BEEP)
+        campaign_db.append_dialogue(GENERIC_ID, spoken(None, "hello"), BEEP)
         campaign_db.toggle_favorite(GENERIC_ID)
         campaign_db.upsert_profile(GENERIC_ID, {"Name": "Bop"})
         character = campaign_db.get_character(GENERIC_ID)
@@ -229,7 +242,7 @@ class EventTest(CampaignTestCase):
         self.assertEqual(campaign_db.recent_events(2), ["event 6", "event 7"])
 
     def test_cull_deletes_only_later_rows(self):
-        campaign_db.append_dialogue(GENERIC_ID, ["[Day 2, 09:59] early", "[Day 2, 10:01] late", "untimed"], BEEP)
+        campaign_db.append_dialogue(GENERIC_ID, spoken(None, "[Day 2, 09:59] early", "[Day 2, 10:01] late", "untimed"), BEEP)
         campaign_db.add_event("[Day 2, 10:00] same minute")
         campaign_db.add_event("[Day 3] next day")
         campaign_db.add_rumor("- [Day 1, 00:00] [RUMOR: old]")

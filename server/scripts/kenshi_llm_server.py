@@ -1214,9 +1214,10 @@ INSTRUCTIONS:
                 speaker_name, _, serial = header.partition('|')
                 speaker_name = speaker_name.strip()
                 time_prefix = get_current_time_prefix()
-                banter.append(f"{time_prefix}{speaker_name}: {msg.strip()}")
+                speaker_id = npc_ids.get(serial.strip())
+                banter.append((f"{time_prefix}{speaker_name}: {msg.strip()}", speaker_id))
                 
-                speaker_faction = memories.get(npc_ids.get(serial.strip()), {}).get("Faction", "None")
+                speaker_faction = memories.get(speaker_id, {}).get("Faction", "None")
                 record_event_to_history("BANTER", speaker_name, "Nearby", msg.strip(), actor_faction=speaker_faction)
 
         for npc_id, d in memories.items():
@@ -1431,8 +1432,8 @@ def chat():
         CONVERSATION_SCENE[conversation] = scene
     system = fill_prompt("prompt_chat_template.txt", system_prompt=system_prompt, judgment=judgment, primary_npc=primary_npc, npc_profiles=describe_npc(primary_npc, primary_data, primary_id), scene=scene)
     turn = fill_prompt("prompt_chat_turn.txt", player_line=full_player_entry, final_instruction=final_instruction)
-    history = chat_prompt.history_window(primary_data["ConversationHistory"], campaign_db.DIALOGUE_BLOCK)
-    messages = chat_prompt.chat_messages(system, chat_prompt.history_turns(history, primary_npc), turn)
+    history = chat_prompt.history_window(campaign_db.dialogue(primary_id), campaign_db.DIALOGUE_BLOCK)
+    messages = chat_prompt.chat_messages(system, chat_prompt.history_turns(history, primary_id), turn)
 
     content = call_llm("chat", messages)
     if not content:
@@ -1508,12 +1509,14 @@ def chat():
             if npc_id not in char_datas:
                 char_datas[npc_id] = get_character_data(name, local_context)
 
-            stored_lines = len(char_datas[npc_id]["ConversationHistory"])
-            char_datas[npc_id]["ConversationHistory"].append(f"{time_prefix}{overheard_tag}{mode_tag}{player_name}: {player_message}")
-            char_datas[npc_id]["ConversationHistory"].append(f"{time_prefix}{overheard_tag}{reply_line}")
+            new_lines = [
+                (f"{time_prefix}{overheard_tag}{mode_tag}{player_name}: {player_message}", speaker.get("npc_id")),
+                (f"{time_prefix}{overheard_tag}{reply_line}", primary_id),
+            ]
+            char_datas[npc_id]["ConversationHistory"].extend(line for line, _ in new_lines)
 
             if npc_id and should_save_profile(name, npc_id, char_datas[npc_id]):
-                campaign_db.append_dialogue(npc_id, char_datas[npc_id]["ConversationHistory"][stored_lines:], char_datas[npc_id])
+                campaign_db.append_dialogue(npc_id, new_lines, char_datas[npc_id])
                 if npc_id == primary_id and relation_delta:
                     new_rel = campaign_db.change_relation(npc_id, relation_delta)
                     logging.info(f"RELATION: {name} personal relation is now {new_rel} (judgment={relation_delta})")

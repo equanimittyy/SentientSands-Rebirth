@@ -42,30 +42,40 @@ class OverhearersTest(unittest.TestCase):
         self.assertEqual(len(chat_prompt.overhearers(self.NEARBY[:1] * 2, 100, set())), 1)
 
 
+BEEP = "u:19576-Dialogue.mod"
+
+
 class HistoryTurnsTest(unittest.TestCase):
     def test_the_npc_lines_are_assistant_turns_without_time_or_name(self):
-        lines = [
-            "[Day 3, 14:01] (Whispered) Drifter: hi",
-            "[Day 3, 14:01] Beep: Beep friend!",
+        entries = [
+            ("[Day 3, 14:01] (Whispered) Drifter: hi", "h:1"),
+            ("[Day 3, 14:01] Beep: Beep friend!", BEEP),
         ]
-        self.assertEqual(chat_prompt.history_turns(lines, "Beep"), [
+        self.assertEqual(chat_prompt.history_turns(entries, BEEP), [
             {"role": "user", "content": "[Day 3, 14:01] (Whispered) Drifter: hi"},
             {"role": "assistant", "content": "Beep friend!"},
         ])
 
     def test_lines_the_npc_heard_are_user_turns_and_merge(self):
-        lines = [
-            "[Day 3, 14:01] Beep: Hello.",
-            "[Day 3, 14:02] (Overheard) Drifter: hey Ruka",
-            "[Day 3, 14:02] Ruka: The sand gets everywhere.",
-            "Beep|1234: an old yell line",
+        entries = [
+            ("[Day 3, 14:01] Beep: Hello.", BEEP),
+            ("[Day 3, 14:02] (Overheard) Drifter: hey Ruka", None),
+            ("[Day 3, 14:02] Ruka: The sand gets everywhere.", "h:2"),
+            ("Beep|1234: an old yell line", BEEP),
         ]
-        self.assertEqual(chat_prompt.history_turns(lines, "beep"), [
+        self.assertEqual(chat_prompt.history_turns(entries, BEEP), [
             {"role": "user", "content": chat_prompt.EARLIER},
             {"role": "assistant", "content": "Hello."},
             {"role": "user", "content": "[Day 3, 14:02] (Overheard) Drifter: hey Ruka\n[Day 3, 14:02] Ruka: The sand gets everywhere."},
             {"role": "assistant", "content": "an old yell line"},
         ])
+
+    def test_a_line_of_another_npc_with_the_same_name_is_a_user_turn(self):
+        entries = [("[Day 3, 14:01] Dust Bandit: Hot today.", "h:2"), ("[Day 3, 14:01] Dust Bandit: Always is.", "h:1")]
+        self.assertEqual([turn["role"] for turn in chat_prompt.history_turns(entries, "h:1")], ["user", "assistant"])
+
+    def test_a_line_without_a_speaker_is_never_the_npc_line(self):
+        self.assertEqual(chat_prompt.history_turns([("Beep: Hello.", None)], None), [{"role": "user", "content": "Beep: Hello."}])
 
     def test_only_lines_that_the_npc_did_not_overhear_count_as_spoken(self):
         self.assertFalse(chat_prompt.has_spoken([]))
@@ -73,26 +83,26 @@ class HistoryTurnsTest(unittest.TestCase):
         self.assertTrue(chat_prompt.has_spoken(["[Day 3, 14:02] (Overheard) Drifter: hey Ruka", "[Day 3, 14:03] Drifter: (Overheard) nothing"]))
 
     def test_an_empty_reply_is_never_empty_content(self):
-        self.assertEqual(chat_prompt.history_turns(["Drifter: hi", "Beep:"], "Beep")[-1], {"role": "assistant", "content": "..."})
+        self.assertEqual(chat_prompt.history_turns([("Drifter: hi", None), ("Beep:", BEEP)], BEEP)[-1], {"role": "assistant", "content": "..."})
 
 
 class ChatMessagesTest(unittest.TestCase):
     def test_the_tail_comes_last(self):
-        turns = chat_prompt.history_turns(["Drifter: hi", "Beep: Hello."], "Beep")
+        turns = chat_prompt.history_turns([("Drifter: hi", None), ("Beep: Hello.", BEEP)], BEEP)
         self.assertEqual(chat_prompt.chat_messages("S", turns, "T")[-1], {"role": "user", "content": "T"})
 
     def test_a_trailing_user_turn_takes_the_tail(self):
-        turns = chat_prompt.history_turns(["Beep: Hello.", "Drifter: bye"], "Beep")
+        turns = chat_prompt.history_turns([("Beep: Hello.", BEEP), ("Drifter: bye", None)], BEEP)
         messages = chat_prompt.chat_messages("S", turns, "T")
         self.assertEqual([m["role"] for m in messages], ["system", "user", "assistant", "user"])
         self.assertEqual(messages[-1]["content"], "Drifter: bye\n\nT")
         self.assertEqual(turns[-1]["content"], "Drifter: bye")
 
     def test_the_next_turn_starts_with_this_turn_but_its_tail(self):
-        history = ["Drifter: hi", "Beep: Hello."] * 15
-        first = chat_prompt.chat_messages("S", chat_prompt.history_turns(chat_prompt.history_window(history, 20), "Beep"), "scene 1")
-        history += ["Drifter: again", "Beep: Again?"]
-        second = chat_prompt.chat_messages("S", chat_prompt.history_turns(chat_prompt.history_window(history, 20), "Beep"), "scene 2")
+        history = [("Drifter: hi", None), ("Beep: Hello.", BEEP)] * 15
+        first = chat_prompt.chat_messages("S", chat_prompt.history_turns(chat_prompt.history_window(history, 20), BEEP), "scene 1")
+        history += [("Drifter: again", None), ("Beep: Again?", BEEP)]
+        second = chat_prompt.chat_messages("S", chat_prompt.history_turns(chat_prompt.history_window(history, 20), BEEP), "scene 2")
         self.assertEqual(second[:len(first) - 1], first[:-1])
 
 

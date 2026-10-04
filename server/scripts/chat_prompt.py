@@ -35,13 +35,13 @@ def has_spoken(lines):
     return any(not _TIME_PREFIX.sub("", line).startswith("(Overheard)") for line in lines)
 
 
-def history_turns(lines, npc_name):
-    name = npc_name.lower()
+def history_turns(entries, npc_id):
+    """entries are (line, speaker) pairs. The speaker, not the name, marks the lines of the NPC, because NPCs near the player
+    can share a name."""
     turns = []
-    for line in lines:
-        text = _TIME_PREFIX.sub("", line)
-        if text.lower().startswith((f"{name}:", f"{name}|")):
-            role, content = "assistant", text[len(name):].split(":", 1)[1].strip()
+    for line, speaker in entries:
+        if npc_id and speaker == npc_id:
+            role, content = "assistant", _TIME_PREFIX.sub("", line).split(":", 1)[-1].strip()
         else:
             role, content = "user", line.strip()
         content = content or "..."

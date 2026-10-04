@@ -15,7 +15,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 DB_NAME = "campaign.db"
-SCHEMA_VERSION = 4
+SCHEMA_VERSION = 5
 MAX_DIALOGUE = 260
 DIALOGUE_BLOCK = 20
 MAX_EVENTS = 500
@@ -40,7 +40,8 @@ CREATE TABLE dialogue (
   id           INTEGER PRIMARY KEY,
   character_id INTEGER NOT NULL REFERENCES character(id) ON DELETE CASCADE,
   game_time    INTEGER,
-  line         TEXT NOT NULL
+  line         TEXT NOT NULL,
+  speaker      TEXT
 );
 CREATE INDEX dialogue_by_character ON dialogue (character_id, id);
 CREATE TABLE event (
@@ -184,6 +185,14 @@ def get_character(npc_id):
         return profile
 
 
+def dialogue(npc_id):
+    """The dialogue lines of the character as (line, speaker) pairs, oldest first."""
+    with _connect() as conn:
+        return conn.execute(
+            "SELECT line, speaker FROM dialogue WHERE character_id = (SELECT id FROM character WHERE npc_id = ?) ORDER BY id", (npc_id,)
+        ).fetchall()
+
+
 def character_exists(npc_id):
     with _connect() as conn:
         return conn.execute("SELECT 1 FROM character WHERE npc_id = ?", (npc_id,)).fetchone() is not None
@@ -202,7 +211,8 @@ def upsert_profile(npc_id, fields):
 
 
 def rename_character(npc_id, old_name, new_name, given_name):
-    """Also relabels the lines that the character spoke, because the chat history counts a line as its own only under its current name."""
+    """Also relabels the lines that the character spoke, so its dialogue shows one name. Only the speaker marks them, because
+    another NPC near the player can share the old name."""
     own_line = re.compile(r"^((?:\[Day [^\]]*\]\s*)?)" + re.escape(old_name) + ":")
     with _connect(write=True) as conn:
         row = conn.execute("SELECT id, profile FROM character WHERE npc_id = ?", (npc_id,)).fetchone()
@@ -212,7 +222,7 @@ def rename_character(npc_id, old_name, new_name, given_name):
         profile["Name"] = new_name
         profile["GivenName"] = given_name
         conn.execute("UPDATE character SET profile = ?, updated_at = ? WHERE id = ?", (json.dumps(profile), _now(), row[0]))
-        lines = conn.execute("SELECT id, line FROM dialogue WHERE character_id = ?", (row[0],)).fetchall()
+        lines = conn.execute("SELECT id, line FROM dialogue WHERE character_id = ? AND speaker = ?", (row[0], npc_id)).fetchall()
         conn.executemany(
             "UPDATE dialogue SET line = ? WHERE id = ?",
             [(own_line.sub(lambda match: match.group(1) + new_name + ":", line, count=1), line_id) for line_id, line in lines if own_line.match(line)],
@@ -258,7 +268,8 @@ def promote_profile(npc_id, bio):
 
 
 def append_dialogue(npc_id, lines, profile):
-    """Stores profile first only if the character is not stored yet."""
+    """lines are (line, speaker) pairs, where speaker is the npc_id of the character who spoke, or None. Stores profile first
+    only if the character is not stored yet."""
     with _connect(write=True) as conn:
         row = conn.execute("SELECT id FROM character WHERE npc_id = ?", (npc_id,)).fetchone()
         if row:
@@ -266,7 +277,7 @@ def append_dialogue(npc_id, lines, profile):
             conn.execute("UPDATE character SET updated_at = ? WHERE id = ?", (_now(), character_id))
         else:
             character_id = _insert_character(conn, npc_id, profile)
-        conn.executemany("INSERT INTO dialogue (character_id, game_time, line) VALUES (?, ?, ?)", [(character_id, _game_time(line), line) for line in lines])
+        conn.executemany("INSERT INTO dialogue (character_id, game_time, line, speaker) VALUES (?, ?, ?, ?)", [(character_id, _game_time(line), line, speaker) for line, speaker in lines])
         excess = conn.execute("SELECT COUNT(*) FROM dialogue WHERE character_id = ?", (character_id,)).fetchone()[0] - MAX_DIALOGUE
         if excess > 0:
             # Whole blocks only, so the chat history window keeps its first line and the prompt cache still matches
