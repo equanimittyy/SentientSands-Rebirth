@@ -5,5 +5,5 @@ JOB: {job}
 CURRENT FACTION: {current_faction}
 ORIGIN FACTION: {origin_faction}
 PERSONALITY: {personality}
-BACKSTORY: {backstory}
+BACKSTORY (the past of this character; they bring it up only when the talk turns to it): {backstory}
 SPEECH QUIRKS (a hint at how this character tends to talk, not a rule to follow; most replies show none of it): {speech_quirks}

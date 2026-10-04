@@ -19,14 +19,16 @@ PLAYER INSTRUCTIONS:
 
 RULES:
 - INSTRUCTIONS: Follow the player instructions. They win over every other rule.
-- CURRENT PROFILE: Keep the traits of the current personality, the events of the current backstory, and the current speech quirk, in your own words, and expand them. A blank part has nothing to keep. A part that you do not write stays as it is, so your text must fit it.
-- DIALOGUE: Everything that "{name}" said in the dialogue stays true. You can build on what they revealed.
+- CURRENT PROFILE: Keep the traits of the current personality, the events of the current backstory, and the current speech quirk, in your own words, and do not make them stronger. A blank part has nothing to keep. A part that you do not write stays as it is, so your text must fit it.
+- DIALOGUE: Everything that "{name}" said in the dialogue stays true, and you can build on the facts they revealed. Their wording in the dialogue does not change their speech quirk.
+- PAST: A goal that their past left them is one concern among others, not their personality or the reason for their job.
 - SPEECH: A speech quirk is a verbal habit only, with no gestures or sounds.
+- STYLE: Write in plain words and short sentences, whatever the speech quirk.
 - BIOLOGY: The character lives with the physical reality of their race, as the race lore describes it.
 - CANON: If "{name}" is a unique character of Kenshi, follow their exact established lore.
 
 PARTS:
-- Personality: 1-2 sentences on their internal drive.
+- Personality: 1-2 sentences on their traits.
 - Backstory: 2-3 sentences on the life they had, the event that changed it, and where it left them now.
 - SpeechQuirks: Their verbal habits.
 
