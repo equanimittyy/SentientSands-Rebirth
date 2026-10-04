@@ -869,7 +869,7 @@ def new_profile(name, npc_id, ctx_data):
         "Faction": faction,
         "OriginFaction": fact("origin_faction"),
         "Job": fact("job", "None"),
-        **provisional_profile.roll(npc_id, kind),
+        **provisional_profile.roll(npc_id, kind, race),
         "ConversationHistory": [],
         "Relation": int(float(ctx_data.get("relation", 0)) / 2),
         **({} if kind == "animal" else {campaign_db.PROVISIONAL: 0}),

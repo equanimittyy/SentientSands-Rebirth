@@ -24,9 +24,18 @@ TRAITS = _load("personality_traits.json")
 ANIMAL_PERSONALITIES = _load("animal_personalities.json")
 BACKSTORIES = _load("backstories.json")
 SPEECH_QUIRKS = _load("speech_quirks.json")
+# A skeleton gets its list by kind, because the server knows the skeleton races of the mods
+QUIRK_RACES = {"human": ("greenlander", "scorchlander"), "shek": ("shek",), "hiver": ("hive",)}
 
 
-def roll(npc_id, kind):
+def speech_quirks(race, kind):
+    """The universal quirks plus the list of the race; a race with no list of its own gets the universal ones only."""
+    group = "skeleton" if kind == "skeleton" else next(
+        (group for group, words in QUIRK_RACES.items() if any(word in race.lower() for word in words)), None)
+    return SPEECH_QUIRKS["universal"] + SPEECH_QUIRKS.get(group, [])
+
+
+def roll(npc_id, kind, race):
     """Personality, Backstory, and SpeechQuirks for a kind of KINDS.
 
     Seeded by npc_id: banter and a chat can meet a new NPC at the same moment, and both write its profile, so both must
@@ -45,5 +54,5 @@ def roll(npc_id, kind):
     return {
         "Personality": " ".join(trait["tiers"][tier]["text"] for tier, trait in rolled),
         "Backstory": rng.choice([story["text"] for story in BACKSTORIES if kind in story["kinds"]]),
-        "SpeechQuirks": rng.choice(SPEECH_QUIRKS),
+        "SpeechQuirks": rng.choice(speech_quirks(race, kind)),
     }
