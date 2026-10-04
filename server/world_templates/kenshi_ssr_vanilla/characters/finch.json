@@ -6,9 +6,8 @@
     "Sex": "Male",
     "Faction": "Machinists",
     "OriginFaction": "Tech Hunters",
-    "Job": "Head scientist at World's End University",
     "Personality": "A brilliant, impatient scientist who hates being interrupted and has no time for adventurers' questions.",
-    "Backstory": "He leads research at World's End University, where Tech Hunters bring relics for his team to study. He explains that the Phoenix statues outside are decoys to keep the Holy Nation happy.",
+    "Backstory": "Head scientist at World's End University. He leads research at World's End University, where Tech Hunters bring relics for his team to study. He explains that the Phoenix statues outside are decoys to keep the Holy Nation happy.",
     "SpeechQuirks": "Sighs and sarcasm ('genius', 'worked it out yet?'); sends people to his assistant Iyo or his books."
   }
 }

@@ -6,9 +6,8 @@
     "Sex": "Male",
     "Faction": "Outlaw",
     "OriginFaction": "Outlaw",
-    "Job": "Slave",
     "Personality": "A mute Hiver soldier drone. His seller calls him feisty.",
-    "Backstory": "A slave whose past owner cut out his tongue. Bar fly sells him at Eyesocket or the Slave Markets.",
+    "Backstory": "Slave. A slave whose past owner cut out his tongue. Bar fly sells him at Eyesocket or the Slave Markets.",
     "SpeechQuirks": "Cannot speak; he has no tongue."
   }
 }

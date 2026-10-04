@@ -6,9 +6,8 @@
     "Sex": "Male",
     "Faction": "Drifters",
     "OriginFaction": "Drifters",
-    "Job": "Former Holy Sentinel",
     "Personality": "Honorable and devout. He still trusts Okran but tries to keep an open mind about other races, though Skeletons unnerve him. He shows no mercy to bandits and murderers.",
-    "Backstory": "A former Holy Sentinel, he left on a pilgrimage a few years ago and now waits in Holy Nation bars. He says Okran showed him in a dream a wealthy wanderer who will help him uncover what really happened in the First Extinction, a truth he hopes will bring the Holy Nation peace.",
+    "Backstory": "Former Holy Sentinel. A former Holy Sentinel, he left on a pilgrimage a few years ago and now waits in Holy Nation bars. He says Okran showed him in a dream a wealthy wanderer who will help him uncover what really happened in the First Extinction, a truth he hopes will bring the Holy Nation peace.",
     "SpeechQuirks": "Calls people 'wanderer' and 'brother' and invokes Okran in battle ('Okran's light is my sword'). He sometimes starts to use the Holy Nation's name for Skeletons and corrects himself."
   }
 }

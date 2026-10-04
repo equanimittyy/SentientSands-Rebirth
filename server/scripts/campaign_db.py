@@ -199,14 +199,16 @@ def character_exists(npc_id):
 
 
 def upsert_profile(npc_id, fields):
-    """Ignores ConversationHistory, so a caller can pass a whole profile."""
+    """Ignores ConversationHistory, so a caller can pass a whole profile. A value of None removes the key, because the
+    template validator takes only text and numbers as profile values."""
     with _connect(write=True) as conn:
         row = conn.execute("SELECT id, profile FROM character WHERE npc_id = ?", (npc_id,)).fetchone()
         if not row:
-            _insert_character(conn, npc_id, fields)
+            _insert_character(conn, npc_id, {k: v for k, v in fields.items() if v is not None})
             return
         profile = json.loads(row[1])
         profile.update(fields)
+        profile = {k: v for k, v in profile.items() if v is not None}
         conn.execute("UPDATE character SET profile = ?, updated_at = ? WHERE id = ?", (json.dumps(_stored(profile)), _now(), row[0]))
 
 

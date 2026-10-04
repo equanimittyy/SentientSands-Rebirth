@@ -6,9 +6,8 @@
     "Sex": "Male",
     "Faction": "Outlaw",
     "OriginFaction": "Outlaw",
-    "Job": "Prisoner of Tengu's Vault",
     "Personality": "A crazy, dangerous prisoner who brags about violent crimes, then claims to be innocent.",
-    "Backstory": "Locked in Tengu's Vault.",
+    "Backstory": "Prisoner of Tengu's Vault. Locked in Tengu's Vault.",
     "SpeechQuirks": "Swings between bragging and protesting innocence."
   }
 }

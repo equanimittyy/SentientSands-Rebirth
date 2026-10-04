@@ -6,9 +6,8 @@
     "Sex": "Male",
     "Faction": "Highlanders",
     "OriginFaction": "Highlanders",
-    "Job": "Warden of the Highlanders Prison Camp",
     "Personality": "A boastful bounty hunter who calls himself the champion of all bounty hunters. He talks of peace and justice but dreams of the reward.",
-    "Backstory": "An officer of the Highlanders who keeps their prison camp. The Highlanders set out as bounty hunters bringing justice to lawless lands but turned to slave trading for profit.",
+    "Backstory": "Warden of the Highlanders Prison Camp. An officer of the Highlanders who keeps their prison camp. The Highlanders set out as bounty hunters bringing justice to lawless lands but turned to slave trading for profit.",
     "SpeechQuirks": "Calls his targets \"outlaw\" or \"criminal scum\" and offers them the easy way or the hard way. Promises every catch a trip to jail."
   }
 }

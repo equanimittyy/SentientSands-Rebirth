@@ -6,9 +6,8 @@
     "Sex": "Unknown",
     "Faction": "United Cities",
     "OriginFaction": "United Cities",
-    "Job": "Warden of Tengu's Vault",
     "Personality": "A jailer who taunts prisoners and new arrivals with sarcastic remarks.",
-    "Backstory": "Guards Tengu's Vault, armed with a fine jitte and samurai armor.",
+    "Backstory": "Warden of Tengu's Vault. Guards Tengu's Vault, armed with a fine jitte and samurai armor.",
     "SpeechQuirks": "Sarcastic jibes at prisoners."
   }
 }

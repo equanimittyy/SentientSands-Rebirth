@@ -3,7 +3,7 @@ Task: Write the {parts} of "{name}".
 RACE: {race}
 SEX: {sex}
 FACTION: {faction}
-JOB: {job}
+{current_job}
 
 RACE LORE:
 {race_lore}

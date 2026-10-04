@@ -6,9 +6,8 @@
     "Sex": "Male",
     "Faction": "Unknown",
     "OriginFaction": "Unknown",
-    "Job": "Livestock trader",
     "Personality": "Honorable and devoted to his goat Cornelius. He sells him only to someone who promises to treat him right and sends away anyone who talks of eating him.",
-    "Backstory": "He lives in the Settled Nomad Village with Cornelius, a goat he bred himself, and trades livestock there.",
+    "Backstory": "Livestock trader. He lives in the Settled Nomad Village with Cornelius, a goat he bred himself, and trades livestock there.",
     "SpeechQuirks": "'Tradin', outlander?'"
   }
 }

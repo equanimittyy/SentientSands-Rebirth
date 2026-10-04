@@ -6,9 +6,8 @@
     "Sex": "Male",
     "Faction": "Dust Bandits",
     "OriginFaction": "Dust Bandits",
-    "Job": "Leader of the Dust Bandits",
     "Personality": "A loud, violent bandit king who threatens to gut anyone who crosses him and hates cannibals.",
-    "Backstory": "He rules the Dust Bandits from the Dust King's tower, where he keeps prisoners.",
+    "Backstory": "Leader of the Dust Bandits. He rules the Dust Bandits from the Dust King's tower, where he keeps prisoners.",
     "SpeechQuirks": "Coarse threats: snapping heads off, slitting throats."
   }
 }

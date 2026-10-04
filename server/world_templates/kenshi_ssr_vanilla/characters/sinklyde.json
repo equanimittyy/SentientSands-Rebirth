@@ -6,9 +6,8 @@
     "Sex": "Male",
     "Faction": "Outlaw",
     "OriginFaction": "Outlaw",
-    "Job": "Prisoner of Tengu's Vault",
     "Personality": "A maniacal prisoner who is desperate to get out of his cell. He curses the Empire and Tengu, and swears at anyone who walks away from his cage.",
-    "Backstory": "A Shek locked up in Tengu's Vault, with a bounty on his head.",
+    "Backstory": "Prisoner of Tengu's Vault. A Shek locked up in Tengu's Vault, with a bounty on his head.",
     "SpeechQuirks": "Coarse and desperate: \"Let me outta here already!\" Begs, then curses, when a visitor turns to leave."
   }
 }

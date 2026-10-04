@@ -109,7 +109,7 @@ The Relations section of a race, location, or region lists its children, which t
 
 The Race, Sex, and Faction of a character are choices, not free text (`choice` in `server/web/editor.js`). Race offers the race entries of the page, Faction offers its factions, and Sex offers Male, Female, and Other. A stored value selects the choice whose name or alias it matches, with case ignored. A blank value or a value that matches no choice shows as Unknown, and a save of the character writes Unknown.
 
-Other Details shows the `Relation` of a character as a bar from -100 to 100, with the labels of the relation bar in game, and its `OriginFaction`. On Campaign Canon it also shows the current faction that the game reported for the character since the server started, so the player can compare it with the Faction that the prompts use, and, at the bottom, the `Job` as the prompts give it (see [Jobs](#jobs)). All are read-only, because the game and the chats set them. On Templates, the `Job` is a field of the form instead, because the author of the template writes it. A save keeps every profile key that the form does not show, as it is.
+Other Details shows the `Relation` of a character as a bar from -100 to 100, with the labels of the relation bar in game, and its `OriginFaction`. On Campaign Canon it also shows the current faction that the game reported for the character since the server started, so the player can compare it with the Faction that the prompts use, and, at the bottom, the Current Job (see [Current Job](#current-job)). All are read-only, because the game and the chats set them. A save keeps every profile key that the form does not show, as it is.
 
 A provisional character (see [Provisional profiles](#provisional-profiles)) shows as Provisional in the list and on its record. Its Other Details also show its chat count against the Chats before a bio setting. A save that changes its Personality, Backstory, or SpeechQuirks ends the provisional state, because a later bio would overwrite the player's text.
 
@@ -285,38 +285,30 @@ The `character` table holds every character of a campaign in one shape: the cano
 
 ### Names
 
-The game gives most generic NPCs a name of its own, and the server keeps that name (`server/scripts/npc_names.py`). The plugin sends the template name of the NPC as `template`, its string ID as `template_id`, and `unique` for a unique NPC, in the context of an NPC, in each NPC of the `nearby` list of a chat, and in each NPC of a banter request. The server makes the `Name` of the profile from the game name and the template name, and the `Job` from the template name alone, so all NPCs of one template get the same `Job`:
+The game gives most generic NPCs a name of its own, and the server keeps that name (`server/scripts/npc_names.py`). The plugin sends the template name of the NPC as `template`, its string ID as `template_id`, and `unique` for a unique NPC, in the context of an NPC, in each NPC of the `nearby` list of a chat, and in each NPC of a banter request. The server makes the `Name` of the profile from the game name and the template name (`name_of`):
 
-| Template | Name in game | `Name` | `Job` |
-|---|---|---|---|
-| A title and a name token, `Barman /GENNAME/` | Barman Arleen | Arleen | Barman |
-| A name token only, `/GENNAME/` | Nuno | Nuno | None |
-| No token, and the game shows another name, `Drifter` | Nuno | Nuno | Drifter |
-| No token, and the game shows the template name, `Dust Bandit` | Dust Bandit Josh | Josh, a rolled name | Dust Bandit |
-| A unique NPC, `Ruka` | Ruka | Ruka | None |
-| A generic NPC whose template is a canon character, `Yamdu` without UWE | Yamdu | The canon `Name`, Yamdu | The canon `Job` |
+| Template | Name in game | `Name` |
+|---|---|---|
+| A title and a name token, `Barman /GENNAME/` | Barman Arleen | Arleen |
+| A name token only, `/GENNAME/` | Nuno | Nuno |
+| No token, and the game shows another name, `Drifter` | Nuno | Nuno |
+| No token, and the game shows the template name, `Dust Bandit` | Dust Bandit | Josh, a rolled name |
+| A unique NPC, `Ruka` | Ruka | Ruka |
+| A generic NPC whose template is a canon character, `Yamdu` without UWE | Yamdu | The canon `Name`, Yamdu |
 
 - A name token is a word in capitals between slashes, such as `/GENNAME/` or `/UCNAME/`, and the game puts a name in its place (see [Kenshi internals](kenshi_internals.md#names)). Text after the token, such as `the Blooded` or the `^^` marks of UWE, stays out of the `Name`.
 - A game name that a titled template does not match is a name that the player gave, so it is the whole `Name`.
-- A game name that starts with the name of a template without a token, such as Drifter Nuno, holds the title that the server gave it, so the title stays out of the `Name`.
-- The template of a unique NPC is the NPC itself, so it gives no `Job`.
 - Rejected: a check for a generic name by lists of keywords. It found Barman in Barman Arleen, a name that the game gave, so the server added a second name, and it found hero in Theron, a name that the player gave.
 
-After the campaign stores an NPC, the game shows the NPC by its profile (`npc_names.shown`). An edit of the `Name` on the web app therefore changes the name in game.
+The server adds no title to a game name. It sends `NPC_RENAME: <npc_id>|<Name>` through the pipe (`send_rename`), and the plugin puts the `Name` in place of the token of the template (`ShownName` in `plugin/main.cpp`). A rename therefore keeps the text that the game shows around the name: Barman Arleen with the `Name` Bob becomes Barman Bob, and Arleen the Blooded keeps "the Blooded".
 
-| NPC | Name in game |
-|---|---|
-| A generic NPC with a `Job` | The `Job` as a title in front of the `Name`, for example Drifter Nuno |
-| A generic NPC with a `Job` of None or Unknown | The `Name` |
-| A unique NPC, or a generic NPC whose template is a canon character | The `Name`. A canon `Job` is a sentence, such as Noble of the United Cities, so it gives no title. |
-| A member of the player's faction | The `Name` |
-
-- The server sends `NPC_RENAME: <npc_id>|<name>|<name in the player's faction>` through the pipe (`send_rename`). The plugin picks one of the two names by the faction that the NPC has in game, because a save on the web app cannot tell whether the NPC is in the player's faction now.
 - The plugin finds the NPC by its `npc_id`. For a `u:` ID, it compares the string ID of the template, because a generic NPC whose template is a canon character carries the `npc_id` of that character.
 - The plugin renames only an NPC that the game has loaded. A save on the web app renames a loaded NPC at once. Each other NPC gets the new name at the next chat or banter that it takes part in.
-- Outside the player's faction, the profile wins. Each chat or banter renames an NPC whose game name differs from its shown name (`sync_name`). The rename goes out before the LLM call, so the name changes in game before the reply. This also gives back a name that the game lost, for example after the load of an earlier save.
-- The player can rename a squad member in game, so in the player's faction the game name wins, and the server stores it as the `Name`. A game name with the title, or the template name, is not a rename by the player, so the server sends the `Name` to the game instead.
-- Text after a name token leaves the game name at the first rename, because the shown name has no place for it: Arleen the Blooded becomes Arleen.
+- Outside the player's faction, the profile wins. Each chat or banter renames an NPC whose game name gives another `Name` than its profile (`sync_name`). The rename goes out before the LLM call, so the name changes in game before the reply. This also gives back a name that the game lost, for example after the load of an earlier save.
+- The player can rename a squad member in game, so in the player's faction the game name wins, and the server stores it as the `Name`. Only the template name is not a rename by the player, because it shows that the game lost the name, so the server sends the `Name` to the game instead.
+- The server checks a squad member also at the context posts of the selected character, once for each game name (`sync_squad_name`, `SQUAD_NAMES`), so a rename in game reaches the profile without a chat. The plugin posts that context every 1.5 s, so the check costs one database read for each new name.
+- The faction of a banter NPC is its identity faction, so the plugin marks a squad member with `in_player_faction`.
+- A name from `/name` in the chat window becomes the `Name` as the player typed it, and the server sends no rename for it. `/rename` stores a profile for an NPC that has none, so the campaign keeps the name when the game loses it. It relabels the dialogue by the stored `Name`, because a titled game name is not the name in the dialogue.
 - The prompt and the dialogue history use the `Name`, and `campaign_db.rename_character` relabels the lines that the NPC spoke.
 - The chat window keeps the name that its target had when the window opened, so a chat request can name its target by an old name. The server therefore takes the `Name` of the target from the `npc_id` in its context, and it counts a reply line that starts with the old name as a line of the target.
 - The server drops a reply line that another NPC near the player speaks, by its game name or by its `Name`, because the two differ for an NPC with a title.
@@ -326,39 +318,38 @@ Only an NPC that the game shows by its template name gets a rolled name. It gets
 | Moment | Name in game |
 |---|---|
 | Before the NPC takes part in a chat or in banter | Starving Bandit |
-| The first chat or banter that the NPC takes part in | Starving Bandit Josh |
-| The NPC joins the player's faction | Josh |
+| The first chat or banter that the NPC takes part in | Josh |
 
-- The `Job` of such an NPC is its template name, so the title still shows the player what the NPC is.
 - The server rolls a name only when the campaign stores the profile. The campaign stores no profile named Someone or Unknown (`should_save_profile`), so a rolled name would live only in the game.
 - A new given name differs from each `Name` of the campaign (`get_used_names`), so two recruits never share a name.
+- Rejected: the template name as a title in front of a rolled name, such as Starving Bandit Josh. It needed a mark for each rolled name and a title drop at each recruit, and the Current Job tells what the NPC does.
 - Rejected: a name for each generic NPC on sight. The plugin scanned the NPCs near the player every 2 s and replaced the name of each generic one, so the player lost the game name of an NPC before any chat with it.
 
-A recruit drops its title at the first context post that shows the recruit in the player's faction (`sync_squad_name`). After a recruit, the player selects the new squad member, and the plugin posts the context of the selected character every 1.5 s. The server checks a squad member again only when its game name changes (`SQUAD_NAMES`), so a selected squad member costs one database read for each new name. A recruit also loses its `Job` (see [Jobs](#jobs)), so it gets no title after a dismissal.
+### Current Job
 
-- An NPC in the player's faction gets no title. The faction of a banter NPC is its identity faction, so the plugin marks a squad member with `in_player_faction`.
-- Rejected: a title that stays until the next chat with the recruit. The squad would show the title until the player speaks to the recruit.
-- A name from `/name` in the chat window becomes the `Name`, and the server then sends the shown name, so a generic NPC outside the player's faction keeps its title. `/rename` stores a profile for an NPC that has none, so the campaign keeps the name when the game loses it. It relabels the dialogue by the stored `Name`, because a titled game name is not the name in the dialogue.
+The `CurrentJob` of a profile is a short phrase for what the NPC does in game now, for example Guarding a building (`server/scripts/current_job.py`). The chat prompt and the bio prompt give it as `CURRENT JOB: ...` (`current_job_line`), and leave the line out when the profile has none.
 
-### Jobs
-
-The `Job` of a profile is the role of the character: the title of its template for a generic NPC (see [Names](#names)), or the text that the author of the template wrote for a canon character. The game shows the `Job` of a generic NPC as a title in front of its `Name`.
-
-The server stores the `Job` and changes it only at these events:
-
-| Event | `Job` |
+| Rule, first match wins | `CurrentJob` |
 |---|---|
-| The first meeting (`new_profile`) | The title of the template, or None |
-| The recruit: the first chat, banter, or context post that shows the character in the player's faction (`end_job`) | None, and `FormerJob` keeps the old role |
+| A hire or escort contract (`temporary_follower`) | Temporary follower of the player's faction |
+| The NPC is in the player's faction | Member of the player's faction |
+| A shopkeeper node among the squad jobs | Running a shop |
+| Another trader (`is_trader`) | Trading |
+| A squad job in `TABLE` | Its phrase, for example Patrolling the town |
+| No squad job that `TABLE` knows, for example in a squad without an AI package | None: no line in the prompt, and Unknown on the web app |
 
-- The prompts, the Dialogue Library, and Campaign Canon give a `FormerJob` as a former role, for example Former Shop Guard (`npc_names.job_text`), so a recruit can still speak of its old work.
-- A dismissed recruit keeps its former role, so the game shows no title for it.
-- Only a recruit ends a role. A change to another faction of any other kind keeps the `Job`.
-- Rejected: a fill of a `Job` of None or Unknown from a later context. It gave a recruit its old role back at the next context post.
-- `job` in the context of one NPC holds the names of the permajobs of the NPC, joined with commas, or `None` (`GetDetailedContext` in `plugin/game/Context.cpp`). Permajobs are the permanent AI tasks of a character, for example a patrol of a town. The action tags of a routine add them (`ExecuteQueuedActions` in `plugin/game/GameActions.cpp`), and a dismissed recruit gets back the permajobs that it had before the recruit.
-- The scene text gives the live permajobs as the current task of the NPC, never as its `Job` (`npc_text` in `server/scripts/scene_text.py`). It also tells a trader by "shopkeeper" in the live value.
-- The chat prompt and the bio prompt give the `Job` of the profile, or its former role, as `JOB: {job}` (`describe_npc`, `write_bio`).
-- Rejected: the permajobs as the `Job`. A profile kept the routine of its first meeting, for example a patrol, and the prompts gave that routine as a profession. A banter request sent the template name instead, so two NPCs of one template could get two kinds of `Job`.
+- The plugin sends the squad jobs of the NPC as the names of KenshiLib's `TaskType` enum, with `is_trader` and `temporary_follower`, in the context of an NPC, in the `nearby` list of a chat, and in each NPC of a banter request (`RoleJson` in `plugin/game/Context.cpp`). It sends only the task types of its `ROLE_TASKS` list, and a test checks that the list and `TABLE` hold the same names.
+- Mods rename AI packages, squads, and templates, but the task types belong to the engine (see [Kenshi internals](kenshi_internals.md#roles)), so one squad job gives one phrase in every mod list.
+- `TABLE` puts a side task, such as a turret or a bar visit, after the jobs that it would otherwise hide, because many guard and town packages hold one.
+- A hire contract comes before the player's faction, because a hired NPC follows the player without a recruit.
+- The server updates the `CurrentJob` only when a chat, banter, or rename writes the record of the NPC (`get_character_data`). A context post leaves it as it is.
+- A value of None removes the key (`upsert_profile`), because the template validator takes only text and numbers as profile values.
+- Campaign Canon shows the `CurrentJob` read-only, and Templates do not show it, because the game sets it. The text of a canon role, such as Noble of the United Cities, is the first sentence of the `Backstory`.
+- Rejected: the template title as the job. A mod can rename a template, one template serves squads with different roles, and the title stayed after a recruit.
+- Rejected: the name of the AI package or of the squad. Mods rename them, for example `(LB) Shop-24hr`.
+- Rejected: the `NPC class` of the template. It has ten values, some templates have a wrong one, and the live NPC type always equals it.
+- `job` in the context of one NPC holds the names of the permajobs of the NPC, joined with commas, or `None` (`GetDetailedContext` in `plugin/game/Context.cpp`). Permajobs are the jobs of the Jobs menu of the player's characters, so almost no NPC has one. The action tags of a routine add them (`ExecuteQueuedActions` in `plugin/game/GameActions.cpp`), and a dismissed recruit gets back the permajobs that it had before the recruit.
+- The scene text gives the live permajobs as the current task of the NPC (`npc_text` in `server/scripts/scene_text.py`). It also tells a trader by "shopkeeper" in the live value.
 
 ### Provisional profiles
 

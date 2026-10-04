@@ -269,6 +269,95 @@ static std::string TaskKeys(const lektor<Tasker *> &list) {
   return keys.empty() ? "-" : keys;
 }
 
+#define ROLE_TASK(task) {task, #task}
+// The squad jobs that tell what an NPC does, by their TaskType names.
+// server/scripts/current_job.py maps them to phrases, and its tests read this list.
+static const struct {
+  TaskType type;
+  const char *name;
+} ROLE_TASKS[] = {
+    ROLE_TASK(STAND_AT_SHOPKEEPER_NODE),
+    ROLE_TASK(WANDERING_TRADER),
+    ROLE_TASK(SIT_ON_THRONE),
+    ROLE_TASK(MAN_THE_GATE),
+    ROLE_TASK(STAND_AT_GUARD_NODE_HOMETOWN_OUTSIDE),
+    ROLE_TASK(STAND_AT_BUILDING_DEFENSIVE_NODE),
+    ROLE_TASK(STAND_AT_BUILDING_GUARD_NODE),
+    ROLE_TASK(STAND_AT_GUARD_NODE_HOMEBUILDING_INDOORS_ONLY),
+    ROLE_TASK(STAND_AT_GUARD_NODE_HOMEBUILDING_IN_OUT),
+    ROLE_TASK(CAPTURE_ESCAPING_SLAVES),
+    ROLE_TASK(CAPTURE_NEW_SLAVES),
+    ROLE_TASK(NEW_SLAVE_PROCESSING),
+    ROLE_TASK(PROCESS_AND_STRIP_NEW_SLAVE),
+    ROLE_TASK(WORK_THE_SLAVES),
+    ROLE_TASK(FIND_CAGE_AND_PUT_IN_IF_BOUNTY),
+    ROLE_TASK(HUNT_BOUNTIES),
+    ROLE_TASK(POLICE_FREE_PRISONERS_WHEN_DONE),
+    ROLE_TASK(AUTO_LABOURING_MINES),
+    ROLE_TASK(AUTO_LABOURING_MINES_PRETEND),
+    ROLE_TASK(OPERATE_AUTOMATIC_MACHINERY),
+    ROLE_TASK(OPERATE_MACHINERY),
+    ROLE_TASK(PRETEND_TO_OPERATE_MACHINERY),
+    ROLE_TASK(ASSAULT_FORTIFICATIONS_PREFER_GATES),
+    ROLE_TASK(ATTACK_TOWN),
+    ROLE_TASK(RAID_TOWN),
+    ROLE_TASK(BODYGUARD),
+    ROLE_TASK(GO_TO_THE_BAR_AND_DRINK),
+    ROLE_TASK(RELAX_IN_TOWN_PACKAGE),
+    ROLE_TASK(PATROL_TOWN),
+    ROLE_TASK(PATROL),
+    ROLE_TASK(MAN_A_TURRET),
+    ROLE_TASK(MAN_A_TURRET_ON_BUILDING),
+    ROLE_TASK(USE_TURRET),
+    ROLE_TASK(TRAVEL_TO_TARGET_PACKAGE),
+    ROLE_TASK(TRAVEL_TO_TARGET_TOWN),
+    ROLE_TASK(TRAVEL_TO_TARGET_TOWN_FAST),
+    ROLE_TASK(WANDERER),
+    ROLE_TASK(SHOPPING),
+    ROLE_TASK(WANDER_TOWN),
+    ROLE_TASK(FOLLOW_SLAVEMASTER),
+    ROLE_TASK(SIT_AROUND),
+    ROLE_TASK(STAY_IN_HOME),
+    ROLE_TASK(FOLLOW_SQUADLEADER),
+};
+#undef ROLE_TASK
+
+std::string RoleJson(Character *npc) {
+  bool trader = false;
+  bool follower = false;
+  std::string jobs;
+  try {
+    trader = npc->isATrader();
+    // A hire or escort contract makes an NPC follow the player without a recruit
+    Blackboard *board = npc->getBlackboard();
+    follower = board && (uintptr_t)board > 0x1000 && board->hasContractJob();
+    OrdersReceiver *orders = npc->getOrdersReciever();
+    if (orders && (uintptr_t)orders > 0x1000) {
+      for (int p = 0; p < 5; ++p) {
+        const lektor<Tasker *> &list = orders->squadAIPackage[p];
+        for (uint32_t i = 0; i < list.count; ++i) {
+          Tasker *task = list.stuff[i];
+          if (!task || (uintptr_t)task < 0x1000 || !task->taskData)
+            continue;
+          TaskType type = task->key();
+          for (size_t r = 0; r < sizeof(ROLE_TASKS) / sizeof(ROLE_TASKS[0]);
+               ++r) {
+            if (ROLE_TASKS[r].type == type) {
+              jobs += std::string(jobs.empty() ? "" : ",") + "\"" +
+                      ROLE_TASKS[r].name + "\"";
+              break;
+            }
+          }
+        }
+      }
+    }
+  } catch (...) {
+  }
+  return std::string("\"is_trader\":") + (trader ? "true" : "false") +
+         ",\"temporary_follower\":" + (follower ? "true" : "false") +
+         ",\"squad_jobs\":[" + jobs + "]";
+}
+
 // Probe: the role and task data of a character, logged again when it changes.
 // Enum values stay numbers for Enums.h. Game thread only: the map has no lock.
 void LogNpcRole(Character *npc) {
@@ -304,7 +393,8 @@ void LogNpcRole(Character *npc) {
     // BlackboardSignalFunctions enum from Blackboard.h (C2011).
     Blackboard *board = npc->getBlackboard();
     if (board && (uintptr_t)board > 0x1000)
-      line += " package='" + board->getCurrentAIPackageName() + "'";
+      line += " package='" + board->getCurrentAIPackageName() + "'" +
+              " contract=" + (board->hasContractJob() ? "1" : "0");
   } catch (...) {
     line += " [squad failed]";
   }
@@ -587,12 +677,7 @@ std::string GetDetailedContext(Character *npc, const std::string &type) {
     }
   }
 
-  bool isTrader = false;
-  try {
-    isTrader = npc->isATrader();
-  } catch (...) {
-  }
-  json += "\"is_trader\": " + std::string(isTrader ? "true" : "false") + ",";
+  json += RoleJson(npc) + ",";
 
   bool isLeader = false;
   if (faction && (uintptr_t)faction > 0x1000 && faction->data &&

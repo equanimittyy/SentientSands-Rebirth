@@ -75,6 +75,23 @@ static bool HasNpcId(Character *c, const std::string &npcId) {
   return GetNpcId(c) == npcId;
 }
 
+// The game puts a name in place of the token of a template, such as Barman
+// /GENNAME/, so a rename keeps the title and the text around the token
+static std::string ShownName(Character *c, const std::string &name) {
+  if (c->isUnique() || !c->data)
+    return name;
+  const std::string &tmpl = c->data->name;
+  for (size_t open = tmpl.find('/'); open != std::string::npos;
+       open = tmpl.find('/', open + 1)) {
+    size_t close = open + 1;
+    while (close < tmpl.size() && tmpl[close] >= 'A' && tmpl[close] <= 'Z')
+      ++close;
+    if (close > open + 1 && close < tmpl.size() && tmpl[close] == '/')
+      return tmpl.substr(0, open) + name + tmpl.substr(close + 1);
+  }
+  return name;
+}
+
 void (*playerUpdate_orig)(PlayerInterface *) = nullptr;
 void (*attackingYou_orig)(Character *, Character *, bool, bool) = nullptr;
 void (*applyDamage_orig)(MedicalSystem::HealthPartStatus *,
@@ -198,26 +215,21 @@ void ProcessMessageQueue(GameWorld *thisptr) {
           }
         }
       } else if (isRename) {
-        // Format: "NPC_RENAME: <npc_id>|<name>|<name in the player's faction>"
-        // The plugin picks: only the game knows the faction at rename time
+        // Format: "NPC_RENAME: <npc_id>|<name>"
         std::string payload = msg.substr(12); // skip "NPC_RENAME: "
         size_t sep = payload.find('|');
-        size_t sep2 = sep == std::string::npos ? sep : payload.find('|', sep + 1);
-        if (sep2 != std::string::npos && thisptr) {
+        if (sep != std::string::npos && sep + 1 < payload.size() && thisptr) {
           std::string npcId = payload.substr(0, sep);
-          std::string name = payload.substr(sep + 1, sep2 - sep - 1);
-          std::string squadName = payload.substr(sep2 + 1);
+          std::string name = payload.substr(sep + 1);
           const ogre_unordered_set<Character *>::type &chars =
               thisptr->getCharacterUpdateList();
           for (auto it = chars.begin(); it != chars.end(); ++it) {
             Character *c = *it;
             if (!c || (uintptr_t)c <= 0x1000 || !HasNpcId(c, npcId))
               continue;
-            Faction *faction = c->getFaction() ? c->getFaction() : c->owner;
-            std::string newName =
-                faction && faction->isThePlayer() ? squadName : name;
+            std::string newName = ShownName(c, name);
             std::string oldName = c->getName();
-            if (!newName.empty() && newName != oldName) {
+            if (newName != oldName) {
               c->setName(newName);
               Log(LOG_DEBUG, "NAME: Renamed '" + oldName + "' -> '" + newName +
                                  "' (" + npcId + ")");
@@ -1204,6 +1216,7 @@ void playerUpdate_hook(PlayerInterface *thisptr) {
                                              ? "true"
                                              : "false") +
                              ",";
+                  npcData += RoleJson(other) + ",";
                   npcData +=
                       "\"faction\":\"" + EscapeJSON(identityFaction) + "\"}";
                   first = false;

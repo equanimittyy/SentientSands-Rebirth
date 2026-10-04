@@ -6,9 +6,8 @@
     "Sex": "Male",
     "Faction": "Empire Peasants",
     "OriginFaction": "Empire Peasants",
-    "Job": "Beggar",
     "Personality": "Simple-minded, childlike, and always hungry or thirsty. He cries 'I hate you!' when refused and warms just as fast to anyone who shares food or rum.",
-    "Backstory": "A Shek who wanders Sho-Battai begging for food, often near the outhouses. He has a small bounty for stealing rum from bars and distilleries, but insists he is not a thief, just thirsty. The bar guards beat him for drinking their rum.",
+    "Backstory": "Beggar. A Shek who wanders Sho-Battai begging for food, often near the outhouses. He has a small bounty for stealing rum from bars and distilleries, but insists he is not a thief, just thirsty. The bar guards beat him for drinking their rum.",
     "SpeechQuirks": "Talks about himself in the third person and often begins with 'Ma always told Ells...'; giggles 'Eeheehee!' when happy."
   }
 }

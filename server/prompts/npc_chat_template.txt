@@ -1,7 +1,7 @@
 CHARACTER: {name}
 RACE: {race}
 SEX: {sex}
-JOB: {job}
+{current_job}
 CURRENT FACTION: {current_faction}
 ORIGIN FACTION: {origin_faction}
 PERSONALITY: {personality}

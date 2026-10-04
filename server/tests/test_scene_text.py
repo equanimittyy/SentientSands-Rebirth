@@ -90,13 +90,13 @@ class SentenceTest(unittest.TestCase):
         self.assertEqual(text, "The person before you:\nThe individual before you is Drifter, a Skeleton. Sentient machines from ancient times. They seem healthy. They are a member of Nameless.")
         self.assertTrue(scene_text.player_text("Drifter", False, "Unknown", "male", "", {}, True, "Unknown", "", []).startswith("The player:\nNearby is Drifter."))
 
-    def test_the_npc_from_its_profile_repeats_neither_faction_nor_job(self):
-        profile = {"Relation": -12, "Faction": "The Holy Nation", "Job": "Patrol", "ConversationHistory": ["x"]}
+    def test_the_npc_from_its_profile_repeats_neither_faction_nor_current_job(self):
+        profile = {"Relation": -12, "Faction": "The Holy Nation", "CurrentJob": "Patrolling the town", "ConversationHistory": ["x"]}
         text = scene_text.npc_text(profile, profile, "Drifter", "Nameless", met=True, major=True, in_player_faction=False, feels_hunger=True)
         self.assertEqual(text, "You:\nYou are mildly hostile towards Drifter. You belong to The Holy Nation, a major world power. You will not leave it for Drifter's squad without an extremely compelling reason, such as Drifter saving your life more than once.")
 
     def test_the_npc_from_its_live_context(self):
-        profile = {"Relation": 30, "Faction": "The Holy Nation", "Job": "Holy Sentinel"}
+        profile = {"Relation": 30, "Faction": "The Holy Nation", "CurrentJob": "Guarding the town"}
         context = {
             "faction": "The Holy Nation", "job": "Patrol", "relation": -5, "money": 85, "character_state": "imprisoned",
             "medical": {"hunger": 300, "blood": 100, "max_blood": 100}, "stats": {"melee_attack": 40, "melee_defence": 20},

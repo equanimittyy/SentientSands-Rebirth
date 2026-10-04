@@ -42,3 +42,16 @@ A change of the mod list is not tested, by decision. Because a string ID names t
 ## Squads
 
 `PlayerInterface::getCurrentPlatoon` gives the squad that the player selected. A squad member is in that squad when its `Character::getPlatoon` is the `getActivePlatoon` of that squad.
+
+## Roles
+
+The role probe logged 26 characters in one town of a UWE game.
+
+- The squad template of a character (`Character::getPlatoon()->me->squadTemplate`) and its AI package decide the role. The jobs of the package reach the character as `TaskType` values in `OrdersReceiver::squadAIPackage`, one list for each priority. A shop guard held `STAND_AT_GUARD_NODE_HOMEBUILDING_IN_OUT`, the barman who led the same squad held `SIT_ON_THRONE`, and the mercenaries in a bar held `RELAX_IN_TOWN_PACKAGE`.
+- The current goal (`OrdersReceiver::getCurrentGoal`) changes within seconds, for example from `PATROL_TOWN` to none.
+- The names of AI packages and squads come from the mods, for example `(LB) Shop-24hr` and `Merchant (Mod)`.
+- The live NPC type (`StateBroadcastData::NPCType`) equalled the `NPC class` of the template of each character.
+- One character had a permajob: `JOB_REPAIR_ROBOT`, which `getPermajobName` names Robotics, as the Jobs menu does.
+- The player's squad has no AI package and no squad jobs.
+- An AI goal record of the game data holds its task type as the int `enum`, for example 20, `STAND_AT_SHOPKEEPER_NODE`, for the goal Shopkeeper.
+- `AI/AIPackage.h` and `AI/Blackboard.h` of KenshiLib define the same enum, so one source file cannot include both (error C2011). The plugin reads the package by name through `Blackboard::getCurrentAIPackageName`.

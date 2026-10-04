@@ -2,7 +2,7 @@ import { ask, deleteButton, el, field, getJson, icon, progress, reportUnsaved, s
 
 const page = document.getElementById("editor-page");
 const message = document.getElementById("editor-message");
-const PROFILE_KEYS = ["Name", "Race", "Sex", "Faction", "Job", "Personality", "Backstory", "SpeechQuirks"];
+const PROFILE_KEYS = ["Name", "Race", "Sex", "Faction", "Personality", "Backstory", "SpeechQuirks"];
 const LONG_PROFILE_KEYS = ["Personality", "Backstory", "SpeechQuirks"];
 const CHOICE_KEYS = ["Race", "Sex", "Faction"];
 const CHOICE_HELP = {
@@ -53,8 +53,6 @@ const commaList = (text) => text.split(",").map((item) => item.trim()).filter(Bo
 const lineList = (text) => text.split("\n").map((item) => item.trim()).filter(Boolean);
 const readOnly = () => ({ campaign: !canon, events: !log, template: !template || template.builtin })[source];
 const inCampaign = (record) => source === "campaign" && !record.isNew;
-// The game changes the Job of a campaign character, so only a template edits it
-const profileKeys = () => (source === "template" ? PROFILE_KEYS : PROFILE_KEYS.filter((key) => key !== "Job"));
 
 function numberOr(text) {
   const number = Number(text);
@@ -95,8 +93,8 @@ function toForm(kind, data) {
   }
   if (kind === "character") {
     const profile = data.profile ?? {};
-    const known = profileKeys().map((key) => ({ key, value: profile[key] === undefined ? "" : String(profile[key]), list: false, original: profile[key] }));
-    return { game_id: data.game_id ?? "", profile: known, details: rest(profile, profileKeys()), extra: rest(data, ["game_id", "profile"]) };
+    const known = PROFILE_KEYS.map((key) => ({ key, value: profile[key] === undefined ? "" : String(profile[key]), list: false, original: profile[key] }));
+    return { game_id: data.game_id ?? "", profile: known, details: rest(profile, PROFILE_KEYS), extra: rest(data, ["game_id", "profile"]) };
   }
   const labels = entryLabels();
   return {
@@ -327,7 +325,7 @@ function characterForm(form, path, record) {
       source === "campaign" ? field("Current Faction", el("span", {}, record.current_faction || "Unknown"), null, "The faction that the game reports for the character. It shows after you select the character or talk near it while the game runs.") : null,
       field("Original Faction", el("span", {}, form.details.OriginFaction || "Unknown"), null, "The faction that the character comes from."),
       isProvisional(record) ? field("Chats", el("span", {}, chatCount(form.details[PROVISIONAL])), null, "How many times you talked to the character. Its personality, backstory, and speech quirks are rolled, not written. When the count reaches Chats before a bio on the Settings page, the LLM writes its full bio.") : null,
-      source === "campaign" ? field("Job", el("span", {}, record.job || "None"), null, "The character's job, from the world template or from the game. When you recruit the character, it becomes a former job. In game, a character that is not unique and not in your faction shows its job in front of its name, for example Barman Arleen.") : null),
+      source === "campaign" ? field("Current Job", el("span", {}, form.details.CurrentJob || "Unknown"), null, "What the character does in the game now, for example Guarding a building. It updates when you talk to the character or it takes part in banter while the game runs.") : null),
   ];
 }
 

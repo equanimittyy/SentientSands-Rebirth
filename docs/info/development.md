@@ -49,14 +49,15 @@ The tests use only the standard library, so they run in the dev container. Code 
 
 ## Probes
 
-Some questions of the plans need data from the game. The plugin writes probe lines to `SentientSands_SDK.log` for them. All probe functions are in `plugin/game/Context.cpp`, and `OnChatSendClick` (`plugin/ui/ChatWindow.cpp`) calls them. A probe is removed when the change that needs its answer is built.
+Some questions of the plans need data from the game. The plugin writes probe lines to `SentientSands_SDK.log` for them. All probe functions are in `plugin/game/Context.cpp`. A probe is removed when the change that needs its answer is built.
 
 | Line | Written | Function | Answers |
 |---|---|---|---|
 | `ZONE_PROBE` | At each chat, for the target NPC. The first chat also lists every zone record. | `LogNpcZone` | Which slot of the zone object (`AreaBiomeGroup`) holds its zone record, so that the context can name the zone, for example Stenn Desert |
 | `FACTION_PROBE` | At the first chat of each game, one line for each faction | `LogFactionList` | The string ID of each faction, and whether it stays the same when the mod list changes |
+| `ROLE_PROBE` | For the chat target, each NPC in chat range, the selected character, and each banter NPC, again when a value changes | `LogNpcRole` | Which game data tells the role of an NPC, and whether a hired NPC holds a contract (`contract=1`) |
 
-The in-game tests answered each question, and [kenshi_internals.md](kenshi_internals.md) records the results.
+[kenshi_internals.md](kenshi_internals.md) records the answers of the in-game tests. The contract of a hired NPC is not tested yet.
 
 Two questions need no probe:
 

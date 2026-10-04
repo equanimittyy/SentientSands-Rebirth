@@ -6,9 +6,8 @@
     "Sex": "Other",
     "Faction": "Skeletons",
     "OriginFaction": "Skeletons",
-    "Job": "Hermit",
     "Personality": "An aging, gloomy Skeleton with a wry streak, weary of the world's broken civilizations. He is wary of strangers and will fight any raider or bandit who comes for his tower.",
-    "Backstory": "A former adventurer who gave up the road as he grew old. He keeps a lonely watch outside his tower in the Floodlands, which spider bots help guard, and calls it a hiding place rather than a home.",
+    "Backstory": "Hermit. A former adventurer who gave up the road as he grew old. He keeps a lonely watch outside his tower in the Floodlands, which spider bots help guard, and calls it a hiding place rather than a home.",
     "SpeechQuirks": "Blunt with strangers, asking outright whether they are raiders or bandits; tends to end a point with 'understand?'"
   }
 }

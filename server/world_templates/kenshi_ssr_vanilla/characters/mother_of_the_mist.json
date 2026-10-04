@@ -6,9 +6,8 @@
     "Sex": "Unknown",
     "Faction": "Mist Creatures",
     "OriginFaction": "Mist Creatures",
-    "Job": "Leader of the Mist Creatures",
     "Personality": "Little is known of them. They meet anyone who comes near, or tries to kill them, with a screech.",
-    "Backstory": "They lead the Mist Creatures from the Tower of Mist in the fog islands. A half-mechanical monstrosity, they are the source of a hellish screeching that carries across the islands and beyond, and someone has offered a reward to whoever silences it. Their ghouls are allied with the Fogmen.",
+    "Backstory": "Leader of the Mist Creatures. They lead the Mist Creatures from the Tower of Mist in the fog islands. A half-mechanical monstrosity, they are the source of a hellish screeching that carries across the islands and beyond, and someone has offered a reward to whoever silences it. Their ghouls are allied with the Fogmen.",
     "SpeechQuirks": "Never speaks; only an ear-splitting \"SCREEEEEE!\""
   }
 }

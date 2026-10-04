@@ -13,3 +13,4 @@ void GetCurrentSquad(std::vector<Character *> &members);
 void LogNpcZone(Character *npc);
 void LogFactionList();
 void LogNpcRole(Character *npc);
+std::string RoleJson(Character *npc);

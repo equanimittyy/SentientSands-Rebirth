@@ -143,6 +143,11 @@ class CharacterTest(CampaignTestCase):
         campaign_db.rename_character(GENERIC_ID, "Dust Bandit", "Josh")
         self.assertEqual(campaign_db.character_names(), {"Beep", "Josh"})
 
+    def test_a_value_of_none_removes_the_key(self):
+        campaign_db.upsert_profile(GENERIC_ID, {"Name": "Zabuza", "CurrentJob": "Guarding a building"})
+        campaign_db.upsert_profile(GENERIC_ID, {"CurrentJob": None})
+        self.assertNotIn("CurrentJob", campaign_db.get_character(GENERIC_ID))
+
     def test_concurrent_appends_keep_the_lines_of_both(self):
         campaign_db.upsert_profile(GENERIC_ID, BEEP)
         threads = [threading.Thread(target=campaign_db.append_dialogue, args=(GENERIC_ID, spoken(None, f"line {i}"), BEEP)) for i in range(8)]

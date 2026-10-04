@@ -6,9 +6,8 @@
     "Sex": "Female",
     "Faction": "Tech Hunters",
     "OriginFaction": "Tech Hunters",
-    "Job": "Writer and field researcher at the University in World's End",
     "Personality": "Modest about her role. She calls herself more a writer and field researcher than anything else.",
-    "Backstory": "She lives in World's End and writes lore books at the University, where everything goes through Iyo.",
+    "Backstory": "Writer and field researcher at the University in World's End. She lives in World's End and writes lore books at the University, where everything goes through Iyo.",
     "SpeechQuirks": "Self-effacing; she sends visitors on to Iyo rather than answer herself."
   }
 }

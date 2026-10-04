@@ -6,9 +6,8 @@
     "Sex": "Male",
     "Faction": "Fisher",
     "OriginFaction": "Fisher",
-    "Job": "Fisherman",
     "Personality": "An old fisherman.",
-    "Backstory": "He lives by fishing.",
+    "Backstory": "Fisherman. He lives by fishing.",
     "SpeechQuirks": "Speaks plainly."
   }
 }
