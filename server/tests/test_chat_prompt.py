@@ -141,6 +141,21 @@ class OverheardNotesTest(unittest.TestCase):
         self.assertEqual(chat_prompt.history_turns(chat_prompt.with_notes(entries[3:5], {1: note}), BEEP)[-1], {"role": "user", "content": note})
 
 
+class NameMarksTest(unittest.TestCase):
+    MEMBERS = [("h:1", "Dust Bandit"), ("h:2", "Dust Bandit Josh"), ("h:3", "Jorge")]
+
+    def test_only_whole_names_are_marked_the_longest_first(self):
+        text = "Dust Bandit Josh owed Jorge 30 cats. Jorgeson saw a Dust Bandit."
+        self.assertEqual(chat_prompt.mark_names(text, self.MEMBERS), "{h:2} owed {h:3} 30 cats. Jorgeson saw a {h:1}.")
+
+    def test_a_name_that_two_members_share_stays_as_text(self):
+        self.assertEqual(chat_prompt.mark_names("Dust Bandit threatened Jorge.", [*self.MEMBERS, ("h:4", "Dust Bandit")]), "Dust Bandit threatened {h:3}.")
+
+    def test_a_rename_reaches_the_text(self):
+        marked = chat_prompt.mark_names("Jorge's bar.", self.MEMBERS)
+        self.assertEqual(chat_prompt.named(marked, {"h:3": "Old Jorge"}), "Old Jorge's bar.")
+
+
 class ChatMessagesTest(unittest.TestCase):
     def test_the_tail_comes_last(self):
         turns = chat_prompt.history_turns([("Drifter: hi", None), ("Beep: Hello.", BEEP)], BEEP)

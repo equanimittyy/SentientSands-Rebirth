@@ -92,10 +92,12 @@ PROMPT_RUMORS = 5
 RUMOR_SYNTHESIS = False
 # The scene stays fixed for a whole conversation, so the prompt cache can serve it; a chat with another NPC or as another squad member, a new name or faction of the NPC, or a first exchange with it starts a new one
 CONVERSATION_SCENE = {}
-# The plugin sends no signal when a conversation ends, so this long without a chat reply ends a chat thread
-THREAD_QUIET_SECONDS = 180
 # {"key": (npc_id of the squad member, npc_id of the NPC), "id": thread ID, "replied": time.monotonic() of the last reply}
 CURRENT_THREAD = {}
+# Held while a chat picks its thread and while the distillation ends the current thread, so a chat never adds lines to a thread whose memory is being written
+THREAD_LOCK = threading.Lock()
+# Starts with the server, so the threads that a restart left pending get their memories one quiet period after the start
+QUIET_SINCE = time.monotonic()
 PLAYER2_SESSION_KEY = None
 EVENT_THROTTLE = {} 
 THROTTLE_LOCK = threading.Lock()
@@ -530,7 +532,8 @@ INI_KEY_MAP = {
     "chat_hotkey": "ChatHotkey",
     "open_web_panel_on_start": "OpenWebPanelOnStart",
     "log_level": "LogLevel",
-    "bio_interactions": "BioInteractions"
+    "bio_interactions": "BioInteractions",
+    "conversation_timeout_minutes": "ConversationTimeoutMinutes"
 }
 
 def _save_settings_raw(settings):
@@ -572,7 +575,8 @@ SETTINGS_DEFAULTS = {
     "chat_hotkey": "\\",
     "open_web_panel_on_start": True,
     "log_level": log_setup.DEFAULT_LEVEL,
-    "bio_interactions": 5
+    "bio_interactions": 5,
+    "conversation_timeout_minutes": 3
 }
 
 def load_settings():
@@ -732,6 +736,9 @@ def load_llm_config():
         # Not saved over, so a hand-edited file with a typo keeps its keys until the player fixes it
         logging.error(f"LLM: Cannot read {LLM_CONFIG_PATH}: {e}. Using the default configuration until a save from the web app.")
         return default_llm_config()
+    # A task that a later version adds gets the default route, so the file of an earlier version keeps working
+    for task in llm_config.TASKS:
+        config["routes"].setdefault(task, llm_config.default_route(task))
     for error in llm_config.validate(config):
         logging.warning(f"LLM: {error['message']}")
     return config
@@ -939,6 +946,56 @@ def generate_bio(npc_id):
     finally:
         with PROGRESS_LOCK:
             PROFILES_IN_PROGRESS.discard(npc_id)
+
+def quiet_seconds():
+    """The plugin sends no signal when a conversation ends, so this long without a chat ends a chat thread."""
+    return load_settings()["conversation_timeout_minutes"] * 60
+
+def restart_quiet_clock():
+    global QUIET_SINCE
+    QUIET_SINCE = time.monotonic()
+
+def write_memory(thread, members, campaign):
+    """Has the LLM write the memory of a pending chat thread and stores it. A failed call leaves the thread pending."""
+    prompt = fill_prompt("prompt_thread_memory.txt", lines="\n".join(thread["lines"]))
+    language = load_settings().get("language", "English")
+    if language and language.lower() != "english":
+        prompt += f"\nLANGUAGE: You MUST write the memory ONLY in {language}. Do not use English.\n"
+    text = call_llm("memory", [{"role": "user", "content": prompt}])
+    if not text:
+        logging.warning(f"MEMORY: The LLM gave no memory for the chat thread {thread['id']}, so it stays pending.")
+        return
+    # A thread can outlive a campaign switch, and the same thread ID can name another thread in the new campaign
+    if ACTIVE_CAMPAIGN != campaign:
+        logging.info(f"MEMORY: Dropped the memory of the chat thread {thread['id']}, because the active campaign changed while the LLM wrote it.")
+        return
+    memory = chat_prompt.mark_names(" ".join(text.split()), [(npc_id, name) for npc_id, name, _, _ in members])
+    if campaign_db.set_memory(thread["id"], memory, thread["game_time"]):
+        logging.info(f"MEMORY: Stored the memory of the chat thread {thread['id']}.")
+    else:
+        logging.info(f"MEMORY: Dropped the memory of the chat thread {thread['id']}, because a cull or a delete changed the thread while the LLM wrote it.")
+
+def distill_threads():
+    """Writes the memory of each pending chat thread of the active campaign, the oldest first, while the chat stays quiet."""
+    campaign = ACTIVE_CAMPAIGN
+    try:
+        pending = campaign_db.pending_threads()
+    except campaign_db.CampaignUnavailable:
+        return
+    if not pending:
+        return
+    members = campaign_db.thread_members(thread["id"] for thread in pending)
+    logging.info(f"MEMORY: Writing the memories of the pending chat threads ({len(pending)})...")
+    for thread in pending:
+        timeout = quiet_seconds()
+        with THREAD_LOCK:
+            # Before each call, so a chat that starts during the distillation waits for one call at most
+            if time.monotonic() - QUIET_SINCE < timeout:
+                logging.info("MEMORY: A chat started, so the other chat threads wait for the next quiet period.")
+                return
+            # A chat during the call then starts a new thread, so each memory covers a whole thread
+            CURRENT_THREAD.clear()
+        write_memory(thread, members.get(thread["id"], []), campaign)
 
 def get_character_data(name, context=""):
     """The profile of the NPC that the context names by npc_id. Without an npc_id the profile is a stand-in that is never stored."""
@@ -1426,7 +1483,10 @@ def chat():
     if speaker_id:
         npc_name(speaker)
     thread_key = (speaker_id, primary_id)
-    current_thread = CURRENT_THREAD.get("id") if CURRENT_THREAD.get("key") == thread_key and time.monotonic() - CURRENT_THREAD["replied"] < THREAD_QUIET_SECONDS else None
+    timeout = quiet_seconds()
+    with THREAD_LOCK:
+        current_thread = CURRENT_THREAD.get("id") if CURRENT_THREAD.get("key") == thread_key and time.monotonic() - CURRENT_THREAD["replied"] < timeout else None
+        restart_quiet_clock()
 
     _, talk_radius, yell_radius = get_config_radii()
     # A whisper is one-on-one: nobody overhears
@@ -1492,6 +1552,7 @@ def chat():
     messages = chat_prompt.chat_messages(system, chat_prompt.history_turns(chat_prompt.with_notes(history, notes), primary_id), turn)
 
     content = call_llm("chat", messages)
+    restart_quiet_clock()
     if not content:
         logging.error("CHAT: No reply from the LLM.")
     
@@ -1872,7 +1933,8 @@ def settings_page_values(settings):
         "enable_welcome": settings["enable_welcome"],
         "open_web_panel_on_start": settings["open_web_panel_on_start"],
         "log_level": log_setup.parse_level(settings["log_level"]),
-        "bio_interactions": settings["bio_interactions"]
+        "bio_interactions": settings["bio_interactions"],
+        "conversation_timeout_minutes": settings["conversation_timeout_minutes"]
     }
 
 @app.route('/settings/defaults')
@@ -1977,6 +2039,14 @@ def settings_endpoint():
             logging.info(f"SETTINGS: Bio threshold set to {val} chats")
         except: pass
 
+    conversation_timeout = data.get("conversation_timeout_minutes")
+    if conversation_timeout is not None:
+        try:
+            val = max(1, int(conversation_timeout))
+            changes["conversation_timeout_minutes"] = val
+            logging.info(f"SETTINGS: Conversation timeout set to {val} minutes")
+        except: pass
+
     diag_speed = data.get("dialogue_speed")
     if diag_speed is not None:
         try:
@@ -2039,6 +2109,7 @@ def switch_campaign(name):
         SEEN_FACTIONS.clear()
         CONVERSATION_SCENE.clear()
         CURRENT_THREAD.clear()
+        restart_quiet_clock()
         load_campaign_config()
         return True
     return False
@@ -2181,6 +2252,7 @@ def get_active_campaign():
                     "id": thread["id"],
                     "time": campaign_db.game_time_text(thread["game_time"]) if thread["game_time"] is not None else "",
                     "members": [{"name": name or "", "role": role} for _, name, role, _ in thread["members"]],
+                    "memory": chat_prompt.named(thread["memory"], {npc_id: name or "Unknown" for npc_id, name, _, _ in thread["members"]}) if thread["memory"] else None,
                     "lines": thread["lines"],
                 }
                 for thread in campaign_db.threads()
@@ -2411,6 +2483,7 @@ def cull_future_data():
     culled = campaign_db.cull_after(day, hour, minute)
     # The player loaded an earlier save, so the next chat starts a conversation of its own
     CURRENT_THREAD.clear()
+    restart_quiet_clock()
     logging.info(f"CAMPAIGN: Culled {culled['dialogue']} dialogue lines, {culled['event']} events, and {culled['rumor']} rumors after [Day {day}, {hour:02d}:{minute:02d}] in '{ACTIVE_CAMPAIGN}'")
     return jsonify({"status": "ok", "time": f"Day {day}, {hour:02d}:{minute:02d}", "culled": culled})
 
@@ -2695,6 +2768,23 @@ def synthesis_loop():
 
 if RUMOR_SYNTHESIS:
     threading.Thread(target=synthesis_loop, daemon=True).start()
+
+def memory_loop():
+    """Runs the distillation once in each quiet period, so a thread whose call failed waits for the next one."""
+    distilled = None
+    while True:
+        time.sleep(10)
+        since = QUIET_SINCE
+        if since == distilled or time.monotonic() - since < quiet_seconds():
+            continue
+        distilled = since
+        try:
+            distill_threads()
+        except Exception as e:
+            # A thread, where nothing else would log the error
+            logging.error(f"MEMORY: The distillation of the chat threads failed: {e}")
+
+threading.Thread(target=memory_loop, daemon=True).start()
 
 def player2_ping_loop():
     logging.debug("PLAYER2: Health check thread started.")

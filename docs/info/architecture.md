@@ -133,7 +133,7 @@ The Editor holds many records. Save sends one request for each changed record, a
 
 The Editor has three subtabs. Campaign Canon and Templates share the record list and forms: Campaign Canon edits the canon of the active campaign, and Templates edits the world templates that new campaigns copy. Campaign Log shows the active campaign in two subtabs of its own: Dialogue & Memories, and Events. Events edits the rumors and lists the events. The page holds the data of one subtab and one template at a time, so a switch with unsaved changes asks the player first. A shipped template is read-only, so the page offers a duplicate.
 
-Dialogue & Memories lists the chat threads of the active campaign, newest first, each with the game time of its earliest line and its speakers (see [Chat threads](#chat-threads)). It uses the layout of Campaign Canon: a search field and the list on the left, and the selected thread on the right, with its overhearers and its lines. The search matches the names of the members and the text of the lines, with case ignored. `GET /api/campaign` returns every thread with its lines, as Campaign Canon loads every record, so the search runs in the page. The lines are the copy of the speaker who holds the most lines of the thread, because each history is trimmed on its own schedule (`campaign_db.threads`). The subtab is read-only, and banter has no threads, so it stays out.
+Dialogue & Memories lists the chat threads of the active campaign, newest first, each with the game time of its first exchange and its speakers (see [Chat threads](#chat-threads)). It uses the layout of Campaign Canon: a search field and the list on the left, and the selected thread on the right, with its overhearers, its lines, and its memory under Memorised Summary (see [Conversation memories](#conversation-memories)). A thread whose lines the trim removed shows only its memory. The search matches the names of the members, the text of the lines, and the memory, with case ignored. `GET /api/campaign` returns every thread with its lines and its memory, as Campaign Canon loads every record, so the search runs in the page. The lines are the copy of the speaker who holds the most lines of the thread, because each history is trimmed on its own schedule (`campaign_db.threads`). The subtab is read-only, and banter has no threads, so it stays out.
 
 On Campaign Canon, **Show seeded data** and **Show provisional characters** start on. While the player turns one off, the record list hides the records whose `origin` is `seed`, or the provisional characters (see [Provisional profiles](#provisional-profiles)). The browser remembers each switch. The overview and the history have no `origin`, so they always show.
 
@@ -221,7 +221,7 @@ When the origin faction of an NPC is its current faction, the chat prompt gives 
 
 ## LLM routing
 
-Each LLM call names a task: `chat`, `ambient`, `profile`, or `synthesis`. The server makes no `synthesis` call while `RUMOR_SYNTHESIS` is off: it stores the events of the game, but the timer does not start and `/synthesize` refuses. `server/user/llm_config.json` holds four parts, and the web app's Models page edits all of them through `/api/llm`.
+Each LLM call names a task: `chat`, `ambient`, `profile`, `synthesis`, or `memory`. The server makes no `synthesis` call while `RUMOR_SYNTHESIS` is off: it stores the events of the game, but the timer does not start and `/synthesize` refuses. `server/user/llm_config.json` holds four parts, and the web app's Models page edits all of them through `/api/llm`.
 
 | Part | Contents |
 |---|---|
@@ -246,11 +246,13 @@ A rejected save returns each error with the path of its field, for example `["pr
 
 On a start without `llm_config.json`, the server builds it from `default_providers.json` and `default_models.json` in `server/config/`. Each task gets one route that holds only the `player2-default` profile.
 
+When the server loads `llm_config.json`, each task that the file lacks gets the default route (`llm_config.default_route`). The file of an earlier version, which lacks the tasks that a later version added, therefore keeps working, and the next save writes the new routes.
+
 **Reset to defaults** on the Models page posts to `/api/llm/reset`, which builds the same configuration and saves it at once. The page does not hold the stored keys, so the reset cannot fill the form for a later save as the Settings page does. The reset removes the providers and profiles that the player added, with their keys. A default provider keeps its stored key only when the stored base URL has the same host as the default one (`llm_config.reset`), so a key for a custom host does not go to the default host. A placeholder key of the defaults never replaces a stored key.
 
 ## Campaign storage
 
-`server/scripts/campaign_db.py` keeps the characters, the dialogue and its chat threads, the canon, the event history, and the rumors of a campaign in one SQLite file, `campaign.db`, in the campaign folder. The plugin reaches this data only through the server's routes.
+`server/scripts/campaign_db.py` keeps the characters, the dialogue with its chat threads and their memories, the canon, the event history, and the rumors of a campaign in one SQLite file, `campaign.db`, in the campaign folder. The plugin reaches this data only through the server's routes.
 
 - Each write runs in one `BEGIN IMMEDIATE` transaction. A profile write merges only the keys that the caller passes, and the dialogue lines are rows of their own. A route that waits for the LLM must write only the keys that it changed, so that it cannot undo a change that another request made during the wait.
 - `/chat` changes the Relation through `change_relation`, which adds the judgment to the stored value in one transaction. Two overlapping chats with the same NPC therefore keep both changes.
@@ -325,13 +327,13 @@ The `character` table holds every character of a campaign in one shape: the cano
 
 Each chat exchange belongs to a chat thread, which records who took part in the conversation. The copies of a line in the histories cannot tell this, because each history is trimmed on its own schedule, and a squad member overhears every chat near the player, so its copies are trimmed first.
 
-- The `thread` table holds the ID, and the `thread_id` column of `dialogue` links each chat row to its thread. Banter rows have no thread.
+- The `thread` table holds the ID, the game time of the newest exchange, and the memory (see [Conversation memories](#conversation-memories)). The `thread_id` column of `dialogue` links each chat row to its thread. Banter rows have no thread.
 - The `thread_member` table holds each member of a thread: its `npc_id`, its role (`speaker` or `overheard`), the game time when it joined, and whether it was in the player's faction then. The speakers are the squad member who speaks and the NPC, and the overhearers are the listeners of each exchange. Only a character whose copy the server stores becomes a member.
 - A member keeps the values of its first join. The history text therefore stays the same from turn to turn, so the cache serves it, and a later recruit or dismissal does not change what an NPC remembers.
-- The server keeps the current thread in memory (`CURRENT_THREAD`). A chat with another NPC, a chat as another squad member, a campaign switch, a cull, a server restart, or 3 minutes without a chat reply (`THREAD_QUIET_SECONDS`) starts a new thread. The server measures real time, because it sees the game time only in the requests that it gets. The close of the chat window does not end a thread.
+- The server keeps the current thread in memory (`CURRENT_THREAD`). A chat with another NPC, a chat as another squad member, a campaign switch, a cull, a server restart, or a pause without a chat reply as long as the Conversation timeout of the Settings page (`conversation_timeout_minutes`, default 3) starts a new thread. The server measures real time, because it sees the game time only in the requests that it gets. The close of the chat window does not end a thread.
 - A thread does not follow the scene: a new name of the NPC or the first exchange starts a new scene but not a new thread.
 - `thread.id` is `AUTOINCREMENT`, so the ID of a deleted thread never names a new thread. `join_thread` starts a new thread when the current one is gone.
-- A trim, a cull, or the delete of a character deletes each thread that no dialogue row uses any more, with its members. A cull also deletes the members that joined after the cut.
+- A trim, a cull, or the delete of a character deletes each thread that has no memory and that no dialogue row uses any more, with its members. A cull also deletes the members that joined after the cut.
 - Rejected: members derived from the rows that hold the thread. The copies of a squad member are trimmed first, so the overheard note would disappear from the history of the NPC.
 - Rejected: one stored row for each line, with a table of the characters that heard it. Each copy has its own `(Overheard)` tag, its own trim, and its own relabel after a rename, so the history of a character would have to rebuild all three from a join.
 - Rejected: one thread for each player message. A conversation of ten messages would be ten threads.
@@ -343,6 +345,22 @@ The chat prompt reads the threads and the speaker of each row, so the NPC tells 
 - **Relation.** The NPC keeps one `Relation`, which the chats of every squad member change, so the relation sentence names the player's faction: "You feel friendly towards Nameless, the group Izumi travels with." Each step of the scale ends with the name, because the name carries that clause.
 - **Overheard notes.** After the last line of each thread in which the NPC is a speaker, the history adds one user line that names the overhearers that were in the player's faction: "Stick and Mikse heard your conversation with Izumi." (`chat_prompt.overheard_notes`). Other overhearers are not named, because only a squad member can later speak to the NPC as the player. A thread that the NPC only overheard gets no note.
 - The note of the current thread is at the end of the history, and it moves after each exchange, so the cache loses the tokens of one exchange on each turn. A note at the start of a thread would break the cache from the start of the thread each time a new squad member walks up.
+
+### Conversation memories
+
+The server distills each chat thread into a short memory. The Dialogue & Memories subtab shows the memories (see [Web app](#web-app)). The in-game Dialogue Library does not show them, and no prompt reads them yet.
+
+- A thread is pending when it has a line and no memory. When no chat request or reply came for the Conversation timeout (`quiet_seconds`), the server writes the memory of each pending thread of the active campaign, one call at a time, the oldest first (`memory_loop` in `server/scripts/kenshi_llm_server.py`). The server start, a campaign switch, and a cull start this quiet clock again (`restart_quiet_clock`).
+- The distillation runs once in each quiet period. After a failed call, the thread stays pending, the server moves on to the next thread, and the next quiet period tries the failed thread again.
+- Before each call, the server checks that the chat is still quiet, so a chat that starts during the distillation waits for one call at most. A local model serves one request at a time, so a call during a chat would delay the reply.
+- Before each call, the server also ends the current thread, under `THREAD_LOCK`, so a chat during the call starts a new thread and each memory covers a whole thread. A pause as long as the Conversation timeout therefore splits a conversation into two threads.
+- The call takes the `memory` task (see [LLM routing](#llm-routing)) and `prompt_thread_memory.txt`, with the lines of the copy that the subtab shows (`campaign_db.pending_threads`). The memory names each speaker and never says "you", so every member of the thread can read the same text.
+- A thread stores its memory once, and each member reaches it through `thread_member`. Rejected: a memory for each member, written from the view of that member. Each member would cost one call, and a crowd near a chat would multiply the calls.
+- The stored text marks each name of a member with the `npc_id` of that member, and the server puts in the current name each time that it reads a memory (`chat_prompt.mark_names`, `chat_prompt.named`). A rename therefore changes the name in every memory. Only a whole name counts, the longest first, so "Dust Bandit" does not match inside "Dust Bandit Josh". A name that two members share stays as text, because its mark could name the wrong member, and so does a short form of a name.
+- Rejected: marks in the lines that the call reads. The model writes a better memory from names, and a mark that it dropped or changed would leave a broken name.
+- A thread with a memory stays, with its members, when the trim removes its last line. Memories are not trimmed: a memory is about 500 bytes, so 10,000 conversations add about 5 MB to a campaign.
+- A cull deletes the memory of each thread whose newest exchange is after the cut. The lines from before the cut make the thread pending again, and a thread with no line left is deleted.
+- The server drops a memory when the active campaign changed during the call, because the same thread ID can name another thread in the new campaign. It also drops a memory when the game time of the thread changed during the call, for example because a cull removed its newest lines (`campaign_db.set_memory`).
 
 ### Names
 
@@ -468,12 +486,12 @@ Edit Bio in the Dialogue Library skips the LLM. `/read_bio` returns the stored `
 | `POST /api/campaigns` | Create a campaign from a template, with no switch |
 | `POST /api/campaigns/switch` | Make a campaign the current one. The name must be a folder that the campaign list shows, so a name such as `../x` cannot point outside `server/campaigns/`. |
 | `POST /api/campaigns/delete` | Delete a campaign folder, with the same name check. Before it deletes the current campaign, it switches to the first other one. When no other campaign remains, the server has no current campaign (see [Campaign storage](#campaign-storage)). |
-| `GET /api/campaign` | The active campaign: its events, its rumors, and its chat threads with their members and lines. A refused campaign gives status 409 with the reason. |
+| `GET /api/campaign` | The active campaign: its events, its rumors, and its chat threads with their members, lines, and memories. A refused campaign gives status 409 with the reason. |
 | `GET /api/campaign/canon` | The canon of the active campaign, each record with its `origin` and `updated_at`, and each character with the `current_faction` that a chat reported since the server started (`LIVE_CONTEXTS`), or `null`. A refused campaign gives status 409 with the reason. |
 | `POST /api/campaign/records`, `.../records/delete` | Save or delete one canon record of the active campaign. A faction, character, race, location, or region with no ID is new. |
 | `POST /api/campaign/characters/bio` | The LLM text of the full bio, or of one part, for the form of a character. It stores nothing (see [Provisional profiles](#provisional-profiles)). |
 | `POST /api/campaign/rumors`, `.../rumors/delete` | Edit the rumors of the active campaign |
-| `POST /api/campaign/cull` | Delete the dialogue, events, rumors, and thread members dated after the current game time, after the player loads an older save. It asks the running game for a report and refuses the cull without one (see [Game state](#game-state)), because without the game time day 0 would count as now and the cull would delete the whole history. |
+| `POST /api/campaign/cull` | Delete the dialogue, events, rumors, thread members, and memories dated after the current game time, after the player loads an older save. It asks the running game for a report and refuses the cull without one (see [Game state](#game-state)), because without the game time day 0 would count as now and the cull would delete the whole history. |
 
 - Each edit names the campaign that the page loaded. Another tab can switch the campaign while the page is open, so the server refuses an edit for another campaign instead of writing it into the active one.
 - **Cull Future Data** in the SSR HUB posts to `POST /cull`, which does the same cull without the campaign check, because the game always means the active campaign. The plugin shows the result as a game message.

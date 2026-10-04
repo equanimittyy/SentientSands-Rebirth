@@ -1,6 +1,6 @@
 # Proposal: Dialogue Threads
 
-Status: The threads (phase 1) are built ([architecture.md](../info/architecture.md#chat-threads)). The distillation (phases 2 and 3) is a draft for review.
+Status: The threads (phase 1) and the memories (phase 2) are built ([architecture.md](../info/architecture.md#chat-threads)). The memories in the chat prompt (phase 3) are a draft for review.
 
 ## 1. Summary
 
@@ -8,14 +8,14 @@ One exchange of dialogue is stored as a copy in the history of each NPC that too
 
 Today the chat prompt gives an NPC its stored dialogue as raw lines, in a window of 20 to 39 lines ([architecture.md](../info/architecture.md#prompts)). A long conversation fills the prompt with exact wording that the NPC does not need. The trim then removes the oldest lines, and nothing of them stays.
 
-The later phases therefore distill each chat thread into a short memory when the chat is quiet for 3 minutes. Each member of the thread, a speaker or an overhearer, reads the memory in its chat prompt instead of the lines of the thread. The memories are a new part of the chat prompt. When every chat thread of an NPC has a memory, the chat prompt of that NPC has no history.
+Phase 2 therefore distills each chat thread into a short memory when the chat is quiet for the Conversation timeout ([architecture.md](../info/architecture.md#conversation-memories)). In phase 3, each member of the thread, a speaker or an overhearer, reads the memory in its chat prompt instead of the lines of the thread. The memories are a new part of the chat prompt. When every chat thread of an NPC has a memory, the chat prompt of that NPC has no history.
 
 Non-goals:
 
 - A thread ID in the line text or in a prompt.
 - A relation for each squad member. An NPC keeps one relation, and the prompt presents it as a feeling towards the player's faction.
-- A memory for each member of a thread ([section 5](#5-distillation)).
-- Memories of banter ([section 7](#7-memories-in-the-prompt)).
+- A memory for each member of a thread ([architecture.md](../info/architecture.md#conversation-memories)).
+- Memories of banter ([section 6](#6-memories-in-the-prompt)).
 - Memories in the bio prompt or in the banter prompt. Both keep the stored lines.
 - A memory of older memories, for an NPC that has more memories than the prompt shows.
 - The delete of the stored lines. The Dialogue Library and the bio prompt still read them, and the trim still removes them.
@@ -28,7 +28,7 @@ Threads support these uses:
 |---|---|---|
 | A conversation view | The view shows one conversation with its speakers and its overhearers | Built as the Dialogue & Memories subtab of the Editor ([architecture.md](../info/architecture.md#web-app)) |
 | A delete or an edit of a bad reply | One action changes every copy of a line, not only the copy that the player sees | Not planned. The web app has no dialogue edit. A match on the text would also find the copies, because the copies of a line differ only by the `(Overheard)` tag and the name of the one that the line was said to |
-| A summary of old dialogue before the trim | A thread is the unit of a summary, so the summary of a conversation is written once and not once for each copy | Planned in [section 5](#5-distillation) |
+| A summary of old dialogue before the trim | A thread is the unit of a summary, so the summary of a conversation is written once and not once for each copy | Built ([architecture.md](../info/architecture.md#conversation-memories)). The chat prompt reads it in [section 6](#6-memories-in-the-prompt) |
 | Recall of an earlier conversation in a prompt | The prompt gets a whole earlier conversation when the player refers to it | Not planned. Retrieval in [proposal_lore_retrieval.md](proposal_lore_retrieval.md#1-summary) searches only the lore |
 | A group chat in which several NPCs reply | One exchange holds the replies of several speakers | Not planned. A chat has one target today |
 
@@ -43,54 +43,20 @@ Not a reason: the de-duplication of banter. The prompt of a banter collects the 
 | Speaker | Each dialogue row stores the `npc_id` of its speaker ([architecture.md](../info/architecture.md#characters)). |
 | Relation | Each NPC keeps one `Relation`. The judgment of each reply changes it, whichever squad member speaks. The scene gives it as a feeling towards the player's faction. |
 | Threads | Each chat row stores its thread, and each thread stores its speakers and its overhearers. The scene names the squad members that the NPC spoke with, and the history notes who of the player's faction overheard each conversation of the NPC ([architecture.md](../info/architecture.md#chat-threads)). |
+| Memories | Each chat thread gets a memory when the chat is quiet for the Conversation timeout. A thread with a memory stays after the trim removes its lines. No prompt reads the memories ([architecture.md](../info/architecture.md#conversation-memories)). |
 | Trim | Each character keeps its newest 240 to 260 lines, so the copies of one exchange are trimmed at different times. |
 | Cull | **Cull Future Data** deletes the rows dated after the current game time in every history. |
-| Views | The in-game Dialogue Library shows the history of each character as plain text from `/history`. The Dialogue & Memories subtab of the web app shows each chat thread. |
+| Views | The in-game Dialogue Library shows the history of each character as plain text from `/history`. The Dialogue & Memories subtab of the web app shows each chat thread with its memory. |
 
 ## 4. Threads
 
 Phase 1 built the threads: the storage, the thread lifetime, and the prompt ([architecture.md](../info/architecture.md#chat-threads)).
 
-## 5. Distillation
+## 5. Distillation and memory storage
 
-### When to distill
+Phase 2 built the distillation, the storage of the memories, and the Memorised Summary box of the Dialogue & Memories subtab ([architecture.md](../info/architecture.md#conversation-memories)).
 
-- A thread is pending when it ended and has no memory.
-- When the chat becomes quiet ([architecture.md](../info/architecture.md#chat-threads)), the server distills the pending threads of the active campaign in the background, one at a time, the oldest first. Before each call, it checks that the chat is still quiet. A chat that starts during a distillation therefore waits for one call at most.
-- The quiet clock starts with the server, so the threads that a restart left without a memory get one 3 minutes after the start.
-- The quiet period is the same for all threads. A distillation call uses the same provider as a chat, and a local model serves one request at a time, so a distillation during a chat delays the reply.
-- Rejected: a quiet period for each thread. A chat with a second NPC would then wait for the distillation of the chat with the first NPC.
-- The thread ends before its call starts, so a chat during the call starts a new thread. A memory therefore covers a whole thread.
-- Rejected: a memory for the first part of a thread, and raw lines for the rest. Each copy of a line has its own row in the history of each member, so each copy would need its own mark for where the memory stops.
-- A pause of 3 minutes also ends a thread in the middle of a conversation. The NPC then reads the start of the conversation as a memory.
-- While the player keeps chatting, with any NPC, no thread is distilled. The pending threads keep their lines in the history until the next quiet period.
-
-### The call
-
-- A new task, `memory`, has its own route ([architecture.md](../info/architecture.md#llm-routing)), so the player can send the distillation to a cheaper model. The Models page shows the route as Conversation memories.
-- A new prompt, `prompt_thread_memory.txt`, is in the Conversations group of the Prompts page. It gets the lines of the thread from the history of one of its speakers, because those lines have no `(Overheard)` tag.
-- The memory is plain text in the third person and the past tense, at most 80 words. It keeps what each speaker asked, told, offered, promised, or threatened, the names, places, and numbers that they gave, what stayed open, and how each speaker treated the other. It drops greetings and the exact wording. It adds nothing that the lines do not say.
-- The memory names each speaker and never says "you", because every member reads the same text.
-- An overhearer reads the whole memory, also when it came near after the start of the thread.
-- Rejected: a memory for each member, written from the view of that member. Each member would cost one call, and a crowd near a chat would multiply the calls.
-- After a failed call, the thread stays pending and its lines stay in the history. The server moves on to the next thread, and the next quiet period tries the failed thread again.
-- A campaign switch during a call drops the memory, as it drops a bio, because the same thread ID can name another thread in the new campaign.
-
-## 6. Memory storage
-
-- The `thread` table gets two columns: `memory`, which is empty until the distillation, and `game_time`, the game time of the newest line of the thread.
-- A memory is stored once, on its thread. Each member reads it through `thread_member`.
-- Rejected: a copy of the memory for each member, as for the lines. Each copy would need its own trim and its own delete, and every copy would hold the same text.
-- The stored text of a memory marks each name of a member with the `npc_id` of that member. The server builds the names from the IDs each time that it reads a memory, so a rename changes the names in every memory.
-- After the call, the server replaces each name of a member in the text with its mark. It matches whole words only, the longest name first, so "Dust Bandit" does not match inside "Dust Bandit Josh".
-- A name that two members share stays as plain text, because its mark could name the wrong member. A name that the memory writes in another form, such as a short form, also stays as plain text.
-- Rejected: marks in the lines that the call reads and in the text that it writes. The model writes a better memory from names, and a mark that it drops or changes would leave a broken name.
-- A thread with a memory stays, with its members, when the trim removes its last line. The memory is then the only record of the conversation in the prompt.
-- Memories are not trimmed. A memory is about 500 bytes, so 10,000 conversations add about 5 MB to a campaign. The prompt reads only the newest 10 of a character ([section 7](#7-memories-in-the-prompt)).
-- **Cull Future Data** deletes the memory of each thread whose `game_time` is after the cut. The lines of the thread from before the cut make it pending again, so the next quiet period distills them. A thread that has no line left is deleted.
-- The schema version changes, as for the threads.
-
-## 7. Memories in the prompt
+## 6. Memories in the prompt
 
 The chat request gets a new part, the memories:
 
@@ -113,7 +79,7 @@ The chat request gets a new part, the memories:
   | An overhearer | `[Day 3, 14:05] You overheard Stick and Jorge.` |
 
 - The header of a speaker names the overhearers that were in the player's faction when they joined, as the overheard note does ([architecture.md](../info/architecture.md#chat-threads)). That note stays only after the lines of a thread with no memory.
-- The header and the text name each member by its current name ([section 6](#6-memory-storage)).
+- The header and the text name each member by its current name ([architecture.md](../info/architecture.md#conversation-memories)).
 
 ### History
 
@@ -133,26 +99,16 @@ Stick asked Jorge for work. Jorge offered a job as a guard at the bar for 200 ca
 Izumi asked the barman where to sell skeleton parts. The barman named no buyer and told Izumi to speak more quietly.
 ```
 
-## 8. Memory viewer
+## 7. Verification
 
-The Dialogue & Memories subtab of the Editor shows each memory with the lines and the members of its thread ([proposal_campaign_log.md](proposal_campaign_log.md#2-memorised-summary)). The in-game Dialogue Library does not show memories.
+Phase 3 builds the prompt of [section 6](#6-memories-in-the-prompt). The chat prompt of the NPC, the squad member, and an overhearer holds the memory and no line of the thread. An NPC whose threads all have memories gets no history turns. A memory written during a conversation reaches the next turn. After a rename, the next prompt has the new name in the header and the text of each memory.
 
-## 9. Phases and verification
+1. `server/tests/test_chat_prompt.py` covers the history without the lines of a thread with a memory and without banter, the header for a speaker and for an overhearer, the limit of 10 and the order, and a request with no history turns.
+2. The full server test suite passes.
 
-| Phase | Deliverable | Acceptance criteria |
-|---|---|---|
-| 2. Distillation | The distillation of [section 5](#5-distillation) and the storage of [section 6](#6-memory-storage) | 3 minutes after the last reply, each thread of the chat has a memory, and the next exchange with the same NPC starts a new thread. A chat during a distillation gets its reply after one call at most. A failed call leaves its thread pending. A cull deletes the memories after the cut. |
-| 3. Memories in the chat prompt | The prompt of [section 7](#7-memories-in-the-prompt) | The chat prompt of the NPC, the squad member, and an overhearer holds the memory and no line of the thread. An NPC whose threads all have memories gets no history turns. A memory written during a conversation reaches the next turn. After a rename, the next prompt has the new name in the header and the text of each memory. |
+## 8. Open questions
 
-Phase 3 needs phase 2.
-
-1. `server/tests/test_chat_prompt.py` covers the history without the lines of a thread with a memory and without banter, the header for a speaker and for an overhearer, the limit of 10 and the order, and a request with no history turns. It also covers the name marks: whole words, the longest name first, a name that two members share, and a rename.
-2. `server/tests/test_campaign_db.py` covers a memory that stays after the trim of its last line, the order of the pending threads, and a cull that deletes a memory after the cut and makes its thread pending.
-3. The full server test suite passes.
-
-## 10. Open questions
-
-1. The quiet period counts real time. Should a long pause in game time also start a new chat thread, for example when the player speeds up the game and comes back to the same NPC within 3 minutes?
+1. The quiet period counts real time. Should a long pause in game time also start a new chat thread, for example when the player speeds up the game and comes back to the same NPC within the Conversation timeout?
 2. Should the in-game Dialogue Library show a header line for each thread, for example "Day 3, Squin: with Dust Bandit Josh, Ruka"? MyGUI shows only text, so the header could not open the copy of another participant.
 3. What does the relation sentence say for an NPC in the player's faction? "You feel friendly towards Nameless, the group Izumi travels with" reads oddly next to "You travel in Izumi's squad".
 4. Should the player be able to edit or delete a bad memory?

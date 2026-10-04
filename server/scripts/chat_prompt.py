@@ -77,6 +77,32 @@ def with_notes(entries, notes):
     return lines
 
 
+def mark_names(text, members):
+    """Replaces each name of members, (npc_id, name) pairs, in text with the mark of its npc_id, so named() gives the current
+    name after a rename. It matches whole words only, the longest name first, so "Dust Bandit" stays inside "Dust Bandit
+    Josh". A name that two members share stays as text, because its mark could name the wrong member."""
+    owners = {}
+    for npc_id, name in members:
+        if name:
+            owners.setdefault(name, set()).add(npc_id)
+    marks = {name: _mark(*ids) for name, ids in owners.items() if len(ids) == 1}
+    if not marks:
+        return text
+    pattern = re.compile(r"(?<!\w)(" + "|".join(re.escape(name) for name in sorted(marks, key=len, reverse=True)) + r")(?!\w)")
+    return pattern.sub(lambda match: marks[match.group(1)], text)
+
+
+def named(text, names):
+    """The text of mark_names with the name of each npc_id in names."""
+    for npc_id, name in names.items():
+        text = text.replace(_mark(npc_id), name)
+    return text
+
+
+def _mark(npc_id):
+    return "{" + npc_id + "}"
+
+
 def history_turns(entries, npc_id):
     """entries are (line, speaker) pairs. The speaker, not the name, marks the lines of the NPC, because NPCs near the player
     can share a name."""

@@ -1,8 +1,9 @@
 """Create a campaign filled with mock play data, so the web app and the Dialogue Library have data without a game.
 
 The data goes in through the campaign_db calls that the chat route makes: chat threads with speakers and overhearers,
-a whisper and a yell, one banter, events, and rumors. The script refuses a campaign name that is taken, so a second run
-cannot add the data twice. It needs no Flask, so it runs in the dev container.
+a whisper and a yell, the memories of all chat threads but the newest, one banter, events, and rumors. The script
+refuses a campaign name that is taken, so a second run cannot add the data twice. It needs no Flask, so it runs in the
+dev container.
 """
 import argparse
 import re
@@ -14,6 +15,7 @@ SERVER = REPO / "server"
 sys.path.insert(0, str(SERVER / "scripts"))
 
 import campaign_db
+import chat_prompt
 import world_template
 
 SQUAD = "Nameless"
@@ -47,13 +49,14 @@ def party(npc_id):
     return f"{NAMES[npc_id]} (Player's Squad: {SQUAD})" if npc_id in IN_SQUAD else f"{NAMES[npc_id]} ({FACTIONS[npc_id]})"
 
 
-def chat_thread(speaker, npc, exchanges, overhearers=(), mode="talk", town="The Hub"):
-    """exchanges are (game time, line of the squad member, reply of the NPC) triples."""
+def chat_thread(speaker, npc, exchanges, overhearers=(), mode="talk", town="The Hub", memory=None):
+    """exchanges are (game time, line of the squad member, reply of the NPC) triples. memory is the text that the
+    distillation would write, with names, or None for a pending thread."""
     thread_id = None
+    copies = [speaker, npc, *overhearers]
+    members = [(npc_id, "speaker" if npc_id in (speaker, npc) else "overheard", npc_id in IN_SQUAD) for npc_id in copies]
     for when, said, reply in exchanges:
         prefix = f"[{when}] "
-        copies = [speaker, npc, *overhearers]
-        members = [(npc_id, "speaker" if npc_id in (speaker, npc) else "overheard", npc_id in IN_SQUAD) for npc_id in copies]
         thread_id = campaign_db.join_thread(thread_id, members, campaign_db.game_time(prefix))
         for npc_id in copies:
             heard = npc_id not in (speaker, npc)
@@ -63,6 +66,8 @@ def chat_thread(speaker, npc, exchanges, overhearers=(), mode="talk", town="The 
             campaign_db.append_dialogue(npc_id, lines, {}, thread_id)
         campaign_db.add_event(f"[{when}] [CHAT] {party(speaker)} -> {party(npc)} @ {town}: {said}")
         campaign_db.add_event(f"[{when}] [CHAT] {party(npc)} -> {party(speaker)} @ {town}: {reply}")
+    if memory:
+        campaign_db.set_memory(thread_id, chat_prompt.mark_names(memory, [(npc_id, NAMES[npc_id]) for npc_id in copies]), campaign_db.game_time(prefix))
 
 
 def banter(lines, town="The Hub"):
@@ -84,15 +89,22 @@ def fill():
         ("Day 3, 14:05", "Any work going, barkeep?", "Depends. Can you swing a sword, or can you only drink?"),
         ("Day 3, 14:06", "Both, if the pay is right.", "Guard the door tonight. Two hundred cats, and you stop anyone who starts trouble."),
         ("Day 3, 14:07", "Deal. Who usually starts it?", "Dust Bandits, mostly. They come in thirsty and leave without paying."),
-    ], overhearers=[IZUMI, ABEL])
+    ], overhearers=[IZUMI, ABEL], memory=(
+        "Stick asked Jorge for work. Jorge doubted that Stick could fight, but offered 200 cats to guard the door of the bar"
+        " for the night and stop anyone who started trouble. Stick agreed. Jorge named the Dust Bandits as the usual"
+        " trouble, because they drink and leave without paying."
+    ))
     chat_thread(IZUMI, JORGE, [
         ("Day 3, 14:40", "Hey, have we met?", "No, but your friend Stick took the door shift. You with him?"),
         ("Day 3, 14:41", "Unfortunately.", "Then keep him awake past midnight."),
-    ])
+    ], memory="Izumi asked Jorge whether they had met. Jorge said no, but knew that Izumi travelled with Stick, the new door guard. Izumi admitted it without joy. Jorge asked Izumi to keep Stick awake past midnight.")
     chat_thread(STICK, RUKA, [
         ("Day 4, 09:12", "You look like you've seen a fight or two.", "A few. We do not count the fights, only the ones we lost."),
         ("Day 4, 09:13", "Looking for work?", "Not from a door guard. Prove yourself first."),
-    ], overhearers=[MIKSE])
+    ], overhearers=[MIKSE], memory=(
+        "Stick told Ruka that Ruka looked like a fighter. Ruka answered that they counted only the fights they lost. Stick"
+        " asked whether Ruka wanted work, and Ruka refused work from a door guard until Stick proved himself."
+    ))
     banter([
         ("Day 4, 09:30", RUKA, "Your ale tastes of rust."),
         ("Day 4, 09:30", JORGE, "Everything here does."),
@@ -103,11 +115,19 @@ def fill():
     chat_thread(MIKSE, BEEP, [
         ("Day 5, 20:30", "Beep, can you keep a secret?", "Beep is very good at secrets! Beep forgets most things anyway."),
         ("Day 5, 20:31", "We leave The Hub tonight.", "Beep will pack! Beep has one bag and it is empty."),
-    ], mode="whisper")
+    ], mode="whisper", memory=(
+        "Mikse whispered to Beep and asked Beep to keep a secret. Beep promised, and said that Beep forgets most things"
+        " anyway. Mikse told Beep that the group would leave The Hub that night. Beep offered to pack, though the only bag"
+        " of Beep was empty."
+    ))
     chat_thread(STICK, JOSH, [
         ("Day 6, 11:00", "You owe Jorge for three drinks!", "Come and collect it yourself, door boy!"),
         ("Day 6, 11:01", "Last warning.", "Big words for a man with a borrowed sword."),
-    ], overhearers=[IZUMI, MIKSE], mode="yell")
+    ], overhearers=[IZUMI, MIKSE], mode="yell", memory=(
+        "Stick yelled at Dust Bandit Josh that Josh owed Jorge for three drinks. Josh told Stick to come and collect it and"
+        " called Stick a door boy. Stick gave a last warning, and Josh mocked the borrowed sword of Stick. The debt stayed"
+        " unpaid."
+    ))
     campaign_db.add_event(f"[Day 6, 11:02] [combat] {party(JOSH)} -> {party(STICK)} @ The Hub: Initiated attack")
     campaign_db.add_event(f"[Day 6, 11:03] [knockout] Unknown -> {party(JOSH)} @ The Hub: Was knocked unconscious")
     campaign_db.add_event(f"[Day 6, 11:08] [healing] {party(IZUMI)} -> {party(STICK)} @ The Hub: Applying first aid")
@@ -133,7 +153,8 @@ def main():
     folder.mkdir(parents=True)
     campaign_db.open_campaign(str(folder), lambda: seed)
     fill()
-    print(f"Created the campaign {name} with {len(campaign_db.threads())} chat threads, {len(campaign_db.events())} events, and {len(campaign_db.rumors())} rumors.")
+    threads = campaign_db.threads()
+    print(f"Created the campaign {name} with {len(threads)} chat threads, {sum(thread['memory'] is not None for thread in threads)} of them with a memory, {len(campaign_db.events())} events, and {len(campaign_db.rumors())} rumors.")
     print("Switch to it on the Campaigns page of the web app.")
 
 

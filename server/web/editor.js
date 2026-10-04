@@ -987,13 +987,13 @@ async function deleteRumor(id) {
 const membersAs = (thread, role) => thread.members.filter((member) => member.role === role).map((member) => member.name || "Unknown");
 // Thread IDs restart in each campaign, so the selection names the campaign too
 const threadKey = (thread) => `${log.name}/${thread.id}`;
-const threadText = (thread) => [...thread.members.map((member) => member.name), ...thread.lines].join("\n").toLowerCase();
+const threadText = (thread) => [...thread.members.map((member) => member.name), ...thread.lines, thread.memory ?? ""].join("\n").toLowerCase();
 
 function renderThreads() {
   const search = el("input", {
     type: "search",
     value: threadView.query,
-    placeholder: "Search names and dialogue",
+    placeholder: "Search names, dialogue, and memories",
     oninput: (event) => {
       threadView.query = event.target.value;
       renderThreadList();
@@ -1003,7 +1003,7 @@ function renderThreads() {
   return [
     el("fieldset", {},
       el("legend", {}, `Dialogue & Memories: ${log.name}`),
-      el("p", { className: "hint" }, "Each chat with an NPC, newest first. A conversation ends when you talk to someone else, speak as another squad member, or stop for 3 minutes."),
+      el("p", { className: "hint" }, "Each chat with an NPC, newest first. A conversation ends when you talk to someone else, speak as another squad member, or stop chatting for the Conversation timeout on the Settings page."),
       el("p", { className: "detail" }, `${log.threads.length} conversations`)),
     el("div", { className: "editor-layout" },
       el("div", { className: "record-panel" }, search, el("div", { id: "thread-list", className: "record-list" })),
@@ -1045,7 +1045,8 @@ function renderThread() {
     el("div", { className: "card-head" },
       el("span", {}, el("strong", { className: "name" }, membersAs(thread, "speaker").join(" and ")), " ", el("span", { className: "badge" }, thread.time || "Unknown"))),
     el("p", { className: "detail" }, heard.length > 0 ? `Overheard by ${heard.join(", ")}` : "Nobody overheard it."),
-    field("Dialogue", el("textarea", { id: "thread-lines", className: "tall", readOnly: true, value: thread.lines.join("\n") }), null, "What was said, oldest first. Each character keeps only its newest lines, so the start of an old conversation can be gone.")));
+    thread.lines.length > 0 ? field("Dialogue", el("textarea", { id: "thread-lines", className: "tall", readOnly: true, value: thread.lines.join("\n") }), null, "What was said, oldest first. Each character keeps only its newest lines, so the start of an old conversation can be gone.") : null,
+    thread.memory ? field("Memorised Summary", el("textarea", { readOnly: true, rows: 5, value: thread.memory }), null, "A short summary of the conversation. It is written when you stop chatting for the Conversation timeout on the Settings page, and it stays after the dialogue is gone.") : null));
 }
 
 function chooseLogView(value) {
