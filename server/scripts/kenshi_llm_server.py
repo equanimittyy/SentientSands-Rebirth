@@ -1009,6 +1009,9 @@ def should_save_profile(name, npc_id, data):
 def name_generic_npc(npc_id, game_name, ctx):
     """The name of a generic NPC in a chat or banter request (see npc_names)."""
     profile = get_character_data(game_name, ctx)
+    # A profile that the campaign does not store, such as one named Someone, would get a second given name at the next request
+    if not campaign_db.character_exists(npc_id):
+        return game_name
     name, given = npc_names.names(profile, game_name, is_player_faction(ctx.get("faction"), ctx.get("factionID")),
                                   lambda: generate_unique_lore_name(profile.get("Sex", "Neutral")))
     if (name, given) != (profile["Name"], profile.get("GivenName")):
