@@ -89,7 +89,7 @@ PROGRESS_LOCK = threading.Lock()
 LIVE_CONTEXTS = {}
 PLAYER_CONTEXT = {}
 PROMPT_RUMORS = 5
-# The scene stays fixed for a whole conversation, so the prompt cache can serve it; a chat with another NPC, or as another squad member, starts a new one
+# The scene stays fixed for a whole conversation, so the prompt cache can serve it; a chat with another NPC or as another squad member, or a new name or faction of the NPC, starts a new one
 CONVERSATION_SCENE = {}
 PLAYER2_SESSION_KEY = None
 EVENT_THROTTLE = {} 
@@ -1080,7 +1080,7 @@ def rename_character():
         logging.info(f"RENAME: No profile for {npc_id}, so the next chat creates one with the name {new_name}")
         return jsonify({"status": "ok", "message": "No profile to rename"})
 
-    campaign_db.upsert_profile(npc_id, {"Name": new_name})
+    campaign_db.rename_character(npc_id, data.get('old_name', ''), new_name)
     logging.info(f"RENAME: {data.get('old_name')} is now {new_name} ({npc_id})")
     return jsonify({"status": "ok"})
 
@@ -1483,7 +1483,8 @@ def chat():
     time_prefix = get_current_time_prefix()
     full_player_entry = f"{time_prefix}{mode_tag}{player_name}: {player_message}"
 
-    conversation = (speaker.get("npc_id"), npc_ids.get(primary_npc) or primary_npc)
+    live = LIVE_CONTEXTS.get(npc_ids.get(primary_npc), {})
+    conversation = (speaker.get("npc_id"), npc_ids.get(primary_npc) or primary_npc, primary_npc, live.get("faction"))
     scene = CONVERSATION_SCENE.get(conversation)
     if scene is None:
         scene = fill_prompt(

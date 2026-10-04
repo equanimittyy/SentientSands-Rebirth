@@ -201,6 +201,23 @@ def upsert_profile(npc_id, fields):
         conn.execute("UPDATE character SET profile = ?, updated_at = ? WHERE id = ?", (json.dumps(_stored(profile)), _now(), row[0]))
 
 
+def rename_character(npc_id, old_name, new_name):
+    """Also relabels the lines that the character spoke, because the chat history counts a line as its own only under its current name."""
+    own_line = re.compile(r"^((?:\[Day [^\]]*\]\s*)?)" + re.escape(old_name) + ":")
+    with _connect(write=True) as conn:
+        row = conn.execute("SELECT id, profile FROM character WHERE npc_id = ?", (npc_id,)).fetchone()
+        if not row:
+            return
+        profile = json.loads(row[1])
+        profile["Name"] = new_name
+        conn.execute("UPDATE character SET profile = ?, updated_at = ? WHERE id = ?", (json.dumps(profile), _now(), row[0]))
+        lines = conn.execute("SELECT id, line FROM dialogue WHERE character_id = ?", (row[0],)).fetchall()
+        conn.executemany(
+            "UPDATE dialogue SET line = ? WHERE id = ?",
+            [(own_line.sub(lambda match: match.group(1) + new_name + ":", line, count=1), line_id) for line_id, line in lines if own_line.match(line)],
+        )
+
+
 def change_relation(npc_id, delta):
     """Returns the new Relation, clamped to -100..100, or None if the character is not stored."""
     with _connect(write=True) as conn:
