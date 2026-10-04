@@ -1,4 +1,4 @@
-import { ask, deleteButton, el, field, getJson, progress, sendJson, showMessage, tell } from "./api.js";
+import { ask, deleteButton, el, field, flashMessage, getJson, progress, sendJson, showMessage, tell } from "./api.js";
 
 const page = document.getElementById("campaigns-page");
 const message = document.getElementById("campaigns-message");
@@ -102,7 +102,7 @@ async function deleteCampaign(campaign) {
     return;
   }
   steps.next();
-  if (await (campaign.active ? loadCampaigns() : fetchAll())) showMessage(message, `Deleted ${campaign.name}.`);
+  if (await (campaign.active ? loadCampaigns() : fetchAll())) flashMessage(message, `Deleted ${campaign.name}.`);
   steps.close();
 }
 
@@ -117,7 +117,7 @@ async function switchCampaign(name) {
   }
   steps.next();
   notes.clear();
-  if (await loadCampaigns()) showMessage(message, `Switched to ${name}.`);
+  if (await loadCampaigns()) flashMessage(message, `Switched to ${name}.`);
   steps.close();
 }
 
@@ -127,7 +127,7 @@ async function cull() {
   try {
     const reply = await sendJson("POST", "/api/campaign/cull", { campaign: currentName() });
     const { dialogue, event, rumor } = reply.culled;
-    showMessage(message, `Culled after ${reply.time}: ${count(dialogue, "dialogue line")}, ${count(event, "event")}, and ${count(rumor, "rumor")}.`);
+    flashMessage(message, `Culled after ${reply.time}: ${count(dialogue, "dialogue line")}, ${count(event, "event")}, and ${count(rumor, "rumor")}.`);
   } catch (error) {
     showMessage(message, `Cull failed: ${error.message}`, true);
   }

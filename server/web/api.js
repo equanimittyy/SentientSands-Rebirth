@@ -103,9 +103,18 @@ export function errorLine(text) {
     iconButton("eye", "View the error", view));
 }
 
+const FLASH_MS = 5000;
+const flashTimers = new Map();
+
 export function showMessage(element, text, isError = false) {
+  clearTimeout(flashTimers.get(element));
   element.textContent = text;
   element.classList.toggle("error", isError);
+}
+
+export function flashMessage(element, text) {
+  showMessage(element, text);
+  flashTimers.set(element, setTimeout(() => showMessage(element, ""), FLASH_MS));
 }
 
 export function reportUnsaved(element, unsaved) {

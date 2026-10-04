@@ -114,6 +114,8 @@ The save bar of each page has a Refresh button at its right end. Refresh loads t
 
 A Refresh click shows a note below the button for 2.5 s. The note says that the page loaded new data, that the page was already up to date, or that the page kept its unsaved changes instead of the new data. When the refresh fails, the note repeats the error of the save bar. Each refresher returns a key of `REFRESH_NOTES`, or nothing when it failed. An auto refresh shows no note.
 
+A message in the save bar that reports an outcome, such as "Saved." or "Deleted X.", clears after 5 s (`flashMessage` in `server/web/api.js`). An error, or a message about the state of the page such as "Unsaved changes.", stays until the next message replaces it.
+
 `GET /context` also returns `writes`, the number of writes since the server started. It counts each commit to the campaign database (`campaign_db.writes`) and each successful POST request under `/api/` or to `/settings` (`count_write_requests` in `server/scripts/kenshi_llm_server.py`). When the number changes, the poll refreshes each loaded page, so a change from the game or from another tab reaches an open page. The auto refresh waits while a request runs or a dialog is open, because the request or the dialog can still change the page. It also waits while the player types in a field of the page, because the refresh rebuilds the page and the field loses the caret.
 
 A refresh keeps the unsaved changes of each part that a Save writes, and loads the stored data of all other parts:

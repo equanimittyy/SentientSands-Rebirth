@@ -1,4 +1,4 @@
-import { ask, confirmReset, deleteButton, el, errorLine, field, getJson, icon, reportUnsaved, sendJson, setFieldError, showMessage } from "./api.js";
+import { ask, confirmReset, deleteButton, el, errorLine, field, flashMessage, getJson, icon, reportUnsaved, sendJson, setFieldError, showMessage } from "./api.js";
 
 const TASK_LABELS = {
   chat: "Chat",
@@ -567,7 +567,7 @@ async function save() {
   }
   try {
     load(await sendJson("POST", "/api/llm", payload));
-    showMessage(message, "Saved.");
+    flashMessage(message, "Saved.");
   } catch (error) {
     showFieldErrors(error.fieldErrors ?? []);
     showMessage(message, `Save failed: ${error.message}`, true);

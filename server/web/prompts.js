@@ -1,4 +1,4 @@
-import { confirmReset, el, getJson, reportUnsaved, sendJson, setFieldError, showMessage } from "./api.js";
+import { confirmReset, el, flashMessage, getJson, reportUnsaved, sendJson, setFieldError, showMessage } from "./api.js";
 
 const list = document.getElementById("prompts-list");
 const message = document.getElementById("prompts-message");
@@ -113,7 +113,7 @@ function showPrompts(kept) {
 async function save() {
   const changed = changedPrompts();
   if (changed.length === 0) {
-    showMessage(message, "No changes to save.");
+    flashMessage(message, "No changes to save.");
     return;
   }
   notes.clear();
@@ -131,7 +131,7 @@ async function save() {
   }
   if (!(await fetchPrompts(kept))) return;
   if (kept.size > 0) showMessage(message, `${kept.size} of ${changed.length} prompts were not saved.`, true);
-  else showMessage(message, "Saved.");
+  else flashMessage(message, "Saved.");
 }
 
 async function resetAll() {

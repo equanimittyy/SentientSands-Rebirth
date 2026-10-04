@@ -1,4 +1,4 @@
-import { ask, deleteButton, el, field, getJson, icon, progress, reportUnsaved, sendJson, setFieldError, showMessage, tell, withHelp } from "./api.js";
+import { ask, deleteButton, el, field, flashMessage, getJson, icon, progress, reportUnsaved, sendJson, setFieldError, showMessage, tell, withHelp } from "./api.js";
 
 const page = document.getElementById("editor-page");
 const message = document.getElementById("editor-message");
@@ -734,7 +734,7 @@ async function duplicateTemplate(event) {
     await fetchTemplates();
     await openTemplate(reply.name);
     steps.close();
-    showMessage(message, `Created ${reply.name}. You can edit it now.`);
+    flashMessage(message, `Created ${reply.name}. You can edit it now.`);
   } catch (error) {
     steps.close();
     showMessage(message, `Duplicate failed: ${error.message}`, true);
@@ -800,7 +800,7 @@ async function importTemplate(event) {
     await fetchTemplates();
     await openTemplate(reply.name);
     steps.close();
-    showMessage(message, `Imported ${reply.name}. You can edit it now.`);
+    flashMessage(message, `Imported ${reply.name}. You can edit it now.`);
   } catch (error) {
     steps.close();
     const problems = error.fieldErrors?.map((problem) => problem.message) ?? [];
@@ -1095,7 +1095,7 @@ function render() {
 
 async function save() {
   if (readOnly()) {
-    showMessage(message, "No changes to save.");
+    flashMessage(message, "No changes to save.");
     return;
   }
   if (source === "events") {
@@ -1104,7 +1104,7 @@ async function save() {
   }
   const changes = changedRecords();
   if (changes.length === 0) {
-    showMessage(message, "No changes to save.");
+    flashMessage(message, "No changes to save.");
     return;
   }
   notes.clear();
@@ -1124,13 +1124,13 @@ async function save() {
   const failed = kept.size;
   if (!(await fetchRecords(kept))) return;
   if (failed > 0) showMessage(message, `${failed} of ${changes.length} entries were not saved.`, true);
-  else showMessage(message, source === "template" ? "Saved. Campaigns that you create from this template from now on get the changes." : `Saved to the campaign ${canon.name}.`);
+  else flashMessage(message, source === "template" ? "Saved. Campaigns that you create from this template from now on get the changes." : `Saved to the campaign ${canon.name}.`);
 }
 
 async function saveRumors() {
   const changes = changedRumors();
   if (changes.length === 0) {
-    showMessage(message, "No changes to save.");
+    flashMessage(message, "No changes to save.");
     return;
   }
   notes.clear();
@@ -1146,7 +1146,7 @@ async function saveRumors() {
   const failed = Object.keys(kept).length;
   if (!(await fetchLog(kept))) return;
   if (failed > 0) showMessage(message, `${failed} of ${changes.length} changes were not saved.`, true);
-  else showMessage(message, "Saved.");
+  else flashMessage(message, "Saved.");
 }
 
 async function fetchTemplates() {

@@ -1,4 +1,4 @@
-import { checkField, confirmReset, getJson, reportUnsaved, sendJson, showMessage } from "./api.js";
+import { checkField, confirmReset, flashMessage, getJson, reportUnsaved, sendJson, showMessage } from "./api.js";
 
 const form = document.getElementById("settings-form");
 const message = document.getElementById("settings-message");
@@ -52,14 +52,14 @@ async function save(event) {
   const current = snapshot();
   const changes = changedSettings(current);
   if (Object.keys(changes).length === 0) {
-    showMessage(message, "No changes to save.");
+    flashMessage(message, "No changes to save.");
     return;
   }
   try {
     await sendJson("POST", "/settings", changes);
     saved = current;
     reportUnsaved(form, false);
-    showMessage(message, "Saved.");
+    flashMessage(message, "Saved.");
   } catch (error) {
     showMessage(message, `Save failed: ${error.message}`, true);
   }
