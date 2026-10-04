@@ -67,16 +67,13 @@ The **Editor** page edits the canon of a world: the overview that every NPC know
 
 ## Credits
 
-Sentient Sands Rebirth builds on the original Sentient Sands mod and on its Kayak lore system.
-
-SentientSands Kayak by Harvicus and Pineaxe.
+Sentient Sands Rebirth is a fork of version 0.2 of the original Sentient Sands mod.
 
 The SSR Vanilla template describes the factions and characters of Universal Wasteland Expansion by TreadLightly77.
 
 | Project | Links |
 |---|---|
 | Sentient Sands | [Source](https://github.com/harvicusdev-glitch/SentientSands), [Nexus Mods](https://www.nexusmods.com/kenshi/mods/1872), [Steam Workshop](https://steamcommunity.com/sharedfiles/filedetails/?id=3675880187) |
-| Kayak | [Source](https://github.com/Starswimmer/Kayak), [Nexus Mods](https://www.nexusmods.com/kenshi/mods/2067) |
 | Universal Wasteland Expansion | [Steam Workshop](https://steamcommunity.com/sharedfiles/filedetails/?id=2142406806) |
 
 ---
