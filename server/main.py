@@ -21,7 +21,6 @@ import requests
 import re
 import time
 import threading
-import random
 from flask import Response, request, jsonify
 import sys
 
@@ -35,76 +34,36 @@ from dashboard.browser_launch import PanelTabs, open_when_ready
 from chat import llm_config
 from chat import llm_router
 from chat import chat_prompt
-from chat import npc_names
-from chat import current_job
-from chat import scene_text
-from chat import provisional_profile
 from store import campaign_db
 from chat import prompt_store
 from store import world_template
 from core import log_setup
-from core.log_setup import llm_log
 from core import state
 from core.app import app
-from core.paths import (CAMPAIGNS_DIR, DEFAULT_MODELS_PATH, DEFAULT_PROVIDERS_PATH, DEFAULT_TEMPLATE, LLM_CONFIG_PATH, PROMPTS_DIR,
-                        USER_PROMPTS_DIR, USER_TEMPLATES_DIR, WORLD_TEMPLATES_DIR)
+from core.paths import (CAMPAIGNS_DIR, DEFAULT_TEMPLATE, LLM_CONFIG_PATH, PROMPTS_DIR, USER_PROMPTS_DIR, USER_TEMPLATES_DIR,
+                        WORLD_TEMPLATES_DIR)
 from core.pipe import send_to_pipe
 from core.process import kill_old_servers, monitor_kenshi_process
 from core.settings import (CHAT_HOTKEYS, SETTINGS_DEFAULTS, get_config_radii, load_configs, load_settings, push_settings_to_plugin,
                            save_settings, settings_page_values)
 from store.campaigns import campaign_names, create_campaign, init_server_state, switch_campaign
+from chat import llm, synthesis
+from chat.bio import BIO_PARTS, generate_bio, recorded_history, write_bio
+from chat.characters import get_character_data, is_animal, npc_name, reported_sex, send_rename, should_save_profile, sync_name
+from chat.llm import call_llm, default_llm_config, load_llm_config, player2_ping_loop, send_completion
+from chat.memory import memory_loop, quiet_seconds
+from chat.prompts import (build_system_prompt, describe_faction, describe_npc, describe_race, describe_record, faction_text, fill_prompt,
+                          find_named, npc_scene, scene_values)
+from chat.synthesis import RUMOR_SYNTHESIS, generate_global_narrative_thread, synthesis_loop
+from core.game import context_dict, get_current_time_prefix, is_player_faction
 
 
 
 
-PROFILES_IN_PROGRESS = set()
-PROGRESS_LOCK = threading.Lock()
-PROMPT_RUMORS = 5
-RUMOR_SYNTHESIS = False
-PLAYER2_SESSION_KEY = None
 EVENT_THROTTLE = {} 
 THROTTLE_LOCK = threading.Lock()
 LAST_STATE_LOG = {} # {"<target>|<etype>": last message}
 STATE_LOCK = threading.Lock()
-SYNTHESIS_STATUS = {"elapsed": 0, "interval": 60}
-
-ANIMAL_RACES = [
-    "Bonedog", "Boneyard Wolf", "Garru", "Beak Thing", "Gorillo",
-    "Landbat", "Goat", "Bull", "Leviathan", "Blood Spider", "Skin Spider",
-    "Cave Crawler", "Crab", "Raptor", "Darkfinger", "Thrasher", "Cleaner",
-    "Crimper", "Skimmer", "Beeler", "Bat", "Spider", "Wolf",
-    "Dog", "Turtle", "Cleanser", "Gurgler", "Fishman"
-]
-
-def describe_faction(name, faction_id=None):
-    return faction_text(name, campaign_db.find_faction(faction_id, name) if name and name != "Unknown" else None)
-
-def faction_text(name, faction):
-    if not name or name == "Unknown":
-        return "Unknown Faction (Remnant or Drifter)"
-    if not faction or not (faction.get("description") or faction.get("fields") or faction.get("major")):
-        return f"{name}: A minor or specialized group in the wasteland."
-    return describe_record(faction)
-
-def describe_origin(origin, current):
-    """Most NPCs still belong to their origin faction, whose whole entry the prompt already holds."""
-    return "Same as the current faction." if origin == current else origin
-
-def describe_record(record):
-    details = "; ".join(f"{key}: {', '.join(value) if isinstance(value, list) else value}" for key, value in record.get("fields", {}).items())
-    text = f"{record['name']} ({details})" if details else record["name"]
-    return f"{text}: {record['description']}" if record.get("description") else text
-
-def find_named(records, name):
-    wanted = str(name).strip().lower()
-    return next((record for record in records if wanted in (other.lower() for other in [record.get("name", ""), *record.get("aliases", [])])), None)
-
-def find_race(race):
-    return find_named((entry for (category, _), entry, *_ in campaign_db.list_records("entity") if category == "races"), race)
-
-def describe_race(race):
-    entry = find_race(race)
-    return describe_record(entry) if entry else f"{race}: The campaign has no entry for this race."
 
 def note_faction(ctx, is_player=False):
     """Records each faction that the game reports, so the player can describe a modded or minor faction on the Campaigns page."""
@@ -122,52 +81,6 @@ def note_faction(ctx, is_player=False):
         pass  # load_campaign_config already logged why
     except Exception as e:
         logging.warning(f"CAMPAIGN: Cannot record the faction {name}: {e}")
-
-def sanitize_llm_text(text):
-    if not text: return ""
-    # Kenshi's engine chokes on these non-ASCII characters
-    replacements = {
-        '\u2018': "'", '\u2019': "'",
-        '\u201c': '"', '\u201d': '"',
-        '\u2013': '-', '\u2014': '-',
-        '\u2026': '...',
-        '\u00a0': ' ',
-    }
-    for old, new in replacements.items():
-        text = text.replace(old, new)
-    
-    text = text.replace('\r\n', '\n')
-    text = text.replace('\\n', '\n')
-    text = text.replace('\\r', '')
-    return text
-
-def robust_json_parse(text):
-    if not text: return None
-    
-    text = text.strip()
-    
-    start = text.find('{')
-    end = text.rfind('}')
-    if start == -1 or end == -1:
-        return None
-    
-    json_str = text[start:end+1]
-    
-    json_str = re.sub(r',\s*([}\]])', r'\1', json_str)
-    
-    json_str = re.sub(r'//.*?\n', '\n', json_str)
-    json_str = re.sub(r'/\*.*?\*/', '', json_str, flags=re.DOTALL)
-    
-    try:
-        return json.loads(json_str)
-    except Exception as eFirst:
-        # Unescaped quotes between word characters are usually dialogue quotes inside a value
-        try:
-            sanitized = re.sub(r'(?<=[a-zA-Z0-9])"(?=[a-zA-Z0-9\s])', "'", json_str)
-            return json.loads(sanitized)
-        except:
-            logging.warning(f"LLM: Cannot parse the reply as JSON: {json_str[:200]}...")
-            raise eFirst
 
 log_setup.setup(os.path.join(SERVER_DIR, "logs"))
 
@@ -206,56 +119,6 @@ def adopt_canon_ids():
         except campaign_db.CampaignUnavailable:
             pass  # No campaign, so no canon
 
-KENSHI_NAME_POOL = [
-    "Kaelen", "Korg", "Vayn", "Sark", "Mina", "Rook", "Drake", "Silas", "Tane", "Kuna",
-    "Zarek", "Jorn", "Lyra", "Kael", "Brena", "Torin", "Sola", "Fen", "Krax", "Vora",
-    "Dax", "Nyx", "Garek", "Sora", "Thane", "Kira", "Zane", "Lara", "Marek", "Vina",
-    "Rel", "Kaan", "Siv", "Tork", "Meda", "Grox", "Vael", "Syra", "Keld", "Bara",
-    "Dorn", "Neld", "Gora", "Sark", "Vane", "Kura", "Zora", "Lena", "Morn", "Vora",
-    "Rael", "Kona", "Sima", "Teld", "Mora", "Grak", "Vael", "Sura", "Karn", "Bena",
-    "Drak", "Nala", "Gora", "Sina", "Vara", "Kela", "Zana", "Lina", "Mina", "Vorna",
-    "Hark", "Skal", "Vorn", "Grek", "Myla", "Rion", "Daka", "Sith", "Tyla", "Korr",
-    "Zent", "Lyr", "Brax", "Vort", "Nara", "Grel", "Syk", "Tarn", "Moko", "Vull",
-    "Kess", "Tory", "Vann", "Sael", "Miro", "Lorn", "Gryf", "Dael", "Sina", "Kura"
-]
-
-def get_used_names():
-    return {name.lower() for name in campaign_db.character_names()}
-
-def generate_unique_lore_name(gender="Neutral"):
-    used = get_used_names()
-    
-    gender_key = "Neutral"
-    if gender.lower() == "male": gender_key = "Male"
-    elif gender.lower() == "female": gender_key = "Female"
-    
-    pool = state.NAMES_CONFIG.get(gender_key, [])
-    if not pool and gender_key != "Neutral":
-        pool = state.NAMES_CONFIG.get("Neutral", [])
-    
-    if not pool:
-        pool = KENSHI_NAME_POOL
-    
-    available = [n for n in pool if n.lower() not in used]
-    if not available:
-        base = random.choice(pool if pool else KENSHI_NAME_POOL)
-        for i in range(1, 1000):
-            candidate = f"{base} {i}"
-            if candidate.lower() not in used:
-                return candidate
-        return f"{base}_{random.randint(1000, 9999)}"
-    
-    return random.choice(available)
-
-def get_current_time_prefix(ctx=None):
-    ctx = state.PLAYER_CONTEXT if ctx is None else ctx
-    if "day" in ctx:
-        day = ctx['day']
-        hour = int(ctx.get('hour', 0))
-        minute = int(ctx.get('minute', 0))
-        return f"[Day {day}, {hour:02d}:{minute:02d}] "
-    return ""
-
 def generate_relation_bar(rel):
     try:
         rel = int(rel)
@@ -283,562 +146,15 @@ def generate_relation_bar(rel):
 
 
 
-def context_dict(context):
-    if isinstance(context, dict):
-        return context
-    if isinstance(context, str) and context.strip().startswith('{'):
-        try:
-            return json.loads(context)
-        except ValueError:
-            pass
-    return {}
-
-# The game reports a skeleton as male. The prefixes cover the skeleton races of vanilla Kenshi and UWE.
-SKELETON_RACE_PREFIXES = ("skeleton", "p2 unit", "p4 unit", "screamer", "soldierbot")
-
-def is_skeleton(race):
-    return str(race).strip().lower().startswith(SKELETON_RACE_PREFIXES)
-
-def reported_sex(race, gender):
-    return "Other" if is_skeleton(race) else gender
-
-def is_animal(race):
-    return any(keyword.lower() in str(race).lower() for keyword in ANIMAL_RACES)
-
-def character_kind(race):
-    return "animal" if is_animal(race) else "skeleton" if is_skeleton(race) else "person"
-
-def is_player_faction(faction, faction_id):
-    player_faction_id = state.PLAYER_CONTEXT.get("factionID")
-    return faction == state.PLAYER_CONTEXT.get("faction", "Nameless") or bool(player_faction_id and faction_id == player_faction_id)
-
 def npc_serial(npc_id):
     """The handle serial in the npc_id of a generic NPC, or None for a unique NPC."""
     return npc_id[2:] if npc_id and npc_id.startswith("h:") else None
-
-def npc_scene(context, profile, player_name, met, companions, player_stats):
-    faction = context.get("faction") or context.get("Faction", "Unknown")
-    player_faction = state.PLAYER_CONTEXT.get("faction", "Nameless")
-    in_player_faction = is_player_faction(faction, context.get("factionID"))
-    record = campaign_db.find_faction(context.get("factionID"), faction) or {}
-    major = not in_player_faction and bool(record.get("major"))
-    # The player section of the scene already describes the player's faction
-    faction_description = "" if in_player_faction else record.get("description", "")
-    return scene_text.npc_text(context, profile, player_name, player_faction, met=met,
-                               major=major, in_player_faction=in_player_faction, feels_hunger=not is_skeleton(profile.get("Race", "")),
-                               faction_description=faction_description, companions=companions, player_stats=player_stats)
 
 load_configs()
 
 init_server_state()
 
-def load_prompt_component(filename):
-    text = prompt_store.load(filename, PROMPTS_DIR, USER_PROMPTS_DIR)
-    if not text:
-        logging.error(f"PROMPT: {filename} is missing or empty in {PROMPTS_DIR}")
-    return text
-
-def fill_prompt(filename, **values):
-    template = load_prompt_component(filename)
-    unknown = prompt_store.placeholders(template) - values.keys()
-    if unknown:
-        logging.warning(f"PROMPT: {filename} has placeholders that nothing fills, so they stay as text: {', '.join(sorted(unknown))}")
-    return prompt_store.render(template, values)
-
-def current_job_line(profile):
-    """The whole prompt line, because an NPC without a Current Job gets no line at all."""
-    return f"CURRENT JOB: {profile['CurrentJob']}" if profile.get("CurrentJob") else ""
-
-def job_of(ctx):
-    """The Current Job from the context of one NPC, or None. The faction of a banter NPC is its identity faction, so only
-    in_player_faction marks a squad member there."""
-    in_squad = ctx.get("in_player_faction") or is_player_faction(ctx.get("faction"), ctx.get("factionID"))
-    return current_job.current_job(ctx, in_squad, state.PLAYER_CONTEXT.get("faction", "Nameless"))
-
-def job_field(ctx):
-    """The CurrentJob of a new profile. Only a context from the plugin carries the squad jobs."""
-    job = job_of(ctx) if "squad_jobs" in ctx else None
-    return {"CurrentJob": job} if job else {}
-
-def building_of(ctx):
-    """The building that the character is in, or None outdoors. The plugin sends Unknown outdoors."""
-    building = ctx.get("building_name")
-    return building if building and building != "Unknown" else None
-
-def location_field(ctx):
-    """The CurrentLocation of a new profile."""
-    return {"CurrentLocation": scene_text.location_name(ctx)} if "building_name" in ctx else {}
-
-def describe_npc(name, profile, npc_id):
-    race = profile.get("Race", "Unknown")
-    current_faction = describe_faction(profile.get("Faction"), state.LIVE_CONTEXTS.get(npc_id, {}).get("factionID"))
-    return fill_prompt(
-        "npc_chat_template.txt",
-        name=name,
-        race=race,
-        sex=reported_sex(race, profile.get("Sex", "Unknown")),
-        current_job=current_job_line(profile),
-        current_faction=current_faction,
-        origin_faction=describe_origin(describe_faction(profile.get("OriginFaction", "Unknown")), current_faction),
-        personality=profile.get("Personality") or "",
-        backstory=profile.get("Backstory") or "",
-        speech_quirks=profile.get("SpeechQuirks") or "",
-    )
-
-def build_system_prompt():
-    world_lore = campaign_db.overview()
-    rules = load_prompt_component("response_rules.txt")
-
-    # Only player2 infers the language from context; other providers need it stated
-    language = load_settings().get("language", "English")
-    language_instruction = ""
-    if language and language.lower() != "english":
-        language_instruction = f"\nLANGUAGE: You MUST respond ONLY in {language}. Do not switch to English under any circumstances.\n"
-
-    prompt = fill_prompt(
-        "prompt_system.txt",
-        world_lore=world_lore,
-        rules=rules,
-        language_instruction=language_instruction
-    )
-    return prompt.strip()
-
-def scene_values(player, player_name, facing=True):
-    """facing is False for banter, which has no NPC in front of the player."""
-    rumors = [line for _, line in campaign_db.rumors() if line.startswith("- [")][-PROMPT_RUMORS:]
-    race = player.get("race", "Unknown")
-    race_entry = find_race(race)
-    player_faction = campaign_db.player_faction()
-    return {
-        "location": scene_text.location_text(player.get("environment") or {}),
-        "rumors": scene_text.rumors_text(rumors, state.PLAYER_CONTEXT.get("day")),
-        "player": scene_text.player_text(
-            player_name, facing, race, reported_sex(race, player.get("gender", "Unknown")),
-            race_entry.get("description", "") if race_entry else "",
-            player.get("medical") or {}, not is_skeleton(race),
-            player.get("faction", "Nameless"), player_faction["description"].strip() if player_faction else "",
-            player.get("inventory") or [],
-            building_of(player),
-        ),
-    }
-
-
-def default_llm_config():
-    return llm_config.build(llm_config.load(DEFAULT_PROVIDERS_PATH), llm_config.load(DEFAULT_MODELS_PATH), "player2-default")
-
-def load_llm_config():
-    if not os.path.exists(LLM_CONFIG_PATH):
-        config = default_llm_config()
-        llm_config.save(LLM_CONFIG_PATH, config)
-        logging.info("LLM: Built llm_config.json from the default providers and models.")
-        return config
-    try:
-        config = llm_config.load(LLM_CONFIG_PATH)
-    except Exception as e:
-        # Not saved over, so a hand-edited file with a typo keeps its keys until the player fixes it
-        logging.error(f"LLM: Cannot read {LLM_CONFIG_PATH}: {e}. Using the default configuration until a save from the web app.")
-        return default_llm_config()
-    # A task that a later version adds gets the default route, so the file of an earlier version keeps working
-    for task in llm_config.TASKS:
-        config["routes"].setdefault(task, llm_config.default_route(task))
-    for error in llm_config.validate(config):
-        logging.warning(f"LLM: {error['message']}")
-    return config
-
-def refresh_player2_session(provider):
-    global PLAYER2_SESSION_KEY
-    try:
-        auth_resp = requests.post(f"http://localhost:4315/v1/login/web/{provider.get('game_key', '')}", timeout=5)
-        new_key = auth_resp.json().get("p2Key") if auth_resp.status_code == 200 else None
-    except Exception as e:
-        # The Player2 app may not be running or logged in
-        logging.warning(f"PLAYER2: Cannot refresh the session key: {e}")
-        return False
-    if new_key:
-        PLAYER2_SESSION_KEY = new_key
-    return bool(new_key)
-
-def extract_completion(data, model):
-    choices = data.get("choices") or []
-    if not choices:
-        return ""
-    msg_obj = choices[0].get("message") or {}
-    content = msg_obj.get("content")
-
-    # Some providers put the text in reasoning_content (DeepSeek-style) or completions-style choices[0].text
-    if content is None:
-        content = msg_obj.get("reasoning_content")
-    if content is None:
-        content = choices[0].get("text")
-    if content is None:
-        llm_log.debug(f"{model} reply without text: {data}")
-        return ""
-
-    if "</thought>" in content:
-        content = content.split("</thought>")[-1]
-
-    content = re.sub(r'<thought>.*?</thought>', '', content, flags=re.DOTALL | re.IGNORECASE)
-    content = re.sub(r'<thought>.*', '', content, flags=re.DOTALL | re.IGNORECASE)
-
-    if "\n\n" in content and ("thought" in model.lower() or content.strip().lower().startswith("thought:")):
-        parts = content.split("\n\n")
-        if "thought" in parts[0].lower() or "reasoning" in parts[0].lower():
-            content = "\n\n".join(parts[1:])
-
-    return sanitize_llm_text(content.strip())
-
-def send_completion(provider, profile, body, timeout):
-    is_player2 = provider["type"] == "player2"
-    target_url = f"{provider['base_url'].rstrip('/')}/chat/completions"
-
-    for attempt in (1, 2):
-        api_key = PLAYER2_SESSION_KEY if is_player2 and PLAYER2_SESSION_KEY else provider.get("api_key", "")
-        headers = {
-            "Authorization": f"Bearer {api_key}",
-            "Content-Type": "application/json"
-        }
-
-        # OpenRouter uses these headers for app attribution
-        if "openrouter.ai" in target_url:
-            headers["X-Title"] = "Sentient Sands Rebirth"
-            headers["HTTP-Referer"] = "https://github.com/equanimittyy/SentientSands-Rebirth"
-
-        if is_player2:
-            headers["player2-game-key"] = provider.get("game_key", "")
-
-        logging.debug(f"LLM: Request to {profile['model']} at {target_url}")
-        start_time = time.time()
-        response = requests.post(target_url, headers=headers, json=body, timeout=timeout)
-        seconds = time.time() - start_time
-        logging.debug(f"LLM: {profile['model']} answered HTTP {response.status_code} in {seconds:.1f} s")
-
-        # A Player2 session key expires, so a refreshed key gets one more try on the same profile
-        if response.status_code == 401 and is_player2 and attempt == 1 and refresh_player2_session(provider):
-            logging.info("PLAYER2: Refreshed the session key.")
-            continue
-        break
-
-    if response.status_code != 200:
-        raise RuntimeError(f"HTTP {response.status_code}: {response.text[:200]}")
-    try:
-        data = response.json()
-    except ValueError:
-        raise RuntimeError(f"invalid JSON in the response: {response.text[:200]}")
-    log_usage(profile["model"], data, seconds)
-    return extract_completion(data, profile["model"])
-
-def log_usage(model, data, seconds):
-    """Shows whether the provider's prompt cache served the stable start of a prompt, and where the time of a reply went.
-    Each provider reports these under its own keys, and only llama.cpp splits the time into reading and writing."""
-    if not isinstance(data, dict):
-        return
-    usage = data.get("usage") or {}
-    timings = data.get("timings") or {}
-    cached = (usage.get("prompt_tokens_details") or {}).get("cached_tokens", usage.get("prompt_cache_hit_tokens", timings.get("cache_n")))
-    line = (f"LLM: {model} read {usage.get('prompt_tokens', 'an unknown number of')} prompt tokens, {'an unknown number' if cached is None else cached} of them from its cache, "
-            f"and wrote {usage.get('completion_tokens', 'an unknown number of')} tokens in {seconds:.1f} s")
-    if {"prompt_ms", "predicted_ms", "predicted_per_second"} <= timings.keys():
-        line += f": {timings['prompt_ms'] / 1000:.1f} s reading, {timings['predicted_ms'] / 1000:.1f} s writing at {timings['predicted_per_second']:.1f} tokens/s"
-    logging.info(line)
-
-def call_llm(task, messages):
-    """Returns the completion text from the first profile of the task's route that answers, or None."""
-    llm_log.debug(f"{task} request:\n" + "\n".join(f"[{m['role']}]\n{m['content']}" for m in messages))
-    text = llm_router.run_route(LLM_CONFIG, task, messages, send_completion)
-    llm_log.debug(f"{task} reply:\n{text}")
-    return text
-
-LLM_CONFIG = load_llm_config()
-
-def new_profile(name, npc_id, ctx_data):
-    """The profile of an NPC at its first meeting, rolled in code. The LLM would know no more than the race, the faction, and
-    the job yet, so the roll loses nothing; the LLM writes the bio later (generate_bio). An animal's roll is final, because a
-    bio would give it a backstory and a speech quirk."""
-    live_ctx = state.LIVE_CONTEXTS.get(npc_id) or {}
-
-    def fact(key, missing="Unknown"):
-        value = ctx_data.get(key, missing)
-        return live_ctx.get(key, missing) if value == missing else value
-
-    race = fact("race")
-    kind = character_kind(race)
-    faction = fact("faction")
-    # Modded factions often report no name through the hooks
-    if faction == "Unknown":
-        faction = ctx_data.get("factionID") or live_ctx.get("factionID") or "Unknown"
-    logging.info(f"PROFILE: Rolled the profile of {name} ({npc_id})")
-    return {
-        "Name": name,
-        "Race": race,
-        "Sex": reported_sex(race, fact("gender")),
-        "Faction": faction,
-        "OriginFaction": fact("origin_faction"),
-        **job_field(ctx_data),
-        **location_field(ctx_data),
-        **provisional_profile.roll(npc_id, kind, race),
-        "ConversationHistory": [],
-        "Relation": int(float(ctx_data.get("relation", 0)) / 2),
-        **({} if kind == "animal" else {campaign_db.PROVISIONAL: 0}),
-    }
-
-BIO_PARTS = ("Personality", "Backstory", "SpeechQuirks")
-
-def write_bio(profile, parts, instructions, history, race_lore, faction):
-    """The parts of the bio that the LLM wrote, or None when its reply lacks one. Stores nothing."""
-    race = profile.get("Race", "Unknown")
-    names = ", ".join(parts)
-    prompt = fill_prompt(
-        "prompt_profile_generation.txt",
-        parts=names,
-        name=profile.get("Name", "Unknown"),
-        race=race,
-        sex=reported_sex(race, profile.get("Sex", "Unknown")),
-        faction=faction,
-        current_job=current_job_line(profile),
-        race_lore=race_lore,
-        current="\n".join(f"{part}: {profile.get(part) or ''}" for part in BIO_PARTS),
-        history="\n".join(history) or "None yet.",
-        instructions=instructions.strip() or "None.",
-    )
-    language = load_settings().get("language", "English")
-    if language and language.lower() != "english":
-        prompt += f"\nLANGUAGE: The JSON values ({names}) MUST be written entirely in {language}. Do not use English.\n"
-    result = robust_json_parse(call_llm("profile", [{"role": "user", "content": prompt}]))
-    # Only the requested parts, so a reply cannot change a part that the player did not ask for
-    bio = {part: result[part].strip() for part in parts if isinstance((result or {}).get(part), str) and result[part].strip()}
-    return bio if len(bio) == len(parts) else None
-
-def recorded_history(npc_id):
-    """The memories of the NPC, oldest first, then its stored lines, because a memory replaces the lines of its chat thread."""
-    rows = campaign_db.dialogue(npc_id)
-    members = campaign_db.thread_members({thread_id for _, _, thread_id in rows if thread_id is not None})
-    return chat_prompt.memory_lines(campaign_db.memories_of(npc_id), npc_id) + chat_prompt.headed_lines(rows, members, npc_id)
-
-def generate_bio(npc_id):
-    """Has the LLM write the bio of a provisional NPC and stores it. It never touches a full profile, because the player may
-    have written it by hand."""
-    with PROGRESS_LOCK:
-        if npc_id in PROFILES_IN_PROGRESS:
-            logging.debug(f"PROFILE: The LLM is already writing the bio of {npc_id}.")
-            return
-        PROFILES_IN_PROGRESS.add(npc_id)
-    campaign = state.ACTIVE_CAMPAIGN
-    try:
-        profile = campaign_db.get_character(npc_id)
-        if campaign_db.PROVISIONAL not in (profile or {}):
-            return
-        name, race = profile.get("Name", npc_id), profile.get("Race", "Unknown")
-        logging.info(f"PROFILE: Writing the bio of {name} ({npc_id})...")
-        bio = write_bio(
-            profile,
-            # An animal keeps no backstory and no speech quirk
-            ["Personality"] if is_animal(race) else list(BIO_PARTS),
-            "",
-            recorded_history(npc_id),
-            describe_race(race),
-            describe_faction(profile.get("Faction"), (state.LIVE_CONTEXTS.get(npc_id) or {}).get("factionID")),
-        )
-        if not bio:
-            logging.warning(f"PROFILE: The LLM gave no usable bio for {name}, so the profile stays as it is.")
-            return
-        # A thread can outlive a campaign switch, and the same npc_id can name another character in the new campaign
-        if state.ACTIVE_CAMPAIGN != campaign:
-            logging.info(f"PROFILE: Dropped the bio of {name}, because the active campaign changed while the LLM wrote it.")
-            return
-        if not campaign_db.promote_profile(npc_id, bio):
-            logging.info(f"PROFILE: Dropped the bio of {name}, because its profile stopped being provisional while the LLM wrote it.")
-            return
-        logging.info(f"PROFILE: Stored the bio of {name} ({npc_id}).")
-    except Exception as e:
-        # The chat threshold runs this in a thread, where nothing else would log the error
-        logging.error(f"PROFILE: The bio of {npc_id} failed: {e}")
-    finally:
-        with PROGRESS_LOCK:
-            PROFILES_IN_PROGRESS.discard(npc_id)
-
-def quiet_seconds():
-    """The plugin sends no signal when a conversation ends, so this long without a chat ends a chat thread."""
-    return load_settings()["conversation_timeout_minutes"] * 60
-
-def write_memory(thread, members, campaign):
-    """Has the LLM write the memory of a pending chat thread and stores it. A failed call leaves the thread pending."""
-    prompt = fill_prompt("prompt_thread_memory.txt", lines="\n".join(thread["lines"]))
-    language = load_settings().get("language", "English")
-    if language and language.lower() != "english":
-        prompt += f"\nLANGUAGE: You MUST write the memory ONLY in {language}. Do not use English.\n"
-    text = call_llm("memory", [{"role": "user", "content": prompt}])
-    if not text:
-        logging.warning(f"MEMORY: The LLM gave no memory for the chat thread {thread['id']}, so it stays pending.")
-        return
-    # A thread can outlive a campaign switch, and the same thread ID can name another thread in the new campaign
-    if state.ACTIVE_CAMPAIGN != campaign:
-        logging.info(f"MEMORY: Dropped the memory of the chat thread {thread['id']}, because the active campaign changed while the LLM wrote it.")
-        return
-    memory = chat_prompt.mark_names(" ".join(text.split()), [(npc_id, name) for npc_id, name, _, _ in members])
-    if campaign_db.set_memory(thread["id"], memory, thread["game_time"]):
-        logging.info(f"MEMORY: Stored the memory of the chat thread {thread['id']}.")
-    else:
-        logging.info(f"MEMORY: Dropped the memory of the chat thread {thread['id']}, because a cull or a delete changed the thread while the LLM wrote it.")
-
-def distill_threads():
-    """Writes the memory of each pending chat thread of the active campaign, the oldest first, while the chat stays quiet."""
-    campaign = state.ACTIVE_CAMPAIGN
-    try:
-        pending = campaign_db.pending_threads()
-    except campaign_db.CampaignUnavailable:
-        return
-    if not pending:
-        return
-    members = campaign_db.thread_members(thread["id"] for thread in pending)
-    logging.info(f"MEMORY: Writing the memories of the pending chat threads ({len(pending)})...")
-    for thread in pending:
-        timeout = quiet_seconds()
-        with state.THREAD_LOCK:
-            # Before each call, so a chat that starts during the distillation waits for one call at most
-            if time.monotonic() - state.QUIET_SINCE < timeout:
-                logging.info("MEMORY: A chat started, so the other chat threads wait for the next quiet period.")
-                return
-            # A chat during the call then starts a new thread, so each memory covers a whole thread
-            state.CURRENT_THREAD.clear()
-        write_memory(thread, members.get(thread["id"], []), campaign)
-
-def get_character_data(name, context=""):
-    """The profile of the NPC that the context names by npc_id. Without an npc_id the profile is a stand-in that is never stored."""
-    name = str(name).split('|')[0].strip()
-    ctx_data = context_dict(context)
-    npc_id = ctx_data.get("npc_id")
-
-    data = campaign_db.get_character(npc_id) if npc_id else None
-    stored = dict(data) if data else {}
-
-    if ctx_data:
-        try:
-            if data:
-                current_race = ctx_data.get("race", "Unknown")
-                current_sex = reported_sex(current_race, ctx_data.get("gender", "Unknown"))
-                current_faction = ctx_data.get("faction", "Unknown")
-                needs_save = False
-                
-                if data.get("Race") == "Unknown" and current_race != "Unknown":
-                    logging.debug(f"PROFILE: Updating Race for {name}: {current_race}")
-                    data["Race"] = current_race
-                    needs_save = True
-                    
-                if data.get("Sex") in ("Unknown", None) and current_sex not in ("Unknown", None):
-                    logging.debug(f"PROFILE: Updating Sex for {name}: {current_sex}")
-                    data["Sex"] = current_sex
-                    needs_save = True
-                    
-                if data.get("Faction") == "Unknown" and current_faction != "Unknown":
-                    logging.debug(f"PROFILE: Updating Faction for {name}: {current_faction}")
-                    data["Faction"] = current_faction
-                    needs_save = True
-
-                current_origin = ctx_data.get("origin_faction", "Unknown")
-                if data.get("OriginFaction") == "Unknown" and current_origin != "Unknown":
-                    logging.debug(f"PROFILE: Updating OriginFaction for {name}: {current_origin}")
-                    data["OriginFaction"] = current_origin
-                    needs_save = True
-
-                # Only a context from the plugin carries the squad jobs
-                if "squad_jobs" in ctx_data:
-                    job = job_of(ctx_data)
-                    if job != data.get("CurrentJob"):
-                        logging.debug(f"PROFILE: Updating CurrentJob for {name}: {job}")
-                        data["CurrentJob"] = job
-                        needs_save = True
-
-                # Only the full context of a chat target, a speaker, or a rename carries the building
-                if "building_name" in ctx_data:
-                    location = scene_text.location_name(ctx_data)
-                    if location != data.get("CurrentLocation"):
-                        logging.debug(f"PROFILE: Updating CurrentLocation for {name}: {location}")
-                        data["CurrentLocation"] = location
-                        needs_save = True
-
-                # Bypasses should_save_profile, which would drop generic-content profiles
-                if needs_save:
-                    campaign_db.upsert_profile(npc_id, {k: data[k] for k in ("Race", "Sex", "Faction", "OriginFaction", "CurrentJob", "CurrentLocation") if k in data})
-                    if data.get("CurrentJob") is None:
-                        data.pop("CurrentJob", None)
-        except Exception as e:
-            logging.error(f"PROFILE: Cannot update the profile from the context: {e}")
-
-    if not data:
-        if not npc_id:
-            logging.debug(f"PROFILE: {name} has no npc_id, so the chat uses a stand-in profile.")
-            return {
-                "Name": name,
-                "Race": ctx_data.get("race", "Unknown"),
-                "Sex": reported_sex(ctx_data.get("race", "Unknown"), ctx_data.get("gender", "Unknown")),
-                "Faction": ctx_data.get("faction", "Unknown"),
-                "OriginFaction": ctx_data.get("origin_faction", "Unknown"),
-                **job_field(ctx_data),
-                "Personality": "A quiet traveler.",
-                "Backstory": f"A {ctx_data.get('race', 'person')} from {ctx_data.get('faction', 'the borderlands')}.",
-                "SpeechQuirks": "",
-                "ConversationHistory": [],
-                "Relation": int(float(ctx_data.get("relation", 0)) / 2),
-            }
-        data = new_profile(name, npc_id, ctx_data)
-
-    if should_save_profile(name, npc_id, data):
-        # Only the changed keys, so the write cannot undo a change that another request made since the read
-        changes = {k: v for k, v in data.items() if stored.get(k) != v}
-        if changes:
-            campaign_db.upsert_profile(npc_id, changes)
-    return data
-
-def should_save_profile(name, npc_id, data):
-    if not name or name in ("Unknown", "Someone"):
-        return False
-        
-    personality = data.get("Personality", "").lower()
-    is_generic_content = any(x in personality for x in ("unknown", "generic npc"))
-    has_history = len(data.get("ConversationHistory", [])) > 0
-    
-    if is_generic_content and not has_history:
-        return False
-        
-                
-    return True
-
-
-def send_rename(npc_id, name):
-    """The plugin puts the name in place of the token of the template, so the game keeps its own title (npc_names)."""
-    send_to_pipe(f"NPC_RENAME: {npc_id}|{name}")
-
-def sync_name(npc, profile, in_squad):
-    """Renames a stored NPC in game to match its profile, and returns its Name. The player can rename a squad member in game,
-    so there the profile follows the game name instead."""
-    npc_id, game_name = npc["npc_id"], npc_names.name_of(npc)
-    name = profile["Name"]
-    if npc_names.unnamed(npc) and name == game_name:
-        name = generate_unique_lore_name(profile.get("Sex", "Neutral"))
-    elif in_squad and not npc_names.unnamed(npc):
-        name = game_name
-    if name != profile["Name"]:
-        campaign_db.rename_character(npc_id, profile["Name"], name)
-        logging.info(f"NAME: {profile['Name']} ({npc_id}) is now {name}")
-        profile["Name"] = name
-    if game_name != name:
-        send_rename(npc_id, name)
-    return name
-
-def npc_name(npc):
-    """The Name of an NPC in a chat or banter request. The rename goes out before the LLM call, so the name changes in game
-    while the player waits for the reply."""
-    name = npc_names.name_of(npc)
-    npc_id = npc.get("npc_id")
-    if not npc_id:
-        return name
-    profile = get_character_data(name, npc)
-    # The campaign stores no profile named Someone or Unknown, so a rolled name would live only in the game
-    if not campaign_db.character_exists(npc_id):
-        return name
-    # The faction of a banter NPC is its identity faction, so only in_player_faction marks a squad member there
-    in_squad = npc.get("in_player_faction") or is_player_faction(npc.get("faction"), npc.get("factionID"))
-    return sync_name(npc, profile, in_squad)
+llm.LLM_CONFIG = load_llm_config()
 
 @app.route('/squad_rename', methods=['POST'])
 def squad_rename():
@@ -1440,87 +756,6 @@ def record_event_to_history(etype, actor, target, msg, actor_faction="None", tar
     except campaign_db.CampaignUnavailable:
         pass  # The event is lost, but the context post that carries it must still update the player's context
 
-def generate_global_narrative_thread():
-    # A rumor without a game time is never culled
-    if "day" not in state.PLAYER_CONTEXT:
-        logging.debug("NARRATIVE: No game time yet, so no synthesis.")
-        return None
-    settings = load_settings()
-    last_chunk = campaign_db.recent_events(100)
-
-    # Kept low so short sessions can still synthesize
-    min_needed = 5
-    if len(last_chunk) < min_needed:
-        logging.debug(f"NARRATIVE: Not enough events to synthesize (have {len(last_chunk)}, need {min_needed}).")
-        return None
-
-    grouped_events = {}
-    for evt in last_chunk:
-        location = "Unknown Region"
-        if " @ " in evt:
-            try:
-                parts = evt.split(" @ ")
-                if len(parts) > 1:
-                    location = parts[1].split(":")[0].strip()
-            except: pass
-        
-        if location not in grouped_events:
-            grouped_events[location] = []
-        grouped_events[location].append(evt)
-
-    events_text = ""
-    for loc, evts in grouped_events.items():
-        events_text += f"\n--- {loc.upper()} ---\n"
-        events_text += "\n".join(evts) + "\n"
-    
-    logging.debug(f"NARRATIVE: Grouped {len(last_chunk)} events into {len(grouped_events)} locations.")
-    
-    past_rumors_block = ""
-    rumor_lines = []
-    for _, line in campaign_db.rumors()[-20:]:
-        match = re.search(r'\[RUMOR:\s*(.*?)\]', line)
-        if match:
-            rumor_lines.append(f"- {match.group(1).strip()}")
-    if rumor_lines:
-        past_rumors_block = "\nPREVIOUS RUMORS (Do NOT repeat these):\n" + "\n".join(rumor_lines[-5:])
-
-    p_fact = state.PLAYER_CONTEXT.get("faction", "The Nameless")
-    
-    prompt = fill_prompt("prompt_world_synthesis.txt", events_text=events_text, past_rumors_block=past_rumors_block, p_fact=p_fact)
-
-    language = settings.get("language", "English")
-    if language and language.lower() != "english":
-        prompt += f"\nLANGUAGE: You MUST write the rumor ONLY in {language}. Do not use English."
-
-    messages = [
-        {"role": "system", "content": prompt},
-        {"role": "user", "content": "Synthesize the rumors of the borderlands."}
-    ]
-    
-    logging.info("NARRATIVE: Calling LLM to synthesize world events...")
-    rumor_text = call_llm("synthesis", messages)
-    
-    if rumor_text:
-        rumor_text = rumor_text.strip()
-        # The LLM sometimes still wraps the rumor in a [RUMOR: ...] tag
-        tag_match = re.search(r'\[RUMOR:\s*(.*?)\]', rumor_text, re.DOTALL)
-        if tag_match:
-            rumor_text = tag_match.group(1).strip()
-        rumor_text = re.sub(r'^[-•*]\s*', '', rumor_text).strip()
-        
-        if len(rumor_text) > 10:
-            time_prefix = get_current_time_prefix().strip()
-            rumor_tagged = f"- {time_prefix} [RUMOR: {rumor_text}]"
-            try:
-                campaign_db.add_rumor(rumor_tagged)
-                logging.info(f"NARRATIVE: Generated and saved new global event: {rumor_tagged}")
-                notice = "A new world rumor is spreading."
-                send_to_pipe("NOTIFY: " + state.LOCALIZATION_CONFIG.get(language, {}).get(notice, notice))
-                return rumor_tagged
-            except Exception as e:
-                logging.error(f"NARRATIVE: Cannot save the rumor: {e}")
-    return None
-
 @app.route('/synthesize', methods=['POST'])
 def manual_synthesize():
     data = request.get_json(silent=True) or {}
@@ -1616,8 +851,8 @@ def get_context():
         last_npc_id = list(state.LIVE_CONTEXTS.keys())[-1]
         last_npc = state.LIVE_CONTEXTS[last_npc_id]
     
-    elapsed = SYNTHESIS_STATUS.get("elapsed", 0)
-    interval = SYNTHESIS_STATUS.get("interval", 60)
+    elapsed = synthesis.SYNTHESIS_STATUS.get("elapsed", 0)
+    interval = synthesis.SYNTHESIS_STATUS.get("interval", 60)
 
     return jsonify({
         "status": "ok",
@@ -2218,29 +1453,27 @@ def get_llm_config():
         "status": "ok",
         "tasks": list(llm_config.TASKS),
         "provider_types": list(llm_config.PROVIDER_TYPES),
-        **llm_config.masked(LLM_CONFIG)
+        **llm_config.masked(llm.LLM_CONFIG)
     })
 
 @app.route('/api/llm', methods=['POST'])
 def save_llm_config():
-    global LLM_CONFIG
     data = request.get_json(silent=True) or {}
     new_config = {part: data.get(part) for part in ("providers", "profiles", "default_profile", "routes")}
     errors = llm_config.validate(new_config)
     if errors:
         return jsonify({"status": "error", "errors": errors}), 400
-    new_config = llm_config.with_stored_keys(new_config, LLM_CONFIG)
+    new_config = llm_config.with_stored_keys(new_config, llm.LLM_CONFIG)
     llm_config.save(LLM_CONFIG_PATH, new_config)
-    LLM_CONFIG = new_config
+    llm.LLM_CONFIG = new_config
     logging.info("LLM: Saved the LLM configuration from the web app.")
     return get_llm_config()
 
 @app.route('/api/llm/reset', methods=['POST'])
 def reset_llm_config():
-    global LLM_CONFIG
-    new_config = llm_config.reset(default_llm_config(), LLM_CONFIG)
+    new_config = llm_config.reset(default_llm_config(), llm.LLM_CONFIG)
     llm_config.save(LLM_CONFIG_PATH, new_config)
-    LLM_CONFIG = new_config
+    llm.LLM_CONFIG = new_config
     logging.info("LLM: Reset the LLM configuration to the defaults.")
     return get_llm_config()
 
@@ -2272,7 +1505,7 @@ def test_llm_profile():
     errors = llm_config.provider_errors(provider_name, provider) + llm_config.profile_errors(data.get("name", ""), profile, {provider_name: provider})
     if errors:
         return jsonify({"status": "error", "errors": errors}), 400
-    provider = llm_config.provider_from_form(provider_name, provider, LLM_CONFIG)
+    provider = llm_config.provider_from_form(provider_name, provider, llm.LLM_CONFIG)
     messages = [{"role": "user", "content": "Keep your response extremely short. Reply with the word: Success"}]
     body = llm_router.build_body({"max_tokens": 200, "temperature": 0.7}, profile, messages)
     try:
@@ -2293,7 +1526,7 @@ def list_llm_models():
     errors = llm_config.provider_errors(name, provider)
     if errors:
         return jsonify({"status": "error", "errors": errors}), 400
-    provider = llm_config.provider_from_form(name, provider, LLM_CONFIG)
+    provider = llm_config.provider_from_form(name, provider, llm.LLM_CONFIG)
     try:
         response = requests.get(f"{provider['base_url'].rstrip('/')}/models", headers={"Authorization": f"Bearer {provider.get('api_key', '')}"}, timeout=15)
         if response.status_code != 200:
@@ -2409,92 +1642,10 @@ def toggle_favorite():
 
     return jsonify({"status": "ok", "state": "added" if is_fav else "removed"})
 
-def synthesis_loop():
-    logging.info("NARRATIVE: Synthesis background loop started.")
-    elapsed_minutes = 0
-    while True:
-        try:
-            settings = load_settings()
-            interval = settings.get("synthesis_interval_minutes", 5)
-            if interval < 1: interval = 1
-            
-            SYNTHESIS_STATUS["interval"] = interval
-            
-            if elapsed_minutes >= interval:
-                logging.debug(f"NARRATIVE: Interval shortened ({interval}m). Triggering synthesis.")
-                generate_global_narrative_thread()
-                elapsed_minutes = 0
-                SYNTHESIS_STATUS["elapsed"] = 0
-                continue
-
-            for _ in range(6):
-                time.sleep(10)
-            
-            speed = state.PLAYER_CONTEXT.get("gamespeed", 1.0)
-            
-            if speed > 0.1:
-                elapsed_minutes += 1
-                SYNTHESIS_STATUS["elapsed"] = elapsed_minutes
-                if elapsed_minutes % 10 == 0:
-                    logging.debug(f"NARRATIVE: Timer progress: {elapsed_minutes}/{interval} minutes.")
-            
-            if elapsed_minutes >= interval:
-                logging.debug(f"NARRATIVE: Timer reached ({interval}m). Triggering periodic synthesis.")
-                generate_global_narrative_thread()
-                elapsed_minutes = 0
-                SYNTHESIS_STATUS["elapsed"] = 0
-                    
-        except Exception as e:
-            logging.error(f"NARRATIVE: Synthesis loop failed: {e}")
-            time.sleep(60)
-
 if RUMOR_SYNTHESIS:
     threading.Thread(target=synthesis_loop, daemon=True).start()
 
-def memory_loop():
-    """Runs the distillation once in each quiet period, so a thread whose call failed waits for the next one."""
-    distilled = None
-    while True:
-        time.sleep(10)
-        since = state.QUIET_SINCE
-        if since == distilled or time.monotonic() - since < quiet_seconds():
-            continue
-        distilled = since
-        try:
-            distill_threads()
-        except Exception as e:
-            # A thread, where nothing else would log the error
-            logging.error(f"MEMORY: The distillation of the chat threads failed: {e}")
-
 threading.Thread(target=memory_loop, daemon=True).start()
-
-def player2_ping_loop():
-    logging.debug("PLAYER2: Health check thread started.")
-    
-    while True:
-        try:
-            for name in llm_config.player2_providers_in_use(LLM_CONFIG):
-                provider = LLM_CONFIG["providers"][name]
-                if not PLAYER2_SESSION_KEY and refresh_player2_session(provider):
-                    logging.info("PLAYER2: Session authorized.")
-
-                try:
-                    h = {
-                        "player2-game-key": provider.get("game_key", ""),
-                        "Authorization": f"Bearer {PLAYER2_SESSION_KEY}" if PLAYER2_SESSION_KEY else ""
-                    }
-                    resp = requests.get(f"{provider['base_url'].rstrip('/')}/health", headers=h, timeout=5)
-                    if resp.status_code == 200:
-                        logging.debug("PLAYER2: The Player2 app is up.")
-                    else:
-                        logging.warning(f"PLAYER2: Health check returned status {resp.status_code}")
-                except Exception as e:
-                    logging.warning(f"PLAYER2: The Player2 app is down or unreachable: {e}")
-            
-        except Exception as e:
-            logging.error(f"PLAYER2: Health check loop failed: {e}")
-        
-        time.sleep(60)
 
 threading.Thread(target=player2_ping_loop, daemon=True).start()
 
