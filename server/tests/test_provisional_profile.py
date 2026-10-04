@@ -57,6 +57,10 @@ class DataTest(unittest.TestCase):
     def test_each_backstory_fits_a_person_or_a_skeleton(self):
         self.assertTrue(all(story["kinds"] and set(story["kinds"]) <= {"person", "skeleton"} for story in provisional_profile.BACKSTORIES))
 
+    def test_each_backstory_ends_in_the_past(self):
+        present = re.compile(r"\b(?:now|still|anymore|lately|these days|they (?:are|have|do|want|mean|hope|keep|carry|work|live|feel|fear|hate|refuse|know|wonder|intend|owe))\b", re.IGNORECASE)
+        self.assertFalse([text for text in BACKSTORY_TEXTS if present.search(text)])
+
     def test_no_text_names_a_template_entry_or_has_a_gendered_pronoun_or_a_stage_direction(self):
         names = re.compile(r"\b(?:" + "|".join(re.escape(name) for name in sorted(template_names(), key=len, reverse=True)) + r")\b")
         for text in ALL_TEXTS:

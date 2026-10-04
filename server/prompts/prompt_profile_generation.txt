@@ -25,11 +25,11 @@ RULES:
 - SPEECH: A speech quirk is a verbal habit only, with no gestures or sounds.
 - STYLE: Write in plain words and short sentences, whatever the speech quirk.
 - BIOLOGY: The character lives with the physical reality of their race, as the race lore describes it.
-- CANON: If "{name}" is a unique character of Kenshi, follow their exact established lore.
+- CANON: If "{name}" is a unique character of Kenshi, follow their exact established lore, even where it does not fit the parts below.
 
 PARTS:
 - Personality: 1-2 sentences on their traits.
-- Backstory: 2-3 sentences on the life they had, the event that changed it, and where it left them now.
+- Backstory: 2-3 sentences in the past tense on the life they had, the event that changed it, and how that part of their life ended. Nothing in it says what they do, want, owe, or fear now.
 - SpeechQuirks: Their verbal habits.
 
 JSON OUTPUT ONLY: an object with exactly these keys: {parts}.
