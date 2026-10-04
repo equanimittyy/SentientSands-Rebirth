@@ -77,29 +77,25 @@ class HistoryTurnsTest(unittest.TestCase):
     def test_a_line_without_a_speaker_is_never_the_npc_line(self):
         self.assertEqual(chat_prompt.history_turns([("Beep: Hello.", None)], None), [{"role": "user", "content": "Beep: Hello."}])
 
-    def test_only_lines_of_the_squad_member_that_the_npc_did_not_overhear_count_as_spoken(self):
+    def test_only_lines_that_the_npc_did_not_overhear_count_as_spoken(self):
         stick, izumi = "h:10", "h:11"
-        self.assertFalse(chat_prompt.has_spoken_with([], izumi))
+        self.assertEqual(chat_prompt.spoken_with([], [], BEEP), [])
         overheard = [("[Day 3, 14:02] (Overheard) Izumi to Ruka: hey Ruka", izumi, 1), ("(Overheard) (Whispered) Izumi to Kai: psst", izumi, 2)]
-        self.assertFalse(chat_prompt.has_spoken_with(overheard, izumi))
-        spoke = [*overheard, ("[Day 3, 14:03] Stick: (Overheard) nothing", stick, 3)]
-        self.assertTrue(chat_prompt.has_spoken_with(spoke, stick))
-        self.assertFalse(chat_prompt.has_spoken_with(spoke, izumi))
+        self.assertEqual(chat_prompt.spoken_with(overheard, [], BEEP), [])
+        self.assertEqual(chat_prompt.spoken_with([*overheard, ("[Day 3, 14:03] Stick: (Overheard) nothing", stick, 3)], [], BEEP), [stick])
 
-    def test_a_squad_member_of_the_same_name_has_not_spoken(self):
-        self.assertFalse(chat_prompt.has_spoken_with([("[Day 3, 14:03] Ruka: hi", "h:12", 1)], "h:13"))
-
-    def test_the_companions_are_the_other_speakers_in_the_order_of_their_first_line(self):
+    def test_the_partners_of_the_threads_come_first_then_the_other_speakers_of_the_lines(self):
         entries = [
-            ("[Day 3, 14:01] Stick: hi", "h:10", 1),
-            ("[Day 3, 14:01] Beep: Beep friend!", BEEP, 1),
-            ("[Day 3, 14:05] (Overheard) Mikse to Ruka: psst", "h:12", 2),
             ("[Day 4, 08:00] Ruka: Hot today.", "h:13", None),
-            ("[Day 4, 08:01] Stick: again", "h:10", 3),
+            ("[Day 4, 08:01] Beep: Beep agrees!", BEEP, None),
             ("[Day 4, 09:00] Izumi: hey", "h:11", 4),
             ("[Day 4, 09:01] Drifter: hey", None, 4),
         ]
-        self.assertEqual(chat_prompt.companions(entries, BEEP, "h:11"), ["h:10", "h:13"])
+        self.assertEqual(chat_prompt.spoken_with(entries, ["h:10", "h:11", "h:10"], BEEP), ["h:10", "h:11", "h:13"])
+
+    def test_the_chat_lines_leave_out_banter(self):
+        entries = [("[Day 4, 08:00] Ruka: Hot today.", "h:13", None), ("[Day 4, 09:00] Izumi: hey", "h:11", 4)]
+        self.assertEqual(chat_prompt.chat_lines(entries), entries[1:])
 
     def test_an_empty_reply_is_never_empty_content(self):
         self.assertEqual(chat_prompt.history_turns([("Drifter: hi", None), ("Beep:", BEEP)], BEEP)[-1], {"role": "assistant", "content": "..."})
@@ -141,6 +137,44 @@ class OverheardNotesTest(unittest.TestCase):
         self.assertEqual(chat_prompt.history_turns(chat_prompt.with_notes(entries[3:5], {1: note}), BEEP)[-1], {"role": "user", "content": note})
 
 
+class MemoriesTest(unittest.TestCase):
+    STICK, IZUMI, MIKSE, JORGE = "h:10", "h:11", "h:12", "h:14"
+
+    def memory(self, members, text="{h:10} asked {h:14} for work.", game_time=3 * 1440 + 14 * 60 + 5):
+        return {"id": 1, "game_time": game_time, "memory": text, "members": members}
+
+    def test_a_speaker_reads_who_of_the_player_faction_heard_it(self):
+        members = [(self.STICK, "Stick", "speaker", True), (self.JORGE, "Jorge", "speaker", False), (self.IZUMI, "Izumi", "overheard", True), ("h:20", "Guard", "overheard", False)]
+        self.assertEqual(chat_prompt.memories_block([self.memory(members)], self.JORGE), "\n".join([
+            "Memories of your earlier conversations, oldest first:",
+            "[Day 3, 14:05] You spoke with Stick. Izumi heard it.",
+            "Stick asked Jorge for work.",
+        ]))
+
+    def test_an_overhearer_reads_both_speakers(self):
+        members = [(self.STICK, "Stick", "speaker", True), (self.JORGE, "Jorge", "speaker", False), (self.MIKSE, "Mikse", "overheard", True)]
+        self.assertEqual(chat_prompt.memories_block([self.memory(members)], self.MIKSE).splitlines()[1], "[Day 3, 14:05] You overheard Stick and Jorge.")
+
+    def test_no_memory_gives_no_heading(self):
+        self.assertEqual(chat_prompt.memories_block([], self.JORGE), "")
+
+    def test_the_names_are_the_current_names(self):
+        members = [(self.STICK, "Stickman", "speaker", True), (self.JORGE, None, "speaker", False)]
+        self.assertEqual(chat_prompt.memories_block([self.memory(members)], self.STICK).splitlines()[1:], ["[Day 3, 14:05] You spoke with someone.", "Stickman asked someone for work."])
+
+    def test_the_library_line_does_not_speak_to_the_npc(self):
+        members = [(self.STICK, "Stick", "speaker", True), (self.JORGE, "Jorge", "speaker", False), (self.MIKSE, "Mikse", "overheard", True)]
+        self.assertEqual(chat_prompt.memory_lines([self.memory(members)], self.JORGE), ["[Day 3, 14:05] (Memory of a conversation with Stick, heard by Mikse) Stick asked Jorge for work."])
+        self.assertEqual(chat_prompt.memory_lines([self.memory(members, game_time=None)], self.MIKSE), ["(Memory of an overheard conversation of Stick and Jorge) Stick asked Jorge for work."])
+
+    def test_a_header_names_the_others_before_the_lines_of_each_thread(self):
+        members = {1: [(self.STICK, "Stick", "speaker", True), (self.JORGE, "Jorge", "speaker", False)], 2: [(self.IZUMI, "Izumi", "speaker", True), (self.JORGE, "Jorge", "speaker", False), (self.STICK, "Stick", "overheard", True)]}
+        entries = [("a", self.STICK, 1), ("b", self.JORGE, 1), ("banter", "h:20", None), ("c", self.IZUMI, 2), ("d", self.JORGE, 2), ("e", self.STICK, 1)]
+        self.assertEqual(chat_prompt.headed_lines(entries, members, self.JORGE), [
+            "(Conversation with Stick)", "a", "b", "banter", "(Conversation with Izumi, heard by Stick)", "c", "d", "(Conversation with Stick)", "e",
+        ])
+
+
 class NameMarksTest(unittest.TestCase):
     MEMBERS = [("h:1", "Dust Bandit"), ("h:2", "Dust Bandit Josh"), ("h:3", "Jorge")]
 
@@ -160,6 +194,9 @@ class ChatMessagesTest(unittest.TestCase):
     def test_the_tail_comes_last(self):
         turns = chat_prompt.history_turns([("Drifter: hi", None), ("Beep: Hello.", BEEP)], BEEP)
         self.assertEqual(chat_prompt.chat_messages("S", turns, "T")[-1], {"role": "user", "content": "T"})
+
+    def test_a_history_with_no_lines_gives_no_turns(self):
+        self.assertEqual(chat_prompt.chat_messages("S", chat_prompt.history_turns([], BEEP), "T"), [{"role": "system", "content": "S"}, {"role": "user", "content": "T"}])
 
     def test_a_trailing_user_turn_takes_the_tail(self):
         turns = chat_prompt.history_turns([("Beep: Hello.", BEEP), ("Drifter: bye", None)], BEEP)

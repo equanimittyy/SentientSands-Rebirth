@@ -142,6 +142,31 @@ def overheard_note(listeners, partner):
     return f"{heard} with {partner}." if partner else f"{heard}."
 
 
+def memory_header(partners, listeners, overheard):
+    """partners are the other speakers of the conversation, and listeners its overhearers of the player's faction."""
+    if overheard:
+        return f"You overheard {_join(partners)}."
+    heard = f" {_join(listeners)} heard it." if listeners else ""
+    return f"You spoke with {_join(partners)}.{heard}"
+
+
+def conversation_label(partners, listeners, overheard):
+    """memory_header without the second person, for the Dialogue Library and the bio prompt, which the NPC does not read."""
+    text = _conversation(partners, listeners, overheard)
+    return text[0].upper() + text[1:]
+
+
+def memory_label(partners, listeners, overheard):
+    return f"Memory of {_a(_conversation(partners, listeners, overheard))}"
+
+
+def _conversation(partners, listeners, overheard):
+    if overheard:
+        return f"overheard conversation of {_join(partners)}"
+    heard = f", heard by {_join(listeners)}" if listeners else ""
+    return f"conversation with {_join(partners)}{heard}"
+
+
 def hunger_text(subject, food_level):
     verb = "are" if subject == "You" else "look"
     return f"{subject} {verb} {_scale(_number(food_level, 300), HUNGER)}."

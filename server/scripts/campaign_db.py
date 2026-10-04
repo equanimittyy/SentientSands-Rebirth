@@ -16,7 +16,6 @@ from pathlib import Path
 
 DB_NAME = "campaign.db"
 SCHEMA_VERSION = 7
-MAX_DIALOGUE = 260
 DIALOGUE_BLOCK = 20
 MAX_EVENTS = 500
 # The chat count of a provisional profile also marks it as provisional: the template validator, which the campaign editor
@@ -286,7 +285,8 @@ def promote_profile(npc_id, bio):
 
 def append_dialogue(npc_id, lines, profile, thread_id=None):
     """lines are (line, speaker) pairs, where speaker is the npc_id of the character who spoke, or None. Stores profile first
-    only if the character is not stored yet. A banter line has no thread."""
+    only if the character is not stored yet. A banter line has no thread. No line is trimmed: the memory of a chat thread
+    replaces its lines (set_memory), and banter lines stay."""
     with _connect(write=True) as conn:
         row = conn.execute("SELECT id FROM character WHERE npc_id = ?", (npc_id,)).fetchone()
         if row:
@@ -298,14 +298,6 @@ def append_dialogue(npc_id, lines, profile, thread_id=None):
             "INSERT INTO dialogue (character_id, game_time, line, speaker, thread_id) VALUES (?, ?, ?, ?, ?)",
             [(character_id, game_time(line), line, speaker, thread_id) for line, speaker in lines],
         )
-        excess = conn.execute("SELECT COUNT(*) FROM dialogue WHERE character_id = ?", (character_id,)).fetchone()[0] - MAX_DIALOGUE
-        if excess > 0:
-            # Whole blocks only, so the chat history window keeps its first line and the prompt cache still matches
-            oldest = "SELECT id FROM dialogue WHERE character_id = ? ORDER BY id LIMIT ?"
-            args = (character_id, DIALOGUE_BLOCK * -(-excess // DIALOGUE_BLOCK))
-            touched = _threads_of(conn, f"id IN ({oldest})", args)
-            conn.execute(f"DELETE FROM dialogue WHERE id IN ({oldest})", args)
-            _drop_unused_threads(conn, touched)
 
 
 def join_thread(thread_id, members, joined_at):
@@ -341,7 +333,7 @@ def thread_members(thread_ids):
 
 def threads():
     """Each chat thread that has a line or a memory, newest first, as a dict with its members, the game time of its first
-    exchange, its memory or None, and the lines of one copy (_thread_lines). The trim can leave only the memory."""
+    exchange, its memory or None, and the lines of one copy (_thread_lines). A thread with a memory has no lines."""
     with _connect() as conn:
         rows = conn.execute(
             "SELECT t.id, MIN(m.game_time), t.memory FROM thread t LEFT JOIN thread_member m ON m.thread_id = t.id GROUP BY t.id ORDER BY t.id DESC"
@@ -365,10 +357,51 @@ def pending_threads():
 
 
 def set_memory(thread_id, memory, game_time):
-    """Stores the memory of a pending thread. Returns False, with no write, when the thread is gone, has a memory, or no
-    longer has the game_time that the caller read, for example because a cull removed its newest lines during the call."""
+    """Stores the memory of a pending thread and deletes every copy of its lines, which the memory replaces. Returns False,
+    with no write, when the thread is gone, has a memory, or no longer has the game_time that the caller read, for example
+    because a cull removed its newest lines during the call."""
     with _connect(write=True) as conn:
-        return conn.execute("UPDATE thread SET memory = ? WHERE id = ? AND memory IS NULL AND game_time IS ?", (memory, thread_id, game_time)).rowcount > 0
+        if not conn.execute("UPDATE thread SET memory = ? WHERE id = ? AND memory IS NULL AND game_time IS ?", (memory, thread_id, game_time)).rowcount:
+            return False
+        conn.execute("DELETE FROM dialogue WHERE thread_id = ?", (thread_id,))
+        return True
+
+
+def edit_memory(thread_id, memory):
+    """Replaces the text of a memory. Returns False when the thread has no memory."""
+    with _connect(write=True) as conn:
+        return conn.execute("UPDATE thread SET memory = ? WHERE id = ? AND memory IS NOT NULL", (memory, thread_id)).rowcount > 0
+
+
+def delete_memory(thread_id):
+    """Deletes a thread with a memory, with its members. The memory replaced its lines, so nothing of the conversation stays."""
+    with _connect(write=True) as conn:
+        return conn.execute("DELETE FROM thread WHERE id = ? AND memory IS NOT NULL", (thread_id,)).rowcount > 0
+
+
+def memories_of(npc_id, limit=None):
+    """The newest limit chat threads with a memory in which the character is a member, or all of them, oldest first, as
+    dicts with the game time of the first exchange, the memory, and the members (thread_members)."""
+    with _connect() as conn:
+        rows = conn.execute(
+            "SELECT t.id, (SELECT MIN(game_time) FROM thread_member WHERE thread_id = t.id), t.memory FROM thread t"
+            " WHERE t.memory IS NOT NULL AND EXISTS (SELECT 1 FROM thread_member WHERE thread_id = t.id AND npc_id = ?) ORDER BY t.id DESC LIMIT ?",
+            (npc_id, -1 if limit is None else limit),
+        ).fetchall()
+    members = thread_members(thread_id for thread_id, _, _ in rows)
+    return [{"id": thread_id, "game_time": first_time, "memory": memory, "members": members.get(thread_id, [])} for thread_id, first_time, memory in reversed(rows)]
+
+
+def thread_partners(npc_id):
+    """The other speaker of each chat thread in which the character is a speaker, oldest thread first. The members stay after
+    a memory replaced the lines of the thread."""
+    with _connect() as conn:
+        rows = conn.execute(
+            "SELECT o.npc_id FROM thread_member m JOIN thread_member o ON o.thread_id = m.thread_id AND o.role = 'speaker' AND o.npc_id != m.npc_id"
+            " WHERE m.npc_id = ? AND m.role = 'speaker' ORDER BY m.thread_id, o.rowid",
+            (npc_id,),
+        ).fetchall()
+    return [partner for (partner,) in rows]
 
 
 def names_of(npc_ids):
@@ -382,12 +415,14 @@ def names_of(npc_ids):
 
 
 def list_characters():
+    """A thread member counts as having dialogue, and a speaker as taking part, because a memory replaces the lines of its thread."""
     with _connect() as conn:
         rows = conn.execute(
             "SELECT npc_id, json_extract(profile, '$.Name'), origin, favorite, updated_at,"
-            " EXISTS (SELECT 1 FROM dialogue WHERE character_id = character.id),"
+            " EXISTS (SELECT 1 FROM dialogue WHERE character_id = character.id) OR EXISTS (SELECT 1 FROM thread_member WHERE npc_id = character.npc_id),"
             " EXISTS (SELECT 1 FROM dialogue WHERE character_id = character.id"
-            " AND line NOT LIKE '(Overheard)%' AND line NOT LIKE '[Day %] (Overheard)%') FROM character"
+            " AND line NOT LIKE '(Overheard)%' AND line NOT LIKE '[Day %] (Overheard)%')"
+            " OR EXISTS (SELECT 1 FROM thread_member WHERE npc_id = character.npc_id AND role = 'speaker') FROM character"
         ).fetchall()
     return [
         {"npc_id": npc_id, "name": name, "origin": origin, "favorite": bool(fav), "updated_at": updated, "has_dialogue": bool(talked),
@@ -452,8 +487,9 @@ def cull_after(day, hour, minute):
         touched = {thread_id for (thread_id,) in conn.execute("SELECT id FROM thread WHERE game_time > ?", (now,))}
         culled = {table: conn.execute(f"DELETE FROM {table} WHERE game_time > ?", (now,)).rowcount for table in ("dialogue", "event", "rumor")}
         conn.execute("DELETE FROM thread_member WHERE game_time > ?", (now,))
-        # The memory told of culled lines, so the lines from before the cut make the thread pending again
-        conn.execute("UPDATE thread SET memory = NULL, game_time = (SELECT MAX(game_time) FROM dialogue WHERE thread_id = thread.id) WHERE game_time > ?", (now,))
+        # The memory told of culled exchanges, and it replaced every line, so nothing from before the cut is left to keep
+        conn.execute("DELETE FROM thread WHERE memory IS NOT NULL AND game_time > ?", (now,))
+        conn.execute("UPDATE thread SET game_time = (SELECT MAX(game_time) FROM dialogue WHERE thread_id = thread.id) WHERE game_time > ?", (now,))
         _drop_unused_threads(conn, touched)
         return culled
 
@@ -696,8 +732,8 @@ def _drop_unused_threads(conn, thread_ids):
 
 
 def _thread_lines(conn):
-    """The lines of one copy of each thread that has a line: the copy of the speaker who holds the most lines of the thread,
-    because each history is trimmed on its own schedule, or of an overhearer when no speaker holds one."""
+    """The lines of one copy of each thread that has a line: the copy of a speaker, because its lines have no (Overheard)
+    tag, or of an overhearer when the delete of the speakers left no other copy."""
     copies = conn.execute(
         "SELECT d.thread_id, d.character_id, COUNT(*),"
         " EXISTS (SELECT 1 FROM thread_member m WHERE m.thread_id = d.thread_id AND m.npc_id = c.npc_id AND m.role = 'speaker')"

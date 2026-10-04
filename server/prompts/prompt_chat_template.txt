@@ -7,3 +7,5 @@
 {npc_profiles}
 
 {scene}
+
+{memories}

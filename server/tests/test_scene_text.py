@@ -36,6 +36,15 @@ class ScaleTest(unittest.TestCase):
         self.assertEqual(scene_text.overheard_note(["Stick", "Mikse", "Ruka"], "Izumi"), "Stick, Mikse, and Ruka heard your conversation with Izumi.")
         self.assertEqual(scene_text.overheard_note(["Stick"], None), "Stick heard your conversation.")
 
+    def test_the_memory_header_names_the_other_speakers_and_the_listeners(self):
+        self.assertEqual(scene_text.memory_header(["Stick"], ["Izumi", "Mikse"], False), "You spoke with Stick. Izumi and Mikse heard it.")
+        self.assertEqual(scene_text.memory_header(["Stick"], [], False), "You spoke with Stick.")
+        self.assertEqual(scene_text.memory_header(["Stick", "Jorge"], [], True), "You overheard Stick and Jorge.")
+
+    def test_the_library_labels_do_not_speak_to_the_npc(self):
+        self.assertEqual(scene_text.conversation_label(["Stick"], ["Izumi"], False), "Conversation with Stick, heard by Izumi")
+        self.assertEqual(scene_text.memory_label(["Stick", "Jorge"], [], True), "Memory of an overheard conversation of Stick and Jorge")
+
     def test_the_faction_stance_bands(self):
         stances = {value: scene_text._scale(value, scene_text.FACTION_STANCE) for value in (-30, -29, -10, -9, 9, 10, 49, 50)}
         self.assertEqual(stances, {-30: "hostile", -29: "unfriendly", -10: "unfriendly", -9: "neutral", 9: "neutral", 10: "friendly", 49: "friendly", 50: "allied"})

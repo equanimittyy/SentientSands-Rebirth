@@ -206,11 +206,9 @@ class CharacterTest(CampaignTestCase):
         campaign_db.upsert_profile(GENERIC_ID, BEEP)
         self.assertEqual({c["npc_id"]: c["origin"] for c in campaign_db.list_characters()}[GENERIC_ID], "game")
 
-    def test_dialogue_drops_its_oldest_lines_in_whole_blocks(self):
+    def test_no_line_is_trimmed(self):
         campaign_db.append_dialogue(GENERIC_ID, spoken(None, *(f"line {i}" for i in range(300))), BEEP)
-        self.assertEqual(campaign_db.get_character(GENERIC_ID)["ConversationHistory"], [f"line {i}" for i in range(40, 300)])
-        campaign_db.append_dialogue(GENERIC_ID, spoken(None, "line 300"), BEEP)
-        self.assertEqual(campaign_db.get_character(GENERIC_ID)["ConversationHistory"][0], "line 60")
+        self.assertEqual(len(campaign_db.get_character(GENERIC_ID)["ConversationHistory"]), 300)
 
     def test_two_npcs_with_one_name_keep_separate_rows(self):
         campaign_db.append_dialogue("h:1", spoken(None, "to the first"), {"Name": "Bob"})
@@ -272,18 +270,6 @@ class ThreadTest(CampaignTestCase):
         campaign_db.cull_after(3, 0, 0)
         self.assertNotEqual(self.exchange(thread_id, "[Day 2, 10:00]"), thread_id)
 
-    def test_a_trim_that_removes_the_last_row_of_a_thread_deletes_it(self):
-        filler = lambda count: [(f"line {i}", None) for i in range(count)]
-        old = self.exchange(None, "[Day 1, 08:00]", listeners=[self.IZUMI])
-        campaign_db.append_dialogue(self.IZUMI, filler(campaign_db.MAX_DIALOGUE), {})
-        self.assertEqual(campaign_db.thread_members([old]).keys(), {old})
-        for npc_id in (self.STICK, GENERIC_ID):
-            campaign_db.append_dialogue(npc_id, filler(campaign_db.DIALOGUE_BLOCK), {})
-        kept = self.exchange(None, "[Day 2, 08:00]")
-        for npc_id in (self.STICK, GENERIC_ID):
-            campaign_db.append_dialogue(npc_id, filler(campaign_db.MAX_DIALOGUE - campaign_db.DIALOGUE_BLOCK - 3), {})
-        self.assertEqual(campaign_db.thread_members([old, kept]).keys(), {kept})
-
     def test_a_cull_deletes_the_later_members_and_the_threads_with_no_row_left(self):
         early = self.exchange(None, "[Day 3, 14:05]")
         self.exchange(early, "[Day 3, 16:00]", listeners=[self.IZUMI])
@@ -297,11 +283,10 @@ class ThreadTest(CampaignTestCase):
         campaign_db.delete_record("character", (GENERIC_ID,))
         self.assertEqual(campaign_db.thread_members([thread_id]), {})
 
-    def test_the_threads_show_the_fullest_copy_of_a_speaker_newest_first(self):
+    def test_the_threads_show_the_copy_of_a_speaker_newest_first(self):
         first = self.exchange(None, "[Day 3, 14:05]", listeners=[self.IZUMI])
         self.exchange(first, "[Day 3, 14:06]", listeners=[self.IZUMI])
         second = self.exchange(None, "[Day 4, 09:00]", speaker=self.RUKA)
-        campaign_db.append_dialogue(self.STICK, [(f"line {i}", None) for i in range(campaign_db.MAX_DIALOGUE - 2)], {})
         threads = campaign_db.threads()
         self.assertEqual([thread["id"] for thread in threads], [second, first])
         self.assertEqual(threads[1]["lines"], ["[Day 3, 14:05] Stick: hi", "[Day 3, 14:05] Jorge: Hm.", "[Day 3, 14:06] Stick: hi", "[Day 3, 14:06] Jorge: Hm."])
@@ -335,28 +320,66 @@ class ThreadTest(CampaignTestCase):
         self.assertFalse(campaign_db.set_memory(thread_id, "Again.", campaign_db.game_time("[Day 3, 14:05]")))
         self.assertEqual(campaign_db.threads()[0]["memory"], "Stick greeted Jorge.")
 
-    def test_a_thread_with_a_memory_stays_after_the_trim_of_its_last_line(self):
-        thread_id = self.exchange(None, "[Day 1, 08:00]")
+    def test_a_memory_replaces_every_copy_of_the_lines_of_its_thread(self):
+        thread_id = self.exchange(None, "[Day 1, 08:00]", listeners=[self.IZUMI])
+        other = self.exchange(None, "[Day 2, 08:00]")
+        campaign_db.append_dialogue(self.IZUMI, [("[Day 1, 09:00] Izumi: Hot today.", self.IZUMI)], {})
         campaign_db.set_memory(thread_id, "Stick greeted Jorge.", campaign_db.game_time("[Day 1, 08:00]"))
-        for npc_id in (self.STICK, GENERIC_ID):
-            campaign_db.append_dialogue(npc_id, [(f"line {i}", None) for i in range(campaign_db.MAX_DIALOGUE)], {})
-        [thread] = campaign_db.threads()
-        self.assertEqual((thread["id"], thread["memory"], thread["lines"]), (thread_id, "Stick greeted Jorge.", []))
+        self.assertEqual([row[0] for row in campaign_db.dialogue(self.IZUMI)], ["[Day 1, 09:00] Izumi: Hot today."])
+        self.assertEqual({row[2] for row in campaign_db.dialogue(GENERIC_ID)}, {other})
+        thread = next(thread for thread in campaign_db.threads() if thread["id"] == thread_id)
+        self.assertEqual((thread["memory"], thread["lines"]), ("Stick greeted Jorge.", []))
         self.assertEqual(campaign_db.game_time_text(thread["game_time"]), "Day 1, 08:00")
-        self.assertEqual([member[1] for member in thread["members"]], ["Stick", "Jorge"])
-        self.assertEqual(campaign_db.pending_threads(), [])
+        self.assertEqual([member[1] for member in thread["members"]], ["Stick", "Jorge", "Izumi"])
+        self.assertEqual([pending["id"] for pending in campaign_db.pending_threads()], [other])
 
-    def test_a_cull_deletes_the_memories_after_the_cut_and_makes_their_threads_pending(self):
+    def test_a_cull_deletes_the_threads_whose_memory_is_after_the_cut_and_the_later_lines_of_a_pending_thread(self):
         kept = self.exchange(None, "[Day 2, 10:00]")
-        cut = self.exchange(None, "[Day 3, 14:05]")
-        self.exchange(cut, "[Day 3, 16:00]")
-        gone = self.exchange(None, "[Day 4, 09:00]")
-        for thread_id, when in ((kept, "[Day 2, 10:00]"), (cut, "[Day 3, 16:00]"), (gone, "[Day 4, 09:00]")):
+        remembered = self.exchange(None, "[Day 3, 14:00]")
+        self.exchange(remembered, "[Day 3, 16:00]")
+        pending = self.exchange(None, "[Day 3, 14:05]")
+        self.exchange(pending, "[Day 3, 16:05]")
+        for thread_id, when in ((kept, "[Day 2, 10:00]"), (remembered, "[Day 3, 16:00]")):
             campaign_db.set_memory(thread_id, f"Memory of {thread_id}.", campaign_db.game_time(when))
         campaign_db.cull_after(3, 15, 0)
-        self.assertEqual({thread["id"]: thread["memory"] for thread in campaign_db.threads()}, {kept: f"Memory of {kept}.", cut: None})
-        [pending] = campaign_db.pending_threads()
-        self.assertEqual((pending["id"], pending["game_time"], pending["lines"]), (cut, campaign_db.game_time("[Day 3, 14:05]"), ["[Day 3, 14:05] Stick: hi", "[Day 3, 14:05] Jorge: Hm."]))
+        self.assertEqual({thread["id"]: thread["memory"] for thread in campaign_db.threads()}, {kept: f"Memory of {kept}.", pending: None})
+        self.assertEqual(campaign_db.thread_members([remembered]), {})
+        [left] = campaign_db.pending_threads()
+        self.assertEqual((left["id"], left["game_time"], left["lines"]), (pending, campaign_db.game_time("[Day 3, 14:05]"), ["[Day 3, 14:05] Stick: hi", "[Day 3, 14:05] Jorge: Hm."]))
+
+    def test_only_a_memory_can_be_edited_or_deleted(self):
+        remembered = self.exchange(None, "[Day 1, 08:00]", listeners=[self.IZUMI])
+        pending = self.exchange(None, "[Day 2, 08:00]")
+        campaign_db.set_memory(remembered, "Stick greeted Jorge.", campaign_db.game_time("[Day 1, 08:00]"))
+        self.assertTrue(campaign_db.edit_memory(remembered, "Stick paid Jorge."))
+        self.assertFalse(campaign_db.edit_memory(pending, "No."))
+        self.assertFalse(campaign_db.delete_memory(pending))
+        self.assertEqual({thread["id"]: thread["memory"] for thread in campaign_db.threads()}, {remembered: "Stick paid Jorge.", pending: None})
+        self.assertTrue(campaign_db.delete_memory(remembered))
+        self.assertEqual([thread["id"] for thread in campaign_db.threads()], [pending])
+        self.assertEqual((campaign_db.thread_members([remembered]), campaign_db.thread_partners(self.STICK)), ({}, [GENERIC_ID]))
+
+    def test_the_memories_of_a_member_are_the_newest_oldest_first(self):
+        threads = [self.exchange(None, f"[Day {day}, 08:00]", listeners=[self.IZUMI] if day == 2 else []) for day in (1, 2, 3, 4)]
+        for day, thread_id in enumerate(threads[:3], start=1):
+            campaign_db.set_memory(thread_id, f"Day {day}.", campaign_db.game_time(f"[Day {day}, 08:00]"))
+        self.assertEqual([memory["memory"] for memory in campaign_db.memories_of(GENERIC_ID)], ["Day 1.", "Day 2.", "Day 3."])
+        self.assertEqual([memory["memory"] for memory in campaign_db.memories_of(GENERIC_ID, 2)], ["Day 2.", "Day 3."])
+        [heard] = campaign_db.memories_of(self.IZUMI)
+        self.assertEqual((campaign_db.game_time_text(heard["game_time"]), [member[2] for member in heard["members"]]), ("Day 2, 08:00", ["speaker", "speaker", "overheard"]))
+
+    def test_the_partners_of_a_speaker_stay_after_the_memory(self):
+        first = self.exchange(None, "[Day 1, 08:00]", listeners=[self.IZUMI])
+        self.exchange(None, "[Day 2, 08:00]", speaker=self.RUKA)
+        campaign_db.set_memory(first, "Stick greeted Jorge.", campaign_db.game_time("[Day 1, 08:00]"))
+        self.assertEqual(campaign_db.thread_partners(GENERIC_ID), [self.STICK, self.RUKA])
+        self.assertEqual(campaign_db.thread_partners(self.IZUMI), [])
+
+    def test_the_library_counts_the_members_of_a_thread_with_a_memory(self):
+        thread_id = self.exchange(None, "[Day 1, 08:00]", listeners=[self.IZUMI])
+        campaign_db.set_memory(thread_id, "Stick greeted Jorge.", campaign_db.game_time("[Day 1, 08:00]"))
+        listed = {c["npc_id"]: (c["has_dialogue"], c["only_overheard"]) for c in campaign_db.list_characters() if c["origin"] == "game"}
+        self.assertEqual(listed, {self.STICK: (True, False), GENERIC_ID: (True, False), self.IZUMI: (True, True), self.RUKA: (False, False)})
 
 
 class EventTest(CampaignTestCase):

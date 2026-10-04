@@ -8,10 +8,18 @@ each turn comes last, in the final user message.
 import re
 
 import scene_text
+from campaign_db import game_time_text
 
 _TIME_PREFIX = re.compile(r"^\[Day [^\]]*\]\s*")
 # Some chat templates require the turns after the system message to start with a user message
 EARLIER = "(Earlier conversation)"
+MEMORY_LIMIT = 10
+
+
+def chat_lines(entries):
+    """The (line, speaker, thread_id) rows of chat threads. Banter has no thread, so it never gets a memory and would keep
+    a history in every chat of an NPC that took part in banter."""
+    return [entry for entry in entries if entry[2] is not None]
 
 
 def history_window(lines, block):
@@ -36,17 +44,13 @@ def _overheard(line):
     return _TIME_PREFIX.sub("", line).startswith("(Overheard)")
 
 
-def has_spoken_with(entries, speaker_id):
-    """entries are the (line, speaker, ...) rows of the NPC. The speaker, not the name, marks the lines of the squad
-    member, and a line that the NPC only overheard does not count."""
-    return any(speaker == speaker_id and not _overheard(line) for line, speaker, *_ in entries)
-
-
-def companions(entries, npc_id, speaker_id):
-    """The other speakers of the lines that the NPC did not only overhear, in the order of their first line."""
+def spoken_with(entries, partners, npc_id):
+    """The characters that the NPC spoke with, in order: partners, the other speakers of its chat threads
+    (campaign_db.thread_partners), which stay after a memory replaced the lines, then the speakers of its stored lines that
+    it did not only overhear, such as banter. The speaker, not the name, marks a line."""
     found = []
-    for line, speaker, *_ in entries:
-        if speaker and speaker not in (npc_id, speaker_id, *found) and not _overheard(line):
+    for speaker in [*partners, *(speaker for line, speaker, *_ in entries if not _overheard(line))]:
+        if speaker and speaker != npc_id and speaker not in found:
             found.append(speaker)
     return found
 
@@ -101,6 +105,53 @@ def named(text, names):
 
 def _mark(npc_id):
     return "{" + npc_id + "}"
+
+
+def memories_block(memories, npc_id):
+    """The memories of the NPC, campaign_db.memories_of, each under a header that names the members from the view of the
+    NPC, so one stored text serves every member. Empty without a memory, so the heading stays out."""
+    if not memories:
+        return ""
+    parts = ["Memories of your earlier conversations, oldest first:"]
+    for memory in memories:
+        partners, listeners, overheard = _members_seen_by(memory["members"], npc_id)
+        parts.append(_dated(memory, scene_text.memory_header(partners, listeners, overheard)))
+        parts.append(_memory_text(memory))
+    return "\n".join(parts)
+
+
+def memory_lines(memories, npc_id):
+    """Each memory as one line in the form of a stored line, for the Dialogue Library and the bio prompt."""
+    return [_dated(memory, f"({scene_text.memory_label(*_members_seen_by(memory['members'], npc_id))}) {_memory_text(memory)}") for memory in memories]
+
+
+def headed_lines(entries, members, npc_id):
+    """entries are (line, speaker, thread_id) rows, and members the thread_members of their threads. A header names the
+    others of each chat thread before its lines, for the Dialogue Library and the bio prompt."""
+    lines, previous = [], None
+    for line, _, thread_id in entries:
+        if thread_id is not None and thread_id != previous:
+            lines.append(f"({scene_text.conversation_label(*_members_seen_by(members.get(thread_id, []), npc_id))})")
+        lines.append(line)
+        previous = thread_id
+    return lines
+
+
+def _members_seen_by(members, npc_id):
+    """The other speakers, the overhearers that were in the player's faction, and whether the NPC only overheard. Only those
+    overhearers count, as in overheard_notes."""
+    overheard = any(member_id == npc_id and role == "overheard" for member_id, _, role, _ in members)
+    partners = [name or "someone" for member_id, name, role, _ in members if role == "speaker" and member_id != npc_id]
+    listeners = [name for member_id, name, role, in_faction in members if role == "overheard" and in_faction and name and member_id != npc_id]
+    return partners, listeners, overheard
+
+
+def _dated(memory, text):
+    return f"[{game_time_text(memory['game_time'])}] {text}" if memory["game_time"] is not None else text
+
+
+def _memory_text(memory):
+    return named(memory["memory"], {member_id: name or "someone" for member_id, name, _, _ in memory["members"]})
 
 
 def history_turns(entries, npc_id):

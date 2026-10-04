@@ -124,7 +124,7 @@ A refresh keeps the unsaved changes of each part that a Save writes, and loads t
 |---|---|
 | Settings | Each changed field. |
 | Prompts | Each changed prompt. |
-| Editor | Each changed record or rumor. A changed record keeps the version that the page loaded, so its save still fails as stale when the record changed elsewhere. |
+| Editor | Each changed record, rumor, or memory. A changed record keeps the version that the page loaded, so its save still fails as stale when the record changed elsewhere. |
 | Models | The whole page, because Save writes the whole configuration. When another tab changed the models, the page tells the player that Save overwrites that change. |
 
 A refresh changes the message of the save bar only when the unsaved state of the page changes, so a change from elsewhere does not hide a "Saved." that the player did not read. The Editor does not put unsaved changes on the data of another campaign or template, so a refresh after a switch keeps the page as it is until the player discards.
@@ -133,7 +133,7 @@ The Editor holds many records. Save sends one request for each changed record, a
 
 The Editor has three subtabs. Campaign Canon and Templates share the record list and forms: Campaign Canon edits the canon of the active campaign, and Templates edits the world templates that new campaigns copy. Campaign Log shows the active campaign in two subtabs of its own: Dialogue & Memories, and Events. Events edits the rumors and lists the events. The page holds the data of one subtab and one template at a time, so a switch with unsaved changes asks the player first. A shipped template is read-only, so the page offers a duplicate.
 
-Dialogue & Memories lists the chat threads of the active campaign, newest first, each with the game time of its first exchange and its speakers (see [Chat threads](#chat-threads)). It uses the layout of Campaign Canon: a search field and the list on the left, and the selected thread on the right, with its overhearers, its lines, and its memory under Memorised Summary (see [Conversation memories](#conversation-memories)). A thread whose lines the trim removed shows only its memory. The search matches the names of the members, the text of the lines, and the memory, with case ignored. `GET /api/campaign` returns every thread with its lines and its memory, as Campaign Canon loads every record, so the search runs in the page. The lines are the copy of the speaker who holds the most lines of the thread, because each history is trimmed on its own schedule (`campaign_db.threads`). The subtab is read-only, and banter has no threads, so it stays out.
+Dialogue & Memories lists the chat threads of the active campaign, newest first, each with the game time of its first exchange and its speakers (see [Chat threads](#chat-threads)). It uses the layout of Campaign Canon: a search field and the list on the left, and the selected thread on the right, with its overhearers, its lines, and its memory under Memorised Summary (see [Conversation memories](#conversation-memories)). A thread with a memory shows only its memory, because the memory replaces its lines. The search matches the names of the members, the text of the lines, and the memory, with case ignored. `GET /api/campaign` returns every thread with its lines and its memory, as Campaign Canon loads every record, so the search runs in the page. The lines are the copy of a speaker, because its lines have no `(Overheard)` tag (`campaign_db.threads`). The memory under Memorised Summary is editable: Save writes each changed memory, and Delete removes the conversation after a confirmation (see [Conversation memories](#conversation-memories)). The lines are read-only, and banter has no threads, so it stays out.
 
 On Campaign Canon, **Show seeded data** and **Show provisional characters** start on. While the player turns one off, the record list hides the records whose `origin` is `seed`, or the provisional characters (see [Provisional profiles](#provisional-profiles)). The browser remembers each switch. The overview and the history have no `origin`, so they always show.
 
@@ -186,8 +186,8 @@ A chat request is ordered for a provider's prompt cache, which reuses only an id
 
 | Part | Content | Changes |
 |---|---|---|
-| System message | `prompt_chat_template.txt`: `prompt_system.txt`, the judgment rule, `npc_chat_template.txt`, then `prompt_chat_scene.txt`: the place, the 5 newest rumors, the player, and the NPC | When a new conversation starts |
-| History | The stored dialogue of the NPC, as user and assistant turns, with an overheard note after each chat thread (see [Chat threads](#chat-threads)) | One exchange more each turn |
+| System message | `prompt_chat_template.txt`: `prompt_system.txt`, the judgment rule, `npc_chat_template.txt`, then `prompt_chat_scene.txt`: the place, the 5 newest rumors, the player, and the NPC; then the memories of the NPC (see [Conversation memories](#conversation-memories)) | When a new conversation starts, and when a memory of the NPC is written |
+| History | The lines of the chat threads of the NPC that have no memory yet, as user and assistant turns, with an overheard note after each chat thread (see [Chat threads](#chat-threads)) | One exchange more each turn |
 | Last user message | `prompt_chat_turn.txt`: the player's line, then a one-line reminder of whom to reply as and to end with the judgment | Every turn |
 
 From one turn to the next, only the newest exchange and the last message are new, so the cache can serve the rest. Chats with different NPCs, by any speaker, and banter share the start of the system message.
@@ -200,8 +200,8 @@ The scene is prose that the NPC reads in the second person, built by `server/scr
 
 `npc_chat_template.txt` describes the NPC of a chat from its profile (`describe_npc`). Banter keeps its one-line list of NPCs in the code, because the plugin reads the `Name|ID` of each line.
 
-- The history is a block window of the stored dialogue (`chat_prompt.history_window`). It keeps its first line while it grows from 20 to 39 lines, and then it moves on by 20 lines. A window that moved with each new line would change the start of the history on every turn, so the cache could never serve it. For the same reason, `append_dialogue` drops old lines in whole blocks of 20 when an NPC has more than 260.
-- `chat_prompt.history_turns` makes each line whose speaker is the NPC an assistant turn, without the time and the name, and every other line a user turn (see [Characters](#characters)). The banter lines of the NPC therefore count as its own turns, and the lines of another NPC with the same name do not. A rename relabels the lines that the NPC spoke with the new name (`campaign_db.rename_character`), so its dialogue shows one name.
+- The history is a block window of those lines (`chat_prompt.history_window`). It keeps its first line while it grows from 20 to 39 lines, and then it moves on by 20 lines. A window that moved with each new line would change the start of the history on every turn, so the cache could never serve it.
+- `chat_prompt.history_turns` makes each line whose speaker is the NPC an assistant turn, without the time and the name, and every other line a user turn (see [Characters](#characters)). The lines of another NPC with the same name therefore do not count as its own turns. A rename relabels the lines that the NPC spoke with the new name (`campaign_db.rename_character`), so its dialogue shows one name.
 - The server stores a reply without its bracketed tags, such as the judgment.
 - Chat templates of the Mistral v3 family place the system text next to the last user message. With those models, the cache cannot serve the system message.
 
@@ -258,7 +258,7 @@ When the server loads `llm_config.json`, each task that the file lacks gets the 
 - `/chat` changes the Relation through `change_relation`, which adds the judgment to the stored value in one transaction. Two overlapping chats with the same NPC therefore keep both changes.
 - Each operation opens a connection with a 5 s busy timeout and closes it. A campaign switch changes only the database path that `open_campaign` sets.
 - The database uses the default rollback journal, not WAL. The campaign folder therefore has no `-wal` or `-shm` file, and a player can copy it while the server is idle.
-- Each character keeps its newest 240 to 260 dialogue lines (see [Prompts](#prompts)), and the campaign keeps its newest 500 events. An event that the table already holds is not added again.
+- No dialogue line is trimmed. The memory of a chat thread replaces its lines (see [Conversation memories](#conversation-memories)), and banter lines stay. The campaign keeps its newest 500 events. An event that the table already holds is not added again.
 - Favorites belong to each campaign.
 - Rejected: one database for all campaigns, with a `campaign_id` column. A query that missed the filter would leak data between campaigns.
 
@@ -320,35 +320,36 @@ The `character` table holds every character of a campaign in one shape: the cano
 - Each dialogue row stores the `npc_id` of its speaker in `speaker`, or nothing when the speaker is unknown. A banter line goes into the history of every NPC nearby, so a name cannot tell whose line it is when two of them share a name.
 - Rejected: the `npc_id` of the speaker inside the line text. The text reaches the LLM, the Dialogue Library, and the bio prompt.
 - The player section of the chat scene describes the squad member who speaks, the `speaker` of the chat request: its name, race, sex, health, hunger, faction with the description of the player's faction, and worn equipment. Its money stays out, because an NPC cannot see a wallet. Its personality, backstory, and speech quirks stay out, because they serve only an LLM that speaks as that character. The chat window offers the members of the current squad except the talk target, and starts on the last speaker while that character is still in the squad. Ambient banter has no speaker, so it uses squad slot 1 from the player's context.
-- The Dialogue Library lists each character with dialogue and each character that is not seeded, so the seeded characters that the player never met stay out of it. A character whose lines are all `(Overheard)` stays out too, because every NPC near a chat overhears it.
+- The Dialogue Library lists each character with dialogue and each character that is not seeded, so the seeded characters that the player never met stay out of it. A character whose lines are all `(Overheard)` stays out too, because every NPC near a chat overhears it. A member of a chat thread counts as having dialogue, and a speaker as taking part, because a memory replaces the lines (`campaign_db.list_characters`).
 - `LIVE_CONTEXTS` holds the latest context of each NPC that a chat reported, by `npc_id`.
 
 ### Chat threads
 
-Each chat exchange belongs to a chat thread, which records who took part in the conversation. The copies of a line in the histories cannot tell this, because each history is trimmed on its own schedule, and a squad member overhears every chat near the player, so its copies are trimmed first.
+Each chat exchange belongs to a chat thread, which records who took part in the conversation. The copies of a line in the histories cannot tell this, because the memory of the thread replaces them.
 
 - The `thread` table holds the ID, the game time of the newest exchange, and the memory (see [Conversation memories](#conversation-memories)). The `thread_id` column of `dialogue` links each chat row to its thread. Banter rows have no thread.
 - The `thread_member` table holds each member of a thread: its `npc_id`, its role (`speaker` or `overheard`), the game time when it joined, and whether it was in the player's faction then. The speakers are the squad member who speaks and the NPC, and the overhearers are the listeners of each exchange. Only a character whose copy the server stores becomes a member.
 - A member keeps the values of its first join. The history text therefore stays the same from turn to turn, so the cache serves it, and a later recruit or dismissal does not change what an NPC remembers.
 - The server keeps the current thread in memory (`CURRENT_THREAD`). A chat with another NPC, a chat as another squad member, a campaign switch, a cull, a server restart, or a pause without a chat reply as long as the Conversation timeout of the Settings page (`conversation_timeout_minutes`, default 3) starts a new thread. The server measures real time, because it sees the game time only in the requests that it gets. The close of the chat window does not end a thread.
+- Rejected: a thread that also ends after a long pause in game time, for example when the player speeds the game up. It would add game state to track for each thread, and the real-time pause covers the common case.
 - A thread does not follow the scene: a new name of the NPC or the first exchange starts a new scene but not a new thread.
 - `thread.id` is `AUTOINCREMENT`, so the ID of a deleted thread never names a new thread. `join_thread` starts a new thread when the current one is gone.
-- A trim, a cull, or the delete of a character deletes each thread that has no memory and that no dialogue row uses any more, with its members. A cull also deletes the members that joined after the cut.
-- Rejected: members derived from the rows that hold the thread. The copies of a squad member are trimmed first, so the overheard note would disappear from the history of the NPC.
-- Rejected: one stored row for each line, with a table of the characters that heard it. Each copy has its own `(Overheard)` tag, its own trim, and its own relabel after a rename, so the history of a character would have to rebuild all three from a join.
+- A cull or the delete of a character deletes each thread that has no memory and that no dialogue row uses any more, with its members. A cull also deletes the members that joined after the cut.
+- Rejected: members derived from the rows that hold the thread. The memory replaces the rows, and the headers of the memories and the first meeting read the members.
+- Rejected: one stored row for each line, with a table of the characters that heard it. Each copy has its own `(Overheard)` tag and its own relabel after a rename, so the history of a character would have to rebuild both from a join.
 - Rejected: one thread for each player message. A conversation of ten messages would be ten threads.
 
 The chat prompt reads the threads and the speaker of each row, so the NPC tells the squad members apart:
 
-- **First meeting.** The NPC spoke before with the squad member who speaks when its history holds a line of that squad member without the `(Overheard)` tag (`chat_prompt.has_spoken_with`). The check reads the speaker of each row, not the name.
-- **Companions.** The scene names the other speakers of the NPC's lines, by the same check, when they are in the player's faction now: "Earlier you spoke with Stick, who travels with Izumi." A character counts when its `Name` is in the `squad` list of the player's context, which the plugin fills from the player's characters.
-- **Relation.** The NPC keeps one `Relation`, which the chats of every squad member change, so the relation sentence names the player's faction: "You feel friendly towards Nameless, the group Izumi travels with." Each step of the scale ends with the name, because the name carries that clause.
-- **Overheard notes.** After the last line of each thread in which the NPC is a speaker, the history adds one user line that names the overhearers that were in the player's faction: "Stick and Mikse heard your conversation with Izumi." (`chat_prompt.overheard_notes`). Other overhearers are not named, because only a squad member can later speak to the NPC as the player. A thread that the NPC only overheard gets no note.
+- **First meeting.** The NPC spoke before with the squad member who speaks when the two were the speakers of a chat thread (`campaign_db.thread_partners`), or when the history of the NPC holds a line of that squad member without the `(Overheard)` tag, such as a banter line (`chat_prompt.spoken_with`). A thread counts after its memory replaced its lines. The check reads the `npc_id` of each member and row, not the name.
+- **Companions.** The scene names the others that the NPC spoke with, by the same check, when they are in the player's faction now: "Earlier you spoke with Stick, who travels with Izumi." A character counts when its `Name` is in the `squad` list of the player's context, which the plugin fills from the player's characters.
+- **Relation.** The NPC keeps one `Relation`, which the chats of every squad member change, so the relation sentence names the player's faction: "You feel friendly towards Nameless, the group Izumi travels with." Each step of the scale ends with the name, because the name carries that clause. For an NPC in the player's faction, the sentence reads as its feeling within the group.
+- **Overheard notes.** After the last line of each thread in which the NPC is a speaker, the history adds one user line that names the overhearers that were in the player's faction: "Stick and Mikse heard your conversation with Izumi." (`chat_prompt.overheard_notes`). Other overhearers are not named, because only a squad member can later speak to the NPC as the player. A thread that the NPC only overheard gets no note, and a thread with a memory has no lines, so its memory header names the overhearers instead.
 - The note of the current thread is at the end of the history, and it moves after each exchange, so the cache loses the tokens of one exchange on each turn. A note at the start of a thread would break the cache from the start of the thread each time a new squad member walks up.
 
 ### Conversation memories
 
-The server distills each chat thread into a short memory. The Dialogue & Memories subtab shows the memories (see [Web app](#web-app)). The in-game Dialogue Library does not show them, and no prompt reads them yet.
+The server distills each chat thread into a short memory, which replaces the lines of the thread. The chat prompt, the Dialogue Library, the bio prompt, and the Dialogue & Memories subtab read the memories (see [Web app](#web-app)).
 
 - A thread is pending when it has a line and no memory. When no chat request or reply came for the Conversation timeout (`quiet_seconds`), the server writes the memory of each pending thread of the active campaign, one call at a time, the oldest first (`memory_loop` in `server/scripts/kenshi_llm_server.py`). The server start, a campaign switch, and a cull start this quiet clock again (`restart_quiet_clock`).
 - The distillation runs once in each quiet period. After a failed call, the thread stays pending, the server moves on to the next thread, and the next quiet period tries the failed thread again.
@@ -358,9 +359,21 @@ The server distills each chat thread into a short memory. The Dialogue & Memorie
 - A thread stores its memory once, and each member reaches it through `thread_member`. Rejected: a memory for each member, written from the view of that member. Each member would cost one call, and a crowd near a chat would multiply the calls.
 - The stored text marks each name of a member with the `npc_id` of that member, and the server puts in the current name each time that it reads a memory (`chat_prompt.mark_names`, `chat_prompt.named`). A rename therefore changes the name in every memory. Only a whole name counts, the longest first, so "Dust Bandit" does not match inside "Dust Bandit Josh". A name that two members share stays as text, because its mark could name the wrong member, and so does a short form of a name.
 - Rejected: marks in the lines that the call reads. The model writes a better memory from names, and a mark that it dropped or changed would leave a broken name.
-- A thread with a memory stays, with its members, when the trim removes its last line. Memories are not trimmed: a memory is about 500 bytes, so 10,000 conversations add about 5 MB to a campaign.
-- A cull deletes the memory of each thread whose newest exchange is after the cut. The lines from before the cut make the thread pending again, and a thread with no line left is deleted.
+- `campaign_db.set_memory` stores the memory and deletes every copy of the lines of the thread in one transaction. The thread keeps its members.
+- Nothing else trims the dialogue. The lines of a pending thread stay until its memory is written, so a provider that keeps failing leaves them in the histories. Banter lines have no thread, so they stay for good.
+- Memories are not trimmed: a memory is about 500 bytes, so 10,000 conversations add about 5 MB to a campaign.
+- A cull deletes each thread whose memory is dated after the cut, because the memory replaced every line, so nothing from before the cut is left to keep. A pending thread loses only its lines after the cut.
 - The server drops a memory when the active campaign changed during the call, because the same thread ID can name another thread in the new campaign. It also drops a memory when the game time of the thread changed during the call, for example because a cull removed its newest lines (`campaign_db.set_memory`).
+
+The chat prompt gives the NPC the newest 10 memories of the threads in which it is a member, oldest first, after the scene in the system message (`{memories}` in `prompt_chat_template.txt`, `chat_prompt.memories_block`). The memories are older than every line of the history, so they come before it.
+
+- The heading stays in the code, as for the rumors, so an NPC with no memory gets no heading.
+- The server reads the memories on each turn, not with the scene, so a memory that the distillation writes during a conversation reaches the next turn. That turn misses the prompt cache once.
+- Each memory gets a header from the view of the NPC, built from the members, so one stored text serves every member: `[Day 3, 14:05] You spoke with Stick. Izumi heard it.` for a speaker, and `[Day 3, 14:05] You overheard Stick and Jorge.` for an overhearer. The header of a speaker names only the overhearers that were in the player's faction, as the overheard note does (see [Chat threads](#chat-threads)).
+- The history holds only the lines of the chat threads that have no memory (`chat_prompt.chat_lines`), so an NPC whose threads all have memories gets no history turns. Banter lines stay out, because banter has no threads, so its lines would never get a memory.
+- Rejected: threads and memories for banter. Each banter would cost a call, and the memories of banter would push the memories of chats out of the newest 10.
+- The Dialogue Library and the bio prompt read each memory as one line, such as `[Day 3, 14:05] (Memory of a conversation with Stick, heard by Izumi) ...`, before the stored lines (`recorded_history`). A header line, such as `(Conversation with Stick, heard by Izumi)`, comes before the lines of each chat thread that has no memory yet (`chat_prompt.headed_lines`). The banter prompt reads only the stored lines.
+- The player edits or deletes a memory on the Dialogue & Memories subtab (`POST /api/campaign/memories`, `.../memories/delete`). An edit marks the names of the members again, as after the call. A delete removes the thread with its members, because the memory replaced its lines, so the NPCs forget the conversation, also for the first meeting. The in-game Dialogue Library shows the memories but cannot edit them.
 
 ### Names
 
@@ -453,7 +466,7 @@ The squad member who speaks in a chat gets a profile at its first chat too, as t
 A profile is provisional while it holds `Interactions` (`campaign_db.PROVISIONAL`): the number of chat turns in which the NPC replied to the player. An overheard turn and banter do not count.
 
 - Rejected: a separate `Provisional: true` key. The template validator, which the campaign editor also runs, takes only text and numbers as profile values.
-- Rejected: a count from the dialogue history. A banter line has no tag, so it looks like a reply to the player, and the history keeps only the newest 260 lines.
+- Rejected: a count from the dialogue history. A banter line has no tag, so it looks like a reply to the player, and a memory replaces the lines of a chat.
 
 When the count reaches the Chats before a bio setting (`bio_interactions`, default 5), the LLM writes the full bio of the NPC (`generate_bio`). It runs after the reply, in a background thread, so the reply does not wait for a second LLM call. A setting of 0 writes a bio only on request. It never rewrites a full profile, because the player may have written that profile by hand.
 
@@ -491,6 +504,7 @@ Edit Bio in the Dialogue Library skips the LLM. `/read_bio` returns the stored `
 | `POST /api/campaign/records`, `.../records/delete` | Save or delete one canon record of the active campaign. A faction, character, race, location, or region with no ID is new. |
 | `POST /api/campaign/characters/bio` | The LLM text of the full bio, or of one part, for the form of a character. It stores nothing (see [Provisional profiles](#provisional-profiles)). |
 | `POST /api/campaign/rumors`, `.../rumors/delete` | Edit the rumors of the active campaign |
+| `POST /api/campaign/memories`, `.../memories/delete` | Edit or delete a memory of the active campaign (see [Conversation memories](#conversation-memories)) |
 | `POST /api/campaign/cull` | Delete the dialogue, events, rumors, thread members, and memories dated after the current game time, after the player loads an older save. It asks the running game for a report and refuses the cull without one (see [Game state](#game-state)), because without the game time day 0 would count as now and the cull would delete the whole history. |
 
 - Each edit names the campaign that the page loaded. Another tab can switch the campaign while the page is open, so the server refuses an edit for another campaign instead of writing it into the active one.

@@ -45,6 +45,7 @@ let records = [];
 const drafts = new Map();
 let log = null;
 let rumorDrafts = {};
+let memoryDrafts = {};
 const eventView = { query: "", type: "all", page: 1 };
 let logView = "dialogue";
 const threadView = { query: "", selected: null };
@@ -209,7 +210,8 @@ function isChanged(record) {
 
 const changedRecords = () => allRecords().filter(isChanged);
 const changedRumors = () => (log?.rumors ?? []).filter((rumor) => rumorDrafts[rumor.id].trim() !== rumor.text);
-const hasChanges = () => (source === "events" ? changedRumors() : changedRecords()).length > 0;
+const changedMemories = () => (log?.threads ?? []).filter((thread) => thread.memory && memoryDrafts[thread.id].trim() !== thread.memory);
+const hasChanges = () => (source === "events" ? [...changedRumors(), ...changedMemories()] : changedRecords()).length > 0;
 
 function formOf(record) {
   if (!drafts.has(record.key)) drafts.set(record.key, { form: toForm(record.kind, record.data) });
@@ -978,7 +980,7 @@ async function deleteRumor(id) {
   if (!(await ask("Delete the rumor", "Delete", "NPCs stop mentioning this rumor. ", "\n\n", el("b", { className: "warning" }, "The delete takes effect immediately and is irreversible.")))) return;
   try {
     await sendJson("POST", "/api/campaign/rumors/delete", { campaign: log.name, id });
-    await fetchLog(keptRumors());
+    await fetchLog(keptLog());
   } catch (error) {
     showMessage(message, `Delete failed: ${error.message}`, true);
   }
@@ -1041,12 +1043,31 @@ function renderThread() {
     return;
   }
   const heard = membersAs(thread, "overheard");
+  const note = notes.get(`memory:${thread.id}`);
+  let memory = null;
+  if (thread.memory) {
+    const input = control("textarea", memoryDrafts, thread.id, ["memories", thread.id], { rows: 5, label: "Memorised Summary" });
+    if (note?.field) setFieldError(input, note.text);
+    memory = field("Memorised Summary", el("div", { className: "inline row" }, input, deleteButton("Delete the memory", () => deleteMemory(thread.id))), null,
+      "A short summary of the conversation, written when you stop chatting for the Conversation timeout on the Settings page. It replaces the dialogue, and each NPC of the conversation remembers it. Edit it to change what they remember.");
+  }
   container.replaceChildren(el("div", { className: "card" },
     el("div", { className: "card-head" },
       el("span", {}, el("strong", { className: "name" }, membersAs(thread, "speaker").join(" and ")), " ", el("span", { className: "badge" }, thread.time || "Unknown"))),
     el("p", { className: "detail" }, heard.length > 0 ? `Overheard by ${heard.join(", ")}` : "Nobody overheard it."),
-    thread.lines.length > 0 ? field("Dialogue", el("textarea", { id: "thread-lines", className: "tall", readOnly: true, value: thread.lines.join("\n") }), null, "What was said, oldest first. Each character keeps only its newest lines, so the start of an old conversation can be gone.") : null,
-    thread.memory ? field("Memorised Summary", el("textarea", { readOnly: true, rows: 5, value: thread.memory }), null, "A short summary of the conversation. It is written when you stop chatting for the Conversation timeout on the Settings page, and it stays after the dialogue is gone.") : null));
+    thread.lines.length > 0 ? field("Dialogue", el("textarea", { id: "thread-lines", className: "tall", readOnly: true, value: thread.lines.join("\n") }), null, "What was said, oldest first. The memory of the conversation replaces it.") : null,
+    memory,
+    note ? el("p", { className: `hint${note.error ? " error" : ""}` }, note.text) : null));
+}
+
+async function deleteMemory(id) {
+  if (!(await ask("Delete the memory", "Delete", "The NPCs of this conversation forget it. ", "\n\n", el("b", { className: "warning" }, "The delete takes effect immediately and is irreversible.")))) return;
+  try {
+    await sendJson("POST", "/api/campaign/memories/delete", { campaign: log.name, id });
+    await fetchLog(keptLog());
+  } catch (error) {
+    showMessage(message, `Delete failed: ${error.message}`, true);
+  }
 }
 
 function chooseLogView(value) {
@@ -1100,7 +1121,7 @@ async function save() {
     return;
   }
   if (source === "events") {
-    await saveRumors();
+    await saveLog();
     return;
   }
   const changes = changedRecords();
@@ -1128,23 +1149,23 @@ async function save() {
   else flashMessage(message, source === "template" ? "Saved. Campaigns that you create from this template from now on get the changes." : `Saved to the campaign ${canon.name}.`);
 }
 
-async function saveRumors() {
-  const changes = changedRumors();
+async function saveLog() {
+  const changes = [...changedRumors().map((rumor) => ["rumors", rumor.id, rumorDrafts]), ...changedMemories().map((thread) => ["memories", thread.id, memoryDrafts])];
   if (changes.length === 0) {
     flashMessage(message, "No changes to save.");
     return;
   }
   notes.clear();
-  const kept = {};
-  for (const rumor of changes) {
+  const kept = { rumors: {}, memories: {} };
+  for (const [kind, id, drafts] of changes) {
     try {
-      await sendJson("POST", "/api/campaign/rumors", { campaign: log.name, id: rumor.id, text: rumorDrafts[rumor.id] });
+      await sendJson("POST", `/api/campaign/${kind}`, { campaign: log.name, id, text: drafts[id] });
     } catch (error) {
-      kept[rumor.id] = rumorDrafts[rumor.id];
-      notes.set(`rumor:${rumor.id}`, { error: true, text: error.message, field: error.fieldErrors?.[0]?.field });
+      kept[kind][id] = drafts[id];
+      notes.set(`${kind === "rumors" ? "rumor" : "memory"}:${id}`, { error: true, text: error.message, field: error.fieldErrors?.[0]?.field });
     }
   }
-  const failed = Object.keys(kept).length;
+  const failed = Object.keys(kept.rumors).length + Object.keys(kept.memories).length;
   if (!(await fetchLog(kept))) return;
   if (failed > 0) showMessage(message, `${failed} of ${changes.length} changes were not saved.`, true);
   else flashMessage(message, "Saved.");
@@ -1165,10 +1186,14 @@ async function getCampaign(url) {
   }
 }
 
-const keptRumors = () => Object.fromEntries(changedRumors().map((rumor) => [rumor.id, rumorDrafts[rumor.id]]));
+const keptLog = () => ({
+  rumors: Object.fromEntries(changedRumors().map((rumor) => [rumor.id, rumorDrafts[rumor.id]])),
+  memories: Object.fromEntries(changedMemories().map((thread) => [thread.id, memoryDrafts[thread.id]])),
+});
 
-function showLog(kept) {
-  rumorDrafts = Object.fromEntries((log?.rumors ?? []).map((rumor) => [rumor.id, kept[rumor.id] ?? rumor.text]));
+function showLog({ rumors = {}, memories = {} }) {
+  rumorDrafts = Object.fromEntries((log?.rumors ?? []).map((rumor) => [rumor.id, rumors[rumor.id] ?? rumor.text]));
+  memoryDrafts = Object.fromEntries((log?.threads ?? []).filter((thread) => thread.memory).map((thread) => [thread.id, memories[thread.id] ?? thread.memory]));
   render();
 }
 
@@ -1220,7 +1245,7 @@ async function refreshLog() {
   const unsaved = hasChanges();
   // The drafts belong to the campaign that the page loaded
   if (unsaved && fresh[0]?.name !== log?.name) return "kept";
-  const kept = keptRumors();
+  const kept = keptLog();
   [log, refusal] = fresh;
   const scrolls = ["#thread-list", "#thread-lines"].map((selector) => [selector, page.querySelector(selector)?.scrollTop ?? 0]);
   showLog(kept);

@@ -905,6 +905,12 @@ def write_bio(profile, parts, instructions, history, race_lore, faction):
     bio = {part: result[part].strip() for part in parts if isinstance((result or {}).get(part), str) and result[part].strip()}
     return bio if len(bio) == len(parts) else None
 
+def recorded_history(npc_id):
+    """The memories of the NPC, oldest first, then its stored lines, because a memory replaces the lines of its chat thread."""
+    rows = campaign_db.dialogue(npc_id)
+    members = campaign_db.thread_members({thread_id for _, _, thread_id in rows if thread_id is not None})
+    return chat_prompt.memory_lines(campaign_db.memories_of(npc_id), npc_id) + chat_prompt.headed_lines(rows, members, npc_id)
+
 def generate_bio(npc_id):
     """Has the LLM write the bio of a provisional NPC and stores it. It never touches a full profile, because the player may
     have written it by hand."""
@@ -925,7 +931,7 @@ def generate_bio(npc_id):
             # An animal keeps no backstory and no speech quirk
             ["Personality"] if is_animal(race) else list(BIO_PARTS),
             "",
-            profile.get("ConversationHistory", []),
+            recorded_history(npc_id),
             describe_race(race),
             describe_faction(profile.get("Faction"), (LIVE_CONTEXTS.get(npc_id) or {}).get("factionID")),
         )
@@ -1531,11 +1537,12 @@ def chat():
 
     live = LIVE_CONTEXTS.get(primary_id, {})
     rows = campaign_db.dialogue(primary_id)
-    met = chat_prompt.has_spoken_with(rows, speaker_id)
+    spoken = chat_prompt.spoken_with(rows, campaign_db.thread_partners(primary_id), primary_id)
+    met = speaker_id in spoken
     conversation = (speaker.get("npc_id"), primary_id or primary_npc, primary_npc, live.get("faction"), met)
     scene = CONVERSATION_SCENE.get(conversation)
     if scene is None:
-        others = chat_prompt.companions(rows, primary_id, speaker_id)
+        others = [npc_id for npc_id in spoken if npc_id != speaker_id]
         names = campaign_db.names_of(others)
         squad = set(PLAYER_CONTEXT.get("squad") or [])
         scene = fill_prompt(
@@ -1545,9 +1552,11 @@ def chat():
         )
         CONVERSATION_SCENE.clear()
         CONVERSATION_SCENE[conversation] = scene
-    system = fill_prompt("prompt_chat_template.txt", system_prompt=system_prompt, judgment=judgment, primary_npc=primary_npc, npc_profiles=describe_npc(primary_npc, primary_data, primary_id), scene=scene)
+    # Read on each turn, not with the scene, so a memory that the distillation writes during a conversation reaches the next turn
+    memories = chat_prompt.memories_block(campaign_db.memories_of(primary_id, chat_prompt.MEMORY_LIMIT), primary_id)
+    system = fill_prompt("prompt_chat_template.txt", system_prompt=system_prompt, judgment=judgment, primary_npc=primary_npc, npc_profiles=describe_npc(primary_npc, primary_data, primary_id), scene=scene, memories=memories)
     turn = fill_prompt("prompt_chat_turn.txt", player_line=full_player_entry, final_instruction=final_instruction)
-    history = chat_prompt.history_window(rows, campaign_db.DIALOGUE_BLOCK)
+    history = chat_prompt.history_window(chat_prompt.chat_lines(rows), campaign_db.DIALOGUE_BLOCK)
     notes = chat_prompt.overheard_notes(campaign_db.thread_members({thread_id for _, _, thread_id in history if thread_id}), primary_id)
     messages = chat_prompt.chat_messages(system, chat_prompt.history_turns(chat_prompt.with_notes(history, notes), primary_id), turn)
 
@@ -2376,9 +2385,9 @@ def write_campaign_bio():
     refused = campaign_write(data) or bio_refusal(data)
     if refused: return refused
     profile = data["profile"]
-    stored = campaign_db.get_character(str(data["id"])) if data.get("id") else None
+    history = recorded_history(str(data["id"])) if data.get("id") else []
     # By name only, so a faction that the player changed in the form counts, not the one the game reports
-    return bio_reply(data, (stored or {}).get("ConversationHistory", []), describe_race(profile.get("Race", "Unknown")), describe_faction(profile.get("Faction")))
+    return bio_reply(data, history, describe_race(profile.get("Race", "Unknown")), describe_faction(profile.get("Faction")))
 
 @app.route('/api/templates/<name>/characters/bio', methods=['POST'])
 def write_template_bio(name):
@@ -2458,6 +2467,29 @@ def delete_campaign_rumor():
     campaign_db.delete_rumor(data.get("id"))
     return jsonify({"status": "ok"})
 
+@app.route('/api/campaign/memories', methods=['POST'])
+def save_campaign_memory():
+    data = request.get_json(silent=True) or {}
+    refused = campaign_write(data)
+    if refused: return refused
+    thread_id = data.get("id")
+    text = " ".join(str(data.get("text") or "").split())
+    if not text:
+        return jsonify({"status": "error", "errors": [{"field": ["memories", thread_id], "message": "A memory needs text. Delete it instead."}]}), 400
+    # The player writes names, as the LLM does, so a later rename reaches the edited memory too
+    members = campaign_db.thread_members([thread_id]).get(thread_id, [])
+    if not campaign_db.edit_memory(thread_id, chat_prompt.mark_names(text, [(npc_id, name) for npc_id, name, _, _ in members])):
+        return jsonify({"status": "error", "message": "The memory is gone. Discard to load the conversations again."}), 404
+    return jsonify({"status": "ok"})
+
+@app.route('/api/campaign/memories/delete', methods=['POST'])
+def delete_campaign_memory():
+    data = request.get_json(silent=True) or {}
+    refused = campaign_write(data)
+    if refused: return refused
+    campaign_db.delete_memory(data.get("id"))
+    return jsonify({"status": "ok"})
+
 @app.route('/api/campaign/cull', methods=['POST'])
 def cull_campaign():
     data = request.get_json(silent=True) or {}
@@ -2499,7 +2531,7 @@ def write_library_bio():
     if refused: return refused
     faction = describe_faction(profile.get("Faction"), (LIVE_CONTEXTS.get(sid) or {}).get("factionID"))
     # The Library sends the campaign back with Keep, because the same npc_id can name another character in another campaign
-    return bio_reply(data, profile.get("ConversationHistory", []), describe_race(profile.get("Race", "Unknown")), faction, campaign=campaign)
+    return bio_reply(data, recorded_history(sid), describe_race(profile.get("Race", "Unknown")), faction, campaign=campaign)
 
 @app.route('/read_bio', methods=['POST'])
 def read_library_bio():
@@ -2634,7 +2666,7 @@ def get_history():
     if "Race" not in char_data: char_data["Race"] = "Unknown"
     if "Faction" not in char_data: char_data["Faction"] = "Unknown"
     
-    history = char_data.get('ConversationHistory', [])
+    history = recorded_history(npc_id)
     
     import textwrap
     def _wrap(text):
