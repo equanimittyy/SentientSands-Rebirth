@@ -1046,18 +1046,22 @@ function renderThread() {
   const note = notes.get(`memory:${thread.id}`);
   let memory = null;
   if (thread.memory) {
-    const input = control("textarea", memoryDrafts, thread.id, ["memories", thread.id], { rows: 5, label: "Memorised Summary" });
+    const input = control("textarea", memoryDrafts, thread.id, ["memories", thread.id], { className: "tall", label: "Memorised Summary" });
     if (note?.field) setFieldError(input, note.text);
     memory = field("Memorised Summary", el("div", { className: "inline row" }, input, deleteButton("Delete the memory", () => deleteMemory(thread.id))), null,
-      "A short summary of the conversation, written when you stop chatting for the Conversation timeout on the Settings page. It replaces the dialogue, and each NPC of the conversation remembers it. Edit it to change what they remember.");
+      "What each NPC of this conversation remembers. Edit it to change their memory.");
   }
   container.replaceChildren(el("div", { className: "card" },
     el("div", { className: "card-head" },
       el("span", {}, el("strong", { className: "name" }, membersAs(thread, "speaker").join(" and ")), " ", el("span", { className: "badge" }, thread.time || "Unknown"))),
-    el("p", { className: "detail" }, heard.length > 0 ? `Overheard by ${heard.join(", ")}` : "Nobody overheard it."),
-    thread.lines.length > 0 ? field("Dialogue", el("textarea", { id: "thread-lines", className: "tall", readOnly: true, value: thread.lines.join("\n") }), null, "What was said, oldest first. The memory of the conversation replaces it.") : null,
+    thread.lines.length > 0 ? field("Dialogue", el("textarea", { id: "thread-lines", className: "tall", readOnly: true, value: thread.lines.join("\n") }), null, "What was said, oldest first. The memory replaces it.") : null,
     memory,
-    note ? el("p", { className: `hint${note.error ? " error" : ""}` }, note.text) : null));
+    note ? el("p", { className: `hint${note.error ? " error" : ""}` }, note.text) : null,
+    el("fieldset", {},
+      el("legend", {}, "Involved Characters"),
+      el("p", { className: "hint" }, "Each character here remembers the conversation."),
+      field("Speakers", el("span", {}, membersAs(thread, "speaker").join(", ")), null, "The squad member who talked and the NPC who replied."),
+      field("Listeners (Overheard)", el("span", {}, heard.join(", ") || "Nobody"), null, "The characters near enough to hear the conversation."))));
 }
 
 async function deleteMemory(id) {
