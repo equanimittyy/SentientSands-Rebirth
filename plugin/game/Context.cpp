@@ -21,6 +21,7 @@
 #include <kenshi/Weather.h>
 #undef WeatherRegion
 #include <kenshi/util/hand.h>
+#include <algorithm>
 #include <set>
 #include <sstream>
 #include <vector>
@@ -178,6 +179,112 @@ std::string GetNpcId(Character *npc) {
   if (npc->isUnique() && npc->data)
     return "u:" + npc->data->stringID;
   return "h:" + ToString(npc->getHandle().serial);
+}
+
+static const char *GENERIC_NAME_PREFIXES[] = {"Hungry Bandit",
+                                              "Dust Bandit",
+                                              "Starving Vagrant",
+                                              "Drifter",
+                                              "Shop Guard",
+                                              "Caravan Guard",
+                                              "Slave Hunter",
+                                              "Slaver",
+                                              "Manhunter",
+                                              "Escaped Slave",
+                                              "Rebirth Slave",
+                                              "Shek Warrior",
+                                              "Hive Worker",
+                                              "Hive Soldier",
+                                              "Hive Prince",
+                                              "Fogman",
+                                              "Cannibal",
+                                              "Outlaw",
+                                              "Farmer",
+                                              "Nomad",
+                                              "Trader",
+                                              "Gate Guard",
+                                              "Unknown Entity",
+                                              "Someone",
+                                              "Samurai",
+                                              "Holy Sentinel",
+                                              "Holy Servant",
+                                              "Swamper",
+                                              "Tech Hunter",
+                                              "Mercenary",
+                                              "Citizen",
+                                              "Soldier",
+                                              "Heavy",
+                                              "Captain",
+                                              "Sentinel",
+                                              "Servant",
+                                              "Warrior",
+                                              "Assassin",
+                                              "Guard",
+                                              "Bandit",
+                                              "Vagrant",
+                                              "Escaped",
+                                              "Rebirth",
+                                              "Outcast",
+                                              "Wanderer",
+                                              "Drift",
+                                              "Settler",
+                                              "Peasant",
+                                              "Villager",
+                                              "Towns",
+                                              "Bowman",
+                                              "Leader",
+                                              "Elite",
+                                              "Drifters",
+                                              "Inquisitor",
+                                              "Legionnaire",
+                                              "Ronin",
+                                              "Barman",
+                                              "Pacifier",
+                                              "Bar Thug",
+                                              "Drifter",
+                                              0};
+
+static bool IsGenericName(Character *npc, const std::string &name) {
+  if (!npc || (uintptr_t)npc < 0x1000)
+    return true;
+
+  if (npc->isUnique())
+    return false;
+
+  // Generic NPCs usually carry their template's name, whatever the game language.
+  if (npc->getGameData() && !npc->getGameData()->name.empty()) {
+    if (name == npc->getGameData()->name)
+      return true;
+  }
+
+  // g_genericPrefixes/Keywords arrive lowercased from the POPULATE_GENERIC handler.
+  if (!g_genericPrefixes.empty() || !g_genericKeywords.empty()) {
+    std::string lowerName = name;
+    std::transform(lowerName.begin(), lowerName.end(), lowerName.begin(),
+                   ::tolower);
+
+    for (size_t i = 0; i < g_genericPrefixes.size(); ++i) {
+      if (lowerName.find(g_genericPrefixes[i]) != std::string::npos)
+        return true;
+    }
+
+    for (size_t i = 0; i < g_genericKeywords.size(); ++i) {
+      if (lowerName.find(g_genericKeywords[i]) != std::string::npos)
+        return true;
+    }
+  }
+
+  std::string lowerName = name;
+  std::transform(lowerName.begin(), lowerName.end(), lowerName.begin(),
+                 ::tolower);
+  for (int i = 0; GENERIC_NAME_PREFIXES[i] != 0; ++i) {
+    std::string lowP = GENERIC_NAME_PREFIXES[i];
+    std::transform(lowP.begin(), lowP.end(), lowP.begin(), ::tolower);
+    if (lowerName.find(lowP) != std::string::npos)
+      return true;
+  }
+
+  return false;
 }
 
 // Probe: find the slot of AreaBiomeGroup that holds its zone record.
@@ -400,6 +507,11 @@ std::string GetDetailedContext(Character *npc, const std::string &type) {
   } catch (...) {
   }
   json += "\"name\": \"" + EscapeJSON(name) + "\",";
+  // Only the plugin sees the game data, so only it can tell a generic name in each game language.
+  // The game thread writes the generic name lists, so the field stays out of a context built off it.
+  if (GetCurrentThreadId() == g_mainThreadId)
+    json += "\"generic_name\": " +
+            std::string(IsGenericName(npc, name) ? "true" : "false") + ",";
 
   InstanceID *iid = npc->getInstanceID();
   if (iid && !iid->uid.empty()) {

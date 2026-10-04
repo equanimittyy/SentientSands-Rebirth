@@ -201,7 +201,7 @@ def upsert_profile(npc_id, fields):
         conn.execute("UPDATE character SET profile = ?, updated_at = ? WHERE id = ?", (json.dumps(_stored(profile)), _now(), row[0]))
 
 
-def rename_character(npc_id, old_name, new_name):
+def rename_character(npc_id, old_name, new_name, given_name):
     """Also relabels the lines that the character spoke, because the chat history counts a line as its own only under its current name."""
     own_line = re.compile(r"^((?:\[Day [^\]]*\]\s*)?)" + re.escape(old_name) + ":")
     with _connect(write=True) as conn:
@@ -210,6 +210,7 @@ def rename_character(npc_id, old_name, new_name):
             return
         profile = json.loads(row[1])
         profile["Name"] = new_name
+        profile["GivenName"] = given_name
         conn.execute("UPDATE character SET profile = ?, updated_at = ? WHERE id = ?", (json.dumps(profile), _now(), row[0]))
         lines = conn.execute("SELECT id, line FROM dialogue WHERE character_id = ?", (row[0],)).fetchall()
         conn.executemany(
@@ -285,6 +286,13 @@ def list_characters():
         {"npc_id": npc_id, "name": name, "origin": origin, "favorite": bool(fav), "updated_at": updated, "has_dialogue": bool(talked)}
         for npc_id, name, origin, fav, updated, talked in rows
     ]
+
+
+def character_names():
+    """Each Name and GivenName of the characters."""
+    with _connect() as conn:
+        rows = conn.execute("SELECT json_extract(profile, '$.Name'), json_extract(profile, '$.GivenName') FROM character").fetchall()
+    return {name for row in rows for name in row if name}
 
 
 def toggle_favorite(npc_id):

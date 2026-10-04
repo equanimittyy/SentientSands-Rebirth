@@ -307,7 +307,8 @@ void OnChatSendClick(MyGUI::Widget *sender) {
       for (auto it = chars.begin(); it != chars.end(); ++it) {
         Character *other = *it;
         if (other && (uintptr_t)other > 0x1000 && other != player &&
-            other->getName() != npcName) {
+            other->getHandle().serial !=
+                (unsigned int)strtoul(handleStr.c_str(), NULL, 10)) {
           float dist = player->getPosition().distance(other->getPosition());
           if (dist < searchRadius) {
             std::string o_name = other->getName();
@@ -365,7 +366,7 @@ void OnChatSendClick(MyGUI::Widget *sender) {
   Character *targetNpc = nullptr;
   if (world) {
     try {
-      // By serial, because name assignment can give two loaded NPCs one name
+      // By serial, because two loaded NPCs can share a name
       unsigned int targetSerial = std::stoul(handleStr);
       const auto &chars = world->getCharacterUpdateList();
       for (auto it = chars.begin(); it != chars.end(); ++it) {
@@ -439,7 +440,6 @@ void CreateChatUI(const std::string &npcName, const std::string &handleStr) {
   }
 
   std::string actualNpcName = npcName;
-  // Auto-renaming runs on NameAssignThread so CreateChatUI never blocks on HTTP.
   // Not "Popup": a click there raises the window over its open speaker list
   g_chatWindow = gui->createWidgetReal<MyGUI::Window>(
       "Kenshi_WindowCX", 0.1875f, 0.4f, 0.625f, 0.18f, MyGUI::Align::Center,

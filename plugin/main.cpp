@@ -95,112 +95,6 @@ void (*setChainedMode_orig)(Character *, bool, const hand &) = nullptr;
 
 #include "ui/ChatUI.h"
 
-static const char *GENERIC_NAME_PREFIXES[] = {"Hungry Bandit",
-                                              "Dust Bandit",
-                                              "Starving Vagrant",
-                                              "Drifter",
-                                              "Shop Guard",
-                                              "Caravan Guard",
-                                              "Slave Hunter",
-                                              "Slaver",
-                                              "Manhunter",
-                                              "Escaped Slave",
-                                              "Rebirth Slave",
-                                              "Shek Warrior",
-                                              "Hive Worker",
-                                              "Hive Soldier",
-                                              "Hive Prince",
-                                              "Fogman",
-                                              "Cannibal",
-                                              "Outlaw",
-                                              "Farmer",
-                                              "Nomad",
-                                              "Trader",
-                                              "Gate Guard",
-                                              "Unknown Entity",
-                                              "Someone",
-                                              "Samurai",
-                                              "Holy Sentinel",
-                                              "Holy Servant",
-                                              "Swamper",
-                                              "Tech Hunter",
-                                              "Mercenary",
-                                              "Citizen",
-                                              "Soldier",
-                                              "Heavy",
-                                              "Captain",
-                                              "Sentinel",
-                                              "Servant",
-                                              "Warrior",
-                                              "Assassin",
-                                              "Guard",
-                                              "Bandit",
-                                              "Vagrant",
-                                              "Escaped",
-                                              "Rebirth",
-                                              "Outcast",
-                                              "Wanderer",
-                                              "Drift",
-                                              "Settler",
-                                              "Peasant",
-                                              "Villager",
-                                              "Towns",
-                                              "Bowman",
-                                              "Leader",
-                                              "Elite",
-                                              "Drifters",
-                                              "Inquisitor",
-                                              "Legionnaire",
-                                              "Ronin",
-                                              "Barman",
-                                              "Pacifier",
-                                              "Bar Thug",
-                                              "Drifter",
-                                              0};
-
-static bool IsGenericName(Character *npc, const std::string &name) {
-  if (!npc || (uintptr_t)npc < 0x1000)
-    return true;
-
-  if (npc->isUnique())
-    return false;
-
-  // Generic NPCs usually carry their template's name, whatever the game language.
-  if (npc->getGameData() && !npc->getGameData()->name.empty()) {
-    if (name == npc->getGameData()->name)
-      return true;
-  }
-
-  // g_genericPrefixes/Keywords arrive lowercased from the POPULATE_GENERIC handler.
-  if (!g_genericPrefixes.empty() || !g_genericKeywords.empty()) {
-    std::string lowerName = name;
-    std::transform(lowerName.begin(), lowerName.end(), lowerName.begin(),
-                   ::tolower);
-
-    for (size_t i = 0; i < g_genericPrefixes.size(); ++i) {
-      if (lowerName.find(g_genericPrefixes[i]) != std::string::npos)
-        return true;
-    }
-
-    for (size_t i = 0; i < g_genericKeywords.size(); ++i) {
-      if (lowerName.find(g_genericKeywords[i]) != std::string::npos)
-        return true;
-    }
-  }
-
-  std::string lowerName = name;
-  std::transform(lowerName.begin(), lowerName.end(), lowerName.begin(),
-                 ::tolower);
-  for (int i = 0; GENERIC_NAME_PREFIXES[i] != 0; ++i) {
-    std::string lowP = GENERIC_NAME_PREFIXES[i];
-    std::transform(lowP.begin(), lowP.end(), lowP.begin(), ::tolower);
-    if (lowerName.find(lowP) != std::string::npos)
-      return true;
-  }
-
-  return false;
-}
-
 // Kenshi engine writes must happen on the main thread, inside hooks.
 void ProcessMessageQueue(GameWorld *thisptr) {
   if (TryEnterCriticalSection(&g_msgMutex)) {
@@ -1355,104 +1249,6 @@ void playerUpdate_hook(PlayerInterface *thisptr) {
     }
   }
 
-  if (world && world->player) {
-    static DWORD lastNameScanTick = 0;
-    if (GetTickCount() - lastNameScanTick > 2000) {
-      lastNameScanTick = GetTickCount();
-
-      // The update list skips dormant NPCs, so also sweep a sphere around each player character.
-      std::vector<Character *> candidates;
-
-      const ogre_unordered_set<Character *>::type &upList =
-          world->getCharacterUpdateList();
-      for (auto it = upList.begin(); it != upList.end(); ++it) {
-        if (*it && (uintptr_t)*it > 0x1000)
-          candidates.push_back(*it);
-      }
-
-      const lektor<Character *> &players =
-          world->player->getAllPlayerCharacters();
-      for (uint32_t pi = 0; pi < players.size(); ++pi) {
-        Character *p = players[pi];
-        if (!p)
-          continue;
-        lektor<RootObject *> results;
-        world->getCharactersWithinSphere(results, p->getPosition(), 5000.0f,
-                                         0.0f, 0.0f, 100, 0, p);
-        for (uint32_t ri = 0; ri < results.size(); ++ri) {
-          Character *c = (Character *)results.stuff[ri];
-          if (c && (uintptr_t)c > 0x1000)
-            candidates.push_back(c);
-        }
-      }
-
-      std::set<unsigned int> uniqueSerials;
-      std::vector<Character *> uniqueCandidates;
-      for (size_t ci = 0; ci < candidates.size(); ++ci) {
-        Character *c = candidates[ci];
-        unsigned int s = c->getHandle().serial;
-        if (uniqueSerials.find(s) == uniqueSerials.end()) {
-          uniqueSerials.insert(s);
-          uniqueCandidates.push_back(c);
-        }
-      }
-
-      for (size_t ui = 0; ui < uniqueCandidates.size(); ++ui) {
-        Character *other = uniqueCandidates[ui];
-        unsigned int s = other->getHandle().serial;
-
-        EnterCriticalSection(&g_nameCheckMutex);
-        bool alreadyDone = (g_renamedSerials.count(s) > 0);
-        LeaveCriticalSection(&g_nameCheckMutex);
-
-        if (alreadyDone)
-          continue;
-
-        std::string oName;
-        try {
-          oName = other->getName();
-        } catch (...) {
-          continue;
-        }
-        if (oName.empty())
-          continue;
-
-        if (IsGenericName(other, oName)) {
-          std::string oGender = other->isFemale() ? "Female" : "Male";
-          RaceData *oRace = other->getRace() ? other->getRace() : other->myRace;
-          std::string oRaceName = "Human";
-          if (oRace && (uintptr_t)oRace > 0x1000 && oRace->data &&
-              !oRace->data->name.empty())
-            oRaceName = oRace->data->name;
-
-          NameCheckItem ncItem;
-          ncItem.serial = s;
-          ncItem.name = oName;
-          ncItem.gender = oGender;
-          ncItem.race = oRaceName;
-          ncItem.is_generic =
-              true;
-
-          EnterCriticalSection(&g_nameCheckMutex);
-          bool alreadyQueued = false;
-          for (uint32_t q = 0; q < g_nameCheckQueue.size(); ++q) {
-            if (g_nameCheckQueue[q].serial == s) {
-              alreadyQueued = true;
-              break;
-            }
-          }
-          if (!alreadyQueued)
-            g_nameCheckQueue.push_back(ncItem);
-          LeaveCriticalSection(&g_nameCheckMutex);
-        } else {
-          EnterCriticalSection(&g_nameCheckMutex);
-          g_renamedSerials.insert(s);
-          LeaveCriticalSection(&g_nameCheckMutex);
-        }
-      }
-    }
-  }
-
   // The hotkey is polled from the keyboard, so it would fire while the player
   // types its key into a text box
   MyGUI::InputManager *input = MyGUI::InputManager::getInstancePtr();
@@ -1499,75 +1295,6 @@ void playerUpdate_hook(PlayerInterface *thisptr) {
   }
 }
 
-DWORD WINAPI NameAssignThread(LPVOID lpParam) {
-  // Give the Python server a head start before the first batch request.
-  Sleep(8000);
-  Log(LOG_INFO, "NAME: Background name-assignment thread started.");
-
-  while (true) {
-    std::vector<NameCheckItem> batch;
-    {
-      EnterCriticalSection(&g_nameCheckMutex);
-      while (!g_nameCheckQueue.empty() && batch.size() < 100) {
-        batch.push_back(g_nameCheckQueue.front());
-        g_nameCheckQueue.pop_front();
-      }
-      LeaveCriticalSection(&g_nameCheckMutex);
-    }
-
-    if (batch.empty()) {
-      Sleep(1000);
-      continue;
-    }
-
-    std::string reqJson = "[";
-    for (size_t i = 0; i < batch.size(); ++i) {
-      reqJson += "{\"serial\": " + ToString(batch[i].serial) +
-                 ", \"name\": \"" + EscapeJSON(batch[i].name) +
-                 "\", \"gender\": \"" + EscapeJSON(batch[i].gender) +
-                 "\", \"race\": \"" + EscapeJSON(batch[i].race) +
-                 "\", \"is_generic\": " +
-                 std::string(batch[i].is_generic ? "true" : "false") + "}";
-      if (i < batch.size() - 1)
-        reqJson += ",";
-    }
-    reqJson += "]";
-
-    std::string resp =
-        PostToPythonWithResponse(L"/get_batch_identities", reqJson);
-    if (resp.empty() || resp == "[]" || resp[0] != '[')
-      continue;
-
-    size_t pos = 0;
-    while ((pos = resp.find("{", pos)) != std::string::npos) {
-      size_t endPos = resp.find("}", pos);
-      if (endPos == std::string::npos)
-        break;
-      std::string obj = resp.substr(pos, endPos - pos + 1);
-      pos = endPos + 1;
-
-      std::string sSerial = GetJsonValue(obj, "serial");
-      std::string status = GetJsonValue(obj, "status");
-      unsigned int serial = (unsigned int)strtoul(sSerial.c_str(), NULL, 10);
-
-      if (status == "rename") {
-        std::string newName = GetJsonValue(obj, "new_name");
-        if (!newName.empty()) {
-          std::string renameMsg = "NPC_RENAME: " + sSerial + "|" + newName;
-          EnterCriticalSection(&g_msgMutex);
-          g_messageQueue.push_back(renameMsg);
-          LeaveCriticalSection(&g_msgMutex);
-        }
-      }
-
-      EnterCriticalSection(&g_nameCheckMutex);
-      g_renamedSerials.insert(serial);
-      LeaveCriticalSection(&g_nameCheckMutex);
-    }
-  }
-  return 0;
-}
-
 DWORD WINAPI MainThread(LPVOID lpParam) {
   HMODULE hLib = GetModuleHandleA("KenshiLib.dll");
   while (!hLib) {
@@ -1578,7 +1305,6 @@ DWORD WINAPI MainThread(LPVOID lpParam) {
   if (!ppWorld)
     return 1;
   CreateThread(NULL, 0, PipeThread, NULL, 0, NULL);
-  CreateThread(NULL, 0, NameAssignThread, NULL, 0, NULL);
   LoadPluginConfig();
   StartPythonServer(g_openWebPanelOnStart);
   while (true) {
@@ -1610,7 +1336,6 @@ extern "C" __declspec(dllexport) void startPlugin() {
   InitializeCriticalSection(&g_uiMutex);
   InitializeCriticalSection(&g_stateMutex);
   InitializeCriticalSection(&g_eventMutex);
-  InitializeCriticalSection(&g_nameCheckMutex);
   g_mainThreadId = GetCurrentThreadId();
 
   // Derive the mod root from the DLL path so Steam Workshop numeric-ID folders work too.

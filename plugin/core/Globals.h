@@ -1,6 +1,5 @@
 #include <deque>
 #include <map>
-#include <set>
 #include <string>
 #include <vector>
 #include <windows.h>
@@ -106,16 +105,6 @@ struct QueuedAction {
 extern std::deque<QueuedAction> g_uiActionQueue;
 extern CRITICAL_SECTION g_uiMutex;
 
-struct NameCheckItem {
-  unsigned int serial;
-  std::string name;
-  std::string gender; // "Male" | "Female"
-  std::string race;
-  bool is_generic;
-};
-extern std::deque<NameCheckItem> g_nameCheckQueue;
-extern CRITICAL_SECTION g_nameCheckMutex;
-extern std::set<unsigned int> g_renamedSerials;
 extern DWORD g_lastContextPushTick;
 
 extern std::vector<std::string> g_genericPrefixes;

@@ -17,6 +17,19 @@ def history_window(lines, block):
     return lines[max(0, block * (len(lines) // block) - block):]
 
 
+def overhearers(nearby, radius, excluded_ids):
+    """The NPCs of nearby within radius, one for each npc_id, because NPCs near the player can share a name. A radius of
+    None means that nobody overhears."""
+    if radius is None:
+        return []
+    found = {}
+    for npc in nearby:
+        npc_id = npc.get("npc_id")
+        if npc_id and npc_id not in excluded_ids and npc.get("dist", 999.0) <= radius:
+            found.setdefault(npc_id, npc)
+    return list(found.values())
+
+
 def has_spoken(lines):
     """Lines that the NPC only overheard do not count."""
     return any(not _TIME_PREFIX.sub("", line).startswith("(Overheard)") for line in lines)

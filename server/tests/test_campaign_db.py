@@ -119,11 +119,17 @@ class CharacterTest(CampaignTestCase):
     def test_a_rename_relabels_only_the_lines_of_the_character(self):
         lines = ["[Day 1, 08:00] Drifter: Hello Zabuza", "[Day 1, 08:00] Zabuza: Zabuza: a fine name.", "Zabuza: No time.", "[Day 2] (Overheard) Zabuza: Hm."]
         campaign_db.append_dialogue(GENERIC_ID, lines, {"Name": "Zabuza"})
-        campaign_db.rename_character(GENERIC_ID, "Zabuza", "Poopyhead")
+        campaign_db.rename_character(GENERIC_ID, "Zabuza", "Poopyhead", "Poopyhead")
         self.assertEqual(campaign_db.get_character(GENERIC_ID), {
             "Name": "Poopyhead",
+            "GivenName": "Poopyhead",
             "ConversationHistory": ["[Day 1, 08:00] Drifter: Hello Zabuza", "[Day 1, 08:00] Poopyhead: Zabuza: a fine name.", "Poopyhead: No time.", "[Day 2] (Overheard) Zabuza: Hm."],
         })
+
+    def test_the_names_hold_each_given_name(self):
+        campaign_db.upsert_profile(GENERIC_ID, {"Name": "Dust Bandit"})
+        campaign_db.rename_character(GENERIC_ID, "Dust Bandit", "Dust Bandit Josh", "Josh")
+        self.assertEqual(campaign_db.character_names(), {"Beep", "Dust Bandit Josh", "Josh"})
 
     def test_concurrent_appends_keep_the_lines_of_both(self):
         campaign_db.upsert_profile(GENERIC_ID, BEEP)

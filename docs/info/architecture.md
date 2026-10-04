@@ -46,10 +46,10 @@ SentientSandsRebirth/
 ## Runtime flow
 
 1. RE_Kenshi loads `SentientSands.dll` and calls `startPlugin`. The plugin installs its KenshiLib hooks and starts `MainThread`.
-2. `MainThread` waits for `KenshiLib.dll`. Then it starts the pipe listener (`PipeThread`) and the name-assignment thread, loads the INI, and starts the server. After that, it posts the player's context to `/context` at most once every 5 seconds.
+2. `MainThread` waits for `KenshiLib.dll`. Then it starts the pipe listener (`PipeThread`), loads the INI, and starts the server. After that, it posts the player's context to `/context` at most once every 5 seconds.
 3. If `OpenWebPanelOnStart` in the INI is `1`, this first server start passes `--open-browser`. The server waits until its port accepts connections, and then 3 s more, so that a tab from an earlier start can reconnect. It opens the web app in the default browser only when no tab is open (see [Web app](#web-app)). A restart from the launcher does not pass the flag, so the player does not get a second tab.
 4. The server listens on `127.0.0.1:5000`. The plugin sends HTTP POST requests to it through WinHTTP (`plugin/core/Comm.cpp`) for chat, history, settings, profiles, and events. The server rejects a request whose `Host` header is not `127.0.0.1:5000` or `localhost:5000`, or whose `Origin` header names another site (`server/scripts/request_guard.py`). This stops web pages in the player's browser from using the server. A new caller must use one of these two host names.
-5. The server sends commands back through the named pipe `\\.\pipe\SentientSands`, which the plugin hosts. Examples are `SET_CONFIG`, `NOTIFY`, and `POPULATE_GENERIC`.
+5. The server sends commands back through the named pipe `\\.\pipe\SentientSands`, which the plugin hosts. Examples are `SET_CONFIG`, `NOTIFY`, `POPULATE_GENERIC`, and `NPC_RENAME`.
 6. The server builds each prompt from the prompt files (see [Prompts](#prompts)) and the campaign state, then sends it down the route of its task (see [LLM routing](#llm-routing)).
 
 ## Threading
@@ -171,7 +171,7 @@ The server answers a Yell with one NPC, as a Talk. A Yell differs only in that t
 
 The judgment rule sits in the cached system message, and the last message repeats only a short reminder, because a model follows an instruction at the very end of a request most reliably. Banter reads the same reply rules but forbids bracketed text, so the judgment rule stays out of `response_rules.txt`.
 
-The reply text of `/chat` starts with the name of the NPC, because the plugin takes the text before a first colon as the speaker (`plugin/ui/ChatWindow.cpp`). A reply such as "Listen: ..." therefore stays with the NPC. The server removes a `*stage direction*` from a person's reply, but an animal replies only in `*actions*`, so those stay.
+The reply text of `/chat` starts with the name of the NPC, because the plugin takes the text before a first colon as the speaker (`plugin/ui/ChatWindow.cpp`). A reply such as "Listen: ..." therefore stays with the NPC. For a generic NPC, the serial of its handle follows the name, as in `Name|serial:`, so the plugin finds the NPC after a rename that its request did not know (see [Names](#names)). The server removes a `*stage direction*` from a person's reply, but an animal replies only in `*actions*`, so those stay.
 
 A chat reply carries no game actions: the prompts offer the LLM no action tags, and the `actions` list of a `/chat` reply is empty. The server reads only the judgment of a reply, which changes the NPC's personal relation. The debug commands of the chat, such as `/attack`, still send their action to the plugin. The scene shows only the equipment that the player and the NPC wear or hold, because the contents of a bag mattered only for trading.
 
@@ -272,10 +272,33 @@ The `character` table holds every character of a campaign in one shape: the cano
 - The name is only the `Name` key of the profile, so two NPCs with one name keep two rows, and a rename keeps the row and its dialogue.
 - A `Race`, `Sex`, or `Faction` of `Unknown` takes the value that the plugin reports for the character (`get_character_data`). A missing `Race` or `Faction` stays missing. A canon character whose race, sex, or faction the game data does not fix therefore holds `Unknown`, so the first meeting fills it with the value of the spawned NPC.
 - The game reports every skeleton as male, so the server gives a skeleton the sex Other in profiles and prompts (`reported_sex`). A skeleton race is a race whose name starts with Skeleton, P2 Unit, P4 Unit, Screamer, or Soldierbot, which covers the skeleton races of vanilla Kenshi and UWE. The race flag `is robot` cannot tell them apart, because it also marks hive queens, robot spiders, and the mechanical hive of UWE.
-- A name in the LLM output maps to an `npc_id` only among the characters of the same request. Name assignment gives generic NPCs different names, so the names of one request stay apart.
+- Within one chat or banter request, the server keys each NPC by its `npc_id`, because NPCs near the player can share a name, for example two Dust Bandits that the player never spoke to. A banter line names its speaker as `Name|ID`, and the server maps the ID, the serial of the handle, to the `npc_id`.
+- Rejected: a number in a duplicate name within a request, such as Dust Bandit (2). The number would reach the LLM and the dialogue history.
 - The player section of the chat scene describes the squad member who speaks, the `speaker` of the chat request: its name, race, sex, health, hunger, faction with the description of the player's faction, and worn equipment. Its money stays out, because an NPC cannot see a wallet. Its personality, backstory, and speech quirks stay out, because they serve only an LLM that speaks as that character. The chat window offers the members of the current squad except the talk target, and starts on the last speaker while that character is still in the squad. Ambient banter has no speaker, so it uses squad slot 1 from the player's context.
 - The Dialogue Library lists each character with dialogue and each character that is not seeded, so the seeded characters that the player never met stay out of it.
 - `LIVE_CONTEXTS` holds the latest context of each NPC by `npc_id`.
+
+### Names
+
+A generic NPC keeps the name that the game gives it until the player speaks to it (`server/scripts/npc_names.py`). The first chat adds a given name from `server/config/names.json` for the sex of the NPC, and the game name stays in front of it as a title. The title tells the player what the NPC is, as the game name did. A recruit drops the title.
+
+| Moment | Name in game |
+|---|---|
+| Before the player speaks to the NPC | Starving Bandit |
+| The first chat with the NPC | Starving Bandit Josh |
+| The NPC joins the player's faction | Josh |
+
+- The plugin sends `generic_name` in the context of an NPC (`IsGenericName` in `plugin/game/Context.cpp`). A generic name equals the name of the character's template, or it holds a name or a keyword of `generic_names.json`. Only the plugin sees the game data, so only the plugin can make this check in each game language.
+- `GivenName` in the profile holds the given name, and `Name` holds the whole name. A name with a title still holds the generic name, so the server never names an NPC that has a `GivenName` again.
+- At each chat turn with a generic NPC, `name_at_chat` gives a given name to an NPC that has none. An NPC that is already in the player's faction gets no title, so its name changes once, not twice.
+- When the game name of an NPC with a `GivenName` is not its `Name`, the game lost the name, for example after the load of an earlier save. The chat turn gives back the stored `Name`.
+- The server sends `NPC_RENAME: <serial>|<name>` through the pipe before the LLM call, so the name changes in game while the player waits for the reply. The prompt and the dialogue history use the new name, and `campaign_db.rename_character` relabels the lines that the NPC spoke.
+- Banter and an ambient greeting name no NPC, because the player does not speak to the NPC.
+- A recruit drops its title at the first context post that shows the recruit in the player's faction (`drop_title`). After a recruit, the player selects the new squad member, and the plugin posts the context of the selected character every 1.5 s. The server checks each NPC once per campaign in memory (`TITLES_CHECKED`), so a selected squad member costs one database read.
+- A game name of a recruit that differs from its stored `Name` is a name that the player gave in game, so it stays. A recruit that the player never spoke to keeps its game name until its first chat, which gives it a given name with no title.
+- A name from `/name` in the chat window becomes the `Name` and the `GivenName`, so the server never adds a title to it or replaces it with a rolled name. `/rename` stores a profile for an NPC that has none, because the first chat would otherwise roll a name.
+- A new given name differs from each `Name` and `GivenName` of the campaign (`get_used_names`), so two recruits never share a name.
+- Rejected: a name for each generic NPC on sight. The plugin scanned the NPCs near the player every 2 s and replaced the name of each generic one, so the player lost the game name of an NPC before any chat with it.
 
 ### Provisional profiles
 

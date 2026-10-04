@@ -46,10 +46,6 @@ std::string T(const std::string &key) {
   return key;
 }
 
-std::deque<NameCheckItem> g_nameCheckQueue;
-CRITICAL_SECTION g_nameCheckMutex;
-std::set<unsigned int> g_renamedSerials;
-
 std::vector<std::string> g_genericPrefixes;
 std::vector<std::string> g_genericKeywords;
 DWORD g_lastContextPushTick = 0;

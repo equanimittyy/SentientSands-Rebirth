@@ -22,6 +22,26 @@ class HistoryWindowTest(unittest.TestCase):
         self.assertEqual(chat_prompt.history_window(lines, 20)[0], chat_prompt.history_window(lines[20:], 20)[0])
 
 
+class OverhearersTest(unittest.TestCase):
+    NEARBY = [
+        {"name": "Dust Bandit", "npc_id": "h:1", "dist": 50},
+        {"name": "Dust Bandit", "npc_id": "h:2", "dist": 80},
+        {"name": "Beep", "npc_id": "u:19576-Dialogue.mod", "dist": 300},
+    ]
+
+    def test_two_npcs_of_one_name_both_overhear(self):
+        self.assertEqual([n["npc_id"] for n in chat_prompt.overhearers(self.NEARBY, 100, {"h:9"})], ["h:1", "h:2"])
+
+    def test_the_target_does_not_overhear_its_own_chat(self):
+        self.assertEqual([n["npc_id"] for n in chat_prompt.overhearers(self.NEARBY, 400, {"h:1"})], ["h:2", "u:19576-Dialogue.mod"])
+
+    def test_nobody_overhears_without_a_radius(self):
+        self.assertEqual(chat_prompt.overhearers(self.NEARBY, None, set()), [])
+
+    def test_an_npc_listed_twice_overhears_once(self):
+        self.assertEqual(len(chat_prompt.overhearers(self.NEARBY[:1] * 2, 100, set())), 1)
+
+
 class HistoryTurnsTest(unittest.TestCase):
     def test_the_npc_lines_are_assistant_turns_without_time_or_name(self):
         lines = [
