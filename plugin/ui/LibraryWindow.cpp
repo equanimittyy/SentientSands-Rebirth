@@ -360,6 +360,19 @@ DWORD WINAPI LibraryHistoryThread(LPVOID lpParam) {
   return 0;
 }
 
+void RefreshLibraryUI() {
+  if (!g_libraryList)
+    return;
+  CreateThread(NULL, 0, LibraryListThread, NULL, 0, NULL);
+  size_t index = g_libraryList->getIndexSelected();
+  if (index >= g_libraryStorageIds.size())
+    return;
+  LibraryTask *t = new LibraryTask();
+  t->npcName = g_libraryList->getItemNameAt(index).asUTF8();
+  t->json = "{\"npc\":\"" + EscapeJSON(g_libraryStorageIds[index]) + "\"}";
+  CreateThread(NULL, 0, LibraryHistoryThread, t, 0, NULL);
+}
+
 void CreateLibraryUI() {
   MyGUI::Gui *gui = MyGUI::Gui::getInstancePtr();
   if (!gui)

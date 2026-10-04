@@ -7,14 +7,6 @@ sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."
 import npc_names
 
 
-def roll():
-    return "Josh"
-
-
-def fail():
-    raise AssertionError("rolled a name for an NPC that has one")
-
-
 class SplitTest(unittest.TestCase):
     def test_a_titled_template_gives_the_job_and_the_name_of_the_game(self):
         self.assertEqual(npc_names.split({"name": "Barman Arleen", "template": "Barman /GENNAME/"}), ("Arleen", "Barman"))
@@ -34,6 +26,10 @@ class SplitTest(unittest.TestCase):
         self.assertEqual(npc_names.split({"name": "Dust Bandit", "template": "Dust Bandit"}), ("Dust Bandit", "Dust Bandit"))
         self.assertEqual(npc_names.split({"name": "Nuno", "template": "Drifter"}), ("Nuno", "Drifter"))
 
+    def test_the_title_of_a_template_without_a_token_stays_out_of_the_name(self):
+        self.assertEqual(npc_names.split({"name": "Dust Bandit Josh", "template": "Dust Bandit"}), ("Josh", "Dust Bandit"))
+        self.assertEqual(npc_names.split({"name": "Drifter Nuno", "template": "Drifter"}), ("Nuno", "Drifter"))
+
     def test_a_unique_npc_has_no_job_from_its_template(self):
         self.assertEqual(npc_names.split({"name": "Ruka", "template": "Ruka", "unique": True}), ("Ruka", None))
 
@@ -50,41 +46,32 @@ class UnnamedTest(unittest.TestCase):
         self.assertFalse(npc_names.unnamed({"name": "Beep"}))
 
 
-class NamesTest(unittest.TestCase):
-    def test_the_first_name_shows_the_game_name_as_a_title(self):
-        self.assertEqual(npc_names.names({"Name": "Starving Bandit"}, "Starving Bandit", False, roll), ("Josh", "Starving Bandit Josh"))
+class ShownTest(unittest.TestCase):
+    def test_a_generic_npc_shows_its_job_as_a_title(self):
+        self.assertEqual(npc_names.shown("h:1", {"Name": "Nuno", "Job": "Drifter"}, False), "Drifter Nuno")
 
-    def test_a_recruit_gets_no_title(self):
-        self.assertEqual(npc_names.names({"Name": "Starving Bandit"}, "Starving Bandit", True, roll), ("Josh", "Josh"))
+    def test_a_member_of_the_player_faction_shows_no_title(self):
+        self.assertEqual(npc_names.shown("h:1", {"Name": "Nuno", "Job": "Drifter"}, True), "Nuno")
 
-    def test_a_rolled_name_that_the_game_lost_comes_back_with_its_title(self):
-        profile = {"Name": "Josh", "GivenName": "Josh"}
-        self.assertEqual(npc_names.names(profile, "Starving Bandit", False, fail), ("Josh", "Starving Bandit Josh"))
-        self.assertEqual(npc_names.names(profile, "Starving Bandit", True, fail), ("Josh", "Josh"))
+    def test_a_canon_character_shows_no_title(self):
+        self.assertEqual(npc_names.shown("u:Yamdu", {"Name": "Yamdu", "Job": "Writer and field researcher"}, False), "Yamdu")
 
-    def test_a_name_that_the_player_gave_comes_back_bare(self):
-        self.assertEqual(npc_names.names({"Name": "Bob", "GivenName": None}, "Starving Bandit", False, fail), ("Bob", "Bob"))
+    def test_an_npc_without_a_job_shows_no_title(self):
+        for job in (None, "", "None", "Unknown"):
+            self.assertEqual(npc_names.shown("h:1", {"Name": "Nuno", "Job": job}, False), "Nuno")
+        self.assertEqual(npc_names.shown("h:1", {"Name": "Nuno"}, False), "Nuno")
 
 
-class RecruitNameTest(unittest.TestCase):
-    def test_a_recruit_drops_its_title(self):
-        npc = {"name": "Starving Bandit Josh", "template": "Starving Bandit"}
-        self.assertEqual(npc_names.recruit_name(npc, {"Name": "Josh", "GivenName": "Josh"}), "Josh")
+class JobTextTest(unittest.TestCase):
+    def test_a_job_shows_as_it_is(self):
+        self.assertEqual(npc_names.job_text({"Job": "Shop Guard"}), "Shop Guard")
 
-    def test_a_name_that_the_player_gave_in_game_stays(self):
-        self.assertIsNone(npc_names.recruit_name({"name": "Bob", "template": "Starving Bandit"}, {"Name": "Josh", "GivenName": "Josh"}))
+    def test_a_recruit_has_a_former_job(self):
+        self.assertEqual(npc_names.job_text({"Job": "None", "FormerJob": "Shop Guard"}), "Former Shop Guard")
 
-    def test_a_recruit_without_a_title_stays(self):
-        self.assertIsNone(npc_names.recruit_name({"name": "Josh", "template": "Starving Bandit"}, {"Name": "Josh", "GivenName": "Josh"}))
-
-    def test_a_name_from_the_game_keeps_its_title(self):
-        npc = {"name": "Barman Arleen", "template": "Barman /GENNAME/"}
-        self.assertIsNone(npc_names.recruit_name(npc, {"Name": "Arleen"}))
-
-    def test_a_recruit_that_the_player_never_spoke_to_stays(self):
-        npc = {"name": "Starving Bandit", "template": "Starving Bandit"}
-        self.assertIsNone(npc_names.recruit_name(npc, {"Name": "Starving Bandit"}))
-        self.assertIsNone(npc_names.recruit_name(npc, {}))
+    def test_no_job_shows_as_none(self):
+        self.assertEqual(npc_names.job_text({"Job": "Unknown"}), "None")
+        self.assertEqual(npc_names.job_text({}), "None")
 
 
 if __name__ == "__main__":

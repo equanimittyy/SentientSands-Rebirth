@@ -98,7 +98,7 @@ STATE_LOCK = threading.Lock()
 SYNTHESIS_STATUS = {"elapsed": 0, "interval": 60}
 WRITE_REQUESTS = 0
 SEEN_FACTIONS = set()
-TITLES_CHECKED = set()
+SQUAD_NAMES = {}  # npc_id: the last game name that sync_squad_name checked
 
 ANIMAL_RACES = [
     "Bonedog", "Boneyard Wolf", "Garru", "Beak Thing", "Gorillo",
@@ -650,7 +650,7 @@ def describe_npc(name, profile, npc_id):
         name=name,
         race=race,
         sex=reported_sex(race, profile.get("Sex", "Unknown")),
-        job=profile.get("Job", "None"),
+        job=npc_names.job_text(profile),
         current_faction=current_faction,
         origin_faction=describe_origin(describe_faction(profile.get("OriginFaction", "Unknown")), current_faction),
         personality=profile.get("Personality") or "",
@@ -862,7 +862,7 @@ def write_bio(profile, parts, instructions, history, race_lore, faction):
         race=race,
         sex=reported_sex(race, profile.get("Sex", "Unknown")),
         faction=faction,
-        job=profile.get("Job") or "None",
+        job=npc_names.job_text(profile),
         race_lore=race_lore,
         current="\n".join(f"{part}: {profile.get(part) or ''}" for part in BIO_PARTS),
         history="\n".join(history) or "None yet.",
@@ -963,15 +963,9 @@ def get_character_data(name, context=""):
                     data["OriginFaction"] = current_origin
                     needs_save = True
 
-                current_job = npc_names.split(ctx_data)[1] or "None"
-                if data.get("Job") in ("None", "Unknown") and current_job not in ("None", "Unknown"):
-                    logging.debug(f"PROFILE: Updating Job for {name}: {current_job}")
-                    data["Job"] = current_job
-                    needs_save = True
-
                 # Bypasses should_save_profile, which would drop generic-content profiles
                 if needs_save:
-                    campaign_db.upsert_profile(npc_id, {k: data[k] for k in ("Race", "Sex", "Faction", "OriginFaction", "Job")})
+                    campaign_db.upsert_profile(npc_id, {k: data[k] for k in ("Race", "Sex", "Faction", "OriginFaction")})
         except Exception as e:
             logging.error(f"PROFILE: Cannot update the profile from the context: {e}")
 
@@ -1015,40 +1009,67 @@ def should_save_profile(name, npc_id, data):
     return True
 
 
+def send_rename(npc_id, profile):
+    """The plugin picks the name by the faction that the NPC has in game, because a web app save cannot tell a recruit."""
+    send_to_pipe(f"NPC_RENAME: {npc_id}|{npc_names.shown(npc_id, profile, False)}|{profile['Name']}")
+
+def end_job(npc_id, profile):
+    """A recruit no longer works its job, so the Job becomes its former role. The prompts give that role as a former one, so
+    the recruit can still speak of its old work."""
+    if profile.get("Job") in npc_names.NO_JOB:
+        return
+    changes = {"Job": "None", "FormerJob": profile["Job"]}
+    campaign_db.upsert_profile(npc_id, changes)
+    profile.update(changes)
+    logging.info(f"JOB: {profile['Name']} ({npc_id}) is now a former {changes['FormerJob']}")
+
+def sync_name(npc, profile, in_squad):
+    """Renames a stored NPC in game to match its profile, and returns its Name. The player can rename a squad member in game,
+    so there the profile follows the game name instead."""
+    npc_id, game_name = npc["npc_id"], npc.get("name")
+    if in_squad:
+        end_job(npc_id, profile)
+    if npc_names.unnamed(npc) and profile["Name"] == game_name:
+        name = generate_unique_lore_name(profile.get("Sex", "Neutral"))
+    elif in_squad and not npc_names.unnamed(npc) and game_name not in (profile["Name"], npc_names.shown(npc_id, profile, False)):
+        name = npc_names.split(npc)[0]
+    else:
+        name = profile["Name"]
+    if name != profile["Name"]:
+        campaign_db.rename_character(npc_id, profile["Name"], name)
+        logging.info(f"NAME: {profile['Name']} ({npc_id}) is now {name}")
+        profile["Name"] = name
+    if game_name != npc_names.shown(npc_id, profile, in_squad):
+        send_rename(npc_id, profile)
+    return name
+
 def npc_name(npc):
-    """The Name of an NPC in a chat or banter request. An NPC that the game shows by the name of its template gets a rolled
-    Name once the campaign stores it (see npc_names)."""
+    """The Name of an NPC in a chat or banter request. The rename goes out before the LLM call, so the name changes in game
+    while the player waits for the reply."""
     name, _ = npc_names.split(npc)
-    if not npc_names.unnamed(npc):
+    npc_id = npc.get("npc_id")
+    if not npc_id:
         return name
-    npc_id = npc["npc_id"]
     profile = get_character_data(name, npc)
     # The campaign stores no profile named Someone or Unknown, so a rolled name would live only in the game
     if not campaign_db.character_exists(npc_id):
         return name
     # The faction of a banter NPC is its identity faction, so only in_player_faction marks a squad member there
     in_squad = npc.get("in_player_faction") or is_player_faction(npc.get("faction"), npc.get("factionID"))
-    name, shown = npc_names.names(profile, name, in_squad, lambda: generate_unique_lore_name(profile.get("Sex", "Neutral")))
-    if name != profile["Name"]:
-        campaign_db.rename_character(npc_id, profile["Name"], name, name)
-        logging.info(f"NAME: {profile['Name']} ({npc_id}) is now {name}")
-    # Before the LLM call, so the name changes in game while the player waits for the reply
-    send_to_pipe(f"NPC_RENAME: {npc_serial(npc_id)}|{shown}")
-    return name
+    return sync_name(npc, profile, in_squad)
 
-def drop_title(npc_id, ctx):
-    """Checks each NPC once per campaign in memory, because the plugin posts the context of the selected character every 1.5 s."""
-    if npc_id in TITLES_CHECKED or not npc_serial(npc_id) or not is_player_faction(ctx.get("faction"), ctx.get("factionID")):
+def sync_squad_name(npc_id, ctx):
+    """Checks a name once per change, because the plugin posts the context of the selected character every 1.5 s. After a
+    recruit, the player selects the new squad member, so its title drops at once."""
+    if SQUAD_NAMES.get(npc_id) == ctx.get("name") or not is_player_faction(ctx.get("faction"), ctx.get("factionID")):
         return
     try:
-        profile = campaign_db.get_character(npc_id) or {}
+        profile = campaign_db.get_character(npc_id)
     except campaign_db.CampaignUnavailable:
         return  # load_campaign_config already logged why
-    TITLES_CHECKED.add(npc_id)
-    name = npc_names.recruit_name(ctx, profile)
-    if name:
-        send_to_pipe(f"NPC_RENAME: {npc_serial(npc_id)}|{name}")
-        logging.info(f"NAME: The recruit {ctx.get('name')} ({npc_id}) is now {name}")
+    SQUAD_NAMES[npc_id] = ctx.get("name")
+    if profile:
+        sync_name(ctx, profile, True)
 
 
 @app.route('/rename', methods=['POST'])
@@ -1065,9 +1086,11 @@ def rename_character():
     if not campaign_db.character_exists(npc_id):
         get_character_data(new_name, data.get('context', ''))
     # The dialogue names the NPC by its stored Name, which lacks the title of its game name
-    old_name = (campaign_db.get_character(npc_id) or {}).get("Name", data.get('old_name', ''))
-    # No GivenName, so the game never shows a title in front of a name that the player gave
-    campaign_db.rename_character(npc_id, old_name, new_name, None)
+    profile = campaign_db.get_character(npc_id) or {}
+    old_name = profile.get("Name", data.get('old_name', ''))
+    campaign_db.rename_character(npc_id, old_name, new_name)
+    if profile:
+        send_rename(npc_id, {**profile, "Name": new_name})
     logging.info(f"RENAME: {old_name} is now {new_name} ({npc_id})")
     return jsonify({"status": "ok"})
 
@@ -1778,8 +1801,7 @@ def update_context():
             LIVE_CONTEXTS[npc_id] = data
             with STATE_LOCK:
                 LAST_STATE_LOG["npc"] = data
-            # After a recruit, the player selects the new squad member, so its context arrives at once
-            drop_title(npc_id, data)
+            sync_squad_name(npc_id, data)
     return jsonify({"status": "ok"})
 
 
@@ -1988,7 +2010,7 @@ def switch_campaign(name):
         save_settings({"current_campaign": name})
         LIVE_CONTEXTS.clear()
         SEEN_FACTIONS.clear()
-        TITLES_CHECKED.clear()
+        SQUAD_NAMES.clear()
         CONVERSATION_SCENE.clear()
         load_campaign_config()
         return True
@@ -2152,7 +2174,7 @@ def get_campaign_canon():
                 for f in campaign_db.list_factions()
             ],
             "characters": [
-                {"id": npc_id, "data": {"game_id": npc_id.removeprefix("u:"), "profile": profile}, "origin": origin, "updated_at": updated_at, "current_faction": LIVE_CONTEXTS.get(npc_id, {}).get("faction")}
+                {"id": npc_id, "data": {"game_id": npc_id.removeprefix("u:"), "profile": profile}, "origin": origin, "updated_at": updated_at, "current_faction": LIVE_CONTEXTS.get(npc_id, {}).get("faction"), "job": npc_names.job_text(profile)}
                 for (npc_id,), profile, origin, updated_at in campaign_db.list_records("character")
             ],
             "entities": [
@@ -2200,6 +2222,8 @@ def save_campaign_record():
                     if any(character["profile"].get(key) != stored.get(key) for key in ("Personality", "Backstory", "SpeechQuirks")):
                         del character["profile"][campaign_db.PROVISIONAL]
                 campaign_db.save_record("character", (record_id,), character["profile"], updated_at)
+                send_rename(record_id, character["profile"])
+                send_to_pipe("REFRESH_LIBRARY:")
             else:
                 category = data.get("category")
                 if category not in world_template.CATEGORIES:
@@ -2292,6 +2316,7 @@ def delete_campaign_record():
         campaign_db.delete_faction(record_id)
     elif kind == "character":
         campaign_db.delete_record("character", (record_id,))
+        send_to_pipe("REFRESH_LIBRARY:")
     elif kind == "entity":
         campaign_db.delete_record("entity", (data.get("category"), record_id))
     else:
@@ -2492,7 +2517,7 @@ def get_history():
     lines = []
     race = char_data['Race']
     lines.append(f"--- PROFILE: {char_data.get('Name', npc_id)} ---")
-    lines.append(f"Race: {race} | Sex: {reported_sex(race, char_data.get('Sex', 'Unknown'))} | Job: {char_data.get('Job') or 'None'}")
+    lines.append(f"Race: {race} | Sex: {reported_sex(race, char_data.get('Sex', 'Unknown'))} | Job: {npc_names.job_text(char_data)}")
     lines.append(f"Faction: {char_data['Faction']} | Origin Faction: {char_data.get('OriginFaction', 'Unknown')}")
     lines.append(generate_relation_bar(char_data.get('Relation', 0)))
     if campaign_db.PROVISIONAL in char_data:

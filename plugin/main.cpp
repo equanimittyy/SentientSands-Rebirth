@@ -67,6 +67,14 @@ inline std::string SafeFaction(RootObjectBase *obj) {
   return "None";
 }
 
+// A generic NPC whose template is a canon character carries the npc_id of that
+// character, not the one that GetNpcId gives it
+static bool HasNpcId(Character *c, const std::string &npcId) {
+  if (npcId.compare(0, 2, "u:") == 0)
+    return c->data && "u:" + c->data->stringID == npcId;
+  return GetNpcId(c) == npcId;
+}
+
 void (*playerUpdate_orig)(PlayerInterface *) = nullptr;
 void (*attackingYou_orig)(Character *, Character *, bool, bool) = nullptr;
 void (*applyDamage_orig)(MedicalSystem::HealthPartStatus *,
@@ -180,6 +188,8 @@ void ProcessMessageQueue(GameWorld *thisptr) {
                 g_logLevel = ParseLogLevel(val);
               }
             }
+          } else if (command == "REFRESH_LIBRARY") {
+            RefreshLibraryUI();
           } else if (command == "ENABLE_REGEN_BTN") {
             if (g_libraryRegenBtn)
               g_libraryRegenBtn->setEnabled(true);
@@ -188,27 +198,31 @@ void ProcessMessageQueue(GameWorld *thisptr) {
           }
         }
       } else if (isRename) {
-        // Format: "NPC_RENAME: <serial>|<newName>"
+        // Format: "NPC_RENAME: <npc_id>|<name>|<name in the player's faction>"
+        // The plugin picks: only the game knows the faction at rename time
         std::string payload = msg.substr(12); // skip "NPC_RENAME: "
         size_t sep = payload.find('|');
-        if (sep != std::string::npos) {
-          unsigned int serial =
-              (unsigned int)strtoul(payload.substr(0, sep).c_str(), NULL, 10);
-          std::string newName = payload.substr(sep + 1);
-          if (serial > 0 && !newName.empty() && thisptr) {
-            const ogre_unordered_set<Character *>::type &chars =
-                thisptr->getCharacterUpdateList();
-            for (auto it = chars.begin(); it != chars.end(); ++it) {
-              if (*it && (uintptr_t)*it > 0x1000 &&
-                  (*it)->getHandle().serial == serial) {
-                std::string oldName = (*it)->getName();
-                (*it)->setName(newName);
-                Log(LOG_DEBUG, "NAME: Renamed '" + oldName + "' -> '" +
-                                   newName + "' (serial " +
-                                   ToString(serial) + ")");
-                break;
-              }
+        size_t sep2 = sep == std::string::npos ? sep : payload.find('|', sep + 1);
+        if (sep2 != std::string::npos && thisptr) {
+          std::string npcId = payload.substr(0, sep);
+          std::string name = payload.substr(sep + 1, sep2 - sep - 1);
+          std::string squadName = payload.substr(sep2 + 1);
+          const ogre_unordered_set<Character *>::type &chars =
+              thisptr->getCharacterUpdateList();
+          for (auto it = chars.begin(); it != chars.end(); ++it) {
+            Character *c = *it;
+            if (!c || (uintptr_t)c <= 0x1000 || !HasNpcId(c, npcId))
+              continue;
+            Faction *faction = c->getFaction() ? c->getFaction() : c->owner;
+            std::string newName =
+                faction && faction->isThePlayer() ? squadName : name;
+            std::string oldName = c->getName();
+            if (!newName.empty() && newName != oldName) {
+              c->setName(newName);
+              Log(LOG_DEBUG, "NAME: Renamed '" + oldName + "' -> '" + newName +
+                                 "' (" + npcId + ")");
             }
+            break;
           }
         }
       } else if (isNotify) {

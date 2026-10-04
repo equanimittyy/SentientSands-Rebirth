@@ -12,6 +12,7 @@ extern std::vector<std::string> g_libraryStorageIds;
 
 void CreateLibraryUI();
 void CloseLibraryUI();
+void RefreshLibraryUI();
 void PopulateLibraryUI(const std::string &data);
 void SetLibraryText(const std::string &data);
 

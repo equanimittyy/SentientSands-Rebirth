@@ -127,10 +127,9 @@ class CharacterTest(CampaignTestCase):
             *spoken("h:7", "[Day 2] Zabuza: I am another Zabuza."),
         ]
         campaign_db.append_dialogue(GENERIC_ID, lines, {"Name": "Zabuza"})
-        campaign_db.rename_character(GENERIC_ID, "Zabuza", "Poopyhead", "Poopyhead")
+        campaign_db.rename_character(GENERIC_ID, "Zabuza", "Poopyhead")
         self.assertEqual(campaign_db.get_character(GENERIC_ID), {
             "Name": "Poopyhead",
-            "GivenName": "Poopyhead",
             "ConversationHistory": ["[Day 1, 08:00] Drifter: Hello Zabuza", "[Day 1, 08:00] Poopyhead: Zabuza: a fine name.", "Poopyhead: No time.", "[Day 2] Zabuza: I am another Zabuza."],
         })
 
@@ -139,10 +138,10 @@ class CharacterTest(CampaignTestCase):
         self.assertEqual(campaign_db.dialogue(GENERIC_ID), [("Drifter: hi", None), ("Zabuza: Hm.", GENERIC_ID)])
         self.assertEqual(campaign_db.dialogue("h:1"), [])
 
-    def test_the_names_hold_each_given_name(self):
+    def test_the_names_hold_the_name_of_each_character(self):
         campaign_db.upsert_profile(GENERIC_ID, {"Name": "Dust Bandit"})
-        campaign_db.rename_character(GENERIC_ID, "Dust Bandit", "Dust Bandit Josh", "Josh")
-        self.assertEqual(campaign_db.character_names(), {"Beep", "Dust Bandit Josh", "Josh"})
+        campaign_db.rename_character(GENERIC_ID, "Dust Bandit", "Josh")
+        self.assertEqual(campaign_db.character_names(), {"Beep", "Josh"})
 
     def test_concurrent_appends_keep_the_lines_of_both(self):
         campaign_db.upsert_profile(GENERIC_ID, BEEP)
