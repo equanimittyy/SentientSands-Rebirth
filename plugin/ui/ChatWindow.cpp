@@ -349,7 +349,7 @@ void OnChatSendClick(MyGUI::Widget *sender) {
               nearbyFullJson += ",";
             nearbyFullJson += "{\"name\":\"" + EscapeJSON(other->getName()) +
                               "\", \"id\":\"" +
-                              ToString((int)other->getHandle().serial) +
+                              ToString(other->getHandle().serial) +
                               "\", \"npc_id\":\"" + EscapeJSON(GetNpcId(other)) +
                               "\", \"race\":\"" + EscapeJSON(raceName) +
                               "\", \"faction\":\"" + EscapeJSON(factionName) +

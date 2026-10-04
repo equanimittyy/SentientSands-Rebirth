@@ -517,7 +517,7 @@ std::string GetDetailedContext(Character *npc, const std::string &type) {
   if (iid && !iid->uid.empty()) {
     json += "\"id\": \"" + EscapeJSON(iid->uid) + "\",";
   } else {
-    json += "\"id\": \"hand_" + ToString((int)npc->getHandle().serial) + "\",";
+    json += "\"id\": \"hand_" + ToString(npc->getHandle().serial) + "\",";
   }
 
   RaceData *race = nullptr;

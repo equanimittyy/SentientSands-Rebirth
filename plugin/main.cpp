@@ -1209,7 +1209,7 @@ void playerUpdate_hook(PlayerInterface *thisptr) {
                   npcData +=
                       "{\"name\":\"" + EscapeJSON(other->getName()) + "\",";
                   npcData +=
-                      "\"id\":" + ToString((int)other->getHandle().serial) +
+                      "\"id\":" + ToString(other->getHandle().serial) +
                       ",";
                   npcData +=
                       "\"npc_id\":\"" + EscapeJSON(GetNpcId(other)) + "\",";
@@ -1280,7 +1280,7 @@ void playerUpdate_hook(PlayerInterface *thisptr) {
             }
           }
 
-          CreateChatUI(sel->getName(), ToString((int)sel->getHandle().serial));
+          CreateChatUI(sel->getName(), ToString(sel->getHandle().serial));
         }
       }
     }
