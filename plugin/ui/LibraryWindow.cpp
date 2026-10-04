@@ -106,7 +106,10 @@ struct BioTask {
   std::string command;
 };
 
+// The player can close the window, or open it for another NPC, while a
+// request runs, so each close makes the pending reply stale.
 void CloseBioUI() {
+  g_bioRequest++;
   if (!g_bioWindow)
     return;
   if (MyGUI::Gui::getInstancePtr())
@@ -151,7 +154,8 @@ DWORD WINAPI BioThread(LPVOID lpParam) {
 
 void StartBioRequest(const wchar_t *endpoint, const std::string &json,
                      const std::string &command) {
-  g_bioConfirmBtn->setEnabled(false);
+  if (g_bioConfirmBtn)
+    g_bioConfirmBtn->setEnabled(false);
   BioTask *t = new BioTask();
   t->request = g_bioRequest;
   t->endpoint = endpoint;
@@ -160,12 +164,9 @@ void StartBioRequest(const wchar_t *endpoint, const std::string &json,
   CreateThread(NULL, 0, BioThread, t, 0, NULL);
 }
 
-// The player can close the window, or open it for another NPC, while the
-// request runs, so only the window that sent the request takes the reply.
 bool TakeBioReply(const std::string &data, std::string &reply) {
   size_t sep = data.find('|');
-  if (!g_bioWindow || sep == std::string::npos ||
-      atoi(data.c_str()) != g_bioRequest)
+  if (sep == std::string::npos || atoi(data.c_str()) != g_bioRequest)
     return false;
   reply = data.substr(sep + 1);
   return true;
@@ -173,7 +174,14 @@ bool TakeBioReply(const std::string &data, std::string &reply) {
 
 void ShowBioFailure(const std::string &prefixKey, const std::string &reply) {
   std::string error = GetJsonValue(reply, "message");
-  SetBioStatus(T(prefixKey) + (error.empty() ? T("Unknown error") : error));
+  std::string text =
+      T(prefixKey) + (error.empty() ? T("Unknown error") : error);
+  // Edit Bio opens no window until the stored texts arrive
+  if (!g_bioWindow) {
+    SetLibraryText(text);
+    return;
+  }
+  SetBioStatus(text);
   g_bioConfirmBtn->setEnabled(true);
 }
 
@@ -222,8 +230,8 @@ void OnBioChoiceClick(MyGUI::Widget *sender) {
   UpdateBioChoiceButtons();
 }
 
-MyGUI::Widget *CreateBioWindow(float left, float top, float width,
-                               float height) {
+MyGUI::Widget *CreateBioWindow(const char *captionKey, float left, float top,
+                               float width, float height) {
   MyGUI::Gui *gui = MyGUI::Gui::getInstancePtr();
   if (!gui)
     return nullptr;
@@ -231,7 +239,7 @@ MyGUI::Widget *CreateBioWindow(float left, float top, float width,
   g_bioWindow = gui->createWidgetReal<MyGUI::Window>(
       "Kenshi_WindowCX", left, top, width, height, MyGUI::Align::Center,
       "Popup", "SentientSands_BioWindow");
-  g_bioWindow->setCaption(Utf8ToWide(T("Generate Bio")).c_str());
+  g_bioWindow->setCaption(Utf8ToWide(T(captionKey)).c_str());
   g_bioWindow->eventWindowButtonPressed +=
       MyGUI::newDelegate(OnBioWindowButtonPressed);
   return g_bioWindow->getClientWidget();
@@ -279,10 +287,10 @@ void AddBioButtons(MyGUI::Widget *client, const char *confirmKey,
 }
 
 void CreateBioAskUI() {
-  MyGUI::Widget *client = CreateBioWindow(0.28f, 0.20f, 0.44f, 0.55f);
+  MyGUI::Widget *client =
+      CreateBioWindow("Generate Bio", 0.28f, 0.20f, 0.44f, 0.55f);
   if (!client)
     return;
-  g_bioRequest++;
   g_bioChoice = 0;
 
   AddBioLine(client, g_bioName, 0.03f, "SentientSands_BioName");
@@ -312,7 +320,8 @@ void CreateBioAskUI() {
 }
 
 void CreateBioEditUI(const std::string &reply) {
-  MyGUI::Widget *client = CreateBioWindow(0.20f, 0.08f, 0.60f, 0.84f);
+  MyGUI::Widget *client =
+      CreateBioWindow("Edit Bio", 0.20f, 0.08f, 0.60f, 0.84f);
   if (!client)
     return;
 
@@ -345,12 +354,12 @@ void CreateBioEditUI(const std::string &reply) {
   AddBioButtons(client, "Keep", OnBioKeepClick, "Discard");
 }
 
-void ShowWrittenBio(const std::string &data) {
+void OpenBioEditor(const std::string &data, const std::string &failureKey) {
   std::string reply;
   if (!TakeBioReply(data, reply))
     return;
   if (GetJsonValue(reply, "status") != "ok") {
-    ShowBioFailure("Write failed: ", reply);
+    ShowBioFailure(failureKey, reply);
     return;
   }
   g_bioCampaign = GetJsonValue(reply, "campaign");
@@ -369,13 +378,26 @@ void FinishKeptBio(const std::string &data) {
   RefreshLibraryUI();
 }
 
-void OnLibraryBioClick(MyGUI::Widget *sender) {
+bool SelectBioNpc() {
   size_t index = g_libraryList->getIndexSelected();
   if (index == MyGUI::ITEM_NONE)
-    return;
+    return false;
   g_bioSid = g_libraryStorageIds[index];
   g_bioName = g_libraryList->getItemNameAt(index).asUTF8();
-  CreateBioAskUI();
+  return true;
+}
+
+void OnLibraryBioClick(MyGUI::Widget *sender) {
+  if (SelectBioNpc())
+    CreateBioAskUI();
+}
+
+void OnLibraryEditBioClick(MyGUI::Widget *sender) {
+  if (!SelectBioNpc())
+    return;
+  CloseBioUI();
+  StartBioRequest(L"/read_bio", "{\"sid\":\"" + EscapeJSON(g_bioSid) + "\"}",
+                  "BIO_READ");
 }
 
 void ApplyLibraryFilter(const std::string &keepSid) {
@@ -679,6 +701,13 @@ void CreateLibraryUI() {
   g_libraryBioBtn->setCaption(Utf8ToWide(T("Generate Bio")).c_str());
   g_libraryBioBtn->eventMouseButtonClick +=
       MyGUI::newDelegate(OnLibraryBioClick);
+
+  MyGUI::Button *editBioBtn = client->createWidgetReal<MyGUI::Button>(
+      "Kenshi_Button1", 0.42f, 0.015f, 0.09f, 0.05f, MyGUI::Align::Left,
+      "SentientSands_LibEditBioBtn");
+  editBioBtn->setCaption(Utf8ToWide(T("Edit Bio")).c_str());
+  editBioBtn->eventMouseButtonClick +=
+      MyGUI::newDelegate(OnLibraryEditBioClick);
 
   g_libraryText = client->createWidgetReal<MyGUI::ListBox>(
       "Kenshi_ListBox", 0.32f, 0.07f, 0.66f, 0.91f, MyGUI::Align::Default,

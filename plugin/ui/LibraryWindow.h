@@ -14,7 +14,7 @@ void CloseLibraryUI();
 void RefreshLibraryUI();
 void PopulateLibraryUI(const std::string &data);
 void SetLibraryText(const std::string &data);
-void ShowWrittenBio(const std::string &data);
+void OpenBioEditor(const std::string &data, const std::string &failureKey);
 void FinishKeptBio(const std::string &data);
 
 void OnLibraryNPCSelect(MyGUI::ListBox *sender, size_t index);

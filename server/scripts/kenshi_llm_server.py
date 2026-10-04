@@ -2394,20 +2394,32 @@ def write_library_bio():
     # The Library sends the campaign back with Keep, because the same npc_id can name another character in another campaign
     return bio_reply(data, profile.get("ConversationHistory", []), describe_race(profile.get("Race", "Unknown")), faction, campaign=campaign)
 
+@app.route('/read_bio', methods=['POST'])
+def read_library_bio():
+    """Answers in the shape of /write_bio, so Edit Bio in the Dialogue Library opens the same editor as Generate Bio."""
+    data = request.get_json(silent=True) or {}
+    campaign, sid = ACTIVE_CAMPAIGN, str(data.get("sid") or "")
+    profile = campaign_db.get_character(sid)
+    if not profile:
+        return jsonify({"status": "error", "message": "The character has no profile."}), 404
+    return jsonify({"status": "ok", "bio": {part: profile.get(part) or "" for part in BIO_PARTS}, "campaign": campaign})
+
 @app.route('/keep_bio', methods=['POST'])
 def keep_library_bio():
     data = request.get_json(silent=True) or {}
     refused = campaign_write(data)
     if refused: return refused
     sid, texts = str(data.get("sid") or ""), data.get("bio") or {}
-    bio = {part: str(texts[part]).strip() for part in BIO_PARTS if part in texts}
     profile = campaign_db.get_character(sid)
     if not profile:
         return jsonify({"status": "error", "message": "The character has no profile."}), 404
-    # Ends the provisional state, or a later bio from the chat threshold would overwrite the player's text
-    if not campaign_db.promote_profile(sid, bio):
-        campaign_db.upsert_profile(sid, bio)
-    logging.info(f"PROFILE: Stored the bio of {profile.get('Name', sid)} ({sid}) from the Dialogue Library.")
+    # As on Campaign Canon, only a changed part ends the provisional state, so a Keep of the rolled texts still gets the
+    # bio of the chat threshold, and that bio cannot overwrite the player's text
+    bio = {part: str(texts[part]).strip() for part in BIO_PARTS if part in texts and str(texts[part]).strip() != (profile.get(part) or "").strip()}
+    if bio:
+        if not campaign_db.promote_profile(sid, bio):
+            campaign_db.upsert_profile(sid, bio)
+        logging.info(f"PROFILE: Stored the bio of {profile.get('Name', sid)} ({sid}) from the Dialogue Library.")
     return jsonify({"status": "ok"})
 
 

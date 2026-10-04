@@ -212,7 +212,9 @@ void ProcessMessageQueue(GameWorld *thisptr) {
           } else if (command == "REPORT") {
             AsyncPostToPython(L"/report", GameReport());
           } else if (command == "BIO_WRITTEN") {
-            ShowWrittenBio(data);
+            OpenBioEditor(data, "Write failed: ");
+          } else if (command == "BIO_READ") {
+            OpenBioEditor(data, "Load failed: ");
           } else if (command == "BIO_KEPT") {
             FinishKeptBio(data);
           } else if (command == "POPULATE_EVENTS") {

@@ -416,9 +416,11 @@ Generate Bio in the editor (see [Web app](#web-app)) and in the Dialogue Library
 2. `/write_bio` returns the text.
 3. A second window shows each part in an edit box. Keep sends the text to `/keep_bio`, and Discard drops it.
 
-- `/keep_bio` writes only the parts that it gets. It ends the provisional state through `promote_profile`, as a save on Campaign Canon does.
-- The reply of `/write_bio` carries the active campaign, and Keep sends it back. `/keep_bio` refuses the text when that campaign is no longer active, because the same `npc_id` can name another character in another campaign.
-- Each window takes only the reply to its own request (`TakeBioReply` in `plugin/ui/LibraryWindow.cpp`), because the player can close the window or open it for another NPC while the LLM writes.
+Edit Bio in the Dialogue Library skips the LLM. `/read_bio` returns the stored `Personality`, `Backstory`, and `SpeechQuirks` in the shape of the `/write_bio` reply, and the same edit window opens.
+
+- `/keep_bio` writes only the parts whose text changed. A changed part ends the provisional state through `promote_profile`, as a save on Campaign Canon does. A Keep with no change writes nothing, so a provisional NPC still gets the bio of the chat threshold.
+- The replies of `/write_bio` and `/read_bio` carry the active campaign, and Keep sends it back. `/keep_bio` refuses the text when that campaign is no longer active, because the same `npc_id` can name another character in another campaign.
+- Each close of the window makes the pending reply stale (`CloseBioUI` in `plugin/ui/LibraryWindow.cpp`), because the player can close the window or open it for another NPC while a request runs.
 
 - `prompt_profile_generation.txt` gets the name, the sex, the race, the faction, the job, the race lore, the current `Personality`, `Backstory`, and `SpeechQuirks`, the dialogue so far, and the player's instructions. The current texts carry the rolled traits of a provisional profile. The prompt tells the LLM to keep the traits, the events of the backstory, the speech quirk, and everything that the NPC said. The instructions win over every other rule.
 - The bio keeps each part as strong as it was, takes no speech quirk from the wording of the dialogue, and keeps a goal from the backstory out of the personality and the reason for the job. The chat replies follow the bio, so a bio that grows a quirk or a goal makes the next replies wordier or more fixed on that goal.
