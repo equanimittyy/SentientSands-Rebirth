@@ -667,6 +667,16 @@ def job_field(ctx):
     job = job_of(ctx) if "squad_jobs" in ctx else None
     return {"CurrentJob": job} if job else {}
 
+def building_of(ctx):
+    """The building that the character is in, or None outdoors. The plugin sends Unknown outdoors."""
+    building = ctx.get("building_name")
+    return building if building and building != "Unknown" else None
+
+def building_field(ctx):
+    """The CurrentBuilding of a new profile."""
+    building = building_of(ctx)
+    return {"CurrentBuilding": building} if building else {}
+
 def describe_npc(name, profile, npc_id):
     race = profile.get("Race", "Unknown")
     current_faction = describe_faction(profile.get("Faction"), LIVE_CONTEXTS.get(npc_id, {}).get("factionID"))
@@ -716,6 +726,7 @@ def scene_values(player, player_name, facing=True):
             player.get("medical") or {}, not is_skeleton(race),
             player.get("faction", "Nameless"), player_faction["description"].strip() if player_faction else "",
             player.get("inventory") or [],
+            building_of(player),
         ),
     }
 
@@ -871,6 +882,7 @@ def new_profile(name, npc_id, ctx_data):
         "Faction": faction,
         "OriginFaction": fact("origin_faction"),
         **job_field(ctx_data),
+        **building_field(ctx_data),
         **provisional_profile.roll(npc_id, kind, race),
         "ConversationHistory": [],
         "Relation": int(float(ctx_data.get("relation", 0)) / 2),
@@ -1048,11 +1060,20 @@ def get_character_data(name, context=""):
                         data["CurrentJob"] = job
                         needs_save = True
 
+                # Only the full context of a chat target, a speaker, or a rename carries the building
+                if "building_name" in ctx_data:
+                    building = building_of(ctx_data)
+                    if building != data.get("CurrentBuilding"):
+                        logging.debug(f"PROFILE: Updating CurrentBuilding for {name}: {building}")
+                        data["CurrentBuilding"] = building
+                        needs_save = True
+
                 # Bypasses should_save_profile, which would drop generic-content profiles
                 if needs_save:
-                    campaign_db.upsert_profile(npc_id, {k: data[k] for k in ("Race", "Sex", "Faction", "OriginFaction", "CurrentJob") if k in data})
-                    if data.get("CurrentJob") is None:
-                        data.pop("CurrentJob", None)
+                    campaign_db.upsert_profile(npc_id, {k: data[k] for k in ("Race", "Sex", "Faction", "OriginFaction", "CurrentJob", "CurrentBuilding") if k in data})
+                    for key in ("CurrentJob", "CurrentBuilding"):
+                        if data.get(key) is None:
+                            data.pop(key, None)
         except Exception as e:
             logging.error(f"PROFILE: Cannot update the profile from the context: {e}")
 

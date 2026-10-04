@@ -38,7 +38,7 @@ COMBAT = [
     (80, "You are a formidable fighter."),
     (None, "Few in the world can match you in a fight."),
 ]
-# The strength of the person before the NPC minus the strength of the NPC
+# The fight skill of the person before the NPC minus the fight skill of the NPC
 STRENGTH_GAP = [
     (-30, "{name} looks much weaker than you."),
     (-10, "{name} looks weaker than you."),
@@ -53,15 +53,6 @@ MONEY = [
     (None, "You are wealthy."),
 ]
 RUMOR_AGE = [(1, "Earlier today"), (2, "Yesterday"), (7, "A few days ago"), (None, "Some time ago")]
-
-# (at 50 or more, under 15)
-ATTRIBUTES = {
-    "strength": ("strong", "weak"),
-    "dexterity": ("quick", "clumsy"),
-    "toughness": ("tough", "frail"),
-    "perception": ("perceptive", "inattentive"),
-    "athletics": ("fast", "slow"),
-}
 
 STATES = {
     "imprisoned": "You are imprisoned and cannot move freely.",
@@ -211,23 +202,21 @@ def limbs_text(limbs):
     return text[0].upper() + text[1:]
 
 
-def attributes_text(stats):
-    high = [word for key, (word, _) in ATTRIBUTES.items() if key in stats and _number(stats[key]) >= 50]
-    low = [word for key, (_, word) in ATTRIBUTES.items() if key in stats and _number(stats[key]) < 15]
-    if high and low:
-        return f"You are {_join(high)}, but {_join(low)}."
-    return f"You are {_join(high or low)}." if high or low else ""
-
-
-def strength_text(name, stats, other_stats):
-    if "strength" not in stats or "strength" not in other_stats:
-        return ""
-    return _scale(_number(other_stats["strength"]) - _number(stats["strength"]), STRENGTH_GAP).format(name=name)
+def _fight_skill(stats):
+    skills = [_number(stats[key]) for key in ("melee_attack", "melee_defence") if key in stats]
+    return max(skills) if skills else None
 
 
 def combat_text(stats):
-    skills = [_number(stats[key]) for key in ("melee_attack", "melee_defence") if key in stats]
-    return _scale(max(skills), COMBAT) if skills else ""
+    skill = _fight_skill(stats)
+    return _scale(skill, COMBAT) if skill is not None else ""
+
+
+def strength_text(name, stats, other_stats):
+    own, other = _fight_skill(stats), _fight_skill(other_stats)
+    if own is None or other is None:
+        return ""
+    return _scale(other - own, STRENGTH_GAP).format(name=name)
 
 
 def equipment_text(subject, items):
@@ -236,6 +225,16 @@ def equipment_text(subject, items):
     carried = [_a(item["name"]) for item in equipped if item.get("slot") == "weapon"]
     parts = ([f"wear {_join(worn)}"] if worn else []) + ([f"carry {_join(carried)}"] if carried else [])
     return f"{subject} {', and '.join(parts)}." if parts else ""
+
+
+def building_text(context, trader):
+    building = context.get("building_name")
+    # in_shop marks every NPC inside a shop or a bar, a customer too, so only a trader owns the shop
+    if trader and context.get("in_shop") and _known(building):
+        return f"You are in your shop, {building}."
+    if _known(building):
+        return f"You are inside {building}."
+    return "You are indoors." if (context.get("environment") or {}).get("indoors") else ""
 
 
 def location_text(environment):
@@ -260,8 +259,8 @@ def rumors_text(lines, today):
     return _section("Rumours:", sentences)
 
 
-def player_text(name, facing, race, sex, race_description, medical, feels_hunger, faction, faction_description, items):
-    """facing is False for banter, which has no NPC in front of the player."""
+def player_text(name, facing, race, sex, race_description, medical, feels_hunger, faction, faction_description, items, building=None):
+    """facing is False for banter, which has no NPC in front of the player. building is None outdoors."""
     who = person(race, sex)
     opener = "The individual before you is" if facing else "Nearby is"
     return _section("The person before you:" if facing else "The player:", [
@@ -272,6 +271,7 @@ def player_text(name, facing, race, sex, race_description, medical, feels_hunger
         f"They are a member of {faction}." if _known(faction) else "",
         _sentence(faction_description) if faction_description else "",
         equipment_text("They", items),
+        f"They are inside {building}." if building else "",
     ])
 
 
@@ -294,10 +294,9 @@ def npc_text(context, profile, player_name, player_faction, *, met, major, in_pl
         sentences.append(_sentence(faction_description) if faction_description else "")
     if _known(task):
         sentences.append(f"Your current task: {task}.")
-    if context.get("is_trader") or context.get("in_shop") or "shopkeeper" in task.lower():
+    trader = context.get("is_trader") or "shopkeeper" in task.lower()
+    if trader:
         sentences.append("You are a trader.")
-    if context.get("in_shop"):
-        sentences.append(f"You are in your shop, {context.get('building_name', 'Unknown')}.")
     if context.get("is_leader") and _known(faction):
         sentences.append(f"You lead {faction}.")
     if in_player_faction:
@@ -315,9 +314,8 @@ def npc_text(context, profile, player_name, player_faction, *, met, major, in_pl
         if medical.get("is_unconscious") and state != "unconscious":
             sentences.append(STATES["unconscious"])
         sentences.append(limbs_text(medical.get("limbs") or {}))
-    if (context.get("environment") or {}).get("indoors"):
-        sentences.append("You are indoors.")
-    sentences += [attributes_text(stats), strength_text(player_name, stats, player_stats or {}), combat_text(stats)]
+    sentences.append(building_text(context, trader))
+    sentences += [combat_text(stats), strength_text(player_name, stats, player_stats or {})]
     if "money" in context:
         sentences.append(_scale(_number(context["money"]), MONEY))
     for table, key in ((SHORT_TERM_MEMORIES, "short_term"), (LONG_TERM_MEMORIES, "long_term")):

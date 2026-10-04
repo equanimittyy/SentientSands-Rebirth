@@ -87,13 +87,9 @@ class SentenceTest(unittest.TestCase):
         self.assertEqual(scene_text.equipment_text("You", items[2:3]), "You carry a Katana.")
         self.assertEqual(scene_text.equipment_text("You", items[4:]), "")
 
-    def test_attributes_name_only_the_high_and_low_ones(self):
-        self.assertEqual(scene_text.attributes_text({"strength": 60, "toughness": 50, "athletics": 5, "dexterity": 30}), "You are strong and tough, but slow.")
-        self.assertEqual(scene_text.attributes_text({"strength": 30}), "")
-
     def test_strength_compares_the_player_with_the_npc(self):
-        self.assertEqual([scene_text.strength_text("Stick", {"strength": 50}, {"strength": v}) for v in (19, 20, 40, 60, 80)], [step.format(name="Stick") for _, step in scene_text.STRENGTH_GAP])
-        self.assertEqual(scene_text.strength_text("Stick", {"strength": 50}, {}), "")
+        self.assertEqual([scene_text.strength_text("Stick", {"melee_attack": 50, "melee_defence": 20}, {"melee_defence": v}) for v in (19, 20, 40, 60, 80)], [step.format(name="Stick") for _, step in scene_text.STRENGTH_GAP])
+        self.assertEqual(scene_text.strength_text("Stick", {"melee_attack": 50}, {"strength": 90}), "")
 
     def test_limbs(self):
         limbs = {"left_arm": -10, "left_arm_max": 100, "right_leg": 40, "right_leg_max": 100, "head": 100, "head_max": 100}
@@ -110,6 +106,7 @@ class SentenceTest(unittest.TestCase):
         text = scene_text.player_text("Drifter", True, "Skeleton", "Other", "Sentient machines from ancient times", {"blood": 100, "max_blood": 100, "hunger": 10}, False, "Nameless", "", [])
         self.assertEqual(text, "The person before you:\nThe individual before you is Drifter, a Skeleton. Sentient machines from ancient times. They seem healthy. They are a member of Nameless.")
         self.assertTrue(scene_text.player_text("Drifter", False, "Unknown", "male", "", {}, True, "Unknown", "", []).startswith("The player:\nNearby is Drifter."))
+        self.assertTrue(scene_text.player_text("Drifter", True, "Unknown", "male", "", {}, True, "Unknown", "", [], "Bar").endswith("They are inside Bar."))
 
     def test_the_npc_from_its_profile_repeats_neither_faction_nor_current_job(self):
         profile = {"Relation": -12, "Faction": "The Holy Nation", "CurrentJob": "Patrolling the town", "ConversationHistory": ["x"]}
@@ -133,9 +130,20 @@ class SentenceTest(unittest.TestCase):
         text = scene_text.npc_text(context, {}, "Drifter", "Nameless", met=True, major=False, in_player_faction=False, feels_hunger=True)
         self.assertIn("You now belong to Band of Bones.", text)
 
-    def test_the_strength_of_the_player_follows_the_attributes_of_the_npc(self):
-        text = scene_text.npc_text({"stats": {"strength": 60, "melee_attack": 40}}, {}, "Stick", "Nameless", met=True, major=False, in_player_faction=False, feels_hunger=True, player_stats={"strength": 10})
-        self.assertIn("You are strong. Stick looks much weaker than you. You are a seasoned fighter.", text)
+    def test_only_a_trader_owns_the_shop_that_it_is_in(self):
+        bar = {"in_shop": True, "building_name": "Bar", "environment": {"indoors": True}}
+        customer = scene_text.npc_text(bar, {}, "Stick", "Nameless", met=True, major=False, in_player_faction=False, feels_hunger=True)
+        self.assertIn("You are inside Bar.", customer)
+        self.assertNotIn("trader", customer)
+        owner = scene_text.npc_text({**bar, "is_trader": True}, {}, "Stick", "Nameless", met=True, major=False, in_player_faction=False, feels_hunger=True)
+        self.assertIn("You are a trader.", owner)
+        self.assertIn("You are in your shop, Bar.", owner)
+        self.assertEqual(scene_text.building_text({"building_name": "Unknown", "environment": {"indoors": True}}, False), "You are indoors.")
+        self.assertEqual(scene_text.building_text({"building_name": "Unknown", "environment": {"indoors": False}}, True), "")
+
+    def test_the_strength_of_the_player_follows_the_fight_skill_of_the_npc(self):
+        text = scene_text.npc_text({"stats": {"strength": 60, "toughness": 50, "melee_attack": 40}, "environment": {"indoors": True}}, {}, "Stick", "Nameless", met=True, major=False, in_player_faction=False, feels_hunger=True, player_stats={"strength": 90, "melee_attack": 5})
+        self.assertIn("You are indoors. You are a seasoned fighter. Stick looks much weaker than you.", text)
 
     def test_the_npc_names_the_companions_that_it_spoke_with(self):
         text = scene_text.npc_text({}, {"Relation": 0}, "Izumi", "Nameless", met=False, major=False, in_player_faction=False, feels_hunger=True, companions=["Stick"])
