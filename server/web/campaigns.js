@@ -53,7 +53,7 @@ function renderCurrent() {
     ...campaigns.map((campaign) => new Option(campaign.name, campaign.name, false, campaign.name === current)));
   return [el("fieldset", {},
     el("legend", {}, "Current Campaign"),
-    field("Campaign", choice, null, "The campaign that the game plays. Choose another one to switch to it. The next chat uses it."),
+    field("Campaign", choice, null, "The campaign that the game plays. Choose another one to switch to it."),
     refusal ? el("p", { className: "hint error" }, refusal) : null,
     ...(current && !refusal ? [
       el("p", { className: "hint" }, "Loaded an older save? Cull makes NPCs forget everything dated after the current game time."),
@@ -73,7 +73,7 @@ async function createCampaign(event) {
     if (switching) {
       await sendJson("POST", "/api/campaigns/switch", { name });
       steps.next();
-      notes.set("create", { text: `Created ${name} and switched to it. The next chat uses it.` });
+      notes.set("create", { text: `Created ${name} and switched to it.` });
     }
   } catch (error) {
     notes.set("create", { error: true, text: error.message });
@@ -117,7 +117,7 @@ async function switchCampaign(name) {
   }
   steps.next();
   notes.clear();
-  if (await loadCampaigns()) showMessage(message, `Switched to ${name}. The next chat uses it.`);
+  if (await loadCampaigns()) showMessage(message, `Switched to ${name}.`);
   steps.close();
 }
 
