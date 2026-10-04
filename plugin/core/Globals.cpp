@@ -45,5 +45,3 @@ std::string T(const std::string &key) {
     return it->second;
   return key;
 }
-
-DWORD g_lastContextPushTick = 0;

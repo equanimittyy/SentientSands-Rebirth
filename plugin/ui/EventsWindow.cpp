@@ -2,6 +2,7 @@
 #include "../core/Comm.h"
 #include "../core/Globals.h"
 #include "../core/Utils.h"
+#include "../game/Context.h"
 #include <mygui/MyGUI_Button.h>
 #include <mygui/MyGUI_Delegate.h>
 #include <mygui/MyGUI_Gui.h>
@@ -97,12 +98,15 @@ void OnSynthesizeClick(MyGUI::Widget *sender) {
     g_eventsText->addItem(
         Utf8ToWide(T("Synthesizing world narrative... Please wait.")).c_str());
   }
-  CreateThread(NULL, 0, SynthesizeThread, NULL, 0, NULL);
+  CreateThread(NULL, 0, SynthesizeThread, new std::string(GameReport()), 0,
+               NULL);
 }
 
 DWORD WINAPI SynthesizeThread(LPVOID lpParam) {
+  std::string *report = (std::string *)lpParam;
   Log(LOG_INFO, "EVENTS_WINDOW: Requesting manual synthesis...");
-  std::string response = PostToPythonWithResponse(L"/synthesize", "");
+  std::string response = PostToPythonWithResponse(L"/synthesize", *report);
+  delete report;
   if (!response.empty()) {
     std::string rumor = GetJsonValue(response, "rumor");
     if (!rumor.empty()) {

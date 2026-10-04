@@ -424,7 +424,8 @@ void OnChatSendClick(MyGUI::Widget *sender) {
       "], \"nearby\": [" + nearbyFullJson + "], \"message\": \"" +
       EscapeJSON(text) + "\", \"player\": \"" + EscapeJSON(playerName) +
       "\", \"mode\": \"" + mode + "\", \"context\": " + detailedContext +
-      ", \"speaker\": " + speakerContext + "}";
+      ", \"speaker\": " + speakerContext +
+      ", \"events\": " + TakeGameEvents() + "}";
 
   ChatTask *task = new ChatTask();
   task->json = json;

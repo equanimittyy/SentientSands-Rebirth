@@ -14,3 +14,5 @@ void LogNpcZone(Character *npc);
 void LogFactionList();
 void LogNpcRole(Character *npc);
 std::string RoleJson(Character *npc);
+std::string TakeGameEvents();
+std::string GameReport();

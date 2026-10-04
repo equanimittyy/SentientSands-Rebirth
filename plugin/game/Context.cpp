@@ -885,28 +885,6 @@ std::string GetDetailedContext(Character *npc, const std::string &type) {
     json += "[],";
   }
 
-  json += "\"events\": [";
-  EnterCriticalSection(&g_eventMutex);
-  int eventCount = 0;
-  for (int i = (int)g_gameEvents.size() - 1; i >= 0 && eventCount < 30;
-       --i, ++eventCount) {
-    if (eventCount > 0)
-      json += ",";
-    json += "{\"type\": \"" + EscapeJSON(g_gameEvents[i].type) + "\",";
-    json += "\"actor\": \"" + EscapeJSON(g_gameEvents[i].actor) + "\",";
-    json += "\"actor_faction\": \"" + EscapeJSON(g_gameEvents[i].actorFaction) +
-            "\",";
-    json += "\"target\": \"" + EscapeJSON(g_gameEvents[i].target) + "\",";
-    json += "\"target_faction\": \"" +
-            EscapeJSON(g_gameEvents[i].targetFaction) + "\",";
-    json += "\"msg\": \"" + EscapeJSON(g_gameEvents[i].message) + "\",";
-    json += "\"age\": " +
-            ToString((int)(GetTickCount() - g_gameEvents[i].timestamp) / 1000) +
-            "}";
-  }
-  LeaveCriticalSection(&g_eventMutex);
-  json += "],";
-
   if (ppWorld && *ppWorld && (*ppWorld)->player &&
       (*ppWorld)->player->playerCharacters.size() > 0) {
     Character *player = (*ppWorld)->player->playerCharacters[0];
@@ -939,4 +917,39 @@ std::string GetDetailedContext(Character *npc, const std::string &type) {
 
   json += "}";
   return json;
+}
+
+// Empties the buffer, because the server records each event that it gets
+std::string TakeGameEvents() {
+  std::deque<GameEvent> events;
+  EnterCriticalSection(&g_eventMutex);
+  events.swap(g_gameEvents);
+  LeaveCriticalSection(&g_eventMutex);
+
+  std::string json = "[";
+  for (size_t i = 0; i < events.size(); ++i) {
+    const GameEvent &e = events[i];
+    if (i > 0)
+      json += ",";
+    json += "{\"type\": \"" + EscapeJSON(e.type) + "\",";
+    json += "\"actor\": \"" + EscapeJSON(e.actor) + "\",";
+    json += "\"actor_faction\": \"" + EscapeJSON(e.actorFaction) + "\",";
+    json += "\"target\": \"" + EscapeJSON(e.target) + "\",";
+    json += "\"target_faction\": \"" + EscapeJSON(e.targetFaction) + "\",";
+    json += "\"msg\": \"" + EscapeJSON(e.message) + "\",";
+    json += "\"day\": " + ToString(e.day) + ",";
+    json += "\"hour\": " + ToString(e.hour) + ",";
+    json += "\"minute\": " + ToString(e.minute) + ",";
+    json += "\"town\": \"" + EscapeJSON(e.town) + "\"}";
+  }
+  return json + "]";
+}
+
+std::string GameReport() {
+  std::string player = "{}";
+  GameWorld *world = ppWorld ? *ppWorld : nullptr;
+  if (world && world->player && world->player->playerCharacters.size() > 0)
+    player = GetDetailedContext(world->player->playerCharacters[0], "player");
+  return "{\"player\": " + player + ", \"events\": " + TakeGameEvents() +
+         "}";
 }

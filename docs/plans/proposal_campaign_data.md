@@ -120,7 +120,6 @@ LIMIT :max_files;
 The profile `Faction` is the faction that SSR tells the LLM. Today the server writes the faction that the game reports into it only while it is `Unknown` (`get_character_data`). An NPC that changes faction in game, for example a recruit, therefore keeps its old faction in the prompts.
 
 - The server checks the faction of an NPC only when a chat or ambient banter uses the NPC. It compares the profile `Faction` with the faction in the context of that request, and it writes the profile only when the two are different.
-- The server does not check on each context post. The plugin posts the context of the selected character every 1.5 s (`plugin/main.cpp:1246`), so a check there would run all the time, also for an NPC that no prompt uses.
 
 ## 5. Campaign Dialogue
 

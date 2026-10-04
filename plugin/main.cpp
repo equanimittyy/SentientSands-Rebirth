@@ -207,6 +207,8 @@ void ProcessMessageQueue(GameWorld *thisptr) {
             }
           } else if (command == "REFRESH_LIBRARY") {
             RefreshLibraryUI();
+          } else if (command == "REPORT") {
+            AsyncPostToPython(L"/report", GameReport());
           } else if (command == "ENABLE_REGEN_BTN") {
             if (g_libraryRegenBtn)
               g_libraryRegenBtn->setEnabled(true);
@@ -1111,6 +1113,18 @@ void playerUpdate_hook(PlayerInterface *thisptr) {
   }
   LeaveCriticalSection(&g_stateMutex);
 
+  // The player renames a character while it is selected, and the profile must
+  // take the new name at once
+  static std::string selectedName;
+  if (sel && (uintptr_t)sel > 0x1000) {
+    std::string name = sel->getName();
+    Faction *faction = sel->getFaction();
+    if (!selectionChanged && name != selectedName && faction &&
+        faction->isThePlayer())
+      AsyncPostToPython(L"/squad_rename", GetDetailedContext(sel));
+    selectedName = name;
+  }
+
   // Driven from playerUpdate because it keeps ticking while the game is paused.
   GameWorld *world = *ppWorld;
   if (world) {
@@ -1118,22 +1132,14 @@ void playerUpdate_hook(PlayerInterface *thisptr) {
     static int invTimer = 0;
     ExecuteQueuedActions(world, invTimer);
 
-    static DWORD lastContextTick = 0;
+    // Chat and banter carry the events; the buffer drops its oldest past 100
+    EnterCriticalSection(&g_eventMutex);
+    bool eventsPileUp = g_gameEvents.size() >= 50;
+    LeaveCriticalSection(&g_eventMutex);
+    if (eventsPileUp)
+      AsyncPostToPython(L"/report", GameReport());
+
     DWORD now = GetTickCount();
-    if (selectionChanged || (now - lastContextTick > 1500)) {
-      lastContextTick = now;
-      g_lastContextPushTick = now;
-      if (sel && (uintptr_t)sel > 0x1000) {
-        LogNpcRole(sel);
-        AsyncPostToPython(L"/context", GetDetailedContext(sel));
-      }
-      if (world->player && world->player->playerCharacters.size() > 0) {
-        Character *player = world->player->playerCharacters[0];
-        if (player && (uintptr_t)player > 0x1000) {
-          AsyncPostToPython(L"/context", GetDetailedContext(player, "player"));
-        }
-      }
-    }
 
     static DWORD lastFrameTickForAmbient = GetTickCount();
     DWORD deltaTick = now >= lastFrameTickForAmbient ? (now - lastFrameTickForAmbient) : 0;
@@ -1237,7 +1243,10 @@ void playerUpdate_hook(PlayerInterface *thisptr) {
                 std::string *pJson = new std::string(
                     "{\"npcs\": " + npcData + ", \"player\": \"" +
                     EscapeJSON(player->getName()) + "\", \"day\": " +
-                    ToString(day) + ", \"hour\": " + ToString(hour) + "}");
+                    ToString(day) + ", \"hour\": " + ToString(hour) +
+                    ", \"player_context\": " +
+                    GetDetailedContext(player, "player") +
+                    ", \"events\": " + TakeGameEvents() + "}");
                 CreateThread(NULL, 0, AmbientPollThread, pJson, 0, NULL);
               }
             }
@@ -1305,20 +1314,6 @@ DWORD WINAPI MainThread(LPVOID lpParam) {
   CreateThread(NULL, 0, PipeThread, NULL, 0, NULL);
   LoadPluginConfig();
   StartPythonServer(g_openWebPanelOnStart);
-  while (true) {
-    DWORD now = GetTickCount();
-    if (now - g_lastContextPushTick > 5000) {
-      if (ppWorld && *ppWorld && (*ppWorld)->player &&
-          (*ppWorld)->player->playerCharacters.size() > 0) {
-        Character *player = (*ppWorld)->player->playerCharacters[0];
-        if (player && (uintptr_t)player > 0x1000) {
-          AsyncPostToPython(L"/context", GetDetailedContext(player, "player"));
-          g_lastContextPushTick = now;
-        }
-      }
-    }
-    Sleep(2000);
-  }
   return 0;
 }
 

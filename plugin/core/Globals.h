@@ -85,7 +85,8 @@ struct GameEvent {
   std::string target;
   std::string targetFaction;
   std::string message;
-  DWORD timestamp;
+  int day, hour, minute;
+  std::string town;
 };
 
 extern std::deque<GameEvent> g_gameEvents;
@@ -104,5 +105,3 @@ struct QueuedAction {
 
 extern std::deque<QueuedAction> g_uiActionQueue;
 extern CRITICAL_SECTION g_uiMutex;
-
-extern DWORD g_lastContextPushTick;

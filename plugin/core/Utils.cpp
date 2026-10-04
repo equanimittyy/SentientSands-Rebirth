@@ -9,6 +9,7 @@
 
 #include <algorithm>
 #include <cctype>
+#include <cmath>
 #include <cstdio>
 #include <cstdlib>
 #include <windows.h>
@@ -377,11 +378,17 @@ void StartPythonServer(bool openBrowser) {
     }
   }
 }
+#include <kenshi/Character.h>
+#include <kenshi/GameWorld.h>
+#include <kenshi/PlayerInterface.h>
+#include <kenshi/Town.h>
 void LogGameEvent(const std::string &type, const std::string &actor,
                   const std::string &actorFaction, const std::string &target,
                   const std::string &targetFaction,
                   const std::string &message) {
-  EnterCriticalSection(&g_eventMutex);
+  // The cull deletes by game time, so an event needs one
+  if (!ppWorld || !*ppWorld)
+    return;
   GameEvent ev;
   ev.type = type;
   ev.actor = actor;
@@ -389,7 +396,18 @@ void LogGameEvent(const std::string &type, const std::string &actor,
   ev.target = target;
   ev.targetFaction = targetFaction;
   ev.message = message;
-  ev.timestamp = GetTickCount();
+  TimeOfDay tod = (*ppWorld)->getTimeStamp_inGameHours();
+  ev.day = (int)tod.getTotalDays();
+  ev.hour = (int)fmod(tod.getTotalHours(), 24.0);
+  ev.minute = (int)fmod(tod.getTotalMinutes(), 60.0);
+  PlayerInterface *player = (*ppWorld)->player;
+  if (player && player->playerCharacters.size() > 0) {
+    TownBase *town = player->playerCharacters[0]->getCurrentTownLocation();
+    if (town)
+      ev.town = ((RootObjectBase *)town)->getName();
+  }
+
+  EnterCriticalSection(&g_eventMutex);
   g_gameEvents.push_back(ev);
   if (g_gameEvents.size() > 100) {
     g_gameEvents.pop_front();
@@ -408,7 +426,6 @@ void LogGameEvent(const std::string &type, const std::string &actor,
   Log(LOG_DEBUG, logMsg);
 }
 
-#include <kenshi/GameWorld.h>
 void SleepIfPaused(DWORD ms) {
   DWORD start = GetTickCount();
   while (GetTickCount() - start < ms) {

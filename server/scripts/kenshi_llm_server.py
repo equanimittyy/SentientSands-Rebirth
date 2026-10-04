@@ -100,7 +100,7 @@ STATE_LOCK = threading.Lock()
 SYNTHESIS_STATUS = {"elapsed": 0, "interval": 60}
 WRITE_REQUESTS = 0
 SEEN_FACTIONS = set()
-SQUAD_NAMES = {}  # npc_id: the last game name that sync_squad_name checked
+GAME_REPORTED = threading.Event()
 
 ANIMAL_RACES = [
     "Bonedog", "Boneyard Wolf", "Garru", "Beak Thing", "Gorillo",
@@ -153,7 +153,7 @@ def note_faction(ctx, is_player=False):
         campaign_db.note_faction(faction_id, name, is_player)
         SEEN_FACTIONS.add(key)
     except campaign_db.CampaignUnavailable:
-        pass  # load_campaign_config already logged why, and the plugin posts a context every 5 s
+        pass  # load_campaign_config already logged why
     except Exception as e:
         logging.warning(f"CAMPAIGN: Cannot record the faction {name}: {e}")
 
@@ -425,11 +425,12 @@ def generate_unique_lore_name(gender="Neutral"):
     
     return random.choice(available)
 
-def get_current_time_prefix():
-    if PLAYER_CONTEXT:
-        day = PLAYER_CONTEXT.get('day', 0)
-        hour = int(PLAYER_CONTEXT.get('hour', 0))
-        minute = int(PLAYER_CONTEXT.get('minute', 0))
+def get_current_time_prefix(ctx=None):
+    ctx = PLAYER_CONTEXT if ctx is None else ctx
+    if "day" in ctx:
+        day = ctx['day']
+        hour = int(ctx.get('hour', 0))
+        minute = int(ctx.get('minute', 0))
         return f"[Day {day}, {hour:02d}:{minute:02d}] "
     return ""
 
@@ -1072,18 +1073,19 @@ def npc_name(npc):
     in_squad = npc.get("in_player_faction") or is_player_faction(npc.get("faction"), npc.get("factionID"))
     return sync_name(npc, profile, in_squad)
 
-def sync_squad_name(npc_id, ctx):
-    """Checks a name once per change, because the plugin posts the context of the selected character every 1.5 s."""
-    if SQUAD_NAMES.get(npc_id) == ctx.get("name") or not is_player_faction(ctx.get("faction"), ctx.get("factionID")):
-        return
+@app.route('/squad_rename', methods=['POST'])
+def squad_rename():
+    """The plugin posts the context of a squad member that the player renamed in game, and the profile takes the name."""
+    ctx = request.get_json(silent=True) or {}
+    if not ctx.get("npc_id"):
+        return jsonify({"status": "error", "message": "Missing the NPC ID"}), 400
     try:
-        profile = campaign_db.get_character(npc_id)
-    except campaign_db.CampaignUnavailable:
-        return  # load_campaign_config already logged why
-    SQUAD_NAMES[npc_id] = ctx.get("name")
+        profile = campaign_db.get_character(ctx["npc_id"])
+    except campaign_db.CampaignUnavailable as e:
+        return jsonify({"status": "error", "message": str(e)}), 409
     if profile:
         sync_name(ctx, profile, True)
-
+    return jsonify({"status": "ok"})
 
 @app.route('/rename', methods=['POST'])
 def rename_character():
@@ -1109,6 +1111,7 @@ def ambient_event():
     logging.debug("HTTP: POST /ambient")
     data = request.json
     if not data: return jsonify({"status": "error"}), 400
+    take_report(data.get('player_context'), data.get('events'))
     
     npcs_data = data.get('npcs', [])
     player_name = data.get('player', 'Drifter')
@@ -1296,6 +1299,10 @@ def chat():
     data = request.json
     logging.debug("HTTP: POST /chat")
     if not data: return jsonify({"text": "Error: No JSON data provided"}), 400
+
+    # The squad member who talks
+    speaker = context_dict(data.get('speaker'))
+    take_report(speaker, data.get('events'))
     
     raw_npc = data.get('npc', 'Someone')
     raw_npcs = data.get('npcs', [])
@@ -1370,7 +1377,7 @@ def chat():
                 item_name = inv[0].get("name", "Unknown Item")
                 test_action = f"[ACTION: TAKE_ITEM: {item_name}]"
             else:
-                return jsonify({"text": "[DEBUG] Error: Player inventory is empty or unknown. Call /context to refresh.", "actions": []}), 200
+                return jsonify({"text": "[DEBUG] Error: Player inventory is empty or unknown.", "actions": []}), 200
         elif cmd == "drop": test_action = f"[ACTION: DROP_ITEM: {args}]"
         elif cmd == "spawn": test_action = f"[ACTION: SPAWN_ITEM: {args}]"
         elif cmd == "relations":
@@ -1416,9 +1423,6 @@ def chat():
 
     if primary_id:
         primary_npc = npc_name(ctx_dict)
-
-    # The squad member who talks
-    speaker = context_dict(data.get('speaker'))
 
     _, talk_radius, yell_radius = get_config_radii()
     # A whisper is one-on-one: nobody overhears
@@ -1578,7 +1582,9 @@ def chat():
     return jsonify({"error": "No reply from the LLM.", "status": "error"}), 502
 
 
-def record_event_to_history(etype, actor, target, msg, actor_faction="None", target_faction="None"):
+def record_event_to_history(etype, actor, target, msg, actor_faction="None", target_faction="None", when=None):
+    """`when` holds the game time and the player's town of an event from the game, which can arrive minutes after it.
+    An event of the server takes them from the player's context."""
     global EVENT_THROTTLE, LAST_STATE_LOG
     if not msg: return
     
@@ -1594,14 +1600,12 @@ def record_event_to_history(etype, actor, target, msg, actor_faction="None", tar
     actor_part = f"{actor} ({a_fact_display})" if a_fact_display and a_fact_display != "None" else actor
     target_part = f"{target} ({t_fact_display})" if t_fact_display and t_fact_display != "None" else target
     
-    location = ""
-    if PLAYER_CONTEXT:
+    if when is None:
         env = PLAYER_CONTEXT.get("environment", {})
-        town = env.get("town_name", "") if isinstance(env, dict) else ""
-        if town:
-            location = f" @ {town}"
+        when = {**PLAYER_CONTEXT, "town": env.get("town_name", "") if isinstance(env, dict) else ""}
+    location = f" @ {when['town']}" if when.get("town") else ""
     
-    time_str = get_current_time_prefix().strip()
+    time_str = get_current_time_prefix(when).strip()
     prefix = f"{time_str} " if time_str else ""
     # The Editor's event table parses this format with EVENT_LINE in server/web/editor.js
     evt_str = f"{prefix}[{etype}] {actor_part} -> {target_part}{location}: {msg}"
@@ -1720,6 +1724,8 @@ def generate_global_narrative_thread():
 
 @app.route('/synthesize', methods=['POST'])
 def manual_synthesize():
+    data = request.get_json(silent=True) or {}
+    take_report(data.get("player"), data.get("events"))
     if not RUMOR_SYNTHESIS:
         return jsonify({"status": "error", "message": "Rumor generation is off."}), 400
     # Synchronous, despite the name, so the result can be returned
@@ -1780,43 +1786,29 @@ def events_content():
         logging.error(f"EVENT: Cannot build the events text: {e}")
     return jsonify({"status": "error", "text": "Entry not found."}), 404
 
-@app.route('/context', methods=['POST'])
-def update_context():
+def take_report(player, events):
+    """Keeps the player's context and records the game events that a request from the plugin carries. The plugin sends
+    neither on a timer, so the player's context is the one of the latest request."""
     global PLAYER_CONTEXT
-    data = request.json
-    if not data: return jsonify({"status": "error"}), 400
-    
-    # Skipped while paused or stopped, to prevent event loops
-    is_paused = data.get("is_paused", False)
-    game_speed = data.get("gamespeed", 1.0)
-    
-    # An event without a game time is never culled; the plugin sends its recent events again with each post
-    if not is_paused and game_speed > 0.05 and "day" in PLAYER_CONTEXT:
-        new_events = data.get("events", [])
-        for e in new_events:
-            record_event_to_history(
-                e.get("type", "EVENT"),
-                e.get("actor", "Unknown"),
-                e.get("target", "None"),
-                e.get("msg", ""),
-                actor_faction=e.get("actor_faction", "None"),
-                target_faction=e.get("target_faction", "None")
-            )
+    if player:
+        PLAYER_CONTEXT = player
+        note_faction(player, is_player=True)
+    for e in events or []:
+        record_event_to_history(e.get("type", "EVENT"), e.get("actor", "Unknown"), e.get("target", "None"), e.get("msg", ""),
+                                actor_faction=e.get("actor_faction", "None"), target_faction=e.get("target_faction", "None"), when=e)
 
-    note_faction(data, is_player=data.get("type") == "player")
-    if data.get("type") == "player":
-        prev_paused = PLAYER_CONTEXT.get("is_paused")
-        PLAYER_CONTEXT = data
-        if prev_paused != data.get("is_paused"):
-             logging.debug(f"CONTEXT: Player pause state changed to {data.get('is_paused')} (Speed: {data.get('gamespeed')})")
-    else:
-        npc_id = data.get("npc_id")
-        if npc_id:
-            LIVE_CONTEXTS[npc_id] = data
-            with STATE_LOCK:
-                LAST_STATE_LOG["npc"] = data
-            sync_squad_name(npc_id, data)
+@app.route('/report', methods=['POST'])
+def game_report():
+    data = request.get_json(silent=True) or {}
+    take_report(data.get("player"), data.get("events"))
+    GAME_REPORTED.set()
     return jsonify({"status": "ok"})
+
+def report_from_game(timeout=5):
+    """Asks the game for a report and waits for it. False when no report comes, for example from the main menu."""
+    GAME_REPORTED.clear()
+    send_to_pipe("REPORT:")
+    return GAME_REPORTED.wait(timeout)
 
 
 @app.route('/context', methods=['GET'])
@@ -1832,7 +1824,7 @@ def get_context():
     return jsonify({
         "status": "ok",
         "player": PLAYER_CONTEXT or LAST_STATE_LOG.get("player", {}),
-        "npc": last_npc or LAST_STATE_LOG.get("npc", {}),
+        "npc": last_npc or {},
         "campaign": ACTIVE_CAMPAIGN,
         # Both counts only grow, so the sum changes when either does
         "writes": campaign_db.writes + WRITE_REQUESTS,
@@ -2024,7 +2016,6 @@ def switch_campaign(name):
         save_settings({"current_campaign": name})
         LIVE_CONTEXTS.clear()
         SEEN_FACTIONS.clear()
-        SQUAD_NAMES.clear()
         CONVERSATION_SCENE.clear()
         load_campaign_config()
         return True
@@ -2368,11 +2359,16 @@ def cull_campaign():
     data = request.get_json(silent=True) or {}
     refused = campaign_write(data)
     if refused: return refused
+    # The player's context dates from the latest request, and a cull by an older time would delete what came after it
+    if not report_from_game():
+        return jsonify({"status": "error", "message": "Cull needs the game running, because it deletes what is dated after the current game time."}), 409
     return cull_future_data()
 
 # The game always means the active campaign, so this route has no campaign check
 @app.route('/cull', methods=['POST'])
 def cull_from_game():
+    data = request.get_json(silent=True) or {}
+    take_report(data.get("player"), data.get("events"))
     return cull_future_data()
 
 def cull_future_data():

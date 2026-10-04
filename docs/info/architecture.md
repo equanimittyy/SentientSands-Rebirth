@@ -46,7 +46,7 @@ SentientSandsRebirth/
 ## Runtime flow
 
 1. RE_Kenshi loads `SentientSands.dll` and calls `startPlugin`. The plugin installs its KenshiLib hooks and starts `MainThread`.
-2. `MainThread` waits for `KenshiLib.dll`. Then it starts the pipe listener (`PipeThread`), loads the INI, and starts the server. After that, it posts the player's context to `/context` at most once every 5 seconds.
+2. `MainThread` waits for `KenshiLib.dll`. Then it starts the pipe listener (`PipeThread`), loads the INI, and starts the server.
 3. If `OpenWebPanelOnStart` in the INI is `1`, this first server start passes `--open-browser`. The server waits until its port accepts connections, and then 3 s more, so that a tab from an earlier start can reconnect. It opens the web app in the default browser only when no tab is open (see [Web app](#web-app)). A restart from the launcher does not pass the flag, so the player does not get a second tab.
 4. The server listens on `127.0.0.1:5000`. The plugin sends HTTP POST requests to it through WinHTTP (`plugin/core/Comm.cpp`) for chat, history, settings, profiles, and events. The server rejects a request whose `Host` header is not `127.0.0.1:5000` or `localhost:5000`, or whose `Origin` header names another site (`server/scripts/request_guard.py`). This stops web pages in the player's browser from using the server. A new caller must use one of these two host names.
 5. The server sends commands back through the named pipe `\\.\pipe\SentientSands`, which the plugin hosts. Examples are `SET_CONFIG`, `NOTIFY`, and `NPC_RENAME`.
@@ -55,6 +55,34 @@ SentientSandsRebirth/
 ## Threading
 
 Background threads do not change game objects or MyGUI widgets. The pipe listener, the HTTP response threads, and the UI worker threads push text messages onto `g_messageQueue` under `g_msgMutex` (`plugin/core/Globals.h`). `playerUpdate_hook` runs on the game thread and drains the queue through `ProcessMessageQueue` (`plugin/main.cpp`). New code that produces results off the game thread must hand them over through this queue.
+
+## Game state
+
+The plugin reads the game state only when a request needs it, and ambient banter is its only post on a timer. This keeps SSR from adding load to the game while no prompt uses the data.
+
+| Request | Game state that it carries |
+|---|---|
+| Chat (`/chat`) | The context of the target, the context of the squad member who speaks (`speaker`), and the game events |
+| Ambient banter (`/ambient`) | The banter NPCs, the player's context (`player_context`), and the game events |
+| Cull Future Data (`/cull`) in the SSR HUB, and Generate World Event (`/synthesize`) in the Dynamic World Events Log | A report: the player's context and the game events (`GameReport` in `plugin/game/Context.cpp`) |
+| `/report` | A report, when 50 game events wait, or when the server sends `REPORT` through the pipe |
+| `/squad_rename` | The context of the selected character, when the player renames a member of the squad in game (see [Names](#names)) |
+
+- The server keeps the player's context of the latest request (`take_report`). Its game time and town can be old between requests, so a value that must be current comes with the request that uses it.
+- The cull of the web app sends `REPORT` and waits up to 5 s for the report (`report_from_game`). It refuses the cull when no report comes, for example while the game shows the main menu, because a cull by an older game time deletes what the player did after that time.
+- Rejected: a context post every 1.5 s. It built two full contexts on the game thread, with the scan for nearby NPCs and the inventory, and it started two HTTP threads, also while no prompt used the data.
+
+### Game events
+
+The hooks in `plugin/main.cpp` log game events, such as combat, trade, and deaths, into a buffer (`LogGameEvent` in `plugin/core/Utils.cpp`). The server writes each event to the campaign (`record_event_to_history`).
+
+- Each event gets the game time and the town of the player when its hook fires, because the event reaches the server only with the next request. That request can come minutes later.
+- A request takes the events out of the buffer (`TakeGameEvents`), so the plugin sends each event once.
+- The buffer holds 100 events and drops the oldest. The frame hook sends a report when 50 events wait.
+- The plugin drops an event while it has no game world, because the event has no game time, and the cull deletes by game time.
+- An event is lost when the request that carries it fails, or when the game closes before a request takes it.
+- The server drops an event that repeats the last message for its target and type, and the same event within 30 s, because some hooks, such as the knockout hook, fire more than once for one change.
+- Rejected: the last 30 events in each context post. The server got each event again every 1.5 s, and its check for repeats let a repeat through after 30 s, so it wrote the same events to the campaign again and again.
 
 ## Web app
 
@@ -256,7 +284,7 @@ Each campaign holds its own copy of the factions, keyed by the string ID of the 
 - The loyalty note for members of a major world power reads the `major` flag.
 - A faction that a context reports and the copy lacks gets a row with the name that the game gives and an empty description (`note_faction`). The plugin sends the name, or `Neutral`, as the ID of a faction with no string ID, and the server records no row for those.
 - The player's faction is the row of the `factionID` of the player's context. Its name follows the game, because the player can rename the faction in game. Its description is the player faction block of the chat prompt, and an empty description leaves the block out.
-- The server records each reported faction once per campaign in memory (`SEEN_FACTIONS`), because the plugin posts the player's context every 5 s.
+- The server records each reported faction once per campaign in memory (`SEEN_FACTIONS`), because each chat and banter carries the player's context.
 
 ### Characters
 
@@ -281,7 +309,7 @@ The `character` table holds every character of a campaign in one shape: the cano
 - Rejected: the `npc_id` of the speaker inside the line text. The text reaches the LLM, the Dialogue Library, and the bio prompt.
 - The player section of the chat scene describes the squad member who speaks, the `speaker` of the chat request: its name, race, sex, health, hunger, faction with the description of the player's faction, and worn equipment. Its money stays out, because an NPC cannot see a wallet. Its personality, backstory, and speech quirks stay out, because they serve only an LLM that speaks as that character. The chat window offers the members of the current squad except the talk target, and starts on the last speaker while that character is still in the squad. Ambient banter has no speaker, so it uses squad slot 1 from the player's context.
 - The Dialogue Library lists each character with dialogue and each character that is not seeded, so the seeded characters that the player never met stay out of it.
-- `LIVE_CONTEXTS` holds the latest context of each NPC by `npc_id`.
+- `LIVE_CONTEXTS` holds the latest context of each NPC that a chat reported, by `npc_id`.
 
 ### Names
 
@@ -306,7 +334,7 @@ The server adds no title to a game name. It sends `NPC_RENAME: <npc_id>|<Name>` 
 - The plugin renames only an NPC that the game has loaded. A save on the web app renames a loaded NPC at once. Each other NPC gets the new name at the next chat or banter that it takes part in.
 - Outside the player's faction, the profile wins. Each chat or banter renames an NPC whose game name gives another `Name` than its profile (`sync_name`). The rename goes out before the LLM call, so the name changes in game before the reply. This also gives back a name that the game lost, for example after the load of an earlier save.
 - The player can rename a squad member in game, so in the player's faction the game name wins, and the server stores it as the `Name`. Only the template name is not a rename by the player, because it shows that the game lost the name, so the server sends the `Name` to the game instead.
-- The server checks a squad member also at the context posts of the selected character, once for each game name (`sync_squad_name`, `SQUAD_NAMES`), so a rename in game reaches the profile without a chat. The plugin posts that context every 1.5 s, so the check costs one database read for each new name.
+- A rename of a squad member in game reaches the profile at once. The frame hook compares the name of the selected character in each frame, because the player renames a character while it is selected. When the name changes and the character is in the player's faction, the plugin posts its context to `/squad_rename`, and the server stores the game name (`sync_name`). The check builds no context until a rename happens.
 - The faction of a banter NPC is its identity faction, so the plugin marks a squad member with `in_player_faction`.
 - A name from `/name` in the chat window becomes the `Name` as the player typed it, and the server sends no rename for it. `/rename` stores a profile for an NPC that has none, so the campaign keeps the name when the game loses it. It relabels the dialogue by the stored `Name`, because a titled game name is not the name in the dialogue.
 - The prompt and the dialogue history use the `Name`, and `campaign_db.rename_character` relabels the lines that the NPC spoke.
@@ -342,7 +370,7 @@ The `CurrentJob` of a profile is a short phrase for what the NPC does in game no
 - Mods rename AI packages, squads, and templates, but the task types belong to the engine (see [Kenshi internals](kenshi_internals.md#roles)), so one squad job gives one phrase in every mod list.
 - `TABLE` puts a side task, such as a turret or a bar visit, after the jobs that it would otherwise hide, because many guard and town packages hold one.
 - A hire contract comes before the player's faction, because a hired NPC follows the player without a recruit.
-- The server updates the `CurrentJob` only when a chat, banter, or rename writes the record of the NPC (`get_character_data`). A context post leaves it as it is.
+- The server updates the `CurrentJob` only when a chat, banter, or rename writes the record of the NPC (`get_character_data`).
 - A value of None removes the key (`upsert_profile`), because the template validator takes only text and numbers as profile values.
 - Campaign Canon shows the `CurrentJob` read-only, and Templates do not show it, because the game sets it. The text of a canon role, such as Noble of the United Cities, is the first sentence of the `Backstory`.
 - Rejected: the template title as the job. A mod can rename a template, one template serves squads with different roles, and the title stayed after a recruit.
@@ -401,15 +429,16 @@ Generate Bio in the editor uses the same prompt through `write_bio`, but it stor
 | `POST /api/campaigns/switch` | Make a campaign the current one. The name must be a folder that the campaign list shows, so a name such as `../x` cannot point outside `server/campaigns/`. |
 | `POST /api/campaigns/delete` | Delete a campaign folder, with the same name check. Before it deletes the current campaign, it switches to the first other one. When no other campaign remains, the server has no current campaign (see [Campaign storage](#campaign-storage)). |
 | `GET /api/campaign` | The active campaign: its events and rumors. A refused campaign gives status 409 with the reason. |
-| `GET /api/campaign/canon` | The canon of the active campaign, each record with its `origin` and `updated_at`, and each character with the `current_faction` that the game reported since the server started (`LIVE_CONTEXTS`), or `null`. A refused campaign gives status 409 with the reason. |
+| `GET /api/campaign/canon` | The canon of the active campaign, each record with its `origin` and `updated_at`, and each character with the `current_faction` that a chat reported since the server started (`LIVE_CONTEXTS`), or `null`. A refused campaign gives status 409 with the reason. |
 | `POST /api/campaign/records`, `.../records/delete` | Save or delete one canon record of the active campaign. A faction, character, race, location, or region with no ID is new. |
 | `POST /api/campaign/characters/bio` | The LLM text of the full bio, or of one part, for the form of a character. It stores nothing (see [Provisional profiles](#provisional-profiles)). |
 | `POST /api/campaign/rumors`, `.../rumors/delete` | Edit the rumors of the active campaign |
-| `POST /api/campaign/cull` | Delete the dialogue, events, and rumors dated after the current game time, after the player loads an older save. It needs the player's context from the running game, because without it day 0 would count as now and the cull would delete the whole history. |
+| `POST /api/campaign/cull` | Delete the dialogue, events, and rumors dated after the current game time, after the player loads an older save. It asks the running game for a report and refuses the cull without one (see [Game state](#game-state)), because without the game time day 0 would count as now and the cull would delete the whole history. |
 
 - Each edit names the campaign that the page loaded. Another tab can switch the campaign while the page is open, so the server refuses an edit for another campaign instead of writing it into the active one.
 - **Cull Future Data** in the SSR HUB posts to `POST /cull`, which does the same cull without the campaign check, because the game always means the active campaign. The plugin shows the result as a game message.
-- The server writes no world event from a context post and no rumor until a player context gives it the game time, because the cull never deletes a line without a game time. The plugin sends its recent events with each post, so a later post brings the events that the server skipped.
+- The cull of the SSR HUB carries a report, and the server writes its events before the cull. The buffer can hold events from before the load of the older save, which are dated after the loaded game time, so the cull deletes them.
+- The server writes no rumor until a player context gives it the game time, because the cull never deletes a line without a game time.
 - An edit of a faction, a character, a race, a location, or a region carries the `updated_at` that the page loaded, and the server refuses it when the row changed after that, for example when the game renamed the player's faction. An edit without `updated_at` counts as stale. The name of the player's faction is not editable, because the next context would undo it.
 - The web app offers no delete for the player's faction. The game reports the faction again, and the server then adds it back with an empty description, so a delete would only lose the description.
 - A rumor edit replaces only the text of its `[RUMOR: ...]` tag and keeps its game time. Brackets in the text become parentheses, because the prompt reads the rumor up to the first `]`.

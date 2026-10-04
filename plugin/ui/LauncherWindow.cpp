@@ -4,6 +4,7 @@
 #include "../core/Globals.h"
 #include "LibraryWindow.h"
 #include "../core/Utils.h"
+#include "../game/Context.h"
 #include "WelcomeWindow.h"
 #include <shellapi.h>
 #include <mygui/MyGUI_Button.h>
@@ -44,8 +45,10 @@ void CloseCullUI() {
 }
 
 DWORD WINAPI CullThread(LPVOID lpParam) {
+  std::string *report = (std::string *)lpParam;
   Log(LOG_INFO, "LAUNCHER: Requesting cull of future data...");
-  std::string response = PostToPythonWithResponse(L"/cull", "");
+  std::string response = PostToPythonWithResponse(L"/cull", *report);
+  delete report;
   std::string text;
   if (GetJsonValue(response, "status") == "ok") {
     text = T("Culled the data dated after: ") +
@@ -67,7 +70,7 @@ DWORD WINAPI CullThread(LPVOID lpParam) {
 
 void OnCullConfirmClick(MyGUI::Widget *sender) {
   CloseCullUI();
-  CreateThread(NULL, 0, CullThread, NULL, 0, NULL);
+  CreateThread(NULL, 0, CullThread, new std::string(GameReport()), 0, NULL);
 }
 
 void OnCullCancelClick(MyGUI::Widget *sender) { CloseCullUI(); }
