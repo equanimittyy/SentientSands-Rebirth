@@ -296,12 +296,14 @@ label > * {
   grid-column: -2 / -1;
 }
 
+/* Not a flex row: a wrapped label stretches its flex item to the column edge and leaves the medallion far from its last word. */
 label > .label-text {
   grid-column: 1;
   position: relative;
-  display: flex;
-  align-items: baseline;
-  gap: 0.35em;
+}
+
+label > .label-text > .help {
+  margin-left: 0.35em;
 }
 
 .help {
