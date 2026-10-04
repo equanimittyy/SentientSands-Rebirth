@@ -77,13 +77,68 @@ class HistoryTurnsTest(unittest.TestCase):
     def test_a_line_without_a_speaker_is_never_the_npc_line(self):
         self.assertEqual(chat_prompt.history_turns([("Beep: Hello.", None)], None), [{"role": "user", "content": "Beep: Hello."}])
 
-    def test_only_lines_that_the_npc_did_not_overhear_count_as_spoken(self):
-        self.assertFalse(chat_prompt.has_spoken([]))
-        self.assertFalse(chat_prompt.has_spoken(["[Day 3, 14:02] (Overheard) Drifter: hey Ruka", "(Overheard) (Whispered) Kai: psst"]))
-        self.assertTrue(chat_prompt.has_spoken(["[Day 3, 14:02] (Overheard) Drifter: hey Ruka", "[Day 3, 14:03] Drifter: (Overheard) nothing"]))
+    def test_only_lines_of_the_squad_member_that_the_npc_did_not_overhear_count_as_spoken(self):
+        stick, izumi = "h:10", "h:11"
+        self.assertFalse(chat_prompt.has_spoken_with([], izumi))
+        overheard = [("[Day 3, 14:02] (Overheard) Izumi to Ruka: hey Ruka", izumi, 1), ("(Overheard) (Whispered) Izumi to Kai: psst", izumi, 2)]
+        self.assertFalse(chat_prompt.has_spoken_with(overheard, izumi))
+        spoke = [*overheard, ("[Day 3, 14:03] Stick: (Overheard) nothing", stick, 3)]
+        self.assertTrue(chat_prompt.has_spoken_with(spoke, stick))
+        self.assertFalse(chat_prompt.has_spoken_with(spoke, izumi))
+
+    def test_a_squad_member_of_the_same_name_has_not_spoken(self):
+        self.assertFalse(chat_prompt.has_spoken_with([("[Day 3, 14:03] Ruka: hi", "h:12", 1)], "h:13"))
+
+    def test_the_companions_are_the_other_speakers_in_the_order_of_their_first_line(self):
+        entries = [
+            ("[Day 3, 14:01] Stick: hi", "h:10", 1),
+            ("[Day 3, 14:01] Beep: Beep friend!", BEEP, 1),
+            ("[Day 3, 14:05] (Overheard) Mikse to Ruka: psst", "h:12", 2),
+            ("[Day 4, 08:00] Ruka: Hot today.", "h:13", None),
+            ("[Day 4, 08:01] Stick: again", "h:10", 3),
+            ("[Day 4, 09:00] Izumi: hey", "h:11", 4),
+            ("[Day 4, 09:01] Drifter: hey", None, 4),
+        ]
+        self.assertEqual(chat_prompt.companions(entries, BEEP, "h:11"), ["h:10", "h:13"])
 
     def test_an_empty_reply_is_never_empty_content(self):
         self.assertEqual(chat_prompt.history_turns([("Drifter: hi", None), ("Beep:", BEEP)], BEEP)[-1], {"role": "assistant", "content": "..."})
+
+
+class OverheardNotesTest(unittest.TestCase):
+    MEMBERS = {
+        1: [("h:10", "Stick", "speaker", True), (BEEP, "Beep", "speaker", False), ("h:11", "Izumi", "overheard", True), ("h:12", "Ruka", "overheard", False), ("h:13", "Mikse", "overheard", True)],
+        2: [("h:11", "Izumi", "speaker", True), ("h:14", "Jorge", "speaker", False), (BEEP, "Beep", "overheard", False), ("h:10", "Stick", "overheard", True)],
+        3: [("h:10", "Stick", "speaker", True), (BEEP, "Beep", "speaker", False), ("h:12", "Ruka", "overheard", False)],
+        4: [("h:10", "Stick", "speaker", True), (BEEP, "Beep", "speaker", False), ("h:15", None, "overheard", True)],
+    }
+
+    def test_a_speaker_hears_who_of_the_player_faction_overheard(self):
+        self.assertEqual(chat_prompt.overheard_notes(self.MEMBERS, BEEP), {1: "Izumi and Mikse heard your conversation with Stick."})
+
+    def test_the_squad_member_reads_the_note_of_its_own_thread(self):
+        self.assertEqual(chat_prompt.overheard_notes(self.MEMBERS, "h:11"), {2: "Stick heard your conversation with Jorge."})
+
+    def test_each_note_follows_the_last_line_of_its_thread(self):
+        entries = [
+            ("[Day 3, 14:01] Stick: hi", "h:10", 1),
+            ("[Day 3, 14:01] Beep: Beep friend!", BEEP, 1),
+            ("[Day 3, 14:02] Ruka: Hot today.", "h:12", None),
+            ("[Day 3, 14:03] Stick: bye", "h:10", 1),
+            ("[Day 3, 14:03] Beep: Bye!", BEEP, 1),
+            ("[Day 4, 08:00] Stick: back", "h:10", 3),
+        ]
+        note = "Izumi and Mikse heard your conversation with Stick."
+        self.assertEqual(chat_prompt.with_notes(entries, {1: note}), [
+            ("[Day 3, 14:01] Stick: hi", "h:10"),
+            ("[Day 3, 14:01] Beep: Beep friend!", BEEP),
+            ("[Day 3, 14:02] Ruka: Hot today.", "h:12"),
+            ("[Day 3, 14:03] Stick: bye", "h:10"),
+            ("[Day 3, 14:03] Beep: Bye!", BEEP),
+            (note, None),
+            ("[Day 4, 08:00] Stick: back", "h:10"),
+        ])
+        self.assertEqual(chat_prompt.history_turns(chat_prompt.with_notes(entries[3:5], {1: note}), BEEP)[-1], {"role": "user", "content": note})
 
 
 class ChatMessagesTest(unittest.TestCase):

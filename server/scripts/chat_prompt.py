@@ -7,6 +7,8 @@ each turn comes last, in the final user message.
 
 import re
 
+import scene_text
+
 _TIME_PREFIX = re.compile(r"^\[Day [^\]]*\]\s*")
 # Some chat templates require the turns after the system message to start with a user message
 EARLIER = "(Earlier conversation)"
@@ -30,9 +32,49 @@ def overhearers(nearby, radius, excluded_ids):
     return list(found.values())
 
 
-def has_spoken(lines):
-    """Lines that the NPC only overheard do not count."""
-    return any(not _TIME_PREFIX.sub("", line).startswith("(Overheard)") for line in lines)
+def _overheard(line):
+    return _TIME_PREFIX.sub("", line).startswith("(Overheard)")
+
+
+def has_spoken_with(entries, speaker_id):
+    """entries are the (line, speaker, ...) rows of the NPC. The speaker, not the name, marks the lines of the squad
+    member, and a line that the NPC only overheard does not count."""
+    return any(speaker == speaker_id and not _overheard(line) for line, speaker, *_ in entries)
+
+
+def companions(entries, npc_id, speaker_id):
+    """The other speakers of the lines that the NPC did not only overhear, in the order of their first line."""
+    found = []
+    for line, speaker, *_ in entries:
+        if speaker and speaker not in (npc_id, speaker_id, *found) and not _overheard(line):
+            found.append(speaker)
+    return found
+
+
+def overheard_notes(members, npc_id):
+    """The note of each thread in which the NPC is a speaker, by thread ID, from thread_members. Only the overhearers that
+    were in the player's faction count, because only they can later speak to the NPC as the player."""
+    notes = {}
+    for thread_id, group in members.items():
+        if not any(member_id == npc_id and role == "speaker" for member_id, _, role, _ in group):
+            continue
+        listeners = [name for _, name, role, in_faction in group if role == "overheard" and in_faction and name]
+        partner = next((name for member_id, name, role, _ in group if role == "speaker" and member_id != npc_id and name), None)
+        if listeners:
+            notes[thread_id] = scene_text.overheard_note(listeners, partner)
+    return notes
+
+
+def with_notes(entries, notes):
+    """entries are (line, speaker, thread_id) triples. Each note follows the last line of its thread, as a line with no
+    speaker, so the history turns make it a user turn."""
+    last = {thread_id: i for i, (_, _, thread_id) in enumerate(entries)}
+    lines = []
+    for i, (line, speaker, thread_id) in enumerate(entries):
+        lines.append((line, speaker))
+        if thread_id in notes and last[thread_id] == i:
+            lines.append((notes[thread_id], None))
+    return lines
 
 
 def history_turns(entries, npc_id):

@@ -24,7 +24,8 @@ const FACTS = {
   regions: { animals: "list", factions: "list", hazards: "list" },
 };
 const TEMPLATE_PARTS = ["manifest", "overview", "history"];
-const SOURCES = [["campaign", "Campaign Canon"], ["events", "Campaign Events"], ["template", "Templates"]];
+const SOURCES = [["campaign", "Campaign Canon"], ["events", "Campaign Log"], ["template", "Templates"]];
+const LOG_VIEWS = [["dialogue", "Dialogue & Memories"], ["events", "Events"]];
 const ORIGIN_LABELS = { seed: "Seeded", game: "Met in game", campaign: "Added in this campaign" };
 // Mirrors campaign_db.PROVISIONAL: the chat count of a provisional profile is also its mark.
 const PROVISIONAL = "Interactions";
@@ -45,6 +46,8 @@ const drafts = new Map();
 let log = null;
 let rumorDrafts = {};
 const eventView = { query: "", type: "all", page: 1 };
+let logView = "dialogue";
+const threadView = { query: "", selected: null };
 const notes = new Map();
 let selected = "overview";
 let query = "";
@@ -864,11 +867,11 @@ function renderCanonBar() {
     canon ? el("p", { className: "detail" }, counts()) : null);
 }
 
-function renderSubtabs() {
-  const list = el("div", { className: "subtabs" }, ...SOURCES.map(([value, text]) => {
-    const tab = el("button", { type: "button", onclick: () => chooseSource(value) }, text);
+function renderSubtabs(tabs = SOURCES, shown = source, choose = chooseSource) {
+  const list = el("div", { className: "subtabs" }, ...tabs.map(([value, text]) => {
+    const tab = el("button", { type: "button", onclick: () => choose(value) }, text);
     tab.setAttribute("role", "tab");
-    tab.setAttribute("aria-selected", String(value === source));
+    tab.setAttribute("aria-selected", String(value === shown));
     return tab;
   }));
   list.setAttribute("role", "tablist");
@@ -981,16 +984,89 @@ async function deleteRumor(id) {
   }
 }
 
+const membersAs = (thread, role) => thread.members.filter((member) => member.role === role).map((member) => member.name || "Unknown");
+// Thread IDs restart in each campaign, so the selection names the campaign too
+const threadKey = (thread) => `${log.name}/${thread.id}`;
+const threadText = (thread) => [...thread.members.map((member) => member.name), ...thread.lines].join("\n").toLowerCase();
+
+function renderThreads() {
+  const search = el("input", {
+    type: "search",
+    value: threadView.query,
+    placeholder: "Search names and dialogue",
+    oninput: (event) => {
+      threadView.query = event.target.value;
+      renderThreadList();
+    },
+  });
+  search.setAttribute("aria-label", "Search the conversations");
+  return [
+    el("fieldset", {},
+      el("legend", {}, `Dialogue & Memories: ${log.name}`),
+      el("p", { className: "hint" }, "Each chat with an NPC, newest first. A conversation ends when you talk to someone else, speak as another squad member, or stop for 3 minutes."),
+      el("p", { className: "detail" }, `${log.threads.length} conversations`)),
+    el("div", { className: "editor-layout" },
+      el("div", { className: "record-panel" }, search, el("div", { id: "thread-list", className: "record-list" })),
+      el("div", { id: "thread-view" })),
+  ];
+}
+
+function renderThreadList() {
+  const list = page.querySelector("#thread-list");
+  if (!list) return;
+  const needle = threadView.query.trim().toLowerCase();
+  const shown = log.threads.filter((thread) => !needle || threadText(thread).includes(needle));
+  list.replaceChildren(...shown.map((thread) => {
+    const item = el("button", {
+      type: "button",
+      className: "record",
+      onclick: () => {
+        threadView.selected = threadKey(thread);
+        renderThreadList();
+        renderThread();
+      },
+    }, el("span", { className: "name" }, membersAs(thread, "speaker").join(" and ")), el("span", { className: "detail" }, thread.time || "Unknown"));
+    if (threadKey(thread) === threadView.selected) item.setAttribute("aria-current", "true");
+    return item;
+  }));
+  if (shown.length === 0) list.append(el("p", { className: "hint" }, log.threads.length === 0 ? "No conversations yet." : "No results."));
+}
+
+function renderThread() {
+  const container = page.querySelector("#thread-view");
+  if (!container) return;
+  const thread = log.threads.find((entry) => threadKey(entry) === threadView.selected);
+  if (!thread) {
+    container.replaceChildren(el("p", { className: "hint" }, "Choose a conversation on the left."));
+    return;
+  }
+  const heard = membersAs(thread, "overheard");
+  container.replaceChildren(el("div", { className: "card" },
+    el("div", { className: "card-head" },
+      el("span", {}, el("strong", { className: "name" }, membersAs(thread, "speaker").join(" and ")), " ", el("span", { className: "badge" }, thread.time || "Unknown"))),
+    el("p", { className: "detail" }, heard.length > 0 ? `Overheard by ${heard.join(", ")}` : "Nobody overheard it."),
+    field("Dialogue", el("textarea", { id: "thread-lines", className: "tall", readOnly: true, value: thread.lines.join("\n") }), null, "What was said, oldest first. Each character keeps only its newest lines, so the start of an old conversation can be gone.")));
+}
+
+function chooseLogView(value) {
+  logView = value;
+  render();
+}
+
 function renderLog() {
-  if (log) return [renderRumors(), renderEvents()];
-  const hint = el("p", { className: "hint" }, "Open a campaign to edit its rumors and events.");
+  if (log) return [renderSubtabs(LOG_VIEWS, logView, chooseLogView), ...(logView === "events" ? [renderRumors(), renderEvents()] : renderThreads())];
+  const hint = el("p", { className: "hint" }, "Open a campaign to read its dialogue and edit its rumors and events.");
   return refusal ? [el("p", { className: "hint error" }, refusal), hint] : [hint];
 }
 
 function render() {
   if (source === "events") {
     page.replaceChildren(renderSubtabs(), ...renderLog());
-    if (log) renderEventPage();
+    if (log && logView === "events") renderEventPage();
+    if (log && logView === "dialogue") {
+      renderThreadList();
+      renderThread();
+    }
     return;
   }
   const search = el("input", {
@@ -1145,7 +1221,9 @@ async function refreshLog() {
   if (unsaved && fresh[0]?.name !== log?.name) return;
   const kept = keptRumors();
   [log, refusal] = fresh;
+  const scrolls = ["#thread-list", "#thread-lines"].map((selector) => [selector, page.querySelector(selector)?.scrollTop ?? 0]);
   showLog(kept);
+  for (const [selector, scroll] of scrolls) page.querySelector(selector)?.scrollTo(0, scroll);
   if (hasChanges() !== unsaved) updateUnsaved();
 }
 

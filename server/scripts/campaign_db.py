@@ -15,7 +15,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 DB_NAME = "campaign.db"
-SCHEMA_VERSION = 5
+SCHEMA_VERSION = 6
 MAX_DIALOGUE = 260
 DIALOGUE_BLOCK = 20
 MAX_EVENTS = 500
@@ -36,14 +36,28 @@ CREATE TABLE character (
   favorite   INTEGER NOT NULL DEFAULT 0,
   updated_at TEXT NOT NULL
 );
+-- AUTOINCREMENT: the server keeps the ID of the current thread in memory, so the ID of a deleted thread must never name a new one
+CREATE TABLE thread (
+  id INTEGER PRIMARY KEY AUTOINCREMENT
+);
+CREATE TABLE thread_member (
+  thread_id         INTEGER NOT NULL REFERENCES thread(id) ON DELETE CASCADE,
+  npc_id            TEXT NOT NULL,
+  role              TEXT NOT NULL,
+  game_time         INTEGER,
+  in_player_faction INTEGER NOT NULL,
+  PRIMARY KEY (thread_id, npc_id)
+);
 CREATE TABLE dialogue (
   id           INTEGER PRIMARY KEY,
   character_id INTEGER NOT NULL REFERENCES character(id) ON DELETE CASCADE,
   game_time    INTEGER,
   line         TEXT NOT NULL,
-  speaker      TEXT
+  speaker      TEXT,
+  thread_id    INTEGER REFERENCES thread(id)
 );
 CREATE INDEX dialogue_by_character ON dialogue (character_id, id);
+CREATE INDEX dialogue_by_thread ON dialogue (thread_id);
 CREATE TABLE event (
   id        INTEGER PRIMARY KEY,
   game_time INTEGER,
@@ -186,10 +200,10 @@ def get_character(npc_id):
 
 
 def dialogue(npc_id):
-    """The dialogue lines of the character as (line, speaker) pairs, oldest first."""
+    """The dialogue lines of the character as (line, speaker, thread_id) triples, oldest first."""
     with _connect() as conn:
         return conn.execute(
-            "SELECT line, speaker FROM dialogue WHERE character_id = (SELECT id FROM character WHERE npc_id = ?) ORDER BY id", (npc_id,)
+            "SELECT line, speaker, thread_id FROM dialogue WHERE character_id = (SELECT id FROM character WHERE npc_id = ?) ORDER BY id", (npc_id,)
         ).fetchall()
 
 
@@ -268,9 +282,9 @@ def promote_profile(npc_id, bio):
         return True
 
 
-def append_dialogue(npc_id, lines, profile):
+def append_dialogue(npc_id, lines, profile, thread_id=None):
     """lines are (line, speaker) pairs, where speaker is the npc_id of the character who spoke, or None. Stores profile first
-    only if the character is not stored yet."""
+    only if the character is not stored yet. A banter line has no thread."""
     with _connect(write=True) as conn:
         row = conn.execute("SELECT id FROM character WHERE npc_id = ?", (npc_id,)).fetchone()
         if row:
@@ -278,14 +292,84 @@ def append_dialogue(npc_id, lines, profile):
             conn.execute("UPDATE character SET updated_at = ? WHERE id = ?", (_now(), character_id))
         else:
             character_id = _insert_character(conn, npc_id, profile)
-        conn.executemany("INSERT INTO dialogue (character_id, game_time, line, speaker) VALUES (?, ?, ?, ?)", [(character_id, _game_time(line), line, speaker) for line, speaker in lines])
+        conn.executemany(
+            "INSERT INTO dialogue (character_id, game_time, line, speaker, thread_id) VALUES (?, ?, ?, ?, ?)",
+            [(character_id, game_time(line), line, speaker, thread_id) for line, speaker in lines],
+        )
         excess = conn.execute("SELECT COUNT(*) FROM dialogue WHERE character_id = ?", (character_id,)).fetchone()[0] - MAX_DIALOGUE
         if excess > 0:
             # Whole blocks only, so the chat history window keeps its first line and the prompt cache still matches
-            conn.execute(
-                "DELETE FROM dialogue WHERE id IN (SELECT id FROM dialogue WHERE character_id = ? ORDER BY id LIMIT ?)",
-                (character_id, DIALOGUE_BLOCK * -(-excess // DIALOGUE_BLOCK)),
-            )
+            oldest = "SELECT id FROM dialogue WHERE character_id = ? ORDER BY id LIMIT ?"
+            args = (character_id, DIALOGUE_BLOCK * -(-excess // DIALOGUE_BLOCK))
+            touched = _threads_of(conn, f"id IN ({oldest})", args)
+            conn.execute(f"DELETE FROM dialogue WHERE id IN ({oldest})", args)
+            _drop_unused_threads(conn, touched)
+
+
+def join_thread(thread_id, members, joined_at):
+    """Adds members, (npc_id, role, in_player_faction) triples, to the thread, or to a new thread when thread_id is None or
+    names a deleted thread. A member keeps the game time and the faction of its first join. Returns the thread ID."""
+    with _connect(write=True) as conn:
+        if thread_id is None or not conn.execute("SELECT 1 FROM thread WHERE id = ?", (thread_id,)).fetchone():
+            thread_id = conn.execute("INSERT INTO thread DEFAULT VALUES").lastrowid
+        conn.executemany(
+            "INSERT OR IGNORE INTO thread_member (thread_id, npc_id, role, game_time, in_player_faction) VALUES (?, ?, ?, ?, ?)",
+            [(thread_id, npc_id, role, joined_at, int(in_player_faction)) for npc_id, role, in_player_faction in members],
+        )
+    return thread_id
+
+
+def thread_members(thread_ids):
+    """The members of each thread as (npc_id, name, role, in_player_faction), in the order that they joined. The name is
+    None when the character is gone."""
+    thread_ids = list(thread_ids)
+    with _connect() as conn:
+        rows = conn.execute(
+            "SELECT m.thread_id, m.npc_id, json_extract(c.profile, '$.Name'), m.role, m.in_player_faction FROM thread_member m"
+            f" LEFT JOIN character c ON c.npc_id = m.npc_id WHERE m.thread_id IN ({', '.join('?' * len(thread_ids))}) ORDER BY m.rowid",
+            thread_ids,
+        ).fetchall()
+    members = {}
+    for thread_id, npc_id, name, role, in_player_faction in rows:
+        members.setdefault(thread_id, []).append((npc_id, name, role, bool(in_player_faction)))
+    return members
+
+
+def threads():
+    """Each chat thread that has a line, newest first, as a dict with its members, its earliest game time, and the lines of
+    one copy. The copy is the one of the speaker who holds the most lines of the thread, because each history is trimmed
+    on its own schedule, and a copy of an overhearer only when no speaker holds one."""
+    with _connect() as conn:
+        copies = conn.execute(
+            "SELECT d.thread_id, d.character_id, COUNT(*), MIN(d.game_time),"
+            " EXISTS (SELECT 1 FROM thread_member m WHERE m.thread_id = d.thread_id AND m.npc_id = c.npc_id AND m.role = 'speaker')"
+            " FROM dialogue d JOIN character c ON c.id = d.character_id WHERE d.thread_id IS NOT NULL GROUP BY d.thread_id, d.character_id"
+        ).fetchall()
+        best, earliest = {}, {}
+        for thread_id, character_id, count, first_time, is_speaker in copies:
+            if thread_id not in best or (is_speaker, count) > best[thread_id][0]:
+                best[thread_id] = ((is_speaker, count), character_id)
+            if first_time is not None:
+                earliest[thread_id] = min(first_time, earliest.get(thread_id, first_time))
+        lines = {
+            thread_id: [line for (line,) in conn.execute("SELECT line FROM dialogue WHERE thread_id = ? AND character_id = ? ORDER BY id", (thread_id, character_id))]
+            for thread_id, (_, character_id) in best.items()
+        }
+    members = thread_members(best)
+    return [
+        {"id": thread_id, "game_time": earliest.get(thread_id), "members": members.get(thread_id, []), "lines": lines[thread_id]}
+        for thread_id in sorted(best, reverse=True)
+    ]
+
+
+def names_of(npc_ids):
+    """The Name of each stored character among npc_ids."""
+    npc_ids = list(npc_ids)
+    with _connect() as conn:
+        rows = conn.execute(
+            f"SELECT npc_id, json_extract(profile, '$.Name') FROM character WHERE npc_id IN ({', '.join('?' * len(npc_ids))})", npc_ids
+        ).fetchall()
+    return {npc_id: name for npc_id, name in rows if name}
 
 
 def list_characters():
@@ -323,7 +407,7 @@ def add_event(line):
     with _connect(write=True) as conn:
         if conn.execute("SELECT 1 FROM event WHERE line = ?", (line,)).fetchone():
             return
-        conn.execute("INSERT INTO event (game_time, line) VALUES (?, ?)", (_game_time(line), line))
+        conn.execute("INSERT INTO event (game_time, line) VALUES (?, ?)", (game_time(line), line))
         conn.execute("DELETE FROM event WHERE id <= (SELECT id FROM event ORDER BY id DESC LIMIT 1 OFFSET ?)", (MAX_EVENTS,))
 
 
@@ -336,7 +420,7 @@ def recent_events(n):
 
 def add_rumor(line):
     with _connect(write=True) as conn:
-        conn.execute("INSERT INTO rumor (game_time, line) VALUES (?, ?)", (_game_time(line), line))
+        conn.execute("INSERT INTO rumor (game_time, line) VALUES (?, ?)", (game_time(line), line))
 
 
 def rumors():
@@ -352,10 +436,15 @@ def rumor(rumor_id):
 
 
 def cull_after(day, hour, minute):
-    """Deletes the dialogue, events, and rumors dated after the given game time. Returns the count per table."""
+    """Deletes the dialogue, events, rumors, and thread members dated after the given game time. Returns the count per
+    table of the first three."""
     now = day * 1440 + hour * 60 + minute
     with _connect(write=True) as conn:
-        return {table: conn.execute(f"DELETE FROM {table} WHERE game_time > ?", (now,)).rowcount for table in ("dialogue", "event", "rumor")}
+        touched = _threads_of(conn, "game_time > ?", (now,))
+        culled = {table: conn.execute(f"DELETE FROM {table} WHERE game_time > ?", (now,)).rowcount for table in ("dialogue", "event", "rumor")}
+        conn.execute("DELETE FROM thread_member WHERE game_time > ?", (now,))
+        _drop_unused_threads(conn, touched)
+        return culled
 
 
 def events():
@@ -366,7 +455,7 @@ def events():
 
 def set_rumor(rumor_id, line):
     with _connect(write=True) as conn:
-        return conn.execute("UPDATE rumor SET line = ?, game_time = ? WHERE id = ?", (line, _game_time(line), rumor_id)).rowcount > 0
+        return conn.execute("UPDATE rumor SET line = ?, game_time = ? WHERE id = ?", (line, game_time(line), rumor_id)).rowcount > 0
 
 
 def delete_rumor(rumor_id):
@@ -549,7 +638,10 @@ def save_record(kind, key, value, updated_at):
 def delete_record(kind, key):
     table, keys, _ = _RECORDS[kind]
     with _connect(write=True) as conn:
-        return conn.execute(f"DELETE FROM {table} WHERE {' AND '.join(f'{name} = ?' for name in keys)}", key).rowcount > 0
+        touched = _threads_of(conn, "character_id = (SELECT id FROM character WHERE npc_id = ?)", key) if kind == "character" else set()
+        deleted = conn.execute(f"DELETE FROM {table} WHERE {' AND '.join(f'{name} = ?' for name in keys)}", key).rowcount > 0
+        _drop_unused_threads(conn, touched)
+        return deleted
 
 
 @contextmanager
@@ -580,16 +672,31 @@ def _insert_character(conn, npc_id, profile):
     return conn.execute("INSERT INTO character (npc_id, profile, origin, updated_at) VALUES (?, ?, 'game', ?)", (npc_id, json.dumps(_stored(profile)), _now())).lastrowid
 
 
+def _threads_of(conn, where, args):
+    """The threads of the dialogue rows that match where."""
+    return {thread_id for (thread_id,) in conn.execute(f"SELECT DISTINCT thread_id FROM dialogue WHERE thread_id IS NOT NULL AND {where}", args)}
+
+
+def _drop_unused_threads(conn, thread_ids):
+    """Deletes each of the threads that no dialogue row uses any more, with its members."""
+    conn.executemany("DELETE FROM thread WHERE id = ?1 AND NOT EXISTS (SELECT 1 FROM dialogue WHERE thread_id = ?1)", [(thread_id,) for thread_id in thread_ids])
+
+
 def _stored(profile):
     return {k: v for k, v in profile.items() if k != "ConversationHistory"}
 
 
-def _game_time(line):
+def game_time(line):
     """Minutes from day 0 in the line's first [Day N, HH:MM] tag, or None."""
     match = _GAME_TIME.search(line)
     if not match:
         return None
     return int(match.group(1)) * 1440 + int(match.group(2) or 0) * 60 + int(match.group(3) or 0)
+
+
+def game_time_text(minutes):
+    """The "Day N, HH:MM" text of the minutes that game_time gives."""
+    return f"Day {minutes // 1440}, {minutes % 1440 // 60:02d}:{minutes % 60:02d}"
 
 
 def _now():

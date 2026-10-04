@@ -8,25 +8,33 @@ import scene_text
 
 
 def relation(value):
-    return scene_text.relation_text("Drifter", value, met=True)
+    return scene_text.relation_text("Drifter", "Nameless", value, met=True)
 
 
 class ScaleTest(unittest.TestCase):
     def test_the_relation_bands_match_the_game_bar_and_add_steps_at_ten(self):
+        group = "Nameless, the group Drifter travels with"
         expected = {
-            -90: "You loathe Drifter.", -89: "You are hostile towards Drifter.",
-            -60: "You are hostile towards Drifter.", -59: "You are unfriendly towards Drifter.",
-            -25: "You are unfriendly towards Drifter.", -24: "You are mildly hostile towards Drifter.",
-            -10: "You are mildly hostile towards Drifter.", -9: "You feel neutral towards Drifter.",
-            9: "You feel neutral towards Drifter.", 10: "You are mildly warm towards Drifter.",
-            24: "You are mildly warm towards Drifter.", 25: "You are friendly towards Drifter.",
-            59: "You are friendly towards Drifter.", 60: "You trust Drifter as an ally.",
-            89: "You trust Drifter as an ally.", 90: "You are devoted to Drifter.",
+            -90: f"You loathe {group}.", -89: f"You feel hostile towards {group}.",
+            -60: f"You feel hostile towards {group}.", -59: f"You feel unfriendly towards {group}.",
+            -25: f"You feel unfriendly towards {group}.", -24: f"You feel mildly hostile towards {group}.",
+            -10: f"You feel mildly hostile towards {group}.", -9: f"You feel neutral towards {group}.",
+            9: f"You feel neutral towards {group}.", 10: f"You feel mildly warm towards {group}.",
+            24: f"You feel mildly warm towards {group}.", 25: f"You feel friendly towards {group}.",
+            59: f"You feel friendly towards {group}.", 60: f"You trust {group}.",
+            89: f"You trust {group}.", 90: f"You feel devoted to {group}.",
         }
         self.assertEqual({value: relation(value) for value in expected}, expected)
 
-    def test_a_first_meeting_comes_before_the_relation(self):
-        self.assertEqual(scene_text.relation_text("Drifter", 0, met=False), "You have never spoken with Drifter before. You feel neutral towards Drifter.")
+    def test_a_first_meeting_and_the_companions_come_before_the_relation(self):
+        self.assertEqual(scene_text.relation_text("Izumi", "Nameless", 30, met=False, companions=["Stick"]),
+                         "You have never spoken with Izumi before. Earlier you spoke with Stick, who travels with Izumi. You feel friendly towards Nameless, the group Izumi travels with.")
+        self.assertEqual(scene_text.relation_text("Izumi", "Nameless", 0, met=True, companions=["Stick", "Mikse"]),
+                         "Earlier you spoke with Stick and Mikse, who travel with Izumi. You feel neutral towards Nameless, the group Izumi travels with.")
+
+    def test_the_overheard_note_names_the_listeners_and_the_other_speaker(self):
+        self.assertEqual(scene_text.overheard_note(["Stick", "Mikse", "Ruka"], "Izumi"), "Stick, Mikse, and Ruka heard your conversation with Izumi.")
+        self.assertEqual(scene_text.overheard_note(["Stick"], None), "Stick heard your conversation.")
 
     def test_the_faction_stance_bands(self):
         stances = {value: scene_text._scale(value, scene_text.FACTION_STANCE) for value in (-30, -29, -10, -9, 9, 10, 49, 50)}
@@ -93,7 +101,7 @@ class SentenceTest(unittest.TestCase):
     def test_the_npc_from_its_profile_repeats_neither_faction_nor_current_job(self):
         profile = {"Relation": -12, "Faction": "The Holy Nation", "CurrentJob": "Patrolling the town", "ConversationHistory": ["x"]}
         text = scene_text.npc_text(profile, profile, "Drifter", "Nameless", met=True, major=True, in_player_faction=False, feels_hunger=True)
-        self.assertEqual(text, "You:\nYou are mildly hostile towards Drifter. You belong to The Holy Nation, a major world power. You will not leave it for Drifter's squad without an extremely compelling reason, such as Drifter saving your life more than once.")
+        self.assertEqual(text, "You:\nYou feel mildly hostile towards Nameless, the group Drifter travels with. You belong to The Holy Nation, a major world power. You will not leave it for Drifter's squad without an extremely compelling reason, such as Drifter saving your life more than once.")
 
     def test_the_npc_from_its_live_context(self):
         profile = {"Relation": 30, "Faction": "The Holy Nation", "CurrentJob": "Guarding the town"}
@@ -103,7 +111,7 @@ class SentenceTest(unittest.TestCase):
             "memories": {"short_term": [], "long_term": [2, 99]}, "environment": {"indoors": True},
         }
         text = scene_text.npc_text(context, profile, "Drifter", "Nameless", met=True, major=False, in_player_faction=False, feels_hunger=True)
-        self.assertEqual(text, "You:\nYou are friendly towards Drifter. You are imprisoned and cannot move freely. Your current task: Patrol. Your faction, The Holy Nation, is neutral towards Nameless. You are well fed. You are healthy. You are indoors. You are a seasoned fighter. You have a little money. Drifter once saved your life.")
+        self.assertEqual(text, "You:\nYou feel friendly towards Nameless, the group Drifter travels with. You are imprisoned and cannot move freely. Your current task: Patrol. Your faction, The Holy Nation, is neutral towards Nameless. You are well fed. You are healthy. You are indoors. You are a seasoned fighter. You have a little money. Drifter once saved your life.")
 
     def test_an_npc_that_changed_faction_hears_the_old_and_the_new_one(self):
         context = {"faction": "Band of Bones"}
@@ -111,6 +119,10 @@ class SentenceTest(unittest.TestCase):
         self.assertIn("You belonged to Shek Kingdom, but now you belong to Band of Bones. A violent band of Shek bandits.", text)
         text = scene_text.npc_text(context, {}, "Drifter", "Nameless", met=True, major=False, in_player_faction=False, feels_hunger=True)
         self.assertIn("You now belong to Band of Bones.", text)
+
+    def test_the_npc_names_the_companions_that_it_spoke_with(self):
+        text = scene_text.npc_text({}, {"Relation": 0}, "Izumi", "Nameless", met=False, major=False, in_player_faction=False, feels_hunger=True, companions=["Stick"])
+        self.assertTrue(text.startswith("You:\nYou have never spoken with Izumi before. Earlier you spoke with Stick, who travels with Izumi. You feel neutral towards Nameless, the group Izumi travels with."))
 
     def test_a_squad_member_travels_with_the_player(self):
         text = scene_text.npc_text({"faction": "Nameless", "relation": 100}, {"Faction": "Nameless"}, "Drifter", "Nameless", met=True, major=False, in_player_faction=True, feels_hunger=True)

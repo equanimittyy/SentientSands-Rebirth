@@ -16,16 +16,17 @@ def _scale(value, steps):
 
 
 # The bounds at -89, -59, -24, 25, 60, and 90 match the relation bar that the game shows (generate_relation_bar)
+# Each step ends with the name, because the name of the player's faction comes with a clause: "Nameless, the group Izumi travels with"
 RELATION = [
     (-89, "You loathe {name}."),
-    (-59, "You are hostile towards {name}."),
-    (-24, "You are unfriendly towards {name}."),
-    (-9, "You are mildly hostile towards {name}."),
+    (-59, "You feel hostile towards {name}."),
+    (-24, "You feel unfriendly towards {name}."),
+    (-9, "You feel mildly hostile towards {name}."),
     (10, "You feel neutral towards {name}."),
-    (25, "You are mildly warm towards {name}."),
-    (60, "You are friendly towards {name}."),
-    (90, "You trust {name} as an ally."),
-    (None, "You are devoted to {name}."),
+    (25, "You feel mildly warm towards {name}."),
+    (60, "You feel friendly towards {name}."),
+    (90, "You trust {name}."),
+    (None, "You feel devoted to {name}."),
 ]
 FACTION_STANCE = [(-29, "hostile"), (-9, "unfriendly"), (10, "neutral"), (50, "friendly"), (None, "allied")]
 # The food level that the plugin sends: higher is fuller
@@ -127,9 +128,18 @@ def person(race, sex):
     return _a(f"{race}{sex_word}")
 
 
-def relation_text(name, relation, met):
+def relation_text(name, group, relation, met, companions=()):
+    """name is the squad member who speaks, and group the player's faction. The NPC keeps one relation, which the chats of
+    every squad member change, so the sentence gives it as a feeling towards the group."""
     first = "" if met else f"You have never spoken with {name} before."
-    return " ".join(s for s in (first, _scale(_number(relation), RELATION).format(name=name)) if s)
+    earlier = f"Earlier you spoke with {_join(companions)}, who {'travels' if len(companions) == 1 else 'travel'} with {name}." if companions else ""
+    feeling = _scale(_number(relation), RELATION).format(name=f"{group}, the group {name} travels with")
+    return " ".join(s for s in (first, earlier, feeling) if s)
+
+
+def overheard_note(listeners, partner):
+    heard = f"{_join(listeners)} heard your conversation"
+    return f"{heard} with {partner}." if partner else f"{heard}."
 
 
 def hunger_text(subject, food_level):
@@ -226,8 +236,9 @@ def player_text(name, facing, race, sex, race_description, medical, feels_hunger
     ])
 
 
-def npc_text(context, profile, player_name, player_faction, *, met, major, in_player_faction, feels_hunger, faction_description=""):
-    """context is the live context of the NPC, or its profile when the game has sent none."""
+def npc_text(context, profile, player_name, player_faction, *, met, major, in_player_faction, feels_hunger, faction_description="", companions=()):
+    """context is the live context of the NPC, or its profile when the game has sent none. companions are the names of the
+    other squad members that the NPC spoke with."""
     faction = context.get("faction") or context.get("Faction") or ""
     old_faction = profile.get("Faction")
     task = context.get("job") or ""
@@ -236,7 +247,7 @@ def npc_text(context, profile, player_name, player_faction, *, met, major, in_pl
     memories = context.get("memories") or {}
     state = context.get("character_state", "normal")
     sentences = [
-        relation_text(player_name, profile.get("Relation", 0), met),
+        relation_text(player_name, player_faction, profile.get("Relation", 0), met, companions),
         STATES.get(state, ""),
     ]
     if _known(faction) and faction != old_faction:

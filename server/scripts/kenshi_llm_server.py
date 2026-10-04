@@ -92,6 +92,10 @@ PROMPT_RUMORS = 5
 RUMOR_SYNTHESIS = False
 # The scene stays fixed for a whole conversation, so the prompt cache can serve it; a chat with another NPC or as another squad member, a new name or faction of the NPC, or a first exchange with it starts a new one
 CONVERSATION_SCENE = {}
+# The plugin sends no signal when a conversation ends, so this long without a chat reply ends a chat thread
+THREAD_QUIET_SECONDS = 180
+# {"key": (npc_id of the squad member, npc_id of the NPC), "id": thread ID, "replied": time.monotonic() of the last reply}
+CURRENT_THREAD = {}
 PLAYER2_SESSION_KEY = None
 EVENT_THROTTLE = {} 
 THROTTLE_LOCK = threading.Lock()
@@ -494,7 +498,7 @@ def npc_serial(npc_id):
     """The handle serial in the npc_id of a generic NPC, or None for a unique NPC."""
     return npc_id[2:] if npc_id and npc_id.startswith("h:") else None
 
-def npc_scene(npc_id, profile, player_name, met):
+def npc_scene(npc_id, profile, player_name, met, companions):
     context = LIVE_CONTEXTS.get(npc_id) or profile
     faction = context.get("faction") or context.get("Faction", "Unknown")
     player_faction = PLAYER_CONTEXT.get("faction", "Nameless")
@@ -505,7 +509,7 @@ def npc_scene(npc_id, profile, player_name, met):
     faction_description = "" if in_player_faction else record.get("description", "")
     return scene_text.npc_text(context, profile, player_name, player_faction, met=met,
                                major=major, in_player_faction=in_player_faction, feels_hunger=not is_skeleton(profile.get("Race", "")),
-                               faction_description=faction_description)
+                               faction_description=faction_description, companions=companions)
 
 # SetHotkeyFromString in the plugin parses only these keys
 CHAT_HOTKEYS = ["\\", "[", "P", "T", "J", "U", "K"]
@@ -1421,6 +1425,8 @@ def chat():
     # Stores a profile for the speaker, whom the listeners leave out
     if speaker_id:
         npc_name(speaker)
+    thread_key = (speaker_id, primary_id)
+    current_thread = CURRENT_THREAD.get("id") if CURRENT_THREAD.get("key") == thread_key and time.monotonic() - CURRENT_THREAD["replied"] < THREAD_QUIET_SECONDS else None
 
     _, talk_radius, yell_radius = get_config_radii()
     # A whisper is one-on-one: nobody overhears
@@ -1428,8 +1434,10 @@ def chat():
 
     # Keyed by npc_id, because NPCs near the player can share a name, for example two Dust Bandits
     listeners = {primary_id: (primary_npc, context)}
+    in_squad = {primary_id: bool(ctx_dict.get("in_player_faction") or is_player_faction(ctx_dict.get("faction"), ctx_dict.get("factionID"))), speaker_id: True}
     for n in chat_prompt.overhearers(nearby, radius, {primary_id, speaker.get("npc_id")}):
         listeners[n["npc_id"]] = (npc_name(n), json.dumps(n))
+        in_squad[n["npc_id"]] = bool(n.get("in_player_faction") or is_player_faction(n.get("faction"), n.get("factionID")))
 
     char_datas = {}
     for npc_id, (name, local_context) in listeners.items():
@@ -1462,21 +1470,26 @@ def chat():
     full_player_entry = f"{time_prefix}{mode_tag}{player_name}: {player_message}"
 
     live = LIVE_CONTEXTS.get(primary_id, {})
-    met = chat_prompt.has_spoken(primary_data["ConversationHistory"])
+    rows = campaign_db.dialogue(primary_id)
+    met = chat_prompt.has_spoken_with(rows, speaker_id)
     conversation = (speaker.get("npc_id"), primary_id or primary_npc, primary_npc, live.get("faction"), met)
     scene = CONVERSATION_SCENE.get(conversation)
     if scene is None:
+        others = chat_prompt.companions(rows, primary_id, speaker_id)
+        names = campaign_db.names_of(others)
+        squad = set(PLAYER_CONTEXT.get("squad") or [])
         scene = fill_prompt(
             "prompt_chat_scene.txt",
             **scene_values(speaker or PLAYER_CONTEXT, player_name),
-            npc=npc_scene(primary_id, primary_data, player_name, met),
+            npc=npc_scene(primary_id, primary_data, player_name, met, [names[i] for i in others if names.get(i) in squad]),
         )
         CONVERSATION_SCENE.clear()
         CONVERSATION_SCENE[conversation] = scene
     system = fill_prompt("prompt_chat_template.txt", system_prompt=system_prompt, judgment=judgment, primary_npc=primary_npc, npc_profiles=describe_npc(primary_npc, primary_data, primary_id), scene=scene)
     turn = fill_prompt("prompt_chat_turn.txt", player_line=full_player_entry, final_instruction=final_instruction)
-    history = chat_prompt.history_window(campaign_db.dialogue(primary_id), campaign_db.DIALOGUE_BLOCK)
-    messages = chat_prompt.chat_messages(system, chat_prompt.history_turns(history, primary_id), turn)
+    history = chat_prompt.history_window(rows, campaign_db.DIALOGUE_BLOCK)
+    notes = chat_prompt.overheard_notes(campaign_db.thread_members({thread_id for _, _, thread_id in history if thread_id}), primary_id)
+    messages = chat_prompt.chat_messages(system, chat_prompt.history_turns(chat_prompt.with_notes(history, notes), primary_id), turn)
 
     content = call_llm("chat", messages)
     if not content:
@@ -1545,7 +1558,8 @@ def chat():
         record_event_to_history("CHAT", player_name, primary_npc, player_message, actor_faction=player_faction, target_faction=primary_faction)
         record_event_to_history("CHAT", primary_npc, player_name, content, actor_faction=primary_faction, target_faction=player_faction)
 
-        recorders = {**listeners, speaker_id: (player_name, speaker)} if speaker_id else listeners
+        recorders = {speaker_id: (player_name, speaker), **listeners} if speaker_id else listeners
+        copies = []
         for npc_id, (name, local_context) in recorders.items():
             overheard_tag = "" if npc_id in (primary_id, speaker_id) else "(Overheard) "
             # Without the addressees, a listener takes the "you" of a line as itself
@@ -1561,11 +1575,19 @@ def chat():
             char_datas[npc_id]["ConversationHistory"].extend(line for line, _ in new_lines)
 
             if npc_id and should_save_profile(name, npc_id, char_datas[npc_id]):
-                campaign_db.append_dialogue(npc_id, new_lines, char_datas[npc_id])
-                if npc_id == primary_id and judgment_value:
-                    # Applied as a delta at save time: the profile read before the LLM call can be stale by then
-                    new_rel = campaign_db.change_relation(npc_id, judgment_value)
-                    logging.info(f"RELATION: {name} personal relation is now {new_rel} (judgment={judgment_value})")
+                copies.append((npc_id, name, new_lines))
+
+        thread_id = None
+        if primary_id:
+            members = [(npc_id, "speaker" if npc_id in (primary_id, speaker_id) else "overheard", in_squad.get(npc_id, False)) for npc_id, _, _ in copies]
+            thread_id = campaign_db.join_thread(current_thread, members, campaign_db.game_time(time_prefix))
+            CURRENT_THREAD.update(key=thread_key, id=thread_id, replied=time.monotonic())
+        for npc_id, name, new_lines in copies:
+            campaign_db.append_dialogue(npc_id, new_lines, char_datas[npc_id], thread_id)
+            if npc_id == primary_id and judgment_value:
+                # Applied as a delta at save time: the profile read before the LLM call can be stale by then
+                new_rel = campaign_db.change_relation(npc_id, judgment_value)
+                logging.info(f"RELATION: {name} personal relation is now {new_rel} (judgment={judgment_value})")
 
         interactions = campaign_db.count_interaction(primary_id) if primary_id else None
         threshold = load_settings()["bio_interactions"]
@@ -2016,6 +2038,7 @@ def switch_campaign(name):
         LIVE_CONTEXTS.clear()
         SEEN_FACTIONS.clear()
         CONVERSATION_SCENE.clear()
+        CURRENT_THREAD.clear()
         load_campaign_config()
         return True
     return False
@@ -2153,6 +2176,15 @@ def get_active_campaign():
             "name": ACTIVE_CAMPAIGN,
             "events": [{"id": event_id, "line": line} for event_id, line in campaign_db.events()],
             "rumors": rumors,
+            "threads": [
+                {
+                    "id": thread["id"],
+                    "time": campaign_db.game_time_text(thread["game_time"]) if thread["game_time"] is not None else "",
+                    "members": [{"name": name or "", "role": role} for _, name, role, _ in thread["members"]],
+                    "lines": thread["lines"],
+                }
+                for thread in campaign_db.threads()
+            ],
         })
     except campaign_db.CampaignUnavailable as e:
         return jsonify({"status": "error", "name": ACTIVE_CAMPAIGN, "message": str(e)}), 409
@@ -2377,6 +2409,8 @@ def cull_future_data():
         return jsonify({"status": "error", "message": "Cull needs the game running, because it deletes what is dated after the current game time."}), 409
     day, hour, minute = int(PLAYER_CONTEXT["day"]), int(PLAYER_CONTEXT.get("hour", 0)), int(PLAYER_CONTEXT.get("minute", 0))
     culled = campaign_db.cull_after(day, hour, minute)
+    # The player loaded an earlier save, so the next chat starts a conversation of its own
+    CURRENT_THREAD.clear()
     logging.info(f"CAMPAIGN: Culled {culled['dialogue']} dialogue lines, {culled['event']} events, and {culled['rumor']} rumors after [Day {day}, {hour:02d}:{minute:02d}] in '{ACTIVE_CAMPAIGN}'")
     return jsonify({"status": "ok", "time": f"Day {day}, {hour:02d}:{minute:02d}", "culled": culled})
 

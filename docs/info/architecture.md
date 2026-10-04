@@ -108,7 +108,7 @@ Each tab holds `GET /web_panel/presence` open. This event stream sends a heartbe
 
 **Open Web Panel** in the SSR HUB always opens the web app in a new tab of the default browser. The button does not check for an open tab. A version that brought the browser window of an open tab to the front left an empty box on the game screen in exclusive fullscreen.
 
-Another tab can switch the campaign while a tab is open, so the poll also shows the active campaign. When the poll sees another campaign, it sends a `campaignchange` event. The Campaigns page loads the new campaign, and the open Campaign Canon or Campaign Events subtab of the Editor loads it unless the subtab has unsaved changes.
+Another tab can switch the campaign while a tab is open, so the poll also shows the active campaign. When the poll sees another campaign, it sends a `campaignchange` event. The Campaigns page loads the new campaign, and the open Campaign Canon or Campaign Log subtab of the Editor loads it unless the subtab has unsaved changes.
 
 The save bar of each page has a Refresh button at its right end. Refresh loads the stored data again and keeps the unsaved changes of the page (`refreshers` in `server/web/app.js`).
 
@@ -127,7 +127,9 @@ A refresh changes the message of the save bar only when the unsaved state of the
 
 The Editor holds many records. Save sends one request for each changed record, and a record that the server rejects keeps its draft and shows the reason. A delete takes effect at once, after a confirmation.
 
-The Editor has three subtabs. Campaign Canon and Templates share the record list and forms: Campaign Canon edits the canon of the active campaign, and Templates edits the world templates that new campaigns copy. Campaign Events edits the rumors and lists the events of the active campaign. The page holds the data of one subtab and one template at a time, so a switch with unsaved changes asks the player first. A shipped template is read-only, so the page offers a duplicate.
+The Editor has three subtabs. Campaign Canon and Templates share the record list and forms: Campaign Canon edits the canon of the active campaign, and Templates edits the world templates that new campaigns copy. Campaign Log shows the active campaign in two subtabs of its own: Dialogue & Memories, and Events. Events edits the rumors and lists the events. The page holds the data of one subtab and one template at a time, so a switch with unsaved changes asks the player first. A shipped template is read-only, so the page offers a duplicate.
+
+Dialogue & Memories lists the chat threads of the active campaign, newest first, each with the game time of its earliest line and its speakers (see [Chat threads](#chat-threads)). It uses the layout of Campaign Canon: a search field and the list on the left, and the selected thread on the right, with its overhearers and its lines. The search matches the names of the members and the text of the lines, with case ignored. `GET /api/campaign` returns every thread with its lines, as Campaign Canon loads every record, so the search runs in the page. The lines are the copy of the speaker who holds the most lines of the thread, because each history is trimmed on its own schedule (`campaign_db.threads`). The subtab is read-only, and banter has no threads, so it stays out.
 
 On Campaign Canon, **Show seeded data** and **Show provisional characters** start on. While the player turns one off, the record list hides the records whose `origin` is `seed`, or the provisional characters (see [Provisional profiles](#provisional-profiles)). The browser remembers each switch. The overview and the history have no `origin`, so they always show.
 
@@ -181,14 +183,14 @@ A chat request is ordered for a provider's prompt cache, which reuses only an id
 | Part | Content | Changes |
 |---|---|---|
 | System message | `prompt_chat_template.txt`: `prompt_system.txt`, the judgment rule, `npc_chat_template.txt`, then `prompt_chat_scene.txt`: the place, the 5 newest rumors, the player, and the NPC | When a new conversation starts |
-| History | The stored dialogue of the NPC, as user and assistant turns | One exchange more each turn |
+| History | The stored dialogue of the NPC, as user and assistant turns, with an overheard note after each chat thread (see [Chat threads](#chat-threads)) | One exchange more each turn |
 | Last user message | `prompt_chat_turn.txt`: the player's line, then a one-line reminder of whom to reply as and to end with the judgment | Every turn |
 
 From one turn to the next, only the newest exchange and the last message are new, so the cache can serve the rest. Chats with different NPCs, by any speaker, and banter share the start of the system message.
 
-The scene is a snapshot that the server takes when a conversation starts, and it keeps it for the whole conversation (`CONVERSATION_SCENE`). A conversation lasts until the player chats with another NPC, speaks as another squad member, or switches the campaign, because the plugin sends no signal when a conversation ends. A new name or a new faction of the NPC, for example after a recruit, also starts a new conversation, so the scene shows the NPC as it is now. So does the first exchange with an NPC that never spoke before, so the scene stops saying that the NPC never spoke with the player. A line that the NPC only overheard does not count as speaking (`chat_prompt.has_spoken`). A later relation or a new rumor therefore reaches the prompt only in the next conversation. The history of the NPC stays across conversations.
+The scene is a snapshot that the server takes when a conversation starts, and it keeps it for the whole conversation (`CONVERSATION_SCENE`). A conversation lasts until the player chats with another NPC, speaks as another squad member, or switches the campaign, because the plugin sends no signal when a conversation ends. A new name or a new faction of the NPC, for example after a recruit, also starts a new conversation, so the scene shows the NPC as it is now. So does the first exchange of a squad member with an NPC that never spoke with it before, so the scene stops saying that the two never spoke (see [Chat threads](#chat-threads)). A later relation or a new rumor therefore reaches the prompt only in the next conversation. The history of the NPC stays across conversations.
 
-The scene is prose that the NPC reads in the second person, built by `server/scripts/scene_text.py` from the game's data: "You are mildly hostile towards Drifter." A model reads a sentence more reliably than a raw number, and the cache serves the longer text after the first turn of a conversation. Each number becomes a sentence from a fixed scale, such as the relation, the faction stance, hunger, money, fighting skill, and the age of a rumor. The bounds of the relation at ±25, ±60, and ±90 match the relation bar that the game shows, and steps at ±10 add finer grades. Every other person is "they", so no sentence needs a gendered pronoun.
+The scene is prose that the NPC reads in the second person, built by `server/scripts/scene_text.py` from the game's data: "You feel mildly hostile towards Nameless, the group Drifter travels with." A model reads a sentence more reliably than a raw number, and the cache serves the longer text after the first turn of a conversation. Each number becomes a sentence from a fixed scale, such as the relation, the faction stance, hunger, money, fighting skill, and the age of a rumor. The bounds of the relation at ±25, ±60, and ±90 match the relation bar that the game shows, and steps at ±10 add finer grades. Every other person is "they", so no sentence needs a gendered pronoun.
 
 `prompt_system.txt` holds the rules and the world lore, and `build_system_prompt` fills it. `scene_values` fills the parts that change on each call, for the chat scene and for banter. A block that appears only with data, such as the rumors, keeps its heading in the code, because a placeholder has no conditions. The `{world_lore}` placeholder takes the overview of the campaign (see [Campaign storage](#campaign-storage)).
 
@@ -244,7 +246,7 @@ On a start without `llm_config.json`, the server builds it from `default_provide
 
 ## Campaign storage
 
-`server/scripts/campaign_db.py` keeps the characters, the dialogue, the canon, the event history, and the rumors of a campaign in one SQLite file, `campaign.db`, in the campaign folder. The plugin reaches this data only through the server's routes.
+`server/scripts/campaign_db.py` keeps the characters, the dialogue and its chat threads, the canon, the event history, and the rumors of a campaign in one SQLite file, `campaign.db`, in the campaign folder. The plugin reaches this data only through the server's routes.
 
 - Each write runs in one `BEGIN IMMEDIATE` transaction. A profile write merges only the keys that the caller passes, and the dialogue lines are rows of their own. A route that waits for the LLM must write only the keys that it changed, so that it cannot undo a change that another request made during the wait.
 - `/chat` changes the Relation through `change_relation`, which adds the judgment to the stored value in one transaction. Two overlapping chats with the same NPC therefore keep both changes.
@@ -314,6 +316,29 @@ The `character` table holds every character of a campaign in one shape: the cano
 - The player section of the chat scene describes the squad member who speaks, the `speaker` of the chat request: its name, race, sex, health, hunger, faction with the description of the player's faction, and worn equipment. Its money stays out, because an NPC cannot see a wallet. Its personality, backstory, and speech quirks stay out, because they serve only an LLM that speaks as that character. The chat window offers the members of the current squad except the talk target, and starts on the last speaker while that character is still in the squad. Ambient banter has no speaker, so it uses squad slot 1 from the player's context.
 - The Dialogue Library lists each character with dialogue and each character that is not seeded, so the seeded characters that the player never met stay out of it. A character whose lines are all `(Overheard)` stays out too, because every NPC near a chat overhears it.
 - `LIVE_CONTEXTS` holds the latest context of each NPC that a chat reported, by `npc_id`.
+
+### Chat threads
+
+Each chat exchange belongs to a chat thread, which records who took part in the conversation. The copies of a line in the histories cannot tell this, because each history is trimmed on its own schedule, and a squad member overhears every chat near the player, so its copies are trimmed first.
+
+- The `thread` table holds the ID, and the `thread_id` column of `dialogue` links each chat row to its thread. Banter rows have no thread.
+- The `thread_member` table holds each member of a thread: its `npc_id`, its role (`speaker` or `overheard`), the game time when it joined, and whether it was in the player's faction then. The speakers are the squad member who speaks and the NPC, and the overhearers are the listeners of each exchange. Only a character whose copy the server stores becomes a member.
+- A member keeps the values of its first join. The history text therefore stays the same from turn to turn, so the cache serves it, and a later recruit or dismissal does not change what an NPC remembers.
+- The server keeps the current thread in memory (`CURRENT_THREAD`). A chat with another NPC, a chat as another squad member, a campaign switch, a cull, a server restart, or 3 minutes without a chat reply (`THREAD_QUIET_SECONDS`) starts a new thread. The server measures real time, because it sees the game time only in the requests that it gets. The close of the chat window does not end a thread.
+- A thread does not follow the scene: a new name of the NPC or the first exchange starts a new scene but not a new thread.
+- `thread.id` is `AUTOINCREMENT`, so the ID of a deleted thread never names a new thread. `join_thread` starts a new thread when the current one is gone.
+- A trim, a cull, or the delete of a character deletes each thread that no dialogue row uses any more, with its members. A cull also deletes the members that joined after the cut.
+- Rejected: members derived from the rows that hold the thread. The copies of a squad member are trimmed first, so the overheard note would disappear from the history of the NPC.
+- Rejected: one stored row for each line, with a table of the characters that heard it. Each copy has its own `(Overheard)` tag, its own trim, and its own relabel after a rename, so the history of a character would have to rebuild all three from a join.
+- Rejected: one thread for each player message. A conversation of ten messages would be ten threads.
+
+The chat prompt reads the threads and the speaker of each row, so the NPC tells the squad members apart:
+
+- **First meeting.** The NPC spoke before with the squad member who speaks when its history holds a line of that squad member without the `(Overheard)` tag (`chat_prompt.has_spoken_with`). The check reads the speaker of each row, not the name.
+- **Companions.** The scene names the other speakers of the NPC's lines, by the same check, when they are in the player's faction now: "Earlier you spoke with Stick, who travels with Izumi." A character counts when its `Name` is in the `squad` list of the player's context, which the plugin fills from the player's characters.
+- **Relation.** The NPC keeps one `Relation`, which the chats of every squad member change, so the relation sentence names the player's faction: "You feel friendly towards Nameless, the group Izumi travels with." Each step of the scale ends with the name, because the name carries that clause.
+- **Overheard notes.** After the last line of each thread in which the NPC is a speaker, the history adds one user line that names the overhearers that were in the player's faction: "Stick and Mikse heard your conversation with Izumi." (`chat_prompt.overheard_notes`). Other overhearers are not named, because only a squad member can later speak to the NPC as the player. A thread that the NPC only overheard gets no note.
+- The note of the current thread is at the end of the history, and it moves after each exchange, so the cache loses the tokens of one exchange on each turn. A note at the start of a thread would break the cache from the start of the thread each time a new squad member walks up.
 
 ### Names
 
@@ -439,12 +464,12 @@ Edit Bio in the Dialogue Library skips the LLM. `/read_bio` returns the stored `
 | `POST /api/campaigns` | Create a campaign from a template, with no switch |
 | `POST /api/campaigns/switch` | Make a campaign the current one. The name must be a folder that the campaign list shows, so a name such as `../x` cannot point outside `server/campaigns/`. |
 | `POST /api/campaigns/delete` | Delete a campaign folder, with the same name check. Before it deletes the current campaign, it switches to the first other one. When no other campaign remains, the server has no current campaign (see [Campaign storage](#campaign-storage)). |
-| `GET /api/campaign` | The active campaign: its events and rumors. A refused campaign gives status 409 with the reason. |
+| `GET /api/campaign` | The active campaign: its events, its rumors, and its chat threads with their members and lines. A refused campaign gives status 409 with the reason. |
 | `GET /api/campaign/canon` | The canon of the active campaign, each record with its `origin` and `updated_at`, and each character with the `current_faction` that a chat reported since the server started (`LIVE_CONTEXTS`), or `null`. A refused campaign gives status 409 with the reason. |
 | `POST /api/campaign/records`, `.../records/delete` | Save or delete one canon record of the active campaign. A faction, character, race, location, or region with no ID is new. |
 | `POST /api/campaign/characters/bio` | The LLM text of the full bio, or of one part, for the form of a character. It stores nothing (see [Provisional profiles](#provisional-profiles)). |
 | `POST /api/campaign/rumors`, `.../rumors/delete` | Edit the rumors of the active campaign |
-| `POST /api/campaign/cull` | Delete the dialogue, events, and rumors dated after the current game time, after the player loads an older save. It asks the running game for a report and refuses the cull without one (see [Game state](#game-state)), because without the game time day 0 would count as now and the cull would delete the whole history. |
+| `POST /api/campaign/cull` | Delete the dialogue, events, rumors, and thread members dated after the current game time, after the player loads an older save. It asks the running game for a report and refuses the cull without one (see [Game state](#game-state)), because without the game time day 0 would count as now and the cull would delete the whole history. |
 
 - Each edit names the campaign that the page loaded. Another tab can switch the campaign while the page is open, so the server refuses an edit for another campaign instead of writing it into the active one.
 - **Cull Future Data** in the SSR HUB posts to `POST /cull`, which does the same cull without the campaign check, because the game always means the active campaign. The plugin shows the result as a game message.

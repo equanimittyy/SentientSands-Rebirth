@@ -135,7 +135,7 @@ class CharacterTest(CampaignTestCase):
 
     def test_the_dialogue_keeps_the_speaker_of_each_line(self):
         campaign_db.append_dialogue(GENERIC_ID, [("Drifter: hi", None), ("Zabuza: Hm.", GENERIC_ID)], {"Name": "Zabuza"})
-        self.assertEqual(campaign_db.dialogue(GENERIC_ID), [("Drifter: hi", None), ("Zabuza: Hm.", GENERIC_ID)])
+        self.assertEqual(campaign_db.dialogue(GENERIC_ID), [("Drifter: hi", None, None), ("Zabuza: Hm.", GENERIC_ID, None)])
         self.assertEqual(campaign_db.dialogue("h:1"), [])
 
     def test_the_names_hold_the_name_of_each_character(self):
@@ -236,6 +236,87 @@ class CharacterTest(CampaignTestCase):
         self.assertTrue(campaign_db.toggle_favorite(GENERIC_ID))
         self.assertFalse(campaign_db.toggle_favorite(GENERIC_ID))
         self.assertIsNone(campaign_db.toggle_favorite("h:1"))
+
+
+class ThreadTest(CampaignTestCase):
+    STICK, IZUMI, RUKA = "h:10", "h:11", "h:12"
+
+    def setUp(self):
+        super().setUp()
+        campaign_db.open_campaign(self.folder, lambda: SEED)
+        for npc_id, name in ((self.STICK, "Stick"), (self.IZUMI, "Izumi"), (self.RUKA, "Ruka"), (GENERIC_ID, "Jorge")):
+            campaign_db.upsert_profile(npc_id, {"Name": name})
+
+    def exchange(self, thread_id, when, listeners=(), speaker=None):
+        """A chat of Stick, or of speaker, with Jorge, stored as the chat route stores it."""
+        speaker = speaker or self.STICK
+        members = [(speaker, "speaker", True), (GENERIC_ID, "speaker", False), *((npc_id, "overheard", True) for npc_id in listeners)]
+        thread_id = campaign_db.join_thread(thread_id, members, campaign_db.game_time(when))
+        lines = [(f"{when} Stick: hi", speaker), (f"{when} Jorge: Hm.", GENERIC_ID)]
+        for npc_id in (speaker, GENERIC_ID):
+            campaign_db.append_dialogue(npc_id, lines, {}, thread_id)
+        for npc_id in listeners:
+            campaign_db.append_dialogue(npc_id, [(f"{when} (Overheard) {line.split('] ', 1)[1]}", who) for line, who in lines], {}, thread_id)
+        return thread_id
+
+    def test_each_copy_stores_the_thread_and_the_members_keep_their_first_join(self):
+        thread_id = self.exchange(None, "[Day 3, 14:05]", listeners=[self.IZUMI])
+        self.assertEqual(self.exchange(thread_id, "[Day 3, 14:06]", listeners=[self.IZUMI, self.RUKA]), thread_id)
+        self.assertEqual({row[2] for row in campaign_db.dialogue(self.IZUMI)}, {thread_id})
+        self.assertEqual(campaign_db.thread_members([thread_id]), {thread_id: [
+            (self.STICK, "Stick", "speaker", True), (GENERIC_ID, "Jorge", "speaker", False), (self.IZUMI, "Izumi", "overheard", True), (self.RUKA, "Ruka", "overheard", True),
+        ]})
+
+    def test_a_deleted_thread_is_never_joined_again(self):
+        thread_id = self.exchange(None, "[Day 3, 14:05]")
+        campaign_db.cull_after(3, 0, 0)
+        self.assertNotEqual(self.exchange(thread_id, "[Day 2, 10:00]"), thread_id)
+
+    def test_a_trim_that_removes_the_last_row_of_a_thread_deletes_it(self):
+        filler = lambda count: [(f"line {i}", None) for i in range(count)]
+        old = self.exchange(None, "[Day 1, 08:00]", listeners=[self.IZUMI])
+        campaign_db.append_dialogue(self.IZUMI, filler(campaign_db.MAX_DIALOGUE), {})
+        self.assertEqual(campaign_db.thread_members([old]).keys(), {old})
+        for npc_id in (self.STICK, GENERIC_ID):
+            campaign_db.append_dialogue(npc_id, filler(campaign_db.DIALOGUE_BLOCK), {})
+        kept = self.exchange(None, "[Day 2, 08:00]")
+        for npc_id in (self.STICK, GENERIC_ID):
+            campaign_db.append_dialogue(npc_id, filler(campaign_db.MAX_DIALOGUE - campaign_db.DIALOGUE_BLOCK - 3), {})
+        self.assertEqual(campaign_db.thread_members([old, kept]).keys(), {kept})
+
+    def test_a_cull_deletes_the_later_members_and_the_threads_with_no_row_left(self):
+        early = self.exchange(None, "[Day 3, 14:05]")
+        self.exchange(early, "[Day 3, 16:00]", listeners=[self.IZUMI])
+        late = self.exchange(None, "[Day 4, 09:00]")
+        campaign_db.cull_after(3, 15, 0)
+        self.assertEqual(campaign_db.thread_members([early, late]), {early: [(self.STICK, "Stick", "speaker", True), (GENERIC_ID, "Jorge", "speaker", False)]})
+
+    def test_a_deleted_character_takes_the_threads_that_only_it_held(self):
+        thread_id = campaign_db.join_thread(None, [(GENERIC_ID, "speaker", False)], None)
+        campaign_db.append_dialogue(GENERIC_ID, [("Jorge: Hm.", GENERIC_ID)], {}, thread_id)
+        campaign_db.delete_record("character", (GENERIC_ID,))
+        self.assertEqual(campaign_db.thread_members([thread_id]), {})
+
+    def test_the_threads_show_the_fullest_copy_of_a_speaker_newest_first(self):
+        first = self.exchange(None, "[Day 3, 14:05]", listeners=[self.IZUMI])
+        self.exchange(first, "[Day 3, 14:06]", listeners=[self.IZUMI])
+        second = self.exchange(None, "[Day 4, 09:00]", speaker=self.RUKA)
+        campaign_db.append_dialogue(self.STICK, [(f"line {i}", None) for i in range(campaign_db.MAX_DIALOGUE - 2)], {})
+        threads = campaign_db.threads()
+        self.assertEqual([thread["id"] for thread in threads], [second, first])
+        self.assertEqual(threads[1]["lines"], ["[Day 3, 14:05] Stick: hi", "[Day 3, 14:05] Jorge: Hm.", "[Day 3, 14:06] Stick: hi", "[Day 3, 14:06] Jorge: Hm."])
+        self.assertEqual(campaign_db.game_time_text(threads[1]["game_time"]), "Day 3, 14:05")
+        self.assertEqual([member[1:3] for member in threads[1]["members"]], [("Stick", "speaker"), ("Jorge", "speaker"), ("Izumi", "overheard")])
+
+    def test_a_thread_without_a_speaker_copy_shows_the_copy_of_an_overhearer(self):
+        thread_id = self.exchange(None, "[Day 3, 14:05]", listeners=[self.IZUMI])
+        for npc_id in (self.STICK, GENERIC_ID):
+            campaign_db.delete_record("character", (npc_id,))
+        self.assertEqual(campaign_db.threads()[0]["lines"], ["[Day 3, 14:05] (Overheard) Stick: hi", "[Day 3, 14:05] (Overheard) Jorge: Hm."])
+        self.assertEqual([member[:2] for member in campaign_db.thread_members([thread_id])[thread_id]], [(self.STICK, None), (GENERIC_ID, None), (self.IZUMI, "Izumi")])
+
+    def test_names_of(self):
+        self.assertEqual(campaign_db.names_of([self.STICK, "h:99"]), {self.STICK: "Stick"})
 
 
 class EventTest(CampaignTestCase):
