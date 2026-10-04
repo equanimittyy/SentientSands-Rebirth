@@ -361,11 +361,6 @@ def events():
         return conn.execute("SELECT id, line FROM event ORDER BY id").fetchall()
 
 
-def delete_event(event_id):
-    with _connect(write=True) as conn:
-        return conn.execute("DELETE FROM event WHERE id = ?", (event_id,)).rowcount > 0
-
-
 def set_rumor(rumor_id, line):
     with _connect(write=True) as conn:
         return conn.execute("UPDATE rumor SET line = ?, game_time = ? WHERE id = ?", (line, _game_time(line), rumor_id)).rowcount > 0

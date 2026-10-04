@@ -1603,6 +1603,7 @@ def record_event_to_history(etype, actor, target, msg, actor_faction="None", tar
     
     time_str = get_current_time_prefix().strip()
     prefix = f"{time_str} " if time_str else ""
+    # The Editor's event table parses this format with EVENT_LINE in server/web/editor.js
     evt_str = f"{prefix}[{etype}] {actor_part} -> {target_part}{location}: {msg}"
     
     # State hooks (knockout, recovery) fire repeatedly; log only when the message changes
@@ -2382,14 +2383,6 @@ def cull_future_data():
     culled = campaign_db.cull_after(day, hour, minute)
     logging.info(f"CAMPAIGN: Culled {culled['dialogue']} dialogue lines, {culled['event']} events, and {culled['rumor']} rumors after [Day {day}, {hour:02d}:{minute:02d}] in '{ACTIVE_CAMPAIGN}'")
     return jsonify({"status": "ok", "time": f"Day {day}, {hour:02d}:{minute:02d}", "culled": culled})
-
-@app.route('/api/campaign/events/delete', methods=['POST'])
-def delete_campaign_event():
-    data = request.get_json(silent=True) or {}
-    refused = campaign_write(data)
-    if refused: return refused
-    campaign_db.delete_event(data.get("id"))
-    return jsonify({"status": "ok"})
 
 @app.route('/regenerate_profile', methods=['POST'])
 def regenerate_profile_route():

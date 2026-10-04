@@ -68,7 +68,7 @@ The toggle at the top right switches between the light and the dark colours. The
 | Models | `/api/llm`, `/api/llm/test`, `/api/llm/models`, `/api/llm/reset` | `server/user/llm_config.json` |
 | Prompts | `/api/prompts` | `server/user/prompts/` |
 | Campaigns | `/api/campaigns`, `/api/campaign/cull` (see [Campaign routes of the web app](#campaign-routes-of-the-web-app)) | `campaign.db` of each campaign |
-| Editor | `/api/campaign/canon`, `/api/campaign/records` (see [Campaign canon](#campaign-canon)); `/api/campaign` and its rumor and event routes (see [Campaign routes of the web app](#campaign-routes-of-the-web-app)); `/api/templates` (see [World templates](#world-templates)) | `campaign.db` of the active campaign; `server/user/world_templates/` |
+| Editor | `/api/campaign/canon`, `/api/campaign/records` (see [Campaign canon](#campaign-canon)); `/api/campaign` and its rumor routes (see [Campaign routes of the web app](#campaign-routes-of-the-web-app)); `/api/templates` (see [World templates](#world-templates)) | `campaign.db` of the active campaign; `server/user/world_templates/` |
 
 A GET route must not change state. A page on another site can send a GET with no `Origin` header, for example through an image tag, so the Origin check from step 4 of the runtime flow does not stop it. The presence stream below is the only exception, because EventSource sends only GET requests. A page on another site that holds the stream open can only stop a new tab from opening.
 
@@ -99,7 +99,7 @@ A refresh changes the message of the save bar only when the unsaved state of the
 
 The Editor holds many records. Save sends one request for each changed record, and a record that the server rejects keeps its draft and shows the reason. A delete takes effect at once, after a confirmation.
 
-The Editor has three subtabs. Campaign Canon and Templates share the record list and forms: Campaign Canon edits the canon of the active campaign, and Templates edits the world templates that new campaigns copy. Campaign Events edits the rumors and deletes the events of the active campaign. The page holds the data of one subtab and one template at a time, so a switch with unsaved changes asks the player first. A shipped template is read-only, so the page offers a duplicate.
+The Editor has three subtabs. Campaign Canon and Templates share the record list and forms: Campaign Canon edits the canon of the active campaign, and Templates edits the world templates that new campaigns copy. Campaign Events edits the rumors and lists the events of the active campaign. The page holds the data of one subtab and one template at a time, so a switch with unsaved changes asks the player first. A shipped template is read-only, so the page offers a duplicate.
 
 On Campaign Canon, **Show seeded data** and **Show provisional characters** start on. While the player turns one off, the record list hides the records whose `origin` is `seed`, or the provisional characters (see [Provisional profiles](#provisional-profiles)). The browser remembers each switch. The overview and the history have no `origin`, so they always show.
 
@@ -404,7 +404,7 @@ Generate Bio in the editor uses the same prompt through `write_bio`, but it stor
 | `GET /api/campaign/canon` | The canon of the active campaign, each record with its `origin` and `updated_at`, and each character with the `current_faction` that the game reported since the server started (`LIVE_CONTEXTS`), or `null`. A refused campaign gives status 409 with the reason. |
 | `POST /api/campaign/records`, `.../records/delete` | Save or delete one canon record of the active campaign. A faction, character, race, location, or region with no ID is new. |
 | `POST /api/campaign/characters/bio` | The LLM text of the full bio, or of one part, for the form of a character. It stores nothing (see [Provisional profiles](#provisional-profiles)). |
-| `POST /api/campaign/rumors`, `.../rumors/delete`, `.../events/delete` | Edit the rumors and events of the active campaign |
+| `POST /api/campaign/rumors`, `.../rumors/delete` | Edit the rumors of the active campaign |
 | `POST /api/campaign/cull` | Delete the dialogue, events, and rumors dated after the current game time, after the player loads an older save. It needs the player's context from the running game, because without it day 0 would count as now and the cull would delete the whole history. |
 
 - Each edit names the campaign that the page loaded. Another tab can switch the campaign while the page is open, so the server refuses an edit for another campaign instead of writing it into the active one.

@@ -270,15 +270,12 @@ class EventTest(CampaignTestCase):
         self.assertEqual(campaign_db.cull_after(5, 0, 0)["rumor"], 1)
         self.assertFalse(campaign_db.set_rumor(rumor_id, "gone"))
 
-    def test_delete_event_and_rumor(self):
-        campaign_db.add_event("[Day 1] one")
+    def test_delete_rumor(self):
         campaign_db.add_rumor("- [Day 1, 00:00] [RUMOR: one]")
-        (event_id, _), = campaign_db.events()
         (rumor_id, _), = campaign_db.rumors()
-        self.assertTrue(campaign_db.delete_event(event_id))
         self.assertTrue(campaign_db.delete_rumor(rumor_id))
-        self.assertFalse(campaign_db.delete_event(event_id))
-        self.assertEqual((campaign_db.events(), campaign_db.rumors()), ([], []))
+        self.assertFalse(campaign_db.delete_rumor(rumor_id))
+        self.assertEqual(campaign_db.rumors(), [])
 
 
 class FactionTest(CampaignTestCase):

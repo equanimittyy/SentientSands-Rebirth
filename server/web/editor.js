@@ -24,6 +24,10 @@ const ORIGIN_LABELS = { seed: "Seeded", game: "Met in game", campaign: "Added in
 // Mirrors campaign_db.PROVISIONAL: the chat count of a provisional profile is also its mark.
 const PROVISIONAL = "Interactions";
 const IMPORT_PROBLEMS_SHOWN = 10;
+const EVENTS_PER_PAGE = 50;
+// Mirrors the line that record_event_to_history in server/scripts/kenshi_llm_server.py writes. A party is a name with an optional faction in brackets.
+const PARTY = String.raw`[^()]*?(?: \([^()]*\))?`;
+const EVENT_LINE = new RegExp(String.raw`^(?:\[(Day \d+, \d+:\d+)\] )?\[([^\]]+)\] (${PARTY}) -> (${PARTY})(?: @ ([^:]+))?: (.*)$`, "s");
 
 let source = "campaign";
 let canon = null;
@@ -35,7 +39,7 @@ let records = [];
 const drafts = new Map();
 let log = null;
 let rumorDrafts = {};
-let eventsOpen = false;
+const eventView = { query: "", type: "all", page: 1 };
 const notes = new Map();
 let selected = "overview";
 let query = "";
@@ -865,7 +869,7 @@ function renderRumors() {
     const input = control("textarea", rumorDrafts, rumor.id, ["rumors", rumor.id], { rows: 2, label: "Rumor" });
     if (note?.field) setFieldError(input, note.text);
     return el("div", { className: "card" },
-      el("div", { className: "inline row" }, input, deleteButton("Delete the rumor", () => deleteLogEntry("rumor", rumor.id))),
+      el("div", { className: "inline row" }, input, deleteButton("Delete the rumor", () => deleteRumor(rumor.id))),
       note ? el("p", { className: `hint${note.error ? " error" : ""}` }, note.text) : null);
   });
   return el("fieldset", {},
@@ -874,26 +878,91 @@ function renderRumors() {
     ...(rows.length > 0 ? rows : [el("p", { className: "hint" }, "No rumors yet.")]));
 }
 
-function renderEvents() {
-  const rows = [...log.events].reverse().map((event) => el("li", {},
-    el("span", { className: "detail" }, event.line),
-    deleteButton("Delete the event", () => deleteLogEntry("event", event.id))));
-  return el("fieldset", {},
-    el("legend", {}, `Event history (${log.events.length})`),
-    el("p", { className: "hint" }, "What happened in game, newest first. SSR writes the rumors from it."),
-    rows.length > 0 ? el("details", { open: eventsOpen, ontoggle: (event) => { eventsOpen = event.target.open; } }, el("summary", {}, "Show the events"), el("ul", { className: "plain-list" }, ...rows)) : el("p", { className: "hint" }, "No events yet."));
+function parseEvent(line) {
+  const match = EVENT_LINE.exec(line);
+  if (!match) return { time: "", type: "", parties: "", town: "", text: line };
+  const [, time = "", type, actor, target, town = "", text] = match;
+  return { time, type, parties: target === "None" ? actor : `${actor} → ${target}`, town, text };
 }
 
-const LOG_DELETES = {
-  rumor: { url: "/api/campaign/rumors/delete", title: "Delete the rumor", effect: "NPCs stop mentioning this rumor." },
-  event: { url: "/api/campaign/events/delete", title: "Delete the event", effect: "Later rumors cannot draw on this event." },
-};
+const typeLabel = (type) => (type ? type[0].toUpperCase() + type.slice(1).toLowerCase().replaceAll("_", " ") : "Unknown");
 
-async function deleteLogEntry(kind, id) {
-  const { url, title: heading, effect } = LOG_DELETES[kind];
-  if (!(await ask(heading, "Delete", `${effect} `, "\n\n", el("b", { className: "warning" }, "The delete takes effect immediately and is irreversible.")))) return;
+function renderEvents() {
+  const counts = new Map();
+  for (const event of log.events) {
+    const { type } = parseEvent(event.line);
+    counts.set(type, (counts.get(type) ?? 0) + 1);
+  }
+  if (!counts.has(eventView.type)) eventView.type = "all";
+  const search = el("input", {
+    type: "search",
+    value: eventView.query,
+    placeholder: "Search the events",
+    oninput: (event) => {
+      eventView.query = event.target.value;
+      eventView.page = 1;
+      renderEventPage();
+    },
+  });
+  search.setAttribute("aria-label", "Search the events");
+  const options = [...counts].map(([type, count]) => [type, `${typeLabel(type)} (${count})`]).sort((a, b) => a[1].localeCompare(b[1]));
+  const select = el("select", {
+    onchange: (event) => {
+      eventView.type = event.target.value;
+      eventView.page = 1;
+      renderEventPage();
+    },
+  }, ...[["all", `All types (${log.events.length})`], ...options].map(([value, text]) => new Option(text, value, false, value === eventView.type)));
+  select.setAttribute("aria-label", "Show only");
+  return el("fieldset", {},
+    el("legend", {}, `Event history (${log.events.length})`),
+    el("p", { className: "hint" }, "What happened in game, newest first. After you load an older save, Cull future data on the Campaigns page removes the later events."),
+    ...(log.events.length > 0 ? [el("div", { className: "inline row" }, search, select), el("div", { id: "event-page" })] : [el("p", { className: "hint" }, "No events yet.")]));
+}
+
+function pager(shown, pages, start) {
+  const turn = (label, number) => el("button", {
+    type: "button",
+    disabled: number === eventView.page || number < 1 || number > pages,
+    onclick: () => {
+      eventView.page = number;
+      renderEventPage();
+    },
+  }, label);
+  return el("div", { className: "pager" },
+    turn("Newest", 1), turn("Newer", eventView.page - 1),
+    el("span", {}, `${start + 1}–${Math.min(start + EVENTS_PER_PAGE, shown)} of ${shown}`),
+    turn("Older", eventView.page + 1), turn("Oldest", pages));
+}
+
+function renderEventPage() {
+  const holder = page.querySelector("#event-page");
+  if (!holder) return;
+  const needle = eventView.query.trim().toLowerCase();
+  const shown = [...log.events].reverse()
+    .map((event) => ({ id: event.id, line: event.line, ...parseEvent(event.line) }))
+    .filter((event) => (eventView.type === "all" || event.type === eventView.type) && (!needle || event.line.toLowerCase().includes(needle)));
+  if (shown.length === 0) {
+    holder.replaceChildren(el("p", { className: "hint" }, "No results."));
+    return;
+  }
+  const pages = Math.ceil(shown.length / EVENTS_PER_PAGE);
+  eventView.page = Math.min(eventView.page, pages);
+  const start = (eventView.page - 1) * EVENTS_PER_PAGE;
+  const rows = shown.slice(start, start + EVENTS_PER_PAGE).map((event) => el("tr", {},
+    el("td", {}, event.time || "Unknown"),
+    el("td", {}, el("span", { className: "badge" }, typeLabel(event.type))),
+    el("td", {}, event.town || "Unknown"),
+    el("td", {}, event.parties ? el("div", { className: "detail" }, event.parties) : null, event.text)));
+  const head = el("tr", {}, el("th", {}, "Time"), el("th", {}, "Type"), el("th", {}, withHelp("Town", "The town that your squad was in. Unknown outside a town.")), el("th", {}, "Event"));
+  const table = el("table", { className: "event-table" }, el("thead", {}, head), el("tbody", {}, ...rows));
+  holder.replaceChildren(...(pages > 1 ? [pager(shown.length, pages, start), table, pager(shown.length, pages, start)] : [table]));
+}
+
+async function deleteRumor(id) {
+  if (!(await ask("Delete the rumor", "Delete", "NPCs stop mentioning this rumor. ", "\n\n", el("b", { className: "warning" }, "The delete takes effect immediately and is irreversible.")))) return;
   try {
-    await sendJson("POST", url, { campaign: log.name, id });
+    await sendJson("POST", "/api/campaign/rumors/delete", { campaign: log.name, id });
     await fetchLog(keptRumors());
   } catch (error) {
     showMessage(message, `Delete failed: ${error.message}`, true);
@@ -909,6 +978,7 @@ function renderLog() {
 function render() {
   if (source === "events") {
     page.replaceChildren(renderSubtabs(), ...renderLog());
+    if (log) renderEventPage();
     return;
   }
   const search = el("input", {
