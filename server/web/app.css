@@ -404,6 +404,8 @@ textarea {
 button {
   padding: 0.35rem 0.9rem;
   border: var(--brush) solid var(--field-border);
+  /* Trims the stroke ends that cross at each corner; a radius under twice the stroke leaves them visible. */
+  border-radius: calc(2 * var(--brush));
   background: var(--surface);
   color: var(--text);
   cursor: pointer;
@@ -1023,6 +1025,7 @@ input[type="search"] {
   width: 100%;
   border: none;
   border-bottom: 1px solid var(--border);
+  border-radius: 0;
   background: none;
   text-align: left;
   mask: none;
