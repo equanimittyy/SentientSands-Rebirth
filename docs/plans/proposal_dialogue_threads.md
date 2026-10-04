@@ -43,7 +43,7 @@ Not a reason: the de-duplication of banter. The prompt of a banter collects the 
 
 | Part | Today |
 |---|---|
-| Chat | The player's line and the reply go into the history of the target and of each NPC in the talk or yell radius, with the `(Overheard)` tag for the listeners. The listeners include the squad members near the player, except the squad member who speaks. A whisper has no listeners. |
+| Chat | The player's line and the reply go into the history of the target, of the squad member who speaks, and of each NPC in the talk or yell radius, with the `(Overheard)` tag for the listeners. The listeners include the squad members near the player, except the squad member who speaks. A whisper has no listeners. |
 | Banter | Each line goes into the history of every NPC of the banter request. |
 | Speaker | Each dialogue row stores the `npc_id` of its speaker ([architecture.md](../info/architecture.md#characters)). |
 | Relation | Each NPC keeps one `Relation`. The judgment of each reply changes it, whichever squad member speaks. |

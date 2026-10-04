@@ -292,11 +292,14 @@ def list_characters():
     with _connect() as conn:
         rows = conn.execute(
             "SELECT npc_id, json_extract(profile, '$.Name'), origin, favorite, updated_at,"
-            " EXISTS (SELECT 1 FROM dialogue WHERE character_id = character.id) FROM character"
+            " EXISTS (SELECT 1 FROM dialogue WHERE character_id = character.id),"
+            " EXISTS (SELECT 1 FROM dialogue WHERE character_id = character.id"
+            " AND line NOT LIKE '(Overheard)%' AND line NOT LIKE '[Day %] (Overheard)%') FROM character"
         ).fetchall()
     return [
-        {"npc_id": npc_id, "name": name, "origin": origin, "favorite": bool(fav), "updated_at": updated, "has_dialogue": bool(talked)}
-        for npc_id, name, origin, fav, updated, talked in rows
+        {"npc_id": npc_id, "name": name, "origin": origin, "favorite": bool(fav), "updated_at": updated, "has_dialogue": bool(talked),
+         "only_overheard": bool(talked) and not took_part}
+        for npc_id, name, origin, fav, updated, talked, took_part in rows
     ]
 
 

@@ -308,7 +308,7 @@ The `character` table holds every character of a campaign in one shape: the cano
 - Each dialogue row stores the `npc_id` of its speaker in `speaker`, or nothing when the speaker is unknown. A banter line goes into the history of every NPC nearby, so a name cannot tell whose line it is when two of them share a name.
 - Rejected: the `npc_id` of the speaker inside the line text. The text reaches the LLM, the Dialogue Library, and the bio prompt.
 - The player section of the chat scene describes the squad member who speaks, the `speaker` of the chat request: its name, race, sex, health, hunger, faction with the description of the player's faction, and worn equipment. Its money stays out, because an NPC cannot see a wallet. Its personality, backstory, and speech quirks stay out, because they serve only an LLM that speaks as that character. The chat window offers the members of the current squad except the talk target, and starts on the last speaker while that character is still in the squad. Ambient banter has no speaker, so it uses squad slot 1 from the player's context.
-- The Dialogue Library lists each character with dialogue and each character that is not seeded, so the seeded characters that the player never met stay out of it.
+- The Dialogue Library lists each character with dialogue and each character that is not seeded, so the seeded characters that the player never met stay out of it. A character whose lines are all `(Overheard)` stays out too, because every NPC near a chat overhears it.
 - `LIVE_CONTEXTS` holds the latest context of each NPC that a chat reported, by `npc_id`.
 
 ### Names
@@ -341,7 +341,7 @@ The server adds no title to a game name. It sends `NPC_RENAME: <npc_id>|<Name>` 
 - The chat window keeps the name that its target had when the window opened, so a chat request can name its target by an old name. The server therefore takes the `Name` of the target from the `npc_id` in its context, and it counts a reply line that starts with the old name as a line of the target.
 - The server drops a reply line that another NPC near the player speaks, by its game name or by its `Name`, because the two differ for an NPC with a title.
 
-Only an NPC that the game shows by its template name gets a rolled name. It gets a given name from `server/config/names.json` for the sex of the NPC when a chat or banter first stores it in the campaign. In a chat, this covers the target and each NPC that overhears.
+Only an NPC that the game shows by its template name gets a rolled name. It gets a given name from `server/config/names.json` for the sex of the NPC when a chat or banter first stores it in the campaign. In a chat, this covers the target, the squad member who speaks, and each NPC that overhears.
 
 | Moment | Name in game |
 |---|---|
@@ -397,7 +397,7 @@ A character without a stored profile gets one rolled in code at its first meetin
 - The roll is seeded by the `npc_id`. Banter and a chat can meet a new NPC at the same moment, and both write its profile, so both must roll the same one.
 - The texts are in English. The system prompt sets the reply language, so the replies follow the language setting.
 
-The squad member who speaks in a chat gets a profile at its first chat too, as the target and each listener do. The listeners of a chat leave out the speaker, so without this step a character that only speaks would have no profile.
+The squad member who speaks in a chat gets a profile at its first chat too, as the target and each listener do. The listeners of a chat leave out the speaker, so without this step a character that only speaks would have no profile. The speaker also keeps the player's line and the reply in its own history, without the `(Overheard)` tag.
 
 A profile is provisional while it holds `Interactions` (`campaign_db.PROVISIONAL`): the number of chat turns in which the NPC replied to the player. An overheard turn and banter do not count.
 

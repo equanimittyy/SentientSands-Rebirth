@@ -196,6 +196,12 @@ class CharacterTest(CampaignTestCase):
         self.assertEqual(campaign_db.get_character(BEEP_ID), {"Name": "Beep", "Race": "Hive Worker Drone", "ConversationHistory": ["hello"]})
         self.assertEqual([(c["origin"], c["has_dialogue"]) for c in campaign_db.list_characters()], [("seed", True)])
 
+    def test_only_a_character_whose_every_line_is_overheard_counts_as_only_overheard(self):
+        campaign_db.append_dialogue(GENERIC_ID, spoken(None, "[Day 1, 08:00] (Overheard) Drifter: Hello", "(Overheard) Beep: Hi"), BEEP)
+        campaign_db.append_dialogue("h:1", spoken(None, "[Day 1, 08:00] (Overheard) Drifter: Hello", "[Day 1, 08:01] Beep: Hi"), BEEP)
+        only_overheard = {c["npc_id"]: c["only_overheard"] for c in campaign_db.list_characters()}
+        self.assertEqual(only_overheard, {BEEP_ID: False, GENERIC_ID: True, "h:1": False})
+
     def test_a_character_met_in_play_has_the_game_origin(self):
         campaign_db.upsert_profile(GENERIC_ID, BEEP)
         self.assertEqual({c["npc_id"]: c["origin"] for c in campaign_db.list_characters()}[GENERIC_ID], "game")

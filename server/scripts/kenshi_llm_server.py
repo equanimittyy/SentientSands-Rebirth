@@ -1424,8 +1424,9 @@ def chat():
     if primary_id:
         primary_npc = npc_name(ctx_dict)
 
+    speaker_id = speaker.get("npc_id")
     # Stores a profile for the speaker, whom the listeners leave out
-    if speaker.get("npc_id"):
+    if speaker_id:
         npc_name(speaker)
 
     _, talk_radius, yell_radius = get_config_radii()
@@ -1553,8 +1554,9 @@ def chat():
 
         reply_line = f"{primary_npc}: {content}"
 
-        for npc_id, (name, local_context) in listeners.items():
-            overheard_tag = "" if npc_id == primary_id else "(Overheard) "
+        recorders = {**listeners, speaker_id: (player_name, speaker)} if speaker_id else listeners
+        for npc_id, (name, local_context) in recorders.items():
+            overheard_tag = "" if npc_id in (primary_id, speaker_id) else "(Overheard) "
 
             if npc_id not in char_datas:
                 char_datas[npc_id] = get_character_data(name, local_context)
@@ -2559,10 +2561,11 @@ def list_characters():
     sort_mode = data.get("sort", "alphabetical") # alphabetical or latest
     
     logging.debug(f"LIBRARY: Listing the characters of '{ACTIVE_CAMPAIGN}' (sort: {sort_mode})")
-    # Leaves out the seeded characters that nobody has met, so the template does not fill the library
+    # Leaves out the seeded characters that nobody has met, so the template does not fill the library, and the characters
+    # that only overheard chats, because every NPC near a chat overhears it
     final_list = [
         {"display": c["name"] or c["npc_id"], "sid": c["npc_id"], "updated_at": c["updated_at"], "is_fav": c["favorite"]}
-        for c in campaign_db.list_characters() if c["has_dialogue"] or c["origin"] != "seed"
+        for c in campaign_db.list_characters() if not c["only_overheard"] and (c["has_dialogue"] or c["origin"] != "seed")
     ]
     favorites = [n["sid"] for n in final_list if n["is_fav"]]
 
