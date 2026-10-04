@@ -1346,12 +1346,7 @@ def chat():
                 "text": f"[DEBUG] Executing test command: {test_action}",
                 "actions": [test_action]
             }), 200
-            
-    event = data.get('event')
-    
-    if event == "selection_clear":
-        return jsonify({"status": "ignored"}), 200
-        
+
     if not player_message:
         return jsonify({"text": "...", "actions": []}), 200
 
