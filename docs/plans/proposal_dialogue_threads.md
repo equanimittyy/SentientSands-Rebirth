@@ -31,10 +31,10 @@ Threads also support these later uses:
 
 | Use | What threads add | Status |
 |---|---|---|
-| A conversation view, for example in the Campaign Dialogue subtab | The view lists who else took part in a conversation and opens the copy of each participant | The subtab is planned ([proposal_campaign_data.md](proposal_campaign_data.md#5-campaign-dialogue)), but it shows one history for each character and does not need threads |
+| A conversation view, for example in the Campaign Dialogue subtab | The view lists who else took part in a conversation and opens the copy of each participant | The subtab is planned ([proposal_campaign_data.md](proposal_campaign_data.md#3-campaign-dialogue)), but it shows one history for each character and does not need threads |
 | A delete or an edit of a bad reply | One action changes every copy of a line, not only the copy that the player sees | Not planned. The web app has no dialogue edit. A match on the text would also find the copies, because the copies of a line differ only by the `(Overheard)` tag and the name of the one that the line was said to |
 | A summary of old dialogue before the trim | A thread is the unit of a summary, so the summary of a conversation is written once and not once for each copy | Not planned. Today the oldest lines go in blocks of 20 with no summary |
-| Recall of an earlier conversation in a prompt | The prompt gets a whole earlier conversation when the player refers to it | Not planned. Retrieval in [proposal_campaign_data.md](proposal_campaign_data.md#3-retrieval) searches only the lore |
+| Recall of an earlier conversation in a prompt | The prompt gets a whole earlier conversation when the player refers to it | Not planned. Retrieval in [proposal_lore_retrieval.md](proposal_lore_retrieval.md#1-summary) searches only the lore |
 | A group chat in which several NPCs reply | One exchange holds the replies of several speakers | Not planned. A chat has one target today |
 
 Not a reason: the de-duplication of banter. The prompt of a banter collects the recent lines of the NPCs nearby and drops repeated lines by their text (`ambient_event` in `server/scripts/kenshi_llm_server.py`). The copies of a banter line have the same text, so this already works.
