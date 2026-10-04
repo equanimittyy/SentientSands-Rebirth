@@ -398,7 +398,7 @@ textarea {
 }
 
 #prompts-list textarea {
-  height: 70vh;
+  height: max(70vh, 24rem);
 }
 
 button {
@@ -851,7 +851,7 @@ dialog .actions {
 }
 
 textarea.tall {
-  height: 60vh;
+  height: max(60vh, 24rem);
 }
 
 input[type="search"] {
@@ -1008,7 +1008,7 @@ input[type="search"] {
 }
 
 .record-list {
-  max-height: 55vh;
+  max-height: max(55vh, 24rem);
   overflow-y: auto;
   border: var(--brush) solid var(--border);
   background: var(--surface);
@@ -1116,6 +1116,13 @@ input[type="search"] {
     grid-template-columns: minmax(0, 1fr);
   }
 
+  .record-panel {
+    position: static;
+  }
+}
+
+/* A sticky panel taller than the window would keep its bottom out of reach, so a short window scrolls it with the page. */
+@media (max-height: 54rem) {
   .record-panel {
     position: static;
   }
