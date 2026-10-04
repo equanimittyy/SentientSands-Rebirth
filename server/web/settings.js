@@ -39,8 +39,10 @@ function changedSettings(current) {
   return changes;
 }
 
+const hasChanges = () => Object.keys(changedSettings(snapshot())).length > 0;
+
 function updateUnsaved() {
-  const unsaved = Object.keys(changedSettings(snapshot())).length > 0;
+  const unsaved = hasChanges();
   reportUnsaved(form, unsaved);
   showMessage(message, unsaved ? "Unsaved changes." : "");
 }
@@ -74,7 +76,7 @@ async function resetToDefaults() {
   }
 }
 
-export async function loadSettings() {
+async function fetchSettings(kept) {
   try {
     const settings = await getJson("/settings");
     fillOptions(form.elements.language, settings.supported_languages);
@@ -82,14 +84,26 @@ export async function loadSettings() {
     fillOptions(form.elements.log_level, settings.log_levels);
     fillFields(settings);
     saved = snapshot();
+    for (const [name, value] of kept) setValue(form.elements[name], value);
     fields().forEach(checkField);
-    reportUnsaved(form, false);
-    showMessage(message, "");
     return true;
   } catch (error) {
     showMessage(message, `Could not load the settings: ${error.message}`, true);
     return false;
   }
+}
+
+export async function loadSettings() {
+  if (!(await fetchSettings([]))) return false;
+  reportUnsaved(form, false);
+  showMessage(message, "");
+  return true;
+}
+
+export async function refreshSettings() {
+  const unsaved = hasChanges();
+  const kept = Object.entries(snapshot()).filter(([name, value]) => value !== saved[name]);
+  if ((await fetchSettings(kept)) && hasChanges() !== unsaved) updateUnsaved();
 }
 
 form.addEventListener("submit", save);

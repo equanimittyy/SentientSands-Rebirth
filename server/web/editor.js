@@ -35,6 +35,7 @@ let records = [];
 const drafts = new Map();
 let log = null;
 let rumorDrafts = {};
+let eventsOpen = false;
 const notes = new Map();
 let selected = "overview";
 let query = "";
@@ -877,7 +878,7 @@ function renderEvents() {
   return el("fieldset", {},
     el("legend", {}, `Event history (${log.events.length})`),
     el("p", { className: "hint" }, "What happened in game, newest first. SSR writes the rumors from it."),
-    rows.length > 0 ? el("details", {}, el("summary", {}, "Show the events"), el("ul", { className: "plain-list" }, ...rows)) : el("p", { className: "hint" }, "No events yet."));
+    rows.length > 0 ? el("details", { open: eventsOpen, ontoggle: (event) => { eventsOpen = event.target.open; } }, el("summary", {}, "Show the events"), el("ul", { className: "plain-list" }, ...rows)) : el("p", { className: "hint" }, "No events yet."));
 }
 
 const LOG_DELETES = {
@@ -988,42 +989,48 @@ async function fetchTemplates() {
   if (!templates.some((entry) => entry.name === current)) current = templates[0]?.name ?? "";
 }
 
-async function fetchCanon() {
+// A reply with an error status still has fieldErrors; a lost server has none and fails the whole load
+async function getCampaign(url) {
   try {
-    canon = await getJson("/api/campaign/canon");
-    refusal = "";
+    return [await getJson(url), ""];
   } catch (error) {
-    // A reply with an error status still has fieldErrors; a lost server has none and fails the whole load
     if (!("fieldErrors" in error)) throw error;
-    canon = null;
-    refusal = error.message;
+    return [null, error.message];
   }
 }
 
 const keptRumors = () => Object.fromEntries(changedRumors().map((rumor) => [rumor.id, rumorDrafts[rumor.id]]));
 
-async function fetchLog(kept) {
-  try {
-    log = await getJson("/api/campaign");
-    refusal = "";
-  } catch (error) {
-    if (!("fieldErrors" in error)) {
-      showMessage(message, `Could not load the campaign events: ${error.message}`, true);
-      return false;
-    }
-    log = null;
-    refusal = error.message;
-  }
+function showLog(kept) {
   rumorDrafts = Object.fromEntries((log?.rumors ?? []).map((rumor) => [rumor.id, kept[rumor.id] ?? rumor.text]));
   render();
+}
+
+async function fetchLog(kept) {
+  try {
+    [log, refusal] = await getCampaign("/api/campaign");
+  } catch (error) {
+    showMessage(message, `Could not load the campaign events: ${error.message}`, true);
+    return false;
+  }
+  showLog(kept);
   updateUnsaved();
   return true;
+}
+
+function showRecords(kept, bases = new Map()) {
+  const loaded = source === "campaign" ? (canon ? canonRecords(canon) : []) : (template ? savedRecords(template) : []);
+  records = [...loaded.map((record) => bases.get(record.key) ?? record), ...[...bases.values()].filter((base) => !loaded.some((record) => record.key === base.key))];
+  drafts.clear();
+  for (const [key, entry] of kept) drafts.set(key, entry);
+  if (!allRecords().some((record) => record.key === selected)) selected = "overview";
+  render();
 }
 
 // Keeps the drafts that failed to save, so the player can fix them.
 async function fetchRecords(kept) {
   try {
-    if (source === "campaign") await fetchCanon();
+    if (source === "campaign") [canon, refusal] = await getCampaign("/api/campaign/canon");
     else {
       if (!current) await fetchTemplates();
       template = current ? (await getJson(`/api/templates/${encodeURIComponent(current)}`)).template : null;
@@ -1032,17 +1039,62 @@ async function fetchRecords(kept) {
     showMessage(message, `Could not load the ${source === "template" ? "template" : "campaign canon"}: ${error.message}`, true);
     return false;
   }
-  if (source === "campaign") records = canon ? canonRecords(canon) : [];
-  else records = template ? savedRecords(template) : [];
-  drafts.clear();
-  for (const [key, entry] of kept) drafts.set(key, entry);
-  if (!allRecords().some((record) => record.key === selected)) selected = "overview";
-  render();
+  showRecords(kept);
   updateUnsaved();
   return true;
 }
 
+const showing = () => `${source}/${current}`;
+
+// A switch during the fetch loads the newer subtab or template, so a refresh that sees one leaves the page to it.
+async function refreshLog() {
+  const opened = showing();
+  const fresh = await getCampaign("/api/campaign");
+  if (showing() !== opened || JSON.stringify(fresh) === JSON.stringify([log, refusal])) return;
+  const unsaved = hasChanges();
+  // The drafts belong to the campaign that the page loaded
+  if (unsaved && fresh[0]?.name !== log?.name) return;
+  const kept = keptRumors();
+  [log, refusal] = fresh;
+  showLog(kept);
+  if (hasChanges() !== unsaved) updateUnsaved();
+}
+
+// A changed record keeps the version that the page loaded, so its save still fails as stale when the record changed
+// elsewhere, instead of overwriting that change.
+async function refreshRecords() {
+  const opened = showing();
+  let fresh;
+  if (source === "campaign") fresh = await getCampaign("/api/campaign/canon");
+  else {
+    const list = (await getJson("/api/templates")).templates;
+    const name = list.some((entry) => entry.name === current) ? current : list[0]?.name ?? "";
+    fresh = [list, name, name ? (await getJson(`/api/templates/${encodeURIComponent(name)}`)).template : null];
+  }
+  const shown = source === "campaign" ? [canon, refusal] : [templates, current, template];
+  if (showing() !== opened || JSON.stringify(fresh) === JSON.stringify(shown)) return;
+  const unsaved = hasChanges();
+  if (unsaved && (source === "campaign" ? fresh[0]?.name !== canon?.name : fresh[1] !== current)) return;
+  const kept = keptDrafts();
+  const bases = new Map(records.filter((record) => kept.has(record.key)).map((record) => [record.key, record]));
+  if (source === "campaign") [canon, refusal] = fresh;
+  else [templates, current, template] = fresh;
+  const scroll = page.querySelector("#record-list")?.scrollTop ?? 0;
+  showRecords(kept, bases);
+  page.querySelector("#record-list")?.scrollTo(0, scroll);
+  if (hasChanges() !== unsaved) updateUnsaved();
+}
+
 const reload = () => (source === "events" ? fetchLog({}) : fetchRecords(new Map()));
+
+export async function refreshEditor() {
+  try {
+    if (source === "events") await refreshLog();
+    else await refreshRecords();
+  } catch (error) {
+    showMessage(message, `Refresh failed: ${error.message}`, true);
+  }
+}
 
 export async function loadEditor() {
   notes.clear();
@@ -1062,7 +1114,4 @@ document.addEventListener("campaignchange", (event) => {
   if (source === "template" || campaignName() === event.detail) return;
   if (hasChanges()) showMessage(message, `The game switched to the campaign ${event.detail}. Your changes belong to ${campaignName()}, so they cannot be saved. Discard to load ${event.detail}.`, true);
   else reload();
-});
-document.addEventListener("campaigncull", () => {
-  if (source === "events") fetchLog(keptRumors());
 });

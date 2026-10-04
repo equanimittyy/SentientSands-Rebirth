@@ -5,6 +5,7 @@ const message = document.getElementById("campaigns-message");
 let campaigns = [];
 let templates = [];
 let refusal = "";
+let shownList = "";
 const notes = new Map();
 const creation = { name: "", template: "" };
 
@@ -132,18 +133,24 @@ async function cull() {
   }
 }
 
+function show(list) {
+  shownList = JSON.stringify(list);
+  campaigns = list.campaigns;
+  templates = list.templates;
+  if (!templates.some((template) => template.name === creation.template)) creation.template = list.default_template;
+  refusal = list.refusal ?? "";
+  render();
+}
+
 async function fetchAll() {
+  let list;
   try {
-    const list = await getJson("/api/campaigns");
-    campaigns = list.campaigns;
-    templates = list.templates;
-    if (!templates.some((template) => template.name === creation.template)) creation.template = list.default_template;
-    refusal = list.refusal ?? "";
+    list = await getJson("/api/campaigns");
   } catch (error) {
     showMessage(message, `Could not load the campaigns: ${error.message}`, true);
     return false;
   }
-  render();
+  show(list);
   showMessage(message, "");
   return true;
 }
@@ -151,6 +158,15 @@ async function fetchAll() {
 export async function loadCampaigns() {
   notes.clear();
   return fetchAll();
+}
+
+export async function refreshCampaigns() {
+  try {
+    const list = await getJson("/api/campaigns");
+    if (JSON.stringify(list) !== shownList) show(list);
+  } catch (error) {
+    showMessage(message, `Could not load the campaigns: ${error.message}`, true);
+  }
 }
 
 document.addEventListener("campaignchange", (event) => {

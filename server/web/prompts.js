@@ -81,14 +81,25 @@ function card(prompt) {
   return details;
 }
 
-// Keeps the drafts that failed to save, so the player can fix them.
-async function fetchPrompts(kept) {
+async function getPrompts() {
   try {
     ({ prompts } = await getJson("/api/prompts"));
+    return true;
   } catch (error) {
     showMessage(message, `Could not load the prompts: ${error.message}`, true);
     return false;
   }
+}
+
+// Keeps the drafts that failed to save, so the player can fix them.
+async function fetchPrompts(kept) {
+  if (!(await getPrompts())) return false;
+  showPrompts(kept);
+  updateUnsaved();
+  return true;
+}
+
+function showPrompts(kept) {
   drafts.clear();
   for (const prompt of prompts) drafts.set(prompt.name, kept.get(prompt.name) ?? savedText(prompt));
   list.replaceChildren(...GROUPS.map((group) => {
@@ -97,8 +108,6 @@ async function fetchPrompts(kept) {
       .sort((a, b) => titleOf(a).localeCompare(titleOf(b)));
     return members.length > 0 ? el("fieldset", {}, el("legend", {}, group), ...members.map(card)) : null;
   }).filter(Boolean));
-  updateUnsaved();
-  return true;
 }
 
 async function save() {
@@ -137,6 +146,15 @@ async function resetAll() {
 export async function loadPrompts() {
   notes.clear();
   return fetchPrompts(new Map());
+}
+
+export async function refreshPrompts() {
+  const shown = JSON.stringify(prompts);
+  const unsaved = changedPrompts().length > 0;
+  const kept = new Map(changedPrompts().map((prompt) => [prompt.name, drafts.get(prompt.name)]));
+  if (!(await getPrompts()) || JSON.stringify(prompts) === shown) return;
+  showPrompts(kept);
+  if (changedPrompts().length > 0 !== unsaved) updateUnsaved();
 }
 
 document.getElementById("prompts-save").addEventListener("click", save);

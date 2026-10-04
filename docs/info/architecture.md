@@ -80,7 +80,22 @@ Each tab holds `GET /web_panel/presence` open. This event stream sends a heartbe
 
 **Open Web Panel** in the SSR HUB always opens the web app in a new tab of the default browser. The button does not check for an open tab. A version that brought the browser window of an open tab to the front left an empty box on the game screen in exclusive fullscreen.
 
-Another tab can switch the campaign while a tab is open, so the poll also shows the active campaign. When the poll sees another campaign, it sends a `campaignchange` event. The Campaigns page loads the new campaign, and the open Campaign Canon or Campaign Events subtab of the Editor loads it unless the subtab has unsaved changes. `GET /context` also returns `culls`, the number of culls since the server started, from the Campaigns page or from the SSR HUB. When the number changes, the poll sends a `campaigncull` event, so the Campaign Events subtab loads the rumors and events again.
+Another tab can switch the campaign while a tab is open, so the poll also shows the active campaign. When the poll sees another campaign, it sends a `campaignchange` event. The Campaigns page loads the new campaign, and the open Campaign Canon or Campaign Events subtab of the Editor loads it unless the subtab has unsaved changes.
+
+The save bar of each page has a Refresh button at its right end. Refresh loads the stored data again and keeps the unsaved changes of the page (`refreshers` in `server/web/app.js`).
+
+`GET /context` also returns `writes`, the number of writes since the server started. It counts each commit to the campaign database (`campaign_db.writes`) and each successful POST request under `/api/` or to `/settings` (`count_write_requests` in `server/scripts/kenshi_llm_server.py`). When the number changes, the poll refreshes each loaded page, so a change from the game or from another tab reaches an open page. The auto refresh waits while a request runs or a dialog is open, because the request or the dialog can still change the page. It also waits while the player types in a field of the page, because the refresh rebuilds the page and the field loses the caret.
+
+A refresh keeps the unsaved changes of each part that a Save writes, and loads the stored data of all other parts:
+
+| Page | A refresh keeps |
+|---|---|
+| Settings | Each changed field. |
+| Prompts | Each changed prompt. |
+| Editor | Each changed record or rumor. A changed record keeps the version that the page loaded, so its save still fails as stale when the record changed elsewhere. |
+| Models | The whole page, because Save writes the whole configuration. When another tab changed the models, the page tells the player that Save overwrites that change. |
+
+A refresh changes the message of the save bar only when the unsaved state of the page changes, so a change from elsewhere does not hide a "Saved." that the player did not read. The Editor does not put unsaved changes on the data of another campaign or template, so a refresh after a switch keeps the page as it is until the player discards.
 
 The Editor holds many records. Save sends one request for each changed record, and a record that the server rejects keeps its draft and shows the reason. A delete takes effect at once, after a confirmation.
 

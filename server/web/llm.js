@@ -30,6 +30,8 @@ const checks = new WeakMap();
 let focusCard = null;
 let renaming = null;
 let renameText = "";
+let shownConfig = "";
+let unsaved = false;
 
 const cardKey = (kind, name) => `${kind}s/${name}`;
 
@@ -38,6 +40,7 @@ function joinNames(names) {
 }
 
 function markDirty() {
+  unsaved = true;
   reportUnsaved(editor, true);
   showMessage(message, "Unsaved changes.");
 }
@@ -532,6 +535,8 @@ function buildPayload() {
 }
 
 function load(config) {
+  shownConfig = JSON.stringify(config);
+  unsaved = false;
   state = { providers: config.providers, profiles: config.profiles, default_profile: config.default_profile, routes: config.routes };
   tasks = config.tasks;
   providerTypes = config.provider_types;
@@ -591,6 +596,20 @@ export async function loadLlm() {
     showMessage(message, `Could not load the LLM settings: ${error.message}`, true);
     return false;
   }
+}
+
+// Save writes the whole configuration, so the unsaved page stays whole and the player chooses which version to keep.
+export async function refreshLlm() {
+  let config;
+  try {
+    config = await getJson("/api/llm");
+  } catch (error) {
+    showMessage(message, `Could not load the LLM settings: ${error.message}`, true);
+    return;
+  }
+  if (JSON.stringify(config) === shownConfig) return;
+  if (unsaved) showMessage(message, "Another tab changed the models. Save overwrites that change, and Discard loads it.", true);
+  else load(config);
 }
 
 document.getElementById("llm-save").addEventListener("click", save);

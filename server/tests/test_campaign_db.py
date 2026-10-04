@@ -336,5 +336,18 @@ class RecordTest(CampaignTestCase):
             campaign_db.save_record("character", key, {"Name": "Gone"}, "2099-01-01T00:00:00.000+00:00")
 
 
+class WriteCountTest(CampaignTestCase):
+    def test_only_a_committed_write_counts(self):
+        campaign_db.open_campaign(self.folder, lambda: SEED)
+        before = campaign_db.writes
+        campaign_db.list_records("character")
+        self.assertEqual(campaign_db.writes, before)
+        campaign_db.add_event("The Hub burned.")
+        self.assertEqual(campaign_db.writes, before + 1)
+        with self.assertRaises(campaign_db.StaleRecord):
+            campaign_db.save_record("character", (BEEP_ID,), {"Name": "Old"}, "2000-01-01T00:00:00.000+00:00")
+        self.assertEqual(campaign_db.writes, before + 1)
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -97,7 +97,7 @@ THROTTLE_LOCK = threading.Lock()
 LAST_STATE_LOG = {} # {"<target>|<etype>": last message}
 STATE_LOCK = threading.Lock()
 SYNTHESIS_STATUS = {"elapsed": 0, "interval": 60}
-CULL_COUNT = 0
+WRITE_REQUESTS = 0
 SEEN_FACTIONS = set()
 
 ANIMAL_RACES = [
@@ -256,6 +256,15 @@ def reject_foreign_requests():
     if not is_request_allowed(host, origin):
         logging.warning(f"HTTP: Rejected request to {request.path}: Host={host}, Origin={origin}")
         return jsonify({"status": "error", "message": "Forbidden"}), 403
+
+# The web app polls this count with campaign_db.writes, so an open page loads a change from another tab or the game.
+# A POST that only reads, such as a model test, costs an open page one needless load.
+@app.after_request
+def count_write_requests(response):
+    global WRITE_REQUESTS
+    if request.method == "POST" and response.status_code < 400 and (request.path.startswith("/api/") or request.path == "/settings"):
+        WRITE_REQUESTS += 1
+    return response
 
 def load_configs():
     global NAMES_CONFIG
@@ -1840,7 +1849,8 @@ def get_context():
         "player": PLAYER_CONTEXT or LAST_STATE_LOG.get("player", {}),
         "npc": last_npc or LAST_STATE_LOG.get("npc", {}),
         "campaign": ACTIVE_CAMPAIGN,
-        "culls": CULL_COUNT,
+        # Both counts only grow, so the sum changes when either does
+        "writes": campaign_db.writes + WRITE_REQUESTS,
         "synthesis": {
             "elapsed": elapsed,
             "interval": interval
@@ -2377,13 +2387,11 @@ def cull_from_game():
     return cull_future_data()
 
 def cull_future_data():
-    global CULL_COUNT
     # Without a game, day 0 would count as now, and the cull would delete the whole history
     if "day" not in PLAYER_CONTEXT:
         return jsonify({"status": "error", "message": "Cull needs the game running, because it deletes what is dated after the current game time."}), 409
     day, hour, minute = int(PLAYER_CONTEXT["day"]), int(PLAYER_CONTEXT.get("hour", 0)), int(PLAYER_CONTEXT.get("minute", 0))
     culled = campaign_db.cull_after(day, hour, minute)
-    CULL_COUNT += 1
     logging.info(f"CAMPAIGN: Culled {culled['dialogue']} dialogue lines, {culled['event']} events, and {culled['rumor']} rumors after [Day {day}, {hour:02d}:{minute:02d}] in '{ACTIVE_CAMPAIGN}'")
     return jsonify({"status": "ok", "time": f"Day {day}, {hour:02d}:{minute:02d}", "culled": culled})
 

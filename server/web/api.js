@@ -1,5 +1,6 @@
 let online = true;
 let onConnectionChange = () => {};
+let pending = 0;
 
 function setOnline(value) {
   if (value === online) return;
@@ -24,17 +25,28 @@ export function watchConnection(listener) {
   onConnectionChange = listener;
 }
 
+// A refresh waits for this, so it cannot render data that a running save is about to change.
+export const idle = () => pending === 0;
+
+async function requestJson(url, options) {
+  pending += 1;
+  try {
+    return await readJson(await request(url, options));
+  } finally {
+    pending -= 1;
+  }
+}
+
 export async function getJson(url) {
-  return readJson(await request(url));
+  return requestJson(url);
 }
 
 export async function sendJson(method, url, body) {
-  const response = await request(url, {
+  return requestJson(url, {
     method,
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
   });
-  return readJson(response);
 }
 
 async function readJson(response) {

@@ -458,7 +458,11 @@ button.danger {
   background: var(--bg);
 }
 
-/* Campaign actions apply at once, so this bar only carries the status message and is not a save boundary. */
+.save-bar .refresh {
+  margin-left: auto;
+}
+
+/* Campaign actions apply at once, so this bar only carries the status message and Refresh, and is not a save boundary. */
 #campaigns .save-bar::before {
   content: none;
 }

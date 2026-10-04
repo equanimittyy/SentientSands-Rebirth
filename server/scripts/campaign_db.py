@@ -82,6 +82,8 @@ _GAME_TIME = re.compile(r"\[Day (\d+)(?:, (\d+):(\d+))?\]")
 _db_path = None
 _closed_reason = "No campaign is open."
 _open_lock = threading.Lock()
+# The web app polls this count, so an open page loads what the game or another tab wrote
+writes = 0
 
 
 class CampaignUnavailable(Exception):
@@ -518,6 +520,7 @@ def delete_record(kind, key):
 
 @contextmanager
 def _connect(write=False):
+    global writes
     reason = unavailable_reason()
     if reason:
         raise CampaignUnavailable(reason)
@@ -528,6 +531,9 @@ def _connect(write=False):
         conn.execute("BEGIN IMMEDIATE" if write else "BEGIN")
         yield conn
         conn.execute("COMMIT")
+        # After the commit, so a page that sees the new count also reads the new data
+        if write:
+            writes += 1
     except BaseException:
         if conn.in_transaction:
             conn.execute("ROLLBACK")

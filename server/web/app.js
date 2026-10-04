@@ -1,9 +1,9 @@
-import { getJson, watchConnection } from "./api.js";
-import { loadCampaigns } from "./campaigns.js";
-import { loadEditor } from "./editor.js";
-import { loadLlm } from "./llm.js";
-import { loadPrompts } from "./prompts.js";
-import { loadSettings } from "./settings.js";
+import { getJson, idle, watchConnection } from "./api.js";
+import { loadCampaigns, refreshCampaigns } from "./campaigns.js";
+import { loadEditor, refreshEditor } from "./editor.js";
+import { loadLlm, refreshLlm } from "./llm.js";
+import { loadPrompts, refreshPrompts } from "./prompts.js";
+import { loadSettings, refreshSettings } from "./settings.js";
 
 const POLL_MS = 3000;
 
@@ -42,13 +42,18 @@ showTheme();
 const status = document.getElementById("status");
 const offline = document.getElementById("offline");
 const loaders = { settings: loadSettings, llm: loadLlm, prompts: loadPrompts, campaigns: loadCampaigns, editor: loadEditor };
+// A refresher keeps the unsaved drafts. It changes the bar message only when the unsaved state changes, so a change from
+// elsewhere does not hide a "Saved." that the player did not read yet.
+const refreshers = { settings: refreshSettings, llm: refreshLlm, prompts: refreshPrompts, campaigns: refreshCampaigns, editor: refreshEditor };
 const loadable = pages.filter((page) => page.id in loaders);
 const editors = pages.filter((page) => page.querySelector(".save"));
+const refreshButtons = [...document.querySelectorAll(".refresh")];
 const loaded = new Set();
 const unsaved = new Set();
+const stale = new Set();
 let online = true;
 let campaign = null;
-let culls = null;
+let writes = null;
 
 // A page that did not load has empty fields, and its Save would write them over the stored values.
 function updateButtons() {
@@ -56,6 +61,7 @@ function updateButtons() {
     page.querySelector(".save").disabled = !online || !loaded.has(page.id);
     page.querySelector(".discard").disabled = !online || !unsaved.has(page.id);
   }
+  for (const button of refreshButtons) button.disabled = !online;
 }
 
 async function load(id) {
@@ -74,6 +80,26 @@ document.querySelector("main").addEventListener("unsaved", (event) => {
 
 for (const page of editors) page.querySelector(".discard").addEventListener("click", () => load(page.id));
 
+// A page that did not load has no drafts to keep, so it loads in full.
+async function refresh(id) {
+  stale.delete(id);
+  if (loaded.has(id)) await refreshers[id]();
+  else await load(id);
+}
+
+for (const button of refreshButtons) button.addEventListener("click", () => refresh(button.closest("section").id));
+
+const typingIn = (page) => page.contains(document.activeElement) && document.activeElement.matches("textarea, select, input:not([type=checkbox], [type=radio])");
+
+// A refresh rebuilds the page, which would take the caret from the player, and an open dialog can still write into the page.
+async function refreshStale() {
+  for (const page of pages) {
+    if (!stale.has(page.id) || typingIn(page)) continue;
+    if (!idle() || document.querySelector("dialog[open]")) return;
+    await refresh(page.id);
+  }
+}
+
 window.addEventListener("beforeunload", (event) => {
   if (unsaved.size > 0) event.preventDefault();
 });
@@ -84,8 +110,9 @@ async function poll() {
     status.textContent = `Current Campaign: ${context.campaign || "None"}`;
     if (campaign !== null && context.campaign !== campaign) document.dispatchEvent(new CustomEvent("campaignchange", { detail: context.campaign }));
     campaign = context.campaign;
-    if (culls !== null && context.culls !== culls) document.dispatchEvent(new CustomEvent("campaigncull"));
-    culls = context.culls;
+    if (writes !== null && context.writes !== writes) for (const id of loaded) stale.add(id);
+    writes = context.writes;
+    await refreshStale();
   } catch {
     // The offline banner reports a lost server.
   }
