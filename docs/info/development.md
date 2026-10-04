@@ -47,6 +47,14 @@ python -m unittest discover -s server/tests
 
 The tests use only the standard library, so they run in the dev container. Code that imports Flask or `requests` cannot be tested there, so keep testable logic in modules that do not import them.
 
+## Mock data
+
+```
+python scripts/mock_test.py [name]
+```
+
+The script creates a campaign from SSR Vanilla, named `mock` by default, and fills it with a squad, NPCs, chat threads, banter, events, and rumors. The Campaign Log and the Dialogue Library then have data without a game. The script refuses a name that a campaign already uses, so a second run cannot add the data twice. It needs no Flask, so it runs in the dev container. Switch to the campaign on the Campaigns page.
+
 ## Probes
 
 Some questions of the plans need data from the game. The plugin writes probe lines to `SentientSands_SDK.log` for them. All probe functions are in `plugin/game/Context.cpp`. A probe is removed when the change that needs its answer is built.
