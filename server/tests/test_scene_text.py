@@ -105,6 +105,13 @@ class SentenceTest(unittest.TestCase):
         text = scene_text.npc_text(context, profile, "Drifter", "Nameless", met=True, major=False, in_player_faction=False, feels_hunger=True)
         self.assertEqual(text, "You:\nYou are friendly towards Drifter. You are imprisoned and cannot move freely. Your faction, The Holy Nation, is neutral towards Nameless. You are well fed. You are healthy. You are indoors. You are a seasoned fighter. You have a little money. Drifter once saved your life.")
 
+    def test_an_npc_that_changed_faction_hears_the_old_and_the_new_one(self):
+        context = {"faction": "Band of Bones"}
+        text = scene_text.npc_text(context, {"Faction": "Shek Kingdom"}, "Drifter", "Nameless", met=True, major=False, in_player_faction=False, feels_hunger=True, faction_description="A violent band of Shek bandits")
+        self.assertIn("You belonged to Shek Kingdom, but now you belong to Band of Bones. A violent band of Shek bandits.", text)
+        text = scene_text.npc_text(context, {}, "Drifter", "Nameless", met=True, major=False, in_player_faction=False, feels_hunger=True)
+        self.assertIn("You now belong to Band of Bones.", text)
+
     def test_a_squad_member_travels_with_the_player(self):
         text = scene_text.npc_text({"faction": "Nameless", "relation": 100}, {"Faction": "Nameless"}, "Drifter", "Nameless", met=True, major=False, in_player_faction=True, feels_hunger=True)
         self.assertIn("You travel in Drifter's squad, and Drifter leads it.", text)

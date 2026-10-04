@@ -522,9 +522,13 @@ def npc_scene(npc_id, profile, player_name):
     player_faction = PLAYER_CONTEXT.get("faction", "Nameless")
     player_faction_id = PLAYER_CONTEXT.get("factionID")
     in_player_faction = faction == player_faction or bool(player_faction_id and context.get("factionID") == player_faction_id)
-    major = not in_player_faction and bool((campaign_db.find_faction(context.get("factionID"), faction) or {}).get("major"))
+    record = campaign_db.find_faction(context.get("factionID"), faction) or {}
+    major = not in_player_faction and bool(record.get("major"))
+    # The player section of the scene already describes the player's faction
+    faction_description = "" if in_player_faction else record.get("description", "")
     return scene_text.npc_text(context, profile, player_name, player_faction, met=bool(profile.get("ConversationHistory")),
-                               major=major, in_player_faction=in_player_faction, feels_hunger=not is_skeleton(profile.get("Race", "")))
+                               major=major, in_player_faction=in_player_faction, feels_hunger=not is_skeleton(profile.get("Race", "")),
+                               faction_description=faction_description)
 
 # SetHotkeyFromString in the plugin parses only these keys
 CHAT_HOTKEYS = ["\\", "[", "P", "T", "J", "U", "K"]
