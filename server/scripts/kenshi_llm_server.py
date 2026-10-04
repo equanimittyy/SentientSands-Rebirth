@@ -160,8 +160,8 @@ def note_faction(ctx, is_player=False):
 def get_config_radii():
     settings = load_settings()
     r = float(settings.get('radiant_range', 100.0))
-    t = float(settings.get('talk_radius', 100.0))
-    y = float(settings.get('yell_radius', 200.0))
+    t = float(settings.get('talk_radius', 50.0))
+    y = float(settings.get('yell_radius', 100.0))
     return r, t, y
 def sanitize_llm_text(text):
     if not text: return ""
@@ -547,11 +547,11 @@ SETTINGS_DEFAULTS = {
     "radiant_delay": 240,
     "synthesis_interval_minutes": 5,
     "radiant_range": 100,
-    "talk_radius": 100,
-    "yell_radius": 200,
+    "talk_radius": 50,
+    "yell_radius": 100,
     "enable_welcome": True,
     "dialogue_speed_seconds": 5,
-    "bubble_life": 5.0,
+    "bubble_life": 15.0,
     "language": "English",
     "chat_hotkey": "\\",
     "open_web_panel_on_start": True,

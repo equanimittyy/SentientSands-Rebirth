@@ -14,14 +14,14 @@ std::string g_modRoot = "";
 HMODULE g_hModule = nullptr;
 
 float g_radiantRange = 100.0f;
-float g_proximityRadius = 100.0f;
-float g_yellRadius = 200.0f;
+float g_proximityRadius = 50.0f;
+float g_yellRadius = 100.0f;
 float g_visionRange = 100.0f;
 int g_ambientIntervalSeconds = 240;
 bool g_enableAmbient = true;
 bool g_triggerAmbient = false;
 int g_dialogueSpeedSeconds = 5;
-float g_speechBubbleLife = 5.0f;
+float g_speechBubbleLife = 15.0f;
 bool g_openWebPanelOnStart = true;
 LogLevel g_logLevel = LOG_INFO;
 
