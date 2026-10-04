@@ -433,7 +433,7 @@ void CreateChatUI(const std::string &npcName, const std::string &handleStr) {
   for (size_t i = 0; i < squad.size(); ++i) {
     if (squad[i]->getHandle().serial == targetSerial)
       continue;
-    if (squad[i]->getHandle() == g_lastSpeaker)
+    if (squad[i]->getHandle().serial == g_lastSpeaker.serial)
       selected = g_chatSpeakers.size();
     g_chatSpeakers.push_back(squad[i]->getHandle());
   }
