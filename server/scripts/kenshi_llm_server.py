@@ -89,6 +89,7 @@ PROGRESS_LOCK = threading.Lock()
 LIVE_CONTEXTS = {}
 PLAYER_CONTEXT = {}
 PROMPT_RUMORS = 5
+RUMOR_SYNTHESIS = False
 # The scene stays fixed for a whole conversation, so the prompt cache can serve it; a chat with another NPC or as another squad member, a new name or faction of the NPC, or a first exchange with it starts a new one
 CONVERSATION_SCENE = {}
 PLAYER2_SESSION_KEY = None
@@ -1718,6 +1719,8 @@ def generate_global_narrative_thread():
 
 @app.route('/synthesize', methods=['POST'])
 def manual_synthesize():
+    if not RUMOR_SYNTHESIS:
+        return jsonify({"status": "error", "message": "Rumor generation is off."}), 400
     # Synchronous, despite the name, so the result can be returned
     rumor = generate_global_narrative_thread()
     if rumor:
@@ -2641,7 +2644,8 @@ def synthesis_loop():
             logging.error(f"NARRATIVE: Synthesis loop failed: {e}")
             time.sleep(60)
 
-threading.Thread(target=synthesis_loop, daemon=True).start()
+if RUMOR_SYNTHESIS:
+    threading.Thread(target=synthesis_loop, daemon=True).start()
 
 def player2_ping_loop():
     logging.debug("PLAYER2: Health check thread started.")

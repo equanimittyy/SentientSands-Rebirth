@@ -183,7 +183,7 @@ When the origin faction of an NPC is its current faction, the chat prompt gives 
 
 ## LLM routing
 
-Each LLM call names a task: `chat`, `ambient`, `profile`, or `synthesis`. `server/user/llm_config.json` holds four parts, and the web app's Models page edits all of them through `/api/llm`.
+Each LLM call names a task: `chat`, `ambient`, `profile`, or `synthesis`. The server makes no `synthesis` call while `RUMOR_SYNTHESIS` is off: it stores the events of the game, but the timer does not start and `/synthesize` refuses. `server/user/llm_config.json` holds four parts, and the web app's Models page edits all of them through `/api/llm`.
 
 | Part | Contents |
 |---|---|
