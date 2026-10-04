@@ -96,14 +96,14 @@ class SentenceTest(unittest.TestCase):
         self.assertEqual(text, "You:\nYou are mildly hostile towards Drifter. You belong to The Holy Nation, a major world power. You will not leave it for Drifter's squad without an extremely compelling reason, such as Drifter saving your life more than once.")
 
     def test_the_npc_from_its_live_context(self):
-        profile = {"Relation": 30, "Faction": "The Holy Nation", "Job": "Patrol"}
+        profile = {"Relation": 30, "Faction": "The Holy Nation", "Job": "Holy Sentinel"}
         context = {
             "faction": "The Holy Nation", "job": "Patrol", "relation": -5, "money": 85, "character_state": "imprisoned",
             "medical": {"hunger": 300, "blood": 100, "max_blood": 100}, "stats": {"melee_attack": 40, "melee_defence": 20},
             "memories": {"short_term": [], "long_term": [2, 99]}, "environment": {"indoors": True},
         }
         text = scene_text.npc_text(context, profile, "Drifter", "Nameless", met=True, major=False, in_player_faction=False, feels_hunger=True)
-        self.assertEqual(text, "You:\nYou are friendly towards Drifter. You are imprisoned and cannot move freely. Your faction, The Holy Nation, is neutral towards Nameless. You are well fed. You are healthy. You are indoors. You are a seasoned fighter. You have a little money. Drifter once saved your life.")
+        self.assertEqual(text, "You:\nYou are friendly towards Drifter. You are imprisoned and cannot move freely. Your current task: Patrol. Your faction, The Holy Nation, is neutral towards Nameless. You are well fed. You are healthy. You are indoors. You are a seasoned fighter. You have a little money. Drifter once saved your life.")
 
     def test_an_npc_that_changed_faction_hears_the_old_and_the_new_one(self):
         context = {"faction": "Band of Bones"}

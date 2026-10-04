@@ -46,6 +46,4 @@ std::string T(const std::string &key) {
   return key;
 }
 
-std::vector<std::string> g_genericPrefixes;
-std::vector<std::string> g_genericKeywords;
 DWORD g_lastContextPushTick = 0;

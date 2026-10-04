@@ -22,6 +22,12 @@ A change of the mod list is not tested, by decision. Because a string ID names t
 - The instance ID (`getInstanceID()->uid`) and the layout instance ID (`getLayoutInstanceID`) are empty for unique and generic NPCs.
 - `npc->data->stringID` is the string ID of the template of the character. Many generic NPCs share one template.
 - `Character::isUnique` gives `1` for a unique NPC, such as Ruka, Harenga the Loud, or Jewel, whose template is its own. It gives `0` for a generic NPC, whose template has a generated name, such as `Barman /GENNAME/`.
+- The flag of a template depends on the mod list. The game data files show that Yamdu is generic without UWE and unique with it, and that the Yabuta Chief is unique without UWE and becomes the generic `Chief /GENNAME/` with it.
+
+## Names
+
+- A template name can hold one name token, a word in capitals between slashes, for example `Barman /GENNAME/`. The game shows the NPC with a name in place of the token, for example Barman Arleen, and `npc->data->name` keeps the token.
+- The vanilla game data has no name token. UWE gives one to 661 of its 1184 generic templates, with the tokens `/GENNAME/`, `/HNNAME/`, `/UCNAME/`, `/SKNAME/`, `/CANNAME/`, `/VIK/`, `/HIVNAME/`, and `/FISNAME/`. No template has two tokens. These counts come from the game data files of vanilla Kenshi and of UWE, not from a probe.
 
 ## Factions
 

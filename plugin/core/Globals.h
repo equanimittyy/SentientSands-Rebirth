@@ -106,6 +106,3 @@ extern std::deque<QueuedAction> g_uiActionQueue;
 extern CRITICAL_SECTION g_uiMutex;
 
 extern DWORD g_lastContextPushTick;
-
-extern std::vector<std::string> g_genericPrefixes;
-extern std::vector<std::string> g_genericKeywords;

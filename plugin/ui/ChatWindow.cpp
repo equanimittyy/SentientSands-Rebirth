@@ -354,8 +354,14 @@ void OnChatSendClick(MyGUI::Widget *sender) {
                               "\", \"race\":\"" + EscapeJSON(raceName) +
                               "\", \"faction\":\"" + EscapeJSON(factionName) +
                               "\", \"gender\":\"" + EscapeJSON(o_gender) +
-                              "\", \"generic_name\":" +
-                              (IsGenericName(other, o_name) ? "true" : "false") +
+                              "\", \"template\":\"" +
+                              EscapeJSON(other->data ? other->data->name
+                                                     : std::string()) +
+                              "\", \"template_id\":\"" +
+                              EscapeJSON(other->data ? other->data->stringID
+                                                     : std::string()) +
+                              "\", \"unique\":" +
+                              (other->isUnique() ? "true" : "false") +
                               ", \"in_player_faction\":" +
                               (faction && faction->isThePlayer() ? "true"
                                                                  : "false") +

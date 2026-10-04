@@ -185,48 +185,6 @@ void ProcessMessageQueue(GameWorld *thisptr) {
               g_libraryRegenBtn->setEnabled(true);
           } else if (command == "POPULATE_EVENTS") {
             PopulateEventsUI(data);
-          } else if (command == "POPULATE_GENERIC") {
-            // Format: "prefix1,prefix2|keyword1,keyword2"
-            size_t pipe = data.find("|");
-            if (pipe != std::string::npos) {
-              std::string pList = data.substr(0, pipe);
-              std::string kList = data.substr(pipe + 1);
-
-              g_genericPrefixes.clear();
-              g_genericKeywords.clear();
-
-              size_t cur = 0, next;
-              while ((next = pList.find(",", cur)) != std::string::npos) {
-                std::string p = pList.substr(cur, next - cur);
-                std::transform(p.begin(), p.end(), p.begin(), ::tolower);
-                g_genericPrefixes.push_back(p);
-                cur = next + 1;
-              }
-              if (cur < pList.length()) {
-                std::string p = pList.substr(cur);
-                std::transform(p.begin(), p.end(), p.begin(), ::tolower);
-                g_genericPrefixes.push_back(p);
-              }
-
-              cur = 0;
-              while ((next = kList.find(",", cur)) != std::string::npos) {
-                std::string k = kList.substr(cur, next - cur);
-                std::transform(k.begin(), k.end(), k.begin(), ::tolower);
-                g_genericKeywords.push_back(k);
-                cur = next + 1;
-              }
-              if (cur < kList.length()) {
-                std::string k = kList.substr(cur);
-                std::transform(k.begin(), k.end(), k.begin(), ::tolower);
-                g_genericKeywords.push_back(k);
-              }
-
-              Log(LOG_INFO,
-                  "NAME: Populated " +
-                      ToString((int)g_genericPrefixes.size()) +
-                      " generic prefixes and " +
-                      ToString((int)g_genericKeywords.size()) + " keywords.");
-            }
           }
         }
       } else if (isRename) {
@@ -1199,12 +1157,6 @@ void playerUpdate_hook(PlayerInterface *thisptr) {
                       o_rn = o_race->data->stringID;
                   }
 
-                  std::string o_job = "None";
-                  if (other->data && !other->data->name.empty())
-                    o_job = other->data->name;
-                  else if (other->data && !other->data->stringID.empty())
-                    o_job = other->data->stringID;
-
                   std::string identityFaction = GetIdentityFaction(other);
                   npcData +=
                       "{\"name\":\"" + EscapeJSON(other->getName()) + "\",";
@@ -1218,11 +1170,16 @@ void playerUpdate_hook(PlayerInterface *thisptr) {
                       "\"gender\":\"" +
                       std::string(other->isFemale() ? "female" : "male") +
                       "\",";
-                  npcData += "\"job\":\"" + EscapeJSON(o_job) + "\",";
-                  npcData += "\"generic_name\":" +
-                             std::string(IsGenericName(other, other->getName())
-                                             ? "true"
-                                             : "false") +
+                  npcData += "\"template\":\"" +
+                             EscapeJSON(other->data ? other->data->name
+                                                    : std::string()) +
+                             "\",";
+                  npcData += "\"template_id\":\"" +
+                             EscapeJSON(other->data ? other->data->stringID
+                                                    : std::string()) +
+                             "\",";
+                  npcData += "\"unique\":" +
+                             std::string(other->isUnique() ? "true" : "false") +
                              ",";
                   Faction *o_faction =
                       other->getFaction() ? other->getFaction() : other->owner;

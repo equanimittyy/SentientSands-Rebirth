@@ -230,7 +230,7 @@ def npc_text(context, profile, player_name, player_faction, *, met, major, in_pl
     """context is the live context of the NPC, or its profile when the game has sent none."""
     faction = context.get("faction") or context.get("Faction") or ""
     old_faction = profile.get("Faction")
-    job = context.get("job") or context.get("Job") or ""
+    task = context.get("job") or ""
     medical = context.get("medical") or {}
     stats = context.get("stats") or {}
     memories = context.get("memories") or {}
@@ -242,9 +242,9 @@ def npc_text(context, profile, player_name, player_faction, *, met, major, in_pl
     if _known(faction) and faction != old_faction:
         sentences.append(f"You belonged to {old_faction}, but now you belong to {faction}." if _known(old_faction) else f"You now belong to {faction}.")
         sentences.append(_sentence(faction_description) if faction_description else "")
-    if _known(job) and job != profile.get("Job"):
-        sentences.append(f"Your job right now: {job}.")
-    if context.get("is_trader") or context.get("in_shop") or "shopkeeper" in job.lower():
+    if _known(task):
+        sentences.append(f"Your current task: {task}.")
+    if context.get("is_trader") or context.get("in_shop") or "shopkeeper" in task.lower():
         sentences.append("You are a trader.")
     if context.get("in_shop"):
         sentences.append(f"You are in your shop, {context.get('building_name', 'Unknown')}.")

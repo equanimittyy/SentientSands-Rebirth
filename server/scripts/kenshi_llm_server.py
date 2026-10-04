@@ -70,12 +70,10 @@ LLM_CONFIG_PATH = os.path.join(KENSHI_SERVER_DIR, "user", "llm_config.json")
 DEFAULT_MODELS_PATH = os.path.join(KENSHI_SERVER_DIR, "config", "default_models.json")
 DEFAULT_PROVIDERS_PATH = os.path.join(KENSHI_SERVER_DIR, "config", "default_providers.json")
 NAMES_PATH = os.path.join(KENSHI_SERVER_DIR, "config", "names.json")
-GENERIC_NAMES_PATH = os.path.join(KENSHI_SERVER_DIR, "config", "generic_names.json")
 LOCALIZATION_PATH = os.path.join(KENSHI_SERVER_DIR, "config", "localization.json")
 WEB_DIR = os.path.join(KENSHI_SERVER_DIR, "web")
 
 NAMES_CONFIG = {}
-GENERIC_CONFIG = {}
 ACTIVE_CAMPAIGN = "Default"
 
 CAMPAIGNS_DIR = os.path.join(KENSHI_SERVER_DIR, "campaigns")
@@ -259,6 +257,39 @@ def reject_foreign_requests():
         logging.warning(f"HTTP: Rejected request to {request.path}: Host={host}, Origin={origin}")
         return jsonify({"status": "error", "message": "Forbidden"}), 403
 
+def adopt_canon(node):
+    """Gives each NPC whose template is a canon character the npc_id of that character, and marks it unique, so it uses the
+    canon profile and never gets a rolled name. Whether a template is unique depends on the mod list: UWE makes the Yabuta
+    Chief generic, and without UWE Yamdu is generic. Contexts can arrive as JSON strings inside the request. Returns whether
+    anything changed."""
+    changed = False
+    if isinstance(node, dict):
+        canon_id = f"u:{node.get('template_id')}"
+        if node.get("template_id") and not node.get("unique") and campaign_db.character_exists(canon_id):
+            node["npc_id"], node["unique"], changed = canon_id, True, True
+        children = list(node.items())
+    elif isinstance(node, list):
+        children = list(enumerate(node))
+    else:
+        return False
+    for key, child in children:
+        if isinstance(child, str) and child.startswith("{"):
+            parsed = context_dict(child)
+            if adopt_canon(parsed):
+                node[key], changed = json.dumps(parsed), True
+        elif adopt_canon(child):
+            changed = True
+    return changed
+
+# Before every route, so each npc_id that the server reads or stores is already the canon one
+@app.before_request
+def adopt_canon_ids():
+    if request.is_json:
+        try:
+            adopt_canon(request.get_json(silent=True))
+        except campaign_db.CampaignUnavailable:
+            pass  # No campaign, so no canon
+
 # The web app polls this count with campaign_db.writes, so an open page loads a change from another tab or the game.
 # A POST that only reads, such as a model test, costs an open page one needless load.
 @app.after_request
@@ -270,7 +301,7 @@ def count_write_requests(response):
 
 def load_configs():
     global NAMES_CONFIG
-    logging.debug("CONFIG: Loading the name, generic name, and localization files.")
+    logging.debug("CONFIG: Loading the name and localization files.")
     
     config_dir = os.path.join(KENSHI_SERVER_DIR, "config")
     if not os.path.exists(config_dir):
@@ -283,15 +314,6 @@ def load_configs():
             logging.debug(f"CONFIG: Loaded {len(NAMES_CONFIG)} gender pools from names.json.")
         except Exception as e:
             logging.error(f"CONFIG: Cannot load names.json: {e}")
-
-    if os.path.exists(GENERIC_NAMES_PATH):
-        try:
-            global GENERIC_CONFIG
-            with open(GENERIC_NAMES_PATH, "r") as f:
-                GENERIC_CONFIG = json.load(f)
-            logging.debug(f"CONFIG: Loaded {len(GENERIC_CONFIG.get('prefixes', []))} generic prefixes from generic_names.json.")
-        except Exception as e:
-            logging.error(f"CONFIG: Cannot load generic_names.json: {e}")
 
     global LOCALIZATION_CONFIG
     LOCALIZATION_CONFIG = {}
@@ -320,7 +342,6 @@ def load_campaign_config():
             campaign_db.open_campaign(get_campaign_dir(), lambda: world_template.campaign_seed(DEFAULT_TEMPLATE, WORLD_TEMPLATES_DIR, USER_TEMPLATES_DIR))
         else:
             campaign_db.close_campaign()
-        push_generic_names_to_dll()
     except Exception as e:
         logging.error(f"CAMPAIGN: Cannot load the campaign: {e}")
 
@@ -359,17 +380,6 @@ def push_settings_to_plugin():
         send_to_pipe(f"SET_CONFIG: {var}: {value}")
     logging.debug("PIPE: Sent the settings to the plugin.")
 
-def push_generic_names_to_dll():
-    try:
-        prefixes = GENERIC_CONFIG.get("prefixes", [])
-        keywords = GENERIC_CONFIG.get("keywords", [])
-        p_str = ",".join(prefixes)
-        k_str = ",".join(keywords)
-        send_to_pipe(f"POPULATE_GENERIC: {p_str}|{k_str}")
-        logging.debug("PIPE: Sent the generic name lists to the plugin.")
-    except Exception as e:
-        logging.error(f"PIPE: Cannot send the generic name lists to the plugin: {e}")
-
 
 
 KENSHI_NAME_POOL = [
@@ -386,7 +396,6 @@ KENSHI_NAME_POOL = [
 ]
 
 def get_used_names():
-    # The given names count too, because the Name of a titled NPC never equals a given name
     return {name.lower() for name in campaign_db.character_names()}
 
 def generate_unique_lore_name(gender="Neutral"):
@@ -833,7 +842,7 @@ def new_profile(name, npc_id, ctx_data):
         "Sex": reported_sex(race, fact("gender")),
         "Faction": faction,
         "OriginFaction": fact("origin_faction"),
-        "Job": fact("job", "None"),
+        "Job": npc_names.split(ctx_data)[1] or "None",
         **provisional_profile.roll(npc_id, kind, race),
         "ConversationHistory": [],
         "Relation": int(float(ctx_data.get("relation", 0)) / 2),
@@ -954,7 +963,7 @@ def get_character_data(name, context=""):
                     data["OriginFaction"] = current_origin
                     needs_save = True
 
-                current_job = ctx_data.get("job", "None")
+                current_job = npc_names.split(ctx_data)[1] or "None"
                 if data.get("Job") in ("None", "Unknown") and current_job not in ("None", "Unknown"):
                     logging.debug(f"PROFILE: Updating Job for {name}: {current_job}")
                     data["Job"] = current_job
@@ -975,7 +984,7 @@ def get_character_data(name, context=""):
                 "Sex": reported_sex(ctx_data.get("race", "Unknown"), ctx_data.get("gender", "Unknown")),
                 "Faction": ctx_data.get("faction", "Unknown"),
                 "OriginFaction": ctx_data.get("origin_faction", "Unknown"),
-                "Job": ctx_data.get("job", "None"),
+                "Job": npc_names.split(ctx_data)[1] or "None",
                 "Personality": "A quiet traveler.",
                 "Backstory": f"A {ctx_data.get('race', 'person')} from {ctx_data.get('faction', 'the borderlands')}.",
                 "SpeechQuirks": "",
@@ -1006,29 +1015,25 @@ def should_save_profile(name, npc_id, data):
     return True
 
 
-def name_generic_npc(npc_id, game_name, ctx):
-    """The name of a generic NPC in a chat or banter request (see npc_names)."""
-    profile = get_character_data(game_name, ctx)
-    # A profile that the campaign does not store, such as one named Someone, would get a second given name at the next request
+def npc_name(npc):
+    """The Name of an NPC in a chat or banter request. An NPC that the game shows by the name of its template gets a rolled
+    Name once the campaign stores it (see npc_names)."""
+    name, _ = npc_names.split(npc)
+    if not npc_names.unnamed(npc):
+        return name
+    npc_id = npc["npc_id"]
+    profile = get_character_data(name, npc)
+    # The campaign stores no profile named Someone or Unknown, so a rolled name would live only in the game
     if not campaign_db.character_exists(npc_id):
-        return game_name
-    name, given = npc_names.names(profile, game_name, is_player_faction(ctx.get("faction"), ctx.get("factionID")),
-                                  lambda: generate_unique_lore_name(profile.get("Sex", "Neutral")))
-    if (name, given) != (profile["Name"], profile.get("GivenName")):
-        campaign_db.rename_character(npc_id, profile["Name"], name, given)
-        logging.info(f"NAME: {game_name} ({npc_id}) is now {name}")
-    if name != game_name:
-        # Before the LLM call, so the name changes in game while the player waits for the reply
-        send_to_pipe(f"NPC_RENAME: {npc_serial(npc_id)}|{name}")
-    return name
-
-def name_bystander(npc):
-    """The name of an NPC that overhears a chat or takes part in banter. A squad member keeps its name until a chat with it,
-    because IsGenericName finds generic keywords inside names, so a name that the player gave can look generic: Theron holds
-    hero."""
-    name = npc.get("name", "Unknown")
-    if npc.get("generic_name") and not npc.get("in_player_faction"):
-        name = name_generic_npc(npc["npc_id"], name, npc)
+        return name
+    # The faction of a banter NPC is its identity faction, so only in_player_faction marks a squad member there
+    in_squad = npc.get("in_player_faction") or is_player_faction(npc.get("faction"), npc.get("factionID"))
+    name, shown = npc_names.names(profile, name, in_squad, lambda: generate_unique_lore_name(profile.get("Sex", "Neutral")))
+    if name != profile["Name"]:
+        campaign_db.rename_character(npc_id, profile["Name"], name, name)
+        logging.info(f"NAME: {profile['Name']} ({npc_id}) is now {name}")
+    # Before the LLM call, so the name changes in game while the player waits for the reply
+    send_to_pipe(f"NPC_RENAME: {npc_serial(npc_id)}|{shown}")
     return name
 
 def drop_title(npc_id, ctx):
@@ -1040,11 +1045,10 @@ def drop_title(npc_id, ctx):
     except campaign_db.CampaignUnavailable:
         return  # load_campaign_config already logged why
     TITLES_CHECKED.add(npc_id)
-    name = npc_names.recruit_name(profile, ctx.get("name"))
+    name = npc_names.recruit_name(ctx, profile)
     if name:
-        campaign_db.rename_character(npc_id, profile["Name"], name, name)
         send_to_pipe(f"NPC_RENAME: {npc_serial(npc_id)}|{name}")
-        logging.info(f"NAME: The recruit {profile['Name']} ({npc_id}) is now {name}")
+        logging.info(f"NAME: The recruit {ctx.get('name')} ({npc_id}) is now {name}")
 
 
 @app.route('/rename', methods=['POST'])
@@ -1057,12 +1061,14 @@ def rename_character():
     if not npc_id or not new_name:
         return jsonify({"status": "error", "message": "Missing the NPC ID or the new name"}), 400
 
-    # The player's name becomes the given name, so the server never adds a title to it or swaps it for a rolled name.
-    # Without a profile, the first chat would roll one.
+    # The stored profile keeps the name when the game loses it, for example after the load of an earlier save
     if not campaign_db.character_exists(npc_id):
         get_character_data(new_name, data.get('context', ''))
-    campaign_db.rename_character(npc_id, data.get('old_name', ''), new_name, new_name)
-    logging.info(f"RENAME: {data.get('old_name')} is now {new_name} ({npc_id})")
+    # The dialogue names the NPC by its stored Name, which lacks the title of its game name
+    old_name = (campaign_db.get_character(npc_id) or {}).get("Name", data.get('old_name', ''))
+    # No GivenName, so the game never shows a title in front of a name that the player gave
+    campaign_db.rename_character(npc_id, old_name, new_name, None)
+    logging.info(f"RENAME: {old_name} is now {new_name} ({npc_id})")
     return jsonify({"status": "ok"})
 
 @app.route('/ambient', methods=['POST'])
@@ -1087,7 +1093,7 @@ def ambient_event():
     recent_dialogue = []
     for npc in npc_limit:
         if isinstance(npc, dict):
-            name = name_bystander(npc)
+            name = npc_name(npc)
             nid = npc.get('id', 0)
             name_to_id[name] = nid
             d = get_character_data(name, context=json.dumps(npc))
@@ -1375,8 +1381,8 @@ def chat():
         except Exception as e:
             logging.error(f"CHAT: Cannot register the context of the chat target: {e}")
 
-    if primary_id and ctx_dict.get('generic_name'):
-        primary_npc = name_generic_npc(primary_id, ctx_dict.get('name', primary_npc), ctx_dict)
+    if primary_id:
+        primary_npc = npc_name(ctx_dict)
 
     # The squad member who talks
     speaker = context_dict(data.get('speaker'))
@@ -1388,7 +1394,7 @@ def chat():
     # Keyed by npc_id, because NPCs near the player can share a name, for example two Dust Bandits
     listeners = {primary_id: (primary_npc, context)}
     for n in chat_prompt.overhearers(nearby, radius, {primary_id, speaker.get("npc_id")}):
-        listeners[n["npc_id"]] = (name_bystander(n), json.dumps(n))
+        listeners[n["npc_id"]] = (npc_name(n), json.dumps(n))
 
     char_datas = {}
     for npc_id, (name, local_context) in listeners.items():
@@ -1454,7 +1460,8 @@ def chat():
         lines = content.split('\n')
         # The chat window keeps the name that the target had when it opened, so the request can name the target by an old name
         own_names = {primary_npc.lower(), register(raw_npc).lower()}
-        other_names = {name.lower() for name in [*npcs, *(n["name"] for n in nearby if n.get("name"))]} - own_names
+        # The game name and the Name of an NPC differ when the game gave it a title
+        other_names = {name.lower() for name in [*npcs, *(n["name"] for n in nearby if n.get("name")), *(name for name, _ in listeners.values())]} - own_names
         filtered_lines = []
         for line in lines:
             line = line.strip()

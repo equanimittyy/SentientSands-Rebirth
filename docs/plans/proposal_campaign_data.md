@@ -141,7 +141,7 @@ The phases do not depend on each other.
 
 ## 7. Open questions
 
-1. Should the name pools (`names.json`, `generic_names.json`) be customizable? The options are a player override, as for the system prompts, or a part of each world template, so that a modded template can add its own generic NPC types and names.
+1. Should the name pool (`names.json`) be customizable? The options are a player override, as for the system prompts, or a part of each world template, so that a modded template can add its own names.
 2. Should an existing campaign be able to take a newer version of its template, and how does that merge with `origin = 'campaign'` changes?
 3. Should retrieval also search the faction and character stores, so that a question about the Holy Nation or Beep brings their records into the prompt? Should a lore field, such as the owner of a town, link to a faction?
 4. What does the knowledge bank of a character hold, and how does a character get it?
