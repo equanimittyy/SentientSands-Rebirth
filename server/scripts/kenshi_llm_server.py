@@ -555,7 +555,7 @@ def _save_settings_raw(settings):
 
 SETTINGS_DEFAULTS = {
     "current_campaign": "Default",
-    "enable_ambient": True,
+    "enable_ambient": False,
     "radiant_delay": 240,
     "synthesis_interval_minutes": 5,
     "radiant_range": 100,

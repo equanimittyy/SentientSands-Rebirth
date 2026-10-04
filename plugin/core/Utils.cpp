@@ -309,7 +309,7 @@ void LoadPluginConfig() {
       GetPrivateProfileIntA("Settings", "RadiantDelay", 240, iniPath.c_str());
 
   g_enableAmbient =
-      GetPrivateProfileIntA("Settings", "EnableAmbientConversations", 1,
+      GetPrivateProfileIntA("Settings", "EnableAmbientConversations", 0,
                             iniPath.c_str()) != 0;
 
   g_enableWelcome = GetPrivateProfileIntA("Settings", "EnableWelcomePopup", 1,
