@@ -321,7 +321,7 @@ A character without a stored profile gets one rolled in code at its first meetin
 - The roll is seeded by the `npc_id`. Banter and a chat can meet a new NPC at the same moment, and both write its profile, so both must roll the same one.
 - The texts are in English. The system prompt sets the reply language, so the replies follow the language setting.
 
-A profile is provisional while it holds `Interactions` (`campaign_db.PROVISIONAL`): the number of chat turns in which the NPC replied to the player. An overheard turn, banter, and an ambient greeting do not count.
+A profile is provisional while it holds `Interactions` (`campaign_db.PROVISIONAL`): the number of chat turns in which the NPC replied to the player. An overheard turn and banter do not count.
 
 - Rejected: a separate `Provisional: true` key. The template validator, which the campaign editor also runs, takes only text and numbers as profile values.
 - Rejected: a count from the dialogue history. A banter line has no tag, so it looks like a reply to the player, and the history keeps only the newest 260 lines.

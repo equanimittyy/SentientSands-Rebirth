@@ -1352,13 +1352,9 @@ def chat():
     if event == "selection_clear":
         return jsonify({"status": "ignored"}), 200
         
-    if not player_message and event != "ambient_flavor":
+    if not player_message:
         return jsonify({"text": "...", "actions": []}), 200
-    
-    is_ambient = event == "ambient_flavor"
-    if is_ambient:
-        player_message = "[AMBIENT CONVERSATION TRIGGERED]"
-        
+
     context = data.get('context', '')
     ctx_dict = context_dict(context)
     primary_id = ctx_dict.get('npc_id')
@@ -1422,7 +1418,7 @@ def chat():
         judgment = ""
     else:
         system_prompt = build_system_prompt()
-        judgment = "" if is_ambient else "JUDGMENT: End every reply with [JUDGMENT: n], from -5 (the player was hostile or insulting) to 5 (the player was friendly or respectful); 0 is neutral."
+        judgment = "JUDGMENT: End every reply with [JUDGMENT: n], from -5 (the player was hostile or insulting) to 5 (the player was friendly or respectful); 0 is neutral."
         final_instruction = f"Reply as {primary_npc}{', quietly' if mode == 'whisper' else ''}.{' End with [JUDGMENT: n].' if judgment else ''}"
 
     mode_tag = {"whisper": "(Whispered) ", "yell": "(Yelled) "}.get(mode, "")
@@ -1453,8 +1449,6 @@ def chat():
     if content:
         judged = re.search(r'\[[^\]]*JUDGMENT\D*?(-?\d+)[^\]]*\]', content, re.IGNORECASE)
         judgment_value = max(-5, min(5, int(judged.group(1)))) if judged else 0
-        # Applied as a delta at save time: the profile read before the LLM call can be stale by then
-        relation_delta = 0 if is_ambient else judgment_value
 
         # Allows one level of nested brackets: item names like "Bolts [Toothpicks]" contain them
         content = re.sub(r'\[\s*(?:[^\[\]]|\[[^\[\]]*\])+\s*\]', '', content).strip()
@@ -1528,11 +1522,12 @@ def chat():
 
             if npc_id and should_save_profile(name, npc_id, char_datas[npc_id]):
                 campaign_db.append_dialogue(npc_id, new_lines, char_datas[npc_id])
-                if npc_id == primary_id and relation_delta:
-                    new_rel = campaign_db.change_relation(npc_id, relation_delta)
-                    logging.info(f"RELATION: {name} personal relation is now {new_rel} (judgment={relation_delta})")
+                if npc_id == primary_id and judgment_value:
+                    # Applied as a delta at save time: the profile read before the LLM call can be stale by then
+                    new_rel = campaign_db.change_relation(npc_id, judgment_value)
+                    logging.info(f"RELATION: {name} personal relation is now {new_rel} (judgment={judgment_value})")
 
-        interactions = campaign_db.count_interaction(primary_id) if primary_id and not is_ambient else None
+        interactions = campaign_db.count_interaction(primary_id) if primary_id else None
         threshold = load_settings()["bio_interactions"]
         if interactions is not None and threshold and interactions >= threshold:
             # In the background, so the reply does not wait for a second LLM call
