@@ -1019,6 +1019,15 @@ def name_generic_npc(npc_id, game_name, ctx):
         send_to_pipe(f"NPC_RENAME: {npc_serial(npc_id)}|{name}")
     return name
 
+def name_bystander(npc):
+    """The name of an NPC that overhears a chat or takes part in banter. A squad member keeps its name until a chat with it,
+    because IsGenericName finds generic keywords inside names, so a name that the player gave can look generic: Theron holds
+    hero."""
+    name = npc.get("name", "Unknown")
+    if npc.get("generic_name") and not npc.get("in_player_faction"):
+        name = name_generic_npc(npc["npc_id"], name, npc)
+    return name
+
 def drop_title(npc_id, ctx):
     """Checks each NPC once per campaign in memory, because the plugin posts the context of the selected character every 1.5 s."""
     if npc_id in TITLES_CHECKED or not npc_serial(npc_id) or not is_player_faction(ctx.get("faction"), ctx.get("factionID")):
@@ -1075,9 +1084,7 @@ def ambient_event():
     recent_dialogue = []
     for npc in npc_limit:
         if isinstance(npc, dict):
-            name = npc.get('name', 'Unknown')
-            if npc.get('generic_name'):
-                name = name_generic_npc(npc['npc_id'], name, npc)
+            name = name_bystander(npc)
             nid = npc.get('id', 0)
             name_to_id[name] = nid
             d = get_character_data(name, context=json.dumps(npc))
@@ -1387,10 +1394,7 @@ def chat():
     # Keyed by npc_id, because NPCs near the player can share a name, for example two Dust Bandits
     listeners = {primary_id: (primary_npc, context)}
     for n in chat_prompt.overhearers(nearby, radius, {primary_id, speaker.get("npc_id")}):
-        name = n.get("name", "Unknown")
-        if n.get("generic_name"):
-            name = name_generic_npc(n["npc_id"], name, n)
-        listeners[n["npc_id"]] = (name, json.dumps(n))
+        listeners[n["npc_id"]] = (name_bystander(n), json.dumps(n))
 
     char_datas = {}
     for npc_id, (name, local_context) in listeners.items():

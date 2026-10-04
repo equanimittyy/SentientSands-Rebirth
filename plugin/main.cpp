@@ -1224,6 +1224,13 @@ void playerUpdate_hook(PlayerInterface *thisptr) {
                                              ? "true"
                                              : "false") +
                              ",";
+                  Faction *o_faction =
+                      other->getFaction() ? other->getFaction() : other->owner;
+                  npcData += "\"in_player_faction\":" +
+                             std::string(o_faction && o_faction->isThePlayer()
+                                             ? "true"
+                                             : "false") +
+                             ",";
                   npcData +=
                       "\"faction\":\"" + EscapeJSON(identityFaction) + "\"}";
                   first = false;

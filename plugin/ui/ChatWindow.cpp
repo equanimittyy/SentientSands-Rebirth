@@ -356,6 +356,9 @@ void OnChatSendClick(MyGUI::Widget *sender) {
                               "\", \"gender\":\"" + EscapeJSON(o_gender) +
                               "\", \"generic_name\":" +
                               (IsGenericName(other, o_name) ? "true" : "false") +
+                              ", \"in_player_faction\":" +
+                              (faction && faction->isThePlayer() ? "true"
+                                                                 : "false") +
                               ", \"dist\":" + ToString((int)dist) + "}";
           }
         }
