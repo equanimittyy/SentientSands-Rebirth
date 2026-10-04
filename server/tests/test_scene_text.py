@@ -91,6 +91,10 @@ class SentenceTest(unittest.TestCase):
         self.assertEqual(scene_text.attributes_text({"strength": 60, "toughness": 50, "athletics": 5, "dexterity": 30}), "You are strong and tough, but slow.")
         self.assertEqual(scene_text.attributes_text({"strength": 30}), "")
 
+    def test_strength_compares_the_player_with_the_npc(self):
+        self.assertEqual([scene_text.strength_text("Stick", {"strength": 50}, {"strength": v}) for v in (19, 20, 40, 60, 80)], [step.format(name="Stick") for _, step in scene_text.STRENGTH_GAP])
+        self.assertEqual(scene_text.strength_text("Stick", {"strength": 50}, {}), "")
+
     def test_limbs(self):
         limbs = {"left_arm": -10, "left_arm_max": 100, "right_leg": 40, "right_leg_max": 100, "head": 100, "head_max": 100}
         self.assertEqual(scene_text.limbs_text(limbs), "Your left arm is crippled and your right leg is hurt.")
@@ -128,6 +132,10 @@ class SentenceTest(unittest.TestCase):
         self.assertIn("You belonged to Shek Kingdom, but now you belong to Band of Bones. A violent band of Shek bandits.", text)
         text = scene_text.npc_text(context, {}, "Drifter", "Nameless", met=True, major=False, in_player_faction=False, feels_hunger=True)
         self.assertIn("You now belong to Band of Bones.", text)
+
+    def test_the_strength_of_the_player_follows_the_attributes_of_the_npc(self):
+        text = scene_text.npc_text({"stats": {"strength": 60, "melee_attack": 40}}, {}, "Stick", "Nameless", met=True, major=False, in_player_faction=False, feels_hunger=True, player_stats={"strength": 10})
+        self.assertIn("You are strong. Stick looks much weaker than you. You are a seasoned fighter.", text)
 
     def test_the_npc_names_the_companions_that_it_spoke_with(self):
         text = scene_text.npc_text({}, {"Relation": 0}, "Izumi", "Nameless", met=False, major=False, in_player_faction=False, feels_hunger=True, companions=["Stick"])

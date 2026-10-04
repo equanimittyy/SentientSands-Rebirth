@@ -500,8 +500,7 @@ def npc_serial(npc_id):
     """The handle serial in the npc_id of a generic NPC, or None for a unique NPC."""
     return npc_id[2:] if npc_id and npc_id.startswith("h:") else None
 
-def npc_scene(npc_id, profile, player_name, met, companions):
-    context = LIVE_CONTEXTS.get(npc_id) or profile
+def npc_scene(context, profile, player_name, met, companions, player_stats):
     faction = context.get("faction") or context.get("Faction", "Unknown")
     player_faction = PLAYER_CONTEXT.get("faction", "Nameless")
     in_player_faction = is_player_faction(faction, context.get("factionID"))
@@ -511,7 +510,7 @@ def npc_scene(npc_id, profile, player_name, met, companions):
     faction_description = "" if in_player_faction else record.get("description", "")
     return scene_text.npc_text(context, profile, player_name, player_faction, met=met,
                                major=major, in_player_faction=in_player_faction, feels_hunger=not is_skeleton(profile.get("Race", "")),
-                               faction_description=faction_description, companions=companions)
+                               faction_description=faction_description, companions=companions, player_stats=player_stats)
 
 # SetHotkeyFromString in the plugin parses only these keys
 CHAT_HOTKEYS = ["\\", "[", "P", "T", "J", "U", "K"]
@@ -1545,10 +1544,11 @@ def chat():
         others = [npc_id for npc_id in spoken if npc_id != speaker_id]
         names = campaign_db.names_of(others)
         squad = set(PLAYER_CONTEXT.get("squad") or [])
+        player = speaker or PLAYER_CONTEXT
         scene = fill_prompt(
             "prompt_chat_scene.txt",
-            **scene_values(speaker or PLAYER_CONTEXT, player_name),
-            npc=npc_scene(primary_id, primary_data, player_name, met, [names[i] for i in others if names.get(i) in squad]),
+            **scene_values(player, player_name),
+            npc=npc_scene(ctx_dict or primary_data, primary_data, player_name, met, [names[i] for i in others if names.get(i) in squad], player.get("stats") or {}),
         )
         CONVERSATION_SCENE.clear()
         CONVERSATION_SCENE[conversation] = scene

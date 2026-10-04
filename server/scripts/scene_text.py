@@ -38,6 +38,14 @@ COMBAT = [
     (80, "You are a formidable fighter."),
     (None, "Few in the world can match you in a fight."),
 ]
+# The strength of the person before the NPC minus the strength of the NPC
+STRENGTH_GAP = [
+    (-30, "{name} looks much weaker than you."),
+    (-10, "{name} looks weaker than you."),
+    (10, "{name} looks about as strong as you."),
+    (30, "{name} looks stronger than you."),
+    (None, "{name} looks much stronger than you."),
+]
 MONEY = [
     (50, "You are nearly penniless."),
     (1000, "You have a little money."),
@@ -211,6 +219,12 @@ def attributes_text(stats):
     return f"You are {_join(high or low)}." if high or low else ""
 
 
+def strength_text(name, stats, other_stats):
+    if "strength" not in stats or "strength" not in other_stats:
+        return ""
+    return _scale(_number(other_stats["strength"]) - _number(stats["strength"]), STRENGTH_GAP).format(name=name)
+
+
 def combat_text(stats):
     skills = [_number(stats[key]) for key in ("melee_attack", "melee_defence") if key in stats]
     return _scale(max(skills), COMBAT) if skills else ""
@@ -261,9 +275,9 @@ def player_text(name, facing, race, sex, race_description, medical, feels_hunger
     ])
 
 
-def npc_text(context, profile, player_name, player_faction, *, met, major, in_player_faction, feels_hunger, faction_description="", companions=()):
+def npc_text(context, profile, player_name, player_faction, *, met, major, in_player_faction, feels_hunger, faction_description="", companions=(), player_stats=None):
     """context is the live context of the NPC, or its profile when the game has sent none. companions are the names of the
-    other squad members that the NPC spoke with."""
+    other squad members that the NPC spoke with, and player_stats the stats of the squad member who talks."""
     faction = context.get("faction") or context.get("Faction") or ""
     old_faction = profile.get("Faction")
     task = context.get("job") or ""
@@ -303,7 +317,7 @@ def npc_text(context, profile, player_name, player_faction, *, met, major, in_pl
         sentences.append(limbs_text(medical.get("limbs") or {}))
     if (context.get("environment") or {}).get("indoors"):
         sentences.append("You are indoors.")
-    sentences += [attributes_text(stats), combat_text(stats)]
+    sentences += [attributes_text(stats), strength_text(player_name, stats, player_stats or {}), combat_text(stats)]
     if "money" in context:
         sentences.append(_scale(_number(context["money"]), MONEY))
     for table, key in ((SHORT_TERM_MEMORIES, "short_term"), (LONG_TERM_MEMORIES, "long_term")):
