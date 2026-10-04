@@ -131,7 +131,7 @@ async function save() {
   }
   if (!(await fetchPrompts(kept))) return;
   if (kept.size > 0) showMessage(message, `${kept.size} of ${changed.length} prompts were not saved.`, true);
-  else showMessage(message, "Saved. The next LLM call uses the new prompts.");
+  else showMessage(message, "Saved.");
 }
 
 async function resetAll() {

@@ -567,7 +567,7 @@ async function save() {
   }
   try {
     load(await sendJson("POST", "/api/llm", payload));
-    showMessage(message, "Saved. The next LLM call uses the new settings.");
+    showMessage(message, "Saved.");
   } catch (error) {
     showFieldErrors(error.fieldErrors ?? []);
     showMessage(message, `Save failed: ${error.message}`, true);

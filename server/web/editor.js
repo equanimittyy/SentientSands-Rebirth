@@ -1146,7 +1146,7 @@ async function saveRumors() {
   const failed = Object.keys(kept).length;
   if (!(await fetchLog(kept))) return;
   if (failed > 0) showMessage(message, `${failed} of ${changes.length} changes were not saved.`, true);
-  else showMessage(message, "Saved. The next chat uses the changes.");
+  else showMessage(message, "Saved.");
 }
 
 async function fetchTemplates() {
