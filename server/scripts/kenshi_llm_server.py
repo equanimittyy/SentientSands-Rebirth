@@ -1424,6 +1424,10 @@ def chat():
     if primary_id:
         primary_npc = npc_name(ctx_dict)
 
+    # Stores a profile for the speaker, whom the listeners leave out
+    if speaker.get("npc_id"):
+        npc_name(speaker)
+
     _, talk_radius, yell_radius = get_config_radii()
     # A whisper is one-on-one: nobody overhears
     radius = {"talk": talk_radius, "yell": yell_radius}.get(mode)
