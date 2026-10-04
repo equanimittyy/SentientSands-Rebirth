@@ -804,7 +804,8 @@ def send_completion(provider, profile, body, timeout):
         logging.debug(f"LLM: Request to {profile['model']} at {target_url}")
         start_time = time.time()
         response = requests.post(target_url, headers=headers, json=body, timeout=timeout)
-        logging.debug(f"LLM: {profile['model']} answered HTTP {response.status_code} in {time.time() - start_time:.1f} s")
+        seconds = time.time() - start_time
+        logging.debug(f"LLM: {profile['model']} answered HTTP {response.status_code} in {seconds:.1f} s")
 
         # A Player2 session key expires, so a refreshed key gets one more try on the same profile
         if response.status_code == 401 and is_player2 and attempt == 1 and refresh_player2_session(provider):
@@ -818,16 +819,22 @@ def send_completion(provider, profile, body, timeout):
         data = response.json()
     except ValueError:
         raise RuntimeError(f"invalid JSON in the response: {response.text[:200]}")
-    log_cache_use(profile["model"], data)
+    log_usage(profile["model"], data, seconds)
     return extract_completion(data, profile["model"])
 
-def log_cache_use(model, data):
-    """Shows whether the provider's prompt cache served the stable start of a prompt. Each provider reports it under its own key."""
+def log_usage(model, data, seconds):
+    """Shows whether the provider's prompt cache served the stable start of a prompt, and where the time of a reply went.
+    Each provider reports these under its own keys, and only llama.cpp splits the time into reading and writing."""
     if not isinstance(data, dict):
         return
     usage = data.get("usage") or {}
-    cached = (usage.get("prompt_tokens_details") or {}).get("cached_tokens", usage.get("prompt_cache_hit_tokens", (data.get("timings") or {}).get("cache_n")))
-    logging.info(f"LLM: {model} read {usage.get('prompt_tokens', 'an unknown number of')} prompt tokens, {'an unknown number' if cached is None else cached} of them from its cache")
+    timings = data.get("timings") or {}
+    cached = (usage.get("prompt_tokens_details") or {}).get("cached_tokens", usage.get("prompt_cache_hit_tokens", timings.get("cache_n")))
+    line = (f"LLM: {model} read {usage.get('prompt_tokens', 'an unknown number of')} prompt tokens, {'an unknown number' if cached is None else cached} of them from its cache, "
+            f"and wrote {usage.get('completion_tokens', 'an unknown number of')} tokens in {seconds:.1f} s")
+    if {"prompt_ms", "predicted_ms", "predicted_per_second"} <= timings.keys():
+        line += f": {timings['prompt_ms'] / 1000:.1f} s reading, {timings['predicted_ms'] / 1000:.1f} s writing at {timings['predicted_per_second']:.1f} tokens/s"
+    logging.info(line)
 
 def call_llm(task, messages):
     """Returns the completion text from the first profile of the task's route that answers, or None."""
@@ -1275,6 +1282,7 @@ def web_panel_presence():
 
 @app.route('/chat', methods=['POST'])
 def chat():
+    started = time.monotonic()
     data = request.json
     logging.debug("HTTP: POST /chat")
     if not data: return jsonify({"text": "Error: No JSON data provided"}), 400
@@ -1598,7 +1606,7 @@ def chat():
             # In the background, so the reply does not wait for a second LLM call
             threading.Thread(target=generate_bio, args=(primary_id,), daemon=True).start()
 
-        logging.debug(f"CHAT: Reply: {content}")
+        logging.info(f'CHAT: {mode_tag}{player_name} to {primary_npc}: "{player_message}" | {primary_npc}: "{content}" ({time.monotonic() - started:.1f} s)')
         # The plugin takes the text before a first colon as the speaker, so the reply names its NPC first
         return jsonify({"text": f"{primary_npc}: {content}", "actions": []})
     return jsonify({"text": "...", "actions": []})

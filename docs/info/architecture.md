@@ -194,7 +194,7 @@ Each LLM call names a task: `chat`, `ambient`, `profile`, or `synthesis`. `serve
 
 The request body starts with `model`, `messages`, and `top_p` 0.9. The route's `max_tokens` and `temperature` come next, and the profile's extra request parameters override both.
 
-`log_cache_use` logs the prompt tokens of each reply and how many of them the provider's cache served, as OpenAI and OpenRouter (`usage.prompt_tokens_details.cached_tokens`), DeepSeek (`usage.prompt_cache_hit_tokens`), and llama.cpp (`timings.cache_n`) report it.
+`log_usage` logs the prompt tokens of each reply and how many of them the provider's cache served, as OpenAI and OpenRouter (`usage.prompt_tokens_details.cached_tokens`), DeepSeek (`usage.prompt_cache_hit_tokens`), and llama.cpp (`timings.cache_n`) report it. It also logs the tokens that the model wrote (`usage.completion_tokens`) and the time of the request. For llama.cpp, it splits that time into reading the prompt and writing the reply, with the writing speed (`timings`), so the log shows whether a slow reply came from a long prompt or from a slow model.
 
 A Player2 provider uses a session key from the local Player2 app. On a 401, `send_completion` gets a new session key and tries the same profile once more.
 
@@ -411,7 +411,7 @@ The plugin and the server write their logs in the same format, so one tool can r
 | Level | Use |
 |---|---|
 | DEBUG | Game events, pipe traffic, route traces, prompts, full replies, and other content |
-| INFO | Start-up, configuration, campaign changes, and one summary line for each chat and each LLM call |
+| INFO | Start-up, configuration, campaign changes, one summary line for each LLM call, and two lines for each chat: who hears it, then the player's line, the NPC's reply, and the time that the whole chat took, so a log shows what was said at every level |
 | WARN | A retry, a fallback, missing data, or another problem that the code handles |
 | ERROR | A failure: the action, the request, or the call did not happen |
 
