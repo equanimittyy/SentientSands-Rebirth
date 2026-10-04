@@ -4,7 +4,9 @@
   "fields": {
     "factions": [
       "Crab Raiders",
-      "Reavers"
+      "Fishmen",
+      "Reavers",
+      "Scavengers"
     ],
     "animals": [
       "Crab"

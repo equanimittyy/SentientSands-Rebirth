@@ -1,0 +1,20 @@
+{
+  "game_id": "42235-rebirth.mod",
+  "name": "Shrieking Bandits",
+  "aliases": [],
+  "major": false,
+  "fields": {
+    "territory": [
+      "The Shrieking Forest",
+      "Cannibal Plains",
+      "Purple Sands"
+    ],
+    "allies": [
+      "Nomads"
+    ],
+    "enemies": [
+      "Cannibals"
+    ]
+  },
+  "description": "Half-starved bandits who roam in large bands through the Shrieking Forest, which is named for their screaming, and the Cannibal Plains and Purple Sands. They speak no words, only shrieks, coughs, wheezes, and gurgles, and they let no one settle in their forest. They fight the Cannibals, whose cages often hold them, but are at peace with the Nomads."
+}

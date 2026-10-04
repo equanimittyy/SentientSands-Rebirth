@@ -1,0 +1,13 @@
+{
+  "game_id": "18011-rebirth.mod",
+  "name": "White Eyebrow Clan",
+  "aliases": [],
+  "major": false,
+  "fields": {
+    "leader": "White Eyebrow",
+    "enemies": [
+      "Black Dragon Ninjas"
+    ]
+  },
+  "description": "A clan led by White Eyebrow, a white-haired fugitive who abandoned his duties for banditry and harassment. The United Cities has a 10,000-cat bounty on him, blames him for last year's Brown Drought, and says his uprising cost its people a week of cactus rum. Reports place his latest attacks in the northern swamplands."
+}

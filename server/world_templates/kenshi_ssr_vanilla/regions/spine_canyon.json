@@ -2,6 +2,10 @@
   "name": "Spine Canyon",
   "aliases": [],
   "fields": {
+    "factions": [
+      "Bloodraiders",
+      "Sand Ninjas"
+    ],
     "animals": [
       "Bonedog"
     ]

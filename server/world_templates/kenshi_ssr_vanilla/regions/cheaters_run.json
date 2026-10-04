@@ -2,6 +2,10 @@
   "name": "Cheaters Run",
   "aliases": [],
   "fields": {
+    "factions": [
+      "Fisher",
+      "Fishmen"
+    ],
     "animals": [
       "Iron Spider"
     ],

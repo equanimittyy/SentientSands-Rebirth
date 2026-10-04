@@ -2,6 +2,9 @@
   "name": "Fishman Island",
   "aliases": [],
   "fields": {
+    "factions": [
+      "Fishmen"
+    ],
     "animals": [
       "Crab"
     ],

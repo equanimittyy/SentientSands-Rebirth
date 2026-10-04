@@ -3,10 +3,14 @@
   "aliases": [],
   "fields": {
     "factions": [
+      "Black Desert Ninjas",
+      "Black Dog",
+      "Bloodraiders",
       "Grayflayers",
       "Nomads",
       "Rebel Farmers",
       "Slave Traders",
+      "Thrall Masters",
       "Traders Guild"
     ],
     "animals": [

@@ -3,7 +3,12 @@
   "aliases": [],
   "fields": {
     "factions": [
-      "Drifters"
+      "Crab Raiders",
+      "Drifters",
+      "Fishmen",
+      "Scavengers",
+      "Skeleton Bandits",
+      "Skeleton Legion"
     ],
     "animals": [
       "Land Bat"

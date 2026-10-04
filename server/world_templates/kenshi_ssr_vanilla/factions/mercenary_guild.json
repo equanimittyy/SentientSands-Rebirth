@@ -1,0 +1,18 @@
+{
+  "game_id": "1214-gamedata.base",
+  "name": "Mercenary Guild",
+  "aliases": [],
+  "major": false,
+  "fields": {
+    "territory": [
+      "Heng",
+      "Okran's Gulf",
+      "Okran's Pride",
+      "Skimsands",
+      "The Great Desert",
+      "The Hook",
+      "Watcher's Rim"
+    ]
+  },
+  "description": "Sellswords who hire out by the day as bodyguards or outpost guards. Their squads seek work in the bars of many towns and travel between the United Cities and the Holy Nation, and some keep camps at Watcher's Rim and in the Hook. They fight well but carry poor gear."
+}

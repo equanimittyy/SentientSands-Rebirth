@@ -1,0 +1,14 @@
+{
+  "game_id": "66292-rebirth.mod",
+  "name": "Black Desert Ninjas",
+  "aliases": [],
+  "major": false,
+  "fields": {
+    "territory": [
+      "Grey Desert",
+      "Iron Valleys",
+      "The Black Desert"
+    ]
+  },
+  "description": "Bandit ninjas, called Cloud Ninjas, who roam the Black Desert, the Grey Desert, and the Iron Valleys. Their ranks include Greenlanders, Scorchlanders, and Hive Princes."
+}

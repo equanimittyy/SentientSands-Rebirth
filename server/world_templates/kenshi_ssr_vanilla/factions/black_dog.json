@@ -1,0 +1,18 @@
+{
+  "game_id": "56644-Dialogue.mod",
+  "name": "Black Dog",
+  "aliases": [],
+  "major": false,
+  "fields": {
+    "bases": [
+      "Black Dog HQ"
+    ],
+    "territory": [
+      "The Outlands",
+      "Flats Lagoon",
+      "Grey Desert",
+      "Stormgap Coast"
+    ]
+  },
+  "description": "A small faction based at Black Dog HQ, a walled snailhouse in the Outlands west of Black Scratch, guarded by their bodyguards and bonedogs. Their squads roam the Outlands, Flats Lagoon, the Grey Desert, and Stormgap Coast, demanding payment for protection and attacking those who refuse."
+}

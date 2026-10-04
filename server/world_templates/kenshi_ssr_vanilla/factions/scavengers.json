@@ -1,0 +1,24 @@
+{
+  "game_id": "95512-rebirth.mod",
+  "name": "Scavengers",
+  "aliases": [],
+  "major": false,
+  "fields": {
+    "leader": "Gutterhead",
+    "bases": [
+      "Old Control Tower"
+    ],
+    "territory": [
+      "Venge",
+      "Stormgap Coast",
+      "The Outlands",
+      "The Pits",
+      "The Pits East",
+      "The Crags",
+      "Sniper Valley",
+      "Stobe's Gamble",
+      "Stobe's Garden"
+    ]
+  },
+  "description": "Bandits of the far southeast, led by Gutterhead from the Old Control Tower in Venge. They attack travellers and rob the fallen from Stormgap Coast and the Outlands to the Pits and Sniper Valley, and clash with the Southern Hive and the Old Machines, usually to their cost. Many of them are Hivers."
+}

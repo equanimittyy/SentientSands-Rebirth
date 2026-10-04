@@ -3,10 +3,13 @@
   "aliases": [],
   "fields": {
     "factions": [
+      "Bloodraiders",
       "Grass Pirates",
-      "Reavers",
+      "Manhunters",
+      "Sand Ninjas",
       "Slaves",
-      "Tech Hunters"
+      "Tech Hunters",
+      "Thrall Masters"
     ],
     "animals": [
       "Bonedog",

@@ -2,6 +2,9 @@
   "name": "Venge",
   "aliases": [],
   "fields": {
+    "factions": [
+      "Thrall Masters"
+    ],
     "animals": [
       "Beak Thing",
       "Blood Spider",

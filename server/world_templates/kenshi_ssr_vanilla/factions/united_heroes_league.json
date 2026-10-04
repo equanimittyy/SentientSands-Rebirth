@@ -1,0 +1,20 @@
+{
+  "game_id": "42264-gamedata.base",
+  "name": "United Heroes League",
+  "aliases": [],
+  "major": false,
+  "fields": {
+    "bases": [
+      "Fort Mirage"
+    ],
+    "territory": [
+      "Heng",
+      "The Great Desert"
+    ],
+    "enemies": [
+      "Shek Kingdom",
+      "Western Hive"
+    ]
+  },
+  "description": "Greenlander vigilantes of the United Cities who call themselves city heroes and hate non-humans. Lord Mirage holds Fort Mirage, their headquarters in the Great Desert, and their squads walk the streets of Heng, Heft, Bark, Stoat, and Sho-Battai, harassing non-humans. They blame foreign races for rape, slavery, stolen jobs, and ruined farms and businesses."
+}

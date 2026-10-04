@@ -3,8 +3,10 @@
   "aliases": [],
   "fields": {
     "factions": [
+      "Crab Raiders",
       "Drifters",
       "Reavers",
+      "Scavengers",
       "Skeleton Bandits"
     ],
     "animals": [

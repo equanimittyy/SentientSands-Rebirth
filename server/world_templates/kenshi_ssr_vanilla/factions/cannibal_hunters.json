@@ -1,0 +1,22 @@
+{
+  "game_id": "16855-gamedata.base",
+  "name": "Cannibal Hunters",
+  "aliases": [],
+  "major": false,
+  "fields": {
+    "leader": "Cannibal Hunter Robun",
+    "bases": [
+      "The Bastion"
+    ],
+    "territory": [
+      "Sinkuun",
+      "Cannibal Plains",
+      "Hidden Forest",
+      "Northern Coast"
+    ],
+    "enemies": [
+      "Cannibals"
+    ]
+  },
+  "description": "Hunters devoted to killing Cannibals and keeping them penned in their own lands. Cannibal Hunter Robun leads them from the Bastion on Sinkuun's border with Darkfinger. They keep the cannibals out of Sinkuun, patrol the Cannibal Plains, Hidden Forest, and Northern Coast with mountain dogs, sell their swords against cannibals, and tend wounded strangers."
+}

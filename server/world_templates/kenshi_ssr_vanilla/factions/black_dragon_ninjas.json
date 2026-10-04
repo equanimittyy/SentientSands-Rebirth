@@ -1,0 +1,20 @@
+{
+  "game_id": "18007-rebirth.mod",
+  "name": "Black Dragon Ninjas",
+  "aliases": [],
+  "major": false,
+  "fields": {
+    "leader": "Dimak and Buzan",
+    "bases": [
+      "Tower Of Ninjas"
+    ],
+    "territory": [
+      "Border Zone",
+      "Stobe's Garden"
+    ],
+    "enemies": [
+      "White Eyebrow Clan"
+    ]
+  },
+  "description": "Ninjas who run a protection racket and pillage outposts that refuse to pay. Dimak and Buzan lead them from the Tower of Ninjas in the Border Zone, where they attack anyone who enters, and their bands also roam Stobe's Garden. The Holy Nation offers 20,000 cats for each leader, wanted for murder, arson, kidnapping, robbery, and assault."
+}

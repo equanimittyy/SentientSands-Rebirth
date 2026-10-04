@@ -5,6 +5,9 @@
     "type": "point of interest",
     "zone": [
       "The Pits"
+    ],
+    "owner": [
+      "Skeleton Legion"
     ]
   },
   "description": "Sniper Tower is a tower in the Pits. Skeleton watchbots man the harpoon turrets on its roof, and every turret faces north. Acid surrounds it."

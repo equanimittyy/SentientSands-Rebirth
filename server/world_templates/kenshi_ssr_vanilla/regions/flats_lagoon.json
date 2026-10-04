@@ -3,8 +3,11 @@
   "aliases": [],
   "fields": {
     "factions": [
+      "Black Dog",
       "Nomads",
-      "Tech Hunters"
+      "Tech Hunters",
+      "The Gorrillo Bandits",
+      "Western Hive"
     ],
     "animals": [
       "Beak Thing",

@@ -1,0 +1,19 @@
+{
+  "game_id": "96261-rebirth.mod",
+  "name": "The Gorrillo Bandits",
+  "aliases": [
+    "Gorillo Bandits"
+  ],
+  "major": false,
+  "fields": {
+    "leader": "Gorrillo",
+    "bases": [
+      "The Old Prison"
+    ],
+    "territory": [
+      "Bonefields",
+      "Flats Lagoon"
+    ]
+  },
+  "description": "Bandits who hold the Old Prison, a ruin in the Bonefields, and roam the Bonefields and Flats Lagoon, hostile to all they meet. All but their leader Gorrillo, a huge man called the Boulder, fight bare-handed in gi and light armour. Gorrillo is wanted in the Shek Kingdom and in the United Cities for robbery and assault in Mourn."
+}

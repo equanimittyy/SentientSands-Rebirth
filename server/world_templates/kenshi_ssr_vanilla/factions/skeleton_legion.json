@@ -1,0 +1,18 @@
+{
+  "game_id": "57737-rebirth.mod",
+  "name": "Skeleton Legion",
+  "aliases": [],
+  "major": false,
+  "fields": {
+    "bases": [
+      "Barrier Tower",
+      "Sniper Tower"
+    ],
+    "territory": [
+      "Ashlands",
+      "Sonorous Dark",
+      "The Pits"
+    ]
+  },
+  "description": "Skeletons whose roots lie in the Second Empire, most of them thralls. They roam the Ashlands, the Sonorous Dark, and the Pits, and are hostile to nearly everyone. Their watchbots man the harpoon turrets of Barrier Tower and Sniper Tower, which guard the ways into the Ashlands."
+}

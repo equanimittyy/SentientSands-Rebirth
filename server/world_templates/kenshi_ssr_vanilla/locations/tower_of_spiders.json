@@ -5,6 +5,9 @@
     "type": "point of interest",
     "zone": [
       "Stobe's Garden"
+    ],
+    "owner": [
+      "Spiders"
     ]
   },
   "description": "The Tower of Spiders stands in Stobe's Garden: a watchtower infested by thirty to forty elder blood spiders."

@@ -4,9 +4,11 @@
   "fields": {
     "factions": [
       "Berserkers",
+      "Cannibal Hunters",
       "Cannibals",
       "Flotsam Ninjas",
-      "Holy Nation Outlaws"
+      "Holy Nation Outlaws",
+      "Shrieking Bandits"
     ],
     "animals": [
       "Beak Thing"

@@ -3,9 +3,12 @@
   "aliases": [],
   "fields": {
     "factions": [
+      "Black Dragon Ninjas",
       "Bounty Hunters",
       "Crab Raiders",
-      "Reavers"
+      "Reavers",
+      "Scavengers",
+      "Skeleton Bandits"
     ],
     "animals": [
       "Black Gorillo",

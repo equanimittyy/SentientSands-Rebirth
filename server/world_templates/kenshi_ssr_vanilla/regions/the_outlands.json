@@ -3,8 +3,10 @@
   "aliases": [],
   "fields": {
     "factions": [
+      "Black Dog",
       "Grass Pirates",
       "Reavers",
+      "Scavengers",
       "Tech Hunters"
     ]
   },

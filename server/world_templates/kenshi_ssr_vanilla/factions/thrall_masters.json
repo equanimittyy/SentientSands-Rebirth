@@ -1,0 +1,18 @@
+{
+  "game_id": "97613-rebirth.mod",
+  "name": "Thrall Masters",
+  "aliases": [],
+  "major": false,
+  "fields": {
+    "leader": "Ponk and Screamer the False",
+    "bases": [
+      "Tower of Abuse"
+    ],
+    "territory": [
+      "Venge",
+      "Grey Desert",
+      "The Eye"
+    ]
+  },
+  "description": "Skeletons reprogrammed into thralls, ruled from the Tower of Abuse in Venge by two Skeleton masters, Ponk and Screamer the False. They set their thralls on any human who comes near and seize any Skeleton who wanders in as a new subject. Both masters are wanted by the Holy Nation and the United Cities as the Voodoo Brothers, swindlers who posed as healers."
+}

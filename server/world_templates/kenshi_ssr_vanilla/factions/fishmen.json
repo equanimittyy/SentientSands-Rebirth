@@ -1,0 +1,22 @@
+{
+  "game_id": "96359-rebirth.mod",
+  "name": "Fishmen",
+  "aliases": [
+    "Gurglers"
+  ],
+  "major": false,
+  "fields": {
+    "leader": "King Gurgler",
+    "bases": [
+      "Fish Isle",
+      "Island Lab"
+    ],
+    "territory": [
+      "Fishman Island",
+      "Cheaters Run",
+      "The Pits",
+      "The Pits East"
+    ]
+  },
+  "description": "Fish-like creatures, also called Gurglers, that overrun Fishman Island and attack nearly everyone they meet. They nest across the island and hold the ruins of Fish Isle, and their leader, King Gurgler, keeps to the Island Lab. Their packs roam Cheaters Run and the Pits, carrying the wounded back to their nests to eat them alive."
+}

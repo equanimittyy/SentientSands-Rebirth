@@ -2,6 +2,9 @@
   "name": "The Black Desert",
   "aliases": [],
   "fields": {
+    "factions": [
+      "Black Desert Ninjas"
+    ],
     "hazards": [
       "acidic ground",
       "acidic water"

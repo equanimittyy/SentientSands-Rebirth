@@ -1,0 +1,13 @@
+{
+  "game_id": "5442-gamedata.base",
+  "name": "Outlaw",
+  "aliases": [],
+  "major": false,
+  "fields": {
+    "enemies": [
+      "United Cities",
+      "Police"
+    ]
+  },
+  "description": "Not an organized group but a loose name for lone criminals and slaves, many with prices on their heads. Many sit caged in Tengu's Vault cursing the Empire, a few are slaves at Eyesocket, and Razor keeps to the bar of Black Desert City. The United Cities and its police are their enemies."
+}

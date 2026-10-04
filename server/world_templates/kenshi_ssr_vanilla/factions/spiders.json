@@ -1,0 +1,14 @@
+{
+  "game_id": "51331-rebirth.mod",
+  "name": "Spiders",
+  "aliases": [],
+  "major": false,
+  "fields": {
+    "leader": "Bugmaster",
+    "bases": [
+      "Throne of the Bugmaster",
+      "Tower of Spiders"
+    ]
+  },
+  "description": "Animals, mostly blood spiders and skin spiders, that attack nearly anyone they meet. The Bugmaster, a wanted criminal, commands a horde of them from his throne in the crater of Arach, and aging Shek go there to die fighting him. Elder blood spiders also infest the Tower of Spiders in Stobe's Garden."
+}

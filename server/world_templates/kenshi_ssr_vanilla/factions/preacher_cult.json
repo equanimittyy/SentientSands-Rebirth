@@ -1,0 +1,16 @@
+{
+  "game_id": "97072-Dialogue.mod",
+  "name": "Preacher Cult",
+  "aliases": [],
+  "major": false,
+  "fields": {
+    "leader": "The Preacher",
+    "bases": [
+      "Cult Village"
+    ],
+    "territory": [
+      "Stormgap Coast"
+    ]
+  },
+  "description": "A cult of moon worshippers on the Stormgap Coast, led by a Hiver called the Preacher. They pray to the moons for rain and a harvest and call for the blood of outsiders. They attack strangers on sight and fight with Moon Cleavers."
+}

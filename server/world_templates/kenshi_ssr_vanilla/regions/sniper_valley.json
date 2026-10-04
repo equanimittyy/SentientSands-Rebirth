@@ -2,6 +2,10 @@
   "name": "Sniper Valley",
   "aliases": [],
   "fields": {
+    "factions": [
+      "Crab Raiders",
+      "Scavengers"
+    ],
     "animals": [
       "Black Gorillo",
       "Goat",

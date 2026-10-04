@@ -5,6 +5,9 @@
     "type": "ruins",
     "zone": [
       "Fishman Island"
+    ],
+    "owner": [
+      "Fishmen"
     ]
   },
   "description": "Island Lab is a ruined ancient lab on Fishman Island, where the Fishmen dwell. King Gurgler, the boss of the Fishmen, is found there."
