@@ -1,6 +1,6 @@
 # Proposal: Dialogue Threads
 
-Status: The threads (phase 1) are planned. The distillation (phases 2 to 4) is a draft for review.
+Status: The threads (phase 1) are planned. The distillation (phases 2 and 3) is a draft for review.
 
 ## 1. Summary
 
@@ -40,7 +40,7 @@ Threads also support these later uses:
 
 | Use | What threads add | Status |
 |---|---|---|
-| A conversation view, for example in the Campaign Dialogue subtab | The view lists who else took part in a conversation and opens the copy of each participant | The subtab is planned ([proposal_campaign_dialogue.md](proposal_campaign_dialogue.md#2-campaign-dialogue)), but it shows one history for each character and does not need threads |
+| A conversation view | The view shows one conversation with its speakers and its overhearers | Planned as the Dialogue & Memories subtab of the Editor ([proposal_campaign_log.md](proposal_campaign_log.md#3-dialogue--memories)) |
 | A delete or an edit of a bad reply | One action changes every copy of a line, not only the copy that the player sees | Not planned. The web app has no dialogue edit. A match on the text would also find the copies, because the copies of a line differ only by the `(Overheard)` tag and the name of the one that the line was said to |
 | A summary of old dialogue before the trim | A thread is the unit of a summary, so the summary of a conversation is written once and not once for each copy | Planned in [section 5](#5-distillation) |
 | Recall of an earlier conversation in a prompt | The prompt gets a whole earlier conversation when the player refers to it | Not planned. Retrieval in [proposal_lore_retrieval.md](proposal_lore_retrieval.md#1-summary) searches only the lore |
@@ -180,12 +180,7 @@ Izumi asked the barman where to sell skeleton parts. The barman named no buyer a
 
 ## 8. Memory viewer
 
-A Campaign Memories subtab of the Editor lists the memories of the active campaign. The Dialogue Library and the Campaign Dialogue subtab do not show memories.
-
-- The subtab follows the event log of Campaign Events: a search field above a table of 50 rows on each page, the newest first.
-- Each row shows the game time, the speakers, the overhearers, and the text of a memory. The names are the current names, built from the IDs, as in the prompt.
-- The search matches the text of a memory and the names of its members, with case ignored. The player can therefore find a memory by what was said or by who has it.
-- The subtab shows every memory, not only the newest 10 of each character that the prompt reads.
+The Dialogue & Memories subtab of the Editor shows each memory with the lines and the members of its thread ([proposal_campaign_log.md](proposal_campaign_log.md#3-dialogue--memories)). The in-game Dialogue Library does not show memories.
 
 ## 9. Phases and verification
 
@@ -194,9 +189,8 @@ A Campaign Memories subtab of the Editor lists the memories of the active campai
 | 1. Threads | The storage, the thread lifetime, and the prompt of [section 4](#4-threads) | In the example of [section 4](#prompt), the scene of Jorge says that Jorge never spoke with Izumi, names Stick as a companion, and names the player's faction in the relation sentence. The history of Jorge has the overheard note after the thread with Stick. A chat with another NPC, a chat as another squad member, or 3 minutes without a reply starts a new thread. A trim or a cull that removes the last row of a thread deletes the thread and its members. |
 | 2. Distillation | The distillation of [section 5](#5-distillation) and the storage of [section 6](#6-memory-storage) | 3 minutes after the last reply, each thread of the chat has a memory, and the next exchange with the same NPC starts a new thread. A chat during a distillation gets its reply after one call at most. A failed call leaves its thread pending. A cull deletes the memories after the cut. |
 | 3. Memories in the chat prompt | The prompt of [section 7](#7-memories-in-the-prompt) | The chat prompt of the NPC, the squad member, and an overhearer holds the memory and no line of the thread. An NPC whose threads all have memories gets no history turns. A memory written during a conversation reaches the next turn. After a rename, the next prompt has the new name in the header and the text of each memory. |
-| 4. Memory viewer | The Campaign Memories subtab of [section 8](#8-memory-viewer) | The subtab lists every memory with its speakers, its overhearers, and the current names. A search for a word of a memory, or for the name of a member, finds the memory. |
 
-Phases 2 and 3 each need the phase before them. Phase 4 needs phase 2.
+Phases 2 and 3 each need the phase before them.
 
 1. `server/tests/test_scene_text.py` covers the first meeting by the speaker of each row, the companions, and the relation sentence.
 2. `server/tests/test_chat_prompt.py` covers the overheard note, the history without the lines of a thread with a memory and without banter, the header for a speaker and for an overhearer, the limit of 10 and the order, and a request with no history turns. It also covers the name marks: whole words, the longest name first, a name that two members share, and a rename.
