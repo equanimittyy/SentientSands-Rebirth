@@ -311,6 +311,7 @@ void OnChatSendClick(MyGUI::Widget *sender) {
                 (unsigned int)strtoul(handleStr.c_str(), NULL, 10)) {
           float dist = player->getPosition().distance(other->getPosition());
           if (dist < searchRadius) {
+            LogNpcRole(other);
             std::string o_name = other->getName();
             unsigned int o_serial = other->getHandle().serial;
             npcsJson +=
@@ -396,6 +397,7 @@ void OnChatSendClick(MyGUI::Widget *sender) {
     detailedContext = GetDetailedContext(targetNpc);
     LogNpcZone(targetNpc);
     LogFactionList();
+    LogNpcRole(targetNpc);
   }
   std::string speakerContext =
       speaker ? GetDetailedContext(speaker, "player") : "{}";

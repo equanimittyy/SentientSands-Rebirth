@@ -14,13 +14,18 @@
 #include <kenshi/MedicalSystem.h>
 #include <kenshi/Platoon.h>
 #include <kenshi/PlayerInterface.h>
+#include <kenshi/AI/AITaskSystem.h>
+#include <kenshi/AI/Blackboard.h>
 #include <kenshi/RaceData.h>
+#include <kenshi/StateBroadcastData.h>
+#include <kenshi/Tasker.h>
 #include <kenshi/Town.h>
 // Weather.h redefines WeatherRegion from PhysicsCollection.h; rename its copy
 #define WeatherRegion WeatherRegion_WeatherH
 #include <kenshi/Weather.h>
 #undef WeatherRegion
 #include <kenshi/util/hand.h>
+#include <map>
 #include <set>
 #include <sstream>
 #include <vector>
@@ -243,6 +248,93 @@ void LogFactionList() {
                       (faction->isThePlayer() ? " player" : "") +
                       (faction->isNotARealFaction() ? " not_real" : ""));
   }
+}
+
+static std::string DataLabel(GameData *data) {
+  if (!data || (uintptr_t)data < 0x1000)
+    return "-";
+  return data->stringID + " '" + data->name + "'";
+}
+
+static std::string TaskKeys(const lektor<Tasker *> &list) {
+  std::string keys;
+  for (uint32_t i = 0; i < list.count; ++i) {
+    Tasker *task = list.stuff[i];
+    if (!task || (uintptr_t)task < 0x1000 || !task->taskData)
+      continue;
+    if (!keys.empty())
+      keys += ",";
+    keys += ToString((int)task->key());
+  }
+  return keys.empty() ? "-" : keys;
+}
+
+// Probe: the role and task data of a character, logged again when it changes.
+// Enum values stay numbers for Enums.h. Game thread only: the map has no lock.
+void LogNpcRole(Character *npc) {
+  static std::map<unsigned int, std::string> logged;
+  if (!npc || (uintptr_t)npc < 0x1000)
+    return;
+  std::string line;
+  try {
+    line += "template=" + DataLabel(npc->data);
+    if (npc->data) {
+      auto npcClass = npc->data->idata.find("NPC class");
+      if (npcClass != npc->data->idata.end())
+        line += " class=" + ToString(npcClass->second);
+    }
+    StateBroadcastData *state = npc->getStateBroadcast();
+    if (state && (uintptr_t)state > 0x1000)
+      line += " live_type=" + ToString((int)state->NPCType);
+    Faction *faction = npc->getFaction();
+    if (faction && (uintptr_t)faction > 0x1000)
+      line += " faction='" + faction->getName() + "'";
+  } catch (...) {
+    line += " [identity failed]";
+  }
+  try {
+    ActivePlatoon *active = npc->getPlatoon();
+    Platoon *platoon =
+        active && (uintptr_t)active > 0x1000 ? active->me : NULL;
+    if (platoon && (uintptr_t)platoon > 0x1000)
+      line += " squad=" + DataLabel(platoon->squadTemplate) +
+              " squad_type=" + ToString((int)platoon->squadType) +
+              " leader=" + (active->squadleader == npc ? "1" : "0");
+    // Name only: AIPackage.h, which packageData needs, redefines the
+    // BlackboardSignalFunctions enum from Blackboard.h (C2011).
+    Blackboard *board = npc->getBlackboard();
+    if (board && (uintptr_t)board > 0x1000)
+      line += " package='" + board->getCurrentAIPackageName() + "'";
+  } catch (...) {
+    line += " [squad failed]";
+  }
+  try {
+    OrdersReceiver *orders = npc->getOrdersReciever();
+    if (orders && (uintptr_t)orders > 0x1000) {
+      const TaskMatch &goal = orders->getCurrentGoal();
+      line += " goal=" +
+              (goal.taskData ? ToString((int)goal.key()) : std::string("-"));
+      line += " permajobs=" + TaskKeys(orders->permajobs);
+      line += " squad_jobs=";
+      for (int p = 0; p < 5; ++p)
+        line += (p ? "|" : "") + TaskKeys(orders->squadAIPackage[p]);
+      line += " goals=";
+      for (int p = 0; p < 5; ++p)
+        line += (p ? "|" : "") + TaskKeys(orders->goals[p]);
+    }
+    std::string names;
+    for (int i = 0; i < npc->getPermajobCount(); ++i)
+      names += (i ? "," : "") + npc->getPermajobName(i);
+    line += " permajob_names='" + names + "'";
+  } catch (...) {
+    line += " [tasks failed]";
+  }
+  unsigned int serial = npc->getHandle().serial;
+  if (logged[serial] == line)
+    return;
+  logged[serial] = line;
+  Log(LOG_INFO, "ROLE_PROBE: name='" + npc->getName() + "' npc_id=" +
+                    GetNpcId(npc) + " " + line);
 }
 
 void GetCurrentSquad(std::vector<Character *> &members) {

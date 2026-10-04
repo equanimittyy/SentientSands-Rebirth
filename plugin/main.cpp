@@ -1112,6 +1112,7 @@ void playerUpdate_hook(PlayerInterface *thisptr) {
       lastContextTick = now;
       g_lastContextPushTick = now;
       if (sel && (uintptr_t)sel > 0x1000) {
+        LogNpcRole(sel);
         AsyncPostToPython(L"/context", GetDetailedContext(sel));
       }
       if (world->player && world->player->playerCharacters.size() > 0) {
@@ -1171,6 +1172,7 @@ void playerUpdate_hook(PlayerInterface *thisptr) {
                       o_rn = o_race->data->stringID;
                   }
 
+                  LogNpcRole(other);
                   std::string identityFaction = GetIdentityFaction(other);
                   npcData +=
                       "{\"name\":\"" + EscapeJSON(other->getName()) + "\",";
