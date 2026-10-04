@@ -354,7 +354,9 @@ void OnChatSendClick(MyGUI::Widget *sender) {
                               "\", \"race\":\"" + EscapeJSON(raceName) +
                               "\", \"faction\":\"" + EscapeJSON(factionName) +
                               "\", \"gender\":\"" + EscapeJSON(o_gender) +
-                              "\", \"dist\":" + ToString((int)dist) + "}";
+                              "\", \"generic_name\":" +
+                              (IsGenericName(other, o_name) ? "true" : "false") +
+                              ", \"dist\":" + ToString((int)dist) + "}";
           }
         }
       }

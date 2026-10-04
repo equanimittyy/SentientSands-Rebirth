@@ -272,7 +272,7 @@ The `character` table holds every character of a campaign in one shape: the cano
 - The name is only the `Name` key of the profile, so two NPCs with one name keep two rows, and a rename keeps the row and its dialogue.
 - A `Race`, `Sex`, or `Faction` of `Unknown` takes the value that the plugin reports for the character (`get_character_data`). A missing `Race` or `Faction` stays missing. A canon character whose race, sex, or faction the game data does not fix therefore holds `Unknown`, so the first meeting fills it with the value of the spawned NPC.
 - The game reports every skeleton as male, so the server gives a skeleton the sex Other in profiles and prompts (`reported_sex`). A skeleton race is a race whose name starts with Skeleton, P2 Unit, P4 Unit, Screamer, or Soldierbot, which covers the skeleton races of vanilla Kenshi and UWE. The race flag `is robot` cannot tell them apart, because it also marks hive queens, robot spiders, and the mechanical hive of UWE.
-- Within one chat or banter request, the server keys each NPC by its `npc_id`, because NPCs near the player can share a name, for example two Dust Bandits that the player never spoke to. A banter line names its speaker as `Name|ID`, and the server maps the ID, the serial of the handle, to the `npc_id`.
+- Within one chat or banter request, the server keys each NPC by its `npc_id`, because NPCs near the player can share a name, for example two Dust Bandits that the campaign does not hold yet. A banter line names its speaker as `Name|ID`, and the server maps the ID, the serial of the handle, to the `npc_id`.
 - Rejected: a number in a duplicate name within a request, such as Dust Bandit (2). The number would reach the LLM and the dialogue history.
 - Each dialogue row stores the `npc_id` of its speaker in `speaker`, or nothing when the speaker is unknown. A banter line goes into the history of every NPC nearby, so a name cannot tell whose line it is when two of them share a name.
 - Rejected: the `npc_id` of the speaker inside the line text. The text reaches the LLM, the Dialogue Library, and the bio prompt.
@@ -282,23 +282,22 @@ The `character` table holds every character of a campaign in one shape: the cano
 
 ### Names
 
-A generic NPC keeps the name that the game gives it until the player speaks to it (`server/scripts/npc_names.py`). The first chat adds a given name from `server/config/names.json` for the sex of the NPC, and the game name stays in front of it as a title. The title tells the player what the NPC is, as the game name did. A recruit drops the title.
+A generic NPC keeps the name that the game gives it until it first takes part in a chat or in banter, which stores it in the campaign (`server/scripts/npc_names.py`). That request adds a given name from `server/config/names.json` for the sex of the NPC, and the game name stays in front of it as a title. An NPC that only overhears a chat gets its name too. The title tells the player what the NPC is, as the game name did. A recruit drops the title.
 
 | Moment | Name in game |
 |---|---|
-| Before the player speaks to the NPC | Starving Bandit |
-| The first chat with the NPC | Starving Bandit Josh |
+| Before the NPC takes part in a chat or in banter | Starving Bandit |
+| The first chat or banter that the NPC takes part in | Starving Bandit Josh |
 | The NPC joins the player's faction | Josh |
 
-- The plugin sends `generic_name` in the context of an NPC (`IsGenericName` in `plugin/game/Context.cpp`). A generic name equals the name of the character's template, or it holds a name or a keyword of `generic_names.json`. Only the plugin sees the game data, so only the plugin can make this check in each game language.
+- The plugin sends `generic_name` in the context of an NPC, in each NPC of the `nearby` list of a chat, and in each NPC of a banter request (`IsGenericName` in `plugin/game/Context.cpp`). A generic name equals the name of the character's template, or it holds a name or a keyword of `generic_names.json`. Only the plugin sees the game data, so only the plugin can make this check in each game language.
 - `GivenName` in the profile holds the given name, and `Name` holds the whole name. A name with a title still holds the generic name, so the server never names an NPC that has a `GivenName` again.
-- At each chat turn with a generic NPC, `name_at_chat` gives a given name to an NPC that has none. An NPC that is already in the player's faction gets no title, so its name changes once, not twice.
-- When the game name of an NPC with a `GivenName` is not its `Name`, the game lost the name, for example after the load of an earlier save. The chat turn gives back the stored `Name`.
-- The server sends `NPC_RENAME: <serial>|<name>` through the pipe before the LLM call, so the name changes in game while the player waits for the reply. The prompt and the dialogue history use the new name, and `campaign_db.rename_character` relabels the lines that the NPC spoke.
-- Banter and an ambient greeting name no NPC, because the player does not speak to the NPC.
+- For each generic NPC of a chat or banter request, `name_generic_npc` gives a given name to an NPC that has none. In a chat, this covers the target and each NPC that overhears. An NPC that is already in the player's faction gets no title, so its name changes once, not twice.
+- When the game name of an NPC with a `GivenName` is not its `Name`, the game lost the name, for example after the load of an earlier save. The next chat or banter gives back the stored `Name`.
+- The server sends `NPC_RENAME: <serial>|<name>` through the pipe before the LLM call, so the name changes in game before the reply. The prompt and the dialogue history use the new name, and `campaign_db.rename_character` relabels the lines that the NPC spoke.
 - A recruit drops its title at the first context post that shows the recruit in the player's faction (`drop_title`). After a recruit, the player selects the new squad member, and the plugin posts the context of the selected character every 1.5 s. The server checks each NPC once per campaign in memory (`TITLES_CHECKED`), so a selected squad member costs one database read.
-- A game name of a recruit that differs from its stored `Name` is a name that the player gave in game, so it stays. A recruit that the player never spoke to keeps its game name until its first chat, which gives it a given name with no title.
-- A name from `/name` in the chat window becomes the `Name` and the `GivenName`, so the server never adds a title to it or replaces it with a rolled name. `/rename` stores a profile for an NPC that has none, because the first chat would otherwise roll a name.
+- A game name of a recruit that differs from its stored `Name` is a name that the player gave in game, so it stays. A recruit that never took part in a chat or in banter keeps its game name until it does. Then it gets a given name with no title.
+- A name from `/name` in the chat window becomes the `Name` and the `GivenName`, so the server never adds a title to it or replaces it with a rolled name. `/rename` stores a profile for an NPC that has none, because the next chat or banter would otherwise roll a name.
 - A new given name differs from each `Name` and `GivenName` of the campaign (`get_used_names`), so two recruits never share a name.
 - Rejected: a name for each generic NPC on sight. The plugin scanned the NPCs near the player every 2 s and replaced the name of each generic one, so the player lost the game name of an NPC before any chat with it.
 

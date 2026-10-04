@@ -1219,6 +1219,11 @@ void playerUpdate_hook(PlayerInterface *thisptr) {
                       std::string(other->isFemale() ? "female" : "male") +
                       "\",";
                   npcData += "\"job\":\"" + EscapeJSON(o_job) + "\",";
+                  npcData += "\"generic_name\":" +
+                             std::string(IsGenericName(other, other->getName())
+                                             ? "true"
+                                             : "false") +
+                             ",";
                   npcData +=
                       "\"faction\":\"" + EscapeJSON(identityFaction) + "\"}";
                   first = false;

@@ -1006,11 +1006,11 @@ def should_save_profile(name, npc_id, data):
     return True
 
 
-def name_at_chat(npc_id, game_name, ctx):
-    """The name of a generic NPC for a chat turn (see npc_names)."""
+def name_generic_npc(npc_id, game_name, ctx):
+    """The name of a generic NPC in a chat or banter request (see npc_names)."""
     profile = get_character_data(game_name, ctx)
-    name, given = npc_names.chat_names(profile, game_name, is_player_faction(ctx.get("faction"), ctx.get("factionID")),
-                                       lambda: generate_unique_lore_name(profile.get("Sex", "Neutral")))
+    name, given = npc_names.names(profile, game_name, is_player_faction(ctx.get("faction"), ctx.get("factionID")),
+                                  lambda: generate_unique_lore_name(profile.get("Sex", "Neutral")))
     if (name, given) != (profile["Name"], profile.get("GivenName")):
         campaign_db.rename_character(npc_id, profile["Name"], name, given)
         logging.info(f"NAME: {game_name} ({npc_id}) is now {name}")
@@ -1076,6 +1076,8 @@ def ambient_event():
     for npc in npc_limit:
         if isinstance(npc, dict):
             name = npc.get('name', 'Unknown')
+            if npc.get('generic_name'):
+                name = name_generic_npc(npc['npc_id'], name, npc)
             nid = npc.get('id', 0)
             name_to_id[name] = nid
             d = get_character_data(name, context=json.dumps(npc))
@@ -1372,9 +1374,8 @@ def chat():
         except Exception as e:
             logging.error(f"CHAT: Cannot register the context of the chat target: {e}")
 
-    # Banter and an ambient greeting name no NPC, because the player does not speak to it
-    if primary_id and ctx_dict.get('generic_name') and not is_ambient:
-        primary_npc = name_at_chat(primary_id, primary_npc, ctx_dict)
+    if primary_id and ctx_dict.get('generic_name'):
+        primary_npc = name_generic_npc(primary_id, primary_npc, ctx_dict)
 
     # The squad member who talks
     speaker = context_dict(data.get('speaker'))
@@ -1386,7 +1387,10 @@ def chat():
     # Keyed by npc_id, because NPCs near the player can share a name, for example two Dust Bandits
     listeners = {primary_id: (primary_npc, context)}
     for n in chat_prompt.overhearers(nearby, radius, {primary_id, speaker.get("npc_id")}):
-        listeners[n["npc_id"]] = (n.get("name", "Unknown"), json.dumps(n))
+        name = n.get("name", "Unknown")
+        if n.get("generic_name"):
+            name = name_generic_npc(n["npc_id"], name, n)
+        listeners[n["npc_id"]] = (name, json.dumps(n))
 
     char_datas = {}
     for npc_id, (name, local_context) in listeners.items():

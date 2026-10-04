@@ -1,15 +1,16 @@
 """The names of generic NPCs.
 
-A generic NPC keeps the name that the game gives it, such as Holy Sentinel, until the player first speaks to it. That
-chat adds a given name from the name pool, and the game name stays in front of it as a title: Holy Sentinel Joe. A
-recruit drops the title. Only the plugin can tell whether a name is generic in each game language, because only the
-plugin sees the game data, so the server names an NPC only when the context of the NPC says so.
+A generic NPC keeps the name that the game gives it, such as Holy Sentinel, until it first takes part in a chat or in
+banter, which stores it in the campaign. That request adds a given name from the name pool, and the game name stays in
+front of it as a title: Holy Sentinel Joe. An NPC that only overhears a chat gets its name too. A recruit drops the
+title. Only the plugin can tell whether a name is generic in each game language, because only the plugin sees the game
+data, so the server names an NPC only when the context of the NPC says so.
 """
 
 
-def chat_names(profile, game_name, in_player_faction, roll):
-    """The Name and the GivenName of a generic NPC at a chat turn. An NPC with a GivenName is never named again, so a game
-    name that differs from its Name is one that the game lost, for example after the load of an earlier save."""
+def names(profile, game_name, in_player_faction, roll):
+    """The Name and the GivenName of a generic NPC. An NPC with a GivenName is never named again, so a game name that
+    differs from its Name is one that the game lost, for example after the load of an earlier save."""
     given = profile.get("GivenName")
     if given:
         return profile["Name"], given

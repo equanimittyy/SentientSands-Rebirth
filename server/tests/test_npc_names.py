@@ -15,20 +15,20 @@ def fail():
     raise AssertionError("rolled a name for an NPC that has one")
 
 
-class ChatNamesTest(unittest.TestCase):
-    def test_the_first_chat_keeps_the_game_name_as_a_title(self):
-        self.assertEqual(npc_names.chat_names({"Name": "Starving Bandit"}, "Starving Bandit", False, roll), ("Starving Bandit Josh", "Josh"))
+class NamesTest(unittest.TestCase):
+    def test_the_first_name_keeps_the_game_name_as_a_title(self):
+        self.assertEqual(npc_names.names({"Name": "Starving Bandit"}, "Starving Bandit", False, roll), ("Starving Bandit Josh", "Josh"))
 
     def test_a_recruit_gets_no_title(self):
-        self.assertEqual(npc_names.chat_names({"Name": "Starving Bandit"}, "Starving Bandit", True, roll), ("Josh", "Josh"))
+        self.assertEqual(npc_names.names({"Name": "Starving Bandit"}, "Starving Bandit", True, roll), ("Josh", "Josh"))
 
     def test_a_named_npc_keeps_its_name(self):
         profile = {"Name": "Starving Bandit Josh", "GivenName": "Josh"}
-        self.assertEqual(npc_names.chat_names(profile, "Starving Bandit Josh", False, fail), ("Starving Bandit Josh", "Josh"))
+        self.assertEqual(npc_names.names(profile, "Starving Bandit Josh", False, fail), ("Starving Bandit Josh", "Josh"))
 
     def test_a_name_that_the_game_lost_comes_back(self):
         profile = {"Name": "Starving Bandit Josh", "GivenName": "Josh"}
-        self.assertEqual(npc_names.chat_names(profile, "Starving Bandit", False, fail), ("Starving Bandit Josh", "Josh"))
+        self.assertEqual(npc_names.names(profile, "Starving Bandit", False, fail), ("Starving Bandit Josh", "Josh"))
 
 
 class RecruitNameTest(unittest.TestCase):

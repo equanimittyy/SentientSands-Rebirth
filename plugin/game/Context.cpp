@@ -244,7 +244,7 @@ static const char *GENERIC_NAME_PREFIXES[] = {"Hungry Bandit",
                                               "Drifter",
                                               0};
 
-static bool IsGenericName(Character *npc, const std::string &name) {
+bool IsGenericName(Character *npc, const std::string &name) {
   if (!npc || (uintptr_t)npc < 0x1000)
     return true;
 
