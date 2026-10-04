@@ -6,6 +6,7 @@ from flask import Flask, jsonify, request
 from werkzeug.exceptions import HTTPException
 
 from core import state
+from core.game import adopt_canon
 from core.paths import WEB_DIR
 from core.request_guard import is_request_allowed
 from store import campaign_db
@@ -38,6 +39,15 @@ def reject_foreign_requests():
     if not is_request_allowed(host, origin):
         logging.warning(f"HTTP: Rejected request to {request.path}: Host={host}, Origin={origin}")
         return jsonify({"status": "error", "message": "Forbidden"}), 403
+
+# Before every route, so each npc_id that the server reads or stores is already the canon one
+@app.before_request
+def adopt_canon_ids():
+    if request.is_json:
+        try:
+            adopt_canon(request.get_json(silent=True))
+        except campaign_db.CampaignUnavailable:
+            pass  # No campaign, so no canon
 
 # The web app polls this count with campaign_db.writes, so an open page loads a change from another tab or the game.
 # A POST that only reads, such as a model test, costs an open page one needless load.

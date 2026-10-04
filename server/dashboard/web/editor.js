@@ -31,7 +31,7 @@ const ORIGIN_LABELS = { seed: "Seeded", game: "Met in game", campaign: "Added in
 const PROVISIONAL = "Interactions";
 const IMPORT_PROBLEMS_SHOWN = 10;
 const EVENTS_PER_PAGE = 50;
-// Mirrors the line that record_event_to_history in server/main.py writes. A party is a name with an optional faction in brackets.
+// Mirrors the line that record_event_to_history in server/core/game.py writes. A party is a name with an optional faction in brackets.
 const PARTY = String.raw`[^()]*?(?: \([^()]*\))?`;
 const EVENT_LINE = new RegExp(String.raw`^(?:\[(Day \d+, \d+:\d+)\] )?\[([^\]]+)\] (${PARTY}) -> (${PARTY})(?: @ ([^:]+))?: (.*)$`, "s");
 
@@ -394,7 +394,7 @@ async function writeBio(record) {
 
 const bioButton = (record) => el("button", { type: "button", className: "bio-button", disabled: readOnly(), onclick: () => writeBio(record) }, icon("bot"), "Generate Bio");
 
-// The labels and thresholds match the relation bar that the game shows (generate_relation_bar in server/main.py).
+// The labels and thresholds match the relation bar that the game shows (generate_relation_bar in server/core/game.py).
 function relationLabel(value) {
   if (value <= -90) return "ARCH-ENEMY";
   if (value <= -60) return "HOSTILE";

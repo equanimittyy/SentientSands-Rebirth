@@ -12,11 +12,11 @@ Sentient Sands Rebirth has three parts: a C++ plugin that runs inside Kenshi, a 
 | `plugin/core/` | Shared state and mutexes (`Globals`), logging, INI settings, and server start-up (`Utils`), and the transport to the server (`Comm`). |
 | `plugin/game/` | Reads game state into JSON for prompts (`Context`) and applies queued NPC actions to the world (`GameActions`). |
 | `plugin/ui/` | The in-game MyGUI windows. `LauncherWindow` is the hub that opens the others. `ChatUIGlobals` holds the shared widget pointers. |
-| `server/main.py` | The entry point of the Flask server, with its routes and its background threads. |
-| `server/core/` | The paths (`paths.py`), the session state that the other modules share (`state.py`), the Flask app and its request hooks (`app.py`), the pipe to the plugin (`pipe.py`), the INI settings (`settings.py`), the start-up checks for an old server and for the game process (`process.py`), the helpers for the game context (`game.py`), the request checks (`request_guard.py`), the log files and the log level (`log_setup.py`), and a Tkinter debug tool (`visual_debugger.py`). |
-| `server/chat/` | The LLM calls (`llm.py`), the prompt files and the descriptions that fill them (`prompts.py`), the profiles of the characters that the game reports (`characters.py`), the bios (`bio.py`), the conversation memories (`memory.py`), the rumor synthesis (`synthesis.py`), the chat prompt (`chat_prompt.py`) and its scene text (`scene_text.py`), the names (`npc_names.py`), the Current Job (`current_job.py`), the provisional profiles (`provisional_profile.py`), the prompt overrides and placeholders (`prompt_store.py`), and the LLM configuration (`llm_config.py`) and fallback chain (`llm_router.py`). |
+| `server/main.py` | The entry point: it registers the blueprints and runs the start-up (`start`). |
+| `server/core/` | The paths (`paths.py`), the session state that the other modules share (`state.py`), the Flask app and its request hooks (`app.py`), the routes that the game calls, such as `/report` and `/history`, and the settings routes (`routes.py`), the pipe to the plugin (`pipe.py`), the INI settings (`settings.py`), the start-up checks for an old server and for the game process (`process.py`), the helpers for the game context (`game.py`), the request checks (`request_guard.py`), the log files and the log level (`log_setup.py`), and a Tkinter debug tool (`visual_debugger.py`). |
+| `server/chat/` | The chat, banter, synthesis, and Dialogue Library bio routes (`routes.py`), the LLM calls (`llm.py`), the prompt files and the descriptions that fill them (`prompts.py`), the profiles of the characters that the game reports (`characters.py`), the bios (`bio.py`), the conversation memories (`memory.py`), the rumor synthesis (`synthesis.py`), the chat prompt (`chat_prompt.py`) and its scene text (`scene_text.py`), the names (`npc_names.py`), the Current Job (`current_job.py`), the provisional profiles (`provisional_profile.py`), the prompt overrides and placeholders (`prompt_store.py`), and the LLM configuration (`llm_config.py`) and fallback chain (`llm_router.py`). |
 | `server/store/` | The campaign database (`campaign_db.py`), the world templates (`world_template.py`), and the creation and the switch of a campaign (`campaigns.py`). |
-| `server/dashboard/` | The browser auto-open (`browser_launch.py`). |
+| `server/dashboard/` | The routes that only the web app calls (`routes.py`) and the browser auto-open (`browser_launch.py`). |
 | `server/dashboard/web/` | The web app: plain HTML, CSS, JavaScript, fonts, and images, which the server serves at `http://127.0.0.1:5000/`. |
 | `server/tests/` | Unit tests that run with the standard library only. See [development.md](development.md#tests). |
 | `server/data/defaults/` | The default providers and models that seed the LLM configuration, and the name and localization JSON. |
@@ -25,6 +25,12 @@ Sentient Sands Rebirth has three parts: a C++ plugin that runs inside Kenshi, a 
 | `mod/` | The files at the root of the installed mod folder: `mod.info`, `SentientSandsRebirth.mod`, and `RE_Kenshi.json`. A server that runs from the repo also writes its `SentientSands_Config.ini` here, which git ignores. |
 | `scripts/` | Release tooling. See [development.md](development.md#release). |
 | `package_release.cmd` | A Windows menu that builds the plugin, runs `scripts/package_release.py`, or does both. |
+
+Each server package keeps its Flask routes in `routes.py`, a blueprint that `main.py` registers. Only these modules, `core/app.py`, `chat/llm.py`, and the standalone `core/visual_debugger.py` import Flask or `requests`, so the tests can import every other module (see [development.md](development.md#tests)). The request guard and the canon hook are hooks of the app in `core/app.py`, because a hook of a blueprint runs only for the routes of that blueprint.
+
+The session state that several modules share is in `core/state.py`. A module reads and assigns it as `state.NAME`, because `from core.state import NAME` copies the value once, and a later assignment, such as a campaign switch, never reaches the copy.
+
+The start-up runs in `start` in `main.py`, not at import, so a module that a test or a tool imports starts no thread and stops no server.
 
 ## Installed layout
 
@@ -189,7 +195,7 @@ A placeholder is a `{name}` in a prompt. `prompt_store.render` replaces each pla
 - A hand-made override can still hold a wrong placeholder. `fill_prompt` then leaves it as text and logs a warning.
 - Rejected: Jinja2. Flask already bundles it, but template logic lets one edit break the whole prompt, and a syntax error fails the call.
 
-A chat request is ordered for a provider's prompt cache, which reuses only an identical start of a request (`chat` in `server/main.py`, `server/chat/chat_prompt.py`):
+A chat request is ordered for a provider's prompt cache, which reuses only an identical start of a request (`chat` in `server/chat/routes.py`, `server/chat/chat_prompt.py`):
 
 | Part | Content | Changes |
 |---|---|---|
