@@ -4,7 +4,7 @@ Status: Draft for review
 
 ## 1. Summary
 
-The chat prompt gets the lore entries that the player's message is about: races, locations, regions, factions, and history entries. Today no prompt reads the history, the locations, or the regions. The retrieval works only from the words of the player's message, so it does not depend on the other campaign data work ([proposal_campaign_data.md](proposal_campaign_data.md)).
+The chat prompt gets the lore entries that the player's message is about: races, locations, regions, factions, and history entries. Today no prompt reads the history, the locations, or the regions. The retrieval works only from the words of the player's message.
 
 Retrieval has two steps:
 

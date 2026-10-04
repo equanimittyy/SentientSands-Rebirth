@@ -31,7 +31,7 @@ Threads also support these later uses:
 
 | Use | What threads add | Status |
 |---|---|---|
-| A conversation view, for example in the Campaign Dialogue subtab | The view lists who else took part in a conversation and opens the copy of each participant | The subtab is planned ([proposal_campaign_data.md](proposal_campaign_data.md#3-campaign-dialogue)), but it shows one history for each character and does not need threads |
+| A conversation view, for example in the Campaign Dialogue subtab | The view lists who else took part in a conversation and opens the copy of each participant | The subtab is planned ([proposal_campaign_dialogue.md](proposal_campaign_dialogue.md#2-campaign-dialogue)), but it shows one history for each character and does not need threads |
 | A delete or an edit of a bad reply | One action changes every copy of a line, not only the copy that the player sees | Not planned. The web app has no dialogue edit. A match on the text would also find the copies, because the copies of a line differ only by the `(Overheard)` tag and the name of the one that the line was said to |
 | A summary of old dialogue before the trim | A thread is the unit of a summary, so the summary of a conversation is written once and not once for each copy | Planned in [proposal_thread_distillation.md](proposal_thread_distillation.md) |
 | Recall of an earlier conversation in a prompt | The prompt gets a whole earlier conversation when the player refers to it | Not planned. Retrieval in [proposal_lore_retrieval.md](proposal_lore_retrieval.md#1-summary) searches only the lore |
