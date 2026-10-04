@@ -894,22 +894,19 @@ def write_bio(profile, parts, instructions, history, race_lore, faction):
     bio = {part: result[part].strip() for part in parts if isinstance((result or {}).get(part), str) and result[part].strip()}
     return bio if len(bio) == len(parts) else None
 
-def generate_bio(npc_id, provisional_only=True):
-    """Has the LLM rewrite the bio of a stored NPC. Returns None once the bio is stored, else the reason it is not. The chat
-    threshold must not touch a full profile, because the player may have written it by hand."""
+def generate_bio(npc_id):
+    """Has the LLM write the bio of a provisional NPC and stores it. It never touches a full profile, because the player may
+    have written it by hand."""
     with PROGRESS_LOCK:
         if npc_id in PROFILES_IN_PROGRESS:
             logging.debug(f"PROFILE: The LLM is already writing the bio of {npc_id}.")
-            return "The LLM is already writing the bio of this character."
+            return
         PROFILES_IN_PROGRESS.add(npc_id)
     campaign = ACTIVE_CAMPAIGN
     try:
         profile = campaign_db.get_character(npc_id)
-        if not profile:
-            return "The character has no profile."
-        provisional = campaign_db.PROVISIONAL in profile
-        if provisional_only and not provisional:
-            return "The character has no provisional profile."
+        if campaign_db.PROVISIONAL not in (profile or {}):
+            return
         name, race = profile.get("Name", npc_id), profile.get("Race", "Unknown")
         logging.info(f"PROFILE: Writing the bio of {name} ({npc_id})...")
         bio = write_bio(
@@ -923,22 +920,18 @@ def generate_bio(npc_id, provisional_only=True):
         )
         if not bio:
             logging.warning(f"PROFILE: The LLM gave no usable bio for {name}, so the profile stays as it is.")
-            return "The LLM gave no usable bio. Try again."
+            return
         # A thread can outlive a campaign switch, and the same npc_id can name another character in the new campaign
         if ACTIVE_CAMPAIGN != campaign:
             logging.info(f"PROFILE: Dropped the bio of {name}, because the active campaign changed while the LLM wrote it.")
-            return "The active campaign changed while the LLM wrote the bio."
-        if not provisional:
-            campaign_db.upsert_profile(npc_id, bio)
-        elif not campaign_db.promote_profile(npc_id, bio):
+            return
+        if not campaign_db.promote_profile(npc_id, bio):
             logging.info(f"PROFILE: Dropped the bio of {name}, because its profile stopped being provisional while the LLM wrote it.")
-            return "The profile stopped being provisional while the LLM wrote the bio, for example after an edit on Campaign Canon."
+            return
         logging.info(f"PROFILE: Stored the bio of {name} ({npc_id}).")
-        return None
     except Exception as e:
         # The chat threshold runs this in a thread, where nothing else would log the error
         logging.error(f"PROFILE: The bio of {npc_id} failed: {e}")
-        return f"The bio failed: {e}"
     finally:
         with PROGRESS_LOCK:
             PROFILES_IN_PROGRESS.discard(npc_id)
@@ -2264,13 +2257,14 @@ def bio_refusal(data):
         return None
     return jsonify({"status": "error", "message": f"Name the parts to write: {', '.join(BIO_PARTS)}."}), 400
 
-def bio_reply(data, history, race_lore, faction):
-    """The web app puts the parts into its form, and the usual record save stores them, so the player can read them first."""
+def bio_reply(data, history, race_lore, faction, **reply):
+    """The web app puts the parts into its form, and the Dialogue Library into its editor, so the player reads them before a
+    save keeps them."""
     parts = [part for part in BIO_PARTS if part in data["parts"]]
     bio = write_bio(data["profile"], parts, str(data.get("instructions") or ""), history, race_lore, faction)
     if not bio:
         return jsonify({"status": "error", "message": "The LLM gave no usable text. Try again."}), 500
-    return jsonify({"status": "ok", "bio": bio})
+    return jsonify({"status": "ok", "bio": bio, **reply})
 
 @app.route('/api/campaign/characters/bio', methods=['POST'])
 def write_campaign_bio():
@@ -2386,22 +2380,35 @@ def cull_future_data():
     logging.info(f"CAMPAIGN: Culled {culled['dialogue']} dialogue lines, {culled['event']} events, and {culled['rumor']} rumors after [Day {day}, {hour:02d}:{minute:02d}] in '{ACTIVE_CAMPAIGN}'")
     return jsonify({"status": "ok", "time": f"Day {day}, {hour:02d}:{minute:02d}", "culled": culled})
 
-@app.route('/regenerate_profile', methods=['POST'])
-def regenerate_profile_route():
-    logging.debug("HTTP: POST /regenerate_profile")
-    data = request.json
-    sid = data.get("sid")
-    if not sid: return jsonify({"status": "error", "message": "Missing NPC ID (sid)"}), 400
-    
-    char_data = campaign_db.get_character(sid)
-    if not char_data:
-        logging.warning(f"PROFILE: Regen found no profile for {sid}")
-        return jsonify({"status": "error", "message": "Profile not found"}), 404
+@app.route('/write_bio', methods=['POST'])
+def write_library_bio():
+    data = request.get_json(silent=True) or {}
+    campaign, sid = ACTIVE_CAMPAIGN, str(data.get("sid") or "")
+    profile = campaign_db.get_character(sid)
+    if not profile:
+        return jsonify({"status": "error", "message": "The character has no profile."}), 404
+    data["profile"] = profile
+    refused = bio_refusal(data)
+    if refused: return refused
+    faction = describe_faction(profile.get("Faction"), (LIVE_CONTEXTS.get(sid) or {}).get("factionID"))
+    # The Library sends the campaign back with Keep, because the same npc_id can name another character in another campaign
+    return bio_reply(data, profile.get("ConversationHistory", []), describe_race(profile.get("Race", "Unknown")), faction, campaign=campaign)
 
-    reason = generate_bio(sid, provisional_only=False)
-    if reason:
-        return jsonify({"status": "error", "message": reason}), 500
-    return jsonify({"status": "ok", "message": f"Wrote the bio of {char_data.get('Name', sid)}."})
+@app.route('/keep_bio', methods=['POST'])
+def keep_library_bio():
+    data = request.get_json(silent=True) or {}
+    refused = campaign_write(data)
+    if refused: return refused
+    sid, texts = str(data.get("sid") or ""), data.get("bio") or {}
+    bio = {part: str(texts[part]).strip() for part in BIO_PARTS if part in texts}
+    profile = campaign_db.get_character(sid)
+    if not profile:
+        return jsonify({"status": "error", "message": "The character has no profile."}), 404
+    # Ends the provisional state, or a later bio from the chat threshold would overwrite the player's text
+    if not campaign_db.promote_profile(sid, bio):
+        campaign_db.upsert_profile(sid, bio)
+    logging.info(f"PROFILE: Stored the bio of {profile.get('Name', sid)} ({sid}) from the Dialogue Library.")
+    return jsonify({"status": "ok"})
 
 
 @app.route('/api/llm', methods=['GET'])
@@ -2530,8 +2537,8 @@ def get_history():
     lines.append(generate_relation_bar(char_data.get('Relation', 0)))
     if campaign_db.PROVISIONAL in char_data:
         chats, threshold = int(char_data[campaign_db.PROVISIONAL]), load_settings()["bio_interactions"]
-        lines.append(f"BIO: Provisional. The LLM writes the full bio at {threshold} chats ({chats} so far), or press Regen Bio." if threshold
-                     else f"BIO: Provisional. Press Regen Bio to have the LLM write the full bio ({chats} chats so far).")
+        lines.append(f"BIO: Provisional. The LLM writes the full bio at {threshold} chats ({chats} so far), or press Generate Bio." if threshold
+                     else f"BIO: Provisional. Press Generate Bio to have the LLM write the full bio ({chats} chats so far).")
     lines.append("-" * 30)
     for part, title in (("Personality", "PERSONALITY"), ("Backstory", "BACKSTORY"), ("SpeechQuirks", "SPEECH QUIRKS")):
         lines.append(f"{title}:")

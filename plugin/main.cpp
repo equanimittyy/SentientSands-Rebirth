@@ -211,9 +211,10 @@ void ProcessMessageQueue(GameWorld *thisptr) {
             RefreshLibraryUI();
           } else if (command == "REPORT") {
             AsyncPostToPython(L"/report", GameReport());
-          } else if (command == "ENABLE_REGEN_BTN") {
-            if (g_libraryRegenBtn)
-              g_libraryRegenBtn->setEnabled(true);
+          } else if (command == "BIO_WRITTEN") {
+            ShowWrittenBio(data);
+          } else if (command == "BIO_KEPT") {
+            FinishKeptBio(data);
           } else if (command == "POPULATE_EVENTS") {
             PopulateEventsUI(data);
           }
