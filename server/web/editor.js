@@ -44,9 +44,9 @@ const notes = new Map();
 let selected = "overview";
 let query = "";
 let kindFilter = "all";
-const listSwitches = { showSeeded: true, showProvisional: true };
+const listSwitches = { showSeeded: true, showProvisional: true, playerFactionOnly: false };
 for (const name in listSwitches) {
-  try { listSwitches[name] = localStorage.getItem(name) !== "false"; } catch {}
+  try { listSwitches[name] = (localStorage.getItem(name) ?? String(listSwitches[name])) === "true"; } catch {}
 }
 let newCount = 0;
 const creation = { kind: "faction", name: "" };
@@ -223,6 +223,13 @@ function kindLabel(record) {
 }
 
 const isProvisional = (record) => source === "campaign" && record.kind === "character" && PROVISIONAL in (record.data?.profile ?? {});
+
+function inPlayerFaction(record) {
+  if (record.kind === "faction") return Boolean(record.is_player);
+  const player = allRecords().find((faction) => faction.is_player);
+  // The Faction of a profile keeps the faction of the first meeting, so it misses a recruit that the game reported
+  return record.kind === "character" && Boolean(player) && choice("Faction", record.current_faction || record.data?.profile?.Faction || "") === title(player);
+}
 
 function searchText(record) {
   const form = drafts.get(record.key)?.form;
@@ -554,7 +561,7 @@ function renderList() {
   const list = page.querySelector("#record-list");
   if (!list) return;
   const needle = query.trim().toLowerCase();
-  const shown = allRecords().filter((record) => (listSwitches.showSeeded || record.origin !== "seed") && (listSwitches.showProvisional || !isProvisional(record)) && (kindFilter === "all" || filterValue(record) === kindFilter) && (!needle || searchText(record).includes(needle)));
+  const shown = allRecords().filter((record) => (listSwitches.showSeeded || record.origin !== "seed") && (listSwitches.showProvisional || !isProvisional(record)) && (source !== "campaign" || !listSwitches.playerFactionOnly || inPlayerFaction(record)) && (kindFilter === "all" || filterValue(record) === kindFilter) && (!needle || searchText(record).includes(needle)));
   list.replaceChildren(...shown.map((record) => {
     const item = el("button", {
       type: "button",
@@ -998,6 +1005,7 @@ function render() {
       el("div", { className: "record-panel" }, ...(source === "campaign" ? [
         listSwitch("showSeeded", "Show seeded data", "Entries that the campaign copied from its template when you created it."),
         listSwitch("showProvisional", "Show provisional characters", "Characters you met in game whose full bio the LLM has not written yet."),
+        listSwitch("playerFactionOnly", "Player faction only", "Shows only your faction and the characters in it. A character counts by its Current Faction, or by its Faction when no Current Faction shows."),
       ] : []), search, filterSelect(), el("div", { id: "record-list", className: "record-list" }), newRecordForm()),
       el("div", { id: "record-form" })) : el("p", { className: "hint" }, source === "template" ? "No template to edit." : "Open a campaign to edit its canon."));
   renderList();
