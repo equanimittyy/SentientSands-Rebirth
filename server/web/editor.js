@@ -40,8 +40,10 @@ const notes = new Map();
 let selected = "overview";
 let query = "";
 let kindFilter = "all";
-let showSeeded = true;
-try { showSeeded = localStorage.getItem("showSeeded") !== "false"; } catch {}
+const listSwitches = { showSeeded: true, showProvisional: true };
+for (const name in listSwitches) {
+  try { listSwitches[name] = localStorage.getItem(name) !== "false"; } catch {}
+}
 let newCount = 0;
 const creation = { kind: "faction", name: "" };
 const duplication = { name: "" };
@@ -547,7 +549,7 @@ function renderList() {
   const list = page.querySelector("#record-list");
   if (!list) return;
   const needle = query.trim().toLowerCase();
-  const shown = allRecords().filter((record) => (showSeeded || record.origin !== "seed") && (kindFilter === "all" || filterValue(record) === kindFilter) && (!needle || searchText(record).includes(needle)));
+  const shown = allRecords().filter((record) => (listSwitches.showSeeded || record.origin !== "seed") && (listSwitches.showProvisional || !isProvisional(record)) && (kindFilter === "all" || filterValue(record) === kindFilter) && (!needle || searchText(record).includes(needle)));
   list.replaceChildren(...shown.map((record) => {
     const item = el("button", {
       type: "button",
@@ -571,24 +573,24 @@ function filterSelect() {
   return select;
 }
 
-function seededSwitch() {
+function listSwitch(name, label, help) {
   const toggle = el("button", {
     type: "button",
     className: "switch",
-    title: "Entries that the campaign copied from its template when you created it.",
+    title: help,
     onclick: () => {
-      showSeeded = !showSeeded;
+      listSwitches[name] = !listSwitches[name];
       try {
-        localStorage.setItem("showSeeded", String(showSeeded));
+        localStorage.setItem(name, String(listSwitches[name]));
       } catch {
         // Storage can be blocked, for example in a private window; the switch then lasts until the page reloads.
       }
-      toggle.setAttribute("aria-checked", String(showSeeded));
+      toggle.setAttribute("aria-checked", String(listSwitches[name]));
       renderList();
     },
-  }, el("span", { className: "track" }), "Show seeded data");
+  }, el("span", { className: "track" }), label);
   toggle.setAttribute("role", "switch");
-  toggle.setAttribute("aria-checked", String(showSeeded));
+  toggle.setAttribute("aria-checked", String(listSwitches[name]));
   return toggle;
 }
 
@@ -922,7 +924,10 @@ function render() {
     renderSubtabs(),
     source === "template" ? renderTemplateBar() : renderCanonBar(),
     (source === "template" ? template : canon) ? el("div", { className: "editor-layout" },
-      el("div", { className: "record-panel" }, source === "campaign" ? seededSwitch() : null, search, filterSelect(), el("div", { id: "record-list", className: "record-list" }), newRecordForm()),
+      el("div", { className: "record-panel" }, ...(source === "campaign" ? [
+        listSwitch("showSeeded", "Show seeded data", "Entries that the campaign copied from its template when you created it."),
+        listSwitch("showProvisional", "Show provisional characters", "Characters you met in game whose full bio the LLM has not written yet."),
+      ] : []), search, filterSelect(), el("div", { id: "record-list", className: "record-list" }), newRecordForm()),
       el("div", { id: "record-form" })) : el("p", { className: "hint" }, source === "template" ? "No template to edit." : "Open a campaign to edit its canon."));
   renderList();
   renderForm();

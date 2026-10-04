@@ -101,7 +101,7 @@ The Editor holds many records. Save sends one request for each changed record, a
 
 The Editor has three subtabs. Campaign Canon and Templates share the record list and forms: Campaign Canon edits the canon of the active campaign, and Templates edits the world templates that new campaigns copy. Campaign Events edits the rumors and deletes the events of the active campaign. The page holds the data of one subtab and one template at a time, so a switch with unsaved changes asks the player first. A shipped template is read-only, so the page offers a duplicate.
 
-On Campaign Canon, **Show seeded data** starts on, and the record list hides the records whose `origin` is `seed` only while the player turns it off. The browser remembers the switch. The overview and the history have no `origin`, so they always show.
+On Campaign Canon, **Show seeded data** and **Show provisional characters** start on. While the player turns one off, the record list hides the records whose `origin` is `seed`, or the provisional characters (see [Provisional profiles](#provisional-profiles)). The browser remembers each switch. The overview and the history have no `origin`, so they always show.
 
 The Facts section of a faction, race, location, or region offers only the categories of its kind (`FACTS` in `server/scripts/world_template.py`), because the validator refuses any other category. `server/web/editor.js` keeps a copy of the categories, so a change to them changes both files. A category holds one text, such as the leader of a faction, or a list of text, such as its enemies.
 
