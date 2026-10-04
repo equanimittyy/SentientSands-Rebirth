@@ -6,7 +6,7 @@ const PROFILE_KEYS = ["Name", "Race", "Sex", "Faction", "Personality", "Backstor
 const LONG_PROFILE_KEYS = ["Personality", "Backstory", "SpeechQuirks"];
 const CHOICE_KEYS = ["Race", "Sex", "Faction"];
 const PROFILE_HELP = {
-  Name: "The name of the character. The game shows this name, but a name that you give a squad member in the game replaces it.",
+  Name: "The name of the character. The game shows this name.",
   Race: "The race of the character.",
   Sex: "The sex of the character.",
   Faction: "The faction that SSR tells the LLM the character belongs to.",
