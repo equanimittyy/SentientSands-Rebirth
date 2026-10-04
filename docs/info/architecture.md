@@ -13,11 +13,11 @@ Sentient Sands Rebirth has three parts: a C++ plugin that runs inside Kenshi, a 
 | `plugin/game/` | Reads game state into JSON for prompts (`Context`) and applies queued NPC actions to the world (`GameActions`). |
 | `plugin/ui/` | The in-game MyGUI windows. `LauncherWindow` is the hub that opens the others. `ChatUIGlobals` holds the shared widget pointers. |
 | `server/scripts/` | The Flask server (`kenshi_llm_server.py`), the campaign database (`campaign_db.py`), the world templates (`world_template.py`), the request checks (`request_guard.py`), the browser auto-open (`browser_launch.py`), the LLM configuration (`llm_config.py`) and fallback chain (`llm_router.py`), the prompt overrides and placeholders (`prompt_store.py`), the log files and the log level (`log_setup.py`), and a Tkinter debug tool (`visual_debugger.py`). |
-| `server/web/` | The web app: plain HTML, CSS, JavaScript, fonts, and images, which the server serves at `http://127.0.0.1:5000/`. |
+| `server/dashboard/web/` | The web app: plain HTML, CSS, JavaScript, fonts, and images, which the server serves at `http://127.0.0.1:5000/`. |
 | `server/tests/` | Unit tests that run with the standard library only. See [development.md](development.md#tests). |
-| `server/config/` | The default providers and models that seed the LLM configuration, and the name and localization JSON. |
-| `server/prompts/` | The system prompts. |
-| `server/world_templates/` | The shipped world templates. See [World templates](#world-templates). |
+| `server/data/defaults/` | The default providers and models that seed the LLM configuration, and the name and localization JSON. |
+| `server/data/prompts/` | The system prompts. |
+| `server/data/templates/` | The shipped world templates. See [World templates](#world-templates). |
 | `mod/` | The files at the root of the installed mod folder: `mod.info`, `SentientSandsRebirth.mod`, and `RE_Kenshi.json`. A server that runs from the repo also writes its `SentientSands_Config.ini` here, which git ignores. |
 | `scripts/` | Release tooling. See [development.md](development.md#release). |
 | `package_release.cmd` | A Windows menu that builds the plugin, runs `scripts/package_release.py`, or does both. |
@@ -34,9 +34,12 @@ SentientSandsRebirth/
   SentientSandsRebirth.mod
   SentientSands_Config.ini   settings, created by the server on first start
   server/
-    scripts/  config/  prompts/  web/  world_templates/
+    scripts/
+    dashboard/web/
+    data/templates/  data/prompts/  data/defaults/
     python/                  embedded runtime, added by scripts/package_release.py
-    campaigns/  logs/  user/ created at runtime
+    config/  logs/           created at runtime
+    data/campaigns/  data/user_templates/   created at runtime
 ```
 
 - The plugin takes the mod root from the path of its own DLL (`startPlugin` in `plugin/main.cpp`). A Steam Workshop folder with a numeric name works for this reason.
@@ -86,23 +89,23 @@ The hooks in `plugin/main.cpp` log game events, such as combat, trade, and death
 
 ## Web app
 
-The server serves `server/web/` at `/` and `/web/<file>`. The files are plain HTML, CSS, JavaScript modules, fonts, and images, with no build step, no npm packages, and no assets from a CDN, so the web app works offline and the release needs no extra tools.
+The server serves `server/dashboard/web/` at `/` and `/web/<file>`. The files are plain HTML, CSS, JavaScript modules, fonts, and images, with no build step, no npm packages, and no assets from a CDN, so the web app works offline and the release needs no extra tools.
 
 The toggle at the top right switches between the light and the dark colours. The browser keeps the choice in `localStorage`, and without a stored choice the page follows the system setting. A small script in the page head sets the theme before the page paints, so a dark page never flashes light.
 
 | Page | Route | Storage |
 |---|---|---|
 | Settings | `/settings`, `/settings/defaults` | `SentientSands_Config.ini` |
-| Models | `/api/llm`, `/api/llm/test`, `/api/llm/models`, `/api/llm/reset` | `server/user/llm_config.json` |
-| Prompts | `/api/prompts` | `server/user/prompts/` |
+| Models | `/api/llm`, `/api/llm/test`, `/api/llm/models`, `/api/llm/reset` | `server/config/llm_config.json` |
+| Prompts | `/api/prompts` | `server/config/prompts/` |
 | Campaigns | `/api/campaigns`, `/api/campaign/cull` (see [Campaign routes of the web app](#campaign-routes-of-the-web-app)) | `campaign.db` of each campaign |
-| Editor | `/api/campaign/canon`, `/api/campaign/records` (see [Campaign canon](#campaign-canon)); `/api/campaign` and its rumor routes (see [Campaign routes of the web app](#campaign-routes-of-the-web-app)); `/api/templates` (see [World templates](#world-templates)) | `campaign.db` of the active campaign; `server/user/world_templates/` |
+| Editor | `/api/campaign/canon`, `/api/campaign/records` (see [Campaign canon](#campaign-canon)); `/api/campaign` and its rumor routes (see [Campaign routes of the web app](#campaign-routes-of-the-web-app)); `/api/templates` (see [World templates](#world-templates)) | `campaign.db` of the active campaign; `server/data/user_templates/` |
 
 A GET route must not change state. A page on another site can send a GET with no `Origin` header, for example through an image tag, so the Origin check from step 4 of the runtime flow does not stop it. The presence stream below is the only exception, because EventSource sends only GET requests. A page on another site that holds the stream open can only stop a new tab from opening.
 
-The server stops when the game closes, and it restarts when the player presses Restart Server, so an open tab can lose the server at any time. The web app reads `GET /context` every 3 s (`poll` in `server/web/app.js`). While its requests get no response, it shows a banner and disables its Save buttons, so the player keeps unsaved changes until the server is back. A page that did not load keeps its Save button disabled, and the web app loads it again when the server is back.
+The server stops when the game closes, and it restarts when the player presses Restart Server, so an open tab can lose the server at any time. The web app reads `GET /context` every 3 s (`poll` in `server/dashboard/web/app.js`). While its requests get no response, it shows a banner and disables its Save buttons, so the player keeps unsaved changes until the server is back. A page that did not load keeps its Save button disabled, and the web app loads it again when the server is back.
 
-Each page with a Save button tracks its unsaved changes and reports them with an `unsaved` DOM event (`reportUnsaved` in `server/web/api.js`). While a page has unsaved changes, its nav tab shows a dot, its Discard button loads the saved data again, and the browser asks the player before the tab closes.
+Each page with a Save button tracks its unsaved changes and reports them with an `unsaved` DOM event (`reportUnsaved` in `server/dashboard/web/api.js`). While a page has unsaved changes, its nav tab shows a dot, its Discard button loads the saved data again, and the browser asks the player before the tab closes.
 
 Each tab holds `GET /web_panel/presence` open. This event stream sends a heartbeat every second, and the server counts the open streams. The server finds a closed tab only when a heartbeat write fails, so a tab counts as open for up to 2 s after it closes. The stream tells the browser to reconnect 1 s after it loses the server, so an open tab finds a restarted server within the 3 s that the auto-open waits.
 
@@ -110,11 +113,11 @@ Each tab holds `GET /web_panel/presence` open. This event stream sends a heartbe
 
 Another tab can switch the campaign while a tab is open, so the poll also shows the active campaign. When the poll sees another campaign, it sends a `campaignchange` event. The Campaigns page loads the new campaign, and the open Campaign Canon or Campaign Log subtab of the Editor loads it unless the subtab has unsaved changes.
 
-The save bar of each page has a Refresh button at its right end. Refresh loads the stored data again and keeps the unsaved changes of the page (`refreshers` in `server/web/app.js`).
+The save bar of each page has a Refresh button at its right end. Refresh loads the stored data again and keeps the unsaved changes of the page (`refreshers` in `server/dashboard/web/app.js`).
 
 A Refresh click shows a note below the button for 2.5 s. The note says that the page loaded new data, that the page was already up to date, or that the page kept its unsaved changes instead of the new data. When the refresh fails, the note repeats the error of the save bar. Each refresher returns a key of `REFRESH_NOTES`, or nothing when it failed. An auto refresh shows no note.
 
-A message in the save bar that reports an outcome, such as "Saved." or "Deleted X.", clears after 5 s (`flashMessage` in `server/web/api.js`). An error, or a message about the state of the page such as "Unsaved changes.", stays until the next message replaces it.
+A message in the save bar that reports an outcome, such as "Saved." or "Deleted X.", clears after 5 s (`flashMessage` in `server/dashboard/web/api.js`). An error, or a message about the state of the page such as "Unsaved changes.", stays until the next message replaces it.
 
 `GET /context` also returns `writes`, the number of writes since the server started. It counts each commit to the campaign database (`campaign_db.writes`) and each successful POST request under `/api/` or to `/settings` (`count_write_requests` in `server/scripts/kenshi_llm_server.py`). When the number changes, the poll refreshes each loaded page, so a change from the game or from another tab reaches an open page. The auto refresh waits while a request runs or a dialog is open, because the request or the dialog can still change the page. It also waits while the player types in a field of the page, because the refresh rebuilds the page and the field loses the caret.
 
@@ -139,17 +142,17 @@ On Campaign Canon, **Show seeded data** and **Show provisional characters** star
 
 **Player faction only** starts off. While the player turns it on, the record list shows only the player's faction and the characters in it. A character is in it when its Current Faction, or its `Faction` while the game reported no Current Faction, names the player's faction or one of its aliases. The `Faction` of a profile keeps the faction of the first meeting, so a recruit counts only after the game reports its Current Faction.
 
-The Facts section of a faction, race, location, or region offers only the categories of its kind (`FACTS` in `server/scripts/world_template.py`), because the validator refuses any other category. `server/web/editor.js` keeps a copy of the categories, so a change to them changes both files. A category holds one text, such as the leader of a faction, or a list of text, such as its enemies.
+The Facts section of a faction, race, location, or region offers only the categories of its kind (`FACTS` in `server/scripts/world_template.py`), because the validator refuses any other category. `server/dashboard/web/editor.js` keeps a copy of the categories, so a change to them changes both files. A category holds one text, such as the leader of a faction, or a list of text, such as its enemies.
 
 The Relations section of a race, location, or region lists its children, which the entry stores, and its parents, which are the entries whose children name it. Each row opens its entry. A parent row is read-only, because the relation is stored in the parent entry.
 
-The Race, Sex, and Faction of a character are choices, not free text (`choice` in `server/web/editor.js`). Race offers the race entries of the page, Faction offers its factions, and Sex offers Male, Female, and Other. A stored value selects the choice whose name or alias it matches, with case ignored. A blank value or a value that matches no choice shows as Unknown, and a save of the character writes Unknown.
+The Race, Sex, and Faction of a character are choices, not free text (`choice` in `server/dashboard/web/editor.js`). Race offers the race entries of the page, Faction offers its factions, and Sex offers Male, Female, and Other. A stored value selects the choice whose name or alias it matches, with case ignored. A blank value or a value that matches no choice shows as Unknown, and a save of the character writes Unknown.
 
 Other Details shows the `Relation` of a character as a bar from -100 to 100, with the labels of the relation bar in game, and its `OriginFaction`. On Campaign Canon it also shows the current faction that the game reported for the character since the server started, so the player can compare it with the Faction that the prompts use, and, at the bottom, the Current Job (see [Current Job](#current-job)). All are read-only, because the game and the chats set them. A save keeps every profile key that the form does not show, as it is.
 
 A provisional character (see [Provisional profiles](#provisional-profiles)) shows as Provisional in the list and on its record. Its Other Details also show its chat count against the Chats before a bio setting. A save that changes its Personality, Backstory, or SpeechQuirks ends the provisional state, because a later bio would overwrite the player's text.
 
-Each character has a Generate Bio button to the left of Delete, with a gap so that a click meant for one button does not hit the other. The button asks the LLM for the full bio or for one part of it, with the player's instructions, and puts the text into the form (`writeBio` in `server/web/editor.js`). The text is unsaved, so the player reads it before a save keeps it. A save of a provisional character with the new text ends the provisional state, as a hand edit does. The request carries the profile of the form, so an unsaved race or faction counts.
+Each character has a Generate Bio button to the left of Delete, with a gap so that a click meant for one button does not hit the other. The button asks the LLM for the full bio or for one part of it, with the player's instructions, and puts the text into the form (`writeBio` in `server/dashboard/web/editor.js`). The text is unsaved, so the player reads it before a save keeps it. A save of a provisional character with the new text ends the provisional state, as a hand edit does. The request carries the profile of the form, so an unsaved race or faction counts.
 
 A save of a character renames the NPC in game (see [Names](#names)), and an open Dialogue Library in game loads its list and its selected NPC again (`REFRESH_LIBRARY`, `RefreshLibraryUI` in `plugin/ui/LibraryWindow.cpp`). A delete of a character also loads the Library again.
 
@@ -167,13 +170,13 @@ The plugin re-creates its pipe instance after each message, so a message sent im
 
 ## Prompts
 
-Each file in `server/prompts/` is a shipped default, and an update replaces it. The player's edit of a prompt is an override in `server/user/prompts/` under the same file name, so an update keeps it. `load_prompt_component` takes the override when it holds text, and the shipped file otherwise. The campaign folder holds no prompts.
+Each file in `server/data/prompts/` is a shipped default, and an update replaces it. The player's edit of a prompt is an override in `server/config/prompts/` under the same file name, so an update keeps it. `load_prompt_component` takes the override when it holds text, and the shipped file otherwise. The campaign folder holds no prompts.
 
 The Prompts page of the web app reads `GET /api/prompts` and saves each changed prompt through `POST /api/prompts` (`server/scripts/prompt_store.py`).
 
-- A route takes only the name of a shipped `.txt` file, never a path, so a request cannot write outside `server/user/prompts/`.
+- A route takes only the name of a shipped `.txt` file, never a path, so a request cannot write outside `server/config/prompts/`.
 - A save equal to the shipped text, or an empty save, deletes the override, so the prompt gets later default updates again. **Use default** and **Reset to defaults** fill the form with the shipped text, and the next save deletes the overrides.
-- Each save of an override stores the SHA-256 of the shipped text in `server/user/prompts/base_hashes.json`. When an update changes the shipped text, the hash no longer matches, and the page marks the override. An override with no stored hash, for example one made by hand, is marked as unknown.
+- Each save of an override stores the SHA-256 of the shipped text in `server/config/prompts/base_hashes.json`. When an update changes the shipped text, the hash no longer matches, and the page marks the override. An override with no stored hash, for example one made by hand, is marked as unknown.
 - An override and `base_hashes.json` are written to a temporary file and then renamed, as `llm_config.save` does.
 
 A placeholder is a `{name}` in a prompt. `prompt_store.render` replaces each placeholder that its caller fills and leaves every other brace as text. A stray brace in an edited prompt therefore cannot fail the LLM call, as it could with `str.format`, and a JSON example in a prompt needs no escaped braces.
@@ -221,7 +224,7 @@ When the origin faction of an NPC is its current faction, the chat prompt gives 
 
 ## LLM routing
 
-Each LLM call names a task: `chat`, `ambient`, `profile`, `synthesis`, or `memory`. The server makes no `synthesis` call while `RUMOR_SYNTHESIS` is off: it stores the events of the game, but the timer does not start and `/synthesize` refuses. `server/user/llm_config.json` holds four parts, and the web app's Models page edits all of them through `/api/llm`.
+Each LLM call names a task: `chat`, `ambient`, `profile`, `synthesis`, or `memory`. The server makes no `synthesis` call while `RUMOR_SYNTHESIS` is off: it stores the events of the game, but the timer does not start and `/synthesize` refuses. `server/config/llm_config.json` holds four parts, and the web app's Models page edits all of them through `/api/llm`.
 
 | Part | Contents |
 |---|---|
@@ -244,7 +247,7 @@ A rejected save returns each error with the path of its field, for example `["pr
 
 `POST /api/llm/test` tests the profile and the provider as the web app holds them, so the player can test before a save. `POST /api/llm/models` lists the model IDs of a provider in the same way, through the provider's OpenAI-compatible `GET /models`. Both fill an empty key field with the stored key only when the base URL is the saved one (`llm_config.provider_from_form`). A request with a mistyped base URL therefore cannot send the stored key to another host.
 
-On a start without `llm_config.json`, the server builds it from `default_providers.json` and `default_models.json` in `server/config/`. Each task gets one route that holds only the `player2-default` profile.
+On a start without `llm_config.json`, the server builds it from `default_providers.json` and `default_models.json` in `server/data/defaults/`. Each task gets one route that holds only the `player2-default` profile.
 
 When the server loads `llm_config.json`, each task that the file lacks gets the default route (`llm_config.default_route`). The file of an earlier version, which lacks the tasks that a later version added, therefore keeps working, and the next save writes the new routes.
 
@@ -406,7 +409,7 @@ The server adds no title to a game name. It sends `NPC_RENAME: <npc_id>|<Name>` 
 - The chat window keeps the name that its target had when the window opened, so a chat request can name its target by an old name. The server therefore takes the `Name` of the target from the `npc_id` in its context, and it counts a reply line that starts with the old name as a line of the target.
 - The server drops a reply line that another NPC near the player speaks, by its game name or by its `Name`, because the two differ for an NPC with a title.
 
-Only an NPC that the game shows by its template name gets a rolled name. It gets a given name from `server/config/names.json` for the sex of the NPC when a chat or banter first stores it in the campaign. In a chat, this covers the target, the squad member who speaks, and each NPC that overhears.
+Only an NPC that the game shows by its template name gets a rolled name. It gets a given name from `server/data/defaults/names.json` for the sex of the NPC when a chat or banter first stores it in the campaign. In a chat, this covers the target, the squad member who speaks, and each NPC that overhears.
 
 | Moment | Name in game |
 |---|---|
@@ -465,7 +468,7 @@ A character without a stored profile gets one rolled in code at its first meetin
 
 | Kind | Profile |
 |---|---|
-| A person | Three personality traits from `server/config/personality_traits.json`, the highest tier first, one backstory from `backstories.json`, and one speech quirk from `speech_quirks.json` |
+| A person | Three personality traits from `server/data/defaults/personality_traits.json`, the highest tier first, one backstory from `backstories.json`, and one speech quirk from `speech_quirks.json` |
 | A skeleton (`is_skeleton`) | The same, without the traits about food and lust, and with a backstory that fits a skeleton |
 | An animal (`ANIMAL_RACES`) | One entry of `animal_personalities.json`, and no backstory or speech quirk. The roll is final, because a bio would give the animal a backstory and a speech quirk. |
 
@@ -513,7 +516,7 @@ Edit Bio in the Dialogue Library skips the LLM. `/read_bio` returns the stored `
 |---|---|
 | `GET /api/campaigns` | Each campaign, the templates for a new campaign, and the reason that the current campaign cannot open, or `null` |
 | `POST /api/campaigns` | Create a campaign from a template, with no switch |
-| `POST /api/campaigns/switch` | Make a campaign the current one. The name must be a folder that the campaign list shows, so a name such as `../x` cannot point outside `server/campaigns/`. |
+| `POST /api/campaigns/switch` | Make a campaign the current one. The name must be a folder that the campaign list shows, so a name such as `../x` cannot point outside `server/data/campaigns/`. |
 | `POST /api/campaigns/delete` | Delete a campaign folder, with the same name check. Before it deletes the current campaign, it switches to the first other one. When no other campaign remains, the server has no current campaign (see [Campaign storage](#campaign-storage)). |
 | `GET /api/campaign` | The active campaign: its events, its rumors, and its chat threads with their members, lines, and memories. A refused campaign gives status 409 with the reason. |
 | `GET /api/campaign/canon` | The canon of the active campaign, each record with its `origin` and `updated_at`, and each character with the `current_faction` that a chat reported since the server started (`LIVE_CONTEXTS`), or `null`. A refused campaign gives status 409 with the reason. |
@@ -551,8 +554,8 @@ A world template is a folder that describes a world. A new campaign copies every
 
 | Template | Location | Edits |
 |---|---|---|
-| SSR Vanilla | `server/world_templates/kenshi_ssr_vanilla/`, shipped | None. An update replaces it, so the player duplicates it first. |
-| User templates | `server/user/world_templates/<name>/` | The web app, or by hand |
+| SSR Vanilla | `server/data/templates/kenshi_ssr_vanilla/`, shipped | None. An update replaces it, so the player duplicates it first. |
+| User templates | `server/data/user_templates/<name>/` | The web app, or by hand |
 
 `server/scripts/world_template.py` reads, validates, and writes templates, and imports only the standard library.
 
@@ -624,8 +627,8 @@ The plugin and the server write their logs in the same format, so one tool can r
 
 | Location | Contents |
 |---|---|
-| `server/campaigns/<name>/` | One campaign: `campaign.db` (see [Campaign storage](#campaign-storage)). |
+| `server/data/campaigns/<name>/` | One campaign: `campaign.db` (see [Campaign storage](#campaign-storage)). |
 | `server/logs/` | `server.log` and `llm.log` (see [Logging](#logging)). |
-| `server/user/prompts/` | The player's prompt overrides and `base_hashes.json` (see [Prompts](#prompts)). The release does not ship it, so an update keeps the overrides. |
-| `server/user/world_templates/` | The player's world templates (see [World templates](#world-templates)). The release does not ship it, so an update keeps them. |
-| `server/user/llm_config.json` | The LLM providers with the player's API keys, the profiles, and the routes (see [LLM routing](#llm-routing)). The release does not ship it, so an update keeps the keys. |
+| `server/config/prompts/` | The player's prompt overrides and `base_hashes.json` (see [Prompts](#prompts)). The release does not ship it, so an update keeps the overrides. |
+| `server/data/user_templates/` | The player's world templates (see [World templates](#world-templates)). The release does not ship it, so an update keeps them. |
+| `server/config/llm_config.json` | The LLM providers with the player's API keys, the profiles, and the routes (see [LLM routing](#llm-routing)). The release does not ship it, so an update keeps the keys. |

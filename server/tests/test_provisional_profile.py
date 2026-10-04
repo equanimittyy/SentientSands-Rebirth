@@ -10,7 +10,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."
 
 import provisional_profile
 
-TEMPLATE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "world_templates", "kenshi_ssr_vanilla")
+TEMPLATE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "data", "templates", "kenshi_ssr_vanilla")
 TRAITS = {trait["id"]: trait for trait in provisional_profile.TRAITS}
 TIER_TEXTS = {tier["text"]: (index, trait) for trait in provisional_profile.TRAITS for index, tier in enumerate(trait["tiers"])}
 BACKSTORY_TEXTS = [story["text"] for story in provisional_profile.BACKSTORIES]

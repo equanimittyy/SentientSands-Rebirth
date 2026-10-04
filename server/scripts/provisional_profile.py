@@ -1,6 +1,6 @@
 """The provisional profile of an NPC at its first meeting: a personality, a backstory, and a speech quirk, rolled in code.
 
-The LLM writes a bio only later, when the player's chats give it something to build on. The texts live in server/config, and
+The LLM writes a bio only later, when the player's chats give it something to build on. The texts live in server/data/defaults, and
 each one uses "they", so no text needs a gendered pronoun or a name.
 """
 
@@ -8,7 +8,7 @@ import json
 import os
 import random
 
-CONFIG_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "config")
+CONFIG_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "data", "defaults")
 TRAIT_COUNT = 3
 # Most people show a trait mildly, so an extreme trait stands out
 TIER_WEIGHTS = (60, 30, 10)

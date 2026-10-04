@@ -146,10 +146,10 @@ def main():
     # The characters that create_campaign keeps, so a name such as ../x cannot reach outside the campaigns folder
     if not re.fullmatch(r"[A-Za-z0-9 _-]+", name) or name != name.strip():
         sys.exit(f"Use only letters, digits, spaces, '_', and '-' in the campaign name: {name!r}")
-    folder = SERVER / "campaigns" / name
+    folder = SERVER / "data" / "campaigns" / name
     if folder.exists():
         sys.exit(f"The campaign {name} already exists. Delete it on the Campaigns page, or give another name.")
-    seed = world_template.campaign_seed("kenshi_ssr_vanilla", str(SERVER / "world_templates"), str(SERVER / "user" / "world_templates"))
+    seed = world_template.campaign_seed("kenshi_ssr_vanilla", str(SERVER / "data" / "templates"), str(SERVER / "data" / "user_templates"))
     folder.mkdir(parents=True)
     campaign_db.open_campaign(str(folder), lambda: seed)
     fill()

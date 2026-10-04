@@ -1,6 +1,6 @@
-"""The system prompts: the shipped defaults in server/prompts/ and the player's overrides in server/user/prompts/.
+"""The system prompts: the shipped defaults in server/data/prompts/ and the player's overrides in server/config/prompts/.
 
-An update replaces server/prompts/ but never server/user/, so an override survives it. base_hashes.json
+An update replaces server/data/prompts/ but never server/config/, so an override survives it. base_hashes.json
 holds the hash of the shipped text that each override was saved against, so the web app can mark an
 override whose default changed after the save.
 """

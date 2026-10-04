@@ -33,7 +33,7 @@ python server/scripts/kenshi_llm_server.py
 
 The web app is at `http://127.0.0.1:5000/`. Add `--open-browser` to open it when the server is ready and no tab of it is open, as the plugin does at game start.
 
-From the repo, the server keeps its INI in `mod/SentientSands_Config.ini` and writes its logs and campaigns under `server/`. On first start, it also creates `server/user/llm_config.json` for your API keys. Git ignores all of these files.
+From the repo, the server keeps its INI in `mod/SentientSands_Config.ini` and writes its logs and campaigns under `server/`. On first start, it also creates `server/config/llm_config.json` for your API keys. Git ignores all of these files.
 
 `visual_debugger.py` needs Tkinter, which the embedded runtime does not include. Run it with a system Python.
 
@@ -90,7 +90,7 @@ python scripts/package_release.py
 
 The script packages `plugin/x64/Release/SentientSands.dll`. Use `--dll` to package a different DLL. Before it packages, it prints the mod version and the build time, size, and SHA-256 of the DLL. It stops if the DLL does not import the Visual C++ 2010 runtime, because a DLL from a newer toolset crashes the game.
 
-The script writes `dist/SentientSandsRebirth-<version>.zip` and takes the version from `mod/mod.info`. The zip contains the mod files, the DLL, the server, and an embedded Windows Python runtime with the packages from `server/requirements.txt` already installed. Players unzip it into `Kenshi/mods/` and do not install Python. The zip leaves out `server/user/` and `server/config/providers.json`, so it never contains your keys and never replaces a player's keys. It also leaves out `SentientSands_Config.ini`, so an update keeps a player's settings.
+The script writes `dist/SentientSandsRebirth-<version>.zip` and takes the version from `mod/mod.info`. The zip contains the mod files, the DLL, the server, and an embedded Windows Python runtime with the packages from `server/requirements.txt` already installed. Players unzip it into `Kenshi/mods/` and do not install Python. The zip leaves out `server/config/`, `server/data/campaigns/`, and `server/data/user_templates/`, so it never contains your keys or your campaigns, and an update never replaces a player's keys, campaigns, or templates. It also leaves out `SentientSands_Config.ini`, so an update keeps a player's settings.
 
 The script runs on any OS. It needs Python 3 with `pip`, and internet access to python.org and PyPI. Downloaded runtimes are cached in `dist/cache/`.
 

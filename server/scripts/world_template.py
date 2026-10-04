@@ -1,7 +1,7 @@
 """World templates: folders of JSON and text that describe a world, which each new campaign copies.
 
-The shipped templates in server/world_templates/ are read-only, because an update replaces them. The player's
-templates are in server/user/world_templates/. Only this module writes a template, and it validates the whole
+The shipped templates in server/data/templates/ are read-only, because an update replaces them. The player's
+templates are in server/data/user_templates/. Only this module writes a template, and it validates the whole
 template before each write, so a template that a campaign cannot load never reaches the disk.
 """
 

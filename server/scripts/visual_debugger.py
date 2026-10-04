@@ -415,7 +415,7 @@ class VisualDebugger:
         self.server_log.config(state="disabled")
 
     def _events_db_path(self):
-        return os.path.join(KENSHI_SERVER_DIR, "campaigns", self.current_campaign, "campaign.db")
+        return os.path.join(KENSHI_SERVER_DIR, "data", "campaigns", self.current_campaign, "campaign.db")
 
     def poll_events_db(self):
         path, last_id = None, 0

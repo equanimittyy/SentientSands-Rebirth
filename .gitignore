@@ -14,8 +14,9 @@ deps/
 # Server runtime output: logs, per-player campaign state, and the player's API keys
 *.log
 *.log.[0-9]
-server/campaigns/
-server/user/
+server/data/campaigns/
+server/data/user_templates/
+server/config/
 mod/SentientSands_Config.ini
 
 .vs/

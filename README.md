@@ -52,7 +52,7 @@ The **Default LLM Profile** box at the top of the **Models** page sets the profi
 ### Tasks
 Each task (chat, radiant conversations, NPC profiles, and world events) has an ordered list of profiles. The server tries them in order, and moves to the next profile after an error, a timeout, or an empty reply. List a profile twice to retry it. The game stops waiting after 60 s, so keep each deadline below that.
 
-The server keeps this configuration in `server/user/llm_config.json`. A mod update does not replace it, so your keys stay.
+The server keeps this configuration in `server/config/llm_config.json`. A mod update does not replace it, so your keys stay.
 
 ### Campaigns and world templates
 The **Campaigns** page lists your campaigns and creates a new one from a world template. To switch campaigns, choose one under **Current Campaign**. The next chat uses it. **Delete** next to a campaign deletes it, but you always keep at least one campaign. Loaded an older save? **Cull future data** makes NPCs forget what happened after it. The in-game SSR HUB (F8) has the same button as **Cull Future Data**.
@@ -61,7 +61,7 @@ The **Editor** page edits the canon of a world: the overview that every NPC know
 
 - **Campaign Canon** edits the copy that belongs to the current campaign. An edit changes only that campaign. The list shows the seeded entries, which the campaign copied from its template, until you turn off **Show seeded data**. NPCs read the overview and the factions; the history, characters, races, locations, and regions are kept for a later version.
 - **Campaign Log** shows the current campaign. **Dialogue & Memories** lists each conversation with an NPC, newest first, with who spoke, who overheard, what was said, and a short summary that SSR writes when you stop chatting for the **Conversation timeout** on the Settings page, 3 minutes by default. The summary replaces the dialogue, and the NPCs remember it. You can edit or delete it. **Events** edits the rumors and lists the events. SSR stores the events but writes no new rumors in this version. NPCs mention the newest rumors.
-- **Templates** edits the world templates, the seeds that new campaigns copy. A template edit changes only the campaigns that you create later. SSR Vanilla ships with the mod and is read-only, so duplicate it to make your own. It supports vanilla Kenshi, and it also describes the factions and unique characters of Universal Wasteland Expansion, which apply only when that mod is installed. The server keeps your templates in `server/user/world_templates/`, and a mod update keeps them. **Export** saves a template as one `.json` file that you can share, and **Import** adds a template from such a file. To share or back up a campaign, copy its folder in `server/campaigns/`.
+- **Templates** edits the world templates, the seeds that new campaigns copy. A template edit changes only the campaigns that you create later. SSR Vanilla ships with the mod and is read-only, so duplicate it to make your own. It supports vanilla Kenshi, and it also describes the factions and unique characters of Universal Wasteland Expansion, which apply only when that mod is installed. The server keeps your templates in `server/data/user_templates/`, and a mod update keeps them. **Export** saves a template as one `.json` file that you can share, and **Import** adds a template from such a file. To share or back up a campaign, copy its folder in `server/data/campaigns/`.
 
 ---
 

@@ -67,21 +67,22 @@ def resolve_mod_file(filename):
     return path
 
 INI_PATH = resolve_mod_file("SentientSands_Config.ini")
-LLM_CONFIG_PATH = os.path.join(KENSHI_SERVER_DIR, "user", "llm_config.json")
-DEFAULT_MODELS_PATH = os.path.join(KENSHI_SERVER_DIR, "config", "default_models.json")
-DEFAULT_PROVIDERS_PATH = os.path.join(KENSHI_SERVER_DIR, "config", "default_providers.json")
-NAMES_PATH = os.path.join(KENSHI_SERVER_DIR, "config", "names.json")
-LOCALIZATION_PATH = os.path.join(KENSHI_SERVER_DIR, "config", "localization.json")
-WEB_DIR = os.path.join(KENSHI_SERVER_DIR, "web")
+DEFAULTS_DIR = os.path.join(KENSHI_SERVER_DIR, "data", "defaults")
+LLM_CONFIG_PATH = os.path.join(KENSHI_SERVER_DIR, "config", "llm_config.json")
+DEFAULT_MODELS_PATH = os.path.join(DEFAULTS_DIR, "default_models.json")
+DEFAULT_PROVIDERS_PATH = os.path.join(DEFAULTS_DIR, "default_providers.json")
+NAMES_PATH = os.path.join(DEFAULTS_DIR, "names.json")
+LOCALIZATION_PATH = os.path.join(DEFAULTS_DIR, "localization.json")
+WEB_DIR = os.path.join(KENSHI_SERVER_DIR, "dashboard", "web")
 
 NAMES_CONFIG = {}
 ACTIVE_CAMPAIGN = "Default"
 
-CAMPAIGNS_DIR = os.path.join(KENSHI_SERVER_DIR, "campaigns")
-PROMPTS_DIR = os.path.join(KENSHI_SERVER_DIR, "prompts")
-USER_PROMPTS_DIR = os.path.join(KENSHI_SERVER_DIR, "user", "prompts")
-WORLD_TEMPLATES_DIR = os.path.join(KENSHI_SERVER_DIR, "world_templates")
-USER_TEMPLATES_DIR = os.path.join(KENSHI_SERVER_DIR, "user", "world_templates")
+CAMPAIGNS_DIR = os.path.join(KENSHI_SERVER_DIR, "data", "campaigns")
+PROMPTS_DIR = os.path.join(KENSHI_SERVER_DIR, "data", "prompts")
+USER_PROMPTS_DIR = os.path.join(KENSHI_SERVER_DIR, "config", "prompts")
+WORLD_TEMPLATES_DIR = os.path.join(KENSHI_SERVER_DIR, "data", "templates")
+USER_TEMPLATES_DIR = os.path.join(KENSHI_SERVER_DIR, "data", "user_templates")
 DEFAULT_TEMPLATE = "kenshi_ssr_vanilla"
 
 PROFILES_IN_PROGRESS = set()
@@ -311,9 +312,8 @@ def load_configs():
     global NAMES_CONFIG
     logging.debug("CONFIG: Loading the name and localization files.")
     
-    config_dir = os.path.join(KENSHI_SERVER_DIR, "config")
-    if not os.path.exists(config_dir):
-        os.makedirs(config_dir)
+    if not os.path.exists(DEFAULTS_DIR):
+        os.makedirs(DEFAULTS_DIR)
 
     if os.path.exists(NAMES_PATH):
         try:
@@ -1717,7 +1717,7 @@ def record_event_to_history(etype, actor, target, msg, actor_faction="None", tar
     
     time_str = get_current_time_prefix(when).strip()
     prefix = f"{time_str} " if time_str else ""
-    # The Editor's event table parses this format with EVENT_LINE in server/web/editor.js
+    # The Editor's event table parses this format with EVENT_LINE in server/dashboard/web/editor.js
     evt_str = f"{prefix}[{etype}] {actor_part} -> {target_part}{location}: {msg}"
     
     # State hooks (knockout, recovery) fire repeatedly; log only when the message changes

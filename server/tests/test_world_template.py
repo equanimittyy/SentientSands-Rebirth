@@ -9,7 +9,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."
 
 import world_template
 
-SHIPPED = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "world_templates")
+SHIPPED = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "data", "templates")
 
 HOLY_NATION = {"game_id": "1083-gamedata.base", "name": "The Holy Nation", "aliases": ["Okranites"], "major": True, "fields": {"leader": "Phoenix"}, "description": "Zealots."}
 

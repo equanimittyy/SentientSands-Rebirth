@@ -1,6 +1,6 @@
 """The LLM configuration: providers, profiles, the default profile, and the route that each task takes.
 
-The server keeps it in server/user/llm_config.json, which the release does not
+The server keeps it in server/config/llm_config.json, which the release does not
 ship, so an update keeps the player's API keys. The web app gets it only
 through masked(), so a stored API key never leaves the server.
 """
