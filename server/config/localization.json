@@ -57,6 +57,7 @@
         "Search": "Search",
         "{name} is thinking...": "{name} is thinking...",
         "{name} has responded.": "{name} has responded.",
+        "{name} could not respond.": "{name} could not respond.",
         "A new world rumor is spreading.": "A new world rumor is spreading."
     },
     "Spanish": {
@@ -117,6 +118,7 @@
         "Search": "Buscar",
         "{name} is thinking...": "{name} está pensando...",
         "{name} has responded.": "{name} ha respondido.",
+        "{name} could not respond.": "{name} no pudo responder.",
         "A new world rumor is spreading.": "Un nuevo rumor se extiende por el mundo."
     },
     "French": {
@@ -177,6 +179,7 @@
         "Search": "Rechercher",
         "{name} is thinking...": "{name} réfléchit...",
         "{name} has responded.": "{name} a répondu.",
+        "{name} could not respond.": "{name} n'a pas pu répondre.",
         "A new world rumor is spreading.": "Une nouvelle rumeur se répand dans le monde."
     },
     "Japanese": {
@@ -237,6 +240,7 @@
         "Search": "検索",
         "{name} is thinking...": "{name}は考えています...",
         "{name} has responded.": "{name}が返答しました。",
+        "{name} could not respond.": "{name}は返答できませんでした。",
         "A new world rumor is spreading.": "新たな噂が世界に広まっています。"
     },
     "Russian": {
@@ -297,6 +301,7 @@
         "Search": "Поиск",
         "{name} is thinking...": "{name} думает...",
         "{name} has responded.": "{name} ответил(а).",
+        "{name} could not respond.": "{name} не смог(ла) ответить.",
         "A new world rumor is spreading.": "По миру расходится новый слух."
     }
 }

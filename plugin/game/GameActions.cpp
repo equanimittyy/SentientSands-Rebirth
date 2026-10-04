@@ -239,7 +239,7 @@ void ExecuteQueuedActions(GameWorld *thisptr, int &inventoryTimer) {
       Character *target = act.target.getCharacter();
 
       if (act.type == ACT_NOTIFY) {
-        thisptr->showPlayerAMessage_withLog(act.message, true);
+        thisptr->showPlayerAMessage(act.message, true);
       } else if (act.type == ACT_SAY && npc) {
         bool isPC = npc->isPlayerCharacter();
         Log(LOG_DEBUG, "ACTION: SAY [" + npc->getName() + "]: " + act.message +

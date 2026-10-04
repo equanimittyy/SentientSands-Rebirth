@@ -78,8 +78,11 @@ DWORD WINAPI ChatResponseThread(LPVOID lpParam) {
 
   std::string response = PostToPythonWithResponse(L"/chat", t->json);
 
-  if (response.empty()) {
-    Log(LOG_WARN, "CHAT: Empty response from server for " + t->npcName);
+  std::string error = GetJsonValue(response, "error");
+  if (response.empty() || !error.empty()) {
+    Log(LOG_WARN, "CHAT: No reply from server for " + t->npcName +
+                      (error.empty() ? "" : ": " + error));
+    NotifyChatStatus("{name} could not respond.", t->npcName);
     delete t;
     return 0;
   }

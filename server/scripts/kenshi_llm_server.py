@@ -1575,7 +1575,7 @@ def chat():
         # because its request named the NPC before a rename.
         serial = npc_serial(primary_id)
         return jsonify({"text": f"{primary_npc}|{serial}: {content}" if serial else f"{primary_npc}: {content}", "actions": []})
-    return jsonify({"text": "...", "actions": []})
+    return jsonify({"error": "No reply from the LLM.", "status": "error"}), 502
 
 
 def record_event_to_history(etype, actor, target, msg, actor_faction="None", target_faction="None"):
