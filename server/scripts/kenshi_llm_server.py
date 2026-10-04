@@ -1552,18 +1552,18 @@ def chat():
         record_event_to_history("CHAT", player_name, primary_npc, player_message, actor_faction=player_faction, target_faction=primary_faction)
         record_event_to_history("CHAT", primary_npc, player_name, content, actor_faction=primary_faction, target_faction=player_faction)
 
-        reply_line = f"{primary_npc}: {content}"
-
         recorders = {**listeners, speaker_id: (player_name, speaker)} if speaker_id else listeners
         for npc_id, (name, local_context) in recorders.items():
             overheard_tag = "" if npc_id in (primary_id, speaker_id) else "(Overheard) "
+            # Without the addressees, a listener takes the "you" of a line as itself
+            to_npc, to_player = (f" to {primary_npc}", f" to {player_name}") if overheard_tag else ("", "")
 
             if npc_id not in char_datas:
                 char_datas[npc_id] = get_character_data(name, local_context)
 
             new_lines = [
-                (f"{time_prefix}{overheard_tag}{mode_tag}{player_name}: {player_message}", speaker.get("npc_id")),
-                (f"{time_prefix}{overheard_tag}{reply_line}", primary_id),
+                (f"{time_prefix}{overheard_tag}{mode_tag}{player_name}{to_npc}: {player_message}", speaker.get("npc_id")),
+                (f"{time_prefix}{overheard_tag}{primary_npc}{to_player}: {content}", primary_id),
             ]
             char_datas[npc_id]["ConversationHistory"].extend(line for line, _ in new_lines)
 

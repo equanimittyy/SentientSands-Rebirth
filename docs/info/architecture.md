@@ -201,6 +201,8 @@ The scene is prose that the NPC reads in the second person, built by `server/scr
 
 The server answers a Yell with one NPC, as a Talk. A Yell differs only in that the NPCs within the yell radius overhear it, and the player's line carries a `(Yelled)` prefix, as a whispered line carries `(Whispered)`. The history keeps the prefix, so the NPC remembers how each line was said.
 
+An NPC that overhears a chat stores both lines with an `(Overheard)` prefix, and each line names the one that it was said to, as in `(Overheard) Drifter to Ruka: ...` and `(Overheard) Ruka to Drifter: ...`. Without that name, a listener took the "you" of the line as itself and answered the player as if the line was said to it. A reply rule in `response_rules.txt` also tells the model that an overheard line was not said to the NPC.
+
 The judgment rule sits in the cached system message, and the last message repeats only a short reminder, because a model follows an instruction at the very end of a request most reliably. Banter reads the same reply rules but forbids bracketed text, so the judgment rule stays out of `response_rules.txt`.
 
 The reply text of `/chat` starts with the name of the NPC, because the plugin takes the text before a first colon as the speaker (`plugin/ui/ChatWindow.cpp`). A reply such as "Listen: ..." therefore stays with the NPC. For a generic NPC, the serial of its handle follows the name, as in `Name|serial:`, so the plugin finds the NPC after a rename that its request did not know (see [Names](#names)). The server removes a `*stage direction*` from a person's reply, but an animal replies only in `*actions*`, so those stay.
