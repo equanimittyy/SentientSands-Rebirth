@@ -66,7 +66,7 @@ The plugin reads the game state only when a request needs it, and ambient banter
 | Ambient banter (`/ambient`) | The banter NPCs, the player's context (`player_context`), and the game events |
 | Cull Future Data (`/cull`) in the SSR HUB, and Generate World Event (`/synthesize`) in the Dynamic World Events Log | A report: the player's context and the game events (`GameReport` in `plugin/game/Context.cpp`) |
 | `/report` | A report, when 50 game events wait, or when the server sends `REPORT` through the pipe |
-| `/squad_rename` | The context of the selected character, when the player renames a member of the squad in game (see [Names](#names)) |
+| `/squad_rename` | The context of a member of the player's faction that the game renamed (see [Names](#names)) |
 
 - The server keeps the player's context of the latest request (`take_report`). Its game time and town can be old between requests, so a value that must be current comes with the request that uses it.
 - The cull of the web app sends `REPORT` and waits up to 5 s for the report (`report_from_game`). It refuses the cull when no report comes, for example while the game shows the main menu, because a cull by an older game time deletes what the player did after that time.
@@ -334,7 +334,7 @@ The server adds no title to a game name. It sends `NPC_RENAME: <npc_id>|<Name>` 
 - The plugin renames only an NPC that the game has loaded. A save on the web app renames a loaded NPC at once. Each other NPC gets the new name at the next chat or banter that it takes part in.
 - Outside the player's faction, the profile wins. Each chat or banter renames an NPC whose game name gives another `Name` than its profile (`sync_name`). The rename goes out before the LLM call, so the name changes in game before the reply. This also gives back a name that the game lost, for example after the load of an earlier save.
 - The player can rename a squad member in game, so in the player's faction the game name wins, and the server stores it as the `Name`. Only the template name is not a rename by the player, because it shows that the game lost the name, so the server sends the `Name` to the game instead.
-- A rename of a squad member in game reaches the profile at once. The frame hook compares the name of the selected character in each frame, because the player renames a character while it is selected. When the name changes and the character is in the player's faction, the plugin posts its context to `/squad_rename`, and the server stores the game name (`sync_name`). The check builds no context until a rename happens.
+- A rename of a squad member in game reaches the profile at once. A hook on `Character::setName` notes each member of the player's faction whose name changes (`setName_hook` in `plugin/main.cpp`). The frame hook then posts its context to `/squad_rename`, and the server stores the game name (`sync_name`). The frame hook builds the context, because a rename can come in the middle of a game update.
 - The faction of a banter NPC is its identity faction, so the plugin marks a squad member with `in_player_faction`.
 - A name from `/name` in the chat window becomes the `Name` as the player typed it, and the server sends no rename for it. `/rename` stores a profile for an NPC that has none, so the campaign keeps the name when the game loses it. It relabels the dialogue by the stored `Name`, because a titled game name is not the name in the dialogue.
 - The prompt and the dialogue history use the `Name`, and `campaign_db.rename_character` relabels the lines that the NPC spoke.

@@ -109,6 +109,8 @@ void (*setPrisonMode_orig)(Character *, bool, UseableStuff *) = nullptr;
 void (*setProneState_orig)(Character *, ProneState) = nullptr;
 bool (*isItOkForMeToLoot_orig)(Character *, RootObject *, Item *) = nullptr;
 void (*setChainedMode_orig)(Character *, bool, const hand &) = nullptr;
+void (*setName_orig)(Character *, const std::string &) = nullptr;
+static std::vector<hand> g_renamedSquad;
 
 #include <mygui/MyGUI_Button.h>
 #include <mygui/MyGUI_Delegate.h>
@@ -1079,6 +1081,23 @@ void setChainedMode_hook(Character *npc, bool on, const hand &owner) {
     setChainedMode_orig(npc, on, owner);
 }
 
+// The frame hook sends the context, because a rename can come in the middle of
+// a game update
+void setName_hook(Character *c, const std::string &name) {
+  std::string old = c ? c->getName() : std::string();
+  if (setName_orig)
+    setName_orig(c, name);
+  if (!c || old == name)
+    return;
+  Faction *faction = c->getFaction();
+  if (faction && faction->isThePlayer()) {
+    Log(LOG_INFO, "NAME: '" + old + "' is now '" + name + "' in game");
+    EnterCriticalSection(&g_stateMutex);
+    g_renamedSquad.push_back(c->getHandle());
+    LeaveCriticalSection(&g_stateMutex);
+  }
+}
+
 void playerUpdate_hook(PlayerInterface *thisptr) {
   if (playerUpdate_orig)
     playerUpdate_orig(thisptr);
@@ -1100,30 +1119,12 @@ void playerUpdate_hook(PlayerInterface *thisptr) {
   } catch (...) {
   }
 
+  std::vector<hand> renamed;
   EnterCriticalSection(&g_stateMutex);
-  bool selectionChanged = false;
-  if (sel && (uintptr_t)sel > 0x1000) {
-    if (sel->getHandle() != g_lastSelectionHand) {
-      g_lastSelectionHand = sel->getHandle();
-      selectionChanged = true;
-    }
-  } else if (g_lastSelectionHand.isValid()) {
-    g_lastSelectionHand = hand();
-    selectionChanged = true;
-  }
+  g_lastSelectionHand =
+      sel && (uintptr_t)sel > 0x1000 ? sel->getHandle() : hand();
+  renamed.swap(g_renamedSquad);
   LeaveCriticalSection(&g_stateMutex);
-
-  // The player renames a character while it is selected, and the profile must
-  // take the new name at once
-  static std::string selectedName;
-  if (sel && (uintptr_t)sel > 0x1000) {
-    std::string name = sel->getName();
-    Faction *faction = sel->getFaction();
-    if (!selectionChanged && name != selectedName && faction &&
-        faction->isThePlayer())
-      AsyncPostToPython(L"/squad_rename", GetDetailedContext(sel));
-    selectedName = name;
-  }
 
   // Driven from playerUpdate because it keeps ticking while the game is paused.
   GameWorld *world = *ppWorld;
@@ -1131,6 +1132,12 @@ void playerUpdate_hook(PlayerInterface *thisptr) {
     ProcessMessageQueue(world);
     static int invTimer = 0;
     ExecuteQueuedActions(world, invTimer);
+
+    for (size_t i = 0; i < renamed.size(); ++i) {
+      Character *c = renamed[i].getCharacter();
+      if (c)
+        AsyncPostToPython(L"/squad_rename", GetDetailedContext(c));
+    }
 
     // Chat and banter carry the events; the buffer drops its oldest past 100
     EnterCriticalSection(&g_eventMutex);
@@ -1423,6 +1430,13 @@ extern "C" __declspec(dllexport) void startPlugin() {
     KenshiLib::AddHook((void *)KenshiLib::GetRealAddress(thunkSlave),
                        (void *)setChainedMode_hook,
                        (void **)&setChainedMode_orig);
+
+  void *thunkName = (void *)GetProcAddress(
+      hLib, "?_NV_setName@Character@@QEAAXAEBV?$basic_string@DU?$char_traits@D@"
+            "std@@V?$allocator@D@2@@std@@@Z");
+  if (thunkName)
+    KenshiLib::AddHook((void *)KenshiLib::GetRealAddress(thunkName),
+                       (void *)setName_hook, (void **)&setName_orig);
 
   CreateThread(NULL, 0, MainThread, NULL, 0, NULL);
 }
