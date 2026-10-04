@@ -12,7 +12,11 @@ Sentient Sands Rebirth has three parts: a C++ plugin that runs inside Kenshi, a 
 | `plugin/core/` | Shared state and mutexes (`Globals`), logging, INI settings, and server start-up (`Utils`), and the transport to the server (`Comm`). |
 | `plugin/game/` | Reads game state into JSON for prompts (`Context`) and applies queued NPC actions to the world (`GameActions`). |
 | `plugin/ui/` | The in-game MyGUI windows. `LauncherWindow` is the hub that opens the others. `ChatUIGlobals` holds the shared widget pointers. |
-| `server/scripts/` | The Flask server (`kenshi_llm_server.py`), the campaign database (`campaign_db.py`), the world templates (`world_template.py`), the request checks (`request_guard.py`), the browser auto-open (`browser_launch.py`), the LLM configuration (`llm_config.py`) and fallback chain (`llm_router.py`), the prompt overrides and placeholders (`prompt_store.py`), the log files and the log level (`log_setup.py`), and a Tkinter debug tool (`visual_debugger.py`). |
+| `server/main.py` | The entry point of the Flask server, with its routes and its background threads. |
+| `server/core/` | The request checks (`request_guard.py`), the log files and the log level (`log_setup.py`), and a Tkinter debug tool (`visual_debugger.py`). |
+| `server/chat/` | The chat prompt (`chat_prompt.py`) and its scene text (`scene_text.py`), the names (`npc_names.py`), the Current Job (`current_job.py`), the provisional profiles (`provisional_profile.py`), the prompt overrides and placeholders (`prompt_store.py`), and the LLM configuration (`llm_config.py`) and fallback chain (`llm_router.py`). |
+| `server/store/` | The campaign database (`campaign_db.py`) and the world templates (`world_template.py`). |
+| `server/dashboard/` | The browser auto-open (`browser_launch.py`). |
 | `server/dashboard/web/` | The web app: plain HTML, CSS, JavaScript, fonts, and images, which the server serves at `http://127.0.0.1:5000/`. |
 | `server/tests/` | Unit tests that run with the standard library only. See [development.md](development.md#tests). |
 | `server/data/defaults/` | The default providers and models that seed the LLM configuration, and the name and localization JSON. |
@@ -34,8 +38,8 @@ SentientSandsRebirth/
   SentientSandsRebirth.mod
   SentientSands_Config.ini   settings, created by the server on first start
   server/
-    scripts/
-    dashboard/web/
+    main.py
+    core/  chat/  store/  dashboard/
     data/templates/  data/prompts/  data/defaults/
     python/                  embedded runtime, added by scripts/package_release.py
     config/  logs/           created at runtime
@@ -43,15 +47,15 @@ SentientSandsRebirth/
 ```
 
 - The plugin takes the mod root from the path of its own DLL (`startPlugin` in `plugin/main.cpp`). A Steam Workshop folder with a numeric name works for this reason.
-- The plugin runs `server\python\python.exe server\scripts\kenshi_llm_server.py`. If the embedded runtime is missing, it falls back to `python` on `PATH` (`StartPythonServer` in `plugin/core/Utils.cpp`).
-- The server takes its folders from its own script path. The server root is the parent of `scripts/`, and the mod root is the parent of the server root. When the server runs from this repo, it finds the INI in `mod/` instead (`resolve_mod_file` in `server/scripts/kenshi_llm_server.py`).
+- The plugin runs `server\python\python.exe server\main.py`. If the embedded runtime is missing, it falls back to `python` on `PATH` (`StartPythonServer` in `plugin/core/Utils.cpp`).
+- The server takes its folders from the path of `main.py`. The server root is the folder of `main.py`, and the mod root is the parent of the server root. When the server runs from this repo, it finds the INI in `mod/` instead (`resolve_mod_file` in `server/main.py`).
 
 ## Runtime flow
 
 1. RE_Kenshi loads `SentientSands.dll` and calls `startPlugin`. The plugin installs its KenshiLib hooks and starts `MainThread`.
 2. `MainThread` waits for `KenshiLib.dll`. Then it starts the pipe listener (`PipeThread`), loads the INI, and starts the server.
 3. If `OpenWebPanelOnStart` in the INI is `1`, this first server start passes `--open-browser`. The server waits until its port accepts connections, and then 3 s more, so that a tab from an earlier start can reconnect. It opens the web app in the default browser only when no tab is open (see [Web app](#web-app)). A restart from the launcher does not pass the flag, so the player does not get a second tab.
-4. The server listens on `127.0.0.1:5000`. The plugin sends HTTP POST requests to it through WinHTTP (`plugin/core/Comm.cpp`) for chat, history, settings, profiles, and events. The server rejects a request whose `Host` header is not `127.0.0.1:5000` or `localhost:5000`, or whose `Origin` header names another site (`server/scripts/request_guard.py`). This stops web pages in the player's browser from using the server. A new caller must use one of these two host names.
+4. The server listens on `127.0.0.1:5000`. The plugin sends HTTP POST requests to it through WinHTTP (`plugin/core/Comm.cpp`) for chat, history, settings, profiles, and events. The server rejects a request whose `Host` header is not `127.0.0.1:5000` or `localhost:5000`, or whose `Origin` header names another site (`server/core/request_guard.py`). This stops web pages in the player's browser from using the server. A new caller must use one of these two host names.
 5. The server sends commands back through the named pipe `\\.\pipe\SentientSands`, which the plugin hosts. Examples are `SET_CONFIG`, `NOTIFY`, and `NPC_RENAME`.
 6. The server builds each prompt from the prompt files (see [Prompts](#prompts)) and the campaign state, then sends it down the route of its task (see [LLM routing](#llm-routing)).
 
@@ -119,7 +123,7 @@ A Refresh click shows a note below the button for 2.5 s. The note says that the 
 
 A message in the save bar that reports an outcome, such as "Saved." or "Deleted X.", clears after 5 s (`flashMessage` in `server/dashboard/web/api.js`). An error, or a message about the state of the page such as "Unsaved changes.", stays until the next message replaces it.
 
-`GET /context` also returns `writes`, the number of writes since the server started. It counts each commit to the campaign database (`campaign_db.writes`) and each successful POST request under `/api/` or to `/settings` (`count_write_requests` in `server/scripts/kenshi_llm_server.py`). When the number changes, the poll refreshes each loaded page, so a change from the game or from another tab reaches an open page. The auto refresh waits while a request runs or a dialog is open, because the request or the dialog can still change the page. It also waits while the player types in a field of the page, because the refresh rebuilds the page and the field loses the caret.
+`GET /context` also returns `writes`, the number of writes since the server started. It counts each commit to the campaign database (`campaign_db.writes`) and each successful POST request under `/api/` or to `/settings` (`count_write_requests` in `server/main.py`). When the number changes, the poll refreshes each loaded page, so a change from the game or from another tab reaches an open page. The auto refresh waits while a request runs or a dialog is open, because the request or the dialog can still change the page. It also waits while the player types in a field of the page, because the refresh rebuilds the page and the field loses the caret.
 
 A refresh keeps the unsaved changes of each part that a Save writes, and loads the stored data of all other parts:
 
@@ -142,7 +146,7 @@ On Campaign Canon, **Show seeded data** and **Show provisional characters** star
 
 **Player faction only** starts off. While the player turns it on, the record list shows only the player's faction and the characters in it. A character is in it when its Current Faction, or its `Faction` while the game reported no Current Faction, names the player's faction or one of its aliases. The `Faction` of a profile keeps the faction of the first meeting, so a recruit counts only after the game reports its Current Faction.
 
-The Facts section of a faction, race, location, or region offers only the categories of its kind (`FACTS` in `server/scripts/world_template.py`), because the validator refuses any other category. `server/dashboard/web/editor.js` keeps a copy of the categories, so a change to them changes both files. A category holds one text, such as the leader of a faction, or a list of text, such as its enemies.
+The Facts section of a faction, race, location, or region offers only the categories of its kind (`FACTS` in `server/store/world_template.py`), because the validator refuses any other category. `server/dashboard/web/editor.js` keeps a copy of the categories, so a change to them changes both files. A category holds one text, such as the leader of a faction, or a list of text, such as its enemies.
 
 The Relations section of a race, location, or region lists its children, which the entry stores, and its parents, which are the entries whose children name it. Each row opens its entry. A parent row is read-only, because the relation is stored in the parent entry.
 
@@ -160,7 +164,7 @@ A save of a character renames the NPC in game (see [Names](#names)), and an open
 
 The server is the only writer of `SentientSands_Config.ini`. The plugin reads the INI once at start, because it starts before the server. After that, it takes changes only through `SET_CONFIG` on the pipe. Two writers with no lock between them would undo each other's changes.
 
-The release does not ship the INI, so an update keeps the player's settings. On the first start, the plugin reads no INI and uses the defaults in `LoadPluginConfig` (`plugin/core/Utils.cpp`). The server then writes the INI with `SETTINGS_DEFAULTS` (`server/scripts/kenshi_llm_server.py`). At each start, the server sends each value that the plugin holds through `SET_CONFIG` (`push_settings_to_plugin`), so the defaults of `LoadPluginConfig` apply only until the server is up. `OpenWebPanelOnStart` is the exception, because the plugin reads it before it starts the server, so its default in `LoadPluginConfig` must agree with `SETTINGS_DEFAULTS`.
+The release does not ship the INI, so an update keeps the player's settings. On the first start, the plugin reads no INI and uses the defaults in `LoadPluginConfig` (`plugin/core/Utils.cpp`). The server then writes the INI with `SETTINGS_DEFAULTS` (`server/main.py`). At each start, the server sends each value that the plugin holds through `SET_CONFIG` (`push_settings_to_plugin`), so the defaults of `LoadPluginConfig` apply only until the server is up. `OpenWebPanelOnStart` is the exception, because the plugin reads it before it starts the server, so its default in `LoadPluginConfig` must agree with `SETTINGS_DEFAULTS`.
 
 The web app's Settings page posts its changes to `/settings`. The server writes the INI and sends each value that the plugin holds through `SET_CONFIG`. A language change sends the new translation table through the pipe as `APPLY_TRANSLATION`.
 
@@ -172,7 +176,7 @@ The plugin re-creates its pipe instance after each message, so a message sent im
 
 Each file in `server/data/prompts/` is a shipped default, and an update replaces it. The player's edit of a prompt is an override in `server/config/prompts/` under the same file name, so an update keeps it. `load_prompt_component` takes the override when it holds text, and the shipped file otherwise. The campaign folder holds no prompts.
 
-The Prompts page of the web app reads `GET /api/prompts` and saves each changed prompt through `POST /api/prompts` (`server/scripts/prompt_store.py`).
+The Prompts page of the web app reads `GET /api/prompts` and saves each changed prompt through `POST /api/prompts` (`server/chat/prompt_store.py`).
 
 - A route takes only the name of a shipped `.txt` file, never a path, so a request cannot write outside `server/config/prompts/`.
 - A save equal to the shipped text, or an empty save, deletes the override, so the prompt gets later default updates again. **Use default** and **Reset to defaults** fill the form with the shipped text, and the next save deletes the overrides.
@@ -185,7 +189,7 @@ A placeholder is a `{name}` in a prompt. `prompt_store.render` replaces each pla
 - A hand-made override can still hold a wrong placeholder. `fill_prompt` then leaves it as text and logs a warning.
 - Rejected: Jinja2. Flask already bundles it, but template logic lets one edit break the whole prompt, and a syntax error fails the call.
 
-A chat request is ordered for a provider's prompt cache, which reuses only an identical start of a request (`chat` in `server/scripts/kenshi_llm_server.py`, `server/scripts/chat_prompt.py`):
+A chat request is ordered for a provider's prompt cache, which reuses only an identical start of a request (`chat` in `server/main.py`, `server/chat/chat_prompt.py`):
 
 | Part | Content | Changes |
 |---|---|---|
@@ -197,7 +201,7 @@ From one turn to the next, only the newest exchange and the last message are new
 
 The scene is a snapshot that the server takes when a conversation starts, and it keeps it for the whole conversation (`CONVERSATION_SCENE`). A conversation lasts until the player chats with another NPC, speaks as another squad member, or switches the campaign, because the plugin sends no signal when a conversation ends. A new name or a new faction of the NPC, for example after a recruit, also starts a new conversation, so the scene shows the NPC as it is now. So does the first exchange of a squad member with an NPC that never spoke with it before, so the scene stops saying that the two never spoke (see [Chat threads](#chat-threads)). A later relation or a new rumor therefore reaches the prompt only in the next conversation. The history of the NPC stays across conversations.
 
-The scene is prose that the NPC reads in the second person, built by `server/scripts/scene_text.py` from the game's data: "You feel mildly hostile towards Nameless, the group Drifter travels with." A model reads a sentence more reliably than a raw number, and the cache serves the longer text after the first turn of a conversation. Each number becomes a sentence from a fixed scale, such as the relation, the faction stance, hunger, money, fighting skill, the fighting skill of the player against the NPC, and the age of a rumor. The bounds of the relation at ±25, ±60, and ±90 match the relation bar that the game shows, and steps at ±10 add finer grades. Every other person is "they", so no sentence needs a gendered pronoun.
+The scene is prose that the NPC reads in the second person, built by `server/chat/scene_text.py` from the game's data: "You feel mildly hostile towards Nameless, the group Drifter travels with." A model reads a sentence more reliably than a raw number, and the cache serves the longer text after the first turn of a conversation. Each number becomes a sentence from a fixed scale, such as the relation, the faction stance, hunger, money, fighting skill, the fighting skill of the player against the NPC, and the age of a rumor. The bounds of the relation at ±25, ±60, and ±90 match the relation bar that the game shows, and steps at ±10 add finer grades. Every other person is "they", so no sentence needs a gendered pronoun.
 
 `prompt_system.txt` holds the rules and the world lore, and `build_system_prompt` fills it. `scene_values` fills the parts that change on each call, for the chat scene and for banter. A block that appears only with data, such as the rumors, keeps its heading in the code, because a placeholder has no conditions. The `{world_lore}` placeholder takes the overview of the campaign (see [Campaign storage](#campaign-storage)).
 
@@ -255,7 +259,7 @@ When the server loads `llm_config.json`, each task that the file lacks gets the 
 
 ## Campaign storage
 
-`server/scripts/campaign_db.py` keeps the characters, the dialogue with its chat threads and their memories, the canon, the event history, and the rumors of a campaign in one SQLite file, `campaign.db`, in the campaign folder. The plugin reaches this data only through the server's routes.
+`server/store/campaign_db.py` keeps the characters, the dialogue with its chat threads and their memories, the canon, the event history, and the rumors of a campaign in one SQLite file, `campaign.db`, in the campaign folder. The plugin reaches this data only through the server's routes.
 
 - Each write runs in one `BEGIN IMMEDIATE` transaction. A profile write merges only the keys that the caller passes, and the dialogue lines are rows of their own. A route that waits for the LLM must write only the keys that it changed, so that it cannot undo a change that another request made during the wait.
 - `/chat` changes the Relation through `change_relation`, which adds the judgment to the stored value in one transaction. Two overlapping chats with the same NPC therefore keep both changes.
@@ -355,7 +359,7 @@ The chat prompt reads the threads and the speaker of each row, so the NPC tells 
 
 The server distills each chat thread into a short memory, which replaces the lines of the thread. The chat prompt, the Dialogue Library, the bio prompt, and the Dialogue & Memories subtab read the memories (see [Web app](#web-app)).
 
-- A thread is pending when it has a line and no memory. When no chat request or reply came for the Conversation timeout (`quiet_seconds`), the server writes the memory of each pending thread of the active campaign, one call at a time, the oldest first (`memory_loop` in `server/scripts/kenshi_llm_server.py`). The server start, a campaign switch, and a cull start this quiet clock again (`restart_quiet_clock`).
+- A thread is pending when it has a line and no memory. When no chat request or reply came for the Conversation timeout (`quiet_seconds`), the server writes the memory of each pending thread of the active campaign, one call at a time, the oldest first (`memory_loop` in `server/main.py`). The server start, a campaign switch, and a cull start this quiet clock again (`restart_quiet_clock`).
 - The distillation runs once in each quiet period. After a failed call, the thread stays pending, the server moves on to the next thread, and the next quiet period tries the failed thread again.
 - Before each call, the server checks that the chat is still quiet, so a chat that starts during the distillation waits for one call at most. A local model serves one request at a time, so a call during a chat would delay the reply.
 - Before each call, the server also ends the current thread, under `THREAD_LOCK`, so a chat during the call starts a new thread and each memory covers a whole thread. A pause as long as the Conversation timeout therefore splits a conversation into two threads.
@@ -381,7 +385,7 @@ The chat prompt gives the NPC the newest 10 memories of the threads in which it 
 
 ### Names
 
-The game gives most generic NPCs a name of its own, and the server keeps that name (`server/scripts/npc_names.py`). The plugin sends the template name of the NPC as `template`, its string ID as `template_id`, and `unique` for a unique NPC, in the context of an NPC, in each NPC of the `nearby` list of a chat, and in each NPC of a banter request. The server makes the `Name` of the profile from the game name and the template name (`name_of`):
+The game gives most generic NPCs a name of its own, and the server keeps that name (`server/chat/npc_names.py`). The plugin sends the template name of the NPC as `template`, its string ID as `template_id`, and `unique` for a unique NPC, in the context of an NPC, in each NPC of the `nearby` list of a chat, and in each NPC of a banter request. The server makes the `Name` of the profile from the game name and the template name (`name_of`):
 
 | Template | Name in game | `Name` |
 |---|---|---|
@@ -423,7 +427,7 @@ Only an NPC that the game shows by its template name gets a rolled name. It gets
 
 ### Current Job
 
-The `CurrentJob` of a profile is a short phrase for what the NPC does in game now, for example Guarding a building (`server/scripts/current_job.py`). The chat prompt and the bio prompt give it as `CURRENT JOB: ...` (`current_job_line`), and leave the line out when the profile has none.
+The `CurrentJob` of a profile is a short phrase for what the NPC does in game now, for example Guarding a building (`server/chat/current_job.py`). The chat prompt and the bio prompt give it as `CURRENT JOB: ...` (`current_job_line`), and leave the line out when the profile has none.
 
 | Rule, first match wins | `CurrentJob` |
 |---|---|
@@ -445,11 +449,11 @@ The `CurrentJob` of a profile is a short phrase for what the NPC does in game no
 - Rejected: the name of the AI package or of the squad. Mods rename them, for example `(LB) Shop-24hr`.
 - Rejected: the `NPC class` of the template. It has ten values, some templates have a wrong one, and the live NPC type always equals it.
 - `job` in the context of one NPC holds the names of the permajobs of the NPC, joined with commas, or `None` (`GetDetailedContext` in `plugin/game/Context.cpp`). Permajobs are the jobs of the Jobs menu of the player's characters, so almost no NPC has one. The action tags of a routine add them (`ExecuteQueuedActions` in `plugin/game/GameActions.cpp`), and a dismissed recruit gets back the permajobs that it had before the recruit.
-- The scene text gives the live permajobs as the current task of the NPC (`npc_text` in `server/scripts/scene_text.py`). It tells a trader by `is_trader` or by "shopkeeper" in the live value.
+- The scene text gives the live permajobs as the current task of the NPC (`npc_text` in `server/chat/scene_text.py`). It tells a trader by `is_trader` or by "shopkeeper" in the live value.
 
 ### Current Location
 
-The `CurrentLocation` of a profile tells where the NPC was at its last chat (`location_name` in `server/scripts/scene_text.py`). Campaign Canon shows it read-only next to the Current Job.
+The `CurrentLocation` of a profile tells where the NPC was at its last chat (`location_name` in `server/chat/scene_text.py`). Campaign Canon shows it read-only next to the Current Job.
 
 | The NPC is | `CurrentLocation` |
 |---|---|
@@ -464,7 +468,7 @@ The `CurrentLocation` of a profile tells where the NPC was at its last chat (`lo
 
 ### Provisional profiles
 
-A character without a stored profile gets one rolled in code at its first meeting (`new_profile`, `server/scripts/provisional_profile.py`), with no LLM call. At that point the LLM would know only the race, the faction, and the job, so a bio from it would be no better than the roll. A canon character keeps its canon profile.
+A character without a stored profile gets one rolled in code at its first meeting (`new_profile`, `server/chat/provisional_profile.py`), with no LLM call. At that point the LLM would know only the race, the faction, and the job, so a bio from it would be no better than the roll. A canon character keeps its canon profile.
 
 | Kind | Profile |
 |---|---|
@@ -557,7 +561,7 @@ A world template is a folder that describes a world. A new campaign copies every
 | SSR Vanilla | `server/data/templates/kenshi_ssr_vanilla/`, shipped | None. An update replaces it, so the player duplicates it first. |
 | User templates | `server/data/user_templates/<name>/` | The web app, or by hand |
 
-`server/scripts/world_template.py` reads, validates, and writes templates, and imports only the standard library.
+`server/store/world_template.py` reads, validates, and writes templates, and imports only the standard library.
 
 - One validator runs before each write and each campaign creation. It rejects an unknown `format_version`, a `version` that is not text, a folder that the format does not name, a JSON file that does not parse, a faction or an entity without a name, a faction or a character without `game_id`, two factions or two characters with one `game_id`, a character without a `Name` in its profile, and a fact whose category is not one of its kind or whose value does not have the shape of its category. A child whose `entry` names no race, location, or region of the template is a warning.
 - A faction binds to the game by `game_id`, the string ID of the faction in the game data, so a rename in game does not break the link. The IDs of the vanilla factions come from the `FACTION_PROBE` lines of an in-game test ([kenshi_internals.md](kenshi_internals.md#factions)).

@@ -2,9 +2,9 @@ import os
 import sys
 import unittest
 
-sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "scripts"))
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
 
-import chat_prompt
+from chat import chat_prompt
 
 
 class HistoryWindowTest(unittest.TestCase):

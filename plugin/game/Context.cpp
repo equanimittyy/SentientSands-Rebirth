@@ -250,7 +250,7 @@ static std::string TaskKeys(const lektor<Tasker *> &list) {
 
 #define ROLE_TASK(task) {task, #task}
 // The squad jobs that tell what an NPC does, by their TaskType names.
-// server/scripts/current_job.py maps them to phrases, and its tests read this list.
+// server/chat/current_job.py maps them to phrases, and its tests read this list.
 static const struct {
   TaskType type;
   const char *name;

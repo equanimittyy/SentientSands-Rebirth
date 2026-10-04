@@ -4,9 +4,9 @@ import sys
 import tempfile
 import unittest
 
-sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "scripts"))
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
 
-from log_setup import OneLineFormatter, llm_log, parse_level, set_level, setup
+from core.log_setup import OneLineFormatter, llm_log, parse_level, set_level, setup
 
 
 class ParseLevelTest(unittest.TestCase):

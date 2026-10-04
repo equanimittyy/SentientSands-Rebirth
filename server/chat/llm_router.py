@@ -7,7 +7,7 @@ without requests.
 import logging
 import time
 
-from llm_config import route_profiles
+from chat.llm_config import route_profiles
 
 
 def build_body(route, profile, messages):

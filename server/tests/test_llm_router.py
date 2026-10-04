@@ -3,9 +3,9 @@ import os
 import sys
 import unittest
 
-sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "scripts"))
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
 
-from llm_router import build_body, run_route
+from chat.llm_router import build_body, run_route
 
 MESSAGES = [{"role": "user", "content": "Hi"}]
 

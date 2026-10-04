@@ -3,9 +3,9 @@ import socket
 import sys
 import unittest
 
-sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "scripts"))
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
 
-from browser_launch import PanelTabs, open_when_ready, wait_for_port
+from dashboard.browser_launch import PanelTabs, open_when_ready, wait_for_port
 
 
 def closed_port():

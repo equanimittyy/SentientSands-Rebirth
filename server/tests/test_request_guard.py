@@ -2,9 +2,9 @@ import os
 import sys
 import unittest
 
-sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "scripts"))
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
 
-from request_guard import is_request_allowed
+from core.request_guard import is_request_allowed
 
 
 class IsRequestAllowedTest(unittest.TestCase):

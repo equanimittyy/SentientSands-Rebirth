@@ -7,8 +7,8 @@ each turn comes last, in the final user message.
 
 import re
 
-import scene_text
-from campaign_db import game_time_text
+from chat import scene_text
+from store.campaign_db import game_time_text
 
 _TIME_PREFIX = re.compile(r"^\[Day [^\]]*\]\s*")
 # Some chat templates require the turns after the system message to start with a user message

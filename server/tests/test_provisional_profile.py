@@ -6,9 +6,9 @@ import sys
 import unittest
 from collections import Counter
 
-sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "scripts"))
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
 
-import provisional_profile
+from chat import provisional_profile
 
 TEMPLATE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "data", "templates", "kenshi_ssr_vanilla")
 TRAITS = {trait["id"]: trait for trait in provisional_profile.TRAITS}

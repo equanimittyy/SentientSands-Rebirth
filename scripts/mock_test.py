@@ -12,11 +12,10 @@ from pathlib import Path
 
 REPO = Path(__file__).resolve().parent.parent
 SERVER = REPO / "server"
-sys.path.insert(0, str(SERVER / "scripts"))
+sys.path.insert(0, str(SERVER))
 
-import campaign_db
-import chat_prompt
-import world_template
+from chat import chat_prompt
+from store import campaign_db, world_template
 
 SQUAD = "Nameless"
 STICK, IZUMI, MIKSE = "h:910001", "h:910002", "h:910003"

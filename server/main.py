@@ -30,29 +30,27 @@ from flask import Flask, Response, request, jsonify
 from werkzeug.exceptions import HTTPException
 import sys
 
-SCRIPT_PATH = os.path.abspath(__file__)
-SCRIPT_DIR = os.path.dirname(SCRIPT_PATH)
-KENSHI_SERVER_DIR = os.path.dirname(SCRIPT_DIR)
-KENSHI_MOD_DIR = os.path.dirname(KENSHI_SERVER_DIR)
+SERVER_DIR = os.path.dirname(os.path.abspath(__file__))
+KENSHI_MOD_DIR = os.path.dirname(SERVER_DIR)
 
 # The embedded runtime's ._pth file runs Python isolated, which leaves the script dir off sys.path
-if SCRIPT_DIR not in sys.path:
-    sys.path.insert(0, SCRIPT_DIR)
+if SERVER_DIR not in sys.path:
+    sys.path.insert(0, SERVER_DIR)
 
-from request_guard import is_request_allowed
-from browser_launch import PanelTabs, open_when_ready
-import llm_config
-import llm_router
-import chat_prompt
-import npc_names
-import current_job
-import scene_text
-import provisional_profile
-import campaign_db
-import prompt_store
-import world_template
-import log_setup
-from log_setup import llm_log
+from core.request_guard import is_request_allowed
+from dashboard.browser_launch import PanelTabs, open_when_ready
+from chat import llm_config
+from chat import llm_router
+from chat import chat_prompt
+from chat import npc_names
+from chat import current_job
+from chat import scene_text
+from chat import provisional_profile
+from store import campaign_db
+from chat import prompt_store
+from store import world_template
+from core import log_setup
+from core.log_setup import llm_log
 
 def resolve_mod_file(filename):
     """Falls back to the repo's mod/ subdirectory when run from a source checkout."""
@@ -67,22 +65,22 @@ def resolve_mod_file(filename):
     return path
 
 INI_PATH = resolve_mod_file("SentientSands_Config.ini")
-DEFAULTS_DIR = os.path.join(KENSHI_SERVER_DIR, "data", "defaults")
-LLM_CONFIG_PATH = os.path.join(KENSHI_SERVER_DIR, "config", "llm_config.json")
+DEFAULTS_DIR = os.path.join(SERVER_DIR, "data", "defaults")
+LLM_CONFIG_PATH = os.path.join(SERVER_DIR, "config", "llm_config.json")
 DEFAULT_MODELS_PATH = os.path.join(DEFAULTS_DIR, "default_models.json")
 DEFAULT_PROVIDERS_PATH = os.path.join(DEFAULTS_DIR, "default_providers.json")
 NAMES_PATH = os.path.join(DEFAULTS_DIR, "names.json")
 LOCALIZATION_PATH = os.path.join(DEFAULTS_DIR, "localization.json")
-WEB_DIR = os.path.join(KENSHI_SERVER_DIR, "dashboard", "web")
+WEB_DIR = os.path.join(SERVER_DIR, "dashboard", "web")
 
 NAMES_CONFIG = {}
 ACTIVE_CAMPAIGN = "Default"
 
-CAMPAIGNS_DIR = os.path.join(KENSHI_SERVER_DIR, "data", "campaigns")
-PROMPTS_DIR = os.path.join(KENSHI_SERVER_DIR, "data", "prompts")
-USER_PROMPTS_DIR = os.path.join(KENSHI_SERVER_DIR, "config", "prompts")
-WORLD_TEMPLATES_DIR = os.path.join(KENSHI_SERVER_DIR, "data", "templates")
-USER_TEMPLATES_DIR = os.path.join(KENSHI_SERVER_DIR, "data", "user_templates")
+CAMPAIGNS_DIR = os.path.join(SERVER_DIR, "data", "campaigns")
+PROMPTS_DIR = os.path.join(SERVER_DIR, "data", "prompts")
+USER_PROMPTS_DIR = os.path.join(SERVER_DIR, "config", "prompts")
+WORLD_TEMPLATES_DIR = os.path.join(SERVER_DIR, "data", "templates")
+USER_TEMPLATES_DIR = os.path.join(SERVER_DIR, "data", "user_templates")
 DEFAULT_TEMPLATE = "kenshi_ssr_vanilla"
 
 PROFILES_IN_PROGRESS = set()
@@ -216,7 +214,7 @@ def robust_json_parse(text):
             logging.warning(f"LLM: Cannot parse the reply as JSON: {json_str[:200]}...")
             raise eFirst
 
-log_setup.setup(os.path.join(KENSHI_SERVER_DIR, "logs"))
+log_setup.setup(os.path.join(SERVER_DIR, "logs"))
 
 def kill_old_servers():
     try:

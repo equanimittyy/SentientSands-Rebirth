@@ -16,7 +16,7 @@ const PROFILE_HELP = {
 };
 const KIND_LABELS = { manifest: "Template info", overview: "Overview", history: "History", faction: "Faction", character: "Character" };
 const CATEGORY_LABELS = { races: "Race", locations: "Location", regions: "Region" };
-// Mirrors FACTS in server/scripts/world_template.py, whose validator refuses any other category.
+// Mirrors FACTS in server/store/world_template.py, whose validator refuses any other category.
 const FACTS = {
   factions: { leader: "text", capital: "text", founder: "text", nobles: "list", bases: "list", territory: "list", allies: "list", enemies: "list" },
   races: { type: "text", homeland: "text", faction: "text" },
@@ -31,7 +31,7 @@ const ORIGIN_LABELS = { seed: "Seeded", game: "Met in game", campaign: "Added in
 const PROVISIONAL = "Interactions";
 const IMPORT_PROBLEMS_SHOWN = 10;
 const EVENTS_PER_PAGE = 50;
-// Mirrors the line that record_event_to_history in server/scripts/kenshi_llm_server.py writes. A party is a name with an optional faction in brackets.
+// Mirrors the line that record_event_to_history in server/main.py writes. A party is a name with an optional faction in brackets.
 const PARTY = String.raw`[^()]*?(?: \([^()]*\))?`;
 const EVENT_LINE = new RegExp(String.raw`^(?:\[(Day \d+, \d+:\d+)\] )?\[([^\]]+)\] (${PARTY}) -> (${PARTY})(?: @ ([^:]+))?: (.*)$`, "s");
 
@@ -394,7 +394,7 @@ async function writeBio(record) {
 
 const bioButton = (record) => el("button", { type: "button", className: "bio-button", disabled: readOnly(), onclick: () => writeBio(record) }, icon("bot"), "Generate Bio");
 
-// The labels and thresholds match the relation bar that the game shows (generate_relation_bar in kenshi_llm_server.py).
+// The labels and thresholds match the relation bar that the game shows (generate_relation_bar in server/main.py).
 function relationLabel(value) {
   if (value <= -90) return "ARCH-ENEMY";
   if (value <= -60) return "HOSTILE";

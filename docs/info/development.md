@@ -28,7 +28,7 @@ To run the server from the repo:
 
 ```
 python -m pip install -r server/requirements.txt
-python server/scripts/kenshi_llm_server.py
+python server/main.py
 ```
 
 The web app is at `http://127.0.0.1:5000/`. Add `--open-browser` to open it when the server is ready and no tab of it is open, as the plugin does at game start.

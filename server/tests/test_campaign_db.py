@@ -6,9 +6,9 @@ import threading
 import unittest
 from unittest import mock
 
-sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "scripts"))
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
 
-import campaign_db
+from store import campaign_db
 
 BEEP_ID = "u:19576-Dialogue.mod"
 GENERIC_ID = "h:2717040896"

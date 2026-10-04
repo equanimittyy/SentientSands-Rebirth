@@ -4,9 +4,9 @@ import sys
 import tempfile
 import unittest
 
-sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "scripts"))
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
 
-import llm_config
+from chat import llm_config
 
 PROVIDERS = {
     "openrouter": {"api_key": "sk-or-secret-1234", "base_url": "https://openrouter.ai/api/v1"},

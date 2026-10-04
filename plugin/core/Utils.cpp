@@ -346,7 +346,7 @@ void StartPythonServer(bool openBrowser) {
 
   std::string localPython = g_modRoot + "\\server\\python\\python.exe";
   std::string serverScript =
-      g_modRoot + "\\server\\scripts\\kenshi_llm_server.py";
+      g_modRoot + "\\server\\main.py";
   std::string serverArgs = openBrowser ? " --open-browser" : "";
 
   Log(LOG_INFO, "SYSTEM: Python path: " + localPython);

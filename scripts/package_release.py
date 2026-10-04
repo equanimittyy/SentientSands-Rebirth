@@ -20,7 +20,7 @@ from pathlib import Path
 REPO = Path(__file__).resolve().parent.parent
 MOD_NAME = "SentientSandsRebirth"
 DEFAULT_DLL = REPO / "plugin" / "x64" / "Release" / "SentientSands.dll"
-SERVER_DIRS = ("scripts", "dashboard/web", "data/templates", "data/prompts", "data/defaults")
+SERVER_DIRS = ("core", "chat", "store", "dashboard", "data/templates", "data/prompts", "data/defaults")
 # Change only together with server/requirements.txt: its pins are checked against this runtime's wheels.
 PYTHON_VERSION = "3.13.3"
 
@@ -55,6 +55,7 @@ def stage_files(stage, dll):
             stage / "server" / name,
             ignore=shutil.ignore_patterns("__pycache__", "*.pyc"),
         )
+    shutil.copy2(REPO / "server" / "main.py", stage / "server" / "main.py")
     shutil.copy2(dll, stage / "SentientSands.dll")
 
 
