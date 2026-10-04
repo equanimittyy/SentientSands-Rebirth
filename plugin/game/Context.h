@@ -10,7 +10,6 @@ std::string GetDetailedContext(Character *npc, const std::string &type = "npc");
 std::string GetIdentityFaction(Character *npc);
 std::string GetNpcId(Character *npc);
 void GetCurrentSquad(std::vector<Character *> &members);
-void LogNpcZone(Character *npc);
 void LogFactionList();
 void LogNpcRole(Character *npc);
 std::string RoleJson(Character *npc);

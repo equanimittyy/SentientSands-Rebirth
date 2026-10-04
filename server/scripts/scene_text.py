@@ -237,6 +237,16 @@ def building_text(context, trader):
     return "You are indoors." if (context.get("environment") or {}).get("indoors") else ""
 
 
+def location_name(context):
+    """Where the character is, for its profile: "Bar, The Hub", "The Hub", "Shack, Vain", or "Wilderness, Vain". Only a
+    full context from the plugin carries the building."""
+    environment = context.get("environment") or {}
+    building, town = context.get("building_name"), environment.get("town_name")
+    place = town if _known(town) else environment.get("zone_name")
+    first = building if _known(building) else ("" if _known(town) else "Wilderness")
+    return ", ".join(part for part in (first, place) if _known(part))
+
+
 def location_text(environment):
     town, biome = environment.get("town_name", ""), environment.get("biome", "")
     if town and biome:

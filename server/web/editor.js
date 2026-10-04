@@ -347,7 +347,7 @@ function characterForm(form, path, record) {
       field("Original Faction", el("span", {}, form.details.OriginFaction || "Unknown"), null, "The faction that the character comes from."),
       isProvisional(record) ? field("Chats", el("span", {}, chatCount(form.details[PROVISIONAL])), null, "How many times you talked to the character. Its personality, backstory, and speech quirks are rolled, not written. When the count reaches Chats before a bio on the Settings page, the LLM writes its full bio.") : null,
       source === "campaign" ? field("Current Job", el("span", {}, form.details.CurrentJob || "Unknown"), null, "What the character does in the game, for example Guarding a building. It updates each time the character chats or banters.") : null,
-      source === "campaign" ? field("Current Building", el("span", {}, form.details.CurrentBuilding || "Unknown"), null, "The building that the character was in when you last talked to it. Unknown when it was outdoors.") : null),
+      source === "campaign" ? field("Current Location", el("span", {}, form.details.CurrentLocation || "Unknown"), null, "Where the character was when you last talked to it, for example Bar, The Hub, or Wilderness, Vain.") : null),
   ];
 }
 

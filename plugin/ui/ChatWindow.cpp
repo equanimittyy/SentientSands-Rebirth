@@ -416,7 +416,6 @@ void OnChatSendClick(MyGUI::Widget *sender) {
   std::string detailedContext = "{}";
   if (targetNpc) {
     detailedContext = GetDetailedContext(targetNpc);
-    LogNpcZone(targetNpc);
     LogFactionList();
     LogNpcRole(targetNpc);
   }

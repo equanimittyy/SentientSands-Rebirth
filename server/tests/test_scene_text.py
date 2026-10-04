@@ -141,6 +141,15 @@ class SentenceTest(unittest.TestCase):
         self.assertEqual(scene_text.building_text({"building_name": "Unknown", "environment": {"indoors": True}}, False), "You are indoors.")
         self.assertEqual(scene_text.building_text({"building_name": "Unknown", "environment": {"indoors": False}}, True), "")
 
+    def test_the_location_names_the_building_and_the_town_or_the_zone(self):
+        def location(building="Unknown", **environment):
+            return scene_text.location_name({"building_name": building, "environment": environment})
+        self.assertEqual(location("Bar", town_name="The Hub", zone_name="Border Zone"), "Bar, The Hub")
+        self.assertEqual(location(town_name="The Hub", zone_name="Border Zone"), "The Hub")
+        self.assertEqual(location("Shack", zone_name="Vain"), "Shack, Vain")
+        self.assertEqual(location(zone_name="Vain"), "Wilderness, Vain")
+        self.assertEqual(location(), "Wilderness")
+
     def test_the_strength_of_the_player_follows_the_fight_skill_of_the_npc(self):
         text = scene_text.npc_text({"stats": {"strength": 60, "toughness": 50, "melee_attack": 40}, "environment": {"indoors": True}}, {}, "Stick", "Nameless", met=True, major=False, in_player_faction=False, feels_hunger=True, player_stats={"strength": 90, "melee_attack": 5})
         self.assertIn("You are indoors. You are a seasoned fighter. Stick looks much weaker than you.", text)

@@ -444,11 +444,19 @@ The `CurrentJob` of a profile is a short phrase for what the NPC does in game no
 - `job` in the context of one NPC holds the names of the permajobs of the NPC, joined with commas, or `None` (`GetDetailedContext` in `plugin/game/Context.cpp`). Permajobs are the jobs of the Jobs menu of the player's characters, so almost no NPC has one. The action tags of a routine add them (`ExecuteQueuedActions` in `plugin/game/GameActions.cpp`), and a dismissed recruit gets back the permajobs that it had before the recruit.
 - The scene text gives the live permajobs as the current task of the NPC (`npc_text` in `server/scripts/scene_text.py`). It tells a trader by `is_trader` or by "shopkeeper" in the live value.
 
-### Current Building
+### Current Location
 
-The `CurrentBuilding` of a profile is the name of the building that the NPC was in at its last chat, or none outdoors (`building_of` in `server/scripts/kenshi_llm_server.py`). Campaign Canon shows it read-only next to the Current Job, as Unknown outdoors.
+The `CurrentLocation` of a profile tells where the NPC was at its last chat (`location_name` in `server/scripts/scene_text.py`). Campaign Canon shows it read-only next to the Current Job.
+
+| The NPC is | `CurrentLocation` |
+|---|---|
+| In a building of a town | Bar, The Hub |
+| Outdoors in a town | The Hub |
+| In a building outside the towns | Shack, Vain |
+| Outdoors outside the towns | Wilderness, Vain |
 
 - Only the full context of a chat target, a chat speaker, or a rename carries `building_name` (`GetDetailedContext` in `plugin/game/Context.cpp`). A banter or an overheard chat therefore does not update it.
+- The zone, for example Vain, is the zone around the camera (`ZoneName` in `plugin/game/Context.cpp`), because the game gives no zone for each character, and a chat happens near the camera. The plugin reads the zone record at slot `0x10` of `WeatherSystem::ActiveRegion` (see [Kenshi internals](kenshi_internals.md#zones)), and sends no `zone_name` when the slot holds no zone record.
 - The chat scene reads the building from the live context, not from the profile, so a building from an earlier chat never reaches the prompt. The NPC section says "You are in your shop, …" only to a trader, and "You are inside …" to anyone else (`building_text`). `in_shop` marks every NPC inside a shop or a bar, a customer too, so it does not make a trader.
 
 ### Provisional profiles

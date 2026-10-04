@@ -27,7 +27,6 @@
 #include <kenshi/util/hand.h>
 #include <map>
 #include <set>
-#include <sstream>
 #include <vector>
 
 std::string SlotToString(AttachSlot slot) {
@@ -185,46 +184,26 @@ std::string GetNpcId(Character *npc) {
   return "h:" + ToString(npc->getHandle().serial);
 }
 
-// Probe: find the slot of AreaBiomeGroup that holds its zone record.
-// It compares pointers only and never follows an unknown one.
-static std::string ZoneMatches(AreaBiomeGroup *area,
-                               const std::set<GameData *> &zones) {
-  if (!area)
-    return "?";
-  std::ostringstream matches;
-  for (size_t offset = 0; offset < 0x200; offset += sizeof(void *)) {
-    GameData *candidate = *(GameData **)((char *)area + offset);
-    if (zones.count(candidate))
-      matches << " 0x" << std::hex << offset << ":" << candidate->name;
-  }
-  return matches.str().empty() ? "none" : matches.str();
-}
-
-void LogNpcZone(Character *npc) {
+// The zone around the camera, for example Vain: the game gives no zone for each
+// character, and a chat happens near the camera. KenshiLib does not map slot
+// 0x10 of the zone object, so only a pointer that is a zone record is followed.
+static std::string ZoneName() {
   static std::set<GameData *> zones;
   GameWorld *world = ppWorld ? *ppWorld : NULL;
-  if (!world)
-    return;
+  WeatherSystem *weather = WeatherSystem::getInstance();
+  if (!world || !weather || !weather->ActiveRegion)
+    return "";
 
   if (zones.empty()) {
     lektor<GameData *> list;
     world->gamedata.getDataOfType(list, BIOME_GROUP);
     for (uint32_t i = 0; i < list.size(); ++i) {
-      if (!list[i])
-        continue;
-      zones.insert(list[i]);
-      Log(LOG_INFO, "ZONE_PROBE: zone id=" + list[i]->stringID +
-                        " name=" + list[i]->name);
+      if (list[i])
+        zones.insert(list[i]);
     }
   }
-
-  WeatherSystem *weather = WeatherSystem::getInstance();
-  TownBase *town = npc->getCurrentTownLocation();
-  Log(LOG_INFO,
-      "ZONE_PROBE: name=" + npc->getName() + " active=" +
-          ZoneMatches(weather ? weather->ActiveRegion : NULL, zones) +
-          " town_zone=" +
-          (town ? ZoneMatches(town->getBiome(), zones) : std::string("?")));
+  GameData *zone = *(GameData **)((char *)weather->ActiveRegion + 0x10);
+  return zones.count(zone) ? zone->name : "";
 }
 
 // Probe: every faction's string ID, for the vanilla template's faction files
@@ -852,6 +831,9 @@ std::string GetDetailedContext(Character *npc, const std::string &type) {
   if (town)
     json += "\"town_name\": \"" +
             EscapeJSON(((RootObjectBase *)town)->getName()) + "\",";
+  std::string zone = ZoneName();
+  if (!zone.empty())
+    json += "\"zone_name\": \"" + EscapeJSON(zone) + "\",";
   json += "\"weather\": " + ToString((int)npc->getCurrentWeatherAffectStatus());
   json += "},";
 
