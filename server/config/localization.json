@@ -54,7 +54,10 @@
         "events: ": "events: ",
         "rumors: ": "rumors: ",
         "Cull failed: ": "Cull failed: ",
-        "Search": "Search"
+        "Search": "Search",
+        "{name} is thinking...": "{name} is thinking...",
+        "{name} has responded.": "{name} has responded.",
+        "A new world rumor is spreading.": "A new world rumor is spreading."
     },
     "Spanish": {
         "Talking to: ": "Hablando con: ",
@@ -111,7 +114,10 @@
         "events: ": "eventos: ",
         "rumors: ": "rumores: ",
         "Cull failed: ": "Purga fallida: ",
-        "Search": "Buscar"
+        "Search": "Buscar",
+        "{name} is thinking...": "{name} está pensando...",
+        "{name} has responded.": "{name} ha respondido.",
+        "A new world rumor is spreading.": "Un nuevo rumor se extiende por el mundo."
     },
     "French": {
         "Talking to: ": "Discussion avec : ",
@@ -168,7 +174,10 @@
         "events: ": "événements : ",
         "rumors: ": "rumeurs : ",
         "Cull failed: ": "Échec de la purge : ",
-        "Search": "Rechercher"
+        "Search": "Rechercher",
+        "{name} is thinking...": "{name} réfléchit...",
+        "{name} has responded.": "{name} a répondu.",
+        "A new world rumor is spreading.": "Une nouvelle rumeur se répand dans le monde."
     },
     "Japanese": {
         "Talking to: ": "会話相手: ",
@@ -225,7 +234,10 @@
         "events: ": "イベント: ",
         "rumors: ": "噂: ",
         "Cull failed: ": "削除失敗: ",
-        "Search": "検索"
+        "Search": "検索",
+        "{name} is thinking...": "{name}は考えています...",
+        "{name} has responded.": "{name}が返答しました。",
+        "A new world rumor is spreading.": "新たな噂が世界に広まっています。"
     },
     "Russian": {
         "Talking to: ": "Разговор с: ",
@@ -282,6 +294,9 @@
         "events: ": "события: ",
         "rumors: ": "слухи: ",
         "Cull failed: ": "Удаление не удалось: ",
-        "Search": "Поиск"
+        "Search": "Поиск",
+        "{name} is thinking...": "{name} думает...",
+        "{name} has responded.": "{name} ответил(а).",
+        "A new world rumor is spreading.": "По миру расходится новый слух."
     }
 }

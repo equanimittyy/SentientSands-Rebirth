@@ -1709,7 +1709,8 @@ def generate_global_narrative_thread():
             try:
                 campaign_db.add_rumor(rumor_tagged)
                 logging.info(f"NARRATIVE: Generated and saved new global event: {rumor_tagged}")
-                send_to_pipe(f"NOTIFY: [WORLD EVENT] {rumor_text}")
+                notice = "A new world rumor is spreading."
+                send_to_pipe("NOTIFY: " + LOCALIZATION_CONFIG.get(language, {}).get(notice, notice))
                 return rumor_tagged
             except Exception as e:
                 logging.error(f"NARRATIVE: Cannot save the rumor: {e}")

@@ -60,9 +60,21 @@ void CloseChatUI() {
   }
 }
 
+static void NotifyChatStatus(const std::string &key,
+                             const std::string &npcName) {
+  std::string text = T(key);
+  size_t nameSlot = text.find("{name}");
+  if (nameSlot != std::string::npos)
+    text.replace(nameSlot, 6, npcName);
+  EnterCriticalSection(&g_msgMutex);
+  g_messageQueue.push_back("NOTIFY: " + text);
+  LeaveCriticalSection(&g_msgMutex);
+}
+
 DWORD WINAPI ChatResponseThread(LPVOID lpParam) {
   ChatTask *t = (ChatTask *)lpParam;
   Log(LOG_INFO, "CHAT: Sending chat request for " + t->npcName);
+  NotifyChatStatus("{name} is thinking...", t->npcName);
 
   std::string response = PostToPythonWithResponse(L"/chat", t->json);
 
@@ -71,6 +83,7 @@ DWORD WINAPI ChatResponseThread(LPVOID lpParam) {
     delete t;
     return 0;
   }
+  NotifyChatStatus("{name} has responded.", t->npcName);
 
   Log(LOG_INFO, "CHAT: Got response for " + t->npcName + " (" +
                     ToString((int)response.length()) + " bytes)");
