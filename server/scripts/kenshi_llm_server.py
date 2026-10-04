@@ -1381,7 +1381,7 @@ def chat():
             logging.error(f"CHAT: Cannot register the context of the chat target: {e}")
 
     if primary_id and ctx_dict.get('generic_name'):
-        primary_npc = name_generic_npc(primary_id, primary_npc, ctx_dict)
+        primary_npc = name_generic_npc(primary_id, ctx_dict.get('name', primary_npc), ctx_dict)
 
     # The squad member who talks
     speaker = context_dict(data.get('speaker'))
@@ -1457,7 +1457,9 @@ def chat():
         content = content.replace('"', '').strip()
         
         lines = content.split('\n')
-        other_names = {name.lower() for name in [*npcs, *(n["name"] for n in nearby if n.get("name"))]} - {primary_npc.lower()}
+        # The chat window keeps the name that the target had when it opened, so the request can name the target by an old name
+        own_names = {primary_npc.lower(), register(raw_npc).lower()}
+        other_names = {name.lower() for name in [*npcs, *(n["name"] for n in nearby if n.get("name"))]} - own_names
         filtered_lines = []
         for line in lines:
             line = line.strip()
@@ -1489,7 +1491,7 @@ def chat():
                 if p == player_name.lower() or p in other_names:
                     logging.debug(f"CHAT: Filter: Discarded a line voiced as {p} (expected {primary_npc})")
                     continue
-                if p == primary_npc.lower():
+                if p in own_names:
                     line = line[prefix_match.end():]
             
             if line:
