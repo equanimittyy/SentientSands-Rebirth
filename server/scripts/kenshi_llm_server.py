@@ -2486,15 +2486,20 @@ def get_history():
         return "\n".join(wrapped)
         
     lines = []
+    race = char_data['Race']
     lines.append(f"--- PROFILE: {char_data.get('Name', npc_id)} ---")
-    lines.append(f"Faction: {char_data.get('Faction', 'Unknown')} | Race: {char_data.get('Race', 'Unknown')}")
+    lines.append(f"Race: {race} | Sex: {reported_sex(race, char_data.get('Sex', 'Unknown'))} | Job: {char_data.get('Job') or 'None'}")
+    lines.append(f"Faction: {char_data['Faction']} | Origin Faction: {char_data.get('OriginFaction', 'Unknown')}")
     lines.append(generate_relation_bar(char_data.get('Relation', 0)))
+    if campaign_db.PROVISIONAL in char_data:
+        chats, threshold = int(char_data[campaign_db.PROVISIONAL]), load_settings()["bio_interactions"]
+        lines.append(f"BIO: Provisional. The LLM writes the full bio at {threshold} chats ({chats} so far), or press Regen Bio." if threshold
+                     else f"BIO: Provisional. Press Regen Bio to have the LLM write the full bio ({chats} chats so far).")
     lines.append("-" * 30)
-    lines.append("PERSONALITY:")
-    lines.append(_wrap(char_data.get('Personality', 'Unknown')))
-    lines.append("")
-    lines.append("BACKSTORY:")
-    lines.append(_wrap(char_data.get('Backstory', 'Unknown')))
+    for part, title in (("Personality", "PERSONALITY"), ("Backstory", "BACKSTORY"), ("SpeechQuirks", "SPEECH QUIRKS")):
+        lines.append(f"{title}:")
+        lines.append(_wrap(char_data.get(part)) or "None")
+        lines.append("")
     lines.append("-" * 30)
     lines.append(f"CONVERSATION LOG (Showing last 250 of {len(history)} lines):")
     if history:
