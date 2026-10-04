@@ -29,6 +29,7 @@
   --seed-bg: #f8e7a8;
   --info: #2a5b8c;
   --blood: rgb(138 28 18 / 0.75);
+  --brush: 4px;
 }
 
 :root[data-theme="dark"] {
@@ -158,7 +159,9 @@ nav a {
   right: 0.75rem;
   display: flex;
   padding: 0.45rem;
+  border-width: 1px;
   border-radius: 50%;
+  mask: none;
 }
 
 .theme-toggle .icon {
@@ -236,16 +239,35 @@ nav a[aria-current]::before,
   transform: scaleX(-1);
 }
 
+/* The fill stops under the stroke, so the rough edge of the brush, not the fill, outlines the box. */
 fieldset {
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  background: var(--surface);
+  --fill: var(--surface);
+  --behind: var(--bg);
+  --legend-height: 1.25rem;
+  position: relative;
   margin: 0 0 1rem;
-  padding: 0.75rem 1rem 1rem;
+  padding: calc(var(--legend-height) + 0.75rem) 1rem 1rem;
+  border: none;
+  background: linear-gradient(var(--fill) 0 0) calc(var(--brush) - 1px) calc(var(--legend-height) / 2 + var(--brush) / 2 - 1px) / calc(100% - 2 * var(--brush) + 2px) calc(100% - var(--legend-height) / 2 - 1.5 * var(--brush) + 2px) no-repeat;
 }
 
+/* A mask on the fieldset itself would cut off a tooltip that overflows it, so the stroke is a layer over its edge. */
+fieldset::before {
+  content: "";
+  position: absolute;
+  inset: calc(var(--legend-height) / 2 - var(--brush) / 2) 0 0;
+  border: var(--brush) solid var(--border);
+  pointer-events: none;
+}
+
+/* Positioned, the legend leaves the native fieldset border, so it sits on the stroke and its two-tone background hides the stroke behind it. */
 legend {
+  position: absolute;
+  top: 0;
+  left: 1rem;
   padding: 0 0.25rem;
+  line-height: var(--legend-height);
+  background: linear-gradient(var(--behind) 50%, var(--fill) 50%);
 }
 
 legend .mandatory {
@@ -357,8 +379,7 @@ textarea {
   box-sizing: border-box;
   width: 100%;
   padding: 0.3rem 0.4rem;
-  border: 1px solid var(--field-border);
-  border-radius: 4px;
+  border: var(--brush) solid var(--field-border);
   background: var(--field);
   color: var(--text);
 }
@@ -374,8 +395,7 @@ textarea {
 
 button {
   padding: 0.35rem 0.9rem;
-  border: 1px solid var(--field-border);
-  border-radius: 4px;
+  border: var(--brush) solid var(--field-border);
   background: var(--surface);
   color: var(--text);
   cursor: pointer;
@@ -400,6 +420,30 @@ button.danger {
   border-color: var(--error);
   background: var(--error);
   color: var(--on-accent);
+}
+
+/* A mask, not border-image, so the stroke takes the border colour of each state and theme. The inner layer overlaps the stroke by 1px, so no seam shows between the stroke and the fill. */
+input:not([type="checkbox"], [type="radio"]),
+select,
+textarea,
+button,
+fieldset::before {
+  mask:
+    linear-gradient(#000 0 0) center / calc(100% - 2 * var(--brush) + 2px) calc(100% - 2 * var(--brush) + 2px) no-repeat border-box,
+    url("images/brush/top.svg") 0 0 / auto var(--brush) repeat-x border-box,
+    url("images/brush/bottom.svg") -137px 100% / auto var(--brush) repeat-x border-box,
+    url("images/brush/left.svg") 0 -61px / var(--brush) auto repeat-y border-box,
+    url("images/brush/right.svg") 100% -223px / var(--brush) auto repeat-y border-box;
+}
+
+/* Shifted, so neighbouring buttons and stacked fieldsets do not show the same stroke. */
+button:nth-of-type(3n + 2),
+fieldset:nth-of-type(2n)::before {
+  mask-position: center, -97px 0, -251px 100%, 0 -173px, 100% -19px;
+}
+
+button:nth-of-type(3n + 3) {
+  mask-position: center, -203px 0, -41px 100%, 0 -127px, 100% -149px;
 }
 
 .test-mark {
@@ -442,6 +486,16 @@ button.danger {
   outline-offset: 1px;
 }
 
+/* The brush mask clips the outline, so a brushed control shows focus in its stroke. */
+:is(input, select, textarea, button):focus-visible {
+  border-color: var(--accent);
+}
+
+/* The dark theme fills a save button with the accent, so its focus stroke takes the text colour. */
+button.save:focus-visible {
+  border-color: var(--text);
+}
+
 .actions {
   display: flex;
   align-items: center;
@@ -467,9 +521,10 @@ button.danger {
   content: none;
 }
 
-.invalid {
+:is(input, select, textarea).invalid {
   outline: 2px solid var(--error);
   outline-offset: 1px;
+  border-color: var(--error);
 }
 
 label > .field-error {
@@ -529,6 +584,7 @@ details.card > summary > .edit {
   border: none;
   background: none;
   color: var(--muted);
+  mask: none;
 }
 
 details.card > summary > .edit:hover {
@@ -563,8 +619,9 @@ details.card > summary > .blurb {
 }
 
 .card > fieldset {
+  --fill: var(--bg);
+  --behind: var(--surface);
   margin: 0.75rem 0 0.25rem;
-  background: var(--bg);
 }
 
 .card-actions {
@@ -707,6 +764,10 @@ dialog::backdrop {
   background: rgb(0 0 0 / 0.5);
 }
 
+dialog fieldset {
+  --behind: var(--surface);
+}
+
 dialog h2 {
   margin: 0 0 0.5rem;
   font-size: 1.4rem;
@@ -828,9 +889,9 @@ input[type="search"] {
 .subtabs button {
   position: relative;
   border: none;
-  border-radius: 0;
   background: none;
   color: inherit;
+  mask: none;
 }
 
 .subtabs [aria-selected="true"] {
@@ -860,6 +921,7 @@ input[type="search"] {
   padding: 0;
   border: none;
   background: none;
+  mask: none;
 }
 
 .switch .track {
@@ -912,9 +974,9 @@ input[type="search"] {
   width: 100%;
   border: none;
   border-bottom: 1px solid var(--border);
-  border-radius: 0;
   background: none;
   text-align: left;
+  mask: none;
 }
 
 .record-list .record .detail {
