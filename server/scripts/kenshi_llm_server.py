@@ -89,7 +89,7 @@ PROGRESS_LOCK = threading.Lock()
 LIVE_CONTEXTS = {}
 PLAYER_CONTEXT = {}
 PROMPT_RUMORS = 5
-# The scene stays fixed for a whole conversation, so the prompt cache can serve it; a chat with another NPC or as another squad member, or a new name or faction of the NPC, starts a new one
+# The scene stays fixed for a whole conversation, so the prompt cache can serve it; a chat with another NPC or as another squad member, a new name or faction of the NPC, or a first exchange with it starts a new one
 CONVERSATION_SCENE = {}
 PLAYER2_SESSION_KEY = None
 EVENT_THROTTLE = {} 
@@ -516,7 +516,7 @@ def is_animal(race):
 def character_kind(race):
     return "animal" if is_animal(race) else "skeleton" if is_skeleton(race) else "person"
 
-def npc_scene(npc_id, profile, player_name):
+def npc_scene(npc_id, profile, player_name, met):
     context = LIVE_CONTEXTS.get(npc_id) or profile
     faction = context.get("faction") or context.get("Faction", "Unknown")
     player_faction = PLAYER_CONTEXT.get("faction", "Nameless")
@@ -526,7 +526,7 @@ def npc_scene(npc_id, profile, player_name):
     major = not in_player_faction and bool(record.get("major"))
     # The player section of the scene already describes the player's faction
     faction_description = "" if in_player_faction else record.get("description", "")
-    return scene_text.npc_text(context, profile, player_name, player_faction, met=bool(profile.get("ConversationHistory")),
+    return scene_text.npc_text(context, profile, player_name, player_faction, met=met,
                                major=major, in_player_faction=in_player_faction, feels_hunger=not is_skeleton(profile.get("Race", "")),
                                faction_description=faction_description)
 
@@ -1488,13 +1488,14 @@ def chat():
     full_player_entry = f"{time_prefix}{mode_tag}{player_name}: {player_message}"
 
     live = LIVE_CONTEXTS.get(npc_ids.get(primary_npc), {})
-    conversation = (speaker.get("npc_id"), npc_ids.get(primary_npc) or primary_npc, primary_npc, live.get("faction"))
+    met = chat_prompt.has_spoken(primary_data["ConversationHistory"])
+    conversation = (speaker.get("npc_id"), npc_ids.get(primary_npc) or primary_npc, primary_npc, live.get("faction"), met)
     scene = CONVERSATION_SCENE.get(conversation)
     if scene is None:
         scene = fill_prompt(
             "prompt_chat_scene.txt",
             **scene_values(speaker or PLAYER_CONTEXT, player_name),
-            npc=npc_scene(npc_ids.get(primary_npc), primary_data, player_name),
+            npc=npc_scene(npc_ids.get(primary_npc), primary_data, player_name, met),
         )
         CONVERSATION_SCENE.clear()
         CONVERSATION_SCENE[conversation] = scene

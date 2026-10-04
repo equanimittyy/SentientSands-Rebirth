@@ -17,6 +17,11 @@ def history_window(lines, block):
     return lines[max(0, block * (len(lines) // block) - block):]
 
 
+def has_spoken(lines):
+    """Lines that the NPC only overheard do not count."""
+    return any(not _TIME_PREFIX.sub("", line).startswith("(Overheard)") for line in lines)
+
+
 def history_turns(lines, npc_name):
     name = npc_name.lower()
     turns = []

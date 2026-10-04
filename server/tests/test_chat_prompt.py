@@ -47,6 +47,11 @@ class HistoryTurnsTest(unittest.TestCase):
             {"role": "assistant", "content": "an old yell line"},
         ])
 
+    def test_only_lines_that_the_npc_did_not_overhear_count_as_spoken(self):
+        self.assertFalse(chat_prompt.has_spoken([]))
+        self.assertFalse(chat_prompt.has_spoken(["[Day 3, 14:02] (Overheard) Drifter: hey Ruka", "(Overheard) (Whispered) Kai: psst"]))
+        self.assertTrue(chat_prompt.has_spoken(["[Day 3, 14:02] (Overheard) Drifter: hey Ruka", "[Day 3, 14:03] Drifter: (Overheard) nothing"]))
+
     def test_an_empty_reply_is_never_empty_content(self):
         self.assertEqual(chat_prompt.history_turns(["Drifter: hi", "Beep:"], "Beep")[-1], {"role": "assistant", "content": "..."})
 
