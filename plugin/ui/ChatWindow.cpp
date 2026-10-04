@@ -75,6 +75,10 @@ DWORD WINAPI ChatResponseThread(LPVOID lpParam) {
   ChatTask *t = (ChatTask *)lpParam;
   Log(LOG_INFO, "CHAT: Sending chat request for " + t->npcName);
   NotifyChatStatus("{name} is thinking...", t->npcName);
+  EnterCriticalSection(&g_msgMutex);
+  g_messageQueue.push_back("NPC_SAY: " + t->npcName + "|" + t->handleStr +
+                           ": ...");
+  LeaveCriticalSection(&g_msgMutex);
 
   std::string response = PostToPythonWithResponse(L"/chat", t->json);
 
