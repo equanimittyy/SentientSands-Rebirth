@@ -380,15 +380,15 @@ void StartPythonServer(bool openBrowser) {
 }
 #include <kenshi/Character.h>
 #include <kenshi/GameWorld.h>
-void QueueGameEvent(const std::string &kind, const std::string &pair,
-                    const std::string &fields) {
+void QueueGameEvent(const std::string &kind, const std::string &fields,
+                    unsigned long long attack) {
   // The cull deletes by game time, so an event needs one
   if (!ppWorld || !*ppWorld)
     return;
   GameEvent ev;
   ev.kind = kind;
-  ev.pair = pair;
   ev.fields = fields;
+  ev.attack = attack;
   ev.queuedAt = GetTickCount();
 
   EnterCriticalSection(&g_eventMutex);
@@ -399,7 +399,12 @@ void QueueGameEvent(const std::string &kind, const std::string &pair,
   ev.hour = (int)fmod(tod.getTotalHours(), 24.0);
   ev.minute = (int)fmod(tod.getTotalMinutes(), 60.0);
   g_gameEvents.push_back(ev);
+  if (kind == "attack")
+    g_waitingAttacks.insert(attack);
   if (g_gameEvents.size() > 100) {
+    // A dropped attack no longer waits, so the hook can add it again
+    if (g_gameEvents.front().kind == "attack")
+      g_waitingAttacks.erase(g_gameEvents.front().attack);
     g_gameEvents.pop_front();
   }
   LeaveCriticalSection(&g_eventMutex);
@@ -408,11 +413,9 @@ void QueueGameEvent(const std::string &kind, const std::string &pair,
     Log(LOG_DEBUG, "EVENT: " + kind + ": " + fields);
 }
 
-bool AttackWaits(const std::string &pair) {
-  bool waits = false;
+bool AttackWaits(unsigned long long attack) {
   EnterCriticalSection(&g_eventMutex);
-  for (size_t i = 0; i < g_gameEvents.size() && !waits; ++i)
-    waits = g_gameEvents[i].pair == pair;
+  bool waits = g_waitingAttacks.count(attack) > 0;
   LeaveCriticalSection(&g_eventMutex);
   return waits;
 }

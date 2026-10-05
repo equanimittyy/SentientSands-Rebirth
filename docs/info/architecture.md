@@ -99,7 +99,7 @@ The hooks in `plugin/main.cpp` add the game events to a buffer (`QueueGameEvent`
 
 - A party (`EventParty` in `plugin/game/Context.cpp`) holds the `npc_id` (`id`), the string ID of the template (`template_id`), the name, the faction, and whether the faction is the player's (`player`).
 - Each event holds the game time of its hook, because it reaches the server only with the next request. The plugin reads the time under `g_eventMutex`, so the buffer holds the events in the order of their game times, and the server takes a step back of the game time as a load.
-- `attackingYou_hook` runs many times a second for each attacker. Its faction check comes first, and its check against the buffer adds one `attack` for each attacker and target in each report.
+- `attackingYou_hook` runs many times a second for each attacker. Its faction check comes first. It then finds an `attack` that waits by the handle serials of the attacker and the target (`g_waitingAttacks`), without building a string, so it adds one `attack` for each attacker and target in each report.
 - The game sets `PS_KO` about 10 times a second on a character that lies knocked out, so only a change of the knockout makes an event.
 - A request takes the events out of the buffer (`TakeGameEvents`), so the plugin sends each event once.
 - The buffer holds 100 events and drops the oldest. The frame hook sends a report when 50 events wait, or when the oldest event waited 60 s, because the events that wait are lost when the game closes.
@@ -252,7 +252,15 @@ The Relations section of a race, location, or region lists its children, which t
 
 The Race, Sex, and Faction of a character are choices, not free text (`choice` in `server/dashboard/web/editor.js`). Race offers the race entries of the page, Faction offers its factions, and Sex offers Male, Female, and Other. A stored value selects the choice whose name or alias it matches, with case ignored. A blank value or a value that matches no choice shows as Unknown, and a save of the character writes Unknown.
 
-Other Details shows the `Relation` of a character as a bar from -100 to 100, with the labels of the relation bar in game, and its `OriginFaction`. On Campaign Canon it also shows the current faction that the game reported for the character since the server started, so the player can compare it with the Faction that the prompts use, whether the character is an animal (`Animal`, see [Provisional profiles](#provisional-profiles)), whether it is unique (see [Deeds](#deeds)), the Current Job (see [Current Job](#current-job)), and, at the bottom, the known figures that a squad member killed or captured (see [Deeds](#deeds)). All are read-only, because the game and the chats set them. A save keeps every profile key that the form does not show, as it is.
+Other Details shows the `Relation` of a character as a bar from -100 to 100, with the labels of the relation bar in game, and its `OriginFaction`. On Campaign Canon it also shows:
+
+- The current faction that the game reported for the character since the server started, so the player can compare it with the Faction that the prompts use.
+- The status, which is the health that a chat reported for the character since the server started, for example Injured or Unconscious.
+- Whether the character is an animal (`Animal`, see [Provisional profiles](#provisional-profiles)), and whether it is unique (see [Deeds](#deeds)).
+- The Current Job (see [Current Job](#current-job)).
+- At the bottom, the known figures that a squad member killed or captured (see [Deeds](#deeds)).
+
+All are read-only, because the game and the chats set them. A save keeps every profile key that the form does not show, as it is.
 
 A provisional character (see [Provisional profiles](#provisional-profiles)) shows as Provisional in the list and on its record. Its Other Details also show its chat count against the Chats before a bio setting. A save that changes its Personality, Backstory, or SpeechQuirks ends the provisional state, because a later bio would overwrite the player's text.
 
@@ -293,7 +301,7 @@ A chat request is ordered for a provider's prompt cache, which reuses only an id
 
 | Part | Content | Changes |
 |---|---|---|
-| System message | `prompt_chat_template.txt`: `prompt_system.txt` (`prompt_animal_system.txt` for an animal), the judgment rule, `npc_chat_template.txt`, then `prompt_chat_scene.txt`: the place, the 5 newest rumors, the player, and the NPC; then the memories of the NPC (see [Conversation memories](#conversation-memories)) | When a new conversation starts, and when a memory of the NPC is written |
+| System message | `prompt_chat_template.txt`: `prompt_system.txt` (`prompt_animal_system.txt` for an animal), the judgment rule, `npc_chat_template.txt`, then `prompt_chat_scene.txt`: the place, with the town walls and the weather of the squad member who talks, the 5 newest rumors, the player, and the NPC; then the memories of the NPC (see [Conversation memories](#conversation-memories)) | When a new conversation starts, and when a memory of the NPC is written |
 | History | The lines of the chat threads of the NPC that have no memory yet, as user and assistant turns, with an overheard note after each chat thread (see [Chat threads](#chat-threads)) | One exchange more each turn |
 | Last user message | `prompt_chat_turn.txt`: the player's line, then a one-line reminder of whom to reply as and to end with the judgment | Every turn |
 
@@ -630,7 +638,7 @@ Edit Bio in the Dialogue Library skips the LLM. `/read_bio` returns the stored `
 | `POST /api/campaigns/switch` | Make a campaign the current one. The name must be a folder that the campaign list shows, so a name such as `../x` cannot point outside `server/data/campaigns/`. |
 | `POST /api/campaigns/delete` | Delete a campaign folder, with the same name check. Before it deletes the current campaign, it switches to the first other one. When no other campaign remains, the server has no current campaign (see [Campaign storage](#campaign-storage)). |
 | `GET /api/campaign` | The active campaign: its notable events with their lines and rumor marks (see [Deeds](#deeds)), its rumors, and its chat threads with their members, lines, and memories. A refused campaign gives status 409 with the reason. |
-| `GET /api/campaign/canon` | The canon of the active campaign, each record with its `origin` and `updated_at`, each character with the `current_faction` that a chat reported since the server started (`LIVE_CONTEXTS`), or `null`, and each character with deeds with the known figures that it killed or captured as text (`deeds`, see [Deeds](#deeds)). A refused campaign gives status 409 with the reason. |
+| `GET /api/campaign/canon` | The canon of the active campaign, each record with its `origin` and `updated_at`, each character with the `current_faction` and the `status` (the health) that a chat reported since the server started (`LIVE_CONTEXTS`), or `null`, and each character with deeds with the known figures that it killed or captured as text (`deeds`, see [Deeds](#deeds)). A refused campaign gives status 409 with the reason. |
 | `POST /api/campaign/records`, `.../records/delete` | Save or delete one canon record of the active campaign. A faction, character, race, location, or region with no ID is new. |
 | `POST /api/campaign/characters/bio` | The LLM text of the full bio, or of one part, for the form of a character. It stores nothing (see [Provisional profiles](#provisional-profiles)). |
 | `POST /api/campaign/rumors/generate` | The LLM text of a rumor of a notable event. It stores nothing (see [Rumors](#rumors)). |

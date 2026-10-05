@@ -1,5 +1,6 @@
 #include <deque>
 #include <map>
+#include <set>
 #include <string>
 #include <vector>
 #include <windows.h>
@@ -80,17 +81,18 @@ enum ActionType {
 
 struct GameEvent {
   std::string kind;
-  std::string pair;
   std::string fields;
+  unsigned long long attack;
   int day, hour, minute;
   DWORD queuedAt;
 };
 
 extern std::deque<GameEvent> g_gameEvents;
+extern std::set<unsigned long long> g_waitingAttacks;
 extern CRITICAL_SECTION g_eventMutex;
-void QueueGameEvent(const std::string &kind, const std::string &pair,
-                    const std::string &fields);
-bool AttackWaits(const std::string &pair);
+void QueueGameEvent(const std::string &kind, const std::string &fields,
+                    unsigned long long attack = 0);
+bool AttackWaits(unsigned long long attack);
 
 struct QueuedAction {
   ActionType type;

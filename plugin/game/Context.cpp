@@ -548,11 +548,6 @@ std::string GetDetailedContext(Character *npc, const std::string &type) {
     json += "\"day\": " + ToString(day) + ",";
     json += "\"hour\": " + ToString(hour) + ",";
     json += "\"minute\": " + ToString(minute) + ",";
-    json +=
-        "\"gamespeed\": " + ToString((*ppWorld)->getFrameSpeedMultiplier()) +
-        ",";
-    json += "\"is_paused\": " +
-            std::string((*ppWorld)->isPaused() ? "true" : "false") + ",";
 
     DWORD now = GetTickCount();
     DWORD elapsed = now - g_lastAmbientTick;
@@ -594,8 +589,7 @@ std::string GetDetailedContext(Character *npc, const std::string &type) {
   } catch (...) {
   }
   json += "\"character_state\": \"" + charState + "\",";
-  json += "\"is_incapacitated\": " +
-          std::string((isDead || isUnconcious) ? "true" : "false") + ",";
+  json += "\"health\": \"" + GetHealthStatus(npc) + "\",";
 
   std::string name = "Unknown";
   try {
@@ -934,6 +928,7 @@ std::string TakeGameEvents() {
   std::deque<GameEvent> events;
   EnterCriticalSection(&g_eventMutex);
   events.swap(g_gameEvents);
+  g_waitingAttacks.clear();
   LeaveCriticalSection(&g_eventMutex);
 
   std::string json = "[";

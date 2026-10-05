@@ -50,6 +50,8 @@ MONEY = [
     (10000, "You have a fair amount of money."),
     (None, "You are wealthy."),
 ]
+# Keyed by Kenshi's WeatherAffecting enum values (getCurrentWeatherAffectStatus), worded from the value names only
+WEATHER = {1: "A dust storm blows.", 2: "Acid rain falls.", 3: "The air burns.", 4: "Gas hangs in the air.", 5: "Rain falls."}
 RUMOR_AGE = [(1, "Earlier today"), (2, "Yesterday"), (7, "A few days ago"), (None, "Some time ago")]
 
 STATES = {
@@ -246,10 +248,13 @@ def location_name(context):
 def location_text(environment):
     town, biome = environment.get("town_name", ""), environment.get("biome", "")
     if town and biome:
-        return f"You are in {town}, in {biome}."
-    if town or biome:
-        return f"You are in {town or biome}."
-    return "You are somewhere in the wasteland."
+        place = f"You are in {town}, in {biome}."
+    elif town or biome:
+        place = f"You are in {town or biome}."
+    else:
+        place = "You are somewhere in the wasteland."
+    walls = "You are inside the town walls." if environment.get("in_town") else ""
+    return " ".join(part for part in (place, walls, WEATHER.get(int(_number(environment.get("weather"))), "")) if part)
 
 
 def rumors_text(rumors, today):

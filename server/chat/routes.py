@@ -205,6 +205,7 @@ def chat():
                 "race": n.get('race', 'Unknown'),
                 "faction": n.get('faction', 'Unknown'),
                 "gender": n.get('gender', 'Unknown'),
+                "health": n.get('health'),
                 "nearby": [x for x in nearby if x.get('npc_id') != npc_id],
                 "player_dist": n.get('dist', 999.0)
             }
@@ -292,6 +293,7 @@ def chat():
                 if ctx_dict.get('faction'): target["faction"] = ctx_dict.get('faction')
                 if ctx_dict.get('factionID'): target["factionID"] = ctx_dict.get('factionID')
                 if ctx_dict.get('origin_faction'): target["origin_faction"] = ctx_dict.get('origin_faction')
+                if ctx_dict.get('health'): target["health"] = ctx_dict.get('health')
 
                 if "nearby" in ctx_dict:
                     target["nearby"] = ctx_dict["nearby"]

@@ -939,15 +939,19 @@ void ProcessMessageQueue(GameWorld *thisptr) {
 void attackingYou_hook(Character *npc, Character *attacker, bool so,
                        bool doAwarenessCheck) {
   // The hook runs many times a second for each attacker, so the faction check
-  // comes first, and an attack that already waits is not built again
+  // comes first, and the handle serials find an attack that already waits
+  // without building a string
   Faction *faction = attacker && npc ? attacker->getFaction() : nullptr;
   if (faction && (uintptr_t)faction > 0x1000 && faction->isThePlayer()) {
-    std::string target = GetNpcId(npc);
-    std::string pair = GetNpcId(attacker) + ">" + target;
-    if (!AttackWaits(pair))
-      QueueGameEvent("attack", pair,
+    unsigned long long attack =
+        (unsigned long long)attacker->getHandle().serial << 32 |
+        npc->getHandle().serial;
+    if (!AttackWaits(attack))
+      QueueGameEvent("attack",
                      "\"attacker\": " + EventParty(attacker) +
-                         ", \"target\": \"" + EscapeJSON(target) + "\"");
+                         ", \"target\": \"" + EscapeJSON(GetNpcId(npc)) +
+                         "\"",
+                     attack);
   }
   if (attackingYou_orig)
     attackingYou_orig(npc, attacker, so, doAwarenessCheck);
@@ -955,14 +959,14 @@ void attackingYou_hook(Character *npc, Character *attacker, bool so,
 
 void declareDead_hook(Character *npc) {
   if (npc)
-    QueueGameEvent("death", "", "\"party\": " + EventParty(npc));
+    QueueGameEvent("death", "\"party\": " + EventParty(npc));
   if (declareDead_orig)
     declareDead_orig(npc);
 }
 
 void setPrisonMode_hook(Character *npc, bool on, UseableStuff *h) {
   if (npc && on)
-    QueueGameEvent("imprisonment", "", "\"party\": " + EventParty(npc));
+    QueueGameEvent("imprisonment", "\"party\": " + EventParty(npc));
   if (setPrisonMode_orig)
     setPrisonMode_orig(npc, on, h);
 }
@@ -974,11 +978,10 @@ void setProneState_hook(Character *npc, ProneState p) {
   if (npc && (p == PS_KO) != down) {
     std::string id = "\"id\": \"" + EscapeJSON(GetNpcId(npc)) + "\"";
     if (down)
-      QueueGameEvent("up", "",
-                     id + ", \"carried\": " +
-                         (npc->isBeingCarried() ? "true" : "false"));
+      QueueGameEvent("up", id + ", \"carried\": " +
+                               (npc->isBeingCarried() ? "true" : "false"));
     else
-      QueueGameEvent("knockout", "", id);
+      QueueGameEvent("knockout", id);
   }
   if (setProneState_orig)
     setProneState_orig(npc, p);

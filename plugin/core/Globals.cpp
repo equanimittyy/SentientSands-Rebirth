@@ -30,6 +30,7 @@ hand g_lastChattingPlayerHand;
 CRITICAL_SECTION g_stateMutex;
 
 std::deque<GameEvent> g_gameEvents;
+std::set<unsigned long long> g_waitingAttacks;
 CRITICAL_SECTION g_eventMutex;
 
 std::deque<QueuedAction> g_uiActionQueue;

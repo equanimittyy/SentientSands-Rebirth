@@ -166,6 +166,8 @@ class SentenceTest(unittest.TestCase):
     def test_location(self):
         self.assertEqual(scene_text.location_text({"town_name": "Blister Hill"}), "You are in Blister Hill.")
         self.assertEqual(scene_text.location_text({}), "You are somewhere in the wasteland.")
+        self.assertEqual(scene_text.location_text({"town_name": "Squin", "in_town": True, "weather": 1}), "You are in Squin. You are inside the town walls. A dust storm blows.")
+        self.assertEqual(scene_text.location_text({"in_town": False, "weather": 0}), "You are somewhere in the wasteland.")
 
 
 if __name__ == "__main__":
