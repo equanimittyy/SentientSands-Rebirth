@@ -83,7 +83,7 @@ The plugin holds no state for the deeds, because its hooks run off the game thre
 | `death` | `declareDead_hook` | Each call | The character |
 | `imprisonment` | `setPrisonMode_hook` with `on` | Each call | The character |
 
-- Each event holds the game time.
+- Each event holds the game time, read under `g_eventMutex` when the event joins the queue. `LogGameEvent` reads it before the lock, so two hooks on different threads could queue their events out of the order of their game times, and the server takes a step back of the game time as a load ([Attribution](#attribution)).
 - `attackingYou_hook` runs many times a second for each attacker, for example 2,182 times in 15 s for one attacker and one target. The check against the queue sends one `attack` for each attacker and target in each report, so the queue that the plugin already has is its only memory. The check of the faction comes first, so the attacks of everybody else cost one faction read.
 - The `knockout`, `up`, `death`, and `imprisonment` events of characters that no squad member attacked reach the server too, because the plugin keeps no record of who attacked whom. They are few: a played session had 14 new knockouts and 9 deaths.
 - The hooks of damage (`applyDamage_hook`), first aid (`applyFirstAid_hook`), trades (`buyItem_hook`), loot (`isItOkForMeToLoot_hook`), raids (`triggerCampaign_hook`), new owners of towns (`setFaction_hook`), and slavery (`setChainedMode_hook`) go, because they only log events, and none of these events can make a deed.
@@ -119,20 +119,24 @@ The repeat check by name and message goes (`record_event_to_history` in `server/
 
 ### Attribution
 
-The server keeps, for each character of the events by its `id`, the squad members that attacked it, each with the game time of its last `attack`, and a knockout mark. It keeps them in memory for the active campaign, so a campaign switch or a restart of the server clears them.
+The server keeps the events of each character by its `id`, in their order: the `attack` events on it, and its `knockout`, `up`, `death`, and `imprisonment` events. It keeps them in memory for the active campaign, so a campaign switch or a restart of the server clears them. They are few, because the plugin sends an `attack` only once for each attacker and target in each report.
 
-1. An `attack` adds the attacker to the target, or sets its time.
-2. A `knockout` sets the mark. While the mark is set, the attackers of the character do not age.
+A `death` or an `imprisonment` replays the events of the character since its last `death` or `imprisonment`:
+
+1. An `attack` adds the attacker, or sets its time.
+2. A `knockout` sets a mark. While the mark is set, the attackers of the character do not age.
 3. An `up` that is not carried clears the mark, and sets the time of each attacker to the time of the `up`, so the 3 game hours count from then. An `up` that is carried is the pickup by a captor, and changes nothing.
-4. A `death` or an `imprisonment` takes the attackers of the character: all of them while the mark is set, else each attacker whose last attack is in the last 3 game hours. Kenshi gives no last hit, so each of them counts as a killer or as a captor.
+4. The `death` or the `imprisonment` takes the attackers: all of them while the mark is set, else each attacker whose last attack is in the 3 game hours before it. Kenshi gives no last hit, so each of them counts as a killer or as a captor.
 
 - A character that bleeds out keeps the attackers of its knockout, also when it dies more than 3 game hours after the last attack. 5 Bonedogs in a played session died so late ([section 2](#2-probe)).
 - A capture in Kenshi is a knockout, a carry, and a cell, so an `imprisonment` takes the attackers of the knockout as its captors, however long the carry takes. The prison hook names no captor.
 - The mark is the server's own, because the game shows neither the knockout nor the carry when the captor puts the character into a cage. The pickup of a knocked-out character also sets another prone state, so only an `up` that is not carried clears it.
 - A character that walks into a cell by itself has no recent attackers, so its `imprisonment` gives no deed.
-- A load puts the game time back. An event with a game time before the newest event therefore clears all attackers and marks, because the attacks of the undone play did not happen.
+- A load puts the game time back. An event with a game time before the newest event therefore drops each kept event after that game time, because that play did not happen in the loaded save. The events before it stay, so a fight or a carry across a save and a load keeps its attackers.
+- The server cannot tell two lines of play apart. A load of a save from another line of play keeps the events before the loaded game time, and a load of a save with a later game time drops nothing. The 3 game hours age out most of these attackers, but not those of a character with the mark.
 - A capture counts once for each captor and known figure, because `setPrisonMode` runs again with `on` for each prisoner when a save loads.
-- The server drops each attacker older than 3 game hours of a character without the mark, and the attackers of a character that died.
+- The deeds of the undone play stay until the player culls, as the dialogue and the rumors do ([Rows](#rows)).
+- Rejected: a load that clears all events. A fight or a carry across a save and a load would lose its attackers, for example the capture of a known figure that the player saved during the carry.
 
 ### Rows
 
@@ -182,7 +186,10 @@ Each squad member has one `count` row for each faction that it killed members of
 - The count holds only the victims that are not known figures. A known figure makes its own notable event.
 - One death with two squad attackers counts for both.
 - An animal counts by its race, such as Beak Thing, because the faction of an animal, such as Wolves for a Bonedog, does not tell what it is. A title such as Beak Slayer then has a race to fit.
-- A mod can split one animal into several races, such as `Bonedog (white)` and `Bonedog (yellow)` of `Wolf_Headgear.mod`, so the count of that animal splits by race. This plan does not join them.
+- A mod can split one animal into several races, such as `Bonedog (white)`, `Bonedog (yellow)`, and `Bonedog (darkbrown)` of `Wolf_Headgear.mod`. The count therefore takes the race entry of the campaign whose name or alias matches the race, as the prompts do (`find_race` in `server/chat/prompts.py`), and the race itself when no entry matches. A `Bonedog` entry with the three variants as aliases makes one count of Bonedogs.
+- The deed keeps the race as the game gives it. The server looks up the entry at each kill, so an alias joins only the kills after it.
+- SSR Vanilla has no race entries of animals, so the player adds them on Campaign Canon.
+- Rejected: a cut of a final part in parentheses from the race. It misses the variants that other mods name in another way, and it joins two animals that differ only in that part.
 - The line names a faction as its members, such as "members of the Dust Bandits" or "members of The Holy Nation", because many faction names are not plural. It names an animal race in the plural, with an s unless the name ends in s, such as "Beak Things".
 - The rumor of a count grows with it ([section 6](#growth)), so the count is one row and not one row for each step.
 - The scale starts at 25, because a few kills are part of any trip through the wasteland. The bounds are starting values.
@@ -296,10 +303,10 @@ Rejected:
 
 1. [kenshi_internals.md](../info/kenshi_internals.md) records the answers of the probe of [section 2](#2-probe).
 2. `server/tests/test_world_events.py` covers:
-   - the attribution: an attacker within 3 game hours and after them, the attackers of a knocked-out character after 3 game hours, an `up` that clears the mark and restarts the clock, a carried `up` that keeps the mark, a character that walks into a cell, a load that puts the game time back, and a second capture of the same known figure at a load;
+   - the attribution: an attacker within 3 game hours and after them, the attackers of a knocked-out character after 3 game hours, an `up` that clears the mark and restarts the clock, a carried `up` that keeps the mark, a character that walks into a cell, a load that drops only the events after the loaded game time, a carry across a save and a load, and a second capture of the same known figure at a load;
    - the deeds: one kill for each attacker, the capture of a known figure, no deed for the capture of another character, and no deed for a victim in the player's faction;
    - the known figures: a canon character by `npc_id`, a generic character with a canon template, and a character with the `origin` `game`;
-   - the notable events: the kill and the capture of a known figure, the first step of a count, each further step, a kill that reaches no new step, two factions, an animal race, two squad members, and a known figure that does not count;
+   - the notable events: the kill and the capture of a known figure, the first step of a count, each further step, a kill that reaches no new step, two factions, an animal race, a race variant that joins its race entry by an alias, two squad members, and a known figure that does not count;
    - the line of a count: a faction with and without a leading "The", and an animal race with and without a final s;
    - the cull of deeds, notable events, and rumors, and a count that goes back a step;
    - the facts: the phrase of each step, the sex, race, and first sentence of the backstory of a known figure, and the allies and enemies of a faction;
