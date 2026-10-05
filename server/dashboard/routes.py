@@ -10,7 +10,7 @@ from chat.bio import recorded_history
 from chat.characters import send_rename
 from chat.llm import default_llm_config, send_completion
 from chat.prompts import describe_faction, describe_race, describe_record, faction_text, find_named
-from chat.routes import bio_refusal, bio_reply, rumor_reply
+from chat.routes import bio_refusal, bio_reply, keep_rumor_reply, rumor_reply
 from core import deeds, state
 from core.game import report_from_game
 from core.paths import (CAMPAIGNS_DIR, DEFAULT_TEMPLATE, LLM_CONFIG_PATH, PROMPTS_DIR, USER_PROMPTS_DIR, USER_TEMPLATES_DIR,
@@ -181,6 +181,7 @@ def get_active_campaign():
 @bp.route('/api/campaign/canon', methods=['GET'])
 def get_campaign_canon():
     try:
+        squad_deeds = deeds.character_deeds()
         return jsonify({
             "status": "ok",
             "name": state.ACTIVE_CAMPAIGN,
@@ -193,7 +194,8 @@ def get_campaign_canon():
                 for f in campaign_db.list_factions()
             ],
             "characters": [
-                {"id": npc_id, "data": {"game_id": npc_id.removeprefix("u:"), "profile": profile}, "origin": origin, "updated_at": updated_at, "current_faction": state.LIVE_CONTEXTS.get(npc_id, {}).get("faction")}
+                {"id": npc_id, "data": {"game_id": npc_id.removeprefix("u:"), "profile": profile}, "origin": origin, "updated_at": updated_at, "current_faction": state.LIVE_CONTEXTS.get(npc_id, {}).get("faction"),
+                 **({"deeds": squad_deeds[npc_id]} if npc_id in squad_deeds else {})}
                 for (npc_id,), profile, origin, updated_at in campaign_db.list_records("character")
             ],
             "entities": [
@@ -338,18 +340,7 @@ def generate_campaign_rumor():
 
 @bp.route('/api/campaign/rumors', methods=['POST'])
 def save_campaign_rumor():
-    """Saves the text of a rumor by its id, or the rumor of a notable event, which a rumor of Generate Rumor has no id for yet."""
-    data = request.get_json(silent=True) or {}
-    refused = campaign_write(data)
-    if refused: return refused
-    text = str(data.get("text") or "").strip()
-    if not text:
-        key = str(data["id"]) if data.get("id") else f"new:{data.get('notable')}"
-        return jsonify({"status": "error", "errors": [{"field": ["rumors", key], "message": "A rumor needs text. Delete it instead."}]}), 400
-    instruction = data.get("instruction")
-    if not campaign_db.save_rumor(data.get("id"), data.get("notable"), text, None if instruction is None else str(instruction).strip()):
-        return jsonify({"status": "error", "message": "The rumor or its event is gone. Discard to load the events again."}), 404
-    return jsonify({"status": "ok"})
+    return keep_rumor_reply(request.get_json(silent=True) or {})
 
 @bp.route('/api/campaign/rumors/delete', methods=['POST'])
 def delete_campaign_rumor():

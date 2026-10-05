@@ -5,7 +5,7 @@ from flask import Blueprint, jsonify, request
 
 from chat.bio import recorded_history
 from chat.characters import get_character_data, reported_sex, sync_name
-from core import log_setup, state
+from core import deeds, log_setup, state
 from core.game import context_dict, generate_relation_bar, take_report
 from core.pipe import send_to_pipe
 from core.settings import CHAT_HOTKEYS, SETTINGS_DEFAULTS, load_configs, load_settings, save_settings, settings_page_values
@@ -49,32 +49,34 @@ def rename_character():
 
 @bp.route('/events', methods=['GET', 'POST'])
 def list_events():
-    logging.debug(f"HTTP: {request.method} /events")
-
-    rumors = []
-    for rumor in reversed(campaign_db.rumors()):
+    """The notable events for the World Events Log, newest first. The plugin finds the keys of each event after its "id", so
+    each key must sort after "id", as Flask sorts them."""
+    events = []
+    rumors = {rumor["id"]: rumor for rumor in campaign_db.rumors()}
+    for event in deeds.notable_events():
         # "N." numbering rather than "#N": MyGUI parses "#" as a color tag
-        words = rumor["text"].split()
-        short = " ".join(words[:7]) + ("..." if len(words) > 7 else "")
-        label = f"{len(rumors) + 1}. {short}"
-        rumors.append({"id": str(rumor["id"]), "title": label[:80], "inner": rumor["text"]})
-    return jsonify({"status": "ok", "events": rumors})
+        words = event["line"].split()
+        mark = " (grown)" if event["grown"] else " (rumor)" if event["rumor"] else ""
+        title = f"{len(events) + 1}. " + " ".join(words[:7]) + ("..." if len(words) > 7 else "")
+        rumor = rumors.get(event["rumor"])
+        events.append({"id": str(event["id"]), "title": title[:80] + mark, "inner": event["line"] + (" " + rumor["text"] if rumor else ""),
+                       "instruction": rumor["instruction"] if rumor else ""})
+    return jsonify({"status": "ok", "events": events})
 
 @bp.route('/events/content', methods=['POST'])
 def events_content():
     """The plugin's SetEventsText renders each newline-separated line as a row."""
+    import textwrap
     data = request.json or {}
-    rumor_id = data.get("day", "")  # "day" holds the rumor id that /events returned
-
-    try:
-        text = next((rumor["text"] for rumor in campaign_db.rumors() if str(rumor["id"]) == str(rumor_id)), None)
-        if text:
-            import textwrap
-            card_lines = ["=" * 38, "  WORLD RUMOR", "=" * 38, ""] + textwrap.wrap(text, width=76)
-            return jsonify({"status": "ok", "text": "\n".join(card_lines)})
-    except Exception as e:
-        logging.error(f"EVENT: Cannot build the events text: {e}")
-    return jsonify({"status": "error", "text": "Entry not found."}), 404
+    event = next((event for event in deeds.notable_events() if str(event["id"]) == str(data.get("id"))), None)
+    if not event:
+        return jsonify({"status": "error", "text": "The event is gone."}), 404
+    rumor = next((rumor for rumor in campaign_db.rumors() if rumor["id"] == event["rumor"]), None)
+    lines = ["=" * 38, "  WORLD EVENT", "=" * 38, ""] + textwrap.wrap(event["line"], width=76) + ["", event["time"]]
+    if event["grown"]:
+        lines.append(f"The count grew to {event['grown']} since the rumor was kept.")
+    lines += ["", "RUMOR:"] + (textwrap.wrap(rumor["text"], width=76) if rumor else ["None yet. Press Generate Rumor to write one."])
+    return jsonify({"status": "ok", "text": "\n".join(lines)})
 
 @bp.route('/report', methods=['POST'])
 def game_report():

@@ -35,7 +35,7 @@ struct LibraryTask {
 };
 
 struct EventTask {
-  std::string day;
+  std::string id;
   std::string json;
 };
 

@@ -181,6 +181,16 @@ The `rumor` table holds the text, the game time, the instruction, the notable ev
 - A rumor stays when its notable event goes, for example when an alias joins its count into another count, because the player wrote it.
 - The chat scene gives each NPC the 5 newest rumors by game time (`PROMPT_RUMORS`), with their age, so a grown rumor counts as new.
 
+The Dynamic World Events Log in game mirrors Campaign Log > Events, as the Dialogue Library mirrors Generate Bio (see [Provisional profiles](#provisional-profiles)):
+
+1. The list holds the notable events, newest first, each with "(rumor)" or "(grown)" after its line (`/events`). The right side shows the line, the game time, and the rumor of the selected event (`/events/content`).
+2. **Generate Rumor** opens a window that asks for the instruction, and starts with the instruction of the rumor. `/write_rumor` returns the text, and a second window shows it in an edit box. Keep sends the text and the instruction to `/keep_rumor`, and Discard drops it.
+3. **Edit Rumor** skips the LLM: `/read_rumor` returns the stored text, and the same edit window opens.
+
+- `/write_rumor` and `/keep_rumor` share the code of the routes of the web app (`rumor_reply` and `keep_rumor_reply`).
+- The replies of `/write_rumor` and `/read_rumor` carry the active campaign, and Keep sends it back. `/keep_rumor` refuses the text when that campaign is no longer active, because the same notable event ID can name another deed in another campaign.
+- Each close of the window makes the pending reply stale (`CloseRumorUI` in `plugin/ui/EventsWindow.cpp`), because the player can close the window or open it for another event while a request runs.
+
 ## Web app
 
 The server serves `server/dashboard/web/` at `/` and `/web/<file>`. The files are plain HTML, CSS, JavaScript modules, fonts, and images, with no build step, no npm packages, and no assets from a CDN, so the web app works offline and the release needs no extra tools.
@@ -242,7 +252,7 @@ The Relations section of a race, location, or region lists its children, which t
 
 The Race, Sex, and Faction of a character are choices, not free text (`choice` in `server/dashboard/web/editor.js`). Race offers the race entries of the page, Faction offers its factions, and Sex offers Male, Female, and Other. A stored value selects the choice whose name or alias it matches, with case ignored. A blank value or a value that matches no choice shows as Unknown, and a save of the character writes Unknown.
 
-Other Details shows the `Relation` of a character as a bar from -100 to 100, with the labels of the relation bar in game, and its `OriginFaction`. On Campaign Canon it also shows the current faction that the game reported for the character since the server started, so the player can compare it with the Faction that the prompts use, whether the character is an animal (`Animal`, see [Provisional profiles](#provisional-profiles)), and, at the bottom, the Current Job (see [Current Job](#current-job)). All are read-only, because the game and the chats set them. A save keeps every profile key that the form does not show, as it is.
+Other Details shows the `Relation` of a character as a bar from -100 to 100, with the labels of the relation bar in game, and its `OriginFaction`. On Campaign Canon it also shows the current faction that the game reported for the character since the server started, so the player can compare it with the Faction that the prompts use, whether the character is an animal (`Animal`, see [Provisional profiles](#provisional-profiles)), the Current Job (see [Current Job](#current-job)), and, at the bottom, the kills of a squad member for each faction and animal race and the known figures that it killed or captured (see [Deeds](#deeds)). All are read-only, because the game and the chats set them. A save keeps every profile key that the form does not show, as it is.
 
 A provisional character (see [Provisional profiles](#provisional-profiles)) shows as Provisional in the list and on its record. Its Other Details also show its chat count against the Chats before a bio setting. A save that changes its Personality, Backstory, or SpeechQuirks ends the provisional state, because a later bio would overwrite the player's text.
 
@@ -620,7 +630,7 @@ Edit Bio in the Dialogue Library skips the LLM. `/read_bio` returns the stored `
 | `POST /api/campaigns/switch` | Make a campaign the current one. The name must be a folder that the campaign list shows, so a name such as `../x` cannot point outside `server/data/campaigns/`. |
 | `POST /api/campaigns/delete` | Delete a campaign folder, with the same name check. Before it deletes the current campaign, it switches to the first other one. When no other campaign remains, the server has no current campaign (see [Campaign storage](#campaign-storage)). |
 | `GET /api/campaign` | The active campaign: its notable events with their lines and rumor marks (see [Deeds](#deeds)), its rumors, and its chat threads with their members, lines, and memories. A refused campaign gives status 409 with the reason. |
-| `GET /api/campaign/canon` | The canon of the active campaign, each record with its `origin` and `updated_at`, and each character with the `current_faction` that a chat reported since the server started (`LIVE_CONTEXTS`), or `null`. A refused campaign gives status 409 with the reason. |
+| `GET /api/campaign/canon` | The canon of the active campaign, each record with its `origin` and `updated_at`, each character with the `current_faction` that a chat reported since the server started (`LIVE_CONTEXTS`), or `null`, and each character with deeds with its kills and known figures as text (`deeds`, see [Deeds](#deeds)). A refused campaign gives status 409 with the reason. |
 | `POST /api/campaign/records`, `.../records/delete` | Save or delete one canon record of the active campaign. A faction, character, race, location, or region with no ID is new. |
 | `POST /api/campaign/characters/bio` | The LLM text of the full bio, or of one part, for the form of a character. It stores nothing (see [Provisional profiles](#provisional-profiles)). |
 | `POST /api/campaign/rumors/generate` | The LLM text of a rumor of a notable event. It stores nothing (see [Rumors](#rumors)). |

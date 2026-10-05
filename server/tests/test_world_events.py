@@ -204,6 +204,12 @@ class CountTest(WorldEventsTestCase):
         self.kill([BEEP], TINFIST, at(2))
         self.assertEqual(self.lines(), ["Beep of Nameless killed Tinfist."])
 
+    def test_each_squad_member_lists_its_kills_and_known_figures(self):
+        self.kill_many([BEEP], 3, 0)
+        self.kill_many([BEEP], 2, 100, faction="Wolves", race="Bonedog (white)", animal=True)
+        self.kill([BEEP], TINFIST, at(2))
+        self.assertEqual(deeds.character_deeds(), {"h:1": {"kills": ["3 members of the Dust Bandits", "2 Bonedogs"], "figures": ["Killed Tinfist"]}})
+
     def test_a_cull_deletes_the_later_deeds_and_puts_a_count_back_a_step(self):
         self.kill_many([BEEP], 25, 0)
         for number in range(75):

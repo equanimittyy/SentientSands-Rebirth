@@ -187,6 +187,12 @@ void ProcessMessageQueue(GameWorld *thisptr) {
             FinishKeptBio(data);
           } else if (command == "POPULATE_EVENTS") {
             PopulateEventsUI(data);
+          } else if (command == "RUMOR_WRITTEN") {
+            OpenRumorEditor(data, "Write failed: ");
+          } else if (command == "RUMOR_READ") {
+            OpenRumorEditor(data, "Load failed: ");
+          } else if (command == "RUMOR_KEPT") {
+            FinishKeptRumor(data);
           }
         }
       } else if (isRename) {

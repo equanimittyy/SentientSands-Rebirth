@@ -351,7 +351,9 @@ function characterForm(form, path, record) {
       source === "campaign" ? field("Animal", el("span", {}, { 1: "Yes", 0: "No" }[form.details.Animal] ?? "Unknown"), null, "Whether the character is an animal, such as a bonedog or a goat. An animal answers only with an action or a sound, never with words. The game decides it, and a Fishman always counts as an animal.") : null,
       isProvisional(record) ? field("Chats", el("span", {}, chatCount(form.details[PROVISIONAL])), null, "How many times you talked to the character. Its personality, backstory, and speech quirks are rolled, not written. When the count reaches Chats before a bio on the Settings page, the LLM writes its full bio.") : null,
       source === "campaign" ? field("Current Job", el("span", {}, form.details.CurrentJob || "Unknown"), null, "What the character does in the game, for example Guarding a building. It updates each time the character chats or banters.") : null,
-      source === "campaign" ? field("Current Location", el("span", {}, form.details.CurrentLocation || "Unknown"), null, "Where the character was when you last talked to it, for example Bar, The Hub, or Wilderness, Vain.") : null),
+      source === "campaign" ? field("Current Location", el("span", {}, form.details.CurrentLocation || "Unknown"), null, "Where the character was when you last talked to it, for example Bar, The Hub, or Wilderness, Vain.") : null,
+      source === "campaign" ? field("Kills", el("span", {}, record.deeds?.kills.join(", ") || "Unknown"), null, "The kills of the character as a member of your squad, for each faction and each kind of animal. A kill counts for each squad member that attacked the victim. Known figures count apart.") : null,
+      source === "campaign" ? field("Known Figures", el("span", {}, record.deeds?.figures.join(", ") || "Unknown"), null, "The known figures that the character killed or captured as a member of your squad.") : null),
   ];
 }
 

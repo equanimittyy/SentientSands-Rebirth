@@ -148,6 +148,20 @@ def notable_events():
     return events
 
 
+def character_deeds():
+    """The deeds of each squad member as text, for Campaign Canon: its kills for each faction and animal race, and the known
+    figures that it killed or captured."""
+    summary = campaign_db.deed_summary()
+    names = campaign_db.names_of({victim_id for entry in summary.values() for _, victim_id, _ in entry["figures"]})
+    return {
+        doer: {
+            "kills": [f"{count} {plural(value) if target == 'race' else members_of(value)}" for target, value, count in entry["kills"]],
+            "figures": [f"{'Killed' if kind == 'kill' else 'Captured'} {names.get(victim_id, name)}" for kind, victim_id, name in entry["figures"]],
+        }
+        for doer, entry in summary.items()
+    }
+
+
 def character_ids(kind, deed):
     return [doer["id"] for doer in deed["doers"]] + [deed["victim"]["id"]] if kind == "figure" else [deed["doer"]]
 

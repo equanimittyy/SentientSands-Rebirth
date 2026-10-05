@@ -496,6 +496,24 @@ def add_deeds(kind, doers, victim, figure, game_time):
     return doers
 
 
+def deed_summary():
+    """For each doer: its kills of characters that are not known figures, as (target, value, count) with target "faction" or
+    "race", most first; and the known figures that it killed or captured, as (kind, npc_id, name), oldest first."""
+    summary = {}
+    with _connect() as conn:
+        races = _race_entries(conn)
+        rows = conn.execute("SELECT doer_id, kind, victim_id, victim_name, faction, race, animal, figure FROM deed ORDER BY game_time, id").fetchall()
+    for doer, kind, victim_id, victim_name, faction, race, animal, figure in rows:
+        entry = summary.setdefault(doer, {"kills": {}, "figures": []})
+        if figure:
+            entry["figures"].append((kind, victim_id, victim_name))
+        else:
+            key = ("race", races.get(race.lower(), race)) if animal else ("faction", faction)
+            entry["kills"][key] = entry["kills"].get(key, 0) + 1
+    return {doer: {"kills": sorted(((target, value, count) for (target, value), count in entry["kills"].items()), key=lambda kill: -kill[2]), "figures": entry["figures"]}
+            for doer, entry in summary.items()}
+
+
 def notables():
     """Every notable event as (id, kind, game_time, deed), newest first. A count has the game time of the kill that reached
     its step."""
