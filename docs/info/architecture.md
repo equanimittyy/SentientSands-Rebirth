@@ -258,7 +258,7 @@ Other Details shows the `Relation` of a character as a bar from -100 to 100, wit
 - The status, which is the health that a chat reported for the character since the server started, for example Injured or Unconscious.
 - Whether the character is an animal (`Animal`, see [Provisional profiles](#provisional-profiles)), and whether it is unique (see [Deeds](#deeds)).
 - The Current Job (see [Current Job](#current-job)).
-- At the bottom, the known figures that a squad member killed or captured (see [Deeds](#deeds)).
+- At the bottom, the Deeds of a squad member: the known figures that it killed or captured (see [Deeds](#deeds)).
 
 All are read-only, because the game and the chats set them. A save keeps every profile key that the form does not show, as it is.
 

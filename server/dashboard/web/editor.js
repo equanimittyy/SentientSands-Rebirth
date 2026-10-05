@@ -349,14 +349,14 @@ function characterForm(form, path, record) {
       el("p", { className: "hint" }, "The game and your chats set these details."),
       field("Relation (to you)", relationBar(form.details.Relation), null, "How much the character likes you, from -100 to 100. Your chats with the character change it."),
       source === "campaign" ? field("Current Faction", el("span", {}, record.current_faction || "Unknown"), null, "The faction that the game reports for the character. It shows after you select the character or talk near it while the game runs.") : null,
-      source === "campaign" ? field("Status", el("span", {}, record.status || "Unknown"), null, "How the character was when the game last reported it: Healthy, Injured, Crippled, Unconscious, Dead, or Playing Dead. It shows after you talk to the character or near it while the game runs.") : null,
+      source === "campaign" ? field("Status", el("span", {}, record.status || "Unknown"), null, "The health of the character, such as Injured or Unconscious. It shows after you talk to or near the character while the game runs.") : null,
       field("Original Faction", el("span", {}, form.details.OriginFaction || "Unknown"), null, "The faction that the character comes from."),
       source === "campaign" ? field("Animal", el("span", {}, { 1: "Yes", 0: "No" }[form.details.Animal] ?? "Unknown"), null, "Whether the character is an animal, such as a bonedog or a goat. An animal answers only with an action or a sound, never with words. The game decides it, and a Fishman always counts as an animal.") : null,
-      source === "campaign" ? field("Unique", el("span", {}, record.id ? (isUnique(record) ? "Yes" : "No") : "Unknown"), null, "Whether the game marks the character as unique, such as Tinfist, and not generic, such as a Dust Bandit. When your squad kills or captures a unique character, the deed shows on Campaign Log > Deeds.") : null,
+      source === "campaign" ? field("Unique", el("span", {}, record.id ? (isUnique(record) ? "Yes" : "No") : "Unknown"), null, "Whether the game marks the character as unique, such as Tinfist. Only unique characters count for deeds.") : null,
       isProvisional(record) ? field("Chats", el("span", {}, chatCount(form.details[PROVISIONAL])), null, "How many times you talked to the character. Its personality, backstory, and speech quirks are rolled, not written. When the count reaches Chats before a bio on the Settings page, the LLM writes its full bio.") : null,
       source === "campaign" ? field("Current Job", el("span", {}, form.details.CurrentJob || "Unknown"), null, "What the character does in the game, for example Guarding a building. It updates each time the character chats or banters.") : null,
       source === "campaign" ? field("Current Location", el("span", {}, form.details.CurrentLocation || "Unknown"), null, "Where the character was when you last talked to it, for example Bar, The Hub, or Wilderness, Vain.") : null,
-      source === "campaign" ? field("Known Figures", el("span", {}, record.deeds?.join(", ") || "Unknown"), null, "The known figures that the character killed or captured as a member of your squad. A kill or capture counts for each squad member that attacked the victim.") : null),
+      source === "campaign" ? field("Deeds", el("span", {}, record.deeds?.join(", ") || "Unknown"), null, "The unique characters that the character killed or captured in your squad. Each attacker gets the deed.") : null),
   ];
 }
 
