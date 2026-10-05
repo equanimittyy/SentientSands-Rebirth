@@ -306,7 +306,10 @@ std::string RoleJson(Character *npc) {
   bool follower = false;
   std::string jobs;
   try {
-    trader = npc->isATrader();
+    // isATrader covers the whole trader squad, guards too; the trader leads it
+    ActivePlatoon *active = npc->getPlatoon();
+    trader = npc->isATrader() && active && (uintptr_t)active > 0x1000 &&
+             active->squadleader == npc;
     // A hire or escort contract makes an NPC follow the player without a recruit
     Blackboard *board = npc->getBlackboard();
     follower = board && (uintptr_t)board > 0x1000 && board->hasContractJob();

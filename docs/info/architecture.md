@@ -441,7 +441,7 @@ The `CurrentJob` of a profile is a short phrase for what the NPC does in game no
 | A hire or escort contract (`temporary_follower`) | Temporary follower of the player's faction |
 | The NPC is in the player's faction | Member of the player's faction |
 | A shopkeeper node among the squad jobs | Running a shop |
-| Another trader (`is_trader`) | Trading |
+| Another trader (`is_trader`: the leader of a trader squad) | Trading |
 | A squad job in `TABLE` | Its phrase, for example Patrolling the town |
 | No squad job that `TABLE` knows, for example in a squad without an AI package | None: no line in the prompt, and Unknown on the web app |
 

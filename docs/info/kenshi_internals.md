@@ -48,6 +48,7 @@ A change of the mod list is not tested, by decision. Because a string ID names t
 The role probe logged 26 characters in one town of a UWE game.
 
 - The squad template of a character (`Character::getPlatoon()->me->squadTemplate`) and its AI package decide the role. The jobs of the package reach the character as `TaskType` values in `OrdersReceiver::squadAIPackage`, one list for each priority. A shop guard held `STAND_AT_GUARD_NODE_HOMEBUILDING_IN_OUT`, the barman who led the same squad held `SIT_ON_THRONE`, and the mercenaries in a bar held `RELAX_IN_TOWN_PACKAGE`.
+- The `is trader` flag belongs to the squad template, not to the character. A shop squad has the trader as its leader and Shop Guards as its members, so `Character::isATrader` is true for the shop guards too. The plugin takes only the squad leader as the trader (`RoleJson` in `plugin/game/Context.cpp`).
 - The current goal (`OrdersReceiver::getCurrentGoal`) changes within seconds, for example from `PATROL_TOWN` to none.
 - The names of AI packages and squads come from the mods, for example `(LB) Shop-24hr` and `Merchant (Mod)`.
 - The live NPC type (`StateBroadcastData::NPCType`) equalled the `NPC class` of the template of each character.
