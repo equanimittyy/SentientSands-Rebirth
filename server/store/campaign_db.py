@@ -511,6 +511,13 @@ def save_rumor(rumor_id, notable_id, text, instruction=None):
         return conn.execute("UPDATE rumor SET text = ?, instruction = COALESCE(?, instruction) WHERE id = ?", (text, instruction, rumor_id)).rowcount > 0
 
 
+def add_rumor(notable_id, text):
+    """Adds the rumor of the notable event with its game time, unless the event is gone or already has a rumor, which the
+    player may have saved while the LLM wrote this one. Returns whether it added the rumor."""
+    with _connect(write=True) as conn:
+        return conn.execute("INSERT OR IGNORE INTO rumor (notable_id, game_time, text) SELECT id, game_time, ? FROM notable WHERE id = ?", (text, notable_id)).rowcount > 0
+
+
 def cull_after(day, hour, minute):
     """Deletes the dialogue, notable events, rumors, thread members, and memories dated after the given game time. Returns
     the count per table of the dialogue, the notable events, and the rumors."""

@@ -11,7 +11,7 @@ const TASK_HINTS = {
   chat: "The reply of an NPC when you talk to it.",
   ambient: "A conversation between NPCs near you, on the radiant timer.",
   profile: "The bio of an NPC, or one part of it, written after a few chats with it, or when you ask for it.",
-  synthesis: "A rumor about a notable deed of your squad, when you press Generate Rumor.",
+  synthesis: "A rumor about a deed of your squad, when you stop chatting or press Generate Rumor.",
   memory: "A short summary of each conversation, written when you stop chatting for the Conversation timeout on the Settings page.",
 };
 const TYPE_LABELS = { openai: "OpenAI-compatible", player2: "Player2" };

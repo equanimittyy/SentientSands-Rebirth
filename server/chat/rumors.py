@@ -1,5 +1,5 @@
-"""The facts of a notable event, which the LLM turns into a rumor when the player presses Generate Rumor. SSR writes no
-rumor by itself: the player decides which deed is worth a rumor and how the wasteland tells it."""
+"""The facts of a notable event, which the LLM turns into a rumor. The server writes the rumor of each deed in a quiet
+period of the chat (write_rumors in chat/memory.py), and Generate Rumor writes it again with the player's instruction."""
 import re
 
 from chat.characters import reported_sex

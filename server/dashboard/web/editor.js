@@ -968,7 +968,7 @@ function renderEvents() {
     el("p", { className: "hint" },
       "The known figures that your squad killed or captured, newest first. A known figure is a character on Campaign Canon that came from the template or that you added, such as Tinfist. Loaded an older save? Cull future data on the Campaigns page removes the later deeds."),
     el("p", { className: "hint" },
-      "Press Generate Rumor to write a deed's rumor. Edit it, or press the robot to rewrite it with new instructions, then save. NPCs hear the 5 newest rumors."),
+      "SSR writes a deed's rumor after the memories, when you stop chatting for the Conversation timeout. Press Generate Rumor to write it sooner, or the robot to rewrite it with new instructions. Edit it, then save. NPCs hear the 5 newest rumors."),
     ...(deeds.length > 0 ? [el("div", { className: "inline row" }, search, select), el("div", { id: "event-page" })] : [el("p", { className: "hint" }, "No deeds yet.")]));
 }
 

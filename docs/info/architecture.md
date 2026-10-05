@@ -139,11 +139,18 @@ The `notable` table holds one row for each deed. Campaign Log > Deeds on the web
 
 ### Rumors
 
-SSR writes no rumor by itself. The player decides which notable event is worth a rumor and how the wasteland tells it, and a call for each notable event would load a small local model in the middle of play.
+The server writes the rumor of each deed by itself, in the quiet period of the memories (see [Conversation memories](#conversation-memories)). After the distillation, it writes the rumor of each notable event of the active campaign that has none, one call at a time, the oldest first (`write_rumors` in `server/chat/memory.py`).
 
-1. On Campaign Log > Deeds, the player presses **Generate Rumor** in the row of a notable event and types an instruction, such as "Beep is known as the Stickman of the Dust". The dialog starts with the instruction of the rumor, if any.
+- The rumors wait while a chat thread waits for its memory, because the memories come first. A thread whose call failed therefore holds back the rumors until a later quiet period writes its memory.
+- Before each call, the server checks that the chat is still quiet, as for the memories, because a local model serves one request at a time.
+- The call has no instruction and no rumor so far. A failed call leaves the notable event without a rumor, and the next quiet period tries it again.
+- The server stores the text only when the notable event still has no rumor (`campaign_db.add_rumor`), so a rumor that the player saved during the call stays. It drops the text when the active campaign changed during the call, because the same notable event ID can name another deed in another campaign.
+
+The player can write a rumor sooner, or again with an instruction:
+
+1. On Campaign Log > Deeds, the player presses **Generate Rumor** in the row of a notable event that has no rumor, or the robot button next to its rumor, and types an instruction, such as "Beep is known as the Stickman of the Dust". The dialog starts with the instruction of the rumor, if any.
 2. `POST /api/campaign/rumors/generate` sends the facts of the notable event, the instruction, and the rumor so far to the LLM, with the `synthesis` task, and returns the text (`rumor_reply` in `server/chat/routes.py`). It stores nothing.
-3. The page puts the text into an edit box in the row, so the player reads and edits it before a save keeps it. The robot button next to the box opens the dialog again, and the new text replaces the text in the box.
+3. The page puts the text into the edit box of the row, so the player reads and edits it before a save keeps it.
 4. Save stores the rumor with its notable event and its instruction (`save_rumor`).
 
 - The rumor so far is the text in the row, also when the player edited it and did not save it, as Generate Bio reads the form. The in-game window sends the stored rumor.
@@ -320,7 +327,7 @@ When the origin faction of an NPC is its current faction, the chat prompt gives 
 
 ## LLM routing
 
-Each LLM call names a task: `chat`, `ambient`, `profile`, `synthesis`, or `memory`. Generate Rumor makes the `synthesis` call (see [Rumors](#rumors)). `server/config/llm_config.json` holds four parts, and the web app's Models page edits all of them through `/api/llm`.
+Each LLM call names a task: `chat`, `ambient`, `profile`, `synthesis`, or `memory`. The rumors of the quiet period and Generate Rumor make the `synthesis` call (see [Rumors](#rumors)). `server/config/llm_config.json` holds four parts, and the web app's Models page edits all of them through `/api/llm`.
 
 | Part | Contents |
 |---|---|
@@ -453,7 +460,7 @@ The chat prompt reads the threads and the speaker of each row, so the NPC tells 
 The server distills each chat thread into a short memory, which replaces the lines of the thread. The chat prompt, the Dialogue Library, the bio prompt, and the Dialogue & Memories subtab read the memories (see [Web app](#web-app)).
 
 - A thread is pending when it has a line and no memory. When no chat request or reply came for the Conversation timeout (`quiet_seconds`), the server writes the memory of each pending thread of the active campaign, one call at a time, the oldest first (`memory_loop` in `server/chat/memory.py`). The server start, a campaign switch, and a cull start this quiet clock again (`restart_quiet_clock`).
-- The distillation runs once in each quiet period. After a failed call, the thread stays pending, the server moves on to the next thread, and the next quiet period tries the failed thread again.
+- The distillation runs once in each quiet period, and the rumors of the deeds follow it (see [Rumors](#rumors)). After a failed call, the thread stays pending, the server moves on to the next thread, and the next quiet period tries the failed thread again.
 - Before each call, the server checks that the chat is still quiet, so a chat that starts during the distillation waits for one call at most. A local model serves one request at a time, so a call during a chat would delay the reply.
 - Before each call, the server also ends the current thread, under `THREAD_LOCK`, so a chat during the call starts a new thread and each memory covers a whole thread. A pause as long as the Conversation timeout therefore splits a conversation into two threads.
 - The call takes the `memory` task (see [LLM routing](#llm-routing)) and `prompt_thread_memory.txt`, with the lines of the copy that the subtab shows (`campaign_db.pending_threads`). The memory names each speaker and never says "you" outside a quote, so every member of the thread can read the same text. It tells what came of the conversation, not the order of its lines, and quotes at most one line that stood out word for word, because people remember a sharp line better than a summary of it.

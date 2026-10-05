@@ -414,6 +414,13 @@ class CullAndRumorTest(CampaignTestCase):
         self.assertFalse(campaign_db.save_rumor(None, notable_id + 1, "none"))
         self.assertFalse(campaign_db.save_rumor(rumor["id"] + 1, None, "none"))
 
+    def test_an_added_rumor_never_replaces_a_rumor(self):
+        notable_id = self.figure(1440)
+        self.assertTrue(campaign_db.add_rumor(notable_id, "auto"))
+        self.assertFalse(campaign_db.add_rumor(notable_id, "again"))
+        self.assertFalse(campaign_db.add_rumor(notable_id + 1, "gone"))
+        self.assertEqual([(rumor["notable_id"], rumor["game_time"], rumor["text"], rumor["instruction"]) for rumor in campaign_db.rumors()], [(notable_id, 1440, "auto", "")])
+
     def test_delete_rumor(self):
         campaign_db.save_rumor(None, self.figure(1440), "one")
         (rumor,) = campaign_db.rumors()
