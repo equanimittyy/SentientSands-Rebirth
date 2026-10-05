@@ -10,6 +10,7 @@ const openCards = new Set();
 const OTHER = "Other prompts";
 const PROMPT_INFO = {
   "prompt_system.txt": { group: "Conversations", title: "System prompt", blurb: "The stable frame of every chat and banter: the rules and the world lore. It comes first, so a provider can cache it." },
+  "prompt_animal_system.txt": { group: "Conversations", title: "Animal system prompt", blurb: "Takes the place of the system prompt when you talk to an animal, such as a bonedog or a goat. An animal answers only with an action or a sound, never with words." },
   "npc_chat_template.txt": { group: "Conversations", title: "NPC chat template", blurb: "How a chat describes the NPC, from its profile. It stays the same from turn to turn." },
   "response_rules.txt": { group: "Conversations", title: "Reply rules", blurb: "The rules for how an NPC writes a reply." },
   "prompt_chat_template.txt": { group: "Conversations", title: "Chat request", blurb: "The system message of a chat: the system prompt, the judgment rule, the NPC chat template, the chat scene, then the memories of the NPC. It changes only when a conversation starts or a memory of the NPC is written, so a provider can cache it." },

@@ -2,7 +2,7 @@ import logging
 import threading
 
 from chat import chat_prompt
-from chat.characters import is_animal, reported_sex
+from chat.characters import reported_sex
 from chat.llm import call_llm, robust_json_parse
 from chat.prompts import current_job_line, describe_faction, describe_race, fill_prompt
 from core import state
@@ -63,7 +63,7 @@ def generate_bio(npc_id):
         bio = write_bio(
             profile,
             # An animal keeps no backstory and no speech quirk
-            ["Personality"] if is_animal(race) else list(BIO_PARTS),
+            ["Personality"] if profile.get("Animal") else list(BIO_PARTS),
             "",
             recorded_history(npc_id),
             describe_race(race),

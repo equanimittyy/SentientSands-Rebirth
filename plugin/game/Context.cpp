@@ -679,6 +679,8 @@ std::string GetDetailedContext(Character *npc, const std::string &type) {
       raceName = race->data->stringID;
   }
   json += "\"race\": \"" + EscapeJSON(raceName) + "\",";
+  json += "\"animal\": " + std::string(npc->isAnimal() ? "true" : "false") +
+          ",";
 
   std::string gender = "male";
   try {
@@ -836,6 +838,8 @@ std::string GetDetailedContext(Character *npc, const std::string &type) {
 
         json += "{\"name\":\"" + EscapeJSON(o_name) + "\",";
         json += "\"race\":\"" + EscapeJSON(o_rn) + "\",";
+        json += "\"animal\":" +
+                std::string(other->isAnimal() ? "true" : "false") + ",";
         json += "\"faction\":\"" + EscapeJSON(o_fn) + "\",";
         json += "\"gender\":\"" + EscapeJSON(o_gender) + "\",";
         json += "\"health\":\"" + EscapeJSON(o_health) + "\",";

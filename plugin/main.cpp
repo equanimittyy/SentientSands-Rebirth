@@ -1217,6 +1217,9 @@ void playerUpdate_hook(PlayerInterface *thisptr) {
                       "\"npc_id\":\"" + EscapeJSON(GetNpcId(other)) + "\",";
                   npcData += "\"race\":\"" + EscapeJSON(o_rn) + "\",";
                   npcData +=
+                      "\"animal\":" +
+                      std::string(other->isAnimal() ? "true" : "false") + ",";
+                  npcData +=
                       "\"gender\":\"" +
                       std::string(other->isFemale() ? "female" : "male") +
                       "\",";

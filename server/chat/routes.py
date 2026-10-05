@@ -8,10 +8,10 @@ from flask import Blueprint, jsonify, request
 
 from chat import chat_prompt
 from chat.bio import BIO_PARTS, generate_bio, recorded_history, write_bio
-from chat.characters import get_character_data, is_animal, npc_name, reported_sex, should_save_profile
+from chat.characters import get_character_data, npc_name, reported_sex, should_save_profile
 from chat.llm import call_llm
 from chat.memory import quiet_seconds
-from chat.prompts import build_system_prompt, describe_faction, describe_npc, describe_race, fill_prompt, npc_scene, scene_values
+from chat.prompts import build_system_prompt, describe_faction, describe_npc, describe_race, fill_prompt, load_prompt_component, npc_scene, scene_values
 from chat.synthesis import RUMOR_SYNTHESIS, generate_global_narrative_thread
 from core import state
 from core.game import context_dict, get_current_time_prefix, is_player_faction, note_faction, npc_serial, record_event_to_history, take_report
@@ -339,12 +339,11 @@ def chat():
 
     logging.info(f"CHAT: {mode} with {primary_npc} ({len(listeners) - 1} others hear it)...")
 
-    primary_race = primary_data.get('Race', 'Unknown')
-    animal = is_animal(primary_race)
+    animal = primary_data.get("Animal")
 
     if animal:
-        system_prompt = f"CRITICAL: {primary_npc} is an ANIMAL ({primary_race}). Animals in Kenshi CANNOT speak human languages. They do not use words, symbols, or telegram-style speech. They ONLY react with brief physical actions, sounds, or gestures described within asterisks."
-        final_instruction = f"Respond as {primary_npc} (the animal). Provide a single, BRIEF action description or sound in asterisks (e.g. *Growls*, *Tilts head*, *Nuzzles hand*). DO NOT USE WORDS OR SPEECH. Keep it under 6 words."
+        system_prompt = load_prompt_component("prompt_animal_system.txt")
+        final_instruction = f"Reply as {primary_npc} with one action or sound in asterisks, and no words."
         judgment = ""
     else:
         system_prompt = build_system_prompt()
@@ -437,6 +436,9 @@ def chat():
         
         # The plugin shows each line as its own speech bubble, so one reply is one line
         content = " ".join(filtered_lines) if filtered_lines else "..."
+        # The model still gives an animal words now and then, so only the *action* parts reach the game
+        if animal:
+            content = " ".join(re.findall(r"\*[^*\n]+\*", content)) or "..."
 
         if len(content) > 500:
             content = content[:497] + "..."

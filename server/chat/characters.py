@@ -7,14 +7,6 @@ from core.game import context_dict, is_player_faction
 from core.pipe import send_to_pipe
 from store import campaign_db
 
-ANIMAL_RACES = [
-    "Bonedog", "Boneyard Wolf", "Garru", "Beak Thing", "Gorillo",
-    "Landbat", "Goat", "Bull", "Leviathan", "Blood Spider", "Skin Spider",
-    "Cave Crawler", "Crab", "Raptor", "Darkfinger", "Thrasher", "Cleaner",
-    "Crimper", "Skimmer", "Beeler", "Bat", "Spider", "Wolf",
-    "Dog", "Turtle", "Cleanser", "Gurgler", "Fishman"
-]
-
 # The game reports a skeleton as male. The prefixes cover the skeleton races of vanilla Kenshi and UWE.
 SKELETON_RACE_PREFIXES = ("skeleton", "p2 unit", "p4 unit", "screamer", "soldierbot")
 
@@ -24,11 +16,13 @@ def is_skeleton(race):
 def reported_sex(race, gender):
     return "Other" if is_skeleton(race) else gender
 
-def is_animal(race):
-    return any(keyword.lower() in str(race).lower() for keyword in ANIMAL_RACES)
+def character_kind(animal, race):
+    return "animal" if animal else "skeleton" if is_skeleton(race) else "person"
 
-def character_kind(race):
-    return "animal" if is_animal(race) else "skeleton" if is_skeleton(race) else "person"
+def animal_flag(ctx):
+    """The game's own animal flag, which knows the animal races of every mod. The template validator takes no true or
+    false as a profile value, so the profile stores 1 or 0."""
+    return int(bool(ctx.get("animal")))
 
 KENSHI_NAME_POOL = [
     "Kaelen", "Korg", "Vayn", "Sark", "Mina", "Rook", "Drake", "Silas", "Tane", "Kuna",
@@ -97,7 +91,8 @@ def new_profile(name, npc_id, ctx_data):
         return live_ctx.get(key, missing) if value == missing else value
 
     race = fact("race")
-    kind = character_kind(race)
+    animal = animal_flag(ctx_data)
+    kind = character_kind(animal, race)
     faction = fact("faction")
     # Modded factions often report no name through the hooks
     if faction == "Unknown":
@@ -106,6 +101,7 @@ def new_profile(name, npc_id, ctx_data):
     return {
         "Name": name,
         "Race": race,
+        "Animal": animal,
         "Sex": reported_sex(race, fact("gender")),
         "Faction": faction,
         "OriginFaction": fact("origin_faction"),
@@ -139,6 +135,11 @@ def get_character_data(name, context=""):
                     data["Race"] = current_race
                     needs_save = True
                     
+                if "animal" in ctx_data and data.get("Animal") != animal_flag(ctx_data):
+                    logging.debug(f"PROFILE: Updating Animal for {name}: {animal_flag(ctx_data)}")
+                    data["Animal"] = animal_flag(ctx_data)
+                    needs_save = True
+
                 if data.get("Sex") in ("Unknown", None) and current_sex not in ("Unknown", None):
                     logging.debug(f"PROFILE: Updating Sex for {name}: {current_sex}")
                     data["Sex"] = current_sex
@@ -173,7 +174,7 @@ def get_character_data(name, context=""):
 
                 # Bypasses should_save_profile, which would drop generic-content profiles
                 if needs_save:
-                    campaign_db.upsert_profile(npc_id, {k: data[k] for k in ("Race", "Sex", "Faction", "OriginFaction", "CurrentJob", "CurrentLocation") if k in data})
+                    campaign_db.upsert_profile(npc_id, {k: data[k] for k in ("Race", "Animal", "Sex", "Faction", "OriginFaction", "CurrentJob", "CurrentLocation") if k in data})
                     if data.get("CurrentJob") is None:
                         data.pop("CurrentJob", None)
         except Exception as e:
@@ -185,6 +186,7 @@ def get_character_data(name, context=""):
             return {
                 "Name": name,
                 "Race": ctx_data.get("race", "Unknown"),
+                "Animal": animal_flag(ctx_data),
                 "Sex": reported_sex(ctx_data.get("race", "Unknown"), ctx_data.get("gender", "Unknown")),
                 "Faction": ctx_data.get("faction", "Unknown"),
                 "OriginFaction": ctx_data.get("origin_faction", "Unknown"),
