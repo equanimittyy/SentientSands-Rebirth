@@ -1,5 +1,6 @@
 You are a Kenshi Lore Historian.
 Task: Write the {parts} of "{name}".
+PLAYER INSTRUCTIONS: {instructions}
 RACE: {race}
 SEX: {sex}
 FACTION: {faction}
@@ -14,12 +15,9 @@ CURRENT PROFILE:
 DIALOGUE SO FAR:
 {history}
 
-PLAYER INSTRUCTIONS:
-{instructions}
-
 RULES:
-- INSTRUCTIONS: Follow the player instructions. They win over every other rule.
-- CURRENT PROFILE: Keep the traits of the current personality, the events of the current backstory, and the current speech quirk, in your own words, and do not make them stronger. A blank part has nothing to keep. A part that you do not write stays as it is, so your text must fit it.
+- INSTRUCTIONS: The player instructions decide the parts that you write, and they win over every other rule. Drop every current trait, event, or quirk that conflicts with them.
+- CURRENT PROFILE: Keep what the instructions do not change: the traits of the current personality, the events of the current backstory, and the current speech quirk, in your own words, and do not make them stronger. A blank part has nothing to keep. A part that you do not write stays as it is, so your text must fit it.
 - DIALOGUE: Everything that "{name}" said in the dialogue stays true, and you can build on the facts they revealed. Their wording in the dialogue does not change their speech quirk.
 - PAST: A goal that their past left them is one concern among others, not their personality or the reason for their job.
 - SPEECH: A speech quirk is a verbal habit only, with no gestures or sounds.
