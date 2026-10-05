@@ -44,6 +44,9 @@ def ambient_event():
     recent_dialogue = []
     for npc in npc_limit:
         if isinstance(npc, dict):
+            if npc.get('npc_id'):
+                # The faction of a banter NPC is its identity faction, not the current faction that Campaign Canon shows
+                merge_live_context({key: value for key, value in npc.items() if key != 'faction'})
             name = npc_name(npc)
             nid = npc.get('id', 0)
             name_to_id[name] = nid
@@ -54,7 +57,7 @@ def ambient_event():
 
             # "Name|ID" lets the plugin map each banter line to the right NPC
             health = npc.get('health', 'Healthy')
-            gear = npc.get('equipment', 'nothing notable')
+            gear = npc.get('equipment') or 'nothing notable'
             char_profiles += f"\n- {name}|{nid} ({reported_sex(npc.get('race'), npc.get('gender'))} {npc.get('race')}, {npc.get('faction')}) | Health: {health} | Gear: {gear} | Personality: {d.get('Personality') or ''} | Speech quirks: {d.get('SpeechQuirks') or ''}"
         else:
             name_to_id[npc] = 0
@@ -173,6 +176,16 @@ INSTRUCTIONS:
     
     return jsonify({"status": "none"})
 
+def merge_live_context(ctx):
+    # Merge rather than replace, because a nearby entry lacks fields, such as factionID, that a full context of the same character stored
+    live = state.LIVE_CONTEXTS.setdefault(ctx['npc_id'], {})
+    for key in ("race", "faction", "factionID", "origin_faction", "gender", "health"):
+        if ctx.get(key): live[key] = ctx[key]
+    if "nearby" in ctx:
+        live["nearby"] = ctx["nearby"]
+    if "dist" in ctx:
+        live["player_dist"] = ctx["dist"]
+
 @bp.route('/chat', methods=['POST'])
 def chat():
     started = time.monotonic()
@@ -201,14 +214,7 @@ def chat():
     for n in nearby:
         npc_id = n.get('npc_id')
         if n.get('name') and npc_id:
-            state.LIVE_CONTEXTS[npc_id] = {
-                "race": n.get('race', 'Unknown'),
-                "faction": n.get('faction', 'Unknown'),
-                "gender": n.get('gender', 'Unknown'),
-                "health": n.get('health'),
-                "nearby": [x for x in nearby if x.get('npc_id') != npc_id],
-                "player_dist": n.get('dist', 999.0)
-            }
+            merge_live_context({**n, "nearby": [x for x in nearby if x.get('npc_id') != npc_id]})
 
     # Keeps the LLM from being asked to voice the player
     npcs = [n for n in npcs if n != player_name]
@@ -287,19 +293,7 @@ def chat():
             if ctx_dict:
                 note_faction(ctx_dict)
             if primary_id:
-                # Merge rather than replace, to keep the nearby list and other tracked fields
-                target = state.LIVE_CONTEXTS.setdefault(ctx_dict['npc_id'], {})
-                if ctx_dict.get('race'): target["race"] = ctx_dict.get('race')
-                if ctx_dict.get('faction'): target["faction"] = ctx_dict.get('faction')
-                if ctx_dict.get('factionID'): target["factionID"] = ctx_dict.get('factionID')
-                if ctx_dict.get('origin_faction'): target["origin_faction"] = ctx_dict.get('origin_faction')
-                if ctx_dict.get('health'): target["health"] = ctx_dict.get('health')
-
-                if "nearby" in ctx_dict:
-                    target["nearby"] = ctx_dict["nearby"]
-
-                if "dist" in ctx_dict:
-                    target["player_dist"] = ctx_dict["dist"]
+                merge_live_context(ctx_dict)
         except Exception as e:
             logging.error(f"CHAT: Cannot register the context of the chat target: {e}")
 
@@ -307,8 +301,9 @@ def chat():
         primary_npc = npc_name(ctx_dict)
 
     speaker_id = speaker.get("npc_id")
-    # Stores a profile for the speaker, whom the listeners leave out
+    # The listeners and the nearby list leave out the speaker, so only this stores its live context and its profile
     if speaker_id:
+        merge_live_context(speaker)
         npc_name(speaker)
     thread_key = (speaker_id, primary_id, mode)
     timeout = quiet_seconds()

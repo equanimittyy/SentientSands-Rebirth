@@ -124,5 +124,6 @@ def scene_values(player, player_name, facing=True):
             player.get("faction", "Nameless"), player_faction["description"].strip() if player_faction else "",
             player.get("inventory") or [],
             building_of(player),
+            player.get("character_state", "normal"),
         ),
     }

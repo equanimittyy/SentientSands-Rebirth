@@ -1147,6 +1147,9 @@ void playerUpdate_hook(PlayerInterface *thisptr) {
                                              : "false") +
                              ",";
                   npcData += RoleJson(other) + ",";
+                  npcData += ProfileJson(other) + ",";
+                  npcData += "\"equipment\":\"" +
+                             EscapeJSON(GetVisibleEquipment(other)) + "\",";
                   npcData +=
                       "\"faction\":\"" + EscapeJSON(identityFaction) + "\"}";
                   first = false;

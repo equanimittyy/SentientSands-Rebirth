@@ -14,5 +14,7 @@ void LogFactionList();
 void LogNpcRole(Character *npc);
 std::string EventParty(Character *npc);
 std::string RoleJson(Character *npc);
+std::string ProfileJson(Character *npc);
+std::string GetVisibleEquipment(Character *npc);
 std::string TakeGameEvents();
 std::string GameReport();

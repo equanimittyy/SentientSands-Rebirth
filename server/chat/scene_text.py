@@ -55,11 +55,11 @@ WEATHER = {1: "A dust storm blows.", 2: "Acid rain falls.", 3: "The air burns.",
 RUMOR_AGE = [(1, "Earlier today"), (2, "Yesterday"), (7, "A few days ago"), (None, "Some time ago")]
 
 STATES = {
-    "imprisoned": "You are imprisoned and cannot move freely.",
-    "enslaved": "You are a slave, shackled to a master.",
-    "escaped-slave": "You escaped slavery, and you are hunted.",
-    "unconscious": "You are unconscious.",
-    "dead": "You are dead.",
+    "imprisoned": "{You} are imprisoned and cannot move freely.",
+    "enslaved": "{You} are a slave, shackled to a master.",
+    "escaped-slave": "{You} escaped slavery, and {you} are hunted.",
+    "unconscious": "{You} are unconscious.",
+    "dead": "{You} are dead.",
 }
 
 # Keyed by Kenshi's memory-tag enum values, worded from the tag names only
@@ -169,6 +169,10 @@ def hunger_text(subject, food_level):
     return f"{subject} {verb} {_scale(_number(food_level, 300), HUNGER)}."
 
 
+def state_text(subject, state):
+    return STATES.get(state, "").format(You=subject, you=subject.lower())
+
+
 def blood_text(subject, medical):
     max_blood = _number(medical.get("max_blood"), 100)
     share = _number(medical.get("blood"), 100) / max_blood if max_blood > 0 else 1.0
@@ -178,10 +182,16 @@ def blood_text(subject, medical):
         return f"{subject} {'are' if subject == 'You' else 'look'} weak from blood loss."
     if share < 0.85:
         return f"{subject} {'are' if subject == 'You' else 'look'} wounded."
-    return f"{subject} {'are' if subject == 'You' else 'seem'} healthy."
+    return ""
 
 
-def limbs_text(limbs):
+def health_text(subject, medical):
+    """Healthy only when neither the blood nor a limb shows a wound, so a crippled leg never reads as healthy."""
+    wounds = [text for text in (blood_text(subject, medical), limbs_text(medical.get("limbs") or {}, "your" if subject == "You" else "their")) if text]
+    return " ".join(wounds) if wounds else f"{subject} {'are' if subject == 'You' else 'seem'} healthy."
+
+
+def limbs_text(limbs, whose="your"):
     hurts = []
     for limb in (key for key in limbs if not key.endswith("_max")):
         hp, hp_max = _number(limbs[limb], 100), _number(limbs.get(f"{limb}_max"), 100)
@@ -189,11 +199,12 @@ def limbs_text(limbs):
             state = "gone"
         elif hp < 0:
             state = "crippled"
-        elif hp_max > 0 and hp / hp_max < 0.5:
+        # 0.7 matches Injured in GetHealthStatus (plugin), so the prompt and the web app Status agree
+        elif hp_max > 0 and hp / hp_max < 0.7:
             state = "hurt"
         else:
             continue
-        hurts.append(f"your {limb.replace('_', ' ')} is {state}")
+        hurts.append(f"{whose} {limb.replace('_', ' ')} is {state}")
     if not hurts:
         return ""
     text = _sentence(_join(hurts))
@@ -268,14 +279,16 @@ def rumors_text(rumors, today):
     return _section("Rumours:", sentences)
 
 
-def player_text(name, facing, race, sex, race_description, medical, feels_hunger, faction, faction_description, items, building=None):
+def player_text(name, facing, race, sex, race_description, medical, feels_hunger, faction, faction_description, items, building=None, state="normal"):
     """facing is False for banter, which has no NPC in front of the player. building is None outdoors."""
     who = person(race, sex)
     opener = "The individual before you is" if facing else "Nearby is"
     return _section("The person before you:" if facing else "The player:", [
         f"{opener} {name}, {who}." if who else f"{opener} {name}.",
         _sentence(race_description) if race_description else "",
-        blood_text("They", medical) if medical else "",
+        state_text("They", state),
+        health_text("They", medical) if medical else "",
+        state_text("They", "unconscious") if medical.get("is_unconscious") and state != "unconscious" else "",
         hunger_text("They", medical["hunger"]) if feels_hunger and "hunger" in medical else "",
         f"They are a member of {faction}." if _known(faction) else "",
         _sentence(faction_description) if faction_description else "",
@@ -296,7 +309,7 @@ def npc_text(context, profile, player_name, player_faction, *, met, major, in_pl
     state = context.get("character_state", "normal")
     sentences = [
         relation_text(player_name, player_faction, profile.get("Relation", 0), met, companions),
-        STATES.get(state, ""),
+        state_text("You", state),
     ]
     if _known(faction) and faction != old_faction:
         sentences.append(f"You belonged to {old_faction}, but now you belong to {faction}." if _known(old_faction) else f"You now belong to {faction}.")
@@ -319,10 +332,9 @@ def npc_text(context, profile, player_name, player_faction, *, met, major, in_pl
     if medical:
         if feels_hunger and "hunger" in medical:
             sentences.append(hunger_text("You", medical["hunger"]))
-        sentences.append(blood_text("You", medical))
+        sentences.append(health_text("You", medical))
         if medical.get("is_unconscious") and state != "unconscious":
-            sentences.append(STATES["unconscious"])
-        sentences.append(limbs_text(medical.get("limbs") or {}))
+            sentences.append(state_text("You", "unconscious"))
     sentences.append(building_text(context, trader))
     sentences += [combat_text(stats), strength_text(player_name, stats, player_stats or {})]
     if "money" in context:

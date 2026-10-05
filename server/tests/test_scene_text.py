@@ -60,7 +60,14 @@ class ScaleTest(unittest.TestCase):
         self.assertEqual(scene_text.blood_text("They", {"blood": 100, "max_blood": 100, "blood_rate": 0.5}), "They are bleeding.")
         self.assertEqual(scene_text.blood_text("You", {"blood": 40, "max_blood": 100}), "You are weak from blood loss.")
         self.assertEqual(scene_text.blood_text("They", {"blood": 80, "max_blood": 100}), "They look wounded.")
-        self.assertEqual(scene_text.blood_text("They", {"blood": 85, "max_blood": 100}), "They seem healthy.")
+        self.assertEqual(scene_text.blood_text("They", {"blood": 85, "max_blood": 100}), "")
+
+    def test_health_reads_healthy_only_without_a_wound(self):
+        self.assertEqual(scene_text.health_text("They", {"blood": 85, "max_blood": 100}), "They seem healthy.")
+        self.assertEqual(scene_text.health_text("You", {"blood": 100, "max_blood": 100}), "You are healthy.")
+        crippled = {"blood": 100, "max_blood": 100, "limbs": {"left_leg": -10, "left_leg_max": 100}}
+        self.assertEqual(scene_text.health_text("They", crippled), "Their left leg is crippled.")
+        self.assertEqual(scene_text.health_text("You", {**crippled, "blood": 80}), "You are wounded. Your left leg is crippled.")
 
     def test_combat_money_and_rumor_age_bounds(self):
         self.assertEqual([scene_text.combat_text({"melee_attack": v}) for v in (9, 10, 30, 60, 80)], [step for _, step in scene_text.COMBAT])
@@ -95,6 +102,7 @@ class SentenceTest(unittest.TestCase):
         limbs = {"left_arm": -10, "left_arm_max": 100, "right_leg": 40, "right_leg_max": 100, "head": 100, "head_max": 100}
         self.assertEqual(scene_text.limbs_text(limbs), "Your left arm is crippled and your right leg is hurt.")
         self.assertEqual(scene_text.limbs_text({"left_leg": -100, "left_leg_max": 100}), "Your left leg is gone.")
+        self.assertEqual([scene_text.limbs_text({"head": hp, "head_max": 100}) for hp in (69, 70)], ["Your head is hurt.", ""])
 
     def test_rumors_come_newest_first_with_their_age(self):
         lines = [(9 * 1440 + 850, "Shek raiders were seen near the Bad Teeth."), (11 * 1440 + 1142, "A caravan never arrived")]
@@ -108,6 +116,12 @@ class SentenceTest(unittest.TestCase):
         self.assertEqual(text, "The person before you:\nThe individual before you is Drifter, a Skeleton. Sentient machines from ancient times. They seem healthy. They are a member of Nameless.")
         self.assertTrue(scene_text.player_text("Drifter", False, "Unknown", "male", "", {}, True, "Unknown", "", []).startswith("The player:\nNearby is Drifter."))
         self.assertTrue(scene_text.player_text("Drifter", True, "Unknown", "male", "", {}, True, "Unknown", "", [], "Bar").endswith("They are inside Bar."))
+
+    def test_the_player_shows_its_state_and_wounds_as_an_npc_does(self):
+        medical = {"blood": 100, "max_blood": 100, "is_unconscious": True, "limbs": {"right_arm": -100, "right_arm_max": 100}}
+        text = scene_text.player_text("Drifter", True, "Unknown", "male", "", medical, False, "Unknown", "", [], state="imprisoned")
+        self.assertEqual(text, "The person before you:\nThe individual before you is Drifter. They are imprisoned and cannot move freely. Their right arm is gone. They are unconscious.")
+        self.assertEqual(scene_text.state_text("They", "escaped-slave"), "They escaped slavery, and they are hunted.")
 
     def test_the_npc_from_its_profile_repeats_neither_faction_nor_current_job(self):
         profile = {"Relation": -12, "Faction": "The Holy Nation", "CurrentJob": "Patrolling the town", "ConversationHistory": ["x"]}

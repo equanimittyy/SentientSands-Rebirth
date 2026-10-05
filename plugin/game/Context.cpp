@@ -147,7 +147,7 @@ static std::string GetHealthStatus(Character *npc) {
   return "Healthy";
 }
 
-static std::string GetVisibleEquipment(Character *npc) {
+std::string GetVisibleEquipment(Character *npc) {
   if (!npc || (uintptr_t)npc < 0x1000)
     return "";
   Inventory *inv = npc->getInventory();
@@ -383,6 +383,26 @@ std::string RoleJson(Character *npc) {
   return std::string("\"is_trader\":") + (trader ? "true" : "false") +
          ",\"temporary_follower\":" + (follower ? "true" : "false") +
          ",\"squad_jobs\":[" + jobs + "]";
+}
+
+std::string ProfileJson(Character *npc) {
+  std::string building = "Unknown";
+  const hand &buildingHandle = npc->isIndoors();
+  if (buildingHandle.isValid()) {
+    Building *b = buildingHandle.getBuilding();
+    if (b)
+      building = b->getName();
+  }
+  std::string json = "\"health\":\"" + EscapeJSON(GetHealthStatus(npc)) +
+                     "\",\"origin_faction\":\"" +
+                     EscapeJSON(GetIdentityFaction(npc)) +
+                     "\",\"building_name\":\"" + EscapeJSON(building) +
+                     "\",\"environment\":{";
+  TownBase *town = npc->getCurrentTownLocation();
+  if (town)
+    json += "\"town_name\":\"" +
+            EscapeJSON(((RootObjectBase *)town)->getName()) + "\",";
+  return json + "\"zone_name\":\"" + EscapeJSON(ZoneName()) + "\"}";
 }
 
 // Probe: the role and task data of a character, logged again when it changes.

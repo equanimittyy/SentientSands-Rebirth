@@ -386,7 +386,8 @@ void OnChatSendClick(MyGUI::Widget *sender) {
                               ", \"in_player_faction\":" +
                               (faction && faction->isThePlayer() ? "true"
                                                                  : "false") +
-                              ", " + RoleJson(other) +
+                              ", " + RoleJson(other) + ", " +
+                              ProfileJson(other) +
                               ", \"dist\":" + ToString((int)dist) + "}";
           }
         }
