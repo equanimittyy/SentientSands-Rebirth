@@ -56,7 +56,7 @@ def list_events():
     for event in deeds.notable_events():
         # "N." numbering rather than "#N": MyGUI parses "#" as a color tag
         words = event["line"].split()
-        mark = " (grown)" if event["grown"] else " (rumor)" if event["rumor"] else ""
+        mark = " (rumor)" if event["rumor"] else ""
         title = f"{len(events) + 1}. " + " ".join(words[:7]) + ("..." if len(words) > 7 else "")
         rumor = rumors.get(event["rumor"])
         events.append({"id": str(event["id"]), "title": title[:80] + mark, "inner": event["line"] + (" " + rumor["text"] if rumor else ""),
@@ -72,10 +72,7 @@ def events_content():
     if not event:
         return jsonify({"status": "error", "text": "The event is gone."}), 404
     rumor = next((rumor for rumor in campaign_db.rumors() if rumor["id"] == event["rumor"]), None)
-    lines = ["=" * 38, "  WORLD EVENT", "=" * 38, ""] + textwrap.wrap(event["line"], width=76) + ["", event["time"]]
-    if event["grown"]:
-        lines.append(f"The count grew to {event['grown']} since the rumor was kept.")
-    lines += ["", "RUMOR:"] + (textwrap.wrap(rumor["text"], width=76) if rumor else ["None yet. Press Generate Rumor to write one."])
+    lines = ["=" * 38, "  WORLD EVENT", "=" * 38, ""] + textwrap.wrap(event["line"], width=76) + ["", event["time"], "", "RUMOR:"] + (textwrap.wrap(rumor["text"], width=76) if rumor else ["None yet. Press Generate Rumor to write one."])
     return jsonify({"status": "ok", "text": "\n".join(lines)})
 
 @bp.route('/report', methods=['POST'])
@@ -253,7 +250,7 @@ def cull_future_data():
     # The player loaded an earlier save, so the next chat starts a conversation of its own
     state.CURRENT_THREAD.clear()
     state.restart_quiet_clock()
-    logging.info(f"CAMPAIGN: Culled {culled['dialogue']} dialogue lines, {culled['deed']} deeds, {culled['notable']} notable events, and {culled['rumor']} rumors after [Day {day}, {hour:02d}:{minute:02d}] in '{state.ACTIVE_CAMPAIGN}'")
+    logging.info(f"CAMPAIGN: Culled {culled['dialogue']} dialogue lines, {culled['notable']} notable events, and {culled['rumor']} rumors after [Day {day}, {hour:02d}:{minute:02d}] in '{state.ACTIVE_CAMPAIGN}'")
     return jsonify({"status": "ok", "time": f"Day {day}, {hour:02d}:{minute:02d}", "culled": culled})
 
 @bp.route('/history', methods=['POST'])

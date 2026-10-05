@@ -382,7 +382,7 @@ class ThreadTest(CampaignTestCase):
         self.assertEqual(listed, {self.STICK: (True, False), GENERIC_ID: (True, False), self.IZUMI: (True, True), self.RUKA: (False, False)})
 
 
-TINFIST = {"npc_id": "u:tinfist", "name": "Tinfist", "faction": "Anti-Slavers", "race": "Skeleton", "animal": False}
+TINFIST = {"npc_id": "u:tinfist", "name": "Tinfist", "faction": "Anti-Slavers"}
 
 
 class CullAndRumorTest(CampaignTestCase):
@@ -391,8 +391,8 @@ class CullAndRumorTest(CampaignTestCase):
         campaign_db.open_campaign(self.folder, lambda: SEED)
 
     def figure(self, at):
-        campaign_db.add_deeds("kill", [(BEEP_ID, "Beep")], TINFIST, True, at)
-        return next(notable_id for notable_id, _, time, _ in campaign_db.notables() if time == at)
+        campaign_db.add_deed("kill", [(BEEP_ID, "Beep")], TINFIST, at)
+        return next(notable_id for notable_id, time, _ in campaign_db.notables() if time == at)
 
     def test_cull_deletes_only_later_rows(self):
         campaign_db.append_dialogue(GENERIC_ID, spoken(None, "[Day 2, 09:59] early", "[Day 2, 10:01] late", "untimed"), BEEP)
@@ -400,9 +400,9 @@ class CullAndRumorTest(CampaignTestCase):
         campaign_db.save_rumor(None, kept, "old")
         campaign_db.save_rumor(None, culled, "new")
 
-        self.assertEqual(campaign_db.cull_after(2, 10, 0), {"dialogue": 1, "deed": 1, "notable": 1, "rumor": 1})
+        self.assertEqual(campaign_db.cull_after(2, 10, 0), {"dialogue": 1, "rumor": 1, "notable": 1})
         self.assertEqual(campaign_db.get_character(GENERIC_ID)["ConversationHistory"], ["[Day 2, 09:59] early", "untimed"])
-        self.assertEqual([at for _, _, at, _ in campaign_db.notables()], [2 * 1440 + 600])
+        self.assertEqual([at for _, at, _ in campaign_db.notables()], [2 * 1440 + 600])
         self.assertEqual([rumor["text"] for rumor in campaign_db.rumors()], ["old"])
 
     def test_a_notable_event_has_one_rumor_with_its_game_time(self):
@@ -413,30 +413,6 @@ class CullAndRumorTest(CampaignTestCase):
         self.assertEqual((rumor["notable_id"], rumor["game_time"], rumor["text"], rumor["instruction"]), (notable_id, 1440, "two", "Tell it grimly."))
         self.assertFalse(campaign_db.save_rumor(None, notable_id + 1, "none"))
         self.assertFalse(campaign_db.save_rumor(rumor["id"] + 1, None, "none"))
-
-    def test_a_saved_rumor_takes_the_new_step_of_its_count(self):
-        bandit = {"npc_id": "h:5", "name": "Dust Bandit", "faction": "Dust Bandits", "race": "Greenlander", "animal": False}
-        for minute in range(25):
-            campaign_db.add_deeds("kill", [(BEEP_ID, "Beep")], bandit, False, 1440 + minute)
-        (notable_id, _, _, _), = campaign_db.notables()
-        campaign_db.save_rumor(None, notable_id, "Beep kills bandits.")
-        for minute in range(75):
-            campaign_db.add_deeds("kill", [(BEEP_ID, "Beep")], bandit, False, 2 * 1440 + minute)
-        (rumor,) = campaign_db.rumors()
-        self.assertEqual((rumor["game_time"], rumor["step"]), (1464, 1))
-        campaign_db.save_rumor(rumor["id"], None, "Beep kills many bandits.")
-        (rumor,) = campaign_db.rumors()
-        self.assertEqual((rumor["game_time"], rumor["step"]), (2 * 1440 + 74, 2))
-
-    def test_a_rumor_stays_when_its_notable_event_goes(self):
-        bandit = {"npc_id": "h:5", "name": "Bonedog", "faction": "Wolves", "race": "Bonedog (white)", "animal": True}
-        for minute in range(25):
-            campaign_db.add_deeds("kill", [(BEEP_ID, "Beep")], bandit, False, 1440 + minute)
-        (notable_id, _, _, _), = campaign_db.notables()
-        campaign_db.save_rumor(None, notable_id, "Beep hunts white dogs.")
-        campaign_db.save_record("entity", ("races", "bonedog"), {"name": "Bonedog", "aliases": ["Bonedog (white)"]}, None)
-        campaign_db.add_deeds("kill", [(BEEP_ID, "Beep")], dict(bandit, race="Bonedog"), False, 1500)
-        self.assertEqual([(rumor["notable_id"], rumor["text"]) for rumor in campaign_db.rumors()], [(None, "Beep hunts white dogs.")])
 
     def test_delete_rumor(self):
         campaign_db.save_rumor(None, self.figure(1440), "one")

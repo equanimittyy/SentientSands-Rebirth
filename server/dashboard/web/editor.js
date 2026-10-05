@@ -31,7 +31,7 @@ const ORIGIN_LABELS = { seed: "Seeded", game: "Met in game", campaign: "Added in
 const PROVISIONAL = "Interactions";
 const IMPORT_PROBLEMS_SHOWN = 10;
 const EVENTS_PER_PAGE = 50;
-const NOTABLE_KINDS = { figure: "Known figure", count: "Kill count" };
+const NOTABLE_KINDS = { kill: "Kill", capture: "Capture" };
 
 let source = "campaign";
 let canon = null;
@@ -352,8 +352,7 @@ function characterForm(form, path, record) {
       isProvisional(record) ? field("Chats", el("span", {}, chatCount(form.details[PROVISIONAL])), null, "How many times you talked to the character. Its personality, backstory, and speech quirks are rolled, not written. When the count reaches Chats before a bio on the Settings page, the LLM writes its full bio.") : null,
       source === "campaign" ? field("Current Job", el("span", {}, form.details.CurrentJob || "Unknown"), null, "What the character does in the game, for example Guarding a building. It updates each time the character chats or banters.") : null,
       source === "campaign" ? field("Current Location", el("span", {}, form.details.CurrentLocation || "Unknown"), null, "Where the character was when you last talked to it, for example Bar, The Hub, or Wilderness, Vain.") : null,
-      source === "campaign" ? field("Kills", el("span", {}, record.deeds?.kills.join(", ") || "Unknown"), null, "The kills of the character as a member of your squad, for each faction and each kind of animal. A kill counts for each squad member that attacked the victim. Known figures count apart.") : null,
-      source === "campaign" ? field("Known Figures", el("span", {}, record.deeds?.figures.join(", ") || "Unknown"), null, "The known figures that the character killed or captured as a member of your squad.") : null),
+      source === "campaign" ? field("Known Figures", el("span", {}, record.deeds?.join(", ") || "Unknown"), null, "The known figures that the character killed or captured as a member of your squad. A kill or capture counts for each squad member that attacked the victim.") : null),
   ];
 }
 
@@ -932,22 +931,15 @@ function rumorCell(event) {
   const note = notes.get(`rumor:${key}`);
   const input = control("textarea", rumorDrafts, key, ["rumors", key], { rows: 3, label: "Rumor" });
   if (note?.field) setFieldError(input, note.text);
-  const again = event.id === null ? null : iconButton("bot", "Generate the rumor again", () => writeRumor(event));
+  const again = iconButton("bot", "Generate the rumor again", () => writeRumor(event));
   const remove = event.rumor === null ? deleteButton("Discard the new rumor", () => discardRumor(key)) : deleteButton("Delete the rumor", () => deleteRumor(event.rumor));
   return el("div", {},
     el("div", { className: "inline row" }, input, again, remove),
     note ? el("p", { className: `hint${note.error ? " error" : ""}` }, note.text) : null);
 }
 
-// A rumor whose deed is gone still reaches the NPCs, so it keeps a row
-const deedRows = () => [
-  ...log.notables,
-  ...log.rumors.filter((rumor) => !log.notables.some((event) => event.rumor === rumor.id))
-    .map((rumor) => ({ id: null, kind: null, time: rumor.time, line: "The deed is gone.", rumor: rumor.id })),
-];
-
 function renderEvents() {
-  const deeds = deedRows();
+  const deeds = log.notables;
   const counts = new Map();
   for (const event of log.notables) counts.set(event.kind, (counts.get(event.kind) ?? 0) + 1);
   if (!counts.has(eventView.type)) eventView.type = "all";
@@ -974,7 +966,7 @@ function renderEvents() {
   return el("fieldset", {},
     el("legend", {}, `Deeds (${deeds.length})`),
     el("p", { className: "hint" },
-      "Your squad's notable deeds, newest first: known figures it killed or captured, and each member's kills against one faction or animal once they reach 25. Loaded an older save? Cull future data on the Campaigns page removes the later deeds."),
+      "The known figures that your squad killed or captured, newest first. A known figure is a character on Campaign Canon that came from the template or that you added, such as Tinfist. Loaded an older save? Cull future data on the Campaigns page removes the later deeds."),
     el("p", { className: "hint" },
       "Press Generate Rumor to write a deed's rumor. Edit it, or press the robot to rewrite it with new instructions, then save. NPCs hear the 5 newest rumors."),
     ...(deeds.length > 0 ? [el("div", { className: "inline row" }, search, select), el("div", { id: "event-page" })] : [el("p", { className: "hint" }, "No deeds yet.")]));
@@ -999,7 +991,7 @@ function renderEventPage() {
   const holder = page.querySelector("#event-page");
   if (!holder) return;
   const needle = eventView.query.trim().toLowerCase();
-  const shown = deedRows().filter((event) => (eventView.type === "all" || event.kind === eventView.type) && (!needle || event.line.toLowerCase().includes(needle)));
+  const shown = log.notables.filter((event) => (eventView.type === "all" || event.kind === eventView.type) && (!needle || event.line.toLowerCase().includes(needle)));
   if (shown.length === 0) {
     holder.replaceChildren(el("p", { className: "hint" }, "No results."));
     return;
@@ -1009,7 +1001,7 @@ function renderEventPage() {
   const start = (eventView.page - 1) * EVENTS_PER_PAGE;
   const rows = shown.slice(start, start + EVENTS_PER_PAGE).map((event) => el("tr", {},
     el("td", {}, event.time),
-    el("td", {}, el("span", { className: "badge" }, NOTABLE_KINDS[event.kind] ?? "Unknown")),
+    el("td", {}, el("span", { className: "badge" }, NOTABLE_KINDS[event.kind] ?? event.kind)),
     el("td", {}, event.line),
     el("td", {}, rumorCell(event))));
   const head = el("tr", {}, el("th", {}, "Time"), el("th", {}, "Kind"), el("th", {}, "Deed"), el("th", {}, "Rumor"));

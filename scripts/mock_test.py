@@ -2,9 +2,8 @@
 
 The data goes in through the campaign_db calls that the chat route makes: chat threads with speakers and overhearers,
 a whisper and a yell, the memories of all chat threads but the newest, and one banter. The deeds go in as the events of
-the game, through the attribution of the server: kill counts of a faction and of an animal, a known figure killed and one
-captured, and two rumors, one of a count that grew after its rumor. The script refuses a campaign name that is taken, so
-a second run cannot add the data twice. It needs no Flask, so it runs in the dev container.
+the game, through the attribution of the server: a known figure captured, with a rumor, and one killed. The script
+refuses a campaign name that is taken, so a second run cannot add the data twice. It needs no Flask, so it runs in the dev container.
 """
 import argparse
 import re
@@ -44,9 +43,9 @@ IN_SQUAD = {STICK, IZUMI, MIKSE}
 MODE_TAGS = {"talk": "", "whisper": "(Whispered) ", "yell": "(Yelled) "}
 
 
-def party(npc_id, name, faction, race="Greenlander", animal=False):
+def party(npc_id, name, faction):
     """A character of a game event, as the plugin sends it (EventParty in plugin/game/Context.cpp)."""
-    return {"id": npc_id, "template_id": "", "name": name, "faction": faction, "player": faction == SQUAD, "race": race, "animal": animal}
+    return {"id": npc_id, "template_id": "", "name": name, "faction": faction, "player": faction == SQUAD}
 
 
 def at(day, hour, minute):
@@ -136,25 +135,15 @@ def fill():
     ], overhearers=[STICK])
 
     stick, izumi, mikse = (party(npc_id, NAMES[npc_id], SQUAD) for npc_id in (STICK, IZUMI, MIKSE))
-    for number in range(25):
-        kill([stick, izumi], party(f"h:93{number:04d}", "Dust Bandit", "Dust Bandits"), at(7, 10, number))
-    for number in range(25):
-        kill([mikse], party(f"h:94{number:04d}", "Bonedog", "Wolves", "Bonedog", animal=True), at(7, 16, number))
     king = party(DUST_KING, "Dust King", "Dust Bandits")
     deeds.take([{"kind": "attack", "attacker": member, "target": DUST_KING, **at(8, 12, 0)} for member in (stick, izumi, mikse)]
                + [{"kind": "knockout", "id": DUST_KING, **at(8, 12, 1)}, {"kind": "up", "id": DUST_KING, "carried": True, **at(8, 12, 5)},
                   {"kind": "imprisonment", "party": king, **at(8, 14, 0)}])
 
-    events = deeds.notable_events()
-    stick_count = next(event for event in events if event["kind"] == "count" and event["line"].startswith("Stick"))
-    capture = next(event for event in events if event["kind"] == "figure")
-    campaign_db.save_rumor(None, stick_count["id"], "They say the door guard of The Hub has put dozens of Dust Bandits in the sand.", "Stick is the door guard of The Hub.")
-    campaign_db.save_rumor(None, capture["id"], "Word in the bars is that three drifters of Nameless dragged the Dust King to a cage, and the Dust Bandits want them dead.", "")
-
-    # After its rumor, so the count of Stick shows as grown
-    for number in range(75):
-        kill([stick], party(f"h:95{number:04d}", "Dust Bandit", "Dust Bandits"), at(9, 8 + number // 60, number % 60))
-    kill([izumi, mikse], party(LONGEN, "Longen", "Traders Guild", "Scorchlander"), at(9, 20, 30))
+    (capture,) = deeds.notable_events()
+    campaign_db.save_rumor(None, capture["id"], "Word in the bars is that the Cage Crew of Nameless dragged the Dust King to a cage, and the Dust Bandits want them dead.",
+                           "Call the squad the Cage Crew.")
+    kill([izumi, mikse], party(LONGEN, "Longen", "Traders Guild"), at(9, 20, 30))
 
 
 def main():

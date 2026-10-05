@@ -226,9 +226,7 @@ std::string EventParty(Character *npc) {
          "\", \"name\": \"" + EscapeJSON(npc->getName()) +
          "\", \"faction\": \"" + EscapeJSON(FactionName(faction)) +
          "\", \"player\": " +
-         (faction && faction->isThePlayer() ? "true" : "false") +
-         ", \"race\": \"" + EscapeJSON(RaceName(npc)) + "\", \"animal\": " +
-         (npc->isAnimal() ? "true" : "false") + "}";
+         (faction && faction->isThePlayer() ? "true" : "false") + "}";
 }
 
 // The zone around the camera, for example Vain: the game gives no zone for each

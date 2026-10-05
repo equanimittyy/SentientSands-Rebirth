@@ -1,4 +1,4 @@
-"""Who of the player's squad killed or captured whom, from the events of the game.
+"""Which known figures the player's squad killed or captured, from the events of the game.
 
 The plugin keeps no state, so its hooks stay light: it sends the attacks of the player's faction, and the knockouts,
 wake-ups, deaths, and imprisonments of everyone. The server keeps the events of each character in memory and replays them
@@ -12,8 +12,6 @@ from store import campaign_db
 
 ATTACK_WINDOW_MINUTES = 180
 ENDS = ("death", "imprisonment")
-# A rumor does not count exactly, so it tells the step of a count (COUNT_STEPS) by its phrase
-STEP_PHRASES = ("dozens of", "more than a hundred", "hundreds of", "countless")
 
 _lock = threading.Lock()
 _histories = {}
@@ -113,18 +111,14 @@ def canon_id(party):
 
 
 def _store(kind, victim, attackers, at):
-    if victim.get("player"):
-        return
     victim_id = canon_id(victim)
-    figure = campaign_db.known_figure(victim_id)
-    if kind == "imprisonment" and not figure:
+    if victim.get("player") or not campaign_db.known_figure(victim_id):
         return
     deed = "kill" if kind == "death" else "capture"
-    doers = campaign_db.add_deeds(
+    doers = campaign_db.add_deed(
         deed,
         [(canon_id(attacker), attacker.get("name", "")) for attacker in attackers],
-        {"npc_id": victim_id, "name": victim.get("name", ""), "faction": victim.get("faction", ""), "race": victim.get("race", ""), "animal": bool(victim.get("animal"))},
-        figure,
+        {"npc_id": victim_id, "name": victim.get("name", ""), "faction": victim.get("faction", "")},
         at,
     )
     if doers:
@@ -132,51 +126,38 @@ def _store(kind, victim, attackers, at):
 
 
 def notable_events():
-    """Each notable event, newest first, as a dict with its ID, kind, game time, line, and rumor ID. The line names each
-    character by its current name, so a renamed squad member shows with its new name. grown is the phrase of the step that
-    a count reached after the player saved its rumor, else None."""
+    """Each notable event, newest first, as a dict with its ID, kind ("kill" or "capture"), game time, line, and rumor ID.
+    The line names each character by its current name, so a renamed squad member shows with its new name."""
     rows = campaign_db.notables()
-    names = campaign_db.names_of({npc_id for _, kind, _, deed in rows for npc_id in character_ids(kind, deed)})
+    names = campaign_db.names_of({npc_id for _, _, deed in rows for npc_id in character_ids(deed)})
     faction = (campaign_db.player_faction() or {}).get("name")
-    rumors = {rumor["notable_id"]: rumor for rumor in campaign_db.rumors() if rumor["notable_id"] is not None}
-    events = []
-    for notable_id, kind, at, deed in rows:
-        rumor = rumors.get(notable_id)
-        grown = rumor and kind == "count" and deed["step"] > (rumor["step"] or 0)
-        events.append({"id": notable_id, "kind": kind, "time": campaign_db.game_time_text(at), "line": notable_line(kind, deed, names, faction),
-                       "rumor": rumor["id"] if rumor else None, "grown": STEP_PHRASES[deed["step"] - 1] if grown else None})
-    return events
+    rumors = {rumor["notable_id"]: rumor["id"] for rumor in campaign_db.rumors()}
+    return [{"id": notable_id, "kind": deed["deed"], "time": campaign_db.game_time_text(at), "line": notable_line(deed, names, faction), "rumor": rumors.get(notable_id)}
+            for notable_id, at, deed in rows]
 
 
 def character_deeds():
-    """The deeds of each squad member as text, for Campaign Canon: its kills for each faction and animal race, and the known
-    figures that it killed or captured."""
-    summary = campaign_db.deed_summary()
-    names = campaign_db.names_of({victim_id for entry in summary.values() for _, victim_id, _ in entry["figures"]})
-    return {
-        doer: {
-            "kills": [f"{count} {plural(value) if target == 'race' else members_of(value)}" for target, value, count in entry["kills"]],
-            "figures": [f"{'Killed' if kind == 'kill' else 'Captured'} {names.get(victim_id, name)}" for kind, victim_id, name in entry["figures"]],
-        }
-        for doer, entry in summary.items()
-    }
+    """The known figures that each squad member killed or captured, oldest first, as text for Campaign Canon."""
+    rows = campaign_db.notables()
+    names = campaign_db.names_of({deed["victim"]["id"] for _, _, deed in rows})
+    summary = {}
+    for _, _, deed in reversed(rows):
+        line = f"{'Killed' if deed['deed'] == 'kill' else 'Captured'} {names.get(deed['victim']['id'], deed['victim']['name'])}"
+        for doer in deed["doers"]:
+            summary.setdefault(doer["id"], []).append(line)
+    return summary
 
 
-def character_ids(kind, deed):
-    return [doer["id"] for doer in deed["doers"]] + [deed["victim"]["id"]] if kind == "figure" else [deed["doer"]]
+def character_ids(deed):
+    return [doer["id"] for doer in deed["doers"]] + [deed["victim"]["id"]]
 
 
-def notable_line(kind, deed, names, player_faction):
+def notable_line(deed, names, player_faction):
     """names maps an npc_id to its current name; a character with no profile keeps the name of the deed."""
-    if kind == "figure":
-        doers = name_list([names.get(doer["id"], doer["name"]) for doer in deed["doers"]])
-        victim = names.get(deed["victim"]["id"], deed["victim"]["name"])
-        verb = "killed" if deed["deed"] == "kill" else "captured"
-        return f"{doers} of {player_faction} {verb} {victim}." if player_faction else f"{doers} {verb} {victim}."
-    doer = names.get(deed["doer"], deed["doer_name"])
-    if "race" in deed:
-        return f"{doer} has killed {deed['count']} {plural(deed['race'])}."
-    return f"{doer} has killed {deed['count']} {members_of(deed['faction'])}."
+    doers = name_list([names.get(doer["id"], doer["name"]) for doer in deed["doers"]])
+    victim = names.get(deed["victim"]["id"], deed["victim"]["name"])
+    verb = "killed" if deed["deed"] == "kill" else "captured"
+    return f"{doers} of {player_faction} {verb} {victim}." if player_faction else f"{doers} {verb} {victim}."
 
 
 def name_list(names):
@@ -185,14 +166,5 @@ def name_list(names):
     return f"{', '.join(names[:-1])}, and {names[-1]}"
 
 
-def members_of(faction):
-    """Many faction names are not plural, so a line names the members of the faction."""
-    return f"members of {the_faction(faction)}"
-
-
 def the_faction(faction):
     return faction if faction.startswith("The ") else f"the {faction}"
-
-
-def plural(race):
-    return race if race.endswith("s") else f"{race}s"

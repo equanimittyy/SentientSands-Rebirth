@@ -51,7 +51,7 @@ The tests use only the standard library, so they run in the dev container. Code 
 python scripts/mock_test.py [name]
 ```
 
-The script creates a campaign from SSR Vanilla, named `mock` by default, and fills it with a squad, NPCs, chat threads, the memories of all chat threads but the newest, banter, rumors, and the game events of a kill count and of the capture of a known figure, which go through the attribution of the server. The Campaign Log and the Dialogue Library then have data without a game. The script refuses a name that a campaign already uses, so a second run cannot add the data twice. It needs no Flask, so it runs in the dev container. Switch to the campaign on the Campaigns page.
+The script creates a campaign from SSR Vanilla, named `mock` by default, and fills it with a squad, NPCs, chat threads, the memories of all chat threads but the newest, banter, and the game events of the capture of a known figure, with a rumor, and of the kill of another, which go through the attribution of the server. The Campaign Log and the Dialogue Library then have data without a game. The script refuses a name that a campaign already uses, so a second run cannot add the data twice. It needs no Flask, so it runs in the dev container. Switch to the campaign on the Campaigns page.
 
 ## Probes
 

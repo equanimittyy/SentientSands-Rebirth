@@ -11,11 +11,11 @@ from store import campaign_db
 _FIRST_SENTENCE = re.compile(r".+?[.!?](?=\s|$)", re.S)
 
 
-def prompt(kind, at, deed, instruction, rumor_so_far):
+def prompt(at, deed, instruction, rumor_so_far):
     text = fill_prompt(
         "prompt_world_synthesis.txt",
         instruction=instruction.strip() or "None.",
-        facts=facts(kind, at, deed),
+        facts=facts(at, deed),
         rumor=rumor_so_far.strip() or "None.",
     )
     language = load_settings().get("language", "English")
@@ -24,35 +24,30 @@ def prompt(kind, at, deed, instruction, rumor_so_far):
     return text
 
 
-def facts(kind, at, deed):
+def facts(at, deed):
     """Plain sentences, because the LLM gets only these facts and must invent no other event."""
-    ids = deeds.character_ids(kind, deed)
+    ids = deeds.character_ids(deed)
     names = campaign_db.names_of(ids)
     player = campaign_db.player_faction() or {}
     faction = player.get("name") or "Nameless"
     description = (player.get("description") or "").strip()
-    lines = [f"The player's faction: {faction}." + (f" {description}" if description else ""), f"The deed: {deed_sentence(kind, deed, names, faction)}", f"Time: {campaign_db.game_time_text(at)}."]
+    lines = [f"The player's faction: {faction}." + (f" {description}" if description else ""), f"The deed: {deed_sentence(deed, names, faction)}", f"Time: {campaign_db.game_time_text(at)}."]
     # The victim first, because a known figure is the news
     people = [person_line(profile) for profile in (campaign_db.get_character(npc_id) for npc_id in [*ids[-1:], *ids[:-1]]) if profile]
     if people:
         lines += ["Who they are:", *people]
-    victim_faction = deed["victim"]["faction"] if kind == "figure" else deed.get("faction")
-    stance = faction_line(victim_faction)
+    stance = faction_line(deed["victim"]["faction"])
     if stance:
         lines += ["The factions:", stance]
     return "\n".join(lines)
 
 
-def deed_sentence(kind, deed, names, player_faction):
-    if kind == "figure":
-        doers = deeds.name_list([names.get(doer["id"], doer["name"]) for doer in deed["doers"]])
-        victim = names.get(deed["victim"]["id"], deed["victim"]["name"])
-        faction = deed["victim"]["faction"]
-        of = f" of {deeds.the_faction(faction)}" if faction and faction != "Neutral" else ""
-        return f"{doers} of {player_faction} {'killed' if deed['deed'] == 'kill' else 'captured'} {victim}{of}."
-    doer = names.get(deed["doer"], deed["doer_name"])
-    target = deeds.plural(deed["race"]) if "race" in deed else deeds.members_of(deed["faction"])
-    return f"{doer} of {player_faction} has killed {deeds.STEP_PHRASES[deed['step'] - 1]} {target}."
+def deed_sentence(deed, names, player_faction):
+    doers = deeds.name_list([names.get(doer["id"], doer["name"]) for doer in deed["doers"]])
+    victim = names.get(deed["victim"]["id"], deed["victim"]["name"])
+    faction = deed["victim"]["faction"]
+    of = f" of {deeds.the_faction(faction)}" if faction and faction != "Neutral" else ""
+    return f"{doers} of {player_faction} {'killed' if deed['deed'] == 'kill' else 'captured'} {victim}{of}."
 
 
 def person_line(profile):

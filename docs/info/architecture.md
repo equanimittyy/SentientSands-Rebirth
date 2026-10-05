@@ -97,7 +97,7 @@ The hooks in `plugin/main.cpp` add the game events to a buffer (`QueueGameEvent`
 | `death` | `declareDead_hook` | Each call | The character as a party |
 | `imprisonment` | `setPrisonMode_hook` with `on` | Each call | The character as a party |
 
-- A party (`EventParty` in `plugin/game/Context.cpp`) holds the `npc_id` (`id`), the string ID of the template (`template_id`), the name, the faction, whether the faction is the player's (`player`), the race, and the animal flag.
+- A party (`EventParty` in `plugin/game/Context.cpp`) holds the `npc_id` (`id`), the string ID of the template (`template_id`), the name, the faction, and whether the faction is the player's (`player`).
 - Each event holds the game time of its hook, because it reaches the server only with the next request. The plugin reads the time under `g_eventMutex`, so the buffer holds the events in the order of their game times, and the server takes a step back of the game time as a load.
 - `attackingYou_hook` runs many times a second for each attacker. Its faction check comes first, and its check against the buffer adds one `attack` for each attacker and target in each report.
 - The game sets `PS_KO` about 10 times a second on a character that lies knocked out, so only a change of the knockout makes an event.
@@ -111,7 +111,7 @@ The hooks in `plugin/main.cpp` add the game events to a buffer (`QueueGameEvent`
 
 ### Deeds
 
-`server/core/deeds.py` decides which squad members killed or captured whom. It keeps the events of each character by its `npc_id` in memory for the active campaign, so a campaign switch or a restart of the server clears them. A `death` or an `imprisonment` replays the events of the character since its last `death` or `imprisonment`:
+`server/core/deeds.py` decides which squad members killed or captured a known figure. It keeps the events of each character by its `npc_id` in memory for the active campaign, so a campaign switch or a restart of the server clears them. A `death` or an `imprisonment` replays the events of the character since its last `death` or `imprisonment`:
 
 1. An `attack` adds the attacker, or sets its time.
 2. A `knockout` sets a mark. While the mark is set, the attackers of the character do not age.
@@ -126,26 +126,16 @@ The hooks in `plugin/main.cpp` add the game events to a buffer (`QueueGameEvent`
 - The deeds of the undone play stay until the player culls (see [Campaign routes of the web app](#campaign-routes-of-the-web-app)).
 - The `npc_id` of a generic character whose template is a canon character becomes the `npc_id` of that character, as for a context (`adopt_canon`).
 
-The `deed` table holds one row for each doer of each deed: the kind (`kill` or `capture`), the `npc_id` and name of the doer, the `npc_id`, name, faction, and race of the victim, whether the victim is an animal or a known figure, and the game time.
+The `notable` table holds one row for each deed. Campaign Log > Deeds on the web app lists them, newest first, for example "Beep and Izumi of Nameless captured Tinfist."
 
-- A death gives a kill to each attacker, and an imprisonment of a known figure gives a capture to each captor. A victim in the player's faction gives no deed, and neither does the capture of another character.
+- A row holds the game time, and as JSON the kind (`kill` or `capture`), the doers, and the `npc_id`, name, and faction of the victim.
+- A death of a known figure gives a kill to each attacker, and an imprisonment of a known figure gives a capture to each captor. A victim in the player's faction gives no deed, and neither does a character that is not a known figure.
 - A known figure is a character of the canon whose `origin` is `seed` or `campaign` (see [Campaign canon](#campaign-canon)). A character that the server added in play is none, because each NPC that the player talks to gets a profile.
 - A capture counts once for each captor and known figure, because `setPrisonMode` runs again with `on` for each prisoner when a save loads.
-- No deed is trimmed, because a count must stay whole for the whole campaign.
-
-The `notable` table holds the deeds that are worth a rumor. Campaign Log > Deeds on the web app lists them, newest first:
-
-| Kind | When | Line |
-|---|---|---|
-| `figure` | Squad members killed or captured a known figure | Beep and Izumi of Nameless captured Tinfist. |
-| `count` | The kills of a squad member against one faction, or against one animal race, reach 25 | Beep has killed 100 members of the Dust Bandits. |
-
-- A row holds the kind, the game time, and the deed as JSON. The line names each character by its current name (`notable_events`), so a renamed squad member shows with its new name.
-- A count holds only the kills of characters that are not known figures. Its steps are 25, 100, 250, and 500 kills (`COUNT_STEPS`). Its row takes the game time of the kill that reached its step, so it moves to the top of the list only at a new step.
-- An animal counts by its race, because the faction of an animal, such as Wolves for a Bonedog, does not tell what it is. The race counts as the race entry of the campaign whose name or alias matches it, as the prompts match a race (`find_race`). A mod can split one animal into several races, such as `Bonedog (white)`, and an entry that lists them as aliases joins them. SSR Vanilla has no race entries of animals.
-- The server makes the counts of each doer anew from its deeds at each kill, so an alias that the player adds also joins the earlier kills.
-- The line names a faction as its members, such as "members of the Dust Bandits" or "members of The Holy Nation", because many faction names are not plural. It names an animal race in the plural, with an s unless the name ends in s.
-- The cull deletes the deeds and the `figure` rows after the game time, and puts each count back to the step of the kills that remain.
+- The line names each character by its current name (`notable_events`), so a renamed squad member shows with its new name.
+- Campaign Canon lists the known figures that each squad member killed or captured (`character_deeds`).
+- The cull deletes the rows after the game time.
+- Rejected: a count of the kills of other characters for each faction and animal race. It needed a row for each kill, and only a known figure makes news.
 
 ### Rumors
 
@@ -171,22 +161,19 @@ The factions:
 - Anti-Slavers. Enemies: The Holy Nation, Slave Traders.
 ```
 
-- A count gives the phrase of its step, such as "hundreds of", not its number, because a rumor does not count exactly.
 - Each character of the deed that has a profile gets its sex, its race, and the first sentence of its `Backstory`, so the LLM knows why a known figure matters and which pronouns fit.
 - The faction of the victim gets its `allies` and `enemies` from the canon factions, so the LLM knows who cheers the news and who fears it.
 - `prompt_world_synthesis.txt` takes the instruction right after the task line, because a model that read the instructions of the bio prompt after the current texts ignored them (see [Provisional profiles](#provisional-profiles)).
 
-The `rumor` table holds the text, the game time, the instruction, the notable event, and the step of a count when the player saved the rumor.
+The `rumor` table holds the text, the game time, the instruction, and the notable event.
 
 - A notable event has at most one rumor, which shows in its row on Deeds.
-- A rumor takes the game time of its notable event at each save, so the cull deletes a rumor with its notable event.
-- A count that reaches a new step after the player saved its rumor shows as grown in the in-game list. The robot button on Deeds then grows the rumor so far: the prompt tells the LLM to keep its names, titles, and tale, and to tell the size of the deed that the facts give. A save gives the rumor the game time of the new step, so the rumor is news again.
-- A rumor stays when its notable event goes, for example when an alias joins its count into another count, because the player wrote it. Deeds lists it after the notable events, with a deed that is gone, so the player can still edit or delete it.
-- The chat scene gives each NPC the 5 newest rumors by game time (`PROMPT_RUMORS`), with their age, so a grown rumor counts as new.
+- A rumor takes the game time of its notable event, so the cull deletes a rumor with its notable event.
+- The chat scene gives each NPC the 5 newest rumors by game time (`PROMPT_RUMORS`), with their age.
 
 The Dynamic World Events Log in game mirrors Campaign Log > Deeds, as the Dialogue Library mirrors Generate Bio (see [Provisional profiles](#provisional-profiles)):
 
-1. The list holds the notable events, newest first, each with "(rumor)" or "(grown)" after its line (`/events`). The right side shows the line, the game time, and the rumor of the selected event (`/events/content`).
+1. The list holds the notable events, newest first, each with "(rumor)" after its line when it has one (`/events`). The right side shows the line, the game time, and the rumor of the selected event (`/events/content`).
 2. **Generate Rumor** opens a window that asks for the instruction, and starts with the instruction of the rumor. `/write_rumor` returns the text, and a second window shows it in an edit box. Keep sends the text and the instruction to `/keep_rumor`, and Discard drops it.
 3. **Edit Rumor** skips the LLM: `/read_rumor` returns the stored text, and the same edit window opens.
 
@@ -255,7 +242,7 @@ The Relations section of a race, location, or region lists its children, which t
 
 The Race, Sex, and Faction of a character are choices, not free text (`choice` in `server/dashboard/web/editor.js`). Race offers the race entries of the page, Faction offers its factions, and Sex offers Male, Female, and Other. A stored value selects the choice whose name or alias it matches, with case ignored. A blank value or a value that matches no choice shows as Unknown, and a save of the character writes Unknown.
 
-Other Details shows the `Relation` of a character as a bar from -100 to 100, with the labels of the relation bar in game, and its `OriginFaction`. On Campaign Canon it also shows the current faction that the game reported for the character since the server started, so the player can compare it with the Faction that the prompts use, whether the character is an animal (`Animal`, see [Provisional profiles](#provisional-profiles)), the Current Job (see [Current Job](#current-job)), and, at the bottom, the kills of a squad member for each faction and animal race and the known figures that it killed or captured (see [Deeds](#deeds)). All are read-only, because the game and the chats set them. A save keeps every profile key that the form does not show, as it is.
+Other Details shows the `Relation` of a character as a bar from -100 to 100, with the labels of the relation bar in game, and its `OriginFaction`. On Campaign Canon it also shows the current faction that the game reported for the character since the server started, so the player can compare it with the Faction that the prompts use, whether the character is an animal (`Animal`, see [Provisional profiles](#provisional-profiles)), the Current Job (see [Current Job](#current-job)), and, at the bottom, the known figures that a squad member killed or captured (see [Deeds](#deeds)). All are read-only, because the game and the chats set them. A save keeps every profile key that the form does not show, as it is.
 
 A provisional character (see [Provisional profiles](#provisional-profiles)) shows as Provisional in the list and on its record. Its Other Details also show its chat count against the Chats before a bio setting. A save that changes its Personality, Backstory, or SpeechQuirks ends the provisional state, because a later bio would overwrite the player's text.
 

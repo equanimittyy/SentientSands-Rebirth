@@ -1,4 +1,4 @@
-"""The campaign's characters, dialogue, canon, deeds, notable events, and rumors, in one SQLite file per campaign folder.
+"""The campaign's characters, dialogue, canon, notable events, and rumors, in one SQLite file per campaign folder.
 
 Every write runs in one BEGIN IMMEDIATE transaction, and a profile write merges only the keys that the
 caller passes. Two requests that change one NPC during an LLM call therefore keep both changes.
@@ -15,10 +15,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 DB_NAME = "campaign.db"
-SCHEMA_VERSION = 9
+SCHEMA_VERSION = 10
 DIALOGUE_BLOCK = 20
-# A few kills are part of any trip through the wasteland, so the scale starts at 25
-COUNT_STEPS = (25, 100, 250, 500)
 # The chat count of a provisional profile also marks it as provisional: the template validator, which the campaign editor
 # also runs, takes only text and numbers as profile values, so a true/false mark could not be saved from the editor
 PROVISIONAL = "Interactions"
@@ -60,34 +58,17 @@ CREATE TABLE dialogue (
 );
 CREATE INDEX dialogue_by_character ON dialogue (character_id, id);
 CREATE INDEX dialogue_by_thread ON dialogue (thread_id);
-CREATE TABLE deed (
-  id          INTEGER PRIMARY KEY,
-  kind        TEXT NOT NULL,
-  doer_id     TEXT NOT NULL,
-  doer_name   TEXT NOT NULL,
-  victim_id   TEXT NOT NULL,
-  victim_name TEXT NOT NULL,
-  faction     TEXT NOT NULL,
-  race        TEXT NOT NULL,
-  animal      INTEGER NOT NULL,
-  figure      INTEGER NOT NULL,
-  game_time   INTEGER NOT NULL
-);
-CREATE INDEX deed_by_doer ON deed (doer_id, kind);
 CREATE TABLE notable (
   id        INTEGER PRIMARY KEY,
-  kind      TEXT NOT NULL,
   game_time INTEGER NOT NULL,
   deed      TEXT NOT NULL
 );
--- SET NULL: a count that an alias joins into another count goes, and the rumor that the player wrote must stay
 CREATE TABLE rumor (
   id          INTEGER PRIMARY KEY,
-  notable_id  INTEGER UNIQUE REFERENCES notable(id) ON DELETE SET NULL,
+  notable_id  INTEGER NOT NULL UNIQUE REFERENCES notable(id) ON DELETE CASCADE,
   game_time   INTEGER NOT NULL,
   text        TEXT NOT NULL,
-  instruction TEXT NOT NULL DEFAULT '',
-  step        INTEGER
+  instruction TEXT NOT NULL DEFAULT ''
 );
 CREATE TABLE faction (
   id          INTEGER PRIMARY KEY,
@@ -475,103 +456,68 @@ def known_figure(npc_id):
     return bool(row) and row[0] in ("seed", "campaign")
 
 
-def add_deeds(kind, doers, victim, figure, game_time):
-    """Stores a deed, "kill" or "capture", for each doer, an (npc_id, name) pair. victim holds the npc_id, name, faction,
-    race, and animal flag. A doer that already captured the victim gets no second capture, because the game imprisons each
-    prisoner again when a save loads. Adds the notable event of a known figure, and updates the counts of the doers. Returns
-    the doers that got a deed."""
+def add_deed(kind, doers, victim, game_time):
+    """Stores the notable event of a known figure that the doers, (npc_id, name) pairs, killed or captured. kind is "kill"
+    or "capture", and victim holds the npc_id, name, and faction. A doer that already captured the victim gets no second
+    capture, because the game imprisons each prisoner again when a save loads. Returns the doers of the deed."""
     with _connect(write=True) as conn:
         if kind == "capture":
-            doers = [doer for doer in doers if not conn.execute(
-                "SELECT 1 FROM deed WHERE kind = 'capture' AND doer_id = ? AND victim_id = ?", (doer[0], victim["npc_id"])).fetchone()]
-        conn.executemany(
-            "INSERT INTO deed (kind, doer_id, doer_name, victim_id, victim_name, faction, race, animal, figure, game_time) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-            [(kind, npc_id, name, victim["npc_id"], victim["name"], victim["faction"], victim["race"], int(victim["animal"]), int(figure), game_time) for npc_id, name in doers],
-        )
-        if doers and figure:
+            captors = {doer["id"] for (deed,) in conn.execute(
+                "SELECT deed FROM notable WHERE json_extract(deed, '$.deed') = 'capture' AND json_extract(deed, '$.victim.id') = ?", (victim["npc_id"],)
+            ) for doer in json.loads(deed)["doers"]}
+            doers = [doer for doer in doers if doer[0] not in captors]
+        if doers:
             deed = {"deed": kind, "doers": [{"id": npc_id, "name": name} for npc_id, name in doers], "victim": {"id": victim["npc_id"], "name": victim["name"], "faction": victim["faction"]}}
-            conn.execute("INSERT INTO notable (kind, game_time, deed) VALUES ('figure', ?, ?)", (game_time, json.dumps(deed)))
-        elif doers and kind == "kill":
-            _refresh_counts(conn, [npc_id for npc_id, _ in doers])
+            conn.execute("INSERT INTO notable (game_time, deed) VALUES (?, ?)", (game_time, json.dumps(deed)))
     return doers
 
 
-def deed_summary():
-    """For each doer: its kills of characters that are not known figures, as (target, value, count) with target "faction" or
-    "race", most first; and the known figures that it killed or captured, as (kind, npc_id, name), oldest first."""
-    summary = {}
-    with _connect() as conn:
-        races = _race_entries(conn)
-        rows = conn.execute("SELECT doer_id, kind, victim_id, victim_name, faction, race, animal, figure FROM deed ORDER BY game_time, id").fetchall()
-    for doer, kind, victim_id, victim_name, faction, race, animal, figure in rows:
-        entry = summary.setdefault(doer, {"kills": {}, "figures": []})
-        if figure:
-            entry["figures"].append((kind, victim_id, victim_name))
-        else:
-            key = ("race", races.get(race.lower(), race)) if animal else ("faction", faction)
-            entry["kills"][key] = entry["kills"].get(key, 0) + 1
-    return {doer: {"kills": sorted(((target, value, count) for (target, value), count in entry["kills"].items()), key=lambda kill: -kill[2]), "figures": entry["figures"]}
-            for doer, entry in summary.items()}
-
-
 def notables():
-    """Every notable event as (id, kind, game_time, deed), newest first. A count has the game time of the kill that reached
-    its step."""
+    """Every notable event as (id, game_time, deed), newest first."""
     with _connect() as conn:
-        rows = conn.execute("SELECT id, kind, game_time, deed FROM notable ORDER BY game_time DESC, id DESC").fetchall()
-    return [(notable_id, kind, at, json.loads(deed)) for notable_id, kind, at, deed in rows]
+        rows = conn.execute("SELECT id, game_time, deed FROM notable ORDER BY game_time DESC, id DESC").fetchall()
+    return [(notable_id, at, json.loads(deed)) for notable_id, at, deed in rows]
 
 
 def rumors():
-    """Every rumor as a dict, oldest first by game time. step is the step of its count when the player saved it."""
+    """Every rumor as a dict, oldest first by game time."""
     with _connect() as conn:
-        rows = conn.execute("SELECT id, notable_id, game_time, text, instruction, step FROM rumor ORDER BY game_time, id").fetchall()
-    return [{"id": rumor_id, "notable_id": notable_id, "game_time": at, "text": text, "instruction": instruction, "step": step}
-            for rumor_id, notable_id, at, text, instruction, step in rows]
+        rows = conn.execute("SELECT id, notable_id, game_time, text, instruction FROM rumor ORDER BY game_time, id").fetchall()
+    return [{"id": rumor_id, "notable_id": notable_id, "game_time": at, "text": text, "instruction": instruction}
+            for rumor_id, notable_id, at, text, instruction in rows]
 
 
 def notable(notable_id):
-    """The notable event as (kind, game_time, deed), or None."""
+    """The notable event as (game_time, deed), or None."""
     with _connect() as conn:
-        row = conn.execute("SELECT kind, game_time, deed FROM notable WHERE id = ?", (notable_id,)).fetchone()
-    return (row[0], row[1], json.loads(row[2])) if row else None
+        row = conn.execute("SELECT game_time, deed FROM notable WHERE id = ?", (notable_id,)).fetchone()
+    return (row[0], json.loads(row[1])) if row else None
 
 
 def save_rumor(rumor_id, notable_id, text, instruction=None):
-    """Saves the text of the rumor, or of the rumor of the notable event when rumor_id is None, and adds that rumor when it
-    has none. A rumor takes the game time and the step of its notable event, so a rumor that grew with its count is news
-    again. instruction None keeps the stored one. Returns False when the rumor or the notable event is gone."""
+    """Saves the text of the rumor, or of the rumor of the notable event when rumor_id is None, and adds that rumor with the
+    game time of its notable event when it has none. instruction None keeps the stored one. Returns False when the rumor or
+    the notable event is gone."""
     with _connect(write=True) as conn:
         if rumor_id is None:
             row = conn.execute("SELECT id FROM rumor WHERE notable_id = ?", (notable_id,)).fetchone()
             if row is None:
-                if not conn.execute("SELECT 1 FROM notable WHERE id = ?", (notable_id,)).fetchone():
+                event = conn.execute("SELECT game_time FROM notable WHERE id = ?", (notable_id,)).fetchone()
+                if event is None:
                     return False
-                rumor_id = conn.execute("INSERT INTO rumor (notable_id, game_time, text) VALUES (?, 0, '')", (notable_id,)).lastrowid
+                rumor_id = conn.execute("INSERT INTO rumor (notable_id, game_time, text) VALUES (?, ?, '')", (notable_id, event[0])).lastrowid
             else:
                 rumor_id = row[0]
-        row = conn.execute("SELECT r.game_time, r.step, n.game_time, n.deed FROM rumor r LEFT JOIN notable n ON n.id = r.notable_id WHERE r.id = ?", (rumor_id,)).fetchone()
-        if row is None:
-            return False
-        at, step, notable_time, deed = row
-        if deed is not None:
-            at, step = notable_time, json.loads(deed).get("step")
-        conn.execute("UPDATE rumor SET text = ?, instruction = COALESCE(?, instruction), game_time = ?, step = ? WHERE id = ?", (text, instruction, at, step, rumor_id))
-        return True
+        return conn.execute("UPDATE rumor SET text = ?, instruction = COALESCE(?, instruction) WHERE id = ?", (text, instruction, rumor_id)).rowcount > 0
 
 
 def cull_after(day, hour, minute):
-    """Deletes the dialogue, deeds, notable events, rumors, thread members, and memories dated after the given game time,
-    and puts each count back to the step of the kills that remain. Returns the count per table of the dialogue, the deeds,
-    the notable events, and the rumors."""
+    """Deletes the dialogue, notable events, rumors, thread members, and memories dated after the given game time. Returns
+    the count per table of the dialogue, the notable events, and the rumors."""
     now = day * 1440 + hour * 60 + minute
     with _connect(write=True) as conn:
         touched = {thread_id for (thread_id,) in conn.execute("SELECT id FROM thread WHERE game_time > ?", (now,))}
-        culled = {table: conn.execute(f"DELETE FROM {table} WHERE game_time > ?", (now,)).rowcount for table in ("dialogue", "deed", "rumor")}
-        notables_before = conn.execute("SELECT COUNT(*) FROM notable").fetchone()[0]
-        conn.execute("DELETE FROM notable WHERE kind = 'figure' AND game_time > ?", (now,))
-        _refresh_counts(conn, [doer for (doer,) in conn.execute("SELECT DISTINCT json_extract(deed, '$.doer') FROM notable WHERE kind = 'count'")])
-        culled["notable"] = notables_before - conn.execute("SELECT COUNT(*) FROM notable").fetchone()[0]
+        culled = {table: conn.execute(f"DELETE FROM {table} WHERE game_time > ?", (now,)).rowcount for table in ("dialogue", "rumor", "notable")}
         conn.execute("DELETE FROM thread_member WHERE game_time > ?", (now,))
         # The memory told of culled exchanges, and it replaced every line, so nothing from before the cut is left to keep
         conn.execute("DELETE FROM thread WHERE memory IS NOT NULL AND game_time > ?", (now,))
@@ -822,43 +768,6 @@ def _thread_lines(conn):
         thread_id: [line for (line,) in conn.execute("SELECT line FROM dialogue WHERE thread_id = ? AND character_id = ? ORDER BY id", (thread_id, character_id))]
         for thread_id, (_, character_id) in best.items()
     }
-
-
-def _refresh_counts(conn, doer_ids):
-    """Makes the count rows of each doer match its kills. An animal counts by its race entry, so an alias that the player
-    adds also joins the earlier kills of the variants. A row takes the game time of the kill that reached its step, so it
-    moves to the top of the Deeds list only at a new step."""
-    races = _race_entries(conn)
-    for doer in doer_ids:
-        kills, name = {}, ""
-        for name, faction, race, animal, at in conn.execute(
-            "SELECT doer_name, faction, race, animal, game_time FROM deed WHERE kind = 'kill' AND figure = 0 AND doer_id = ? ORDER BY game_time, id", (doer,)
-        ):
-            kills.setdefault(("race", races.get(race.lower(), race)) if animal else ("faction", faction), []).append(at)
-        counts = {}
-        for (target, value), times in kills.items():
-            step = sum(len(times) >= bound for bound in COUNT_STEPS)
-            if step:
-                counts[(target, value)] = ({"doer": doer, "doer_name": name, target: value, "count": len(times), "step": step}, times[COUNT_STEPS[step - 1] - 1])
-        for row_id, deed in conn.execute("SELECT id, deed FROM notable WHERE kind = 'count' AND json_extract(deed, '$.doer') = ?", (doer,)).fetchall():
-            deed = json.loads(deed)
-            key = ("race", deed["race"]) if "race" in deed else ("faction", deed["faction"])
-            if key in counts:
-                deed, reached = counts.pop(key)
-                conn.execute("UPDATE notable SET deed = ?, game_time = ? WHERE id = ?", (json.dumps(deed), reached, row_id))
-            else:
-                conn.execute("DELETE FROM notable WHERE id = ?", (row_id,))
-        conn.executemany("INSERT INTO notable (kind, game_time, deed) VALUES ('count', ?, ?)", [(reached, json.dumps(deed)) for deed, reached in counts.values()])
-
-
-def _race_entries(conn):
-    """The name of the race entry for each race name and alias in lower case, as the prompts match a race (find_race)."""
-    entries = {}
-    for (data,) in conn.execute("SELECT data FROM entity WHERE category = 'races' ORDER BY id"):
-        entry = json.loads(data)
-        for name in [entry.get("name", ""), *entry.get("aliases", [])]:
-            entries.setdefault(name.lower(), entry.get("name", ""))
-    return entries
 
 
 def _stored(profile):
