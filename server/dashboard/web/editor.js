@@ -974,9 +974,9 @@ function renderEvents() {
   return el("fieldset", {},
     el("legend", {}, `Deeds (${deeds.length})`),
     el("p", { className: "hint" },
-      "The deeds of your squad that are worth a rumor, newest first: each known figure that it killed or captured, and the kills of each squad member against one faction or animal from 25 kills on. A kill count moves to the top when it reaches 100, 250, and 500 kills. After you load an older save, Cull future data on the Campaigns page removes the later deeds."),
+      "Your squad's notable deeds, newest first: known figures it killed or captured, and each member's kills against one faction or animal once they reach 25. Loaded an older save? Cull future data on the Campaigns page removes the later deeds."),
     el("p", { className: "hint" },
-      "Press Generate Rumor on a deed, and the LLM writes the rumor into its row. Edit the text, or press the robot to write it again with new instructions, then save. NPCs mention the rumors, and each conversation hears the 5 newest."),
+      "Press Generate Rumor to write a deed's rumor. Edit it, or press the robot to rewrite it with new instructions, then save. NPCs hear the 5 newest rumors."),
     ...(deeds.length > 0 ? [el("div", { className: "inline row" }, search, select), el("div", { id: "event-page" })] : [el("p", { className: "hint" }, "No deeds yet.")]));
 }
 
