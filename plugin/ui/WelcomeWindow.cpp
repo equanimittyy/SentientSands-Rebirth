@@ -120,7 +120,7 @@ void CreateWelcomeUI() {
       "Kenshi_TextboxStandardText", 0.05f, yProg, 0.9f, 0.06f,
       MyGUI::Align::Top | MyGUI::Align::HStretch, "SentientSands_WelcomeL6");
   l6->setCaption(Utf8ToWide(T("In game: chat with NPCs, the Dialogue Library, "
-                              "and world events"))
+                              "and deeds"))
                      .c_str());
   l6->setTextAlign(MyGUI::Align::Center);
   l6->setTextColour(MyGUI::Colour(0.85f, 0.85f, 0.85f));

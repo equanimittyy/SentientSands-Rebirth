@@ -191,15 +191,20 @@ The `rumor` table holds the text, the game time, the instruction, and the notabl
 - A rumor takes the game time of its notable event, so the cull deletes a rumor with its notable event. The rumor of a custom deed has no game time and counts as the newest.
 - The chat scene gives each NPC the 5 newest rumors by game time (`PROMPT_RUMORS`), each with its age, except the rumor of a custom deed.
 
-The Dynamic World Events Log in game mirrors Campaign Log > Deeds, as the Dialogue Library mirrors Generate Bio (see [Provisional profiles](#provisional-profiles)):
+### Deeds window
 
-1. The list holds the notable events, newest first, each with "(rumor)" after its line when it has one (`/events`). The right side shows the line, the game time, and the rumor of the selected event (`/events/content`).
-2. **Generate Rumor** opens a window that asks for the instruction, and starts with the instruction of the rumor. `/write_rumor` returns the text, and a second window shows it in an edit box. Keep sends the text and the instruction to `/keep_rumor`, and Discard drops it.
-3. **Edit Rumor** skips the LLM: `/read_rumor` returns the stored text, and the same edit window opens.
+The Deeds window of the SSR HUB mirrors Campaign Log > Deeds, as the Dialogue Library mirrors Generate Bio (see [Provisional profiles](#provisional-profiles)):
 
-- `/write_rumor` and `/keep_rumor` share the code of the routes of the web app (`rumor_reply` and `keep_rumor_reply`).
-- The replies of `/write_rumor` and `/read_rumor` carry the active campaign, and Keep sends it back. `/keep_rumor` refuses the text when that campaign is no longer active, because the same notable event ID can name another deed in another campaign.
-- Each close of the window makes the pending reply stale (`CloseRumorUI` in `plugin/ui/EventsWindow.cpp`), because the player can close the window or open it for another event while a request runs.
+1. The list holds the deeds, newest first (`/events`). A deed of the game has "(rumor)" after its line when it has a rumor. The line of a custom deed is only its kind, so the list shows its rumor after "Custom:". The right side shows the line, the kind, the game time, and the rumor of the selected deed (`/events/content`).
+2. The search field finds a deed by its line and its rumor. The button under it goes to the next kind on each click, and shows only the deeds of that kind with their count, as the select of the web app does.
+3. **Generate Rumor** opens a window that asks for the instruction, and starts with the instruction of the rumor. `/write_rumor` returns the text, and a second window shows it in an edit box. Keep sends the text and the instruction to `/keep_rumor`, and Discard drops it.
+4. **Edit Rumor** skips the LLM: `/read_rumor` returns the stored text, and the same edit window opens.
+5. **Add Deed** opens a window for the rumor of a custom deed. Add sends the rumor to `/add_deed`, and the list selects the new deed. The search and the kind filter reset, because they can hide the new deed.
+6. **Delete** asks for a confirmation. Then it deletes a custom deed with its rumor (`/delete_deed`), or the rumor of a deed of the game (`/delete_rumor`).
+
+- The routes of the window share the code of the routes of the web app (`rumor_reply`, `keep_rumor_reply`, `add_deed_reply`, `delete_deed_reply`, and `delete_rumor_reply` in `server/chat/routes.py`).
+- The replies of `/events`, `/write_rumor`, and `/read_rumor` carry the active campaign, and Keep, Add, and Delete send it back. The routes refuse the change when that campaign is no longer active, because the same ID can name another deed in another campaign.
+- Each close of a popup window makes the pending reply stale (`CloseRumorUI` in `plugin/ui/EventsWindow.cpp`), because the player can close the window or open it for another deed while a request runs.
 
 ## Web app
 

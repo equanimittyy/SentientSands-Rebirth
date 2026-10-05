@@ -534,24 +534,59 @@ def keep_rumor_reply(data):
         return jsonify({"status": "error", "message": "The rumor or its event is gone. Load the events again."}), 404
     return jsonify({"status": "ok"})
 
+def delete_rumor_reply(data):
+    refused = campaign_write(data)
+    if refused: return refused
+    campaign_db.delete_rumor(data.get("id"))
+    return jsonify({"status": "ok"})
+
+def add_deed_reply(data, source):
+    """The Deeds window selects the new deed by its id."""
+    refused = campaign_write(data)
+    if refused: return refused
+    rumor = str(data.get("rumor") or "").strip()
+    if not rumor:
+        return jsonify({"status": "error", "message": "Write the rumor of the deed."}), 400
+    notable_id = campaign_db.add_custom_deed(rumor)
+    logging.info(f"DEEDS: Added the custom deed {notable_id} from {source}")
+    return jsonify({"status": "ok", "id": notable_id})
+
+def delete_deed_reply(data):
+    refused = campaign_write(data)
+    if refused: return refused
+    campaign_db.delete_custom_deed(data.get("id"))
+    return jsonify({"status": "ok"})
+
 @bp.route('/write_rumor', methods=['POST'])
 def write_events_rumor():
     data = request.get_json(silent=True) or {}
-    # The World Events Log sends the campaign back with Keep, because the same notable event ID can name another deed in another campaign
+    # The Deeds window sends the campaign back with Keep, because the same notable event ID can name another deed in another campaign
     return rumor_reply(data.get("notable"), str(data.get("instruction") or ""), campaign=state.ACTIVE_CAMPAIGN)
 
 @bp.route('/read_rumor', methods=['POST'])
 def read_events_rumor():
-    """Answers in the shape of /write_rumor, so Edit Rumor in the World Events Log opens the same editor as Generate Rumor."""
+    """Answers in the shape of /write_rumor, so Edit Rumor in the Deeds window opens the same editor as Generate Rumor."""
     data = request.get_json(silent=True) or {}
     rumor = next((rumor for rumor in campaign_db.rumors() if str(rumor["notable_id"]) == str(data.get("notable"))), None)
     if not rumor:
-        return jsonify({"status": "error", "message": "The event has no rumor yet."}), 404
+        return jsonify({"status": "error", "message": "The deed has no rumor yet."}), 404
     return jsonify({"status": "ok", "text": rumor["text"], "campaign": state.ACTIVE_CAMPAIGN})
 
 @bp.route('/keep_rumor', methods=['POST'])
 def keep_events_rumor():
     return keep_rumor_reply(request.get_json(silent=True) or {})
+
+@bp.route('/delete_rumor', methods=['POST'])
+def delete_events_rumor():
+    return delete_rumor_reply(request.get_json(silent=True) or {})
+
+@bp.route('/add_deed', methods=['POST'])
+def add_events_deed():
+    return add_deed_reply(request.get_json(silent=True) or {}, "the game")
+
+@bp.route('/delete_deed', methods=['POST'])
+def delete_events_deed():
+    return delete_deed_reply(request.get_json(silent=True) or {})
 
 @bp.route('/write_bio', methods=['POST'])
 def write_library_bio():

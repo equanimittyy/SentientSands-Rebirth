@@ -49,19 +49,22 @@ def rename_character():
 
 @bp.route('/events', methods=['GET', 'POST'])
 def list_events():
-    """The notable events for the World Events Log, newest first. The plugin finds the keys of each event after its "id", so
-    each key must sort after "id", as Flask sorts them."""
+    """The deeds for the Deeds window, newest first. The plugin finds the keys of each deed after its "id", so each key must
+    sort after "id", as Flask sorts them. The window sends the campaign back with Add Deed and Delete, because the same ID
+    can name another deed in another campaign."""
     events = []
     rumors = {rumor["id"]: rumor for rumor in campaign_db.rumors()}
     for event in deeds.notable_events():
-        # "N." numbering rather than "#N": MyGUI parses "#" as a color tag
-        words = event["line"].split()
-        mark = " (rumor)" if event["rumor"] else ""
-        title = f"{len(events) + 1}. " + " ".join(words[:7]) + ("..." if len(words) > 7 else "")
         rumor = rumors.get(event["rumor"])
+        custom = event["kind"] == "custom"
+        # The line of a custom deed is only its kind, so its rumor tells it apart in the list
+        words = (f"Custom: {rumor['text']}" if custom and rumor else event["line"]).split()
+        mark = " (rumor)" if rumor and not custom else ""
+        # "N." numbering rather than "#N": MyGUI parses "#" as a color tag
+        title = f"{len(events) + 1}. " + " ".join(words[:7]) + ("..." if len(words) > 7 else "")
         events.append({"id": str(event["id"]), "title": title[:80] + mark, "inner": event["line"] + (" " + rumor["text"] if rumor else ""),
-                       "instruction": rumor["instruction"] if rumor else ""})
-    return jsonify({"status": "ok", "events": events})
+                       "instruction": rumor["instruction"] if rumor else "", "kind": event["kind"], "rumor": str(rumor["id"]) if rumor else ""})
+    return jsonify({"status": "ok", "campaign": state.ACTIVE_CAMPAIGN, "events": events})
 
 @bp.route('/events/content', methods=['POST'])
 def events_content():
@@ -70,9 +73,11 @@ def events_content():
     data = request.json or {}
     event = next((event for event in deeds.notable_events() if str(event["id"]) == str(data.get("id"))), None)
     if not event:
-        return jsonify({"status": "error", "text": "The event is gone."}), 404
+        return jsonify({"status": "error", "text": "The deed is gone."}), 404
     rumor = next((rumor for rumor in campaign_db.rumors() if rumor["id"] == event["rumor"]), None)
-    lines = ["=" * 38, "  WORLD EVENT", "=" * 38, ""] + textwrap.wrap(event["line"], width=76) + ["", event["time"], "", "RUMOR:"] + (textwrap.wrap(rumor["text"], width=76) if rumor else ["None yet. Press Generate Rumor to write one."])
+    line = "Custom deed - add any rumours you would like characters to possibly comment on" if event["kind"] == "custom" else event["line"]
+    lines = (["=" * 38, "  DEED", "=" * 38, ""] + textwrap.wrap(line, width=76) + ["", f"Kind: {event['kind'].capitalize()}", f"Time: {event['time']}", "", "RUMOR:"]
+             + (textwrap.wrap(rumor["text"], width=76) if rumor else ["None yet. Press Generate Rumor to write one."]))
     return jsonify({"status": "ok", "text": "\n".join(lines)})
 
 @bp.route('/report', methods=['POST'])

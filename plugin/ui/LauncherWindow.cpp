@@ -53,7 +53,7 @@ DWORD WINAPI CullThread(LPVOID lpParam) {
   if (GetJsonValue(response, "status") == "ok") {
     text = T("Culled the data dated after: ") +
            GetJsonValue(response, "time") + ". " + T("Dialogue lines: ") +
-           GetJsonValue(response, "dialogue") + ", " + T("notable events: ") +
+           GetJsonValue(response, "dialogue") + ", " + T("deeds: ") +
            GetJsonValue(response, "notable") + ", " + T("rumors: ") +
            GetJsonValue(response, "rumor") + ".";
   } else {
@@ -97,7 +97,7 @@ void CreateCullUI() {
   MyGUI::Widget *client = g_cullWindow->getClientWidget();
 
   const char *lineKeys[] = {
-      "This deletes every NPC memory, event, and rumor of the active campaign",
+      "This deletes every NPC memory, deed, and rumor of the active campaign",
       "dated after the current game time.",
       "The cull takes effect immediately and is irreversible!"};
   const char *lineNames[] = {"SentientSands_CullL1", "SentientSands_CullL2",
@@ -167,7 +167,7 @@ void CreateLauncherUI() {
       "Kenshi_Button1", 0.05f, yPos, 0.9f, bH,
       MyGUI::Align::Top | MyGUI::Align::HStretch,
       "SentientSands_LauncherEvtBtn");
-  evtBtn->setCaption(Utf8ToWide(T("World Event Log")).c_str());
+  evtBtn->setCaption(Utf8ToWide(T("Deeds")).c_str());
   evtBtn->eventMouseButtonClick += MyGUI::newDelegate(OnLauncherEventsClick);
   yPos += yDelta;
 
@@ -217,7 +217,7 @@ void RefreshLauncherUI() {
     std::string key;
   };
   RefreshMap items[] = {{"SentientSands_LauncherLibBtn", "Dialogue Library"},
-                        {"SentientSands_LauncherEvtBtn", "World Event Log"},
+                        {"SentientSands_LauncherEvtBtn", "Deeds"},
                         {"SentientSands_LauncherWebBtn", "Open Web Panel"},
                         {"SentientSands_LauncherRestartBtn", "Restart Server"},
                         {"SentientSands_LauncherWelBtn", "Welcome Popup"},

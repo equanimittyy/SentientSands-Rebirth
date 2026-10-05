@@ -3,6 +3,7 @@
 #include "../core/Globals.h"
 #include "../core/Utils.h"
 #include "LibraryWindow.h"
+#include <algorithm>
 #include <mygui/MyGUI_Delegate.h>
 #include <mygui/MyGUI_Gui.h>
 #include <mygui/MyGUI_ListBox.h>
@@ -11,15 +12,25 @@
 namespace SentientSands {
 namespace UI {
 
+static const char *DEED_KINDS[] = {"all", "kill", "capture", "custom"};
+static const char *DEED_KIND_LABELS[] = {"All kinds", "Kill", "Capture",
+                                         "Custom"};
+
 MyGUI::Window *g_eventsWindow = nullptr;
 MyGUI::ListBox *g_eventsList = nullptr;
 MyGUI::ListBox *g_eventsText = nullptr;
 MyGUI::EditBox *g_eventsSearch = nullptr;
+MyGUI::Button *g_eventsKindBtn = nullptr;
 std::vector<std::string> g_eventsStorageIds;
 std::vector<std::string> g_eventsAllIds;
 std::vector<std::string> g_eventsAllTitles;
 std::vector<std::string> g_eventsAllTexts;
 std::vector<std::string> g_eventsAllInstructions;
+std::vector<std::string> g_eventsAllKinds;
+std::vector<std::string> g_eventsAllRumors;
+int g_eventsKind = 0;
+std::string g_eventsCampaign;
+std::string g_eventsSelectId;
 
 MyGUI::Window *g_rumorWindow = nullptr;
 MyGUI::EditBox *g_rumorBox = nullptr;
@@ -31,6 +42,8 @@ std::string g_rumorNotable;
 std::string g_rumorLine;
 std::string g_rumorInstruction;
 std::string g_rumorCampaign;
+std::string g_rumorKind;
+std::string g_rumorId;
 
 struct RumorTask {
   int request;
@@ -62,11 +75,16 @@ void CloseEventsUI() {
     g_eventsList = nullptr;
     g_eventsText = nullptr;
     g_eventsSearch = nullptr;
+    g_eventsKindBtn = nullptr;
     g_eventsStorageIds.clear();
     g_eventsAllIds.clear();
     g_eventsAllTitles.clear();
     g_eventsAllTexts.clear();
     g_eventsAllInstructions.clear();
+    g_eventsAllKinds.clear();
+    g_eventsAllRumors.clear();
+    g_eventsKind = 0;
+    g_eventsSelectId.clear();
   }
 }
 
@@ -76,6 +94,8 @@ void ApplyEventsFilter(const std::string &keepId) {
   std::string query =
       g_eventsSearch ? g_eventsSearch->getOnlyText().asUTF8() : "";
   for (size_t i = 0; i < g_eventsAllIds.size(); i++) {
+    if (g_eventsKind != 0 && g_eventsAllKinds[i] != DEED_KINDS[g_eventsKind])
+      continue;
     if (!ContainsIgnoreCase(g_eventsAllTexts[i], query))
       continue;
     g_eventsList->addItem(Utf8ToWide(g_eventsAllTitles[i]).c_str());
@@ -85,36 +105,68 @@ void ApplyEventsFilter(const std::string &keepId) {
   }
 }
 
-void OnEventsSearchChange(MyGUI::EditBox *sender) {
+std::string SelectedEventId() {
   size_t index = g_eventsList->getIndexSelected();
-  ApplyEventsFilter(index < g_eventsStorageIds.size()
-                        ? g_eventsStorageIds[index]
-                        : "");
+  return index < g_eventsStorageIds.size() ? g_eventsStorageIds[index] : "";
+}
+
+void OnEventsSearchChange(MyGUI::EditBox *sender) {
+  ApplyEventsFilter(SelectedEventId());
+}
+
+int CountEventsOfKind(int kind) {
+  if (kind == 0)
+    return (int)g_eventsAllKinds.size();
+  return (int)std::count(g_eventsAllKinds.begin(), g_eventsAllKinds.end(),
+                         DEED_KINDS[kind]);
+}
+
+void ShowEventsKind() {
+  if (CountEventsOfKind(g_eventsKind) == 0)
+    g_eventsKind = 0;
+  g_eventsKindBtn->setCaption(
+      Utf8ToWide(T("Show: ") + T(DEED_KIND_LABELS[g_eventsKind]) + " (" +
+                 ToString(CountEventsOfKind(g_eventsKind)) + ")")
+          .c_str());
+}
+
+void OnEventsKindClick(MyGUI::Widget *sender) {
+  do
+    g_eventsKind = (g_eventsKind + 1) % 4;
+  while (g_eventsKind != 0 && CountEventsOfKind(g_eventsKind) == 0);
+  ShowEventsKind();
+  ApplyEventsFilter(SelectedEventId());
 }
 
 void PopulateEventsUI(const std::string &data) {
   if (!g_eventsList)
     return;
-  size_t selected = g_eventsList->getIndexSelected();
   std::string keepId =
-      selected < g_eventsStorageIds.size() ? g_eventsStorageIds[selected] : "";
+      g_eventsSelectId.empty() ? SelectedEventId() : g_eventsSelectId;
+  g_eventsSelectId.clear();
+  g_eventsCampaign = GetJsonValue(data, "campaign");
+  std::string events = GetJsonValue(data, "events");
   g_eventsAllIds.clear();
   g_eventsAllTitles.clear();
   g_eventsAllTexts.clear();
   g_eventsAllInstructions.clear();
-  // Flask sorts the keys, so each object's "inner", "instruction", and "title"
-  // lie between its "id" and the next one; an escaped quote in a value cannot
-  // fake an "id": key
-  size_t cur = data.find("\"id\":");
+  g_eventsAllKinds.clear();
+  g_eventsAllRumors.clear();
+  // Flask sorts the keys, so each object's other keys lie between its "id" and
+  // the next one; an escaped quote in a value cannot fake an "id": key
+  size_t cur = events.find("\"id\":");
   while (cur != std::string::npos) {
-    size_t next = data.find("\"id\":", cur + 5);
-    std::string entry = data.substr(cur, next - cur);
+    size_t next = events.find("\"id\":", cur + 5);
+    std::string entry = events.substr(cur, next - cur);
     g_eventsAllIds.push_back(GetJsonValue(entry, "id"));
     g_eventsAllTitles.push_back(GetJsonValue(entry, "title"));
     g_eventsAllTexts.push_back(GetJsonValue(entry, "inner"));
     g_eventsAllInstructions.push_back(GetJsonValue(entry, "instruction"));
+    g_eventsAllKinds.push_back(GetJsonValue(entry, "kind"));
+    g_eventsAllRumors.push_back(GetJsonValue(entry, "rumor"));
     cur = next;
   }
+  ShowEventsKind();
   ApplyEventsFilter(keepId);
 }
 
@@ -135,7 +187,7 @@ void SetEventsText(const std::string &data) {
 void ShowEventContent(const std::string &id) {
   if (g_eventsText) {
     g_eventsText->removeAllItems();
-    g_eventsText->addItem(Utf8ToWide(T("Reading global event: ") + id).c_str());
+    g_eventsText->addItem(Utf8ToWide(T("Loading the deed...")).c_str());
   }
   EventTask *t = new EventTask();
   t->id = id;
@@ -171,14 +223,11 @@ DWORD WINAPI EventsContentThread(LPVOID lpParam) {
 DWORD WINAPI EventsResponseThread(LPVOID lpParam) {
   Log(LOG_DEBUG, "EVENTS_WINDOW: Fetching events list...");
   std::string response = PostToPythonWithResponse(L"/events", "");
-  if (!response.empty()) {
-    std::string eventsJson = GetJsonValue(response, "events");
-    if (!eventsJson.empty()) {
-      std::string pipeMsg = "CMD: POPULATE_EVENTS: " + eventsJson;
-      EnterCriticalSection(&g_msgMutex);
-      g_messageQueue.push_back(pipeMsg);
-      LeaveCriticalSection(&g_msgMutex);
-    }
+  if (GetJsonValue(response, "status") == "ok") {
+    std::string pipeMsg = "CMD: POPULATE_EVENTS: " + response;
+    EnterCriticalSection(&g_msgMutex);
+    g_messageQueue.push_back(pipeMsg);
+    LeaveCriticalSection(&g_msgMutex);
   }
   return 0;
 }
@@ -328,6 +377,59 @@ void CreateRumorEditUI(const std::string &text) {
   g_rumorBox->setCaption(Utf8ToWide(text).c_str());
 }
 
+void OnDeedAddClick(MyGUI::Widget *sender) {
+  SetRumorStatus("");
+  StartRumorRequest(L"/add_deed",
+                    "{\"campaign\":\"" + EscapeJSON(g_eventsCampaign) +
+                        "\",\"rumor\":\"" +
+                        EscapeJSON(g_rumorBox->getOnlyText().asUTF8()) + "\"}",
+                    "DEED_ADDED");
+}
+
+void CreateDeedAddUI() {
+  g_rumorLine = "";
+  MyGUI::Widget *client =
+      CreateRumorWindow("Add Deed", "Add", OnDeedAddClick, "Cancel");
+  if (!client)
+    return;
+  AddBioLine(client,
+             T("Write the rumor of a deed that the game does not track."),
+             0.10f, "SentientSands_DeedAddHint");
+  g_rumorBox = AddBioEditBox(client, 0.17f, 0.40f, "SentientSands_DeedRumor");
+  AddBioLine(client,
+             T("A custom deed has no game time, so Cull Future Data keeps it."),
+             0.62f, "SentientSands_DeedAddCullHint");
+}
+
+void OnDeedDeleteClick(MyGUI::Widget *sender) {
+  bool custom = g_rumorKind == "custom";
+  SetRumorStatus("");
+  StartRumorRequest(custom ? L"/delete_deed" : L"/delete_rumor",
+                    "{\"campaign\":\"" + EscapeJSON(g_eventsCampaign) +
+                        "\",\"id\":\"" +
+                        EscapeJSON(custom ? g_rumorNotable : g_rumorId) +
+                        "\"}",
+                    "DEED_DELETED");
+}
+
+void CreateDeedDeleteUI() {
+  bool custom = g_rumorKind == "custom";
+  MyGUI::Widget *client = CreateRumorWindow(
+      custom ? "Delete the custom deed" : "Delete the rumor", "Delete",
+      OnDeedDeleteClick, "Cancel");
+  if (!client)
+    return;
+  AddBioLine(client,
+             T(custom ? "This deletes the custom deed and its rumor, so NPCs "
+                        "stop mentioning it."
+                      : "NPCs stop mentioning this rumor."),
+             0.12f, "SentientSands_DeedDeleteText");
+  MyGUI::TextBox *warning = AddBioLine(
+      client, T("The delete takes effect immediately and is irreversible."),
+      0.18f, "SentientSands_DeedDeleteWarning");
+  warning->setTextColour(MyGUI::Colour(1.0f, 0.6f, 0.6f));
+}
+
 void OpenRumorEditor(const std::string &data, const std::string &failureKey) {
   std::string reply;
   if (!TakeRumorReply(data, reply))
@@ -340,17 +442,25 @@ void OpenRumorEditor(const std::string &data, const std::string &failureKey) {
   CreateRumorEditUI(GetJsonValue(reply, "text"));
 }
 
-void FinishKeptRumor(const std::string &data) {
+void FinishDeedChange(const std::string &data, const std::string &failureKey) {
   std::string reply;
   if (!TakeRumorReply(data, reply))
     return;
   if (GetJsonValue(reply, "status") != "ok") {
-    ShowRumorFailure("Keep failed: ", reply);
+    ShowRumorFailure(failureKey, reply);
     return;
   }
   CloseRumorUI();
   if (!g_eventsWindow)
     return;
+  std::string added = GetJsonValue(reply, "id");
+  // The search or the kind filter could hide the new deed
+  if (!added.empty()) {
+    g_rumorNotable = added;
+    g_eventsSearch->setCaption("");
+    g_eventsKind = 0;
+  }
+  g_eventsSelectId = g_rumorNotable;
   CreateThread(NULL, 0, EventsResponseThread, NULL, 0, NULL);
   ShowEventContent(g_rumorNotable);
 }
@@ -363,8 +473,11 @@ bool SelectRumorEvent() {
   g_rumorLine = g_eventsList->getItemNameAt(index).asUTF8();
   g_rumorInstruction = "";
   for (size_t i = 0; i < g_eventsAllIds.size(); i++)
-    if (g_eventsAllIds[i] == g_rumorNotable)
+    if (g_eventsAllIds[i] == g_rumorNotable) {
       g_rumorInstruction = g_eventsAllInstructions[i];
+      g_rumorKind = g_eventsAllKinds[i];
+      g_rumorId = g_eventsAllRumors[i];
+    }
   return true;
 }
 
@@ -383,6 +496,19 @@ void OnEventsEditClick(MyGUI::Widget *sender) {
                     "RUMOR_READ");
 }
 
+void OnEventsAddClick(MyGUI::Widget *sender) { CreateDeedAddUI(); }
+
+void OnEventsDeleteClick(MyGUI::Widget *sender) {
+  if (!SelectRumorEvent())
+    return;
+  // Delete takes a custom deed itself, so it needs no rumor
+  if (g_rumorKind != "custom" && g_rumorId.empty()) {
+    SetEventsText(T("The deed has no rumor yet."));
+    return;
+  }
+  CreateDeedDeleteUI();
+}
+
 void OnEventsWindowClose(MyGUI::Window *sender, const std::string &name) {
   CloseEventsUI();
 }
@@ -397,7 +523,7 @@ void CreateEventsUI() {
   g_eventsWindow = gui->createWidgetReal<MyGUI::Window>(
       "Kenshi_WindowCX", 0.1f, 0.1f, 0.8f, 0.8f, MyGUI::Align::Center, "Popup",
       "SentientSands_EventsWindow");
-  g_eventsWindow->setCaption(Utf8ToWide(T("Dynamic World Events Log")).c_str());
+  g_eventsWindow->setCaption(Utf8ToWide(T("Deeds")).c_str());
   g_eventsWindow->eventWindowButtonPressed +=
       MyGUI::newDelegate(OnEventsWindowClose);
 
@@ -421,14 +547,21 @@ void CreateEventsUI() {
   g_eventsSearch->eventEditTextChange +=
       MyGUI::newDelegate(OnEventsSearchChange);
 
+  g_eventsKindBtn = client->createWidgetReal<MyGUI::Button>(
+      "Kenshi_Button1", 0.02f, 0.10f, 0.28f, 0.06f,
+      MyGUI::Align::Left | MyGUI::Align::Top, "SentientSands_EventsKindBtn");
+  g_eventsKindBtn->eventMouseButtonClick +=
+      MyGUI::newDelegate(OnEventsKindClick);
+  ShowEventsKind();
+
   g_eventsList = client->createWidgetReal<MyGUI::ListBox>(
-      "Kenshi_ListBox", 0.02f, 0.10f, 0.28f, 0.74f,
+      "Kenshi_ListBox", 0.02f, 0.18f, 0.28f, 0.58f,
       MyGUI::Align::Left | MyGUI::Align::VStretch, "SentientSands_EventsList");
   g_eventsList->eventListSelectAccept += MyGUI::newDelegate(OnEventsSelect);
   g_eventsList->eventListChangePosition += MyGUI::newDelegate(OnEventsSelect);
 
   MyGUI::Button *generateBtn = client->createWidgetReal<MyGUI::Button>(
-      "Kenshi_Button1", 0.02f, 0.86f, 0.135f, 0.08f,
+      "Kenshi_Button1", 0.02f, 0.78f, 0.135f, 0.08f,
       MyGUI::Align::Left | MyGUI::Align::Bottom,
       "SentientSands_EventsGenerateRumorBtn");
   generateBtn->setCaption(Utf8ToWide(T("Generate Rumor")).c_str());
@@ -436,17 +569,30 @@ void CreateEventsUI() {
       MyGUI::newDelegate(OnEventsGenerateClick);
 
   MyGUI::Button *editBtn = client->createWidgetReal<MyGUI::Button>(
-      "Kenshi_Button1", 0.165f, 0.86f, 0.135f, 0.08f,
+      "Kenshi_Button1", 0.165f, 0.78f, 0.135f, 0.08f,
       MyGUI::Align::Left | MyGUI::Align::Bottom,
       "SentientSands_EventsEditRumorBtn");
   editBtn->setCaption(Utf8ToWide(T("Edit Rumor")).c_str());
   editBtn->eventMouseButtonClick += MyGUI::newDelegate(OnEventsEditClick);
 
+  MyGUI::Button *addBtn = client->createWidgetReal<MyGUI::Button>(
+      "Kenshi_Button1", 0.02f, 0.88f, 0.135f, 0.08f,
+      MyGUI::Align::Left | MyGUI::Align::Bottom,
+      "SentientSands_EventsAddDeedBtn");
+  addBtn->setCaption(Utf8ToWide(T("Add Deed")).c_str());
+  addBtn->eventMouseButtonClick += MyGUI::newDelegate(OnEventsAddClick);
+
+  MyGUI::Button *deleteBtn = client->createWidgetReal<MyGUI::Button>(
+      "Kenshi_Button1", 0.165f, 0.88f, 0.135f, 0.08f,
+      MyGUI::Align::Left | MyGUI::Align::Bottom,
+      "SentientSands_EventsDeleteBtn");
+  deleteBtn->setCaption(Utf8ToWide(T("Delete")).c_str());
+  deleteBtn->eventMouseButtonClick += MyGUI::newDelegate(OnEventsDeleteClick);
+
   g_eventsText = client->createWidgetReal<MyGUI::ListBox>(
       "Kenshi_ListBox", 0.32f, 0.02f, 0.66f, 0.96f, MyGUI::Align::Default,
       "SentientSands_EventsText");
-  g_eventsText->addItem(
-      Utf8ToWide(T("Select an entry to view details.")).c_str());
+  g_eventsText->addItem(Utf8ToWide(T("Select a deed to view details.")).c_str());
 
   CreateThread(NULL, 0, EventsResponseThread, NULL, 0, NULL);
 }

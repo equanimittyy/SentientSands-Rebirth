@@ -10,7 +10,7 @@ from chat.bio import recorded_history
 from chat.characters import send_rename
 from chat.llm import default_llm_config, send_completion
 from chat.prompts import describe_faction, describe_race, describe_record, faction_text, find_named
-from chat.routes import bio_refusal, bio_reply, keep_rumor_reply, rumor_reply
+from chat.routes import add_deed_reply, bio_refusal, bio_reply, delete_deed_reply, delete_rumor_reply, keep_rumor_reply, rumor_reply
 from core import deeds, state
 from core.game import report_from_game
 from core.paths import (CAMPAIGNS_DIR, DEFAULT_TEMPLATE, LLM_CONFIG_PATH, PROMPTS_DIR, USER_PROMPTS_DIR, USER_TEMPLATES_DIR,
@@ -344,31 +344,15 @@ def save_campaign_rumor():
 
 @bp.route('/api/campaign/rumors/delete', methods=['POST'])
 def delete_campaign_rumor():
-    data = request.get_json(silent=True) or {}
-    refused = campaign_write(data)
-    if refused: return refused
-    campaign_db.delete_rumor(data.get("id"))
-    return jsonify({"status": "ok"})
+    return delete_rumor_reply(request.get_json(silent=True) or {})
 
 @bp.route('/api/campaign/deeds/add', methods=['POST'])
 def add_campaign_deed():
-    data = request.get_json(silent=True) or {}
-    refused = campaign_write(data)
-    if refused: return refused
-    rumor = str(data.get("rumor") or "").strip()
-    if not rumor:
-        return jsonify({"status": "error", "message": "Write the rumor of the deed."}), 400
-    notable_id = campaign_db.add_custom_deed(rumor)
-    logging.info(f"DEEDS: Added the custom deed {notable_id} from the web app")
-    return jsonify({"status": "ok"})
+    return add_deed_reply(request.get_json(silent=True) or {}, "the web app")
 
 @bp.route('/api/campaign/deeds/delete', methods=['POST'])
 def delete_campaign_deed():
-    data = request.get_json(silent=True) or {}
-    refused = campaign_write(data)
-    if refused: return refused
-    campaign_db.delete_custom_deed(data.get("id"))
-    return jsonify({"status": "ok"})
+    return delete_deed_reply(request.get_json(silent=True) or {})
 
 @bp.route('/api/campaign/memories', methods=['POST'])
 def save_campaign_memory():

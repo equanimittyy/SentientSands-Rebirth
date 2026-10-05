@@ -192,7 +192,11 @@ void ProcessMessageQueue(GameWorld *thisptr) {
           } else if (command == "RUMOR_READ") {
             OpenRumorEditor(data, "Load failed: ");
           } else if (command == "RUMOR_KEPT") {
-            FinishKeptRumor(data);
+            FinishDeedChange(data, "Keep failed: ");
+          } else if (command == "DEED_ADDED") {
+            FinishDeedChange(data, "Add failed: ");
+          } else if (command == "DEED_DELETED") {
+            FinishDeedChange(data, "Delete failed: ");
           }
         }
       } else if (isRename) {
