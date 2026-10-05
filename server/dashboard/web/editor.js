@@ -31,7 +31,7 @@ const ORIGIN_LABELS = { seed: "Seeded", game: "Met in game", campaign: "Added in
 const PROVISIONAL = "Interactions";
 const IMPORT_PROBLEMS_SHOWN = 10;
 const EVENTS_PER_PAGE = 50;
-const NOTABLE_KINDS = { kill: "Kill", capture: "Capture" };
+const NOTABLE_KINDS = { kill: "Kill", capture: "Capture", custom: "Custom" };
 
 let source = "campaign";
 let canon = null;
@@ -46,6 +46,8 @@ let log = null;
 let rumorDrafts = {};
 let rumorInstructions = {};
 let memoryDrafts = {};
+let deedDrafts = {};
+const newDeed = { text: "" };
 const eventView = { query: "", type: "all", page: 1 };
 let logView = "dialogue";
 const threadView = { query: "", selected: null };
@@ -214,7 +216,8 @@ const changedRumors = () => [
   ...(log?.rumors ?? []).filter((rumor) => rumorDrafts[rumor.id].trim() !== rumor.text || rumor.id in rumorInstructions).map((rumor) => String(rumor.id)),
 ];
 const changedMemories = () => (log?.threads ?? []).filter((thread) => thread.memory && memoryDrafts[thread.id].trim() !== thread.memory);
-const hasChanges = () => (source === "events" ? [...changedRumors(), ...changedMemories()] : changedRecords()).length > 0;
+const changedDeeds = () => (log?.notables ?? []).filter((event) => event.kind === "custom" && deedDrafts[event.id].trim() !== event.line);
+const hasChanges = () => (source === "events" ? [...changedRumors(), ...changedMemories(), ...changedDeeds()] : changedRecords()).length > 0;
 
 function formOf(record) {
   if (!drafts.has(record.key)) drafts.set(record.key, { form: toForm(record.kind, record.data) });
@@ -902,7 +905,7 @@ function askRumor(event, instruction) {
   const form = dialog.querySelector("form");
   form.reset();
   form.elements.instructions.value = instruction;
-  dialog.querySelector("p").textContent = event.line;
+  dialog.querySelector("p").textContent = deedDrafts[event.id] ?? event.line;
   dialog.returnValue = "";
   dialog.showModal();
   return new Promise((resolve) => dialog.addEventListener("close", () => resolve(dialog.returnValue === "ok" ? form.elements.instructions.value : null), { once: true }));
@@ -916,7 +919,7 @@ async function writeRumor(event) {
   if (instruction === null) return;
   const steps = progress("Writing a rumor", "Asking the LLM");
   try {
-    const { text } = await sendJson("POST", "/api/campaign/rumors/generate", { campaign: log.name, notable: event.id, instruction, rumor: rumorDrafts[key] ?? "" });
+    const { text } = await sendJson("POST", "/api/campaign/rumors/generate", { campaign: log.name, notable: event.id, instruction, rumor: rumorDrafts[key] ?? "", line: deedDrafts[event.id] ?? "" });
     steps.close();
     rumorDrafts[key] = text;
     rumorInstructions[key] = instruction;
@@ -940,6 +943,46 @@ function rumorCell(event) {
   return el("div", {},
     el("div", { className: "inline row" }, input, again, remove),
     note ? el("p", { className: `hint${note.error ? " error" : ""}` }, note.text) : null);
+}
+
+function deedCell(event) {
+  if (event.kind !== "custom") return event.line;
+  const note = notes.get(`deed:${event.id}`);
+  const input = control("textarea", deedDrafts, event.id, ["deeds", event.id], { rows: 2, label: "Deed" });
+  if (note?.field) setFieldError(input, note.text);
+  return el("div", {},
+    el("div", { className: "inline row" }, input, deleteButton("Delete the deed", () => deleteDeed(event.id))),
+    note ? el("p", { className: `hint${note.error ? " error" : ""}` }, note.text) : null);
+}
+
+function newDeedForm() {
+  const text = el("input", { value: newDeed.text, placeholder: "Add a deed that the game does not track, such as: Beep freed the slaves of Rebirth.", required: true, oninput: (event) => { newDeed.text = event.target.value; } });
+  text.setAttribute("aria-label", "The new deed");
+  return el("form", { className: "inline row", onsubmit: addDeed }, text, el("button", { type: "submit" }, "Add"));
+}
+
+async function addDeed(event) {
+  event.preventDefault();
+  try {
+    await sendJson("POST", "/api/campaign/deeds/add", { campaign: log.name, text: newDeed.text });
+    newDeed.text = "";
+    eventView.query = "";
+    eventView.type = "all";
+    eventView.page = 1;
+    await fetchLog(keptLog());
+  } catch (error) {
+    showMessage(message, `Add failed: ${error.message}`, true);
+  }
+}
+
+async function deleteDeed(id) {
+  if (!(await ask("Delete the deed", "Delete", "This deletes the deed and its rumor, so NPCs stop mentioning it. ", "\n\n", el("b", { className: "warning" }, "The delete takes effect immediately and is irreversible.")))) return;
+  try {
+    await sendJson("POST", "/api/campaign/deeds/delete", { campaign: log.name, id });
+    await fetchLog(keptLog());
+  } catch (error) {
+    showMessage(message, `Delete failed: ${error.message}`, true);
+  }
 }
 
 function renderEvents() {
@@ -970,10 +1013,12 @@ function renderEvents() {
   return el("fieldset", {},
     el("legend", {}, `Deeds (${deeds.length})`),
     el("p", { className: "hint" },
-      "Each known figure that your squad killed or captured, newest first. A known figure is a character that the game marks as unique, such as Tinfist."),
+      "Each known figure that your squad killed or captured, and each deed that you added, newest first. A known figure is a character that the game marks as unique, such as Tinfist. A deed that you add has no game time, so it shows at the top, and Cull future data keeps it."),
     el("p", { className: "hint" },
       "SSR writes each rumor after the memories, when you stop chatting for the Conversation timeout. Generate Rumor writes one sooner, and the robot rewrites it with new instructions. NPCs hear the 5 newest."),
-    ...(deeds.length > 0 ? [el("div", { className: "inline row" }, search, select), el("div", { id: "event-page" })] : [el("p", { className: "hint" }, "No deeds yet.")]));
+    deeds.length > 0 ? el("div", { className: "inline row" }, search, select) : null,
+    newDeedForm(),
+    deeds.length > 0 ? el("div", { id: "event-page" }) : el("p", { className: "hint" }, "No deeds yet."));
 }
 
 function pager(shown, pages, start) {
@@ -1006,7 +1051,7 @@ function renderEventPage() {
   const rows = shown.slice(start, start + EVENTS_PER_PAGE).map((event) => el("tr", {},
     el("td", {}, event.time),
     el("td", {}, el("span", { className: "badge" }, NOTABLE_KINDS[event.kind] ?? event.kind)),
-    el("td", {}, event.line),
+    el("td", {}, deedCell(event)),
     el("td", {}, rumorCell(event))));
   const head = el("tr", {}, el("th", {}, "Time"), el("th", {}, "Kind"), el("th", {}, "Deed"), el("th", {}, "Rumor"));
   const table = el("table", { className: "event-table" }, el("thead", {}, head), el("tbody", {}, ...rows));
@@ -1192,25 +1237,26 @@ async function save() {
 }
 
 async function saveLog() {
-  const changes = [...changedRumors().map((key) => ["rumors", key]), ...changedMemories().map((thread) => ["memories", thread.id])];
+  const changes = [...changedRumors().map((key) => ["rumors", key]), ...changedMemories().map((thread) => ["memories", thread.id]), ...changedDeeds().map((event) => ["deeds", event.id])];
   if (changes.length === 0) {
     flashMessage(message, "No changes to save.");
     return;
   }
   notes.clear();
-  const kept = { rumors: {}, instructions: {}, memories: {} };
+  const kept = { rumors: {}, instructions: {}, memories: {}, deeds: {} };
   for (const [kind, id] of changes) {
     try {
-      await sendJson("POST", `/api/campaign/${kind}`, kind === "rumors" ? rumorBody(id) : { campaign: log.name, id, text: memoryDrafts[id] });
+      await sendJson("POST", `/api/campaign/${kind}`, kind === "rumors" ? rumorBody(id) : { campaign: log.name, id, text: (kind === "deeds" ? deedDrafts : memoryDrafts)[id] });
     } catch (error) {
       if (kind === "rumors") {
         kept.rumors[id] = rumorDrafts[id];
         if (id in rumorInstructions) kept.instructions[id] = rumorInstructions[id];
-      } else kept.memories[id] = memoryDrafts[id];
-      notes.set(`${kind === "rumors" ? "rumor" : "memory"}:${id}`, { error: true, text: error.message, field: error.fieldErrors?.[0]?.field });
+      } else if (kind === "deeds") kept.deeds[id] = deedDrafts[id];
+      else kept.memories[id] = memoryDrafts[id];
+      notes.set(`${{ rumors: "rumor", memories: "memory", deeds: "deed" }[kind]}:${id}`, { error: true, text: error.message, field: error.fieldErrors?.[0]?.field });
     }
   }
-  const failed = Object.keys(kept.rumors).length + Object.keys(kept.memories).length;
+  const failed = Object.keys(kept.rumors).length + Object.keys(kept.memories).length + Object.keys(kept.deeds).length;
   if (!(await fetchLog(kept))) return;
   if (failed > 0) showMessage(message, `${failed} of ${changes.length} changes were not saved.`, true);
   else flashMessage(message, "Saved.");
@@ -1242,9 +1288,10 @@ const keptLog = () => ({
   rumors: Object.fromEntries(changedRumors().map((key) => [key, rumorDrafts[key]])),
   instructions: { ...rumorInstructions },
   memories: Object.fromEntries(changedMemories().map((thread) => [thread.id, memoryDrafts[thread.id]])),
+  deeds: Object.fromEntries(changedDeeds().map((event) => [event.id, deedDrafts[event.id]])),
 });
 
-function showLog({ rumors = {}, instructions = {}, memories = {} }) {
+function showLog({ rumors = {}, instructions = {}, memories = {}, deeds = {} }) {
   const events = new Map((log?.notables ?? []).map((event) => [`new:${event.id}`, event]));
   // A new rumor whose event got a rumor in the meantime, for example in another tab, becomes a draft of that rumor
   const keyOf = (key) => (events.get(key)?.rumor ?? key).toString();
@@ -1253,6 +1300,7 @@ function showLog({ rumors = {}, instructions = {}, memories = {} }) {
   for (const [key, text] of Object.entries(kept)) if (events.has(key)) rumorDrafts[key] = text;
   rumorInstructions = Object.fromEntries(Object.entries(instructions).map(([key, text]) => [keyOf(key), text]).filter(([key]) => key in rumorDrafts));
   memoryDrafts = Object.fromEntries((log?.threads ?? []).filter((thread) => thread.memory).map((thread) => [thread.id, memories[thread.id] ?? thread.memory]));
+  deedDrafts = Object.fromEntries((log?.notables ?? []).filter((event) => event.kind === "custom").map((event) => [event.id, deeds[event.id] ?? event.line]));
   render();
 }
 

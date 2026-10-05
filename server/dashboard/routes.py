@@ -161,7 +161,7 @@ def get_active_campaign():
             "name": state.ACTIVE_CAMPAIGN,
             "notables": deeds.notable_events(),
             "rumors": [
-                {"id": rumor["id"], "notable": rumor["notable_id"], "text": rumor["text"], "instruction": rumor["instruction"], "time": campaign_db.game_time_text(rumor["game_time"])}
+                {"id": rumor["id"], "notable": rumor["notable_id"], "text": rumor["text"], "instruction": rumor["instruction"], "time": campaign_db.game_time_text(rumor["game_time"]) if rumor["game_time"] is not None else "-"}
                 for rumor in reversed(campaign_db.rumors())
             ],
             "threads": [
@@ -336,7 +336,7 @@ def generate_campaign_rumor():
     data = request.get_json(silent=True) or {}
     refused = campaign_write(data)
     if refused: return refused
-    return rumor_reply(data.get("notable"), str(data.get("instruction") or ""), str(data.get("rumor") or ""))
+    return rumor_reply(data.get("notable"), str(data.get("instruction") or ""), str(data.get("rumor") or ""), str(data.get("line") or ""))
 
 @bp.route('/api/campaign/rumors', methods=['POST'])
 def save_campaign_rumor():
@@ -348,6 +348,39 @@ def delete_campaign_rumor():
     refused = campaign_write(data)
     if refused: return refused
     campaign_db.delete_rumor(data.get("id"))
+    return jsonify({"status": "ok"})
+
+@bp.route('/api/campaign/deeds/add', methods=['POST'])
+def add_campaign_deed():
+    data = request.get_json(silent=True) or {}
+    refused = campaign_write(data)
+    if refused: return refused
+    text = " ".join(str(data.get("text") or "").split())
+    if not text:
+        return jsonify({"status": "error", "message": "Describe the deed."}), 400
+    notable_id = campaign_db.add_custom_deed(text)
+    logging.info(f"DEEDS: Added the custom deed {notable_id} from the web app")
+    return jsonify({"status": "ok"})
+
+@bp.route('/api/campaign/deeds', methods=['POST'])
+def save_campaign_deed():
+    data = request.get_json(silent=True) or {}
+    refused = campaign_write(data)
+    if refused: return refused
+    notable_id = data.get("id")
+    text = " ".join(str(data.get("text") or "").split())
+    if not text:
+        return jsonify({"status": "error", "errors": [{"field": ["deeds", notable_id], "message": "A deed needs text. Delete it instead."}]}), 400
+    if not campaign_db.edit_custom_deed(notable_id, text):
+        return jsonify({"status": "error", "message": "The deed is gone. Discard to load the deeds again."}), 404
+    return jsonify({"status": "ok"})
+
+@bp.route('/api/campaign/deeds/delete', methods=['POST'])
+def delete_campaign_deed():
+    data = request.get_json(silent=True) or {}
+    refused = campaign_write(data)
+    if refused: return refused
+    campaign_db.delete_custom_deed(data.get("id"))
     return jsonify({"status": "ok"})
 
 @bp.route('/api/campaign/memories', methods=['POST'])

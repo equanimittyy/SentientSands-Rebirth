@@ -15,7 +15,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 DB_NAME = "campaign.db"
-SCHEMA_VERSION = 10
+SCHEMA_VERSION = 11
 DIALOGUE_BLOCK = 20
 # The chat count of a provisional profile also marks it as provisional: the template validator, which the campaign editor
 # also runs, takes only text and numbers as profile values, so a true/false mark could not be saved from the editor
@@ -60,13 +60,13 @@ CREATE INDEX dialogue_by_character ON dialogue (character_id, id);
 CREATE INDEX dialogue_by_thread ON dialogue (thread_id);
 CREATE TABLE notable (
   id        INTEGER PRIMARY KEY,
-  game_time INTEGER NOT NULL,
+  game_time INTEGER,
   deed      TEXT NOT NULL
 );
 CREATE TABLE rumor (
   id          INTEGER PRIMARY KEY,
   notable_id  INTEGER NOT NULL UNIQUE REFERENCES notable(id) ON DELETE CASCADE,
-  game_time   INTEGER NOT NULL,
+  game_time   INTEGER,
   text        TEXT NOT NULL,
   instruction TEXT NOT NULL DEFAULT ''
 );
@@ -464,17 +464,35 @@ def add_deed(kind, doers, victim, game_time):
     return doers
 
 
+def add_custom_deed(text):
+    """Stores a deed that the player wrote, for an act that the game does not track, with no game time. Returns its
+    notable event ID."""
+    with _connect(write=True) as conn:
+        return conn.execute("INSERT INTO notable (deed) VALUES (?)", (json.dumps({"deed": "custom", "text": text}),)).lastrowid
+
+
+def edit_custom_deed(notable_id, text):
+    with _connect(write=True) as conn:
+        return conn.execute("UPDATE notable SET deed = json_set(deed, '$.text', ?) WHERE id = ? AND json_extract(deed, '$.deed') = 'custom'", (text, notable_id)).rowcount > 0
+
+
+def delete_custom_deed(notable_id):
+    """Deletes a custom deed with its rumor."""
+    with _connect(write=True) as conn:
+        return conn.execute("DELETE FROM notable WHERE id = ? AND json_extract(deed, '$.deed') = 'custom'", (notable_id,)).rowcount > 0
+
+
 def notables():
-    """Every notable event as (id, game_time, deed), newest first."""
+    """Every notable event as (id, game_time, deed), newest first. A custom deed has no game time and counts as the newest."""
     with _connect() as conn:
-        rows = conn.execute("SELECT id, game_time, deed FROM notable ORDER BY game_time DESC, id DESC").fetchall()
+        rows = conn.execute("SELECT id, game_time, deed FROM notable ORDER BY game_time DESC NULLS FIRST, id DESC").fetchall()
     return [(notable_id, at, json.loads(deed)) for notable_id, at, deed in rows]
 
 
 def rumors():
-    """Every rumor as a dict, oldest first by game time."""
+    """Every rumor as a dict, oldest first by game time. The rumor of a custom deed has no game time and counts as the newest."""
     with _connect() as conn:
-        rows = conn.execute("SELECT id, notable_id, game_time, text, instruction FROM rumor ORDER BY game_time, id").fetchall()
+        rows = conn.execute("SELECT id, notable_id, game_time, text, instruction FROM rumor ORDER BY game_time NULLS LAST, id").fetchall()
     return [{"id": rumor_id, "notable_id": notable_id, "game_time": at, "text": text, "instruction": instruction}
             for rumor_id, notable_id, at, text, instruction in rows]
 

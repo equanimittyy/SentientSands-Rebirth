@@ -128,7 +128,7 @@ The hooks in `plugin/main.cpp` add the game events to a buffer (`QueueGameEvent`
 
 The `notable` table holds one row for each deed. Campaign Log > Deeds on the web app lists them, newest first, for example "Beep and Izumi of Nameless captured Tinfist."
 
-- A row holds the game time, and as JSON the kind (`kill` or `capture`), the doers, and the `npc_id`, name, and faction of the victim.
+- A row holds the game time, and as JSON the kind (`kill` or `capture`), the doers, and the `npc_id`, name, and faction of the victim. A custom deed holds no game time, and as JSON the kind `custom` and its text.
 - A death of a known figure gives a kill to each attacker, and an imprisonment of a known figure gives a capture to each captor. A victim in the player's faction gives no deed, and neither does a character that is not a known figure.
 - A known figure is a character that the game marks as unique (`Character::isUnique`), whose `npc_id` therefore starts with `u:`. A generic character whose template is a canon character counts too, because it takes the `npc_id` of that character (see [Characters](#characters)).
 - A capture counts once for each captor and known figure, because `setPrisonMode` runs again with `on` for each prisoner when a save loads.
@@ -137,6 +137,18 @@ The `notable` table holds one row for each deed. Campaign Log > Deeds on the web
 - The cull deletes the rows after the game time.
 - Rejected: the characters of the canon whose `origin` is `seed` or `campaign`. A unique character that the template lacks, for example of another mod, made no deed.
 - Rejected: a count of the kills of other characters for each faction and animal race. It needed a row for each kill, and only a known figure makes news.
+
+The player can add a custom deed for an act that the game does not track, such as "Beep freed the slaves of Rebirth.":
+
+1. On Campaign Log > Deeds, the player types the text under the search field and presses **Add**.
+2. `POST /api/campaign/deeds/add` stores the deed with no game time (`add_custom_deed` in `server/store/campaign_db.py`), so the game need not run.
+3. The row of the deed shows "-" as its time, and its text in an edit box. Save stores the changed text (`edit_custom_deed`), and Delete removes the deed with its rumor after a confirmation (`delete_custom_deed`).
+
+- A custom deed counts as newer than every deed of the game, so Deeds lists it first, and its rumor is among the newest that NPCs hear (see [Rumors](#rumors)). Among the custom deeds, the last one added comes first.
+- The cull keeps a custom deed and its rumor, because they have no game time.
+- The line of a custom deed is its text. It names no characters, so a rename does not change it, and Campaign Canon lists no custom deed under the Deeds of a squad member.
+- The server writes its rumor as for the other deeds.
+- The server edits and deletes only a custom deed. The page offers no edit and no delete for the other deeds.
 
 ### Rumors
 
@@ -154,7 +166,7 @@ The player can write a rumor sooner, or again with an instruction:
 3. The page puts the text into the edit box of the row, so the player reads and edits it before a save keeps it.
 4. Save stores the rumor with its notable event and its instruction (`save_rumor`).
 
-- The rumor so far is the text in the row, also when the player edited it and did not save it, as Generate Bio reads the form. The in-game window sends the stored rumor.
+- The rumor so far is the text in the row, also when the player edited it and did not save it, as Generate Bio reads the form. The text of a custom deed also comes from its row. The in-game window sends the stored rumor.
 - The player instructions win over the rumor so far: the prompt tells the LLM to drop each part of the rumor so far that conflicts with them, and to keep the rest, as the bio prompt does with the current profile.
 
 The facts are plain sentences (`server/chat/rumors.py`), and the LLM gets only these facts, so it invents no other event:
@@ -169,6 +181,7 @@ The factions:
 - Anti-Slavers. Enemies: The Holy Nation, Slave Traders.
 ```
 
+- A custom deed gives its text as the deed, and no time, no characters, and no factions, because the server does not know when it happened or who is in it.
 - Each character of the deed that has a profile gets its sex, its race, and the first sentence of its `Backstory`, so the LLM knows why a known figure matters and which pronouns fit.
 - The faction of the victim gets its `allies` and `enemies` from the canon factions, so the LLM knows who cheers the news and who fears it.
 - `prompt_world_synthesis.txt` takes the instruction right after the task line, because a model that read the instructions of the bio prompt after the current texts ignored them (see [Provisional profiles](#provisional-profiles)).
@@ -176,8 +189,8 @@ The factions:
 The `rumor` table holds the text, the game time, the instruction, and the notable event.
 
 - A notable event has at most one rumor, which shows in its row on Deeds.
-- A rumor takes the game time of its notable event, so the cull deletes a rumor with its notable event.
-- The chat scene gives each NPC the 5 newest rumors by game time (`PROMPT_RUMORS`), with their age.
+- A rumor takes the game time of its notable event, so the cull deletes a rumor with its notable event. The rumor of a custom deed has no game time and counts as the newest.
+- The chat scene gives each NPC the 5 newest rumors by game time (`PROMPT_RUMORS`), each with its age, except the rumor of a custom deed.
 
 The Dynamic World Events Log in game mirrors Campaign Log > Deeds, as the Dialogue Library mirrors Generate Bio (see [Provisional profiles](#provisional-profiles)):
 
@@ -236,7 +249,7 @@ A refresh changes the message of the save bar only when the unsaved state of the
 
 The Editor holds many records. Save sends one request for each changed record, and a record that the server rejects keeps its draft and shows the reason. A delete takes effect at once, after a confirmation.
 
-The Editor has three subtabs. Campaign Canon and Templates share the record list and forms: Campaign Canon edits the canon of the active campaign, and Templates edits the world templates that new campaigns copy. Campaign Log shows the active campaign in two subtabs of its own: Dialogue & Memories, and Deeds. Deeds lists the notable events (see [Deeds](#deeds)) and edits their rumors (see [Rumors](#rumors)). The page holds the data of one subtab and one template at a time, so a switch with unsaved changes asks the player first. A shipped template is read-only, so the page offers a duplicate.
+The Editor has three subtabs. Campaign Canon and Templates share the record list and forms: Campaign Canon edits the canon of the active campaign, and Templates edits the world templates that new campaigns copy. Campaign Log shows the active campaign in two subtabs of its own: Dialogue & Memories, and Deeds. Deeds lists the notable events (see [Deeds](#deeds)), adds and edits the custom deeds, and edits the rumors (see [Rumors](#rumors)). The page holds the data of one subtab and one template at a time, so a switch with unsaved changes asks the player first. A shipped template is read-only, so the page offers a duplicate.
 
 Dialogue & Memories lists the chat threads of the active campaign, newest first, each with the game time of its first exchange and its speakers (see [Chat threads](#chat-threads)). It uses the layout of Campaign Canon: a search field and the list on the left, and the selected thread on the right, with its lines, its memory under Memorised Summary (see [Conversation memories](#conversation-memories)), and its speakers and overhearers under Involved Characters. A thread with a memory shows only its memory, because the memory replaces its lines. The search matches the names of the members, the text of the lines, and the memory, with case ignored. `GET /api/campaign` returns every thread with its lines and its memory, as Campaign Canon loads every record, so the search runs in the page. The lines are the copy of a speaker, because its lines have no `(Overheard)` tag (`campaign_db.threads`). The memory under Memorised Summary is editable: Save writes each changed memory, and Delete removes the conversation after a confirmation (see [Conversation memories](#conversation-memories)). The lines are read-only, and banter has no threads, so it stays out.
 
@@ -643,8 +656,10 @@ Edit Bio in the Dialogue Library skips the LLM. `/read_bio` returns the stored `
 | `POST /api/campaign/characters/bio` | The LLM text of the full bio, or of one part, for the form of a character. It stores nothing (see [Provisional profiles](#provisional-profiles)). |
 | `POST /api/campaign/rumors/generate` | The LLM text of a rumor of a notable event. It stores nothing (see [Rumors](#rumors)). |
 | `POST /api/campaign/rumors`, `.../rumors/delete` | Save a rumor by its ID, or the rumor of a notable event, which a new rumor has no ID for yet; or delete a rumor |
+| `POST /api/campaign/deeds/add` | Add a custom deed, with no game time (see [Deeds](#deeds)) |
+| `POST /api/campaign/deeds`, `.../deeds/delete` | Edit the text of a custom deed, or delete it with its rumor |
 | `POST /api/campaign/memories`, `.../memories/delete` | Edit or delete a memory of the active campaign (see [Conversation memories](#conversation-memories)) |
-| `POST /api/campaign/cull` | Delete the dialogue, deeds, notable events, rumors, thread members, and memories dated after the current game time, after the player loads an older save. It asks the running game for a report and refuses the cull without one (see [Game state](#game-state)), because without the game time day 0 would count as now and the cull would delete the whole history. |
+| `POST /api/campaign/cull` | Delete the dialogue, deeds, notable events, rumors, thread members, and memories dated after the current game time, except the custom deeds and their rumors, after the player loads an older save. It asks the running game for a report and refuses the cull without one (see [Game state](#game-state)), because without the game time day 0 would count as now and the cull would delete the whole history. |
 
 - Each edit names the campaign that the page loaded. Another tab can switch the campaign while the page is open, so the server refuses an edit for another campaign instead of writing it into the active one.
 - **Cull Future Data** in the SSR HUB posts to `POST /cull`, which does the same cull without the campaign check, because the game always means the active campaign. The plugin shows the result as a game message.

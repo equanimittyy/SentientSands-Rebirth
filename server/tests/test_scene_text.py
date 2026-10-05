@@ -100,6 +100,7 @@ class SentenceTest(unittest.TestCase):
         lines = [(9 * 1440 + 850, "Shek raiders were seen near the Bad Teeth."), (11 * 1440 + 1142, "A caravan never arrived")]
         self.assertEqual(scene_text.rumors_text(lines, 12), "Rumours:\nYesterday you heard a rumour: A caravan never arrived. A few days ago you heard a rumour: Shek raiders were seen near the Bad Teeth. These are only rumours; bring them up only when they fit the conversation.")
         self.assertTrue(scene_text.rumors_text(lines[:1], None).startswith("Rumours:\nYou heard a rumour:"))
+        self.assertTrue(scene_text.rumors_text([*lines, (None, "Beep freed the slaves of Rebirth.")], 12).startswith("Rumours:\nYou heard a rumour: Beep freed the slaves of Rebirth. Yesterday"))
         self.assertEqual(scene_text.rumors_text([], 12), "")
 
     def test_the_player_seen_by_the_npc(self):

@@ -126,22 +126,23 @@ def _store(kind, victim, attackers, at):
 
 
 def notable_events():
-    """Each notable event, newest first, as a dict with its ID, kind ("kill" or "capture"), game time, line, and rumor ID.
+    """Each notable event, newest first, as a dict with its ID, kind ("kill", "capture", or "custom"), game time, line, and
+    rumor ID.
     The line names each character by its current name, so a renamed squad member shows with its new name."""
     rows = campaign_db.notables()
     names = campaign_db.names_of({npc_id for _, _, deed in rows for npc_id in character_ids(deed)})
     faction = (campaign_db.player_faction() or {}).get("name")
     rumors = {rumor["notable_id"]: rumor["id"] for rumor in campaign_db.rumors()}
-    return [{"id": notable_id, "kind": deed["deed"], "time": campaign_db.game_time_text(at), "line": notable_line(deed, names, faction), "rumor": rumors.get(notable_id)}
+    return [{"id": notable_id, "kind": deed["deed"], "time": campaign_db.game_time_text(at) if at is not None else "-", "line": notable_line(deed, names, faction), "rumor": rumors.get(notable_id)}
             for notable_id, at, deed in rows]
 
 
 def character_deeds():
     """The known figures that each squad member killed or captured, oldest first, as text for Campaign Canon."""
-    rows = campaign_db.notables()
-    names = campaign_db.names_of({deed["victim"]["id"] for _, _, deed in rows})
+    deeds = [deed for _, _, deed in campaign_db.notables() if deed["deed"] != "custom"]
+    names = campaign_db.names_of({deed["victim"]["id"] for deed in deeds})
     summary = {}
-    for _, _, deed in reversed(rows):
+    for deed in reversed(deeds):
         line = f"{'Killed' if deed['deed'] == 'kill' else 'Captured'} {names.get(deed['victim']['id'], deed['victim']['name'])}"
         for doer in deed["doers"]:
             summary.setdefault(doer["id"], []).append(line)
@@ -149,11 +150,15 @@ def character_deeds():
 
 
 def character_ids(deed):
+    if deed["deed"] == "custom":
+        return []
     return [doer["id"] for doer in deed["doers"]] + [deed["victim"]["id"]]
 
 
 def notable_line(deed, names, player_faction):
     """names maps an npc_id to its current name; a character with no profile keeps the name of the deed."""
+    if deed["deed"] == "custom":
+        return deed["text"]
     doers = name_list([names.get(doer["id"], doer["name"]) for doer in deed["doers"]])
     victim = names.get(deed["victim"]["id"], deed["victim"]["name"])
     verb = "killed" if deed["deed"] == "kill" else "captured"

@@ -31,18 +31,22 @@ def facts(at, deed):
     player = campaign_db.player_faction() or {}
     faction = player.get("name") or "Nameless"
     description = (player.get("description") or "").strip()
-    lines = [f"The player's faction: {faction}." + (f" {description}" if description else ""), f"The deed: {deed_sentence(deed, names, faction)}", f"Time: {campaign_db.game_time_text(at)}."]
+    lines = [f"The player's faction: {faction}." + (f" {description}" if description else ""), f"The deed: {deed_sentence(deed, names, faction)}"]
+    if at is not None:
+        lines.append(f"Time: {campaign_db.game_time_text(at)}.")
     # The victim first, because a known figure is the news
     people = [person_line(profile) for profile in (campaign_db.get_character(npc_id) for npc_id in [*ids[-1:], *ids[:-1]]) if profile]
     if people:
         lines += ["Who they are:", *people]
-    stance = faction_line(deed["victim"]["faction"])
+    stance = faction_line(deed["victim"]["faction"]) if deed["deed"] != "custom" else None
     if stance:
         lines += ["The factions:", stance]
     return "\n".join(lines)
 
 
 def deed_sentence(deed, names, player_faction):
+    if deed["deed"] == "custom":
+        return deed["text"]
     doers = deeds.name_list([names.get(doer["id"], doer["name"]) for doer in deed["doers"]])
     victim = names.get(deed["victim"]["id"], deed["victim"]["name"])
     faction = deed["victim"]["faction"]

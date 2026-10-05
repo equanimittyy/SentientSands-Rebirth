@@ -258,10 +258,10 @@ def location_text(environment):
 
 
 def rumors_text(rumors, today):
-    """rumors are (game minutes, text) pairs, oldest first."""
+    """rumors are (game minutes, text) pairs, oldest first. The rumor of a custom deed has None for its game minutes."""
     sentences = []
     for at, text in reversed(rumors):
-        heard = f"{_scale(today - at // 1440, RUMOR_AGE)} you heard" if today is not None else "You heard"
+        heard = f"{_scale(today - at // 1440, RUMOR_AGE)} you heard" if today is not None and at is not None else "You heard"
         sentences.append(f"{heard} a rumour: {_sentence(text)}")
     if sentences:
         sentences.append("These are only rumours; bring them up only when they fit the conversation.")

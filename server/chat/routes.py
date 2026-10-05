@@ -504,9 +504,10 @@ def bio_reply(data, history, race_lore, faction, **reply):
         return jsonify({"status": "error", "message": "The LLM gave no usable text. Try again."}), 500
     return jsonify({"status": "ok", "bio": bio, **reply})
 
-def rumor_reply(notable_id, instruction, so_far=None, **reply):
+def rumor_reply(notable_id, instruction, so_far=None, line="", **reply):
     """The web app puts the text into the row of the deed, so the player reads it before a save keeps it. so_far None takes
-    the stored rumor. Stores nothing."""
+    the stored rumor, and line, the text of a custom deed that the player has not saved yet, replaces the stored text.
+    Stores nothing."""
     try:
         notable_id = int(notable_id)
     except (TypeError, ValueError):
@@ -514,9 +515,13 @@ def rumor_reply(notable_id, instruction, so_far=None, **reply):
     notable = campaign_db.notable(notable_id)
     if not notable:
         return jsonify({"status": "error", "message": "The notable event is gone. Load the events again."}), 404
+    at, deed = notable
     if so_far is None:
         so_far = next((rumor["text"] for rumor in campaign_db.rumors() if rumor["notable_id"] == notable_id), "")
-    text = rumors.clean(call_llm("synthesis", [{"role": "user", "content": rumors.prompt(*notable, instruction, so_far)}]))
+    line = " ".join(line.split())
+    if line and deed["deed"] == "custom":
+        deed = {**deed, "text": line}
+    text = rumors.clean(call_llm("synthesis", [{"role": "user", "content": rumors.prompt(at, deed, instruction, so_far)}]))
     if not text:
         return jsonify({"status": "error", "message": "The LLM gave no usable text. Try again."}), 500
     return jsonify({"status": "ok", "text": text, **reply})

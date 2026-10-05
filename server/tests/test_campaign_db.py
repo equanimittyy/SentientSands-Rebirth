@@ -421,6 +421,30 @@ class CullAndRumorTest(CampaignTestCase):
         self.assertFalse(campaign_db.add_rumor(notable_id + 1, "gone"))
         self.assertEqual([(rumor["notable_id"], rumor["game_time"], rumor["text"], rumor["instruction"]) for rumor in campaign_db.rumors()], [(notable_id, 1440, "auto", "")])
 
+    def test_only_a_custom_deed_can_be_edited_or_deleted(self):
+        kill = self.figure(1440)
+        custom = campaign_db.add_custom_deed("Beep freed the slaves.")
+        campaign_db.save_rumor(None, custom, "They say Beep freed them.")
+        self.assertFalse(campaign_db.edit_custom_deed(kill, "Beep did it."))
+        self.assertFalse(campaign_db.delete_custom_deed(kill))
+        self.assertTrue(campaign_db.edit_custom_deed(custom, "Beep freed the slaves of Rebirth."))
+        self.assertEqual(campaign_db.notable(custom), (None, {"deed": "custom", "text": "Beep freed the slaves of Rebirth."}))
+        self.assertTrue(campaign_db.delete_custom_deed(custom))
+        self.assertEqual([notable_id for notable_id, _, _ in campaign_db.notables()], [kill])
+        self.assertEqual(campaign_db.rumors(), [])
+
+    def test_a_custom_deed_and_its_rumor_count_as_the_newest_and_the_cull_keeps_them(self):
+        custom = campaign_db.add_custom_deed("Beep freed the slaves.")
+        later = self.figure(3 * 1440)
+        earlier = self.figure(1440)
+        for notable_id in (custom, later, earlier):
+            campaign_db.save_rumor(None, notable_id, str(notable_id))
+        self.assertEqual([notable_id for notable_id, _, _ in campaign_db.notables()], [custom, later, earlier])
+        self.assertEqual([rumor["notable_id"] for rumor in campaign_db.rumors()], [earlier, later, custom])
+        self.assertEqual(campaign_db.cull_after(2, 0, 0), {"dialogue": 0, "rumor": 1, "notable": 1})
+        self.assertEqual([notable_id for notable_id, _, _ in campaign_db.notables()], [custom, earlier])
+        self.assertEqual([rumor["game_time"] for rumor in campaign_db.rumors()], [1440, None])
+
     def test_delete_rumor(self):
         campaign_db.save_rumor(None, self.figure(1440), "one")
         (rumor,) = campaign_db.rumors()

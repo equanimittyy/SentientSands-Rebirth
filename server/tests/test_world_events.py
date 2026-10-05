@@ -188,6 +188,19 @@ class DeedTest(WorldEventsTestCase):
         self.assertEqual(campaign_db.rumors(), [])
 
 
+class CustomDeedTest(WorldEventsTestCase):
+    def test_a_custom_deed_shows_its_text_and_lists_for_no_squad_member(self):
+        self.kill([BEEP], TINFIST, at(1))
+        campaign_db.add_custom_deed("Beep freed the slaves of Rebirth.")
+        self.assertEqual([(event["time"], event["line"]) for event in deeds.notable_events()],
+                         [("-", "Beep freed the slaves of Rebirth."), ("Day 1, 00:00", "Beep of Nameless killed Tinfist.")])
+        self.assertEqual(deeds.character_deeds(), {"h:1": ["Killed Tinfist"]})
+
+    def test_the_facts_of_a_custom_deed_are_its_text_with_no_time(self):
+        notable_id = campaign_db.add_custom_deed("Beep freed the slaves of Rebirth.")
+        self.assertEqual(rumors.facts(*campaign_db.notable(notable_id)), "The player's faction: Nameless.\nThe deed: Beep freed the slaves of Rebirth.")
+
+
 class RumorTest(WorldEventsTestCase):
     def notable(self):
         return campaign_db.notable(deeds.notable_events()[0]["id"])
