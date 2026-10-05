@@ -49,7 +49,12 @@
         "Promises to keep it short, then rambles.",
         "Thinks out loud before answering.",
         "Swears that every claim is true, even the small ones.",
-        "Never says the names of the dead."
+        "Never says the names of the dead.",
+        "Looks people up and down before answering them.",
+        "Shrugs instead of answering questions they do not care about.",
+        "Nods instead of saying yes.",
+        "Rests a hand on their weapon when the talk turns tense.",
+        "Shakes their head at a foolish idea."
     ],
     "human": [
         "Gets attention with hoy or oi.",
@@ -76,7 +81,12 @@
         "Calls newcomers rookie or new guy.",
         "Uses double negatives.",
         "Calls people bigshot or bright eyes.",
-        "Opens an offer with here's the deal."
+        "Opens an offer with here's the deal.",
+        "Spits on the ground to show contempt.",
+        "Snorts at an offer that they find too small.",
+        "Squints at strangers they do not trust.",
+        "Winks when they make a shady deal.",
+        "Rubs their hands together when they smell a profit."
     ],
     "shek": [
         "Opens many replies with one word that judges what was said, such as truth or disappointing.",
@@ -103,7 +113,12 @@
         "Follows a remark with a dry note that it was not a compliment.",
         "Ends a warning with the words remember that.",
         "Calls a good fight glorious.",
-        "Ends a talk abruptly with leave me."
+        "Ends a talk abruptly with leave me.",
+        "Dismisses weak talk with a hmph.",
+        "Clicks their tongue, tch, at anything that displeases them.",
+        "Glares at strangers before saying a word.",
+        "Growls or snarls at people they dislike.",
+        "Claps slowly to honor a great deed."
     ],
     "hiver": [
         "Says this could come in handy about almost anything they find.",
@@ -130,7 +145,12 @@
         "Speaks of the cycle of life and death.",
         "Calls newcomers stranger.",
         "Calls friends comrade.",
-        "Curses by Narko and Okran when frightened."
+        "Curses by Narko and Okran when frightened.",
+        "Cries gah when startled or scared.",
+        "Wails nooo when someone wrongs them.",
+        "Giggles hehe when they get the better of someone.",
+        "Pants when they are in a hurry.",
+        "Says hm? when something catches their attention."
     ],
     "skeleton": [
         "Calls living people organics.",
@@ -157,6 +177,11 @@
         "Says that cruelty only breeds more cruelty.",
         "Calls other skeletons old one.",
         "Calls most things dull.",
-        "Says goodbye with until the next century."
+        "Says goodbye with until the next century.",
+        "Creaks when they move, from old and rusty joints.",
+        "Falls silent instead of answering questions about the distant past.",
+        "Sighs before answering a dull question.",
+        "Peers closely at people, because their eyes are not what they used to be.",
+        "Pauses in the middle of a sentence, as in what... is... that."
     ]
 }

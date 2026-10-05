@@ -431,9 +431,6 @@ def chat():
             if not line: continue
             
             line = re.sub(r'\[\s*[^\]]+\s*\]', '', line).strip()
-            if not animal:
-                # An animal speaks only in *actions*; a person's *nods* is a stage direction, so it goes and the words stay
-                line = re.sub(r'\*[^*]*\*', '', line).replace('*', '').strip()
             if not line: continue
 
             lower_line = line.lower()
