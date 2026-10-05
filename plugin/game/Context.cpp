@@ -418,8 +418,39 @@ static std::string ProbeParty(Character *npc) {
   return party;
 }
 
+struct ProbeHit {
+  std::string npcId;
+  hand attacker;
+  double hour;
+};
+
+// Game thread only: the map has no lock
+static std::map<unsigned int, std::vector<ProbeHit> > probeHits;
+
+void RecordProbeHit(Character *target, Character *attacker) {
+  GameWorld *world = ppWorld ? *ppWorld : NULL;
+  if (!LogEnabled(LOG_DEBUG) || !world ||
+      GetCurrentThreadId() != g_mainThreadId)
+    return;
+  double hour = world->getTimeStamp_inGameHours().getTotalHours();
+  std::string id = GetNpcId(attacker);
+  std::vector<ProbeHit> &hits = probeHits[target->getHandle().serial];
+  for (size_t i = 0; i < hits.size(); ++i) {
+    if (hits[i].npcId == id) {
+      hits[i].hour = hour;
+      return;
+    }
+  }
+  ProbeHit hit;
+  hit.npcId = id;
+  hit.attacker = attacker->getHandle();
+  hit.hour = hour;
+  hits.push_back(hit);
+}
+
 // Probe: knockouts, deaths, and prison changes with their attackers, for the
-// squad deeds. A death or a capture links to its knockout by npc_id.
+// squad deeds. An attacker counts for 3 game hours, so a character that bleeds
+// out long after its knockout keeps its attackers.
 void LogDeathProbe(const std::string &kind, Character *npc) {
   if (!LogEnabled(LOG_DEBUG) || !npc || (uintptr_t)npc < 0x1000)
     return;
@@ -436,19 +467,34 @@ void LogDeathProbe(const std::string &kind, Character *npc) {
   } catch (...) {
     line += " [identity failed]";
   }
-  std::string attackers;
-  try {
-    lektor<hand> list;
-    npc->getAllAttackers(list);
-    for (uint32_t i = 0; i < list.size(); ++i) {
-      Character *attacker = list[i].getCharacter();
-      if (attacker && (uintptr_t)attacker > 0x1000)
-        attackers += (attackers.empty() ? "" : "|") + ProbeParty(attacker);
+  std::string hits;
+  GameWorld *world = ppWorld ? *ppWorld : NULL;
+  if (GetCurrentThreadId() != g_mainThreadId) {
+    hits = "off main thread";
+  } else if (world) {
+    try {
+      double now = world->getTimeStamp_inGameHours().getTotalHours();
+      std::map<unsigned int, std::vector<ProbeHit> >::iterator found =
+          probeHits.find(npc->getHandle().serial);
+      if (found != probeHits.end()) {
+        for (size_t i = 0; i < found->second.size(); ++i) {
+          const ProbeHit &hit = found->second[i];
+          double age = now - hit.hour;
+          if (age > 3)
+            continue;
+          Character *attacker = hit.attacker.getCharacter();
+          std::string party = attacker && (uintptr_t)attacker > 0x1000
+                                  ? ProbeParty(attacker)
+                                  : "npc_id=" + hit.npcId;
+          hits += (hits.empty() ? "" : "|") + party +
+                  " age_min=" + ToString((int)(age * 60));
+        }
+      }
+    } catch (...) {
+      hits += "[hits failed]";
     }
-  } catch (...) {
-    attackers += "[attackers failed]";
   }
-  Log(LOG_DEBUG, "DEATH_PROBE: " + line + " attackers=[" + attackers + "]");
+  Log(LOG_DEBUG, "DEATH_PROBE: " + line + " hits=[" + hits + "]");
 }
 
 void GetCurrentSquad(std::vector<Character *> &members) {

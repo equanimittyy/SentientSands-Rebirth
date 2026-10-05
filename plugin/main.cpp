@@ -963,6 +963,7 @@ void ProcessMessageQueue(GameWorld *thisptr) {
 void attackingYou_hook(Character *npc, Character *attacker, bool so,
                        bool doAwarenessCheck) {
   if (attacker && npc) {
+    RecordProbeHit(npc, attacker);
     LogGameEvent("combat", attacker->getName(), SafeFaction(attacker),
                  npc->getName(), SafeFaction(npc), "Initiated attack");
   }
