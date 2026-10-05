@@ -39,33 +39,15 @@
 #include <kenshi/Faction.h>
 #include <kenshi/GameData.h>
 #include <kenshi/GameWorld.h>
-#include <kenshi/Inventory.h>
-#include <kenshi/Item.h>
 #include <kenshi/Kenshi.h>
-#include <kenshi/MedicalSystem.h>
 #include <kenshi/Platoon.h>
 #include <kenshi/PlayerInterface.h>
 #include <kenshi/util/hand.h>
-#include <kenshi/Damages.h>
 
-#include <kenshi/FactionWarMgr.h>
 #include <kenshi/RaceData.h>
 #include <kenshi/RootObject.h>
 #include <kenshi/RootObjectBase.h>
-#include <kenshi/Town.h>
 #include <kenshi/WorldEventStateQuery.h>
-
-inline std::string SafeFaction(RootObjectBase *obj) {
-  if (!obj || (uintptr_t)obj < 0x1000)
-    return "None";
-  try {
-    Faction *f = obj->getFaction();
-    if (f && (uintptr_t)f > 0x1000)
-      return f->getName();
-  } catch (...) {
-  }
-  return "None";
-}
 
 // A generic NPC whose template is a canon character carries the npc_id of that
 // character, not the one that GetNpcId gives it
@@ -94,21 +76,9 @@ static std::string ShownName(Character *c, const std::string &name) {
 
 void (*playerUpdate_orig)(PlayerInterface *) = nullptr;
 void (*attackingYou_orig)(Character *, Character *, bool, bool) = nullptr;
-void (*applyDamage_orig)(MedicalSystem::HealthPartStatus *,
-                         const Damages &) = nullptr;
-bool (*applyFirstAid_orig)(MedicalSystem *, float, Item *, float,
-                           Character *) = nullptr;
-Item *(*buyItem_orig)(Inventory *, Item *, RootObject *) = nullptr;
-
-void (*triggerCampaign_orig)(FactionWarMgr *, RootObjectBase *, GameData *,
-                             float, float, TownBase *, bool,
-                             Faction *) = nullptr;
-void (*setFaction_orig)(TownBase *, Faction *, ActivePlatoon *) = nullptr;
 void (*declareDead_orig)(Character *) = nullptr;
 void (*setPrisonMode_orig)(Character *, bool, UseableStuff *) = nullptr;
 void (*setProneState_orig)(Character *, ProneState) = nullptr;
-bool (*isItOkForMeToLoot_orig)(Character *, RootObject *, Item *) = nullptr;
-void (*setChainedMode_orig)(Character *, bool, const hand &) = nullptr;
 void (*setName_orig)(Character *, const std::string &) = nullptr;
 static std::vector<hand> g_renamedSquad;
 
@@ -962,132 +932,50 @@ void ProcessMessageQueue(GameWorld *thisptr) {
 
 void attackingYou_hook(Character *npc, Character *attacker, bool so,
                        bool doAwarenessCheck) {
-  if (attacker && npc) {
-    RecordProbeHit(npc, attacker);
-    LogGameEvent("combat", attacker->getName(), SafeFaction(attacker),
-                 npc->getName(), SafeFaction(npc), "Initiated attack");
+  // The hook runs many times a second for each attacker, so the faction check
+  // comes first, and an attack that already waits is not built again
+  Faction *faction = attacker && npc ? attacker->getFaction() : nullptr;
+  if (faction && (uintptr_t)faction > 0x1000 && faction->isThePlayer()) {
+    std::string target = GetNpcId(npc);
+    std::string pair = GetNpcId(attacker) + ">" + target;
+    if (!AttackWaits(pair))
+      QueueGameEvent("attack", pair,
+                     "\"attacker\": " + EventParty(attacker) +
+                         ", \"target\": \"" + EscapeJSON(target) + "\"");
   }
   if (attackingYou_orig)
     attackingYou_orig(npc, attacker, so, doAwarenessCheck);
 }
 
-void applyDamage_hook(MedicalSystem::HealthPartStatus *part,
-                      const Damages &damage) {
-  if (part && part->me && damage.total() > 15.0f) {
-    LogGameEvent("combat", "Unknown", "None", part->me->getName(),
-                 SafeFaction(part->me),
-                 "Took substantial damage: " + ToString((int)damage.total()));
-  }
-  if (applyDamage_orig)
-    applyDamage_orig(part, damage);
-}
-
-bool applyFirstAid_hook(MedicalSystem *med, float skill, Item *equipment,
-                        float frameTIME, Character *who) {
-  bool res = false;
-  if (applyFirstAid_orig)
-    res = applyFirstAid_orig(med, skill, equipment, frameTIME, who);
-  if (res && med && med->me && who) {
-    LogGameEvent("healing", who->getName(), SafeFaction(who),
-                 med->me->getName(), SafeFaction(med->me),
-                 "Applying first aid");
-  }
-  return res;
-}
-
-Item *buyItem_hook(Inventory *inv, Item *itemToBuy, RootObject *sendingTo) {
-  if (inv && itemToBuy && sendingTo) {
-    LogGameEvent("trade", ((Character *)sendingTo)->getName(),
-                 SafeFaction((Character *)sendingTo), inv->owner->getName(),
-                 SafeFaction(inv->owner), "Bought " + itemToBuy->getName());
-  }
-  if (buyItem_orig)
-    return buyItem_orig(inv, itemToBuy, sendingTo);
-  return nullptr;
-}
-
-void triggerCampaign_hook(FactionWarMgr *mgr, RootObjectBase *target,
-                          GameData *data, float minTime, float maxTime,
-                          TownBase *home, bool forceDuplicate,
-                          Faction *triggeringFaction) {
-  if (mgr && mgr->me && target) {
-    std::string factionName = mgr->me->getName();
-    LogGameEvent("raid", factionName, factionName, target->getName(),
-                 SafeFaction(target), "Triggered campaign");
-  }
-  if (triggerCampaign_orig)
-    triggerCampaign_orig(mgr, target, data, minTime, maxTime, home,
-                         forceDuplicate, triggeringFaction);
-}
-
-void setFaction_hook(TownBase *town, Faction *faction, ActivePlatoon *_a2) {
-  if (town && faction) {
-    Faction *old = town->getFaction();
-    std::string oldName = old ? old->getName() : "None";
-    std::string newName = faction->getName();
-
-    if (oldName != newName) {
-      LogGameEvent("city_transfer", oldName, oldName, newName, newName,
-                   "Town " + town->getName() + " changed ownership");
-    }
-  }
-  if (setFaction_orig)
-    setFaction_orig(town, faction, _a2);
-}
-
 void declareDead_hook(Character *npc) {
-  if (npc) {
-    LogDeathProbe("dead", npc);
-    LogGameEvent("death", npc->getName(), SafeFaction(npc), "None", "None",
-                 "Has perished");
-  }
+  if (npc)
+    QueueGameEvent("death", "", "\"party\": " + EventParty(npc));
   if (declareDead_orig)
     declareDead_orig(npc);
 }
 
 void setPrisonMode_hook(Character *npc, bool on, UseableStuff *h) {
-  if (npc) {
-    LogDeathProbe(on ? "prison_on" : "prison_off", npc);
-    std::string msg = on ? "Was imprisoned" : "Was released from prison";
-    LogGameEvent("imprisonment", npc->getName(), SafeFaction(npc), "None",
-                 "None", msg);
-  }
+  if (npc && on)
+    QueueGameEvent("imprisonment", "", "\"party\": " + EventParty(npc));
   if (setPrisonMode_orig)
     setPrisonMode_orig(npc, on, h);
 }
 
 void setProneState_hook(Character *npc, ProneState p) {
-  if (npc && p == PS_KO) {
-    // The hook runs about 10 times a second while a character lies knocked out
-    if (npc->getProneState() != PS_KO)
-      LogDeathProbe("ko", npc);
-    LogGameEvent("knockout", "Unknown", "None", npc->getName(),
-                 SafeFaction(npc), "Was knocked unconscious");
-  } else if (npc && npc->getProneState() == PS_KO) {
-    LogDeathProbe("up", npc);
+  // The hook runs about 10 times a second while a character lies knocked out,
+  // so only a change of the knockout makes an event
+  bool down = npc && npc->getProneState() == PS_KO;
+  if (npc && (p == PS_KO) != down) {
+    std::string id = "\"id\": \"" + EscapeJSON(GetNpcId(npc)) + "\"";
+    if (down)
+      QueueGameEvent("up", "",
+                     id + ", \"carried\": " +
+                         (npc->isBeingCarried() ? "true" : "false"));
+    else
+      QueueGameEvent("knockout", "", id);
   }
   if (setProneState_orig)
     setProneState_orig(npc, p);
-}
-
-bool isItOkForMeToLoot_hook(Character *npc, RootObject *victim, Item *item) {
-  if (npc && victim && item) {
-    LogGameEvent("looting", npc->getName(), SafeFaction(npc), victim->getName(),
-                 SafeFaction(victim), "Looted " + item->getName());
-  }
-  if (isItOkForMeToLoot_orig)
-    return isItOkForMeToLoot_orig(npc, victim, item);
-  return false;
-}
-
-void setChainedMode_hook(Character *npc, bool on, const hand &owner) {
-  if (npc) {
-    std::string msg = on ? "Was forced into slavery" : "Was freed from slavery";
-    LogGameEvent("slavery", npc->getName(), SafeFaction(npc), "None", "None",
-                 msg);
-  }
-  if (setChainedMode_orig)
-    setChainedMode_orig(npc, on, owner);
 }
 
 // The frame hook sends the context, because a rename can come in the middle of
@@ -1148,11 +1036,15 @@ void playerUpdate_hook(PlayerInterface *thisptr) {
         AsyncPostToPython(L"/squad_rename", GetDetailedContext(c));
     }
 
-    // Chat and banter carry the events; the buffer drops its oldest past 100
+    // The buffer drops its oldest past 100, and the events that wait are lost
+    // when the game closes
     EnterCriticalSection(&g_eventMutex);
-    bool eventsPileUp = g_gameEvents.size() >= 50;
+    bool reportDue =
+        g_gameEvents.size() >= 50 ||
+        (!g_gameEvents.empty() &&
+         GetTickCount() - g_gameEvents.front().queuedAt >= 60000);
     LeaveCriticalSection(&g_eventMutex);
-    if (eventsPileUp)
+    if (reportDue)
       AsyncPostToPython(L"/report", GameReport());
 
     DWORD now = GetTickCount();
@@ -1373,42 +1265,6 @@ extern "C" __declspec(dllexport) void startPlugin() {
     KenshiLib::AddHook((void *)KenshiLib::GetRealAddress(thunkAttack),
                        (void *)attackingYou_hook, (void **)&attackingYou_orig);
 
-  void *thunkDamage = (void *)GetProcAddress(
-      hLib,
-      "?applyDamage@HealthPartStatus@MedicalSystem@@QEAAXAEBVDamages@@@Z");
-  if (thunkDamage)
-    KenshiLib::AddHook((void *)KenshiLib::GetRealAddress(thunkDamage),
-                       (void *)applyDamage_hook, (void **)&applyDamage_orig);
-
-  void *thunkHeal = (void *)GetProcAddress(
-      hLib,
-      "?applyFirstAid@MedicalSystem@@QEAA_NMAEAVItem@@MPEAVCharacter@@@Z");
-  if (thunkHeal)
-    KenshiLib::AddHook((void *)KenshiLib::GetRealAddress(thunkHeal),
-                       (void *)applyFirstAid_hook,
-                       (void **)&applyFirstAid_orig);
-
-  void *thunkBuy = (void *)GetProcAddress(
-      hLib, "?buyItem@Inventory@@QEAAPEAVItem@@PEAV2@PEAVRootObject@@@Z");
-  if (thunkBuy)
-    KenshiLib::AddHook((void *)KenshiLib::GetRealAddress(thunkBuy),
-                       (void *)buyItem_hook, (void **)&buyItem_orig);
-
-  void *thunkRaid = (void *)GetProcAddress(
-      hLib,
-      "?triggerCampaign@FactionWarMgr@@QEAAXPEAVRootObjectBase@@PEAVGameData"
-      "@@MMPEAVTownBase@@_NPEAVFaction@@@Z");
-  if (thunkRaid)
-    KenshiLib::AddHook((void *)KenshiLib::GetRealAddress(thunkRaid),
-                       (void *)triggerCampaign_hook,
-                       (void **)&triggerCampaign_orig);
-
-  void *thunkCity = (void *)GetProcAddress(
-      hLib, "?setFaction@TownBase@@UEAAXPEAVFaction@@PEAVActivePlatoon@@@Z");
-  if (thunkCity)
-    KenshiLib::AddHook((void *)KenshiLib::GetRealAddress(thunkCity),
-                       (void *)setFaction_hook, (void **)&setFaction_orig);
-
   void *thunkDeath =
       (void *)GetProcAddress(hLib, "?declareDead@Character@@QEAAXXZ");
   if (thunkDeath)
@@ -1428,20 +1284,6 @@ extern "C" __declspec(dllexport) void startPlugin() {
     KenshiLib::AddHook((void *)KenshiLib::GetRealAddress(thunkKO),
                        (void *)setProneState_hook,
                        (void **)&setProneState_orig);
-
-  void *thunkLoot = (void *)GetProcAddress(
-      hLib, "?isItOkForMeToLoot@Character@@UEAA_NPEAVRootObject@@PEAVItem@@@Z");
-  if (thunkLoot)
-    KenshiLib::AddHook((void *)KenshiLib::GetRealAddress(thunkLoot),
-                       (void *)isItOkForMeToLoot_hook,
-                       (void **)&isItOkForMeToLoot_orig);
-
-  void *thunkSlave = (void *)GetProcAddress(
-      hLib, "?setChainedMode@Character@@QEAAX_NAEBVhand@@@Z");
-  if (thunkSlave)
-    KenshiLib::AddHook((void *)KenshiLib::GetRealAddress(thunkSlave),
-                       (void *)setChainedMode_hook,
-                       (void **)&setChainedMode_orig);
 
   void *thunkName = (void *)GetProcAddress(
       hLib, "?_NV_setName@Character@@QEAAXAEBV?$basic_string@DU?$char_traits@D@"

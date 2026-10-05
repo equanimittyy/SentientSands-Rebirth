@@ -79,21 +79,18 @@ enum ActionType {
 };
 
 struct GameEvent {
-  std::string type;
-  std::string actor;
-  std::string actorFaction;
-  std::string target;
-  std::string targetFaction;
-  std::string message;
+  std::string kind;
+  std::string pair;
+  std::string fields;
   int day, hour, minute;
-  std::string town;
+  DWORD queuedAt;
 };
 
 extern std::deque<GameEvent> g_gameEvents;
 extern CRITICAL_SECTION g_eventMutex;
-void LogGameEvent(const std::string &type, const std::string &actor,
-                  const std::string &actorFaction, const std::string &target,
-                  const std::string &targetFaction, const std::string &message);
+void QueueGameEvent(const std::string &kind, const std::string &pair,
+                    const std::string &fields);
+bool AttackWaits(const std::string &pair);
 
 struct QueuedAction {
   ActionType type;

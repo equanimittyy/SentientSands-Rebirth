@@ -380,50 +380,41 @@ void StartPythonServer(bool openBrowser) {
 }
 #include <kenshi/Character.h>
 #include <kenshi/GameWorld.h>
-#include <kenshi/PlayerInterface.h>
-#include <kenshi/Town.h>
-void LogGameEvent(const std::string &type, const std::string &actor,
-                  const std::string &actorFaction, const std::string &target,
-                  const std::string &targetFaction,
-                  const std::string &message) {
+void QueueGameEvent(const std::string &kind, const std::string &pair,
+                    const std::string &fields) {
   // The cull deletes by game time, so an event needs one
   if (!ppWorld || !*ppWorld)
     return;
   GameEvent ev;
-  ev.type = type;
-  ev.actor = actor;
-  ev.actorFaction = actorFaction;
-  ev.target = target;
-  ev.targetFaction = targetFaction;
-  ev.message = message;
+  ev.kind = kind;
+  ev.pair = pair;
+  ev.fields = fields;
+  ev.queuedAt = GetTickCount();
+
+  EnterCriticalSection(&g_eventMutex);
+  // Read under the lock, so that the queue holds the events in the order of
+  // their game times: the server takes a step back of the game time as a load
   TimeOfDay tod = (*ppWorld)->getTimeStamp_inGameHours();
   ev.day = (int)tod.getTotalDays();
   ev.hour = (int)fmod(tod.getTotalHours(), 24.0);
   ev.minute = (int)fmod(tod.getTotalMinutes(), 60.0);
-  PlayerInterface *player = (*ppWorld)->player;
-  if (player && player->playerCharacters.size() > 0) {
-    TownBase *town = player->playerCharacters[0]->getCurrentTownLocation();
-    if (town)
-      ev.town = ((RootObjectBase *)town)->getName();
-  }
-
-  EnterCriticalSection(&g_eventMutex);
   g_gameEvents.push_back(ev);
   if (g_gameEvents.size() > 100) {
     g_gameEvents.pop_front();
   }
   LeaveCriticalSection(&g_eventMutex);
 
-  if (!LogEnabled(LOG_DEBUG))
-    return;
-  std::string logMsg = "EVENT: " + type + ": " + actor;
-  if (!actorFaction.empty() && actorFaction != "None")
-    logMsg += " (" + actorFaction + ")";
-  logMsg += " -> " + target;
-  if (!targetFaction.empty() && targetFaction != "None")
-    logMsg += " (" + targetFaction + ")";
-  logMsg += " (" + message + ")";
-  Log(LOG_DEBUG, logMsg);
+  if (LogEnabled(LOG_DEBUG))
+    Log(LOG_DEBUG, "EVENT: " + kind + ": " + fields);
+}
+
+bool AttackWaits(const std::string &pair) {
+  bool waits = false;
+  EnterCriticalSection(&g_eventMutex);
+  for (size_t i = 0; i < g_gameEvents.size() && !waits; ++i)
+    waits = g_gameEvents[i].pair == pair;
+  LeaveCriticalSection(&g_eventMutex);
+  return waits;
 }
 
 void SleepIfPaused(DWORD ms) {

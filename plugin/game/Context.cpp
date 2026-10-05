@@ -184,6 +184,53 @@ std::string GetNpcId(Character *npc) {
   return "h:" + ToString(npc->getHandle().serial);
 }
 
+static std::string RaceName(Character *npc) {
+  RaceData *race = nullptr;
+  try {
+    race = npc->getRace() ? npc->getRace() : npc->myRace;
+  } catch (...) {
+  }
+  if (race && (uintptr_t)race > 0x1000 && race->data) {
+    if (!race->data->name.empty())
+      return race->data->name;
+    if (!race->data->stringID.empty())
+      return race->data->stringID;
+  }
+  return "Unknown";
+}
+
+static Faction *CharacterFaction(Character *npc) {
+  Faction *faction = nullptr;
+  try {
+    faction = npc->getFaction() ? npc->getFaction() : npc->owner;
+  } catch (...) {
+  }
+  return faction && (uintptr_t)faction > 0x1000 ? faction : nullptr;
+}
+
+static std::string FactionName(Faction *faction) {
+  if (!faction)
+    return "Neutral";
+  std::string name = faction->getName();
+  if (!name.empty() && name != "Unknown")
+    return name;
+  if (faction->data && !faction->data->name.empty())
+    return faction->data->name;
+  return "Neutral";
+}
+
+std::string EventParty(Character *npc) {
+  Faction *faction = CharacterFaction(npc);
+  return "{\"id\": \"" + EscapeJSON(GetNpcId(npc)) + "\", \"template_id\": \"" +
+         EscapeJSON(npc->data ? npc->data->stringID : std::string()) +
+         "\", \"name\": \"" + EscapeJSON(npc->getName()) +
+         "\", \"faction\": \"" + EscapeJSON(FactionName(faction)) +
+         "\", \"player\": " +
+         (faction && faction->isThePlayer() ? "true" : "false") +
+         ", \"race\": \"" + EscapeJSON(RaceName(npc)) + "\", \"animal\": " +
+         (npc->isAnimal() ? "true" : "false") + "}";
+}
+
 // The zone around the camera, for example Vain: the game gives no zone for each
 // character, and a chat happens near the camera. KenshiLib does not map slot
 // 0x10 of the zone object, so only a pointer that is a zone record is followed.
@@ -409,93 +456,6 @@ void LogNpcRole(Character *npc) {
                      GetNpcId(npc) + " " + line);
 }
 
-static std::string ProbeParty(Character *npc) {
-  std::string party = "'" + npc->getName() + "' npc_id=" + GetNpcId(npc);
-  Faction *faction = npc->getFaction();
-  if (faction && (uintptr_t)faction > 0x1000)
-    party += " faction='" + faction->getName() + "' player=" +
-             (faction->isThePlayer() ? "1" : "0");
-  return party;
-}
-
-struct ProbeHit {
-  std::string npcId;
-  hand attacker;
-  double hour;
-};
-
-// The hooks run off the thread that started the plugin, so the map takes
-// g_eventMutex
-static std::map<unsigned int, std::vector<ProbeHit> > probeHits;
-
-void RecordProbeHit(Character *target, Character *attacker) {
-  GameWorld *world = ppWorld ? *ppWorld : NULL;
-  if (!LogEnabled(LOG_DEBUG) || !world)
-    return;
-  ProbeHit hit;
-  hit.npcId = GetNpcId(attacker);
-  hit.attacker = attacker->getHandle();
-  hit.hour = world->getTimeStamp_inGameHours().getTotalHours();
-  unsigned int serial = target->getHandle().serial;
-  EnterCriticalSection(&g_eventMutex);
-  std::vector<ProbeHit> &hits = probeHits[serial];
-  size_t i = 0;
-  while (i < hits.size() && hits[i].npcId != hit.npcId)
-    ++i;
-  if (i < hits.size())
-    hits[i].hour = hit.hour;
-  else
-    hits.push_back(hit);
-  LeaveCriticalSection(&g_eventMutex);
-}
-
-// Probe: the line keeps attackers older than 3 game hours, because their clock
-// stops while the character lies knocked out or is carried.
-void LogDeathProbe(const std::string &kind, Character *npc) {
-  if (!LogEnabled(LOG_DEBUG) || !npc || (uintptr_t)npc < 0x1000)
-    return;
-  std::string line = "kind=" + kind;
-  try {
-    line += " name=" + ProbeParty(npc);
-    RaceData *race = npc->getRace() ? npc->getRace() : npc->myRace;
-    line += " race=" +
-            DataLabel(race && (uintptr_t)race > 0x1000 ? race->data : NULL);
-    line += std::string(" animal=") + (npc->isAnimal() ? "1" : "0") +
-            " down=" + (npc->getProneState() == PS_KO ? "1" : "0") +
-            " carried=" + (npc->isBeingCarried() ? "1" : "0");
-    TownBase *town = npc->getCurrentTownLocation();
-    line += " town='" +
-            (town ? ((RootObjectBase *)town)->getName() : std::string()) + "'";
-  } catch (...) {
-    line += " [identity failed]";
-  }
-  std::vector<ProbeHit> recent;
-  unsigned int serial = npc->getHandle().serial;
-  EnterCriticalSection(&g_eventMutex);
-  std::map<unsigned int, std::vector<ProbeHit> >::iterator found =
-      probeHits.find(serial);
-  if (found != probeHits.end())
-    recent = found->second;
-  LeaveCriticalSection(&g_eventMutex);
-  std::string hits;
-  GameWorld *world = ppWorld ? *ppWorld : NULL;
-  try {
-    double now = world ? world->getTimeStamp_inGameHours().getTotalHours() : 0;
-    for (size_t i = 0; i < recent.size(); ++i) {
-      double age = now - recent[i].hour;
-      Character *attacker = recent[i].attacker.getCharacter();
-      std::string party = attacker && (uintptr_t)attacker > 0x1000
-                              ? ProbeParty(attacker)
-                              : "npc_id=" + recent[i].npcId;
-      hits += (hits.empty() ? "" : "|") + party +
-              " age_min=" + ToString((int)(age * 60));
-    }
-  } catch (...) {
-    hits += "[hits failed]";
-  }
-  Log(LOG_DEBUG, "DEATH_PROBE: " + line + " hits=[" + hits + "]");
-}
-
 void GetCurrentSquad(std::vector<Character *> &members) {
   GameWorld *world = ppWorld ? *ppWorld : NULL;
   if (!world || !world->player)
@@ -665,20 +625,7 @@ std::string GetDetailedContext(Character *npc, const std::string &type) {
     json += "\"id\": \"hand_" + ToString(npc->getHandle().serial) + "\",";
   }
 
-  RaceData *race = nullptr;
-  try {
-    race = npc->getRace() ? npc->getRace() : npc->myRace;
-  } catch (...) {
-  }
-
-  std::string raceName = "Unknown";
-  if (race && (uintptr_t)race > 0x1000) {
-    if (race->data && !race->data->name.empty())
-      raceName = race->data->name;
-    else if (race->data && !race->data->stringID.empty())
-      raceName = race->data->stringID;
-  }
-  json += "\"race\": \"" + EscapeJSON(raceName) + "\",";
+  json += "\"race\": \"" + EscapeJSON(RaceName(npc)) + "\",";
   json += "\"animal\": " + std::string(npc->isAnimal() ? "true" : "false") +
           ",";
 
@@ -691,21 +638,10 @@ std::string GetDetailedContext(Character *npc, const std::string &type) {
     gender = npc->sex;
   json += "\"gender\": \"" + gender + "\",";
 
-  Faction *faction = nullptr;
-  try {
-    faction = npc->getFaction() ? npc->getFaction() : npc->owner;
-  } catch (...) {
-  }
-
-  std::string factionName = "Neutral";
+  Faction *faction = CharacterFaction(npc);
+  std::string factionName = FactionName(faction);
   std::string factionID = "Neutral";
-  if (faction && (uintptr_t)faction > 0x1000) {
-    std::string fn = faction->getName();
-    if (!fn.empty() && fn != "Unknown")
-      factionName = fn;
-    else if (faction->data && !faction->data->name.empty())
-      factionName = faction->data->name;
-
+  if (faction) {
     if (faction->data && !faction->data->stringID.empty())
       factionID = faction->data->stringID;
     else
@@ -1007,16 +943,10 @@ std::string TakeGameEvents() {
     const GameEvent &e = events[i];
     if (i > 0)
       json += ",";
-    json += "{\"type\": \"" + EscapeJSON(e.type) + "\",";
-    json += "\"actor\": \"" + EscapeJSON(e.actor) + "\",";
-    json += "\"actor_faction\": \"" + EscapeJSON(e.actorFaction) + "\",";
-    json += "\"target\": \"" + EscapeJSON(e.target) + "\",";
-    json += "\"target_faction\": \"" + EscapeJSON(e.targetFaction) + "\",";
-    json += "\"msg\": \"" + EscapeJSON(e.message) + "\",";
-    json += "\"day\": " + ToString(e.day) + ",";
-    json += "\"hour\": " + ToString(e.hour) + ",";
-    json += "\"minute\": " + ToString(e.minute) + ",";
-    json += "\"town\": \"" + EscapeJSON(e.town) + "\"}";
+    json += "{\"kind\": \"" + e.kind + "\", " + e.fields + ", ";
+    json += "\"day\": " + ToString(e.day) + ", ";
+    json += "\"hour\": " + ToString(e.hour) + ", ";
+    json += "\"minute\": " + ToString(e.minute) + "}";
   }
   return json + "]";
 }

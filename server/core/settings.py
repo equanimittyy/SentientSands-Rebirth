@@ -15,7 +15,6 @@ INI_KEY_MAP = {
     "current_campaign": "ActiveCampaign",
     "enable_ambient": "EnableAmbientConversations",
     "radiant_delay": "RadiantDelay",
-    "synthesis_interval_minutes": "SynthesisIntervalMinutes",
     "radiant_range": "RadiantRange",
     "talk_radius": "TalkRadius",
     "yell_radius": "YellRadius",
@@ -58,7 +57,6 @@ SETTINGS_DEFAULTS = {
     "current_campaign": "Default",
     "enable_ambient": False,
     "radiant_delay": 240,
-    "synthesis_interval_minutes": 5,
     "radiant_range": 100,
     "talk_radius": 50,
     "yell_radius": 100,
@@ -119,7 +117,6 @@ def settings_page_values(settings):
     return {
         "enable_ambient": settings["enable_ambient"],
         "ambient_timer": settings["radiant_delay"],
-        "synthesis_timer": settings["synthesis_interval_minutes"],
         "dialogue_speed": settings["dialogue_speed_seconds"],
         "bubble_life": settings["bubble_life"],
         "radii": {

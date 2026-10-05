@@ -382,29 +382,22 @@ class ThreadTest(CampaignTestCase):
         self.assertEqual(listed, {self.STICK: (True, False), GENERIC_ID: (True, False), self.IZUMI: (True, True), self.RUKA: (False, False)})
 
 
-class EventTest(CampaignTestCase):
+class CullAndRumorTest(CampaignTestCase):
     def setUp(self):
         super().setUp()
         campaign_db.open_campaign(self.folder, lambda: SEED)
 
-    @mock.patch.object(campaign_db, "MAX_EVENTS", 5)
-    def test_keeps_the_newest_events_and_skips_duplicates(self):
-        for i in range(8):
-            campaign_db.add_event(f"event {i}")
-        campaign_db.add_event("event 7")
-        self.assertEqual(campaign_db.recent_events(100), [f"event {i}" for i in range(3, 8)])
-        self.assertEqual(campaign_db.recent_events(2), ["event 6", "event 7"])
-
     def test_cull_deletes_only_later_rows(self):
         campaign_db.append_dialogue(GENERIC_ID, spoken(None, "[Day 2, 09:59] early", "[Day 2, 10:01] late", "untimed"), BEEP)
-        campaign_db.add_event("[Day 2, 10:00] same minute")
-        campaign_db.add_event("[Day 3] next day")
+        victim = {"npc_id": "u:tinfist", "name": "Tinfist", "faction": "Anti-Slavers", "race": "Skeleton", "animal": False}
+        campaign_db.add_deeds("kill", [(BEEP_ID, "Beep")], victim, True, 2 * 1440 + 600)
+        campaign_db.add_deeds("kill", [(BEEP_ID, "Beep")], victim, True, 3 * 1440)
         campaign_db.add_rumor("- [Day 1, 00:00] [RUMOR: old]")
         campaign_db.add_rumor("- [Day 5, 00:00] [RUMOR: new]")
 
-        self.assertEqual(campaign_db.cull_after(2, 10, 0), {"dialogue": 1, "event": 1, "rumor": 1})
+        self.assertEqual(campaign_db.cull_after(2, 10, 0), {"dialogue": 1, "deed": 1, "notable": 1, "rumor": 1})
         self.assertEqual(campaign_db.get_character(GENERIC_ID)["ConversationHistory"], ["[Day 2, 09:59] early", "untimed"])
-        self.assertEqual(campaign_db.recent_events(10), ["[Day 2, 10:00] same minute"])
+        self.assertEqual([at for _, _, at, _ in campaign_db.notables()], [2 * 1440 + 600])
         self.assertEqual([line for _, line in campaign_db.rumors()], ["- [Day 1, 00:00] [RUMOR: old]"])
 
     def test_rumor_by_id(self):
@@ -521,7 +514,7 @@ class WriteCountTest(CampaignTestCase):
         before = campaign_db.writes
         campaign_db.list_records("character")
         self.assertEqual(campaign_db.writes, before)
-        campaign_db.add_event("The Hub burned.")
+        campaign_db.add_rumor("- [Day 1, 00:00] [RUMOR: The Hub burned.]")
         self.assertEqual(campaign_db.writes, before + 1)
         with self.assertRaises(campaign_db.StaleRecord):
             campaign_db.save_record("character", (BEEP_ID,), {"Name": "Old"}, "2000-01-01T00:00:00.000+00:00")

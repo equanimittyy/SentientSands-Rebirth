@@ -51,7 +51,7 @@ The tests use only the standard library, so they run in the dev container. Code 
 python scripts/mock_test.py [name]
 ```
 
-The script creates a campaign from SSR Vanilla, named `mock` by default, and fills it with a squad, NPCs, chat threads, the memories of all chat threads but the newest, banter, events, and rumors. The Campaign Log and the Dialogue Library then have data without a game. The script refuses a name that a campaign already uses, so a second run cannot add the data twice. It needs no Flask, so it runs in the dev container. Switch to the campaign on the Campaigns page.
+The script creates a campaign from SSR Vanilla, named `mock` by default, and fills it with a squad, NPCs, chat threads, the memories of all chat threads but the newest, banter, rumors, and the game events of a kill count and of the capture of a known figure, which go through the attribution of the server. The Campaign Log and the Dialogue Library then have data without a game. The script refuses a name that a campaign already uses, so a second run cannot add the data twice. It needs no Flask, so it runs in the dev container. Switch to the campaign on the Campaigns page.
 
 ## Probes
 
@@ -61,7 +61,6 @@ Some questions of the plans need data from the game. The plugin writes probe lin
 |---|---|---|---|
 | `FACTION_PROBE` | At the first chat of each game, one line for each faction | `LogFactionList` | The string ID of each faction, and whether it stays the same when the mod list changes |
 | `ROLE_PROBE` | For the chat target, each NPC in chat range, and each banter NPC, again when a value changes | `LogNpcRole` | Which game data tells the role of an NPC, and whether a hired NPC holds a contract (`contract=1`) |
-| `DEATH_PROBE` | At each new knockout (`ko`), each wake-up (`up`), each death (`dead`), and each change of prison mode (`prison_on`, `prison_off`) | `LogDeathProbe`, `RecordProbeHit` | Which hooks give the kills and the captures of the squad, with their attackers, and when the clock of the attackers stops ([proposal_world_events.md](../plans/proposal_world_events.md#2-probe)) |
 
 [kenshi_internals.md](kenshi_internals.md) records the answers of the in-game tests. The contract of a hired NPC is not tested yet.
 

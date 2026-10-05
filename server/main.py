@@ -29,7 +29,6 @@ from chat import llm
 from chat import routes as chat_routes
 from chat.llm import load_llm_config, player2_ping_loop
 from chat.memory import memory_loop
-from chat.synthesis import RUMOR_SYNTHESIS, synthesis_loop
 from core import log_setup
 from core import routes as core_routes
 from core.app import app
@@ -48,8 +47,6 @@ def start():
     load_configs()
     init_server_state()
     llm.LLM_CONFIG = load_llm_config()
-    if RUMOR_SYNTHESIS:
-        threading.Thread(target=synthesis_loop, daemon=True).start()
     threading.Thread(target=memory_loop, daemon=True).start()
     threading.Thread(target=player2_ping_loop, daemon=True).start()
     threading.Thread(target=monitor_kenshi_process, daemon=True).start()

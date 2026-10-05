@@ -2,8 +2,6 @@
 #include "../core/Comm.h"
 #include "../core/Globals.h"
 #include "../core/Utils.h"
-#include "../game/Context.h"
-#include <mygui/MyGUI_Button.h>
 #include <mygui/MyGUI_Delegate.h>
 #include <mygui/MyGUI_Gui.h>
 #include <mygui/MyGUI_ListBox.h>
@@ -90,38 +88,6 @@ void SetEventsText(const std::string &data) {
   while (std::getline(ss, line)) {
     g_eventsText->addItem(Utf8ToWide(line).c_str());
   }
-}
-
-void OnSynthesizeClick(MyGUI::Widget *sender) {
-  if (g_eventsText) {
-    g_eventsText->removeAllItems();
-    g_eventsText->addItem(
-        Utf8ToWide(T("Synthesizing world narrative... Please wait.")).c_str());
-  }
-  CreateThread(NULL, 0, SynthesizeThread, new std::string(GameReport()), 0,
-               NULL);
-}
-
-DWORD WINAPI SynthesizeThread(LPVOID lpParam) {
-  std::string *report = (std::string *)lpParam;
-  Log(LOG_INFO, "EVENTS_WINDOW: Requesting manual synthesis...");
-  std::string response = PostToPythonWithResponse(L"/synthesize", *report);
-  delete report;
-  if (!response.empty()) {
-    std::string rumor = GetJsonValue(response, "rumor");
-    if (!rumor.empty()) {
-      Log(LOG_INFO, "EVENTS_WINDOW: Synthesis successful: " + rumor);
-      CreateThread(NULL, 0, EventsResponseThread, NULL, 0, NULL);
-    } else {
-      std::string error = GetJsonValue(response, "message");
-      std::string msg = "CMD: SET_EVENTS_TEXT: " + T("Synthesis failed: ") +
-                        (error.empty() ? T("Unknown error") : error);
-      EnterCriticalSection(&g_msgMutex);
-      g_messageQueue.push_back(msg);
-      LeaveCriticalSection(&g_msgMutex);
-    }
-  }
-  return 0;
 }
 
 void OnEventsSelect(MyGUI::ListBox *sender, size_t index) {
@@ -214,16 +180,10 @@ void CreateEventsUI() {
       MyGUI::newDelegate(OnEventsSearchChange);
 
   g_eventsList = client->createWidgetReal<MyGUI::ListBox>(
-      "Kenshi_ListBox", 0.02f, 0.10f, 0.28f, 0.74f,
+      "Kenshi_ListBox", 0.02f, 0.10f, 0.28f, 0.86f,
       MyGUI::Align::Left | MyGUI::Align::VStretch, "SentientSands_EventsList");
   g_eventsList->eventListSelectAccept += MyGUI::newDelegate(OnEventsSelect);
   g_eventsList->eventListChangePosition += MyGUI::newDelegate(OnEventsSelect);
-
-  MyGUI::Button *btnSync = client->createWidgetReal<MyGUI::Button>(
-      "Kenshi_Button1", 0.02f, 0.86f, 0.28f, 0.08f,
-      MyGUI::Align::Left | MyGUI::Align::Bottom, "SentientSands_SyncButton");
-  btnSync->setCaption(Utf8ToWide(T("Generate World Event")).c_str());
-  btnSync->eventMouseButtonClick += MyGUI::newDelegate(OnSynthesizeClick);
 
   g_eventsText = client->createWidgetReal<MyGUI::ListBox>(
       "Kenshi_ListBox", 0.32f, 0.02f, 0.66f, 0.96f, MyGUI::Align::Default,

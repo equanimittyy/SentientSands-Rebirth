@@ -12,7 +12,7 @@ from chat.characters import send_rename
 from chat.llm import default_llm_config, send_completion
 from chat.prompts import describe_faction, describe_race, describe_record, faction_text, find_named
 from chat.routes import bio_refusal, bio_reply
-from core import state
+from core import deeds, state
 from core.game import report_from_game
 from core.paths import (CAMPAIGNS_DIR, DEFAULT_TEMPLATE, LLM_CONFIG_PATH, PROMPTS_DIR, USER_PROMPTS_DIR, USER_TEMPLATES_DIR,
                         WORLD_TEMPLATES_DIR)
@@ -164,7 +164,7 @@ def get_active_campaign():
         return jsonify({
             "status": "ok",
             "name": state.ACTIVE_CAMPAIGN,
-            "events": [{"id": event_id, "line": line} for event_id, line in campaign_db.events()],
+            "notables": deeds.notable_events(),
             "rumors": rumors,
             "threads": [
                 {

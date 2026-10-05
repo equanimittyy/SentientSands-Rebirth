@@ -53,8 +53,9 @@ DWORD WINAPI CullThread(LPVOID lpParam) {
   if (GetJsonValue(response, "status") == "ok") {
     text = T("Culled the data dated after: ") +
            GetJsonValue(response, "time") + ". " + T("Dialogue lines: ") +
-           GetJsonValue(response, "dialogue") + ", " + T("events: ") +
-           GetJsonValue(response, "event") + ", " + T("rumors: ") +
+           GetJsonValue(response, "dialogue") + ", " + T("deeds: ") +
+           GetJsonValue(response, "deed") + ", " + T("notable events: ") +
+           GetJsonValue(response, "notable") + ", " + T("rumors: ") +
            GetJsonValue(response, "rumor") + ".";
   } else {
     std::string error = GetJsonValue(response, "message");

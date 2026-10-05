@@ -31,9 +31,7 @@ const ORIGIN_LABELS = { seed: "Seeded", game: "Met in game", campaign: "Added in
 const PROVISIONAL = "Interactions";
 const IMPORT_PROBLEMS_SHOWN = 10;
 const EVENTS_PER_PAGE = 50;
-// Mirrors the line that record_event_to_history in server/core/game.py writes. A party is a name with an optional faction in brackets.
-const PARTY = String.raw`[^()]*?(?: \([^()]*\))?`;
-const EVENT_LINE = new RegExp(String.raw`^(?:\[(Day \d+, \d+:\d+)\] )?\[([^\]]+)\] (${PARTY}) -> (${PARTY})(?: @ ([^:]+))?: (.*)$`, "s");
+const NOTABLE_KINDS = { figure: "Known figure", count: "Kill count" };
 
 let source = "campaign";
 let canon = null;
@@ -897,21 +895,9 @@ function renderRumors() {
     ...(rows.length > 0 ? rows : [el("p", { className: "hint" }, "No rumors yet.")]));
 }
 
-function parseEvent(line) {
-  const match = EVENT_LINE.exec(line);
-  if (!match) return { time: "", type: "", parties: "", town: "", text: line };
-  const [, time = "", type, actor, target, town = "", text] = match;
-  return { time, type, parties: target === "None" ? actor : `${actor} → ${target}`, town, text };
-}
-
-const typeLabel = (type) => (type ? type[0].toUpperCase() + type.slice(1).toLowerCase().replaceAll("_", " ") : "Unknown");
-
 function renderEvents() {
   const counts = new Map();
-  for (const event of log.events) {
-    const { type } = parseEvent(event.line);
-    counts.set(type, (counts.get(type) ?? 0) + 1);
-  }
+  for (const event of log.notables) counts.set(event.kind, (counts.get(event.kind) ?? 0) + 1);
   if (!counts.has(eventView.type)) eventView.type = "all";
   const search = el("input", {
     type: "search",
@@ -924,19 +910,20 @@ function renderEvents() {
     },
   });
   search.setAttribute("aria-label", "Search the events");
-  const options = [...counts].map(([type, count]) => [type, `${typeLabel(type)} (${count})`]).sort((a, b) => a[1].localeCompare(b[1]));
+  const options = [...counts].map(([kind, count]) => [kind, `${NOTABLE_KINDS[kind] ?? kind} (${count})`]).sort((a, b) => a[1].localeCompare(b[1]));
   const select = el("select", {
     onchange: (event) => {
       eventView.type = event.target.value;
       eventView.page = 1;
       renderEventPage();
     },
-  }, ...[["all", `All types (${log.events.length})`], ...options].map(([value, text]) => new Option(text, value, false, value === eventView.type)));
+  }, ...[["all", `All kinds (${log.notables.length})`], ...options].map(([value, text]) => new Option(text, value, false, value === eventView.type)));
   select.setAttribute("aria-label", "Show only");
   return el("fieldset", {},
-    el("legend", {}, `Event history (${log.events.length})`),
-    el("p", { className: "hint" }, "What happened in game, newest first. After you load an older save, Cull future data on the Campaigns page removes the later events."),
-    ...(log.events.length > 0 ? [el("div", { className: "inline row" }, search, select), el("div", { id: "event-page" })] : [el("p", { className: "hint" }, "No events yet.")]));
+    el("legend", {}, `Events (${log.notables.length})`),
+    el("p", { className: "hint" },
+      "The deeds of your squad that are worth a rumor, newest first: each known figure that it killed or captured, and the kills of each squad member against one faction or animal from 25 kills on. A kill count moves to the top when it reaches 100, 250, and 500 kills. After you load an older save, Cull future data on the Campaigns page removes the later deeds."),
+    ...(log.notables.length > 0 ? [el("div", { className: "inline row" }, search, select), el("div", { id: "event-page" })] : [el("p", { className: "hint" }, "No events yet.")]));
 }
 
 function pager(shown, pages, start) {
@@ -958,9 +945,7 @@ function renderEventPage() {
   const holder = page.querySelector("#event-page");
   if (!holder) return;
   const needle = eventView.query.trim().toLowerCase();
-  const shown = [...log.events].reverse()
-    .map((event) => ({ id: event.id, line: event.line, ...parseEvent(event.line) }))
-    .filter((event) => (eventView.type === "all" || event.type === eventView.type) && (!needle || event.line.toLowerCase().includes(needle)));
+  const shown = log.notables.filter((event) => (eventView.type === "all" || event.kind === eventView.type) && (!needle || event.line.toLowerCase().includes(needle)));
   if (shown.length === 0) {
     holder.replaceChildren(el("p", { className: "hint" }, "No results."));
     return;
@@ -969,11 +954,10 @@ function renderEventPage() {
   eventView.page = Math.min(eventView.page, pages);
   const start = (eventView.page - 1) * EVENTS_PER_PAGE;
   const rows = shown.slice(start, start + EVENTS_PER_PAGE).map((event) => el("tr", {},
-    el("td", {}, event.time || "Unknown"),
-    el("td", {}, el("span", { className: "badge" }, typeLabel(event.type))),
-    el("td", {}, event.town || "Unknown"),
-    el("td", {}, event.parties ? el("div", { className: "detail" }, event.parties) : null, event.text)));
-  const head = el("tr", {}, el("th", {}, "Time"), el("th", {}, "Type"), el("th", {}, withHelp("Town", "The town that your squad was in. Unknown outside a town.")), el("th", {}, "Event"));
+    el("td", {}, event.time),
+    el("td", {}, el("span", { className: "badge" }, NOTABLE_KINDS[event.kind] ?? event.kind)),
+    el("td", {}, event.line)));
+  const head = el("tr", {}, el("th", {}, "Time"), el("th", {}, "Kind"), el("th", {}, "Event"));
   const table = el("table", { className: "event-table" }, el("thead", {}, head), el("tbody", {}, ...rows));
   holder.replaceChildren(...(pages > 1 ? [pager(shown.length, pages, start), table, pager(shown.length, pages, start)] : [table]));
 }

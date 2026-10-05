@@ -4,10 +4,9 @@ import re
 
 from flask import Blueprint, jsonify, request
 
-from chat import synthesis
 from chat.bio import recorded_history
 from chat.characters import get_character_data, reported_sex, sync_name
-from core import game, log_setup, state
+from core import log_setup, state
 from core.game import context_dict, generate_relation_bar, take_report
 from core.pipe import send_to_pipe
 from core.settings import CHAT_HOTKEYS, SETTINGS_DEFAULTS, load_configs, load_settings, save_settings, settings_page_values
@@ -112,20 +111,13 @@ def get_context():
         last_npc_id = list(state.LIVE_CONTEXTS.keys())[-1]
         last_npc = state.LIVE_CONTEXTS[last_npc_id]
     
-    elapsed = synthesis.SYNTHESIS_STATUS.get("elapsed", 0)
-    interval = synthesis.SYNTHESIS_STATUS.get("interval", 60)
-
     return jsonify({
         "status": "ok",
-        "player": state.PLAYER_CONTEXT or game.LAST_STATE_LOG.get("player", {}),
+        "player": state.PLAYER_CONTEXT,
         "npc": last_npc or {},
         "campaign": state.ACTIVE_CAMPAIGN,
         # Both counts only grow, so the sum changes when either does
         "writes": campaign_db.writes + state.WRITE_REQUESTS,
-        "synthesis": {
-            "elapsed": elapsed,
-            "interval": interval
-        }
     })
 
 @bp.route('/settings/defaults')
@@ -214,14 +206,6 @@ def settings_endpoint():
         send_to_pipe(f"SET_CONFIG: g_logLevel: {log_level}")
         logging.info(f"SETTINGS: Log level set to {log_level}")
 
-    syn_timer = data.get("synthesis_timer")
-    if syn_timer is not None:
-        try:
-            val = int(syn_timer)
-            changes["synthesis_interval_minutes"] = val
-            logging.info(f"SETTINGS: Synthesis timer set to {val} minutes")
-        except: pass
-
     bio_interactions = data.get("bio_interactions")
     if bio_interactions is not None:
         try:
@@ -288,7 +272,7 @@ def cull_future_data():
     # The player loaded an earlier save, so the next chat starts a conversation of its own
     state.CURRENT_THREAD.clear()
     state.restart_quiet_clock()
-    logging.info(f"CAMPAIGN: Culled {culled['dialogue']} dialogue lines, {culled['event']} events, and {culled['rumor']} rumors after [Day {day}, {hour:02d}:{minute:02d}] in '{state.ACTIVE_CAMPAIGN}'")
+    logging.info(f"CAMPAIGN: Culled {culled['dialogue']} dialogue lines, {culled['deed']} deeds, {culled['notable']} notable events, and {culled['rumor']} rumors after [Day {day}, {hour:02d}:{minute:02d}] in '{state.ACTIVE_CAMPAIGN}'")
     return jsonify({"status": "ok", "time": f"Day {day}, {hour:02d}:{minute:02d}", "culled": culled})
 
 @bp.route('/history', methods=['POST'])

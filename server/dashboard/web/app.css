@@ -1072,8 +1072,7 @@ input[type="search"] {
   margin: 0.4rem 0 0.6rem;
 }
 
-.relation-grid > .label-text,
-.event-table th > .label-text {
+.relation-grid > .label-text {
   position: relative;
   display: flex;
   align-items: baseline;

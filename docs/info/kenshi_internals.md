@@ -39,6 +39,29 @@ A change of the mod list is not tested, by decision. Because a string ID names t
 - The zone object (`AreaBiomeGroup`) holds the zone record, for example Stenn Desert, at slot `0x10`. `WeatherSystem::ActiveRegion` and `TownBase::getBiome` both give a zone object.
 - Slot `0x120` also holds a zone record, but not the zone that the map shows.
 
+## Deaths and captures
+
+A probe of these hooks in several played sessions showed these facts. The plugin sends the game events from the same hooks (see [architecture.md](architecture.md#game-events)).
+
+| Hook or call | Behavior |
+|---|---|
+| `declareDead` | Runs for each death of a person or an animal, in a fight and when a knocked-out character bleeds out. A character that bleeds out is still knocked out (`PS_KO`) when it runs. It does not run again when a save with dead bodies loads. |
+| `setProneState` with `PS_KO` | Runs about 10 times a second while a character lies knocked out, also after the last attack of the fight. A character that wakes up and goes down again gets it anew. |
+| `setProneState` with another state | Runs when a knocked-out character wakes up, and also each time someone picks up a knocked-out character. |
+| `setPrisonMode` with `on` | Runs when a character goes into a prisoner cage, also with no knockout and no attack before it. A captor put a knocked-out Scavenger into a cage 158 game minutes after the last attack on it. |
+| `setPrisonMode` with `on` false | Runs when a character leaves a cage, but also after the knockouts and the deaths of characters that nobody carried, so it tells nothing. |
+| `Character::isBeingCarried` | True at a pickup, but also at `setPrisonMode` with `on` false for knocked-out Bonedogs that nobody carried. |
+| `Character::getAllAttackers` | Gave an attacker for 1 of 56 knockouts, and for none of 17 deaths and 16 prison changes, also when an attack came in the same second. |
+| `attackingYou` | Runs many times a second for each attacker, for example 2,182 times in 15 s for one attacker and one target. |
+
+- The knockout, death, and prison hooks run off the game thread. The game thread is the thread that started the plugin (`g_mainThreadId`), because the chat context reads the inventory only on that thread.
+- When a save loads, the knockout hook runs again for each character that lies knocked out, and `setPrisonMode` with `on` runs again for each prisoner in a cage, a few seconds after the load.
+- When the captor puts the character into a cage, the game shows neither the knockout nor the carry: the bandit that the player carried into a cage was not `PS_KO` and not carried at `setPrisonMode`.
+- 5 Bonedogs bled out more than 3 game hours after the last attack on them.
+- `Character::isAnimal` marks Bonedogs, Blood Spiders, and Bog Dogs. A Gurgler, of the race Fishman, is not an animal.
+- `getCurrentTownLocation` also gives animal dens, such as `Bog Dog Den 9`.
+- A mod can split one animal into several races: `Wolf_Headgear.mod` gives Bonedogs the races `Bonedog (white)`, `Bonedog (yellow)`, and `Bonedog (darkbrown)` besides `Bonedog`. The name of each of these Bonedogs stays `Bonedog`.
+
 ## Squads
 
 `PlayerInterface::getCurrentPlatoon` gives the squad that the player selected. A squad member is in that squad when its `Character::getPlatoon` is the `getActivePlatoon` of that squad.

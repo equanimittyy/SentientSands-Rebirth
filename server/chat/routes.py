@@ -12,9 +12,8 @@ from chat.characters import animal_flag, get_character_data, npc_name, reported_
 from chat.llm import call_llm
 from chat.memory import quiet_seconds
 from chat.prompts import build_system_prompt, describe_faction, describe_npc, describe_race, fill_prompt, load_prompt_component, npc_scene, scene_values
-from chat.synthesis import RUMOR_SYNTHESIS, generate_global_narrative_thread
 from core import state
-from core.game import context_dict, get_current_time_prefix, is_player_faction, note_faction, npc_serial, record_event_to_history, take_report
+from core.game import context_dict, get_current_time_prefix, is_player_faction, note_faction, npc_serial, take_report
 from core.routes import campaign_write
 from core.settings import get_config_radii, load_settings
 from store import campaign_db
@@ -444,11 +443,6 @@ def chat():
         if len(content) > 500:
             content = content[:497] + "..."
         
-        player_faction = state.PLAYER_CONTEXT.get("faction", "None")
-        primary_faction = primary_data.get("Faction", "None")
-        record_event_to_history("CHAT", player_name, primary_npc, player_message, actor_faction=player_faction, target_faction=primary_faction)
-        record_event_to_history("CHAT", primary_npc, player_name, content, actor_faction=primary_faction, target_faction=player_faction)
-
         recorders = {speaker_id: (player_name, speaker), **listeners} if speaker_id else listeners
         copies = []
         for npc_id, (name, local_context) in recorders.items():
@@ -492,19 +486,6 @@ def chat():
         serial = npc_serial(primary_id)
         return jsonify({"text": f"{primary_npc}|{serial}: {content}" if serial else f"{primary_npc}: {content}", "actions": []})
     return jsonify({"error": "No reply from the LLM.", "status": "error"}), 502
-
-@bp.route('/synthesize', methods=['POST'])
-def manual_synthesize():
-    data = request.get_json(silent=True) or {}
-    take_report(data.get("player"), data.get("events"))
-    if not RUMOR_SYNTHESIS:
-        return jsonify({"status": "error", "message": "Rumor generation is off."}), 400
-    # Synchronous, despite the name, so the result can be returned
-    rumor = generate_global_narrative_thread()
-    if rumor:
-        return jsonify({"status": "ok", "rumor": rumor})
-    else:
-        return jsonify({"status": "error", "message": "Failed to generate rumor or not enough events (need 5)."}), 400
 
 def bio_refusal(data):
     parts, profile = data.get("parts"), data.get("profile")

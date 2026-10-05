@@ -187,7 +187,7 @@ Each squad member has one `count` row for each faction that it killed members of
 - One death with two squad attackers counts for both.
 - An animal counts by its race, such as Beak Thing, because the faction of an animal, such as Wolves for a Bonedog, does not tell what it is. A title such as Beak Slayer then has a race to fit.
 - A mod can split one animal into several races, such as `Bonedog (white)`, `Bonedog (yellow)`, and `Bonedog (darkbrown)` of `Wolf_Headgear.mod`. The count therefore takes the race entry of the campaign whose name or alias matches the race, as the prompts do (`find_race` in `server/chat/prompts.py`), and the race itself when no entry matches. A `Bonedog` entry with the three variants as aliases makes one count of Bonedogs.
-- The deed keeps the race as the game gives it. The server looks up the entry at each kill, so an alias joins only the kills after it.
+- The deed keeps the race as the game gives it. The server makes the counts of a doer anew from its deeds at each kill, so an alias also joins the earlier kills.
 - SSR Vanilla has no race entries of animals, so the player adds them on Campaign Canon.
 - Rejected: a cut of a final part in parentheses from the race. It misses the variants that other mods name in another way, and it joins two animals that differ only in that part.
 - The line names a faction as its members, such as "members of the Dust Bandits" or "members of The Holy Nation", because many faction names are not plural. It names an animal race in the plural, with an s unless the name ends in s, such as "Beak Things".

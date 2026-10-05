@@ -13,8 +13,8 @@ Sentient Sands Rebirth has three parts: a C++ plugin that runs inside Kenshi, a 
 | `plugin/game/` | Reads game state into JSON for prompts (`Context`) and applies queued NPC actions to the world (`GameActions`). |
 | `plugin/ui/` | The in-game MyGUI windows. `LauncherWindow` is the hub that opens the others. `ChatUIGlobals` holds the shared widget pointers. |
 | `server/main.py` | The entry point: it registers the blueprints and runs the start-up (`start`). |
-| `server/core/` | The paths (`paths.py`), the session state that the other modules share (`state.py`), the Flask app and its request hooks (`app.py`), the routes that the game calls, such as `/report` and `/history`, and the settings routes (`routes.py`), the pipe to the plugin (`pipe.py`), the INI settings (`settings.py`), the start-up checks for an old server and for the game process (`process.py`), the helpers for the game context (`game.py`), the request checks (`request_guard.py`), and the log files and the log level (`log_setup.py`). |
-| `server/chat/` | The chat, banter, synthesis, and Dialogue Library bio routes (`routes.py`), the LLM calls (`llm.py`), the prompt files and the descriptions that fill them (`prompts.py`), the profiles of the characters that the game reports (`characters.py`), the bios (`bio.py`), the conversation memories (`memory.py`), the rumor synthesis (`synthesis.py`), the chat prompt (`chat_prompt.py`) and its scene text (`scene_text.py`), the names (`npc_names.py`), the Current Job (`current_job.py`), the provisional profiles (`provisional_profile.py`), the prompt overrides and placeholders (`prompt_store.py`), and the LLM configuration (`llm_config.py`) and fallback chain (`llm_router.py`). |
+| `server/core/` | The paths (`paths.py`), the session state that the other modules share (`state.py`), the Flask app and its request hooks (`app.py`), the routes that the game calls, such as `/report` and `/history`, and the settings routes (`routes.py`), the pipe to the plugin (`pipe.py`), the INI settings (`settings.py`), the start-up checks for an old server and for the game process (`process.py`), the helpers for the game context (`game.py`), the deeds of the game events (`deeds.py`), the request checks (`request_guard.py`), and the log files and the log level (`log_setup.py`). |
+| `server/chat/` | The chat, banter, and Dialogue Library bio routes (`routes.py`), the LLM calls (`llm.py`), the prompt files and the descriptions that fill them (`prompts.py`), the profiles of the characters that the game reports (`characters.py`), the bios (`bio.py`), the conversation memories (`memory.py`), the chat prompt (`chat_prompt.py`) and its scene text (`scene_text.py`), the names (`npc_names.py`), the Current Job (`current_job.py`), the provisional profiles (`provisional_profile.py`), the prompt overrides and placeholders (`prompt_store.py`), and the LLM configuration (`llm_config.py`) and fallback chain (`llm_router.py`). |
 | `server/store/` | The campaign database (`campaign_db.py`), the world templates (`world_template.py`), and the creation and the switch of a campaign (`campaigns.py`). |
 | `server/dashboard/` | The routes that only the web app calls (`routes.py`) and the browser auto-open (`browser_launch.py`). |
 | `server/dashboard/web/` | The web app: plain HTML, CSS, JavaScript, fonts, and images, which the server serves at `http://127.0.0.1:5000/`. |
@@ -77,8 +77,8 @@ The plugin reads the game state only when a request needs it, and ambient banter
 |---|---|
 | Chat (`/chat`) | The context of the target, the context of the squad member who speaks (`speaker`), and the game events |
 | Ambient banter (`/ambient`) | The banter NPCs, the player's context (`player_context`), and the game events |
-| Cull Future Data (`/cull`) in the SSR HUB, and Generate World Event (`/synthesize`) in the Dynamic World Events Log | A report: the player's context and the game events (`GameReport` in `plugin/game/Context.cpp`) |
-| `/report` | A report, when 50 game events wait, or when the server sends `REPORT` through the pipe |
+| Cull Future Data (`/cull`) in the SSR HUB | A report: the player's context and the game events (`GameReport` in `plugin/game/Context.cpp`) |
+| `/report` | A report, when 50 game events wait, when the oldest game event waited 60 s, or when the server sends `REPORT` through the pipe |
 | `/squad_rename` | The context of a member of the player's faction that the game renamed (see [Names](#names)) |
 
 - The server keeps the player's context of the latest request (`take_report`). Its game time and town can be old between requests, so a value that must be current comes with the request that uses it.
@@ -87,15 +87,65 @@ The plugin reads the game state only when a request needs it, and ambient banter
 
 ### Game events
 
-The hooks in `plugin/main.cpp` log game events, such as combat, trade, and deaths, into a buffer (`LogGameEvent` in `plugin/core/Utils.cpp`). The server writes each event to the campaign (`record_event_to_history`).
+The hooks in `plugin/main.cpp` add the game events to a buffer (`QueueGameEvent` in `plugin/core/Utils.cpp`). The plugin keeps no other state for them, because the hooks run off the game thread, and the server decides who did what (see [Deeds](#deeds)).
 
-- Each event gets the game time and the town of the player when its hook fires, because the event reaches the server only with the next request. That request can come minutes later.
+| Kind | Hook | Added when | Holds |
+|---|---|---|---|
+| `attack` | `attackingYou_hook` | The attacker is in the player's faction, and no `attack` of the same attacker and target waits in the buffer | The attacker as a party, and the `npc_id` of the target |
+| `knockout` | `setProneState_hook` with `PS_KO` | The character was not knocked out before the call | The `npc_id` of the character |
+| `up` | `setProneState_hook` with another state | The character was knocked out before the call | The `npc_id` of the character, and whether it is carried (`isBeingCarried`) |
+| `death` | `declareDead_hook` | Each call | The character as a party |
+| `imprisonment` | `setPrisonMode_hook` with `on` | Each call | The character as a party |
+
+- A party (`EventParty` in `plugin/game/Context.cpp`) holds the `npc_id` (`id`), the string ID of the template (`template_id`), the name, the faction, whether the faction is the player's (`player`), the race, and the animal flag.
+- Each event holds the game time of its hook, because it reaches the server only with the next request. The plugin reads the time under `g_eventMutex`, so the buffer holds the events in the order of their game times, and the server takes a step back of the game time as a load.
+- `attackingYou_hook` runs many times a second for each attacker. Its faction check comes first, and its check against the buffer adds one `attack` for each attacker and target in each report.
+- The game sets `PS_KO` about 10 times a second on a character that lies knocked out, so only a change of the knockout makes an event.
 - A request takes the events out of the buffer (`TakeGameEvents`), so the plugin sends each event once.
-- The buffer holds 100 events and drops the oldest. The frame hook sends a report when 50 events wait.
+- The buffer holds 100 events and drops the oldest. The frame hook sends a report when 50 events wait, or when the oldest event waited 60 s, because the events that wait are lost when the game closes.
 - The plugin drops an event while it has no game world, because the event has no game time, and the cull deletes by game time.
-- An event is lost when the request that carries it fails, or when the game closes before a request takes it.
-- The server drops an event that repeats the last message for its target and type, and the same event within 30 s, because some hooks, such as the knockout hook, fire more than once for one change.
+- An event is lost when the request that carries it fails.
+- Rejected: the events of damage, first aid, trades, loot, raids, new owners of towns, and slavery. None of them can make a deed.
+- Rejected: a place for each event. `getCurrentTownLocation` also gives animal dens, and the zone around the camera is not the place of the deed.
 - Rejected: the last 30 events in each context post. The server got each event again every 1.5 s, and its check for repeats let a repeat through after 30 s, so it wrote the same events to the campaign again and again.
+
+### Deeds
+
+`server/core/deeds.py` decides which squad members killed or captured whom. It keeps the events of each character by its `npc_id` in memory for the active campaign, so a campaign switch or a restart of the server clears them. A `death` or an `imprisonment` replays the events of the character since its last `death` or `imprisonment`:
+
+1. An `attack` adds the attacker, or sets its time.
+2. A `knockout` sets a mark. While the mark is set, the attackers of the character do not age.
+3. An `up` that is not carried clears the mark, and sets the time of each attacker to the time of the `up`, so the 3 game hours count from then. An `up` that is carried is the pickup by a captor, and changes nothing.
+4. The `death` or the `imprisonment` takes the attackers: all of them while the mark is set, else each attacker whose last attack is in the 3 game hours before it. Kenshi gives no last hit, so each of them counts as a killer or as a captor.
+
+- A character that bleeds out keeps the attackers of its knockout, also more than 3 game hours after the last attack. A capture in Kenshi is a knockout, a carry, and a cell, so the captors are the attackers of the knockout, however long the carry takes ([kenshi_internals.md](kenshi_internals.md#deaths-and-captures)).
+- The mark is the server's own, because the game shows neither the knockout nor the carry when the captor puts the character into a cage.
+- A load puts the game time back. An event with a game time before the newest event therefore drops each kept event after that game time, because that play did not happen in the loaded save. The events before it stay, so a fight or a carry across a save and a load keeps its attackers.
+- The server cannot tell two lines of play apart. A load of a save from another line of play keeps the events before the loaded game time, and a load of a save with a later game time drops nothing.
+- The server skips an event at Day 0, 00:00, because the game clock reads that time until it holds a real time, and the event would look like a load.
+- The deeds of the undone play stay until the player culls (see [Campaign routes of the web app](#campaign-routes-of-the-web-app)).
+- The `npc_id` of a generic character whose template is a canon character becomes the `npc_id` of that character, as for a context (`adopt_canon`).
+
+The `deed` table holds one row for each doer of each deed: the kind (`kill` or `capture`), the `npc_id` and name of the doer, the `npc_id`, name, faction, and race of the victim, whether the victim is an animal or a known figure, and the game time.
+
+- A death gives a kill to each attacker, and an imprisonment of a known figure gives a capture to each captor. A victim in the player's faction gives no deed, and neither does the capture of another character.
+- A known figure is a character of the canon whose `origin` is `seed` or `campaign` (see [Campaign canon](#campaign-canon)). A character that the server added in play is none, because each NPC that the player talks to gets a profile.
+- A capture counts once for each captor and known figure, because `setPrisonMode` runs again with `on` for each prisoner when a save loads.
+- No deed is trimmed, because a count must stay whole for the whole campaign.
+
+The `notable` table holds the deeds that are worth a rumor. Campaign Log > Events on the web app lists them, newest first:
+
+| Kind | When | Line |
+|---|---|---|
+| `figure` | Squad members killed or captured a known figure | Beep and Izumi of Nameless captured Tinfist. |
+| `count` | The kills of a squad member against one faction, or against one animal race, reach 25 | Beep has killed 100 members of the Dust Bandits. |
+
+- A row holds the kind, the game time, and the deed as JSON. The line names each character by its current name (`notable_events`), so a renamed squad member shows with its new name.
+- A count holds only the kills of characters that are not known figures. Its steps are 25, 100, 250, and 500 kills (`COUNT_STEPS`). Its row takes the game time of the kill that reached its step, so it moves to the top of the list only at a new step.
+- An animal counts by its race, because the faction of an animal, such as Wolves for a Bonedog, does not tell what it is. The race counts as the race entry of the campaign whose name or alias matches it, as the prompts match a race (`find_race`). A mod can split one animal into several races, such as `Bonedog (white)`, and an entry that lists them as aliases joins them. SSR Vanilla has no race entries of animals.
+- The server makes the counts of each doer anew from its deeds at each kill, so an alias that the player adds also joins the earlier kills.
+- The line names a faction as its members, such as "members of the Dust Bandits" or "members of The Holy Nation", because many faction names are not plural. It names an animal race in the plural, with an s unless the name ends in s.
+- The cull deletes the deeds and the `figure` rows after the game time, and puts each count back to the step of the kills that remain.
 
 ## Web app
 
@@ -144,7 +194,7 @@ A refresh changes the message of the save bar only when the unsaved state of the
 
 The Editor holds many records. Save sends one request for each changed record, and a record that the server rejects keeps its draft and shows the reason. A delete takes effect at once, after a confirmation.
 
-The Editor has three subtabs. Campaign Canon and Templates share the record list and forms: Campaign Canon edits the canon of the active campaign, and Templates edits the world templates that new campaigns copy. Campaign Log shows the active campaign in two subtabs of its own: Dialogue & Memories, and Events. Events edits the rumors and lists the events. The page holds the data of one subtab and one template at a time, so a switch with unsaved changes asks the player first. A shipped template is read-only, so the page offers a duplicate.
+The Editor has three subtabs. Campaign Canon and Templates share the record list and forms: Campaign Canon edits the canon of the active campaign, and Templates edits the world templates that new campaigns copy. Campaign Log shows the active campaign in two subtabs of its own: Dialogue & Memories, and Events. Events edits the rumors and lists the notable events (see [Deeds](#deeds)). The page holds the data of one subtab and one template at a time, so a switch with unsaved changes asks the player first. A shipped template is read-only, so the page offers a duplicate.
 
 Dialogue & Memories lists the chat threads of the active campaign, newest first, each with the game time of its first exchange and its speakers (see [Chat threads](#chat-threads)). It uses the layout of Campaign Canon: a search field and the list on the left, and the selected thread on the right, with its lines, its memory under Memorised Summary (see [Conversation memories](#conversation-memories)), and its speakers and overhearers under Involved Characters. A thread with a memory shows only its memory, because the memory replaces its lines. The search matches the names of the members, the text of the lines, and the memory, with case ignored. `GET /api/campaign` returns every thread with its lines and its memory, as Campaign Canon loads every record, so the search runs in the page. The lines are the copy of a speaker, because its lines have no `(Overheard)` tag (`campaign_db.threads`). The memory under Memorised Summary is editable: Save writes each changed memory, and Delete removes the conversation after a confirmation (see [Conversation memories](#conversation-memories)). The lines are read-only, and banter has no threads, so it stays out.
 
@@ -236,7 +286,7 @@ When the origin faction of an NPC is its current faction, the chat prompt gives 
 
 ## LLM routing
 
-Each LLM call names a task: `chat`, `ambient`, `profile`, `synthesis`, or `memory`. The server makes no `synthesis` call while `RUMOR_SYNTHESIS` is off: it stores the events of the game, but the timer does not start and `/synthesize` refuses. `server/config/llm_config.json` holds four parts, and the web app's Models page edits all of them through `/api/llm`.
+Each LLM call names a task: `chat`, `ambient`, `profile`, `synthesis`, or `memory`. No route makes a `synthesis` call. `server/config/llm_config.json` holds four parts, and the web app's Models page edits all of them through `/api/llm`.
 
 | Part | Contents |
 |---|---|
@@ -267,13 +317,13 @@ When the server loads `llm_config.json`, each task that the file lacks gets the 
 
 ## Campaign storage
 
-`server/store/campaign_db.py` keeps the characters, the dialogue with its chat threads and their memories, the canon, the event history, and the rumors of a campaign in one SQLite file, `campaign.db`, in the campaign folder. The plugin reaches this data only through the server's routes.
+`server/store/campaign_db.py` keeps the characters, the dialogue with its chat threads and their memories, the canon, the deeds and notable events, and the rumors of a campaign in one SQLite file, `campaign.db`, in the campaign folder. The plugin reaches this data only through the server's routes.
 
 - Each write runs in one `BEGIN IMMEDIATE` transaction. A profile write merges only the keys that the caller passes, and the dialogue lines are rows of their own. A route that waits for the LLM must write only the keys that it changed, so that it cannot undo a change that another request made during the wait.
 - `/chat` changes the Relation through `change_relation`, which adds the judgment to the stored value in one transaction. Two overlapping chats with the same NPC therefore keep both changes.
 - Each operation opens a connection with a 5 s busy timeout and closes it. A campaign switch changes only the database path that `open_campaign` sets.
 - The database uses the default rollback journal, not WAL. The campaign folder therefore has no `-wal` or `-shm` file, and a player can copy it while the server is idle.
-- No dialogue line is trimmed. The memory of a chat thread replaces its lines (see [Conversation memories](#conversation-memories)), and banter lines stay. The campaign keeps its newest 500 events. An event that the table already holds is not added again.
+- No dialogue line is trimmed. The memory of a chat thread replaces its lines (see [Conversation memories](#conversation-memories)), and banter lines stay. No deed is trimmed either (see [Deeds](#deeds)).
 - Favorites belong to each campaign.
 - Rejected: one database for all campaigns, with a `campaign_id` column. A query that missed the filter would leak data between campaigns.
 
@@ -283,7 +333,7 @@ A new campaign is a copy of a world template (see [World templates](#world-templ
 
 After the player deletes the last campaign, the server has no current campaign: `current_campaign` is empty, and each operation fails with the reason until the player creates a campaign. The empty value stays across a restart, so the server does not create a campaign again. When the server has no current campaign, the Campaigns page switches to the campaign that the player creates.
 
-A route that needs the campaign then answers status 409 with the reason, and the server logs one warning line for it instead of a traceback. A context post still updates the player's context, but the server drops the events in it.
+A route that needs the campaign then answers status 409 with the reason, and the server logs one warning line for it instead of a traceback. A context post still updates the player's context, but the server drops the deeds of its events.
 
 A `campaign.db` that is gone while the server runs, for example because the player deleted the folder by hand, makes each operation fail with the reason in the same way. The server creates the folder again only at the next start.
 
@@ -535,18 +585,17 @@ Edit Bio in the Dialogue Library skips the LLM. `/read_bio` returns the stored `
 | `POST /api/campaigns` | Create a campaign from a template, with no switch |
 | `POST /api/campaigns/switch` | Make a campaign the current one. The name must be a folder that the campaign list shows, so a name such as `../x` cannot point outside `server/data/campaigns/`. |
 | `POST /api/campaigns/delete` | Delete a campaign folder, with the same name check. Before it deletes the current campaign, it switches to the first other one. When no other campaign remains, the server has no current campaign (see [Campaign storage](#campaign-storage)). |
-| `GET /api/campaign` | The active campaign: its events, its rumors, and its chat threads with their members, lines, and memories. A refused campaign gives status 409 with the reason. |
+| `GET /api/campaign` | The active campaign: its notable events with their lines (see [Deeds](#deeds)), its rumors, and its chat threads with their members, lines, and memories. A refused campaign gives status 409 with the reason. |
 | `GET /api/campaign/canon` | The canon of the active campaign, each record with its `origin` and `updated_at`, and each character with the `current_faction` that a chat reported since the server started (`LIVE_CONTEXTS`), or `null`. A refused campaign gives status 409 with the reason. |
 | `POST /api/campaign/records`, `.../records/delete` | Save or delete one canon record of the active campaign. A faction, character, race, location, or region with no ID is new. |
 | `POST /api/campaign/characters/bio` | The LLM text of the full bio, or of one part, for the form of a character. It stores nothing (see [Provisional profiles](#provisional-profiles)). |
 | `POST /api/campaign/rumors`, `.../rumors/delete` | Edit the rumors of the active campaign |
 | `POST /api/campaign/memories`, `.../memories/delete` | Edit or delete a memory of the active campaign (see [Conversation memories](#conversation-memories)) |
-| `POST /api/campaign/cull` | Delete the dialogue, events, rumors, thread members, and memories dated after the current game time, after the player loads an older save. It asks the running game for a report and refuses the cull without one (see [Game state](#game-state)), because without the game time day 0 would count as now and the cull would delete the whole history. |
+| `POST /api/campaign/cull` | Delete the dialogue, deeds, notable events, rumors, thread members, and memories dated after the current game time, after the player loads an older save. It asks the running game for a report and refuses the cull without one (see [Game state](#game-state)), because without the game time day 0 would count as now and the cull would delete the whole history. |
 
 - Each edit names the campaign that the page loaded. Another tab can switch the campaign while the page is open, so the server refuses an edit for another campaign instead of writing it into the active one.
 - **Cull Future Data** in the SSR HUB posts to `POST /cull`, which does the same cull without the campaign check, because the game always means the active campaign. The plugin shows the result as a game message.
-- The cull of the SSR HUB carries a report, and the server writes its events before the cull. The buffer can hold events from before the load of the older save, which are dated after the loaded game time, so the cull deletes them.
-- The server writes no rumor until a player context gives it the game time, because the cull never deletes a line without a game time.
+- The cull of the SSR HUB carries a report, and the server takes the deeds of its events before the cull. The buffer can hold events from before the load of the older save, which are dated after the loaded game time, so the cull deletes their deeds.
 - An edit of a faction, a character, a race, a location, or a region carries the `updated_at` that the page loaded, and the server refuses it when the row changed after that, for example when the game renamed the player's faction. An edit without `updated_at` counts as stale. The name of the player's faction is not editable, because the next context would undo it.
 - The web app offers no delete for the player's faction. The game reports the faction again, and the server then adds it back with an empty description, so a delete would only lose the description.
 - A rumor edit replaces only the text of its `[RUMOR: ...]` tag and keeps its game time. Brackets in the text become parentheses, because the prompt reads the rumor up to the first `]`.
@@ -637,8 +686,8 @@ The plugin and the server write their logs in the same format, so one tool can r
 | `server/logs/llm.log` | Server | Each prompt and reply of each LLM task, with its line breaks. The server writes it only at `DEBUG`. | Rotated at 2 MB, with 1 backup |
 
 - The plugin keeps its log file open for the whole game and flushes each line, so the lines before a crash reach the file.
-- `LogGameEvent` runs for each attack, so it checks the level before it builds its message. The knockout, death, and prison hooks call it off the game thread, so it adds each event under `g_eventMutex`.
-- The events of a campaign are in its database, not in a log file.
+- The hooks of the game events run off the game thread, so `QueueGameEvent` adds each event under `g_eventMutex`. The plugin and the server log each game event at `DEBUG`.
+- The deeds of a campaign are in its database, not in a log file.
 
 ## Server state
 

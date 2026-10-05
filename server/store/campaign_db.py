@@ -1,4 +1,4 @@
-"""The campaign's characters, dialogue, canon, events, and rumors, in one SQLite file per campaign folder.
+"""The campaign's characters, dialogue, canon, deeds, notable events, and rumors, in one SQLite file per campaign folder.
 
 Every write runs in one BEGIN IMMEDIATE transaction, and a profile write merges only the keys that the
 caller passes. Two requests that change one NPC during an LLM call therefore keep both changes.
@@ -15,9 +15,10 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 DB_NAME = "campaign.db"
-SCHEMA_VERSION = 7
+SCHEMA_VERSION = 8
 DIALOGUE_BLOCK = 20
-MAX_EVENTS = 500
+# A few kills are part of any trip through the wasteland, so the scale starts at 25
+COUNT_STEPS = (25, 100, 250, 500)
 # The chat count of a provisional profile also marks it as provisional: the template validator, which the campaign editor
 # also runs, takes only text and numbers as profile values, so a true/false mark could not be saved from the editor
 PROVISIONAL = "Interactions"
@@ -59,10 +60,25 @@ CREATE TABLE dialogue (
 );
 CREATE INDEX dialogue_by_character ON dialogue (character_id, id);
 CREATE INDEX dialogue_by_thread ON dialogue (thread_id);
-CREATE TABLE event (
+CREATE TABLE deed (
+  id          INTEGER PRIMARY KEY,
+  kind        TEXT NOT NULL,
+  doer_id     TEXT NOT NULL,
+  doer_name   TEXT NOT NULL,
+  victim_id   TEXT NOT NULL,
+  victim_name TEXT NOT NULL,
+  faction     TEXT NOT NULL,
+  race        TEXT NOT NULL,
+  animal      INTEGER NOT NULL,
+  figure      INTEGER NOT NULL,
+  game_time   INTEGER NOT NULL
+);
+CREATE INDEX deed_by_doer ON deed (doer_id, kind);
+CREATE TABLE notable (
   id        INTEGER PRIMARY KEY,
-  game_time INTEGER,
-  line      TEXT NOT NULL
+  kind      TEXT NOT NULL,
+  game_time INTEGER NOT NULL,
+  deed      TEXT NOT NULL
 );
 CREATE TABLE rumor (
   id        INTEGER PRIMARY KEY,
@@ -447,19 +463,41 @@ def toggle_favorite(npc_id):
         return not row[1]
 
 
-def add_event(line):
-    with _connect(write=True) as conn:
-        if conn.execute("SELECT 1 FROM event WHERE line = ?", (line,)).fetchone():
-            return
-        conn.execute("INSERT INTO event (game_time, line) VALUES (?, ?)", (game_time(line), line))
-        conn.execute("DELETE FROM event WHERE id <= (SELECT id FROM event ORDER BY id DESC LIMIT 1 OFFSET ?)", (MAX_EVENTS,))
-
-
-def recent_events(n):
-    """The newest n events, oldest first."""
+def known_figure(npc_id):
+    """A character of the canon, which the template or the player added. A character that the server added in play is none,
+    because each NPC that the player talks to gets a profile."""
     with _connect() as conn:
-        rows = conn.execute("SELECT line FROM (SELECT id, line FROM event ORDER BY id DESC LIMIT ?) ORDER BY id", (n,)).fetchall()
-    return [line for (line,) in rows]
+        row = conn.execute("SELECT origin FROM character WHERE npc_id = ?", (npc_id,)).fetchone()
+    return bool(row) and row[0] in ("seed", "campaign")
+
+
+def add_deeds(kind, doers, victim, figure, game_time):
+    """Stores a deed, "kill" or "capture", for each doer, an (npc_id, name) pair. victim holds the npc_id, name, faction,
+    race, and animal flag. A doer that already captured the victim gets no second capture, because the game imprisons each
+    prisoner again when a save loads. Adds the notable event of a known figure, and updates the counts of the doers. Returns
+    the doers that got a deed."""
+    with _connect(write=True) as conn:
+        if kind == "capture":
+            doers = [doer for doer in doers if not conn.execute(
+                "SELECT 1 FROM deed WHERE kind = 'capture' AND doer_id = ? AND victim_id = ?", (doer[0], victim["npc_id"])).fetchone()]
+        conn.executemany(
+            "INSERT INTO deed (kind, doer_id, doer_name, victim_id, victim_name, faction, race, animal, figure, game_time) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            [(kind, npc_id, name, victim["npc_id"], victim["name"], victim["faction"], victim["race"], int(victim["animal"]), int(figure), game_time) for npc_id, name in doers],
+        )
+        if doers and figure:
+            deed = {"deed": kind, "doers": [{"id": npc_id, "name": name} for npc_id, name in doers], "victim": {"id": victim["npc_id"], "name": victim["name"], "faction": victim["faction"]}}
+            conn.execute("INSERT INTO notable (kind, game_time, deed) VALUES ('figure', ?, ?)", (game_time, json.dumps(deed)))
+        elif doers and kind == "kill":
+            _refresh_counts(conn, [npc_id for npc_id, _ in doers])
+    return doers
+
+
+def notables():
+    """Every notable event as (id, kind, game_time, deed), newest first. A count has the game time of the kill that reached
+    its step."""
+    with _connect() as conn:
+        rows = conn.execute("SELECT id, kind, game_time, deed FROM notable ORDER BY game_time DESC, id DESC").fetchall()
+    return [(notable_id, kind, at, json.loads(deed)) for notable_id, kind, at, deed in rows]
 
 
 def add_rumor(line):
@@ -480,24 +518,23 @@ def rumor(rumor_id):
 
 
 def cull_after(day, hour, minute):
-    """Deletes the dialogue, events, rumors, thread members, and memories dated after the given game time. Returns the
-    count per table of the first three."""
+    """Deletes the dialogue, deeds, notable events, rumors, thread members, and memories dated after the given game time,
+    and puts each count back to the step of the kills that remain. Returns the count per table of the dialogue, the deeds,
+    the notable events, and the rumors."""
     now = day * 1440 + hour * 60 + minute
     with _connect(write=True) as conn:
         touched = {thread_id for (thread_id,) in conn.execute("SELECT id FROM thread WHERE game_time > ?", (now,))}
-        culled = {table: conn.execute(f"DELETE FROM {table} WHERE game_time > ?", (now,)).rowcount for table in ("dialogue", "event", "rumor")}
+        culled = {table: conn.execute(f"DELETE FROM {table} WHERE game_time > ?", (now,)).rowcount for table in ("dialogue", "deed", "rumor")}
+        notables_before = conn.execute("SELECT COUNT(*) FROM notable").fetchone()[0]
+        conn.execute("DELETE FROM notable WHERE kind = 'figure' AND game_time > ?", (now,))
+        _refresh_counts(conn, [doer for (doer,) in conn.execute("SELECT DISTINCT json_extract(deed, '$.doer') FROM notable WHERE kind = 'count'")])
+        culled["notable"] = notables_before - conn.execute("SELECT COUNT(*) FROM notable").fetchone()[0]
         conn.execute("DELETE FROM thread_member WHERE game_time > ?", (now,))
         # The memory told of culled exchanges, and it replaced every line, so nothing from before the cut is left to keep
         conn.execute("DELETE FROM thread WHERE memory IS NOT NULL AND game_time > ?", (now,))
         conn.execute("UPDATE thread SET game_time = (SELECT MAX(game_time) FROM dialogue WHERE thread_id = thread.id) WHERE game_time > ?", (now,))
         _drop_unused_threads(conn, touched)
         return culled
-
-
-def events():
-    """Every event as (id, line), oldest first."""
-    with _connect() as conn:
-        return conn.execute("SELECT id, line FROM event ORDER BY id").fetchall()
 
 
 def set_rumor(rumor_id, line):
@@ -747,6 +784,43 @@ def _thread_lines(conn):
         thread_id: [line for (line,) in conn.execute("SELECT line FROM dialogue WHERE thread_id = ? AND character_id = ? ORDER BY id", (thread_id, character_id))]
         for thread_id, (_, character_id) in best.items()
     }
+
+
+def _refresh_counts(conn, doer_ids):
+    """Makes the count rows of each doer match its kills. An animal counts by its race entry, so an alias that the player
+    adds also joins the earlier kills of the variants. A row takes the game time of the kill that reached its step, so it
+    moves to the top of the Events list only at a new step."""
+    races = _race_entries(conn)
+    for doer in doer_ids:
+        kills, name = {}, ""
+        for name, faction, race, animal, at in conn.execute(
+            "SELECT doer_name, faction, race, animal, game_time FROM deed WHERE kind = 'kill' AND figure = 0 AND doer_id = ? ORDER BY game_time, id", (doer,)
+        ):
+            kills.setdefault(("race", races.get(race.lower(), race)) if animal else ("faction", faction), []).append(at)
+        counts = {}
+        for (target, value), times in kills.items():
+            step = sum(len(times) >= bound for bound in COUNT_STEPS)
+            if step:
+                counts[(target, value)] = ({"doer": doer, "doer_name": name, target: value, "count": len(times), "step": step}, times[COUNT_STEPS[step - 1] - 1])
+        for row_id, deed in conn.execute("SELECT id, deed FROM notable WHERE kind = 'count' AND json_extract(deed, '$.doer') = ?", (doer,)).fetchall():
+            deed = json.loads(deed)
+            key = ("race", deed["race"]) if "race" in deed else ("faction", deed["faction"])
+            if key in counts:
+                deed, reached = counts.pop(key)
+                conn.execute("UPDATE notable SET deed = ?, game_time = ? WHERE id = ?", (json.dumps(deed), reached, row_id))
+            else:
+                conn.execute("DELETE FROM notable WHERE id = ?", (row_id,))
+        conn.executemany("INSERT INTO notable (kind, game_time, deed) VALUES ('count', ?, ?)", [(reached, json.dumps(deed)) for deed, reached in counts.values()])
+
+
+def _race_entries(conn):
+    """The name of the race entry for each race name and alias in lower case, as the prompts match a race (find_race)."""
+    entries = {}
+    for (data,) in conn.execute("SELECT data FROM entity WHERE category = 'races' ORDER BY id"):
+        entry = json.loads(data)
+        for name in [entry.get("name", ""), *entry.get("aliases", [])]:
+            entries.setdefault(name.lower(), entry.get("name", ""))
+    return entries
 
 
 def _stored(profile):

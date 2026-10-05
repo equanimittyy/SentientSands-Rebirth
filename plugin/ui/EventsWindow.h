@@ -14,8 +14,6 @@ void CloseEventsUI();
 void PopulateEventsUI(const std::string &data);
 void SetEventsText(const std::string &data);
 
-void OnSynthesizeClick(MyGUI::Widget *sender);
-DWORD WINAPI SynthesizeThread(LPVOID lpParam);
 void OnEventsSelect(MyGUI::ListBox *sender, size_t index);
 void OnEventsWindowClose(MyGUI::Window *sender, const std::string &name);
 DWORD WINAPI EventsResponseThread(LPVOID lpParam);

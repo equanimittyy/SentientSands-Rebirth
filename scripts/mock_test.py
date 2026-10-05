@@ -1,7 +1,8 @@
 """Create a campaign filled with mock play data, so the web app and the Dialogue Library have data without a game.
 
 The data goes in through the campaign_db calls that the chat route makes: chat threads with speakers and overhearers,
-a whisper and a yell, the memories of all chat threads but the newest, one banter, events, and rumors. The script
+a whisper and a yell, the memories of all chat threads but the newest, one banter, and rumors. The deeds go in as the
+events of the game, through the attribution of the server: a kill count and the capture of a known figure. The script
 refuses a campaign name that is taken, so a second run cannot add the data twice. It needs no Flask, so it runs in the
 dev container.
 """
@@ -15,13 +16,14 @@ SERVER = REPO / "server"
 sys.path.insert(0, str(SERVER))
 
 from chat import chat_prompt
+from core import deeds
 from store import campaign_db, world_template
 
-SQUAD = "Nameless"
+SQUAD, SQUAD_ID = "Nameless", "204-gamedata.base"
 STICK, IZUMI, MIKSE = "h:910001", "h:910002", "h:910003"
 JORGE, JOSH, ABEL = "h:920001", "h:920002", "h:920003"
 # Canon characters of SSR Vanilla
-RUKA, BEEP = "u:19576-Dialogue.mod", "u:57390-rebirth.mod"
+RUKA, BEEP, DUST_KING = "u:19576-Dialogue.mod", "u:57390-rebirth.mod", "u:2849-gamedata.base"
 
 PROFILES = {
     STICK: {"Name": "Stick", "Race": "Greenlander", "Sex": "Male", "Faction": SQUAD, "OriginFaction": SQUAD, "Relation": 0,
@@ -38,17 +40,20 @@ PROFILES = {
            "Personality": "Stern and suspicious of outsiders.", "Backstory": "Passing through The Hub on the way to Blister Hill.", "SpeechQuirks": "Ends many sentences with a blessing."},
 }
 NAMES = {npc_id: profile["Name"] for npc_id, profile in PROFILES.items()} | {RUKA: "Ruka", BEEP: "Beep"}
-FACTIONS = {npc_id: profile["Faction"] for npc_id, profile in PROFILES.items()} | {RUKA: "Shek Kingdom", BEEP: "Drifters"}
 IN_SQUAD = {STICK, IZUMI, MIKSE}
 MODE_TAGS = {"talk": "", "whisper": "(Whispered) ", "yell": "(Yelled) "}
 
 
-def party(npc_id):
-    """An actor or a target of an event line, as record_event_to_history writes it."""
-    return f"{NAMES[npc_id]} (Player's Squad: {SQUAD})" if npc_id in IN_SQUAD else f"{NAMES[npc_id]} ({FACTIONS[npc_id]})"
+def party(npc_id, name, faction):
+    """A character of a game event, as the plugin sends it (EventParty in plugin/game/Context.cpp)."""
+    return {"id": npc_id, "template_id": "", "name": name, "faction": faction, "player": faction == SQUAD, "race": "Greenlander", "animal": False}
 
 
-def chat_thread(speaker, npc, exchanges, overhearers=(), mode="talk", town="The Hub", memory=None):
+def at(day, hour, minute):
+    return {"day": day, "hour": hour, "minute": minute}
+
+
+def chat_thread(speaker, npc, exchanges, overhearers=(), mode="talk", memory=None):
     """exchanges are (game time, line of the squad member, reply of the NPC) triples. memory is the text that the
     distillation would write, with names, or None for a pending thread."""
     thread_id = None
@@ -63,8 +68,6 @@ def chat_thread(speaker, npc, exchanges, overhearers=(), mode="talk", town="The 
             to_npc, to_speaker = (f" to {NAMES[npc]}", f" to {NAMES[speaker]}") if heard else ("", "")
             lines = [(f"{prefix}{tag}{MODE_TAGS[mode]}{NAMES[speaker]}{to_npc}: {said}", speaker), (f"{prefix}{tag}{NAMES[npc]}{to_speaker}: {reply}", npc)]
             campaign_db.append_dialogue(npc_id, lines, {}, thread_id)
-        campaign_db.add_event(f"[{when}] [CHAT] {party(speaker)} -> {party(npc)} @ {town}: {said}")
-        campaign_db.add_event(f"[{when}] [CHAT] {party(npc)} -> {party(speaker)} @ {town}: {reply}")
     if memory:
         campaign_db.set_memory(thread_id, chat_prompt.mark_names(memory, [(npc_id, NAMES[npc_id]) for npc_id in copies]), campaign_db.game_time(prefix))
 
@@ -108,7 +111,6 @@ def fill():
         ("Day 4, 09:31", RUKA, "Then why do they keep drinking it?"),
         ("Day 4, 09:31", JORGE, "Because it is the only ale for a day's walk."),
     ])
-    campaign_db.add_event(f"[Day 5, 18:02] [trade] {party(MIKSE)} -> {party(JORGE)} @ The Hub: Bought Dried Meat")
     chat_thread(MIKSE, BEEP, [
         ("Day 5, 20:30", "Beep, can you keep a secret?", "Beep is very good at secrets! Beep forgets most things anyway."),
         ("Day 5, 20:31", "We leave The Hub tonight.", "Beep will pack! Beep has one bag and it is empty."),
@@ -125,12 +127,19 @@ def fill():
         " called Stick a door boy. Stick gave a last warning, and Josh mocked the borrowed sword of Stick. The debt stayed"
         " unpaid."
     ))
-    campaign_db.add_event(f"[Day 6, 11:02] [combat] {party(JOSH)} -> {party(STICK)} @ The Hub: Initiated attack")
-    campaign_db.add_event(f"[Day 6, 11:03] [knockout] Unknown -> {party(JOSH)} @ The Hub: Was knocked unconscious")
-    campaign_db.add_event(f"[Day 6, 11:08] [healing] {party(IZUMI)} -> {party(STICK)} @ The Hub: Applying first aid")
     chat_thread(IZUMI, JORGE, [
         ("Day 6, 11:20", "Josh will not pay. Stick knocked him out instead.", "A sleeping bandit does not fill my till. Bring me the cats, not the story."),
     ], overhearers=[STICK])
+
+    squad = [party(npc_id, NAMES[npc_id], SQUAD) for npc_id in (STICK, IZUMI, MIKSE)]
+    for number in range(25):
+        bandit = party(f"h:93{number:04d}", "Dust Bandit", "Dust Bandits")
+        deeds.take([{"kind": "attack", "attacker": member, "target": bandit["id"], **at(7, 10, number)} for member in squad[:2]]
+                   + [{"kind": "death", "party": bandit, **at(7, 10, number)}])
+    king = party(DUST_KING, "Dust King", "Dust Bandits")
+    deeds.take([{"kind": "attack", "attacker": member, "target": DUST_KING, **at(8, 12, 0)} for member in squad]
+               + [{"kind": "knockout", "id": DUST_KING, **at(8, 12, 1)}, {"kind": "up", "id": DUST_KING, "carried": True, **at(8, 12, 5)},
+                  {"kind": "imprisonment", "party": king, **at(8, 14, 0)}])
 
     campaign_db.add_rumor("- [Day 5, 00:00] [RUMOR: Dust Bandits drink in The Hub without paying, and the barman wants them gone.]")
     campaign_db.add_rumor("- [Day 6, 12:00] [RUMOR: A door guard at The Hub knocked out a Dust Bandit over a bar tab.]")
@@ -149,9 +158,10 @@ def main():
     seed = world_template.campaign_seed("kenshi_ssr_vanilla", str(SERVER / "data" / "templates"), str(SERVER / "data" / "user_templates"))
     folder.mkdir(parents=True)
     campaign_db.open_campaign(str(folder), lambda: seed)
+    campaign_db.note_faction(SQUAD_ID, SQUAD, is_player=True)
     fill()
     threads = campaign_db.threads()
-    print(f"Created the campaign {name} with {len(threads)} chat threads, {sum(thread['memory'] is not None for thread in threads)} of them with a memory, {len(campaign_db.events())} events, and {len(campaign_db.rumors())} rumors.")
+    print(f"Created the campaign {name} with {len(threads)} chat threads, {sum(thread['memory'] is not None for thread in threads)} of them with a memory, {len(campaign_db.notables())} notable events, and {len(campaign_db.rumors())} rumors.")
     print("Switch to it on the Campaigns page of the web app.")
 
 
