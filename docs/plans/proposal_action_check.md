@@ -8,10 +8,10 @@ Chat sends no game actions since the action tags were turned off. In the old sys
 
 This plan splits the work into two parts:
 
-1. An action check, which is a small LLM call on each player line, tells which category of request the line holds. The LLM only reads the language, and it writes one number ([section 4](#4-action-check)).
+1. An action check on each player line tells which category of request the line holds. Von, a local classifier model, reads the line and picks one category ([section 4](#4-action-check)). The check makes no LLM call.
 2. Code decides the result from the game state with fixed rules ([section 5](#5-rules)). A request that costs cats becomes an offer at a price from the rules, and the player accepts it in a later line. The chat call gets the result, so the reply of the NPC agrees with what happens in the game ([section 6](#6-reply-and-game-action)).
 
-The LLM never decides whether an action happens, or at what price. A missing or unreadable answer counts as no request, so a failed check gives a normal chat turn without an action.
+No model decides whether an action happens, or at what price. A missing answer counts as no request, so a failed check gives a normal chat turn without an action.
 
 Each action acts on the squad member that spoke, not on the first character of the squad ([section 6](#speaker)).
 
@@ -25,7 +25,7 @@ Non-goals:
 
 For each player line in a 1:1 chat (talk, whisper, or yell) to an NPC that is not an animal, the chat route (`server/chat/routes.py:177`) does these steps:
 
-1. It sends the action check and gets a category.
+1. It sends the action check to Von, and gets a category with a confidence. Below the threshold of the category, the category is NONE.
 2. It applies the rules of the category to the game context of the request. The result is no action, an offer, a decline with a reason, or a done action.
 3. It keeps the offer of a result with a price ([section 5](#offers)).
 4. It adds the outcome sentence to the final instruction of the chat turn (`server/chat/routes.py:351`), and sends the chat call.
@@ -37,25 +37,23 @@ The debug commands of the chat skip the check and the rules, so they still test 
 
 ## 3. Categories
 
-A category names the request of the player, not the action of the NPC.
+A category names the request of the player, not the action of the NPC. Von gets each category by its name and a one-line description.
 
-| Number | Category | The player's line |
-|---|---|---|
-| 0 | NONE | Everything else, including talk about a topic that asks for nothing, such as "Did you ever join a squad?" |
-| 1 | THREATEN | Threatens the NPC, or challenges it to a fight. |
-| 2 | DEMAND | Demands the NPC's cats or items, with or without a threat. |
-| 3 | RECRUIT | Asks the NPC to join the squad. |
-| 4 | DISMISS | Tells a squad member to leave the squad. |
-| 5 | BUY | Asks for an item that the NPC carries, to buy it or as a favour. |
-| 6 | SELL | Offers the NPC an item for cats. |
-| 7 | GIFT | Gives the NPC an item or cats, and asks for nothing back. |
-| 8 | ACCEPT | Agrees to the open offer. |
-| 9 | HAGGLE | Names another price for the open offer. |
-| 10 | FREE | Asks the NPC to let the speaker out of prison. |
-| 11 | HEAL | Asks the NPC to treat the speaker's wounds, or to repair a skeleton speaker. |
-| 12 | SEND_AWAY | Tells an NPC outside the squad to go away. |
-
-A later category gets the next number, so the numbers of the earlier categories do not change.
+| Category | The player's line |
+|---|---|
+| NONE | Everything else, including talk about a topic that asks for nothing, such as "Did you ever join a squad?" |
+| THREATEN | Threatens the NPC, or challenges it to a fight. |
+| DEMAND | Demands the NPC's cats or items, with or without a threat. |
+| RECRUIT | Asks the NPC to join the squad. |
+| DISMISS | Tells a squad member to leave the squad. |
+| BUY | Asks for an item that the NPC carries, to buy it or as a favour. |
+| SELL | Offers the NPC an item for cats. |
+| GIFT | Gives the NPC an item or cats, and asks for nothing back. |
+| ACCEPT | Agrees to the open offer. |
+| HAGGLE | Names another price for the open offer. |
+| FREE | Asks the NPC to let the speaker out of prison. |
+| HEAL | Asks the NPC to treat the speaker's wounds, or to repair a skeleton speaker. |
+| SEND_AWAY | Tells an NPC outside the squad to go away. |
 
 Some actions of the old tag list have no category:
 
@@ -72,56 +70,45 @@ Some actions of the old tag list have no category:
 
 ## 4. Action check
 
-### Prompt
+### Classifier
 
-`server/data/prompts/prompt_action_check.txt` holds the fixed instructions and a `{categories}` placeholder. Code fills the placeholder from the category table, so the numbers in the prompt and in the parse come from one place. The system message is the same on each call, so a provider with a prompt cache can serve it from the cache.
+[Von](https://github.com/wfzyx/von) reads the check. It is a ModernBERT encoder with 395M parameters. It answers a choice question over labels with descriptions in one forward pass, so it needs no training for the categories. It samples nothing, so the same line gets the same answer, and it returns a calibrated confidence with its choice.
 
-The user message holds these lines, with the names of the speakers:
+The check makes no LLM call. It therefore does not depend on the provider that the player picked, it leaves the prompt cache of the provider alone, and it adds no LLM round trip to a chat turn.
 
-- The last line of the NPC in the current chat thread, if there is one. It lets the check read a short answer: after "Want me along?", the line "Yes." is a RECRUIT.
-- The open offer, if there is one, such as "Open offer: Beep asks 3000 cats to join the squad." It lets the check tell ACCEPT and HAGGLE from GIFT and SELL.
-- The player's line.
+The server sends the check to `von serve` on the player's PC, at `http://127.0.0.1:8000/v1/systemone`, with a timeout of 10 s. When Von gives no answer, the category is NONE, so chat without Von works as now, without actions.
 
-The message holds no profile, no scene, and no history.
+### Question
 
-The instructions end with `Reply with JSON only: {"action": n}`.
-
-### Prefill
-
-The messages end with a partial reply of the assistant: `{"role": "assistant", "content": "{\"action\":"}`. A model that continues this reply writes only the number and the closing brace.
-
-Prefill support depends on the provider and the model, and the player picks both:
-
-| Provider | Prefill |
+| Part | Content |
 |---|---|
-| OpenRouter | Documented, if the upstream provider of the model supports it |
-| llama.cpp | Documented |
-| vLLM | Only with `continue_final_message` |
-| DeepSeek | Only on its beta endpoint, with `prefix: true` on the message |
-| OpenAI | Not supported: the model reads the partial reply as an earlier turn |
-| Ollama, NanoGPT, Player2 | Untested |
+| State | JSON with `npc_said`, the newest line of the NPC in the current chat thread; `open_offer`, the open offer, if there is one; and `player_said`, the player's line |
+| Instructions | Pick the request that the player makes of the NPC in `player_said`, and pick NONE unless the player clearly makes one of the other requests now. |
+| Choices | The categories that can apply now, each with its description |
 
-The prefill is therefore only an aid. The parse reads the answer with or without it.
+`npc_said` lets the check read a short answer: after "Want me along?", the line "Yes." is a RECRUIT. `open_offer` lets it tell ACCEPT and HAGGLE from GIFT and SELL.
 
-### Parse
+Code leaves out each category that the facts rule out, so Von cannot pick it:
 
-The parse joins the prefill and the reply, and finds the first `"action": n` in that text. A provider that continues the prefill gives `{"action": 5}`. A provider that ignores it gives `{"action":{"action": 5}`, and the parse finds the same number.
+- For a squad member, the choices are only NONE and DISMISS.
+- FREE needs an imprisoned speaker.
+- ACCEPT and HAGGLE need an open offer.
 
-The result is NONE when:
+### Confidence
 
-- The route gives no reply.
-- The reply is longer than 40 characters. `extract_completion` returns the `reasoning_content` of a reply that has no `content` (`server/chat/llm.py:107`), and the length limit keeps the digits of a reasoning text from picking an action.
-- The text holds no `"action": n`, or n is not in the category table.
+A category acts only when the confidence of Von reaches the threshold of the category. Below the threshold, the category is NONE. A wrong DISMISS costs more than a missed one, so each category gets its own threshold from the eval ([section 10](#10-verification)). `von calibrate` can refit the confidence of Von on the labelled lines.
 
-### Route
+### Install
 
-`action` becomes a task of `llm_config.TASKS` (`server/chat/llm_config.py:14`), with `max_tokens` 10 and `temperature` 0. The Models page of the web app shows its route with the other tasks, and `server/dashboard/web/llm.js` gets its label and help text.
+Von is not part of the release, because it needs `torch` and `transformers`, and its weights are about 3 GB. A player who wants actions installs `von-sdk`, which needs Python 3.12 or later, and runs `von serve`. A player without Von gets chat without actions.
 
-The check and the chat call run one after the other, and the plugin stops waiting after 60 s. The default deadline of the `action` route is therefore 5 s, and the default deadline of the `chat` route goes from 55 s to 50 s (`server/chat/llm_config.py:23`).
+### Limits
 
-A reasoning model can spend `max_tokens` on its reasoning and return no text. The `action` route therefore needs a profile without reasoning, or a profile whose request parameters turn reasoning off.
-
-A provider that refuses a request that ends with an assistant message returns an error, and the route moves to its next profile. When every profile fails, the result is NONE.
+| Limit | Effect |
+|---|---|
+| English only | The README says that "other languages get token matching with confidence it has not earned". |
+| Runs on the player's PC | 395M parameters in 32-bit floats take about 1.6 GB of RAM. The latency next to the game is unknown. The README gives a p50 of 0.096 s on a 4-vCPU server Xeon with OpenVINO. |
+| Windows | The README does not name Windows. `von serve` has a `dml` device for DirectML. |
 
 ## 5. Rules
 
@@ -170,7 +157,7 @@ The lowest ask (0.5 of the value) stays above the pay (0.3 of the value). A play
 
 ### Values
 
-The rules take a value from the player's line with code, by a match against a closed list. The LLM never names a value.
+The rules take a value from the player's line with code, by a match against a closed list. No model names a value.
 
 | Value | Match |
 |---|---|
@@ -248,10 +235,11 @@ Some rules depend on facts of the game that no test has shown. A probe answers t
 
 ## 8. Build order
 
-1. The check, DISMISS, GIFT, and the speaker change of the plugin.
-2. RECRUIT, BUY, SELL, ACCEPT, and HAGGLE, after the design of offers.
-3. THREATEN and DEMAND, after the design of threats.
-4. FREE, HEAL, and SEND_AWAY, after the design of offers and the probe.
+1. The check in shadow mode: the chat route sends the check on each player line and only logs the answer of Von. The eval and the logs show whether Von reads well enough, and set the thresholds.
+2. DISMISS, GIFT, and the speaker change of the plugin.
+3. RECRUIT, BUY, SELL, ACCEPT, and HAGGLE, after the design of offers.
+4. THREATEN and DEMAND, after the design of threats.
+5. FREE, HEAL, and SEND_AWAY, after the design of offers and the probe.
 
 ## 9. Rejected alternatives
 
@@ -260,29 +248,32 @@ Some rules depend on facts of the game that no test has shown. A probe answers t
 | Action tags in the chat reply (the old system) | The chat model decided the words and the effect together, and nothing checked the game state. |
 | A check of the NPC's reply after the chat call | The words of the NPC would decide the outcome again, and the reply could promise what the rules decline. |
 | Keyword rules on the player's line | They miss other words for the same request, negation ("I won't ask you to join"), questions about a topic, and players who write in other languages. Rules that handle these cases are language processing work. |
-| Embedding similarity | It needs an embeddings endpoint, which not every provider has, and thresholds that need tuning. |
+| An LLM check with its own short prompt | On a local server with one slot, it replaces the cached chat prompt on each line. A second model or a pinned slot is a setup that a player should not need. |
+| An LLM check on the chat prompt | It adds an LLM round trip to each line. A prefill fails on some providers (a 400 error on Claude 4.6 and later, and OpenAI ignores it), a reasoning model needs a different switch on each provider, and logprobs are too rare and too poorly calibrated to gate an action. |
+| Tool calling in the chat call | Models call a tool when none applies, and the reply and the action come from the same call again. |
+| Embedding similarity | It needs example phrases for each category, and Von reads one description for each. |
 | A relation threshold for RECRUIT | Relation sets the price instead, so any NPC can join at some price. |
 
 ## 10. Verification
 
 Unit tests, which run without Flask and requests (`server/tests/`):
 
-- The parse: a reply after a continued prefill, a reply that ignores the prefill, a reply in a code fence, a long reasoning text that holds digits, an unknown number, and no reply.
+- The check: the choices that the facts allow, the request body, and the parse of the answer of Von, with a stub in place of the HTTP call.
 - The rules: each row of the rules table.
 - The prices: each formula, and that the lowest ask stays above the pay.
 - The values: the longest name wins, equipped items do not count, and the count caps at the count held.
 
-A labelled set of player lines, a few for each category, runs through a profile and prints the accuracy of each category. Thirteen categories are many for a small model, so this set shows which profiles can serve the `action` route.
+The eval (`scripts/action_check_eval.py`) sends the labelled lines of `scripts/action_lines.jsonl` to Von as the chat route sends them. The set holds lines for each category, hard negatives such as "Get out of here! You're joking.", lines with an open offer, and lines in other languages. Run it on a Windows PC with the game open, so the latency is what a player gets. It prints the accuracy of each category, the confusions, the false actions at each threshold, and the latency. The set holds far more requests than play does, so its accuracy is not the share of right answers in a game.
 
-A prefill probe sends one check to each configured profile and logs whether the provider continued the prefill. Its results fill the untested rows of the table in [section 4](#prefill).
+In shadow mode, play a session and read the answers of Von in `server.log`.
 
-In the game:
+In the game, after the build of the first actions:
 
 1. Pick a second squad member as the speaker, and give an NPC an item that only that squad member carries. The item leaves the inventory of that squad member.
 2. Ask a stranger with little fight skill to join. The NPC asks about 3000 cats, and nothing happens.
 3. Say "Deal" with the cats. The cats go, and the NPC joins the squad.
 4. Tell the recruit to leave. It leaves the squad.
-5. Ask "Did you ever join a squad?". `llm.log` shows category 0, and no action happens.
+5. Ask "Did you ever join a squad?". `server.log` shows that Von read it as NONE, and no action happens.
 
 ## 11. Open questions
 
@@ -293,3 +284,5 @@ In the game:
    - Does ACCEPT check the cats and the items again with the context of the ACCEPT request?
    - How far can a haggle move a price? The limit must keep the lowest ask above the pay.
 4. The player must name an item as the inventory names it. Is that strict enough, or too strict?
+5. Should Von ship in the release once the eval passes, and how big may the release get?
+6. What do players who write in other languages get: chat without actions, or a multilingual encoder that is fine-tuned as Von's `docs/finetune.md` describes?
