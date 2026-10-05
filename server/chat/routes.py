@@ -8,7 +8,7 @@ from flask import Blueprint, jsonify, request
 
 from chat import chat_prompt
 from chat.bio import BIO_PARTS, generate_bio, recorded_history, write_bio
-from chat.characters import get_character_data, npc_name, reported_sex, should_save_profile
+from chat.characters import animal_flag, get_character_data, npc_name, reported_sex, should_save_profile
 from chat.llm import call_llm
 from chat.memory import quiet_seconds
 from chat.prompts import build_system_prompt, describe_faction, describe_npc, describe_race, fill_prompt, load_prompt_component, npc_scene, scene_values
@@ -28,12 +28,13 @@ def ambient_event():
     if not data: return jsonify({"status": "error"}), 400
     take_report(data.get('player_context'), data.get('events'))
     
-    npcs_data = data.get('npcs', [])
+    npcs_data = [npc for npc in data.get('npcs', []) if not (isinstance(npc, dict) and animal_flag(npc))]
     player_name = data.get('player', 'Drifter')
     
     logging.info(f"AMBIENT: Banter request ({len(npcs_data)} NPCs nearby)")
     
-    if not npcs_data:
+    # Without the animals, one NPC can remain, and banter needs two
+    if len(npcs_data) < 2:
         return jsonify({"status": "ignore"})
 
     char_profiles = ""

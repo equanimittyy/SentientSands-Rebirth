@@ -8,6 +8,7 @@ each turn comes last, in the final user message.
 import re
 
 from chat import scene_text
+from chat.characters import animal_flag
 from store.campaign_db import game_time_text
 
 _TIME_PREFIX = re.compile(r"^\[Day [^\]]*\]\s*")
@@ -29,13 +30,13 @@ def history_window(lines, block):
 
 def overhearers(nearby, radius, excluded_ids):
     """The NPCs of nearby within radius, one for each npc_id, because NPCs near the player can share a name. A radius of
-    None means that nobody overhears."""
+    None means that nobody overhears. An animal never overhears, because it cannot understand speech."""
     if radius is None:
         return []
     found = {}
     for npc in nearby:
         npc_id = npc.get("npc_id")
-        if npc_id and npc_id not in excluded_ids and npc.get("dist", 999.0) <= radius:
+        if npc_id and npc_id not in excluded_ids and npc.get("dist", 999.0) <= radius and not animal_flag(npc):
             found.setdefault(npc_id, npc)
     return list(found.values())
 

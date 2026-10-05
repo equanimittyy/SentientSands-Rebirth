@@ -20,9 +20,10 @@ def character_kind(animal, race):
     return "animal" if animal else "skeleton" if is_skeleton(race) else "person"
 
 def animal_flag(ctx):
-    """The game's own animal flag, which knows the animal races of every mod. The template validator takes no true or
-    false as a profile value, so the profile stores 1 or 0."""
-    return int(bool(ctx.get("animal")))
+    """The game's own animal flag, which knows the animal races of every mod. The game does not flag a Fishman, but a
+    Fishman cannot talk either. The template validator takes no true or false as a profile value, so the profile stores
+    1 or 0."""
+    return int(bool(ctx.get("animal")) or "fishman" in str(ctx.get("race", "")).lower())
 
 KENSHI_NAME_POOL = [
     "Kaelen", "Korg", "Vayn", "Sark", "Mina", "Rook", "Drake", "Silas", "Tane", "Kuna",
@@ -229,7 +230,7 @@ def sync_name(npc, profile, in_squad):
     so there the profile follows the game name instead."""
     npc_id, game_name = npc["npc_id"], npc_names.name_of(npc)
     name = profile["Name"]
-    if npc_names.unnamed(npc) and name == game_name:
+    if npc_names.unnamed(npc) and name == game_name and not profile.get("Animal"):
         name = generate_unique_lore_name(profile.get("Sex", "Neutral"))
     elif in_squad and not npc_names.unnamed(npc):
         name = game_name

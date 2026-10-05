@@ -2,6 +2,7 @@ import os
 import sys
 import tempfile
 import unittest
+from unittest import mock
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
 
@@ -32,6 +33,24 @@ class AnimalFlagTest(unittest.TestCase):
         self.assertEqual(campaign_db.get_character("h:1")["Animal"], 1)
         self.assertEqual((profile["Backstory"], profile["SpeechQuirks"]), ("", ""))
         self.assertNotIn(campaign_db.PROVISIONAL, profile)
+
+    def test_a_fishman_is_an_animal_though_the_game_does_not_flag_it(self):
+        for npc_id, race in (("h:5", "Fishman"), ("h:6", "Alpha Fishman olive")):
+            characters.get_character_data("Gurgler", {"npc_id": npc_id, "race": race, "animal": False})
+            self.assertEqual(campaign_db.get_character(npc_id)["Animal"], 1, race)
+
+    def test_an_animal_keeps_the_name_of_its_template(self):
+        npc = {"npc_id": "h:7", "name": "Bone Mutt", "template": "Bone Mutt", "race": "Bone Mutt", "animal": True}
+        with mock.patch.object(characters, "send_rename") as rename:
+            self.assertEqual(characters.npc_name(npc), "Bone Mutt")
+        rename.assert_not_called()
+        self.assertEqual(campaign_db.get_character("h:7")["Name"], "Bone Mutt")
+
+    def test_a_person_shown_by_its_template_name_gets_a_rolled_name(self):
+        npc = {"npc_id": "h:8", "name": "Dust Bandit", "template": "Dust Bandit", "race": "Greenlander", "animal": False}
+        with mock.patch.object(characters, "send_rename") as rename:
+            self.assertNotEqual(characters.npc_name(npc), "Dust Bandit")
+        rename.assert_called_once()
 
     def test_a_person_stores_the_flag_as_0(self):
         profile = characters.get_character_data("Dust Bandit", {"npc_id": "h:2", "race": "Greenlander", "animal": False})

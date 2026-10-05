@@ -35,6 +35,13 @@ class OverhearersTest(unittest.TestCase):
     def test_the_target_does_not_overhear_its_own_chat(self):
         self.assertEqual([n["npc_id"] for n in chat_prompt.overhearers(self.NEARBY, 400, {"h:1"})], ["h:2", "u:19576-Dialogue.mod"])
 
+    def test_an_animal_never_overhears(self):
+        nearby = self.NEARBY + [
+            {"name": "Bone Mutt", "npc_id": "h:3", "race": "Bone Mutt", "animal": True, "dist": 10},
+            {"name": "Gurgler", "npc_id": "h:4", "race": "Fishman", "animal": False, "dist": 10},
+        ]
+        self.assertEqual([n["npc_id"] for n in chat_prompt.overhearers(nearby, 100, set())], ["h:1", "h:2"])
+
     def test_nobody_overhears_without_a_radius(self):
         self.assertEqual(chat_prompt.overhearers(self.NEARBY, None, set()), [])
 
