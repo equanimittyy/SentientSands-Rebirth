@@ -827,7 +827,7 @@ def _thread_lines(conn):
 def _refresh_counts(conn, doer_ids):
     """Makes the count rows of each doer match its kills. An animal counts by its race entry, so an alias that the player
     adds also joins the earlier kills of the variants. A row takes the game time of the kill that reached its step, so it
-    moves to the top of the Events list only at a new step."""
+    moves to the top of the Deeds list only at a new step."""
     races = _race_entries(conn)
     for doer in doer_ids:
         kills, name = {}, ""

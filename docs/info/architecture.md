@@ -133,7 +133,7 @@ The `deed` table holds one row for each doer of each deed: the kind (`kill` or `
 - A capture counts once for each captor and known figure, because `setPrisonMode` runs again with `on` for each prisoner when a save loads.
 - No deed is trimmed, because a count must stay whole for the whole campaign.
 
-The `notable` table holds the deeds that are worth a rumor. Campaign Log > Events on the web app lists them, newest first:
+The `notable` table holds the deeds that are worth a rumor. Campaign Log > Deeds on the web app lists them, newest first:
 
 | Kind | When | Line |
 |---|---|---|
@@ -151,10 +151,13 @@ The `notable` table holds the deeds that are worth a rumor. Campaign Log > Event
 
 SSR writes no rumor by itself. The player decides which notable event is worth a rumor and how the wasteland tells it, and a call for each notable event would load a small local model in the middle of play.
 
-1. On Campaign Log > Events, the player presses **Generate Rumor** on a notable event and types an instruction, such as "Beep is known as the Stickman of the Dust". The dialog starts with the instruction of the rumor, if any.
+1. On Campaign Log > Deeds, the player presses **Generate Rumor** in the row of a notable event and types an instruction, such as "Beep is known as the Stickman of the Dust". The dialog starts with the instruction of the rumor, if any.
 2. `POST /api/campaign/rumors/generate` sends the facts of the notable event, the instruction, and the rumor so far to the LLM, with the `synthesis` task, and returns the text (`rumor_reply` in `server/chat/routes.py`). It stores nothing.
-3. The page puts the text into the Rumors list, as the rumor of the notable event, so the player reads and edits it before a save keeps it.
+3. The page puts the text into an edit box in the row, so the player reads and edits it before a save keeps it. The robot button next to the box opens the dialog again, and the new text replaces the text in the box.
 4. Save stores the rumor with its notable event and its instruction (`save_rumor`).
+
+- The rumor so far is the text in the row, also when the player edited it and did not save it, as Generate Bio reads the form. The in-game window sends the stored rumor.
+- The player instructions win over the rumor so far: the prompt tells the LLM to drop each part of the rumor so far that conflicts with them, and to keep the rest, as the bio prompt does with the current profile.
 
 The facts are plain sentences (`server/chat/rumors.py`), and the LLM gets only these facts, so it invents no other event:
 
@@ -175,13 +178,13 @@ The factions:
 
 The `rumor` table holds the text, the game time, the instruction, the notable event, and the step of a count when the player saved the rumor.
 
-- A notable event has at most one rumor. Events marks each notable event that has one.
+- A notable event has at most one rumor, which shows in its row on Deeds.
 - A rumor takes the game time of its notable event at each save, so the cull deletes a rumor with its notable event.
-- A count that reaches a new step after the player saved its rumor shows as grown, for example "Grown to hundreds of". Generate Rumor then grows the rumor so far: the prompt tells the LLM to keep its names and titles and to tell the new size of the deed. A save gives the rumor the game time of the new step, so the rumor is news again.
-- A rumor stays when its notable event goes, for example when an alias joins its count into another count, because the player wrote it.
+- A count that reaches a new step after the player saved its rumor shows as grown in the in-game list. The robot button on Deeds then grows the rumor so far: the prompt tells the LLM to keep its names, titles, and tale, and to tell the size of the deed that the facts give. A save gives the rumor the game time of the new step, so the rumor is news again.
+- A rumor stays when its notable event goes, for example when an alias joins its count into another count, because the player wrote it. Deeds lists it after the notable events, with a deed that is gone, so the player can still edit or delete it.
 - The chat scene gives each NPC the 5 newest rumors by game time (`PROMPT_RUMORS`), with their age, so a grown rumor counts as new.
 
-The Dynamic World Events Log in game mirrors Campaign Log > Events, as the Dialogue Library mirrors Generate Bio (see [Provisional profiles](#provisional-profiles)):
+The Dynamic World Events Log in game mirrors Campaign Log > Deeds, as the Dialogue Library mirrors Generate Bio (see [Provisional profiles](#provisional-profiles)):
 
 1. The list holds the notable events, newest first, each with "(rumor)" or "(grown)" after its line (`/events`). The right side shows the line, the game time, and the rumor of the selected event (`/events/content`).
 2. **Generate Rumor** opens a window that asks for the instruction, and starts with the instruction of the rumor. `/write_rumor` returns the text, and a second window shows it in an edit box. Keep sends the text and the instruction to `/keep_rumor`, and Discard drops it.
@@ -238,7 +241,7 @@ A refresh changes the message of the save bar only when the unsaved state of the
 
 The Editor holds many records. Save sends one request for each changed record, and a record that the server rejects keeps its draft and shows the reason. A delete takes effect at once, after a confirmation.
 
-The Editor has three subtabs. Campaign Canon and Templates share the record list and forms: Campaign Canon edits the canon of the active campaign, and Templates edits the world templates that new campaigns copy. Campaign Log shows the active campaign in two subtabs of its own: Dialogue & Memories, and Events. Events lists the notable events (see [Deeds](#deeds)) and edits their rumors (see [Rumors](#rumors)). The page holds the data of one subtab and one template at a time, so a switch with unsaved changes asks the player first. A shipped template is read-only, so the page offers a duplicate.
+The Editor has three subtabs. Campaign Canon and Templates share the record list and forms: Campaign Canon edits the canon of the active campaign, and Templates edits the world templates that new campaigns copy. Campaign Log shows the active campaign in two subtabs of its own: Dialogue & Memories, and Deeds. Deeds lists the notable events (see [Deeds](#deeds)) and edits their rumors (see [Rumors](#rumors)). The page holds the data of one subtab and one template at a time, so a switch with unsaved changes asks the player first. A shipped template is read-only, so the page offers a duplicate.
 
 Dialogue & Memories lists the chat threads of the active campaign, newest first, each with the game time of its first exchange and its speakers (see [Chat threads](#chat-threads)). It uses the layout of Campaign Canon: a search field and the list on the left, and the selected thread on the right, with its lines, its memory under Memorised Summary (see [Conversation memories](#conversation-memories)), and its speakers and overhearers under Involved Characters. A thread with a memory shows only its memory, because the memory replaces its lines. The search matches the names of the members, the text of the lines, and the memory, with case ignored. `GET /api/campaign` returns every thread with its lines and its memory, as Campaign Canon loads every record, so the search runs in the page. The lines are the copy of a speaker, because its lines have no `(Overheard)` tag (`campaign_db.threads`). The memory under Memorised Summary is editable: Save writes each changed memory, and Delete removes the conversation after a confirmation (see [Conversation memories](#conversation-memories)). The lines are read-only, and banter has no threads, so it stays out.
 

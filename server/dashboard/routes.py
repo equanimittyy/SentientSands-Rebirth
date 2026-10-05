@@ -336,7 +336,7 @@ def generate_campaign_rumor():
     data = request.get_json(silent=True) or {}
     refused = campaign_write(data)
     if refused: return refused
-    return rumor_reply(data.get("notable"), str(data.get("instruction") or ""))
+    return rumor_reply(data.get("notable"), str(data.get("instruction") or ""), str(data.get("rumor") or ""))
 
 @bp.route('/api/campaign/rumors', methods=['POST'])
 def save_campaign_rumor():

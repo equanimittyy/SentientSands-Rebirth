@@ -1,4 +1,4 @@
-import { ask, deleteButton, el, field, flashMessage, getJson, icon, progress, reportUnsaved, sendJson, setFieldError, showMessage, tell, withHelp } from "./api.js";
+import { ask, deleteButton, el, field, flashMessage, getJson, icon, iconButton, progress, reportUnsaved, sendJson, setFieldError, showMessage, tell, withHelp } from "./api.js";
 
 const page = document.getElementById("editor-page");
 const message = document.getElementById("editor-message");
@@ -25,7 +25,7 @@ const FACTS = {
 };
 const TEMPLATE_PARTS = ["manifest", "overview", "history"];
 const SOURCES = [["campaign", "Campaign Canon"], ["events", "Campaign Log"], ["template", "Templates"]];
-const LOG_VIEWS = [["dialogue", "Dialogue & Memories"], ["events", "Events"]];
+const LOG_VIEWS = [["dialogue", "Dialogue & Memories"], ["events", "Deeds"]];
 const ORIGIN_LABELS = { seed: "Seeded", game: "Met in game", campaign: "Added in this campaign" };
 // Mirrors campaign_db.PROVISIONAL: the chat count of a provisional profile is also its mark.
 const PROVISIONAL = "Interactions";
@@ -887,27 +887,6 @@ function renderSubtabs(tabs = SOURCES, shown = source, choose = chooseSource) {
   return list;
 }
 
-function renderRumors() {
-  const events = new Map(log.notables.map((event) => [event.id, event]));
-  const keys = [...Object.keys(rumorDrafts).filter((key) => key.startsWith("new:")), ...log.rumors.map((rumor) => String(rumor.id))];
-  const rows = keys.map((key) => {
-    const rumor = log.rumors.find((entry) => String(entry.id) === key);
-    const event = events.get(rumor ? rumor.notable : Number(key.slice(4)));
-    const note = notes.get(`rumor:${key}`);
-    const input = control("textarea", rumorDrafts, key, ["rumors", key], { rows: 2, label: "Rumor" });
-    if (note?.field) setFieldError(input, note.text);
-    const remove = rumor ? deleteButton("Delete the rumor", () => deleteRumor(rumor.id)) : deleteButton("Discard the new rumor", () => discardRumor(key));
-    return el("div", { className: "card" },
-      el("p", { className: "detail" }, event ? `${event.time}: ${event.line}` : `${rumor.time}: its event is gone.`),
-      el("div", { className: "inline row" }, input, remove),
-      note ? el("p", { className: `hint${note.error ? " error" : ""}` }, note.text) : null);
-  });
-  return el("fieldset", {},
-    el("legend", {}, `Rumors (${keys.length})`),
-    el("p", { className: "hint" }, "The world news that NPCs mention. Each conversation hears the 5 newest rumors. To write one, press Generate Rumor on an event below, then read the text, edit it, and save it."),
-    ...(rows.length > 0 ? rows : [el("p", { className: "hint" }, "No rumors yet.")]));
-}
-
 function discardRumor(key) {
   delete rumorDrafts[key];
   delete rumorInstructions[key];
@@ -926,7 +905,7 @@ function askRumor(event, instruction) {
   return new Promise((resolve) => dialog.addEventListener("close", () => resolve(dialog.returnValue === "ok" ? form.elements.instructions.value : null), { once: true }));
 }
 
-// The text goes into the Rumors list and not into the campaign, so the player reads it before a save keeps it.
+// The text goes into the row of its deed and not into the campaign, so the player reads it before a save keeps it.
 async function writeRumor(event) {
   const key = event.rumor === null ? `new:${event.id}` : String(event.rumor);
   const stored = log.rumors.find((rumor) => rumor.id === event.rumor);
@@ -934,40 +913,55 @@ async function writeRumor(event) {
   if (instruction === null) return;
   const steps = progress("Writing a rumor", "Asking the LLM");
   try {
-    const { text } = await sendJson("POST", "/api/campaign/rumors/generate", { campaign: log.name, notable: event.id, instruction });
+    const { text } = await sendJson("POST", "/api/campaign/rumors/generate", { campaign: log.name, notable: event.id, instruction, rumor: rumorDrafts[key] ?? "" });
     steps.close();
     rumorDrafts[key] = text;
     rumorInstructions[key] = instruction;
     updateUnsaved();
     render();
-    showMessage(message, "The LLM wrote the rumor. Read it in the Rumors list, and save to keep it.");
+    showMessage(message, "The LLM wrote the rumor into the row of its deed. Save to keep it.");
   } catch (error) {
     steps.close();
     showMessage(message, `Write failed: ${error.message}`, true);
   }
 }
 
-function rumorMark(event) {
-  if (event.grown) return el("span", { className: "badge" }, `Grown to ${event.grown}`);
-  if (event.rumor !== null) return el("span", { className: "badge" }, "Has a rumor");
-  return `new:${event.id}` in rumorDrafts ? el("span", { className: "badge" }, "Unsaved rumor") : null;
+function rumorCell(event) {
+  const key = event.rumor === null ? `new:${event.id}` : String(event.rumor);
+  if (!(key in rumorDrafts)) return el("button", { type: "button", onclick: () => writeRumor(event) }, icon("bot"), " Generate Rumor");
+  const note = notes.get(`rumor:${key}`);
+  const input = control("textarea", rumorDrafts, key, ["rumors", key], { rows: 3, label: "Rumor" });
+  if (note?.field) setFieldError(input, note.text);
+  const again = event.id === null ? null : iconButton("bot", "Generate the rumor again", () => writeRumor(event));
+  const remove = event.rumor === null ? deleteButton("Discard the new rumor", () => discardRumor(key)) : deleteButton("Delete the rumor", () => deleteRumor(event.rumor));
+  return el("div", {},
+    el("div", { className: "inline row" }, input, again, remove),
+    note ? el("p", { className: `hint${note.error ? " error" : ""}` }, note.text) : null);
 }
 
+// A rumor whose deed is gone still reaches the NPCs, so it keeps a row
+const deedRows = () => [
+  ...log.notables,
+  ...log.rumors.filter((rumor) => !log.notables.some((event) => event.rumor === rumor.id))
+    .map((rumor) => ({ id: null, kind: null, time: rumor.time, line: "The deed is gone.", rumor: rumor.id })),
+];
+
 function renderEvents() {
+  const deeds = deedRows();
   const counts = new Map();
   for (const event of log.notables) counts.set(event.kind, (counts.get(event.kind) ?? 0) + 1);
   if (!counts.has(eventView.type)) eventView.type = "all";
   const search = el("input", {
     type: "search",
     value: eventView.query,
-    placeholder: "Search the events",
+    placeholder: "Search the deeds",
     oninput: (event) => {
       eventView.query = event.target.value;
       eventView.page = 1;
       renderEventPage();
     },
   });
-  search.setAttribute("aria-label", "Search the events");
+  search.setAttribute("aria-label", "Search the deeds");
   const options = [...counts].map(([kind, count]) => [kind, `${NOTABLE_KINDS[kind] ?? kind} (${count})`]).sort((a, b) => a[1].localeCompare(b[1]));
   const select = el("select", {
     onchange: (event) => {
@@ -975,13 +969,15 @@ function renderEvents() {
       eventView.page = 1;
       renderEventPage();
     },
-  }, ...[["all", `All kinds (${log.notables.length})`], ...options].map(([value, text]) => new Option(text, value, false, value === eventView.type)));
+  }, ...[["all", `All kinds (${deeds.length})`], ...options].map(([value, text]) => new Option(text, value, false, value === eventView.type)));
   select.setAttribute("aria-label", "Show only");
   return el("fieldset", {},
-    el("legend", {}, `Events (${log.notables.length})`),
+    el("legend", {}, `Deeds (${deeds.length})`),
     el("p", { className: "hint" },
       "The deeds of your squad that are worth a rumor, newest first: each known figure that it killed or captured, and the kills of each squad member against one faction or animal from 25 kills on. A kill count moves to the top when it reaches 100, 250, and 500 kills. After you load an older save, Cull future data on the Campaigns page removes the later deeds."),
-    ...(log.notables.length > 0 ? [el("div", { className: "inline row" }, search, select), el("div", { id: "event-page" })] : [el("p", { className: "hint" }, "No events yet.")]));
+    el("p", { className: "hint" },
+      "Press Generate Rumor on a deed, and the LLM writes the rumor into its row. Edit the text, or press the robot to write it again with new instructions, then save. NPCs mention the rumors, and each conversation hears the 5 newest."),
+    ...(deeds.length > 0 ? [el("div", { className: "inline row" }, search, select), el("div", { id: "event-page" })] : [el("p", { className: "hint" }, "No deeds yet.")]));
 }
 
 function pager(shown, pages, start) {
@@ -1003,7 +999,7 @@ function renderEventPage() {
   const holder = page.querySelector("#event-page");
   if (!holder) return;
   const needle = eventView.query.trim().toLowerCase();
-  const shown = log.notables.filter((event) => (eventView.type === "all" || event.kind === eventView.type) && (!needle || event.line.toLowerCase().includes(needle)));
+  const shown = deedRows().filter((event) => (eventView.type === "all" || event.kind === eventView.type) && (!needle || event.line.toLowerCase().includes(needle)));
   if (shown.length === 0) {
     holder.replaceChildren(el("p", { className: "hint" }, "No results."));
     return;
@@ -1013,10 +1009,10 @@ function renderEventPage() {
   const start = (eventView.page - 1) * EVENTS_PER_PAGE;
   const rows = shown.slice(start, start + EVENTS_PER_PAGE).map((event) => el("tr", {},
     el("td", {}, event.time),
-    el("td", {}, el("span", { className: "badge" }, NOTABLE_KINDS[event.kind] ?? event.kind)),
+    el("td", {}, el("span", { className: "badge" }, NOTABLE_KINDS[event.kind] ?? "Unknown")),
     el("td", {}, event.line),
-    el("td", {}, el("div", { className: "inline row" }, rumorMark(event), el("button", { type: "button", onclick: () => writeRumor(event) }, icon("bot"), " Generate Rumor")))));
-  const head = el("tr", {}, el("th", {}, "Time"), el("th", {}, "Kind"), el("th", {}, "Event"), el("th", {}, "Rumor"));
+    el("td", {}, rumorCell(event))));
+  const head = el("tr", {}, el("th", {}, "Time"), el("th", {}, "Kind"), el("th", {}, "Deed"), el("th", {}, "Rumor"));
   const table = el("table", { className: "event-table" }, el("thead", {}, head), el("tbody", {}, ...rows));
   holder.replaceChildren(...(pages > 1 ? [pager(shown.length, pages, start), table, pager(shown.length, pages, start)] : [table]));
 }
@@ -1125,8 +1121,8 @@ function chooseLogView(value) {
 }
 
 function renderLog() {
-  if (log) return [renderSubtabs(LOG_VIEWS, logView, chooseLogView), ...(logView === "events" ? [renderRumors(), renderEvents()] : renderThreads())];
-  const hint = el("p", { className: "hint" }, "Open a campaign to read its dialogue and edit its rumors and events.");
+  if (log) return [renderSubtabs(LOG_VIEWS, logView, chooseLogView), ...(logView === "events" ? [renderEvents()] : renderThreads())];
+  const hint = el("p", { className: "hint" }, "Open a campaign to read its dialogue and deeds, and to edit its rumors.");
   return refusal ? [el("p", { className: "hint error" }, refusal), hint] : [hint];
 }
 

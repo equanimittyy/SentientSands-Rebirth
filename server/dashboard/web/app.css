@@ -890,8 +890,13 @@ input[type="search"] {
   font-weight: normal;
 }
 
-.event-table td:first-child {
+.event-table td:first-child,
+.event-table td:nth-child(2) {
   white-space: nowrap;
+}
+
+.event-table td:last-child {
+  width: 45%;
 }
 
 .pager {
