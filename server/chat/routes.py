@@ -211,10 +211,6 @@ def chat():
     mode = data.get('mode', 'talk')
     
     nearby = data.get('nearby', [])
-    for n in nearby:
-        npc_id = n.get('npc_id')
-        if n.get('name') and npc_id:
-            merge_live_context({**n, "nearby": [x for x in nearby if x.get('npc_id') != npc_id]})
 
     # Keeps the LLM from being asked to voice the player
     npcs = [n for n in npcs if n != player_name]
@@ -301,7 +297,7 @@ def chat():
         primary_npc = npc_name(ctx_dict)
 
     speaker_id = speaker.get("npc_id")
-    # The listeners and the nearby list leave out the speaker, so only this stores its live context and its profile
+    # The listeners leave out the speaker, so only this stores its live context and its profile
     if speaker_id:
         merge_live_context(speaker)
         npc_name(speaker)
@@ -319,6 +315,7 @@ def chat():
     listeners = {primary_id: (primary_npc, context)}
     in_squad = {primary_id: bool(ctx_dict.get("in_player_faction") or is_player_faction(ctx_dict.get("faction"), ctx_dict.get("factionID"))), speaker_id: True}
     for n in chat_prompt.overhearers(nearby, radius, {primary_id, speaker.get("npc_id")}):
+        merge_live_context(n)
         listeners[n["npc_id"]] = (npc_name(n), json.dumps(n))
         in_squad[n["npc_id"]] = bool(n.get("in_player_faction") or is_player_faction(n.get("faction"), n.get("factionID")))
 
