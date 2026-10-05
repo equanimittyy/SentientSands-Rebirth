@@ -53,7 +53,7 @@ const notes = new Map();
 let selected = "overview";
 let query = "";
 let kindFilter = "all";
-const listSwitches = { showSeeded: true, showProvisional: true, playerFactionOnly: false };
+const listSwitches = { showSeeded: true, showProvisional: true, playerFactionOnly: false, uniqueOnly: false };
 for (const name in listSwitches) {
   try { listSwitches[name] = (localStorage.getItem(name) ?? String(listSwitches[name])) === "true"; } catch {}
 }
@@ -236,6 +236,8 @@ function kindLabel(record) {
 }
 
 const isProvisional = (record) => source === "campaign" && record.kind === "character" && PROVISIONAL in (record.data?.profile ?? {});
+// Mirrors GetNpcId in plugin/game/Context.cpp: the game's unique flag gives the u: prefix, as the deeds read it.
+const isUnique = (record) => record.kind === "character" && Boolean(record.id?.startsWith("u:"));
 
 function inPlayerFaction(record) {
   if (record.kind === "faction") return Boolean(record.is_player);
@@ -349,6 +351,7 @@ function characterForm(form, path, record) {
       source === "campaign" ? field("Current Faction", el("span", {}, record.current_faction || "Unknown"), null, "The faction that the game reports for the character. It shows after you select the character or talk near it while the game runs.") : null,
       field("Original Faction", el("span", {}, form.details.OriginFaction || "Unknown"), null, "The faction that the character comes from."),
       source === "campaign" ? field("Animal", el("span", {}, { 1: "Yes", 0: "No" }[form.details.Animal] ?? "Unknown"), null, "Whether the character is an animal, such as a bonedog or a goat. An animal answers only with an action or a sound, never with words. The game decides it, and a Fishman always counts as an animal.") : null,
+      source === "campaign" ? field("Unique", el("span", {}, record.id ? (isUnique(record) ? "Yes" : "No") : "Unknown"), null, "Whether the game marks the character as unique, such as Tinfist, and not generic, such as a Dust Bandit. When your squad kills or captures a unique character, the deed shows on Campaign Log > Deeds.") : null,
       isProvisional(record) ? field("Chats", el("span", {}, chatCount(form.details[PROVISIONAL])), null, "How many times you talked to the character. Its personality, backstory, and speech quirks are rolled, not written. When the count reaches Chats before a bio on the Settings page, the LLM writes its full bio.") : null,
       source === "campaign" ? field("Current Job", el("span", {}, form.details.CurrentJob || "Unknown"), null, "What the character does in the game, for example Guarding a building. It updates each time the character chats or banters.") : null,
       source === "campaign" ? field("Current Location", el("span", {}, form.details.CurrentLocation || "Unknown"), null, "Where the character was when you last talked to it, for example Bar, The Hub, or Wilderness, Vain.") : null,
@@ -577,7 +580,7 @@ function renderList() {
   const list = page.querySelector("#record-list");
   if (!list) return;
   const needle = query.trim().toLowerCase();
-  const shown = allRecords().filter((record) => (listSwitches.showSeeded || record.origin !== "seed") && (listSwitches.showProvisional || !isProvisional(record)) && (source !== "campaign" || !listSwitches.playerFactionOnly || inPlayerFaction(record)) && (kindFilter === "all" || filterValue(record) === kindFilter) && (!needle || searchText(record).includes(needle)));
+  const shown = allRecords().filter((record) => (listSwitches.showSeeded || record.origin !== "seed") && (listSwitches.showProvisional || !isProvisional(record)) && (source !== "campaign" || !listSwitches.playerFactionOnly || inPlayerFaction(record)) && (source !== "campaign" || !listSwitches.uniqueOnly || isUnique(record)) && (kindFilter === "all" || filterValue(record) === kindFilter) && (!needle || searchText(record).includes(needle)));
   list.replaceChildren(...shown.map((record) => {
     const item = el("button", {
       type: "button",
@@ -966,9 +969,9 @@ function renderEvents() {
   return el("fieldset", {},
     el("legend", {}, `Deeds (${deeds.length})`),
     el("p", { className: "hint" },
-      "The known figures that your squad killed or captured, newest first. A known figure is a character on Campaign Canon that came from the template or that you added, such as Tinfist. Loaded an older save? Cull future data on the Campaigns page removes the later deeds."),
+      "Each known figure that your squad killed or captured, newest first. A known figure is a character that the game marks as unique, such as Tinfist."),
     el("p", { className: "hint" },
-      "SSR writes a deed's rumor after the memories, when you stop chatting for the Conversation timeout. Press Generate Rumor to write it sooner, or the robot to rewrite it with new instructions. Edit it, then save. NPCs hear the 5 newest rumors."),
+      "SSR writes each rumor after the memories, when you stop chatting for the Conversation timeout. Generate Rumor writes one sooner, and the robot rewrites it with new instructions. NPCs hear the 5 newest."),
     ...(deeds.length > 0 ? [el("div", { className: "inline row" }, search, select), el("div", { id: "event-page" })] : [el("p", { className: "hint" }, "No deeds yet.")]));
 }
 
@@ -1146,6 +1149,7 @@ function render() {
         listSwitch("showSeeded", "Show seeded data", "Entries that the campaign copied from its template when you created it."),
         listSwitch("showProvisional", "Show provisional characters", "Characters you met in game whose full bio the LLM has not written yet."),
         listSwitch("playerFactionOnly", "Player faction only", "Shows only your faction and the characters in it. A character counts by its Current Faction, or by its Faction when no Current Faction shows."),
+        listSwitch("uniqueOnly", "Show unique only", "Shows only the characters that the game marks as unique, such as Tinfist."),
       ] : []), search, filterSelect(), el("div", { id: "record-list", className: "record-list" }), newRecordForm()),
       el("div", { id: "record-form" })) : el("p", { className: "hint" }, source === "template" ? "No template to edit." : "Open a campaign to edit its canon."));
   renderList();

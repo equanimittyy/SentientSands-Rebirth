@@ -130,11 +130,12 @@ The `notable` table holds one row for each deed. Campaign Log > Deeds on the web
 
 - A row holds the game time, and as JSON the kind (`kill` or `capture`), the doers, and the `npc_id`, name, and faction of the victim.
 - A death of a known figure gives a kill to each attacker, and an imprisonment of a known figure gives a capture to each captor. A victim in the player's faction gives no deed, and neither does a character that is not a known figure.
-- A known figure is a character of the canon whose `origin` is `seed` or `campaign` (see [Campaign canon](#campaign-canon)). A character that the server added in play is none, because each NPC that the player talks to gets a profile.
+- A known figure is a character that the game marks as unique (`Character::isUnique`), whose `npc_id` therefore starts with `u:`. A generic character whose template is a canon character counts too, because it takes the `npc_id` of that character (see [Characters](#characters)).
 - A capture counts once for each captor and known figure, because `setPrisonMode` runs again with `on` for each prisoner when a save loads.
 - The line names each character by its current name (`notable_events`), so a renamed squad member shows with its new name.
 - Campaign Canon lists the known figures that each squad member killed or captured (`character_deeds`).
 - The cull deletes the rows after the game time.
+- Rejected: the characters of the canon whose `origin` is `seed` or `campaign`. A unique character that the template lacks, for example of another mod, made no deed.
 - Rejected: a count of the kills of other characters for each faction and animal race. It needed a row for each kill, and only a known figure makes news.
 
 ### Rumors
@@ -243,13 +244,15 @@ On Campaign Canon, **Show seeded data** and **Show provisional characters** star
 
 **Player faction only** starts off. While the player turns it on, the record list shows only the player's faction and the characters in it. A character is in it when its Current Faction, or its `Faction` while the game reported no Current Faction, names the player's faction or one of its aliases. The `Faction` of a profile keeps the faction of the first meeting, so a recruit counts only after the game reports its Current Faction.
 
+**Show unique only** starts off. While the player turns it on, the record list shows only the unique characters, whose `npc_id` starts with `u:` (see [Deeds](#deeds)).
+
 The Facts section of a faction, race, location, or region offers only the categories of its kind (`FACTS` in `server/store/world_template.py`), because the validator refuses any other category. `server/dashboard/web/editor.js` keeps a copy of the categories, so a change to them changes both files. A category holds one text, such as the leader of a faction, or a list of text, such as its enemies.
 
 The Relations section of a race, location, or region lists its children, which the entry stores, and its parents, which are the entries whose children name it. Each row opens its entry. A parent row is read-only, because the relation is stored in the parent entry.
 
 The Race, Sex, and Faction of a character are choices, not free text (`choice` in `server/dashboard/web/editor.js`). Race offers the race entries of the page, Faction offers its factions, and Sex offers Male, Female, and Other. A stored value selects the choice whose name or alias it matches, with case ignored. A blank value or a value that matches no choice shows as Unknown, and a save of the character writes Unknown.
 
-Other Details shows the `Relation` of a character as a bar from -100 to 100, with the labels of the relation bar in game, and its `OriginFaction`. On Campaign Canon it also shows the current faction that the game reported for the character since the server started, so the player can compare it with the Faction that the prompts use, whether the character is an animal (`Animal`, see [Provisional profiles](#provisional-profiles)), the Current Job (see [Current Job](#current-job)), and, at the bottom, the known figures that a squad member killed or captured (see [Deeds](#deeds)). All are read-only, because the game and the chats set them. A save keeps every profile key that the form does not show, as it is.
+Other Details shows the `Relation` of a character as a bar from -100 to 100, with the labels of the relation bar in game, and its `OriginFaction`. On Campaign Canon it also shows the current faction that the game reported for the character since the server started, so the player can compare it with the Faction that the prompts use, whether the character is an animal (`Animal`, see [Provisional profiles](#provisional-profiles)), whether it is unique (see [Deeds](#deeds)), the Current Job (see [Current Job](#current-job)), and, at the bottom, the known figures that a squad member killed or captured (see [Deeds](#deeds)). All are read-only, because the game and the chats set them. A save keeps every profile key that the form does not show, as it is.
 
 A provisional character (see [Provisional profiles](#provisional-profiles)) shows as Provisional in the list and on its record. Its Other Details also show its chat count against the Chats before a bio setting. A save that changes its Personality, Backstory, or SpeechQuirks ends the provisional state, because a later bio would overwrite the player's text.
 
@@ -627,7 +630,7 @@ Edit Bio in the Dialogue Library skips the LLM. `/read_bio` returns the stored `
 | `POST /api/campaigns/switch` | Make a campaign the current one. The name must be a folder that the campaign list shows, so a name such as `../x` cannot point outside `server/data/campaigns/`. |
 | `POST /api/campaigns/delete` | Delete a campaign folder, with the same name check. Before it deletes the current campaign, it switches to the first other one. When no other campaign remains, the server has no current campaign (see [Campaign storage](#campaign-storage)). |
 | `GET /api/campaign` | The active campaign: its notable events with their lines and rumor marks (see [Deeds](#deeds)), its rumors, and its chat threads with their members, lines, and memories. A refused campaign gives status 409 with the reason. |
-| `GET /api/campaign/canon` | The canon of the active campaign, each record with its `origin` and `updated_at`, each character with the `current_faction` that a chat reported since the server started (`LIVE_CONTEXTS`), or `null`, and each character with deeds with its kills and known figures as text (`deeds`, see [Deeds](#deeds)). A refused campaign gives status 409 with the reason. |
+| `GET /api/campaign/canon` | The canon of the active campaign, each record with its `origin` and `updated_at`, each character with the `current_faction` that a chat reported since the server started (`LIVE_CONTEXTS`), or `null`, and each character with deeds with the known figures that it killed or captured as text (`deeds`, see [Deeds](#deeds)). A refused campaign gives status 409 with the reason. |
 | `POST /api/campaign/records`, `.../records/delete` | Save or delete one canon record of the active campaign. A faction, character, race, location, or region with no ID is new. |
 | `POST /api/campaign/characters/bio` | The LLM text of the full bio, or of one part, for the form of a character. It stores nothing (see [Provisional profiles](#provisional-profiles)). |
 | `POST /api/campaign/rumors/generate` | The LLM text of a rumor of a notable event. It stores nothing (see [Rumors](#rumors)). |

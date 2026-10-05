@@ -448,14 +448,6 @@ def toggle_favorite(npc_id):
         return not row[1]
 
 
-def known_figure(npc_id):
-    """A character of the canon, which the template or the player added. A character that the server added in play is none,
-    because each NPC that the player talks to gets a profile."""
-    with _connect() as conn:
-        row = conn.execute("SELECT origin FROM character WHERE npc_id = ?", (npc_id,)).fetchone()
-    return bool(row) and row[0] in ("seed", "campaign")
-
-
 def add_deed(kind, doers, victim, game_time):
     """Stores the notable event of a known figure that the doers, (npc_id, name) pairs, killed or captured. kind is "kill"
     or "capture", and victim holds the npc_id, name, and faction. A doer that already captured the victim gets no second

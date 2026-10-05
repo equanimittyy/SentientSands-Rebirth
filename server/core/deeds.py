@@ -112,7 +112,7 @@ def canon_id(party):
 
 def _store(kind, victim, attackers, at):
     victim_id = canon_id(victim)
-    if victim.get("player") or not campaign_db.known_figure(victim_id):
+    if victim.get("player") or not victim_id.startswith("u:"):
         return
     deed = "kill" if kind == "death" else "capture"
     doers = campaign_db.add_deed(

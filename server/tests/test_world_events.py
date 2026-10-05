@@ -154,11 +154,14 @@ class DeedTest(WorldEventsTestCase):
         self.assertEqual(self.deeds(), [("kill", "h:1", TINFIST_ID)])
         self.assertEqual(self.lines(), ["Beep of Nameless killed Tinfist."])
 
-    def test_a_character_that_the_server_added_is_no_known_figure(self):
+    def test_a_unique_character_outside_the_canon_is_a_known_figure(self):
+        self.kill([BEEP], party("u:9-other.mod", "Mod Boss"), at(1, 10))
+        self.assertEqual(self.lines(), ["Beep of Nameless killed Mod Boss."])
+
+    def test_a_generic_character_with_a_profile_is_no_known_figure(self):
         campaign_db.upsert_profile("h:1001", {"Name": "Dust Bandit Josh"})
         self.kill([BEEP], bandit(1), at(1, 10))
         self.assertEqual(self.lines(), [])
-        self.assertFalse(campaign_db.known_figure("h:1001"))
 
     def test_a_line_takes_the_current_name(self):
         self.kill([BEEP, IZUMI], TINFIST, at(1, 10))
