@@ -631,7 +631,7 @@ The plugin and the server write their logs in the same format, so one tool can r
 | `server/logs/llm.log` | Server | Each prompt and reply of each LLM task, with its line breaks. The server writes it only at `DEBUG`. | Rotated at 2 MB, with 1 backup |
 
 - The plugin keeps its log file open for the whole game and flushes each line, so the lines before a crash reach the file.
-- `LogGameEvent` runs on the game thread for each attack, so it checks the level before it builds its message.
+- `LogGameEvent` runs for each attack, so it checks the level before it builds its message. The knockout, death, and prison hooks call it off the game thread, so it adds each event under `g_eventMutex`.
 - The events of a campaign are in its database, not in a log file.
 
 ## Server state

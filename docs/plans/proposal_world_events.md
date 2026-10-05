@@ -36,7 +36,7 @@ The deeds depend on facts of the game that no test has shown. A probe answers th
 
 A knockout is new when the prone state of the character was not `PS_KO` before the call, because the game sets `PS_KO` again on a character that is already knocked out.
 
-No session has logged the `hits` yet. The sessions before them ran an earlier build of the probe, which logged the attackers that `getAllAttackers` gives. The first build with the `hits` read them only on the thread that started the plugin, and the hooks never ran on that thread.
+No session has logged the `hits` yet. The sessions before them ran an earlier build of the probe, which logged the attackers that `getAllAttackers` gives. The first build with the `hits` read them only on the game thread, and the hooks never ran on it.
 
 The played sessions answered these questions:
 
@@ -49,7 +49,7 @@ The played sessions answered these questions:
 | Does `declareDead` run again when a save with dead bodies loads? | No. A save and a load after 5 deaths gave no `dead` line. |
 | What do the other hooks do at a load? | The knockout hook runs again for each character that lies knocked out, and `setPrisonMode` with `on` runs again for a prisoner in a cage, a few seconds after the load. |
 | Does a character that goes into a cage call `setPrisonMode` with `on`? | Yes. The player character that the player put into a cage got `on`, with no knockout and no attack before it, and `on` false when it left. |
-| Do the knockout, death, and prison hooks run on the thread that started the plugin? | No. All 33 lines of one session came from another thread. |
+| Do the knockout, death, and prison hooks run on the game thread? | No. All 33 lines of one session came from another thread. The game thread is the thread that started the plugin (`g_mainThreadId`), because the chat context reads the inventory only on that thread, and it holds the inventory. |
 | Does `getCurrentTownLocation` give only towns? | No. It also gives animal dens, such as `Bog Dog Den 9`. |
 | Do the races of one kind of animal have one name? | No. A mod can add variants: `Wolf_Headgear.mod` gives Bonedogs the races `Bonedog (white)`, `Bonedog (yellow)`, and `Bonedog (darkbrown)` besides `Bonedog`. The name of each of these Bonedogs stays `Bonedog`. |
 
@@ -112,7 +112,7 @@ The plugin keeps the attackers of each character by the serial of its handle: th
 
 - The 3 game hours cover a character that bleeds out after a fight, and a capture, which in Kenshi is a knockout, a carry, and a cell. The prison hook names no captor.
 - The hook runs many times a second for each attacker, for example 2,182 times in 15 s for one attacker and one target. A call for a known attacker therefore only sets its time.
-- The map takes a lock, because the hooks run off the thread that started the plugin ([section 2](#2-probe)).
+- The map takes a lock, because the hooks run off the game thread ([section 2](#2-probe)).
 - The plugin drops each attacker older than 3 game hours, and each character with no attacker left, so the map holds only the fights of the last 3 game hours.
 
 ### Transport
