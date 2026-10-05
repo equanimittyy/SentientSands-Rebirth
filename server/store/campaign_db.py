@@ -464,16 +464,13 @@ def add_deed(kind, doers, victim, game_time):
     return doers
 
 
-def add_custom_deed(text):
-    """Stores a deed that the player wrote, for an act that the game does not track, with no game time. Returns its
-    notable event ID."""
+def add_custom_deed(rumor):
+    """Stores a custom deed, for an act that the game does not track, with the rumor that the player wrote and no game
+    time. Returns its notable event ID."""
     with _connect(write=True) as conn:
-        return conn.execute("INSERT INTO notable (deed) VALUES (?)", (json.dumps({"deed": "custom", "text": text}),)).lastrowid
-
-
-def edit_custom_deed(notable_id, text):
-    with _connect(write=True) as conn:
-        return conn.execute("UPDATE notable SET deed = json_set(deed, '$.text', ?) WHERE id = ? AND json_extract(deed, '$.deed') = 'custom'", (text, notable_id)).rowcount > 0
+        notable_id = conn.execute("INSERT INTO notable (deed) VALUES (?)", (json.dumps({"deed": "custom"}),)).lastrowid
+        conn.execute("INSERT INTO rumor (notable_id, text) VALUES (?, ?)", (notable_id, rumor))
+        return notable_id
 
 
 def delete_custom_deed(notable_id):

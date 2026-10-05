@@ -45,8 +45,9 @@ def facts(at, deed):
 
 
 def deed_sentence(deed, names, player_faction):
+    # The player wrote the rumor of a custom deed, so it is the only account of the deed
     if deed["deed"] == "custom":
-        return deed["text"]
+        return "The one that the rumor so far tells."
     doers = deeds.name_list([names.get(doer["id"], doer["name"]) for doer in deed["doers"]])
     victim = names.get(deed["victim"]["id"], deed["victim"]["name"])
     faction = deed["victim"]["faction"]
