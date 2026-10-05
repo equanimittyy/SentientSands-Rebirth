@@ -129,6 +129,9 @@ def record_event_to_history(etype, actor, target, msg, actor_faction="None", tar
     location = f" @ {when['town']}" if when.get("town") else ""
     
     time_str = get_current_time_prefix(when).strip()
+    # The game clock reads Day 0, 00:00 until it holds a real time, so the event has no true time
+    if time_str == "[Day 0, 00:00]":
+        return
     prefix = f"{time_str} " if time_str else ""
     # The Editor's event table parses this format with EVENT_LINE in server/dashboard/web/editor.js
     evt_str = f"{prefix}[{etype}] {actor_part} -> {target_part}{location}: {msg}"
