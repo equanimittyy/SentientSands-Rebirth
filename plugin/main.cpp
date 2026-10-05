@@ -1036,6 +1036,7 @@ void setFaction_hook(TownBase *town, Faction *faction, ActivePlatoon *_a2) {
 
 void declareDead_hook(Character *npc) {
   if (npc) {
+    LogDeathProbe("dead", npc);
     LogGameEvent("death", npc->getName(), SafeFaction(npc), "None", "None",
                  "Has perished");
   }
@@ -1045,6 +1046,7 @@ void declareDead_hook(Character *npc) {
 
 void setPrisonMode_hook(Character *npc, bool on, UseableStuff *h) {
   if (npc) {
+    LogDeathProbe(on ? "prison_on" : "prison_off", npc);
     std::string msg = on ? "Was imprisoned" : "Was released from prison";
     LogGameEvent("imprisonment", npc->getName(), SafeFaction(npc), "None",
                  "None", msg);
@@ -1055,6 +1057,9 @@ void setPrisonMode_hook(Character *npc, bool on, UseableStuff *h) {
 
 void setProneState_hook(Character *npc, ProneState p) {
   if (npc && p == PS_KO) {
+    // The hook runs about 10 times a second while a character lies knocked out
+    if (npc->getProneState() != PS_KO)
+      LogDeathProbe("ko", npc);
     LogGameEvent("knockout", "Unknown", "None", npc->getName(),
                  SafeFaction(npc), "Was knocked unconscious");
   }

@@ -406,6 +406,48 @@ void LogNpcRole(Character *npc) {
                      GetNpcId(npc) + " " + line);
 }
 
+static std::string ProbeParty(Character *npc) {
+  std::string party = "'" + npc->getName() + "' npc_id=" + GetNpcId(npc);
+  Faction *faction = npc->getFaction();
+  if (faction && (uintptr_t)faction > 0x1000)
+    party += " faction='" + faction->getName() + "' player=" +
+             (faction->isThePlayer() ? "1" : "0");
+  return party;
+}
+
+// Probe: knockouts, deaths, and prison changes with their attackers, for the
+// squad deeds. A death or a capture links to its knockout by npc_id.
+void LogDeathProbe(const std::string &kind, Character *npc) {
+  if (!LogEnabled(LOG_DEBUG) || !npc || (uintptr_t)npc < 0x1000)
+    return;
+  std::string line = "kind=" + kind;
+  try {
+    line += " name=" + ProbeParty(npc);
+    RaceData *race = npc->getRace() ? npc->getRace() : npc->myRace;
+    line += " race=" +
+            DataLabel(race && (uintptr_t)race > 0x1000 ? race->data : NULL);
+    line += std::string(" animal=") + (npc->isAnimal() ? "1" : "0");
+    TownBase *town = npc->getCurrentTownLocation();
+    line += " town='" +
+            (town ? ((RootObjectBase *)town)->getName() : std::string()) + "'";
+  } catch (...) {
+    line += " [identity failed]";
+  }
+  std::string attackers;
+  try {
+    lektor<hand> list;
+    npc->getAllAttackers(list);
+    for (uint32_t i = 0; i < list.size(); ++i) {
+      Character *attacker = list[i].getCharacter();
+      if (attacker && (uintptr_t)attacker > 0x1000)
+        attackers += (attackers.empty() ? "" : "|") + ProbeParty(attacker);
+    }
+  } catch (...) {
+    attackers += "[attackers failed]";
+  }
+  Log(LOG_DEBUG, "DEATH_PROBE: " + line + " attackers=[" + attackers + "]");
+}
+
 void GetCurrentSquad(std::vector<Character *> &members) {
   GameWorld *world = ppWorld ? *ppWorld : NULL;
   if (!world || !world->player)

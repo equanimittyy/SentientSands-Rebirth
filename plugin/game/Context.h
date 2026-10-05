@@ -12,6 +12,7 @@ std::string GetNpcId(Character *npc);
 void GetCurrentSquad(std::vector<Character *> &members);
 void LogFactionList();
 void LogNpcRole(Character *npc);
+void LogDeathProbe(const std::string &kind, Character *npc);
 std::string RoleJson(Character *npc);
 std::string TakeGameEvents();
 std::string GameReport();

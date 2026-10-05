@@ -32,17 +32,28 @@ Non-goals:
 
 The deeds depend on facts of the game that no test has shown. A probe answers them before the build, and ships on its own ([development.md](../info/development.md#probes)).
 
-- `DEATH_PROBE` writes one line for each call of `declareDead_hook`, and of `setProneState_hook` with `PS_KO`. The line holds the kind, the name, the `npc_id`, the race, and the animal and player flags of the character, its town, and the name, `npc_id`, and faction of each character that `Character::getAllAttackers` gives (`Character.h:555` of KenshiLib).
-- The probe also writes one line for each call of `setPrisonMode_hook`: the character and `on`.
+`DEATH_PROBE` (`LogDeathProbe` in `plugin/game/Context.cpp`) writes one line for each new knockout (`ko`), each call of `declareDead_hook` (`dead`), and each call of `setPrisonMode_hook` (`prison_on` or `prison_off`). The line holds the name, the `npc_id`, the faction, the player flag, the race, the animal flag, and the town of the character, and the name, `npc_id`, faction, and player flag of each character that `Character::getAllAttackers` gives (`Character.h:555` of KenshiLib).
+
+- A knockout is new when the prone state of the character was not `PS_KO` before the call. In a played session, the knockout hook ran about 10 times a second while characters lay knocked out, also after the last attack of the fight.
+- A death and an imprisonment link to the knockout before them by the `npc_id`.
 
 | Question | Why it matters |
 |---|---|
-| Does `declareDead` run when a character dies in a fight, bleeds out, or starves? | The played session logged no death in 3,566 events. When `declareDead` does not run, the deaths need another hook, and the deeds wait for it. |
+| Does `declareDead` run when a person dies in a fight, and when a person bleeds out after a knockout? | It ran for 4 Bonedogs in a played session: 2 died under the attacks of town guards, and 2 died 1 and 2 minutes after the last attack, while they lay knocked out. When it does not run for a person, the deaths of people need another hook, and the deeds wait for it. |
 | Does `declareDead` run again when a save with dead bodies loads? | A death at the load would count a kill twice. |
 | Does `getAllAttackers` list the attackers when the death hook or the knockout hook runs? | A deed needs its doers. |
 | Does a death after a knockout, such as a character that bleeds out, have attackers? | When it has none, the death takes the attackers of the knockout ([section 3](#attackers)). |
-| Does a capture by the squad start with a knockout? | An imprisonment takes its captors from the knockout before it ([section 3](#attackers)). |
-| Which characters does `isAnimal` mark, for example Bonedogs, Fishmen, and Skeletons, and what are the names of their races? | An animal counts by its race, and a person by its faction ([section 5](#counts)). |
+| Does a capture start with a knockout that lists its attackers? | An imprisonment takes its captors from the knockout before it ([section 3](#attackers)). |
+| Does the game set `PS_KO` again on a character that is already knocked out? | When it does, the check of the probe stops the repeats, and the plugin keeps the attackers of the first call. When the repeats go on, the state changes between the calls, and the plugin needs another check. |
+| Which characters does `isAnimal` mark, for example Bonedogs, Gurglers, and Skeletons, and what are the names of their races? | An animal counts by its race, and a person by its faction ([section 5](#counts)). |
+
+Most questions are about the game, not about the squad, so the test needs no strong squad:
+
+1. Set **Log level** on the Settings page to `DEBUG`.
+2. Watch town guards fight animals until some of the animals die.
+3. When the guards knock out an animal, let one squad member hit it until it dies. Its death then lists an attacker with `player=1`.
+4. Pick up a character that the guards or the squad knocked out, and put it in a prisoner cage.
+5. Save while dead bodies lie near the squad, and load the save.
 
 [kenshi_internals.md](../info/kenshi_internals.md) records the answers, and the build removes the probe.
 
