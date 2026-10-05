@@ -146,7 +146,7 @@ class MemoriesTest(unittest.TestCase):
     def test_a_speaker_reads_who_of_the_player_faction_heard_it(self):
         members = [(self.STICK, "Stick", "speaker", True), (self.JORGE, "Jorge", "speaker", False), (self.IZUMI, "Izumi", "overheard", True), ("h:20", "Guard", "overheard", False)]
         self.assertEqual(chat_prompt.memories_block([self.memory(members)], self.JORGE), "\n".join([
-            "Memories of your earlier conversations, oldest first:",
+            "Memories of your earlier conversations, oldest first. You know what happened in them. When the talk turns to one, reply truthfully or with a lie. You are not required to uphold the past:",
             "[Day 3, 14:05] You spoke with Stick. Izumi heard it.",
             "Stick asked Jorge for work.",
         ]))

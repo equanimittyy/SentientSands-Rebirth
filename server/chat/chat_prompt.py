@@ -112,7 +112,7 @@ def memories_block(memories, npc_id):
     NPC, so one stored text serves every member. Empty without a memory, so the heading stays out."""
     if not memories:
         return ""
-    parts = ["Memories of your earlier conversations, oldest first:"]
+    parts = ["Memories of your earlier conversations, oldest first. You know what happened in them. When the talk turns to one, reply truthfully or with a lie. You are not required to uphold the past:"]
     for memory in memories:
         partners, listeners, overheard = _members_seen_by(memory["members"], npc_id)
         parts.append(_dated(memory, scene_text.memory_header(partners, listeners, overheard)))
