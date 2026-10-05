@@ -69,13 +69,11 @@ def chat_thread(speaker, npc, exchanges, overhearers=(), mode="talk", town="The 
         campaign_db.set_memory(thread_id, chat_prompt.mark_names(memory, [(npc_id, NAMES[npc_id]) for npc_id in copies]), campaign_db.game_time(prefix))
 
 
-def banter(lines, town="The Hub"):
+def banter(lines):
     """lines are (game time, npc_id, text) triples. Each NPC of the banter stores every line, with no thread."""
     rows = [(f"[{when}] {NAMES[npc_id]}: {text}", npc_id) for when, npc_id, text in lines]
     for npc_id in {npc_id for _, npc_id, _ in lines}:
         campaign_db.append_dialogue(npc_id, rows, {})
-    for when, npc_id, text in lines:
-        campaign_db.add_event(f"[{when}] [BANTER] {party(npc_id)} -> Nearby @ {town}: {text}")
 
 
 def fill():

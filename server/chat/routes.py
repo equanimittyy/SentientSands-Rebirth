@@ -65,30 +65,9 @@ def ambient_event():
                 
             char_profiles += f"\n- {npc} (A traveler): {d.get('Personality') or ''} | Speech quirks: {d.get('SpeechQuirks') or ''}"
 
-    all_history = list(recent_dialogue)
-    
-    location = ""
-    if state.PLAYER_CONTEXT:
-        env = state.PLAYER_CONTEXT.get("environment", {})
-        location = env.get("town_name", "") if isinstance(env, dict) else ""
-
-    for evt in reversed(campaign_db.recent_events(campaign_db.MAX_EVENTS)):
-        # Entries look like "[Day 3, 14:05] [BANTER] Name (Faction) -> Nearby @ Town: Message"
-        if (" [BANTER] " in evt or " [CHAT] " in evt):
-            if not location or f"@ {location}" in evt or "@" not in evt:
-                if ": " in evt:
-                    msg_part = evt.split(": ", 1)[1]
-                    match = re.search(r'\]\s*(.*?)\s*(?:\(.*?\))?\s*->', evt)
-                    if match:
-                        speaker = match.group(1).strip()
-                        all_history.append(f"{speaker}: {msg_part}")
-                    else:
-                        all_history.append(msg_part)
-        if len(all_history) > 100: break
-
     unique_history = []
     seen_history = set()
-    for line in reversed(all_history):
+    for line in reversed(recent_dialogue):
         if line not in seen_history:
             unique_history.append(line)
             seen_history.add(line)
@@ -185,9 +164,6 @@ INSTRUCTIONS:
                 time_prefix = get_current_time_prefix()
                 speaker_id = npc_ids.get(serial.strip())
                 banter.append((f"{time_prefix}{speaker_name}: {msg.strip()}", speaker_id))
-                
-                speaker_faction = memories.get(speaker_id, {}).get("Faction", "None")
-                record_event_to_history("BANTER", speaker_name, "Nearby", msg.strip(), actor_faction=speaker_faction)
 
         for npc_id, d in memories.items():
             campaign_db.append_dialogue(npc_id, banter, d)

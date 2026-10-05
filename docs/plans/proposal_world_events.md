@@ -64,7 +64,7 @@ The deeds depend on facts of the game that no test has shown. A probe answers th
 - The hooks of attacks (`attackingYou_hook`), damage (`applyDamage_hook`), first aid (`applyFirstAid_hook`), trades (`buyItem_hook`), and loot (`isItOkForMeToLoot_hook`) go, because they only log events.
 - The filter is in the plugin, so the buffer of 100 events keeps the events that matter. In the played session, the knockouts of generic NPCs alone would fill the buffer 24 times.
 - A knockout of a generic NPC is never an event, because most fights in Kenshi end in knockouts. A fight of guards with wanderers would otherwise be a battle.
-- The server stops writing the chat and banter lines as events (`server/chat/routes.py:190`, `:470`), because the dialogue already holds them.
+- The server stops writing the chat lines as events (`chat` in `server/chat/routes.py`), because the dialogue already holds them. No prompt reads the event log, and banter takes its recent lines from the histories of its NPCs.
 
 ### Parties
 
