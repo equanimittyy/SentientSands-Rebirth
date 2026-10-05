@@ -398,7 +398,7 @@ async function writeBio(record) {
   }
 }
 
-const bioButton = (record) => el("button", { type: "button", className: "bio-button", disabled: readOnly(), onclick: () => writeBio(record) }, icon("bot"), "Generate Bio");
+const bioButton = (record) => el("button", { type: "button", disabled: readOnly(), onclick: () => writeBio(record) }, icon("bot"), " Generate Bio");
 
 // The labels and thresholds match the relation bar that the game shows (generate_relation_bar in server/core/game.py).
 function relationLabel(value) {
@@ -1015,7 +1015,7 @@ function renderEventPage() {
     el("td", {}, event.time),
     el("td", {}, el("span", { className: "badge" }, NOTABLE_KINDS[event.kind] ?? event.kind)),
     el("td", {}, event.line),
-    el("td", {}, el("div", { className: "inline row" }, rumorMark(event), el("button", { type: "button", onclick: () => writeRumor(event) }, icon("bot"), "Generate Rumor")))));
+    el("td", {}, el("div", { className: "inline row" }, rumorMark(event), el("button", { type: "button", onclick: () => writeRumor(event) }, icon("bot"), " Generate Rumor")))));
   const head = el("tr", {}, el("th", {}, "Time"), el("th", {}, "Kind"), el("th", {}, "Event"), el("th", {}, "Rumor"));
   const table = el("table", { className: "event-table" }, el("thead", {}, head), el("tbody", {}, ...rows));
   holder.replaceChildren(...(pages > 1 ? [pager(shown.length, pages, start), table, pager(shown.length, pages, start)] : [table]));

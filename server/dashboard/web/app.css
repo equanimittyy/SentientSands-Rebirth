@@ -178,8 +178,7 @@ nav a {
   mask: var(--icon) center / contain no-repeat;
 }
 
-nav .icon,
-.bio-button .icon {
+nav .icon {
   margin-right: 0.4em;
 }
 
