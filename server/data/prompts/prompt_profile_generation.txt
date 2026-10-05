@@ -20,7 +20,6 @@ RULES:
 - CURRENT PROFILE: Keep what the instructions do not change: the traits of the current personality, the events of the current backstory, and the current speech quirk, in your own words, and do not make them stronger. A blank part has nothing to keep. A part that you do not write stays as it is, so your text must fit it.
 - DIALOGUE: Everything that "{name}" said in the dialogue stays true, and you can build on the facts they revealed. Their wording in the dialogue does not change their speech quirk.
 - PAST: A goal that their past left them is one concern among others, not their personality or the reason for their job.
-- SPEECH: A speech quirk is a verbal habit only, with no gestures or sounds.
 - STYLE: Write in plain words and short sentences, whatever the speech quirk.
 - BIOLOGY: The character lives with the physical reality of their race, as the race lore describes it.
 - CANON: If "{name}" is a unique character of Kenshi, follow their exact established lore, even where it does not fit the parts below.
@@ -28,6 +27,6 @@ RULES:
 PARTS:
 - Personality: 1-2 sentences on their traits.
 - Backstory: 2-3 sentences in the past tense on the life they had, the event that changed it, and how that part of their life ended. Nothing in it says what they do, want, owe, or fear now.
-- SpeechQuirks: Their verbal habits.
+- SpeechQuirks: Their habits when they talk, such as words, sounds, or gestures.
 
 JSON OUTPUT ONLY: an object with exactly these keys: {parts}.
