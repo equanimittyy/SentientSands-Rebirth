@@ -210,7 +210,7 @@ static std::string ZoneName() {
 void LogFactionList() {
   static bool logged = false;
   GameWorld *world = ppWorld ? *ppWorld : NULL;
-  if (logged || !world || !world->factionMgr)
+  if (logged || !LogEnabled(LOG_DEBUG) || !world || !world->factionMgr)
     return;
   const lektor<Faction *> *all = world->factionMgr->getAllFactions();
   if (!all)
@@ -221,11 +221,11 @@ void LogFactionList() {
     Faction *faction = all->stuff[i];
     if (!faction || !faction->data)
       continue;
-    Log(LOG_INFO, "FACTION_PROBE: id=" + faction->data->stringID +
-                      " name=" + faction->getName() +
-                      " data_name=" + faction->data->name +
-                      (faction->isThePlayer() ? " player" : "") +
-                      (faction->isNotARealFaction() ? " not_real" : ""));
+    Log(LOG_DEBUG, "FACTION_PROBE: id=" + faction->data->stringID +
+                       " name=" + faction->getName() +
+                       " data_name=" + faction->data->name +
+                       (faction->isThePlayer() ? " player" : "") +
+                       (faction->isNotARealFaction() ? " not_real" : ""));
   }
 }
 
@@ -341,7 +341,7 @@ std::string RoleJson(Character *npc) {
 // Enum values stay numbers for Enums.h. Game thread only: the map has no lock.
 void LogNpcRole(Character *npc) {
   static std::map<unsigned int, std::string> logged;
-  if (!npc || (uintptr_t)npc < 0x1000)
+  if (!LogEnabled(LOG_DEBUG) || !npc || (uintptr_t)npc < 0x1000)
     return;
   std::string line;
   try {
@@ -402,8 +402,8 @@ void LogNpcRole(Character *npc) {
   if (logged[serial] == line)
     return;
   logged[serial] = line;
-  Log(LOG_INFO, "ROLE_PROBE: name='" + npc->getName() + "' npc_id=" +
-                    GetNpcId(npc) + " " + line);
+  Log(LOG_DEBUG, "ROLE_PROBE: name='" + npc->getName() + "' npc_id=" +
+                     GetNpcId(npc) + " " + line);
 }
 
 void GetCurrentSquad(std::vector<Character *> &members) {

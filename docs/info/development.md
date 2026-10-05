@@ -57,7 +57,7 @@ The script creates a campaign from SSR Vanilla, named `mock` by default, and fil
 
 ## Probes
 
-Some questions of the plans need data from the game. The plugin writes probe lines to `SentientSands_SDK.log` for them. All probe functions are in `plugin/game/Context.cpp`. A probe is removed when the change that needs its answer is built.
+Some questions of the plans need data from the game. The plugin writes probe lines to `SentientSands_SDK.log` for them, but only at the `DEBUG` log level. Set **Log level** on the Settings page to `DEBUG` before an in-game test. All probe functions are in `plugin/game/Context.cpp`. A probe is removed when the change that needs its answer is built.
 
 | Line | Written | Function | Answers |
 |---|---|---|---|
