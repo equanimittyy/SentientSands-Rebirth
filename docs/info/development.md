@@ -61,7 +61,7 @@ Some questions of the plans need data from the game. The plugin writes probe lin
 |---|---|---|---|
 | `FACTION_PROBE` | At the first chat of each game, one line for each faction | `LogFactionList` | The string ID of each faction, and whether it stays the same when the mod list changes |
 | `ROLE_PROBE` | For the chat target, each NPC in chat range, and each banter NPC, again when a value changes | `LogNpcRole` | Which game data tells the role of an NPC, and whether a hired NPC holds a contract (`contract=1`) |
-| `DEATH_PROBE` | At each new knockout (`ko`), each death (`dead`), and each change of prison mode (`prison_on`, `prison_off`) | `LogDeathProbe`, `RecordProbeHit` | Which hooks give the kills and the captures of the squad, and whether the attacks of the last 3 game hours give their attackers ([proposal_world_events.md](../plans/proposal_world_events.md#2-probe)) |
+| `DEATH_PROBE` | At each new knockout (`ko`), each wake-up (`up`), each death (`dead`), and each change of prison mode (`prison_on`, `prison_off`) | `LogDeathProbe`, `RecordProbeHit` | Which hooks give the kills and the captures of the squad, with their attackers, and when the clock of the attackers stops ([proposal_world_events.md](../plans/proposal_world_events.md#2-probe)) |
 
 [kenshi_internals.md](kenshi_internals.md) records the answers of the in-game tests. The contract of a hired NPC is not tested yet.
 

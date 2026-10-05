@@ -32,11 +32,11 @@ Non-goals:
 
 The deeds depend on facts of the game that no test has shown. A probe answers them before the build, and ships on its own ([development.md](../info/development.md#probes)).
 
-`DEATH_PROBE` (`LogDeathProbe` in `plugin/game/Context.cpp`) writes one line for each new knockout (`ko`), each call of `declareDead_hook` (`dead`), and each call of `setPrisonMode_hook` (`prison_on` or `prison_off`). The line holds the name, the `npc_id`, the faction, the player flag, the race, the animal flag, and the town of the character. Its `hits` hold each character that attacked the character in the last 3 game hours ([section 3](#attackers)), with the name, the `npc_id`, the faction, the player flag, and the game minutes since its last attack (`age_min`). `RecordProbeHit` keeps these attackers from `attackingYou_hook`.
+`DEATH_PROBE` (`LogDeathProbe` in `plugin/game/Context.cpp`) writes one line for each new knockout (`ko`), each time a knocked-out character gets up (`up`), each call of `declareDead_hook` (`dead`), and each call of `setPrisonMode_hook` (`prison_on` or `prison_off`). The line holds the name, the `npc_id`, the faction, the player flag, the race, the animal flag, and the town of the character, and whether it lies knocked out (`down`) and is carried (`carried`) when the hook runs. Its `hits` hold each character that ever attacked the character, with the name, the `npc_id`, the faction, the player flag, and the game minutes since its last attack (`age_min`), so a test can check the rule of [section 3](#attackers). `RecordProbeHit` keeps these attackers from `attackingYou_hook`.
 
 A knockout is new when the prone state of the character was not `PS_KO` before the call, because the game sets `PS_KO` again on a character that is already knocked out.
 
-No session has logged the `hits` yet. The sessions before them ran an earlier build of the probe, which logged the attackers that `getAllAttackers` gives. The first build with the `hits` read them only on the game thread, and the hooks never ran on it.
+The earlier sessions ran a build of the probe that logged the attackers that `getAllAttackers` gives instead of the `hits`.
 
 The played sessions answered these questions:
 
@@ -50,6 +50,10 @@ The played sessions answered these questions:
 | What do the other hooks do at a load? | The knockout hook runs again for each character that lies knocked out, and `setPrisonMode` with `on` runs again for a prisoner in a cage, a few seconds after the load. |
 | Does a character that goes into a cage call `setPrisonMode` with `on`? | Yes. The player character that the player put into a cage got `on`, with no knockout and no attack before it, and `on` false when it left. |
 | Do the knockout, death, and prison hooks run on the game thread? | No. All 33 lines of one session came from another thread. The game thread is the thread that started the plugin (`g_mainThreadId`), because the chat context reads the inventory only on that thread, and it holds the inventory. |
+| Do the `hits` hold the attackers of a death and of a capture? | Yes. A Bonedog that died in a fight listed its 9 attackers at 0 to 1 game minutes. Scavengers that Inhuman Hunters knocked out and put into cages listed the Inhuman Hunters. |
+| Do the `hits` hold the attacks of the squad? | Yes. `RecordProbeHit` runs in the same call of `attackingYou_hook` that logged the attacks of the squad on Gurglers. |
+| Does a character that bleeds out die within 3 game hours of the last attack on it? | No. 5 Bonedogs died while they lay knocked out, more than 3 game hours after the last attack on them, so their `hits` were empty. |
+| Does a knocked-out character that a captor puts into a cage call `setPrisonMode` with `on`? | Yes. A capture by the Inhuman Hunters reached the cage 158 game minutes after the last attack. The calls with `on` false came also after the knockouts and deaths of characters that nobody carried, so they tell nothing. |
 | Does `getCurrentTownLocation` give only towns? | No. It also gives animal dens, such as `Bog Dog Den 9`. |
 | Do the races of one kind of animal have one name? | No. A mod can add variants: `Wolf_Headgear.mod` gives Bonedogs the races `Bonedog (white)`, `Bonedog (yellow)`, and `Bonedog (darkbrown)` besides `Bonedog`. The name of each of these Bonedogs stays `Bonedog`. |
 
@@ -57,17 +61,16 @@ These questions are open:
 
 | Question | Why it matters |
 |---|---|
-| Do the `hits` hold the attackers of each death and capture, also of a character that bleeds out after its knockout? | A deed needs its doers. |
-| Does a knocked-out character that a squad member puts into a cage call `setPrisonMode` with `on`? | The `imprisonment` event comes from this call. The played sessions showed it only for a character that went into a cage by itself, and for a prisoner at a load. |
+| Does the game set another prone state when a knocked-out character gets up, and does `isBeingCarried` show a carry? | The clock of the attackers stops while the character lies knocked out or is carried, and starts again when it gets up ([section 3](#attackers)). |
 | How does a capture count only once, when `setPrisonMode` runs again with `on` at a load? | A capture of a known figure in the 3 game hours before a save would count again at each load of the save. |
 | How does the plugin drop the attacks of play that a load undid? | The attackers stay in the memory of the plugin at a load, while the game time goes back, so an attack of the undone play could count for a later death. |
 
-The test needs no strong squad, because only the player flag of the hits is about the squad:
+The test needs no strong squad:
 
 1. Set **Log level** on the Settings page to `DEBUG`.
 2. Watch a fight until some of the characters die.
-3. Let one squad member hit a character that someone else knocked out, until the character dies.
-4. Pick up a character that is knocked out, and put it in a prisoner cage.
+3. Leave a character that someone knocked out until it gets up.
+4. Pick up a character that is knocked out, carry it for a while, and put it in a prisoner cage.
 
 [kenshi_internals.md](../info/kenshi_internals.md) records the answers, and the build removes the probe.
 
@@ -80,8 +83,8 @@ The test needs no strong squad, because only the player flag of the hits is abou
 | `death` | `declareDead_hook` | A member of the player's faction is among its attackers |
 | `imprisonment` | `setPrisonMode_hook` with `on` | A member of the player's faction is among its captors |
 
-- `attackingYou_hook` sends no event. It keeps the attackers of each character for the death and the imprisonment that follow ([Attackers](#attackers)).
-- The hooks of knockouts (`setProneState_hook`), damage (`applyDamage_hook`), first aid (`applyFirstAid_hook`), trades (`buyItem_hook`), loot (`isItOkForMeToLoot_hook`), raids (`triggerCampaign_hook`), new owners of towns (`setFaction_hook`), and slavery (`setChainedMode_hook`) go, because they only log events, and none of these events can make a deed.
+- `attackingYou_hook` and `setProneState_hook` send no event. They keep the attackers of each character, and the clock of the attackers, for the death and the imprisonment that follow ([Attackers](#attackers)).
+- The hooks of damage (`applyDamage_hook`), first aid (`applyFirstAid_hook`), trades (`buyItem_hook`), loot (`isItOkForMeToLoot_hook`), raids (`triggerCampaign_hook`), new owners of towns (`setFaction_hook`), and slavery (`setChainedMode_hook`) go, because they only log events, and none of these events can make a deed.
 - The filter is in the plugin, so the buffer of 100 events holds only the deeds of the squad.
 - The plugin does not filter by `isUnique`. The server decides who is a known figure ([section 5](#known-figures)), so a generic character with a canon template, such as Yamdu without UWE ([kenshi_internals.md](../info/kenshi_internals.md#character-identity)), counts too.
 - The server stops writing the chat lines as events (`chat` in `server/chat/routes.py`), because the dialogue already holds them. No prompt reads the event log, and banter takes its recent lines from the histories of its NPCs.
@@ -110,10 +113,14 @@ Each character in an event is a party with these fields:
 
 The plugin keeps the attackers of each character by the serial of its handle: the `npc_id` of each attacker once, with the game time of its last attack. A `death` and an `imprisonment` take as their attackers each character that attacked the target in the last 3 game hours. Kenshi gives no last hit, so each of them counts as a killer, or as a captor.
 
-- The 3 game hours cover a character that bleeds out after a fight, and a capture, which in Kenshi is a knockout, a carry, and a cell. The prison hook names no captor.
+The clock of the attackers stops while the target lies knocked out or is carried. When the target gets up and is not carried, the plugin sets the time of each of its attackers to that moment, so the 3 game hours count from then.
+
+- A character that bleeds out keeps the attackers of its knockout, also when it dies more than 3 game hours after the last attack. 5 Bonedogs in a played session died so late ([section 2](#2-probe)).
+- A capture in Kenshi is a knockout, a carry, and a cell, so an `imprisonment` takes the attackers of the knockout as its captors, however long the carry takes. The prison hook names no captor.
+- A character that walks into a cell by itself, or a prisoner at a load, has no recent attackers, so its `imprisonment` gives no deed.
 - The hook runs many times a second for each attacker, for example 2,182 times in 15 s for one attacker and one target. A call for a known attacker therefore only sets its time.
 - The map takes a lock, because the hooks run off the game thread ([section 2](#2-probe)).
-- The plugin drops each attacker older than 3 game hours, and each character with no attacker left, so the map holds only the fights of the last 3 game hours.
+- The plugin drops each attacker older than 3 game hours of a character that is up and not carried, and each character with no attacker left.
 
 ### Transport
 

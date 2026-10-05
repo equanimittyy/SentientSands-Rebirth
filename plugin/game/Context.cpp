@@ -449,9 +449,8 @@ void RecordProbeHit(Character *target, Character *attacker) {
   LeaveCriticalSection(&g_eventMutex);
 }
 
-// Probe: knockouts, deaths, and prison changes with their attackers, for the
-// squad deeds. An attacker counts for 3 game hours, so a character that bleeds
-// out long after its knockout keeps its attackers.
+// Probe: the line keeps attackers older than 3 game hours, because their clock
+// stops while the character lies knocked out or is carried.
 void LogDeathProbe(const std::string &kind, Character *npc) {
   if (!LogEnabled(LOG_DEBUG) || !npc || (uintptr_t)npc < 0x1000)
     return;
@@ -461,7 +460,9 @@ void LogDeathProbe(const std::string &kind, Character *npc) {
     RaceData *race = npc->getRace() ? npc->getRace() : npc->myRace;
     line += " race=" +
             DataLabel(race && (uintptr_t)race > 0x1000 ? race->data : NULL);
-    line += std::string(" animal=") + (npc->isAnimal() ? "1" : "0");
+    line += std::string(" animal=") + (npc->isAnimal() ? "1" : "0") +
+            " down=" + (npc->getProneState() == PS_KO ? "1" : "0") +
+            " carried=" + (npc->isBeingCarried() ? "1" : "0");
     TownBase *town = npc->getCurrentTownLocation();
     line += " town='" +
             (town ? ((RootObjectBase *)town)->getName() : std::string()) + "'";
@@ -482,8 +483,6 @@ void LogDeathProbe(const std::string &kind, Character *npc) {
     double now = world ? world->getTimeStamp_inGameHours().getTotalHours() : 0;
     for (size_t i = 0; i < recent.size(); ++i) {
       double age = now - recent[i].hour;
-      if (age > 3)
-        continue;
       Character *attacker = recent[i].attacker.getCharacter();
       std::string party = attacker && (uintptr_t)attacker > 0x1000
                               ? ProbeParty(attacker)

@@ -1063,6 +1063,8 @@ void setProneState_hook(Character *npc, ProneState p) {
       LogDeathProbe("ko", npc);
     LogGameEvent("knockout", "Unknown", "None", npc->getName(),
                  SafeFaction(npc), "Was knocked unconscious");
+  } else if (npc && npc->getProneState() == PS_KO) {
+    LogDeathProbe("up", npc);
   }
   if (setProneState_orig)
     setProneState_orig(npc, p);
