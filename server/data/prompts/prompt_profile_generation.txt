@@ -20,7 +20,7 @@ RULES:
 - CURRENT PROFILE: Keep what the instructions do not change: the traits of the current personality, the events of the current backstory, and the current speech quirk, in your own words, and do not make them stronger. A blank part has nothing to keep. A part that you do not write stays as it is, so your text must fit it.
 - DIALOGUE: Everything that "{name}" said in the dialogue stays true, and you can build on the facts they revealed. Their wording in the dialogue does not change their speech quirk.
 - PAST: A goal that their past left them is one concern among others, not their personality or the reason for their job.
-- STYLE: Write in plain words and short sentences, whatever the speech quirk.
+- STYLE: Write in plain words and short sentences. The Personality and the Backstory never use the speech quirk.
 - BIOLOGY: The character lives with the physical reality of their race, as the race lore describes it.
 - CANON: If "{name}" is a unique character of Kenshi, follow their exact established lore, even where it does not fit the parts below.
 
