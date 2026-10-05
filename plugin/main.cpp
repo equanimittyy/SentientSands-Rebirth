@@ -154,9 +154,7 @@ void ProcessMessageQueue(GameWorld *thisptr) {
           trim(command);
           // Leave data untrimmed: multiline blocks in it must arrive exactly as sent.
 
-          if (command == "TRIGGER_AMBIENT") {
-            g_triggerAmbient = true;
-          } else if (command == "APPLY_TRANSLATION") {
+          if (command == "APPLY_TRANSLATION") {
             LoadUITranslation(data);
             RefreshLauncherUI();
             RefreshWelcomeUI();

@@ -35,8 +35,6 @@ The web app is at `http://127.0.0.1:5000/`. Add `--open-browser` to open it when
 
 From the repo, the server keeps its INI in `mod/SentientSands_Config.ini` and writes its logs and campaigns under `server/`. On first start, it also creates `server/config/llm_config.json` for your API keys. Git ignores all of these files.
 
-`visual_debugger.py` needs Tkinter, which the embedded runtime does not include. Run it with a system Python.
-
 The dev container cannot build the plugin. It also cannot run the server, because it has no `pip` and its firewall blocks PyPI.
 
 ## Tests

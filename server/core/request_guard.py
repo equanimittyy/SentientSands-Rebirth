@@ -2,7 +2,7 @@
 
 A page on any site can POST to 127.0.0.1 without a CORS preflight, and DNS
 rebinding lets it read the responses under its own host name. The plugin
-(WinHTTP) and the debugger (requests) send no Origin header, so they pass.
+(WinHTTP) sends no Origin header, so it passes.
 """
 
 ALLOWED_HOSTS = {"127.0.0.1:5000", "localhost:5000"}

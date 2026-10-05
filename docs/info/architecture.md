@@ -13,7 +13,7 @@ Sentient Sands Rebirth has three parts: a C++ plugin that runs inside Kenshi, a 
 | `plugin/game/` | Reads game state into JSON for prompts (`Context`) and applies queued NPC actions to the world (`GameActions`). |
 | `plugin/ui/` | The in-game MyGUI windows. `LauncherWindow` is the hub that opens the others. `ChatUIGlobals` holds the shared widget pointers. |
 | `server/main.py` | The entry point: it registers the blueprints and runs the start-up (`start`). |
-| `server/core/` | The paths (`paths.py`), the session state that the other modules share (`state.py`), the Flask app and its request hooks (`app.py`), the routes that the game calls, such as `/report` and `/history`, and the settings routes (`routes.py`), the pipe to the plugin (`pipe.py`), the INI settings (`settings.py`), the start-up checks for an old server and for the game process (`process.py`), the helpers for the game context (`game.py`), the request checks (`request_guard.py`), the log files and the log level (`log_setup.py`), and a Tkinter debug tool (`visual_debugger.py`). |
+| `server/core/` | The paths (`paths.py`), the session state that the other modules share (`state.py`), the Flask app and its request hooks (`app.py`), the routes that the game calls, such as `/report` and `/history`, and the settings routes (`routes.py`), the pipe to the plugin (`pipe.py`), the INI settings (`settings.py`), the start-up checks for an old server and for the game process (`process.py`), the helpers for the game context (`game.py`), the request checks (`request_guard.py`), and the log files and the log level (`log_setup.py`). |
 | `server/chat/` | The chat, banter, synthesis, and Dialogue Library bio routes (`routes.py`), the LLM calls (`llm.py`), the prompt files and the descriptions that fill them (`prompts.py`), the profiles of the characters that the game reports (`characters.py`), the bios (`bio.py`), the conversation memories (`memory.py`), the rumor synthesis (`synthesis.py`), the chat prompt (`chat_prompt.py`) and its scene text (`scene_text.py`), the names (`npc_names.py`), the Current Job (`current_job.py`), the provisional profiles (`provisional_profile.py`), the prompt overrides and placeholders (`prompt_store.py`), and the LLM configuration (`llm_config.py`) and fallback chain (`llm_router.py`). |
 | `server/store/` | The campaign database (`campaign_db.py`), the world templates (`world_template.py`), and the creation and the switch of a campaign (`campaigns.py`). |
 | `server/dashboard/` | The routes that only the web app calls (`routes.py`) and the browser auto-open (`browser_launch.py`). |
@@ -26,7 +26,7 @@ Sentient Sands Rebirth has three parts: a C++ plugin that runs inside Kenshi, a 
 | `scripts/` | Release tooling. See [development.md](development.md#release). |
 | `package_release.cmd` | A Windows menu that builds the plugin, runs `scripts/package_release.py`, or does both. |
 
-Each server package keeps its Flask routes in `routes.py`, a blueprint that `main.py` registers. Only these modules, `core/app.py`, `chat/llm.py`, and the standalone `core/visual_debugger.py` import Flask or `requests`, so the tests can import every other module (see [development.md](development.md#tests)). The request guard and the canon hook are hooks of the app in `core/app.py`, because a hook of a blueprint runs only for the routes of that blueprint.
+Each server package keeps its Flask routes in `routes.py`, a blueprint that `main.py` registers. Only these modules, `core/app.py`, and `chat/llm.py` import Flask or `requests`, so the tests can import every other module (see [development.md](development.md#tests)). The request guard and the canon hook are hooks of the app in `core/app.py`, because a hook of a blueprint runs only for the routes of that blueprint.
 
 The session state that several modules share is in `core/state.py`. A module reads and assigns it as `state.NAME`, because `from core.state import NAME` copies the value once, and a later assignment, such as a campaign switch, never reaches the copy.
 
@@ -631,7 +631,7 @@ The plugin and the server write their logs in the same format, so one tool can r
 
 - The plugin keeps its log file open for the whole game and flushes each line, so the lines before a crash reach the file.
 - `LogGameEvent` runs on the game thread for each attack, so it checks the level before it builds its message.
-- The events of a campaign are in its database, not in a log file. `visual_debugger.py` reads them from there.
+- The events of a campaign are in its database, not in a log file.
 
 ## Server state
 
