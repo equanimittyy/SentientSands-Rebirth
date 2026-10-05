@@ -2,9 +2,11 @@ import os
 import sys
 import tempfile
 import unittest
+from unittest import mock
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
 
+from chat import prompts, rumors
 from core import deeds, state
 from store import campaign_db
 
@@ -12,9 +14,9 @@ TINFIST_ID = "u:tinfist"
 SEED = {
     "template": {"name": "test", "version": "1.0.0", "hash": "abc"},
     "overview": "",
-    "factions": [],
+    "factions": [{"faction_id": "1-test.mod", "name": "Anti-Slavers", "aliases": [], "major": False, "fields": {"enemies": ["The Holy Nation", "Slave Traders"]}, "description": ""}],
     "history": [],
-    "characters": [{"game_id": "tinfist", "profile": {"Name": "Tinfist", "Race": "Skeleton"}}],
+    "characters": [{"game_id": "tinfist", "profile": {"Name": "Tinfist", "Race": "Skeleton", "Sex": "Other", "Backstory": "Leader of the Anti-Slavers. Once a slave."}}],
     "entities": [{"category": "races", "id": "bonedog", "data": {"name": "Bonedog", "aliases": ["Bonedog (white)"]}}],
 }
 
@@ -212,6 +214,48 @@ class CountTest(WorldEventsTestCase):
         self.assertEqual((event["line"], event["time"]), ("Beep has killed 25 members of the Dust Bandits.", "Day 1, 00:24"))
         self.assertEqual(campaign_db.cull_after(1, 0, 10), {"dialogue": 0, "deed": 14, "notable": 1, "rumor": 0})
         self.assertEqual(self.lines(), [])
+
+
+class RumorTest(WorldEventsTestCase):
+    def notable(self, kind):
+        return next(campaign_db.notable(event["id"]) for event in deeds.notable_events() if event["kind"] == kind)
+
+    def test_the_facts_of_a_count_tell_its_step_not_its_number(self):
+        for number in range(30):
+            self.kill([BEEP], bandit(number), at(1) + number)
+        campaign_db.upsert_profile("h:1", {"Name": "Beep", "Race": "Hive Worker Drone", "Sex": "Male", "Backstory": "Worked in a mine. Then fled."})
+        self.assertEqual(rumors.facts(*self.notable("count")),
+                         "The player's faction: Nameless.\nThe deed: Beep of Nameless has killed dozens of members of the Dust Bandits.\nTime: Day 1, 00:24.\n"
+                         "Who they are:\n- Beep (male Hive Worker Drone): Worked in a mine.")
+
+    def test_the_facts_of_a_known_figure_tell_who_it_is_and_who_fears_the_news(self):
+        self.kill([BEEP, IZUMI], TINFIST, at(40, 3, 10))
+        self.assertEqual(rumors.facts(*self.notable("figure")),
+                         "The player's faction: Nameless.\nThe deed: Beep and Izumi of Nameless killed Tinfist of the Anti-Slavers.\nTime: Day 40, 03:10.\n"
+                         "Who they are:\n- Tinfist (Skeleton, no sex): Leader of the Anti-Slavers.\nThe factions:\n- Anti-Slavers. Enemies: The Holy Nation, Slave Traders.")
+
+    def test_the_prompt_holds_the_instruction_the_facts_and_the_rumor_so_far(self):
+        self.kill([BEEP], TINFIST, at(1))
+        with tempfile.TemporaryDirectory() as empty, mock.patch.object(prompts, "USER_PROMPTS_DIR", empty), mock.patch.object(rumors, "load_settings", return_value={"language": "English"}):
+            text = rumors.prompt(*self.notable("figure"), "Beep is the Stickman of the Dust.", "Beep killed Tinfist.")
+        self.assertIn("PLAYER INSTRUCTIONS: Beep is the Stickman of the Dust.", text)
+        self.assertIn("The deed: Beep of Nameless killed Tinfist of the Anti-Slavers.", text)
+        self.assertIn("RUMOR SO FAR:\nBeep killed Tinfist.", text)
+        self.assertEqual(campaign_db.rumors(), [])
+
+    def test_a_count_that_reaches_a_new_step_after_its_rumor_shows_as_grown(self):
+        for number in range(25):
+            self.kill([BEEP], bandit(number), at(1) + number)
+        campaign_db.save_rumor(None, deeds.notable_events()[0]["id"], "Beep kills bandits.")
+        for number in range(75):
+            self.kill([BEEP], bandit(100 + number), at(2) + number)
+        (event,) = deeds.notable_events()
+        self.assertEqual((event["rumor"] is not None, event["grown"]), (True, "more than a hundred"))
+        campaign_db.save_rumor(event["rumor"], None, "Beep kills more bandits.")
+        self.assertIsNone(deeds.notable_events()[0]["grown"])
+
+    def test_the_text_loses_quotes_bullets_and_line_breaks(self):
+        self.assertEqual(rumors.clean('- "They say Beep\nkilled Tinfist."'), "They say Beep killed Tinfist.")
 
 
 class LineTest(unittest.TestCase):

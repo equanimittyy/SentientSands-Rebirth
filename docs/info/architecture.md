@@ -147,6 +147,40 @@ The `notable` table holds the deeds that are worth a rumor. Campaign Log > Event
 - The line names a faction as its members, such as "members of the Dust Bandits" or "members of The Holy Nation", because many faction names are not plural. It names an animal race in the plural, with an s unless the name ends in s.
 - The cull deletes the deeds and the `figure` rows after the game time, and puts each count back to the step of the kills that remain.
 
+### Rumors
+
+SSR writes no rumor by itself. The player decides which notable event is worth a rumor and how the wasteland tells it, and a call for each notable event would load a small local model in the middle of play.
+
+1. On Campaign Log > Events, the player presses **Generate Rumor** on a notable event and types an instruction, such as "Beep is known as the Stickman of the Dust". The dialog starts with the instruction of the rumor, if any.
+2. `POST /api/campaign/rumors/generate` sends the facts of the notable event, the instruction, and the rumor so far to the LLM, with the `synthesis` task, and returns the text (`rumor_reply` in `server/chat/routes.py`). It stores nothing.
+3. The page puts the text into the Rumors list, as the rumor of the notable event, so the player reads and edits it before a save keeps it.
+4. Save stores the rumor with its notable event and its instruction (`save_rumor`).
+
+The facts are plain sentences (`server/chat/rumors.py`), and the LLM gets only these facts, so it invents no other event:
+
+```
+The player's faction: Nameless.
+The deed: Beep and Izumi of Nameless captured Tinfist of the Anti-Slavers.
+Time: Day 40, 03:10.
+Who they are:
+- Tinfist (Skeleton, no sex): Leader of the Anti-Slavers.
+The factions:
+- Anti-Slavers. Enemies: The Holy Nation, Slave Traders.
+```
+
+- A count gives the phrase of its step, such as "hundreds of", not its number, because a rumor does not count exactly.
+- Each character of the deed that has a profile gets its sex, its race, and the first sentence of its `Backstory`, so the LLM knows why a known figure matters and which pronouns fit.
+- The faction of the victim gets its `allies` and `enemies` from the canon factions, so the LLM knows who cheers the news and who fears it.
+- `prompt_world_synthesis.txt` takes the instruction right after the task line, because a model that read the instructions of the bio prompt after the current texts ignored them (see [Provisional profiles](#provisional-profiles)).
+
+The `rumor` table holds the text, the game time, the instruction, the notable event, and the step of a count when the player saved the rumor.
+
+- A notable event has at most one rumor. Events marks each notable event that has one.
+- A rumor takes the game time of its notable event at each save, so the cull deletes a rumor with its notable event.
+- A count that reaches a new step after the player saved its rumor shows as grown, for example "Grown to hundreds of". Generate Rumor then grows the rumor so far: the prompt tells the LLM to keep its names and titles and to tell the new size of the deed. A save gives the rumor the game time of the new step, so the rumor is news again.
+- A rumor stays when its notable event goes, for example when an alias joins its count into another count, because the player wrote it.
+- The chat scene gives each NPC the 5 newest rumors by game time (`PROMPT_RUMORS`), with their age, so a grown rumor counts as new.
+
 ## Web app
 
 The server serves `server/dashboard/web/` at `/` and `/web/<file>`. The files are plain HTML, CSS, JavaScript modules, fonts, and images, with no build step, no npm packages, and no assets from a CDN, so the web app works offline and the release needs no extra tools.
@@ -194,7 +228,7 @@ A refresh changes the message of the save bar only when the unsaved state of the
 
 The Editor holds many records. Save sends one request for each changed record, and a record that the server rejects keeps its draft and shows the reason. A delete takes effect at once, after a confirmation.
 
-The Editor has three subtabs. Campaign Canon and Templates share the record list and forms: Campaign Canon edits the canon of the active campaign, and Templates edits the world templates that new campaigns copy. Campaign Log shows the active campaign in two subtabs of its own: Dialogue & Memories, and Events. Events edits the rumors and lists the notable events (see [Deeds](#deeds)). The page holds the data of one subtab and one template at a time, so a switch with unsaved changes asks the player first. A shipped template is read-only, so the page offers a duplicate.
+The Editor has three subtabs. Campaign Canon and Templates share the record list and forms: Campaign Canon edits the canon of the active campaign, and Templates edits the world templates that new campaigns copy. Campaign Log shows the active campaign in two subtabs of its own: Dialogue & Memories, and Events. Events lists the notable events (see [Deeds](#deeds)) and edits their rumors (see [Rumors](#rumors)). The page holds the data of one subtab and one template at a time, so a switch with unsaved changes asks the player first. A shipped template is read-only, so the page offers a duplicate.
 
 Dialogue & Memories lists the chat threads of the active campaign, newest first, each with the game time of its first exchange and its speakers (see [Chat threads](#chat-threads)). It uses the layout of Campaign Canon: a search field and the list on the left, and the selected thread on the right, with its lines, its memory under Memorised Summary (see [Conversation memories](#conversation-memories)), and its speakers and overhearers under Involved Characters. A thread with a memory shows only its memory, because the memory replaces its lines. The search matches the names of the members, the text of the lines, and the memory, with case ignored. `GET /api/campaign` returns every thread with its lines and its memory, as Campaign Canon loads every record, so the search runs in the page. The lines are the copy of a speaker, because its lines have no `(Overheard)` tag (`campaign_db.threads`). The memory under Memorised Summary is editable: Save writes each changed memory, and Delete removes the conversation after a confirmation (see [Conversation memories](#conversation-memories)). The lines are read-only, and banter has no threads, so it stays out.
 
@@ -286,7 +320,7 @@ When the origin faction of an NPC is its current faction, the chat prompt gives 
 
 ## LLM routing
 
-Each LLM call names a task: `chat`, `ambient`, `profile`, `synthesis`, or `memory`. No route makes a `synthesis` call. `server/config/llm_config.json` holds four parts, and the web app's Models page edits all of them through `/api/llm`.
+Each LLM call names a task: `chat`, `ambient`, `profile`, `synthesis`, or `memory`. Generate Rumor makes the `synthesis` call (see [Rumors](#rumors)). `server/config/llm_config.json` holds four parts, and the web app's Models page edits all of them through `/api/llm`.
 
 | Part | Contents |
 |---|---|
@@ -585,11 +619,12 @@ Edit Bio in the Dialogue Library skips the LLM. `/read_bio` returns the stored `
 | `POST /api/campaigns` | Create a campaign from a template, with no switch |
 | `POST /api/campaigns/switch` | Make a campaign the current one. The name must be a folder that the campaign list shows, so a name such as `../x` cannot point outside `server/data/campaigns/`. |
 | `POST /api/campaigns/delete` | Delete a campaign folder, with the same name check. Before it deletes the current campaign, it switches to the first other one. When no other campaign remains, the server has no current campaign (see [Campaign storage](#campaign-storage)). |
-| `GET /api/campaign` | The active campaign: its notable events with their lines (see [Deeds](#deeds)), its rumors, and its chat threads with their members, lines, and memories. A refused campaign gives status 409 with the reason. |
+| `GET /api/campaign` | The active campaign: its notable events with their lines and rumor marks (see [Deeds](#deeds)), its rumors, and its chat threads with their members, lines, and memories. A refused campaign gives status 409 with the reason. |
 | `GET /api/campaign/canon` | The canon of the active campaign, each record with its `origin` and `updated_at`, and each character with the `current_faction` that a chat reported since the server started (`LIVE_CONTEXTS`), or `null`. A refused campaign gives status 409 with the reason. |
 | `POST /api/campaign/records`, `.../records/delete` | Save or delete one canon record of the active campaign. A faction, character, race, location, or region with no ID is new. |
 | `POST /api/campaign/characters/bio` | The LLM text of the full bio, or of one part, for the form of a character. It stores nothing (see [Provisional profiles](#provisional-profiles)). |
-| `POST /api/campaign/rumors`, `.../rumors/delete` | Edit the rumors of the active campaign |
+| `POST /api/campaign/rumors/generate` | The LLM text of a rumor of a notable event. It stores nothing (see [Rumors](#rumors)). |
+| `POST /api/campaign/rumors`, `.../rumors/delete` | Save a rumor by its ID, or the rumor of a notable event, which a new rumor has no ID for yet; or delete a rumor |
 | `POST /api/campaign/memories`, `.../memories/delete` | Edit or delete a memory of the active campaign (see [Conversation memories](#conversation-memories)) |
 | `POST /api/campaign/cull` | Delete the dialogue, deeds, notable events, rumors, thread members, and memories dated after the current game time, after the player loads an older save. It asks the running game for a report and refuses the cull without one (see [Game state](#game-state)), because without the game time day 0 would count as now and the cull would delete the whole history. |
 
@@ -598,7 +633,6 @@ Edit Bio in the Dialogue Library skips the LLM. `/read_bio` returns the stored `
 - The cull of the SSR HUB carries a report, and the server takes the deeds of its events before the cull. The buffer can hold events from before the load of the older save, which are dated after the loaded game time, so the cull deletes their deeds.
 - An edit of a faction, a character, a race, a location, or a region carries the `updated_at` that the page loaded, and the server refuses it when the row changed after that, for example when the game renamed the player's faction. An edit without `updated_at` counts as stale. The name of the player's faction is not editable, because the next context would undo it.
 - The web app offers no delete for the player's faction. The game reports the faction again, and the server then adds it back with an empty description, so a delete would only lose the description.
-- A rumor edit replaces only the text of its `[RUMOR: ...]` tag and keeps its game time. Brackets in the text become parentheses, because the prompt reads the rumor up to the first `]`.
 
 ## World templates
 

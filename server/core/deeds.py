@@ -12,6 +12,8 @@ from store import campaign_db
 
 ATTACK_WINDOW_MINUTES = 180
 ENDS = ("death", "imprisonment")
+# A rumor does not count exactly, so it tells the step of a count (COUNT_STEPS) by its phrase
+STEP_PHRASES = ("dozens of", "more than a hundred", "hundreds of", "countless")
 
 _lock = threading.Lock()
 _histories = {}
@@ -130,15 +132,24 @@ def _store(kind, victim, attackers, at):
 
 
 def notable_events():
-    """Each notable event, newest first, as a dict with its ID, kind, game time, and line. The line names each character by
-    its current name, so a renamed squad member shows with its new name."""
+    """Each notable event, newest first, as a dict with its ID, kind, game time, line, and rumor ID. The line names each
+    character by its current name, so a renamed squad member shows with its new name. grown is the phrase of the step that
+    a count reached after the player saved its rumor, else None."""
     rows = campaign_db.notables()
-    ids = set()
-    for _, kind, _, deed in rows:
-        ids.update([doer["id"] for doer in deed["doers"]] + [deed["victim"]["id"]] if kind == "figure" else [deed["doer"]])
-    names = campaign_db.names_of(ids)
+    names = campaign_db.names_of({npc_id for _, kind, _, deed in rows for npc_id in character_ids(kind, deed)})
     faction = (campaign_db.player_faction() or {}).get("name")
-    return [{"id": notable_id, "kind": kind, "time": campaign_db.game_time_text(at), "line": notable_line(kind, deed, names, faction)} for notable_id, kind, at, deed in rows]
+    rumors = {rumor["notable_id"]: rumor for rumor in campaign_db.rumors() if rumor["notable_id"] is not None}
+    events = []
+    for notable_id, kind, at, deed in rows:
+        rumor = rumors.get(notable_id)
+        grown = rumor and kind == "count" and deed["step"] > (rumor["step"] or 0)
+        events.append({"id": notable_id, "kind": kind, "time": campaign_db.game_time_text(at), "line": notable_line(kind, deed, names, faction),
+                       "rumor": rumor["id"] if rumor else None, "grown": STEP_PHRASES[deed["step"] - 1] if grown else None})
+    return events
+
+
+def character_ids(kind, deed):
+    return [doer["id"] for doer in deed["doers"]] + [deed["victim"]["id"]] if kind == "figure" else [deed["doer"]]
 
 
 def notable_line(kind, deed, names, player_faction):
@@ -162,7 +173,11 @@ def name_list(names):
 
 def members_of(faction):
     """Many faction names are not plural, so a line names the members of the faction."""
-    return f"members of {faction}" if faction.startswith("The ") else f"members of the {faction}"
+    return f"members of {the_faction(faction)}"
+
+
+def the_faction(faction):
+    return faction if faction.startswith("The ") else f"the {faction}"
 
 
 def plural(race):

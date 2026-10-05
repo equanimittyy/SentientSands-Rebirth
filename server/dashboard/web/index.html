@@ -152,5 +152,20 @@
       </div>
     </form>
   </dialog>
+  <dialog id="rumor">
+    <form method="dialog">
+      <h2>Generate Rumor</h2>
+      <p></p>
+      <fieldset>
+        <legend>Instructions (optional)</legend>
+        <textarea name="instructions" aria-label="Instructions" placeholder="For example: Beep is known as the Stickman of the Dust."></textarea>
+      </fieldset>
+      <p class="hint">The LLM also reads the deed, the sex, race, and backstory of each known character in it, the allies and enemies of the faction that lost, and the rumor so far, which it grows.</p>
+      <div class="actions">
+        <button value="cancel">Cancel</button>
+        <button value="ok" class="save">Write</button>
+      </div>
+    </form>
+  </dialog>
 </body>
 </html>

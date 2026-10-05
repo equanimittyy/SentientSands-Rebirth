@@ -42,7 +42,9 @@ let template = null;
 let records = [];
 const drafts = new Map();
 let log = null;
+// A rumor that only Generate Rumor wrote has no ID yet, so its key is new: and the ID of its notable event
 let rumorDrafts = {};
+let rumorInstructions = {};
 let memoryDrafts = {};
 const eventView = { query: "", type: "all", page: 1 };
 let logView = "dialogue";
@@ -207,7 +209,10 @@ function isChanged(record) {
 }
 
 const changedRecords = () => allRecords().filter(isChanged);
-const changedRumors = () => (log?.rumors ?? []).filter((rumor) => rumorDrafts[rumor.id].trim() !== rumor.text);
+const changedRumors = () => [
+  ...Object.keys(rumorDrafts).filter((key) => key.startsWith("new:")),
+  ...(log?.rumors ?? []).filter((rumor) => rumorDrafts[rumor.id].trim() !== rumor.text || rumor.id in rumorInstructions).map((rumor) => String(rumor.id)),
+];
 const changedMemories = () => (log?.threads ?? []).filter((thread) => thread.memory && memoryDrafts[thread.id].trim() !== thread.memory);
 const hasChanges = () => (source === "events" ? [...changedRumors(), ...changedMemories()] : changedRecords()).length > 0;
 
@@ -881,18 +886,69 @@ function renderSubtabs(tabs = SOURCES, shown = source, choose = chooseSource) {
 }
 
 function renderRumors() {
-  const rows = log.rumors.map((rumor) => {
-    const note = notes.get(`rumor:${rumor.id}`);
-    const input = control("textarea", rumorDrafts, rumor.id, ["rumors", rumor.id], { rows: 2, label: "Rumor" });
+  const events = new Map(log.notables.map((event) => [event.id, event]));
+  const keys = [...Object.keys(rumorDrafts).filter((key) => key.startsWith("new:")), ...log.rumors.map((rumor) => String(rumor.id))];
+  const rows = keys.map((key) => {
+    const rumor = log.rumors.find((entry) => String(entry.id) === key);
+    const event = events.get(rumor ? rumor.notable : Number(key.slice(4)));
+    const note = notes.get(`rumor:${key}`);
+    const input = control("textarea", rumorDrafts, key, ["rumors", key], { rows: 2, label: "Rumor" });
     if (note?.field) setFieldError(input, note.text);
+    const remove = rumor ? deleteButton("Delete the rumor", () => deleteRumor(rumor.id)) : deleteButton("Discard the new rumor", () => discardRumor(key));
     return el("div", { className: "card" },
-      el("div", { className: "inline row" }, input, deleteButton("Delete the rumor", () => deleteRumor(rumor.id))),
+      el("p", { className: "detail" }, event ? `${event.time}: ${event.line}` : `${rumor.time}: its event is gone.`),
+      el("div", { className: "inline row" }, input, remove),
       note ? el("p", { className: `hint${note.error ? " error" : ""}` }, note.text) : null);
   });
   return el("fieldset", {},
-    el("legend", {}, `Rumors (${log.rumors.length})`),
-    el("p", { className: "hint" }, "The world news that SSR writes from what happened in game. NPCs mention the newest rumors."),
+    el("legend", {}, `Rumors (${keys.length})`),
+    el("p", { className: "hint" }, "The world news that NPCs mention. Each conversation hears the 5 newest rumors. To write one, press Generate Rumor on an event below, then read the text, edit it, and save it."),
     ...(rows.length > 0 ? rows : [el("p", { className: "hint" }, "No rumors yet.")]));
+}
+
+function discardRumor(key) {
+  delete rumorDrafts[key];
+  delete rumorInstructions[key];
+  updateUnsaved();
+  render();
+}
+
+function askRumor(event, instruction) {
+  const dialog = document.getElementById("rumor");
+  const form = dialog.querySelector("form");
+  form.reset();
+  form.elements.instructions.value = instruction;
+  dialog.querySelector("p").textContent = event.line;
+  dialog.returnValue = "";
+  dialog.showModal();
+  return new Promise((resolve) => dialog.addEventListener("close", () => resolve(dialog.returnValue === "ok" ? form.elements.instructions.value : null), { once: true }));
+}
+
+// The text goes into the Rumors list and not into the campaign, so the player reads it before a save keeps it.
+async function writeRumor(event) {
+  const key = event.rumor === null ? `new:${event.id}` : String(event.rumor);
+  const stored = log.rumors.find((rumor) => rumor.id === event.rumor);
+  const instruction = await askRumor(event, rumorInstructions[key] ?? stored?.instruction ?? "");
+  if (instruction === null) return;
+  const steps = progress("Writing a rumor", "Asking the LLM");
+  try {
+    const { text } = await sendJson("POST", "/api/campaign/rumors/generate", { campaign: log.name, notable: event.id, instruction });
+    steps.close();
+    rumorDrafts[key] = text;
+    rumorInstructions[key] = instruction;
+    updateUnsaved();
+    render();
+    showMessage(message, "The LLM wrote the rumor. Read it in the Rumors list, and save to keep it.");
+  } catch (error) {
+    steps.close();
+    showMessage(message, `Write failed: ${error.message}`, true);
+  }
+}
+
+function rumorMark(event) {
+  if (event.grown) return el("span", { className: "badge" }, `Grown to ${event.grown}`);
+  if (event.rumor !== null) return el("span", { className: "badge" }, "Has a rumor");
+  return `new:${event.id}` in rumorDrafts ? el("span", { className: "badge" }, "Unsaved rumor") : null;
 }
 
 function renderEvents() {
@@ -956,8 +1012,9 @@ function renderEventPage() {
   const rows = shown.slice(start, start + EVENTS_PER_PAGE).map((event) => el("tr", {},
     el("td", {}, event.time),
     el("td", {}, el("span", { className: "badge" }, NOTABLE_KINDS[event.kind] ?? event.kind)),
-    el("td", {}, event.line)));
-  const head = el("tr", {}, el("th", {}, "Time"), el("th", {}, "Kind"), el("th", {}, "Event"));
+    el("td", {}, event.line),
+    el("td", {}, el("div", { className: "inline row" }, rumorMark(event), el("button", { type: "button", onclick: () => writeRumor(event) }, icon("bot"), "Generate Rumor")))));
+  const head = el("tr", {}, el("th", {}, "Time"), el("th", {}, "Kind"), el("th", {}, "Event"), el("th", {}, "Rumor"));
   const table = el("table", { className: "event-table" }, el("thead", {}, head), el("tbody", {}, ...rows));
   holder.replaceChildren(...(pages > 1 ? [pager(shown.length, pages, start), table, pager(shown.length, pages, start)] : [table]));
 }
@@ -1140,18 +1197,21 @@ async function save() {
 }
 
 async function saveLog() {
-  const changes = [...changedRumors().map((rumor) => ["rumors", rumor.id, rumorDrafts]), ...changedMemories().map((thread) => ["memories", thread.id, memoryDrafts])];
+  const changes = [...changedRumors().map((key) => ["rumors", key]), ...changedMemories().map((thread) => ["memories", thread.id])];
   if (changes.length === 0) {
     flashMessage(message, "No changes to save.");
     return;
   }
   notes.clear();
-  const kept = { rumors: {}, memories: {} };
-  for (const [kind, id, drafts] of changes) {
+  const kept = { rumors: {}, instructions: {}, memories: {} };
+  for (const [kind, id] of changes) {
     try {
-      await sendJson("POST", `/api/campaign/${kind}`, { campaign: log.name, id, text: drafts[id] });
+      await sendJson("POST", `/api/campaign/${kind}`, kind === "rumors" ? rumorBody(id) : { campaign: log.name, id, text: memoryDrafts[id] });
     } catch (error) {
-      kept[kind][id] = drafts[id];
+      if (kind === "rumors") {
+        kept.rumors[id] = rumorDrafts[id];
+        if (id in rumorInstructions) kept.instructions[id] = rumorInstructions[id];
+      } else kept.memories[id] = memoryDrafts[id];
       notes.set(`${kind === "rumors" ? "rumor" : "memory"}:${id}`, { error: true, text: error.message, field: error.fieldErrors?.[0]?.field });
     }
   }
@@ -1176,13 +1236,27 @@ async function getCampaign(url) {
   }
 }
 
+const rumorBody = (key) => ({
+  campaign: log.name,
+  ...(key.startsWith("new:") ? { notable: Number(key.slice(4)) } : { id: Number(key) }),
+  text: rumorDrafts[key],
+  ...(key in rumorInstructions ? { instruction: rumorInstructions[key] } : {}),
+});
+
 const keptLog = () => ({
-  rumors: Object.fromEntries(changedRumors().map((rumor) => [rumor.id, rumorDrafts[rumor.id]])),
+  rumors: Object.fromEntries(changedRumors().map((key) => [key, rumorDrafts[key]])),
+  instructions: { ...rumorInstructions },
   memories: Object.fromEntries(changedMemories().map((thread) => [thread.id, memoryDrafts[thread.id]])),
 });
 
-function showLog({ rumors = {}, memories = {} }) {
-  rumorDrafts = Object.fromEntries((log?.rumors ?? []).map((rumor) => [rumor.id, rumors[rumor.id] ?? rumor.text]));
+function showLog({ rumors = {}, instructions = {}, memories = {} }) {
+  const events = new Map((log?.notables ?? []).map((event) => [`new:${event.id}`, event]));
+  // A new rumor whose event got a rumor in the meantime, for example in another tab, becomes a draft of that rumor
+  const keyOf = (key) => (events.get(key)?.rumor ?? key).toString();
+  const kept = Object.fromEntries(Object.entries(rumors).map(([key, text]) => [keyOf(key), text]));
+  rumorDrafts = Object.fromEntries((log?.rumors ?? []).map((rumor) => [rumor.id, kept[rumor.id] ?? rumor.text]));
+  for (const [key, text] of Object.entries(kept)) if (events.has(key)) rumorDrafts[key] = text;
+  rumorInstructions = Object.fromEntries(Object.entries(instructions).map(([key, text]) => [keyOf(key), text]).filter(([key]) => key in rumorDrafts));
   memoryDrafts = Object.fromEntries((log?.threads ?? []).filter((thread) => thread.memory).map((thread) => [thread.id, memories[thread.id] ?? thread.memory]));
   render();
 }

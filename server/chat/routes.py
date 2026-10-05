@@ -6,7 +6,7 @@ import time
 
 from flask import Blueprint, jsonify, request
 
-from chat import chat_prompt
+from chat import chat_prompt, rumors
 from chat.bio import BIO_PARTS, generate_bio, recorded_history, write_bio
 from chat.characters import animal_flag, get_character_data, npc_name, reported_sex, should_save_profile
 from chat.llm import call_llm
@@ -501,6 +501,21 @@ def bio_reply(data, history, race_lore, faction, **reply):
     if not bio:
         return jsonify({"status": "error", "message": "The LLM gave no usable text. Try again."}), 500
     return jsonify({"status": "ok", "bio": bio, **reply})
+
+def rumor_reply(notable_id, instruction, **reply):
+    """The web app puts the text into its Rumors list, so the player reads it before a save keeps it. Stores nothing."""
+    try:
+        notable_id = int(notable_id)
+    except (TypeError, ValueError):
+        return jsonify({"status": "error", "message": "Name the notable event of the rumor."}), 400
+    notable = campaign_db.notable(notable_id)
+    if not notable:
+        return jsonify({"status": "error", "message": "The notable event is gone. Load the events again."}), 404
+    so_far = next((rumor["text"] for rumor in campaign_db.rumors() if rumor["notable_id"] == notable_id), "")
+    text = rumors.clean(call_llm("synthesis", [{"role": "user", "content": rumors.prompt(*notable, instruction, so_far)}]))
+    if not text:
+        return jsonify({"status": "error", "message": "The LLM gave no usable text. Try again."}), 500
+    return jsonify({"status": "ok", "text": text, **reply})
 
 @bp.route('/write_bio', methods=['POST'])
 def write_library_bio():

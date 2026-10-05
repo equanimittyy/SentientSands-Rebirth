@@ -110,7 +110,7 @@ def build_system_prompt():
 
 def scene_values(player, player_name, facing=True):
     """facing is False for banter, which has no NPC in front of the player."""
-    rumors = [line for _, line in campaign_db.rumors() if line.startswith("- [")][-PROMPT_RUMORS:]
+    rumors = [(rumor["game_time"], rumor["text"]) for rumor in campaign_db.rumors()[-PROMPT_RUMORS:]]
     race = player.get("race", "Unknown")
     race_entry = find_race(race)
     player_faction = campaign_db.player_faction()

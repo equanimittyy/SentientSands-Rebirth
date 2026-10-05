@@ -5,8 +5,6 @@ A model reads a sentence more reliably than a raw number, so each number becomes
 plain values, so this module never reads the campaign.
 """
 
-import re
-
 
 def _scale(value, steps):
     """The text of the first step whose bound the value is below; the last step has no bound."""
@@ -84,8 +82,6 @@ LONG_TERM_MEMORIES = {
     14: "{name} killed a friend of yours.",
     15: "You once wronged {name}.",
 }
-
-_RUMOR = re.compile(r"\[Day (\d+)[^\]]*\]\s*\[RUMOR:\s*(.*?)\]\s*$")
 
 
 def _number(value, default=0):
@@ -256,14 +252,12 @@ def location_text(environment):
     return "You are somewhere in the wasteland."
 
 
-def rumors_text(lines, today):
+def rumors_text(rumors, today):
+    """rumors are (game minutes, text) pairs, oldest first."""
     sentences = []
-    for line in reversed(lines):
-        match = _RUMOR.search(line)
-        if not match:
-            continue
-        heard = f"{_scale(today - int(match.group(1)), RUMOR_AGE)} you heard" if today is not None else "You heard"
-        sentences.append(f"{heard} a rumour: {_sentence(match.group(2))}")
+    for at, text in reversed(rumors):
+        heard = f"{_scale(today - at // 1440, RUMOR_AGE)} you heard" if today is not None else "You heard"
+        sentences.append(f"{heard} a rumour: {_sentence(text)}")
     if sentences:
         sentences.append("These are only rumours; bring them up only when they fit the conversation.")
     return _section("Rumours:", sentences)

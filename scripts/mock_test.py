@@ -1,8 +1,8 @@
 """Create a campaign filled with mock play data, so the web app and the Dialogue Library have data without a game.
 
 The data goes in through the campaign_db calls that the chat route makes: chat threads with speakers and overhearers,
-a whisper and a yell, the memories of all chat threads but the newest, one banter, and rumors. The deeds go in as the
-events of the game, through the attribution of the server: a kill count and the capture of a known figure. The script
+a whisper and a yell, the memories of all chat threads but the newest, and one banter. The deeds go in as the events of
+the game, through the attribution of the server: a kill count and the capture of a known figure, each with a rumor. The script
 refuses a campaign name that is taken, so a second run cannot add the data twice. It needs no Flask, so it runs in the
 dev container.
 """
@@ -141,8 +141,10 @@ def fill():
                + [{"kind": "knockout", "id": DUST_KING, **at(8, 12, 1)}, {"kind": "up", "id": DUST_KING, "carried": True, **at(8, 12, 5)},
                   {"kind": "imprisonment", "party": king, **at(8, 14, 0)}])
 
-    campaign_db.add_rumor("- [Day 5, 00:00] [RUMOR: Dust Bandits drink in The Hub without paying, and the barman wants them gone.]")
-    campaign_db.add_rumor("- [Day 6, 12:00] [RUMOR: A door guard at The Hub knocked out a Dust Bandit over a bar tab.]")
+    stick_count = next(event for event in deeds.notable_events() if event["kind"] == "count" and event["line"].startswith("Stick"))
+    capture = next(event for event in deeds.notable_events() if event["kind"] == "figure")
+    campaign_db.save_rumor(None, stick_count["id"], "They say the door guard of The Hub has put dozens of Dust Bandits in the sand.", "Stick is the door guard of The Hub.")
+    campaign_db.save_rumor(None, capture["id"], "Word in the bars is that three drifters of Nameless dragged the Dust King to a cage, and the Dust Bandits want them dead.", "")
 
 
 def main():

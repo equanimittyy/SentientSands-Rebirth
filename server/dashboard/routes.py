@@ -1,7 +1,6 @@
 import json
 import logging
 import os
-import re
 
 import requests
 from flask import Blueprint, Response, current_app, jsonify, request
@@ -11,7 +10,7 @@ from chat.bio import recorded_history
 from chat.characters import send_rename
 from chat.llm import default_llm_config, send_completion
 from chat.prompts import describe_faction, describe_race, describe_record, faction_text, find_named
-from chat.routes import bio_refusal, bio_reply
+from chat.routes import bio_refusal, bio_reply, rumor_reply
 from core import deeds, state
 from core.game import report_from_game
 from core.paths import (CAMPAIGNS_DIR, DEFAULT_TEMPLATE, LLM_CONFIG_PATH, PROMPTS_DIR, USER_PROMPTS_DIR, USER_TEMPLATES_DIR,
@@ -157,15 +156,14 @@ def delete_campaign():
 @bp.route('/api/campaign', methods=['GET'])
 def get_active_campaign():
     try:
-        rumors = []
-        for rumor_id, line in campaign_db.rumors():
-            match = re.search(r'\[RUMOR:\s*(.*?)\]', line, re.DOTALL)
-            rumors.append({"id": rumor_id, "line": line, "text": match.group(1).strip() if match else line})
         return jsonify({
             "status": "ok",
             "name": state.ACTIVE_CAMPAIGN,
             "notables": deeds.notable_events(),
-            "rumors": rumors,
+            "rumors": [
+                {"id": rumor["id"], "notable": rumor["notable_id"], "text": rumor["text"], "instruction": rumor["instruction"], "time": campaign_db.game_time_text(rumor["game_time"])}
+                for rumor in reversed(campaign_db.rumors())
+            ],
             "threads": [
                 {
                     "id": thread["id"],
@@ -331,21 +329,26 @@ def delete_campaign_record():
     logging.info(f"CAMPAIGN: Deleted the {kind} {record_id} of '{state.ACTIVE_CAMPAIGN}' from the web app")
     return jsonify({"status": "ok"})
 
+@bp.route('/api/campaign/rumors/generate', methods=['POST'])
+def generate_campaign_rumor():
+    data = request.get_json(silent=True) or {}
+    refused = campaign_write(data)
+    if refused: return refused
+    return rumor_reply(data.get("notable"), str(data.get("instruction") or ""))
+
 @bp.route('/api/campaign/rumors', methods=['POST'])
 def save_campaign_rumor():
+    """Saves the text of a rumor by its id, or the rumor of a notable event, which a rumor of Generate Rumor has no id for yet."""
     data = request.get_json(silent=True) or {}
     refused = campaign_write(data)
     if refused: return refused
     text = str(data.get("text") or "").strip()
-    line = campaign_db.rumor(data.get("id"))
-    if line is None:
-        return jsonify({"status": "error", "message": "The rumor is gone. Discard to load the rumors again."}), 404
     if not text:
-        return jsonify({"status": "error", "errors": [{"field": ["rumors", data.get("id")], "message": "A rumor needs text. Delete it instead."}]}), 400
-    # The brackets would end the tag early, so the chat prompt would read only a part of the rumor
-    text = text.replace("[", "(").replace("]", ")")
-    prefix = line[:line.index("[RUMOR:")] if "[RUMOR:" in line else ""
-    campaign_db.set_rumor(data.get("id"), f"{prefix}[RUMOR: {text}]")
+        key = str(data["id"]) if data.get("id") else f"new:{data.get('notable')}"
+        return jsonify({"status": "error", "errors": [{"field": ["rumors", key], "message": "A rumor needs text. Delete it instead."}]}), 400
+    instruction = data.get("instruction")
+    if not campaign_db.save_rumor(data.get("id"), data.get("notable"), text, None if instruction is None else str(instruction).strip()):
+        return jsonify({"status": "error", "message": "The rumor or its event is gone. Discard to load the events again."}), 404
     return jsonify({"status": "ok"})
 
 @bp.route('/api/campaign/rumors/delete', methods=['POST'])

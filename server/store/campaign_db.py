@@ -15,7 +15,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 DB_NAME = "campaign.db"
-SCHEMA_VERSION = 8
+SCHEMA_VERSION = 9
 DIALOGUE_BLOCK = 20
 # A few kills are part of any trip through the wasteland, so the scale starts at 25
 COUNT_STEPS = (25, 100, 250, 500)
@@ -80,10 +80,14 @@ CREATE TABLE notable (
   game_time INTEGER NOT NULL,
   deed      TEXT NOT NULL
 );
+-- SET NULL: a count that an alias joins into another count goes, and the rumor that the player wrote must stay
 CREATE TABLE rumor (
-  id        INTEGER PRIMARY KEY,
-  game_time INTEGER,
-  line      TEXT NOT NULL
+  id          INTEGER PRIMARY KEY,
+  notable_id  INTEGER UNIQUE REFERENCES notable(id) ON DELETE SET NULL,
+  game_time   INTEGER NOT NULL,
+  text        TEXT NOT NULL,
+  instruction TEXT NOT NULL DEFAULT '',
+  step        INTEGER
 );
 CREATE TABLE faction (
   id          INTEGER PRIMARY KEY,
@@ -500,21 +504,42 @@ def notables():
     return [(notable_id, kind, at, json.loads(deed)) for notable_id, kind, at, deed in rows]
 
 
-def add_rumor(line):
-    with _connect(write=True) as conn:
-        conn.execute("INSERT INTO rumor (game_time, line) VALUES (?, ?)", (game_time(line), line))
-
-
 def rumors():
-    """Every rumor as (id, line), oldest first."""
+    """Every rumor as a dict, oldest first by game time. step is the step of its count when the player saved it."""
     with _connect() as conn:
-        return conn.execute("SELECT id, line FROM rumor ORDER BY id").fetchall()
+        rows = conn.execute("SELECT id, notable_id, game_time, text, instruction, step FROM rumor ORDER BY game_time, id").fetchall()
+    return [{"id": rumor_id, "notable_id": notable_id, "game_time": at, "text": text, "instruction": instruction, "step": step}
+            for rumor_id, notable_id, at, text, instruction, step in rows]
 
 
-def rumor(rumor_id):
+def notable(notable_id):
+    """The notable event as (kind, game_time, deed), or None."""
     with _connect() as conn:
-        row = conn.execute("SELECT line FROM rumor WHERE id = ?", (rumor_id,)).fetchone()
-    return row[0] if row else None
+        row = conn.execute("SELECT kind, game_time, deed FROM notable WHERE id = ?", (notable_id,)).fetchone()
+    return (row[0], row[1], json.loads(row[2])) if row else None
+
+
+def save_rumor(rumor_id, notable_id, text, instruction=None):
+    """Saves the text of the rumor, or of the rumor of the notable event when rumor_id is None, and adds that rumor when it
+    has none. A rumor takes the game time and the step of its notable event, so a rumor that grew with its count is news
+    again. instruction None keeps the stored one. Returns False when the rumor or the notable event is gone."""
+    with _connect(write=True) as conn:
+        if rumor_id is None:
+            row = conn.execute("SELECT id FROM rumor WHERE notable_id = ?", (notable_id,)).fetchone()
+            if row is None:
+                if not conn.execute("SELECT 1 FROM notable WHERE id = ?", (notable_id,)).fetchone():
+                    return False
+                rumor_id = conn.execute("INSERT INTO rumor (notable_id, game_time, text) VALUES (?, 0, '')", (notable_id,)).lastrowid
+            else:
+                rumor_id = row[0]
+        row = conn.execute("SELECT r.game_time, r.step, n.game_time, n.deed FROM rumor r LEFT JOIN notable n ON n.id = r.notable_id WHERE r.id = ?", (rumor_id,)).fetchone()
+        if row is None:
+            return False
+        at, step, notable_time, deed = row
+        if deed is not None:
+            at, step = notable_time, json.loads(deed).get("step")
+        conn.execute("UPDATE rumor SET text = ?, instruction = COALESCE(?, instruction), game_time = ?, step = ? WHERE id = ?", (text, instruction, at, step, rumor_id))
+        return True
 
 
 def cull_after(day, hour, minute):
@@ -535,11 +560,6 @@ def cull_after(day, hour, minute):
         conn.execute("UPDATE thread SET game_time = (SELECT MAX(game_time) FROM dialogue WHERE thread_id = thread.id) WHERE game_time > ?", (now,))
         _drop_unused_threads(conn, touched)
         return culled
-
-
-def set_rumor(rumor_id, line):
-    with _connect(write=True) as conn:
-        return conn.execute("UPDATE rumor SET line = ?, game_time = ? WHERE id = ?", (line, game_time(line), rumor_id)).rowcount > 0
 
 
 def delete_rumor(rumor_id):

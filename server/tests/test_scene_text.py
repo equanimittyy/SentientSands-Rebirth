@@ -97,7 +97,7 @@ class SentenceTest(unittest.TestCase):
         self.assertEqual(scene_text.limbs_text({"left_leg": -100, "left_leg_max": 100}), "Your left leg is gone.")
 
     def test_rumors_come_newest_first_with_their_age(self):
-        lines = ["- [Day 9, 14:10] [RUMOR: Shek raiders were seen near the Bad Teeth.]", "- [Day 11, 19:02] [RUMOR: A caravan never arrived]"]
+        lines = [(9 * 1440 + 850, "Shek raiders were seen near the Bad Teeth."), (11 * 1440 + 1142, "A caravan never arrived")]
         self.assertEqual(scene_text.rumors_text(lines, 12), "Rumours:\nYesterday you heard a rumour: A caravan never arrived. A few days ago you heard a rumour: Shek raiders were seen near the Bad Teeth. These are only rumours; bring them up only when they fit the conversation.")
         self.assertTrue(scene_text.rumors_text(lines[:1], None).startswith("Rumours:\nYou heard a rumour:"))
         self.assertEqual(scene_text.rumors_text([], 12), "")

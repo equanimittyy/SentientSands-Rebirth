@@ -382,42 +382,67 @@ class ThreadTest(CampaignTestCase):
         self.assertEqual(listed, {self.STICK: (True, False), GENERIC_ID: (True, False), self.IZUMI: (True, True), self.RUKA: (False, False)})
 
 
+TINFIST = {"npc_id": "u:tinfist", "name": "Tinfist", "faction": "Anti-Slavers", "race": "Skeleton", "animal": False}
+
+
 class CullAndRumorTest(CampaignTestCase):
     def setUp(self):
         super().setUp()
         campaign_db.open_campaign(self.folder, lambda: SEED)
 
+    def figure(self, at):
+        campaign_db.add_deeds("kill", [(BEEP_ID, "Beep")], TINFIST, True, at)
+        return next(notable_id for notable_id, _, time, _ in campaign_db.notables() if time == at)
+
     def test_cull_deletes_only_later_rows(self):
         campaign_db.append_dialogue(GENERIC_ID, spoken(None, "[Day 2, 09:59] early", "[Day 2, 10:01] late", "untimed"), BEEP)
-        victim = {"npc_id": "u:tinfist", "name": "Tinfist", "faction": "Anti-Slavers", "race": "Skeleton", "animal": False}
-        campaign_db.add_deeds("kill", [(BEEP_ID, "Beep")], victim, True, 2 * 1440 + 600)
-        campaign_db.add_deeds("kill", [(BEEP_ID, "Beep")], victim, True, 3 * 1440)
-        campaign_db.add_rumor("- [Day 1, 00:00] [RUMOR: old]")
-        campaign_db.add_rumor("- [Day 5, 00:00] [RUMOR: new]")
+        kept, culled = self.figure(2 * 1440 + 600), self.figure(3 * 1440)
+        campaign_db.save_rumor(None, kept, "old")
+        campaign_db.save_rumor(None, culled, "new")
 
         self.assertEqual(campaign_db.cull_after(2, 10, 0), {"dialogue": 1, "deed": 1, "notable": 1, "rumor": 1})
         self.assertEqual(campaign_db.get_character(GENERIC_ID)["ConversationHistory"], ["[Day 2, 09:59] early", "untimed"])
         self.assertEqual([at for _, _, at, _ in campaign_db.notables()], [2 * 1440 + 600])
-        self.assertEqual([line for _, line in campaign_db.rumors()], ["- [Day 1, 00:00] [RUMOR: old]"])
+        self.assertEqual([rumor["text"] for rumor in campaign_db.rumors()], ["old"])
 
-    def test_rumor_by_id(self):
-        campaign_db.add_rumor("- [Day 1, 00:00] [RUMOR: one]")
-        (rumor_id, line), = campaign_db.rumors()
-        self.assertEqual(campaign_db.rumor(rumor_id), line)
-        self.assertIsNone(campaign_db.rumor(rumor_id + 1))
+    def test_a_notable_event_has_one_rumor_with_its_game_time(self):
+        notable_id = self.figure(1440)
+        self.assertTrue(campaign_db.save_rumor(None, notable_id, "one", "Tell it grimly."))
+        self.assertTrue(campaign_db.save_rumor(None, notable_id, "two"))
+        (rumor,) = campaign_db.rumors()
+        self.assertEqual((rumor["notable_id"], rumor["game_time"], rumor["text"], rumor["instruction"]), (notable_id, 1440, "two", "Tell it grimly."))
+        self.assertFalse(campaign_db.save_rumor(None, notable_id + 1, "none"))
+        self.assertFalse(campaign_db.save_rumor(rumor["id"] + 1, None, "none"))
 
-    def test_rumor_edit_moves_its_game_time(self):
-        campaign_db.add_rumor("- [Day 1, 00:00] [RUMOR: one]")
-        (rumor_id, _), = campaign_db.rumors()
-        self.assertTrue(campaign_db.set_rumor(rumor_id, "- [Day 9, 00:00] [RUMOR: two]"))
-        self.assertEqual(campaign_db.cull_after(5, 0, 0)["rumor"], 1)
-        self.assertFalse(campaign_db.set_rumor(rumor_id, "gone"))
+    def test_a_saved_rumor_takes_the_new_step_of_its_count(self):
+        bandit = {"npc_id": "h:5", "name": "Dust Bandit", "faction": "Dust Bandits", "race": "Greenlander", "animal": False}
+        for minute in range(25):
+            campaign_db.add_deeds("kill", [(BEEP_ID, "Beep")], bandit, False, 1440 + minute)
+        (notable_id, _, _, _), = campaign_db.notables()
+        campaign_db.save_rumor(None, notable_id, "Beep kills bandits.")
+        for minute in range(75):
+            campaign_db.add_deeds("kill", [(BEEP_ID, "Beep")], bandit, False, 2 * 1440 + minute)
+        (rumor,) = campaign_db.rumors()
+        self.assertEqual((rumor["game_time"], rumor["step"]), (1464, 1))
+        campaign_db.save_rumor(rumor["id"], None, "Beep kills many bandits.")
+        (rumor,) = campaign_db.rumors()
+        self.assertEqual((rumor["game_time"], rumor["step"]), (2 * 1440 + 74, 2))
+
+    def test_a_rumor_stays_when_its_notable_event_goes(self):
+        bandit = {"npc_id": "h:5", "name": "Bonedog", "faction": "Wolves", "race": "Bonedog (white)", "animal": True}
+        for minute in range(25):
+            campaign_db.add_deeds("kill", [(BEEP_ID, "Beep")], bandit, False, 1440 + minute)
+        (notable_id, _, _, _), = campaign_db.notables()
+        campaign_db.save_rumor(None, notable_id, "Beep hunts white dogs.")
+        campaign_db.save_record("entity", ("races", "bonedog"), {"name": "Bonedog", "aliases": ["Bonedog (white)"]}, None)
+        campaign_db.add_deeds("kill", [(BEEP_ID, "Beep")], dict(bandit, race="Bonedog"), False, 1500)
+        self.assertEqual([(rumor["notable_id"], rumor["text"]) for rumor in campaign_db.rumors()], [(None, "Beep hunts white dogs.")])
 
     def test_delete_rumor(self):
-        campaign_db.add_rumor("- [Day 1, 00:00] [RUMOR: one]")
-        (rumor_id, _), = campaign_db.rumors()
-        self.assertTrue(campaign_db.delete_rumor(rumor_id))
-        self.assertFalse(campaign_db.delete_rumor(rumor_id))
+        campaign_db.save_rumor(None, self.figure(1440), "one")
+        (rumor,) = campaign_db.rumors()
+        self.assertTrue(campaign_db.delete_rumor(rumor["id"]))
+        self.assertFalse(campaign_db.delete_rumor(rumor["id"]))
         self.assertEqual(campaign_db.rumors(), [])
 
 
@@ -514,7 +539,7 @@ class WriteCountTest(CampaignTestCase):
         before = campaign_db.writes
         campaign_db.list_records("character")
         self.assertEqual(campaign_db.writes, before)
-        campaign_db.add_rumor("- [Day 1, 00:00] [RUMOR: The Hub burned.]")
+        campaign_db.note_faction("1-test.mod", "Hub Burners")
         self.assertEqual(campaign_db.writes, before + 1)
         with self.assertRaises(campaign_db.StaleRecord):
             campaign_db.save_record("character", (BEEP_ID,), {"Name": "Old"}, "2000-01-01T00:00:00.000+00:00")

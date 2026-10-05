@@ -18,7 +18,7 @@ const PROMPT_INFO = {
   "prompt_chat_turn.txt": { group: "Conversations", title: "Chat turn", blurb: "The last message of a chat request, which changes each turn: the player's line, then a short reminder of whom to reply as." },
   "prompt_thread_memory.txt": { group: "Conversations", title: "Conversation memory", blurb: "Sums up one conversation in a short memory, when you stop chatting for the Conversation timeout on the Settings page. Each NPC of the conversation then remembers the memory instead of the dialogue." },
   "prompt_profile_generation.txt": { group: "NPC profiles", title: "NPC bio", blurb: "Writes the bio of an NPC, or one part of it: after a few chats with it, or with Generate Bio in the Dialogue Library or in the editor. It builds on the current personality, backstory, and speech quirks, on the dialogue so far, and on your instructions." },
-  "prompt_world_synthesis.txt": { group: "World events", title: "World events", blurb: "Turns the recent events of the world into one new rumor that NPCs can mention." },
+  "prompt_world_synthesis.txt": { group: "Rumors", title: "Rumors", blurb: "Turns a notable deed of your squad into a rumor that NPCs can mention, when you press Generate Rumor." },
 };
 const GROUPS = [...new Set(Object.values(PROMPT_INFO).map((info) => info.group)), OTHER];
 const titleOf = (prompt) => PROMPT_INFO[prompt.name]?.title ?? prompt.name;

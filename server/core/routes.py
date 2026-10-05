@@ -1,6 +1,5 @@
 import json
 import logging
-import re
 
 from flask import Blueprint, jsonify, request
 
@@ -53,21 +52,13 @@ def list_events():
     logging.debug(f"HTTP: {request.method} /events")
 
     rumors = []
-    for rumor_id, line in campaign_db.rumors():
-        match = re.search(r'\[RUMOR:\s*(.*?)\]', line)
-        if not match:
-            continue
-
-        inner = match.group(1).strip()
-
+    for rumor in reversed(campaign_db.rumors()):
         # "N." numbering rather than "#N": MyGUI parses "#" as a color tag
-        words = inner.split()
+        words = rumor["text"].split()
         short = " ".join(words[:7]) + ("..." if len(words) > 7 else "")
         label = f"{len(rumors) + 1}. {short}"
-        rumors.append({"id": str(rumor_id), "title": label[:80], "content": line, "inner": inner})
-
-    formatted = "--- DYNAMIC WORLD RUMORS ---\n" + "\n".join(r["content"] for r in rumors) if rumors else "(No rumors yet. Use 'Synthesize Rumors' to generate some.)"
-    return jsonify({"status": "ok", "text": formatted, "events": rumors})
+        rumors.append({"id": str(rumor["id"]), "title": label[:80], "inner": rumor["text"]})
+    return jsonify({"status": "ok", "events": rumors})
 
 @bp.route('/events/content', methods=['POST'])
 def events_content():
@@ -76,23 +67,11 @@ def events_content():
     rumor_id = data.get("day", "")  # "day" holds the rumor id that /events returned
 
     try:
-        raw = campaign_db.rumor(int(rumor_id))
-        if raw:
-            match = re.search(r'\[RUMOR:\s*(.*?)\]', raw)
-            if match:
-                inner = match.group(1).strip()
-                import textwrap
-                wrapped = textwrap.wrap(inner, width=76)
-                card_lines = [
-                    "=" * 38,
-                    "  WORLD RUMOR",
-                    "=" * 38,
-                    "",
-                ] + wrapped + [
-                    "",
-                    "(Synthesized from recent world events)"
-                ]
-                return jsonify({"status": "ok", "text": "\n".join(card_lines)})
+        text = next((rumor["text"] for rumor in campaign_db.rumors() if str(rumor["id"]) == str(rumor_id)), None)
+        if text:
+            import textwrap
+            card_lines = ["=" * 38, "  WORLD RUMOR", "=" * 38, ""] + textwrap.wrap(text, width=76)
+            return jsonify({"status": "ok", "text": "\n".join(card_lines)})
     except Exception as e:
         logging.error(f"EVENT: Cannot build the events text: {e}")
     return jsonify({"status": "error", "text": "Entry not found."}), 404
