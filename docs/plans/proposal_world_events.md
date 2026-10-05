@@ -12,12 +12,11 @@ The events also lack the facts that a rumor needs:
 
 - A knockout and a death name no attacker (`plugin/main.cpp`), so no event tells who killed whom.
 - An event names each character only by its name. Six Bonedogs look the same, and no event tells a unique NPC from a generic one.
-- An event has the town of the player when its hook fires (`LogGameEvent` in `plugin/core/Utils.cpp`), not the town where it happened.
 
 This plan makes the rumors tell of what the player's squad achieved:
 
-1. The plugin sends only the deaths and the captures in which a member of the player's faction took part, with the facts of each character in them ([section 3](#3-events-from-the-game)).
-2. The server keeps them as deeds ([section 4](#4-deeds)). When the deeds reach a threshold, the server adds a notable event to the log, such as "Beep has killed 100 members of the Dust Bandits", "Beep has killed 100 Beak Things", or "Beep and Izumi of Nameless captured Tinfist" ([section 5](#5-notable-events)).
+1. The plugin holds no state. It sends what the game did: the attacks of the squad, the knockouts, the wake-ups, the deaths, and the captures ([section 3](#3-events-from-the-game)).
+2. The server decides who killed or captured whom, and keeps it as deeds ([section 4](#4-deeds)). When the deeds reach a threshold, the server adds a notable event to the log, such as "Beep has killed 100 members of the Dust Bandits", "Beep has killed 100 Beak Things", or "Beep and Izumi of Nameless captured Tinfist" ([section 5](#5-notable-events)).
 3. SSR writes no rumor by itself. On the web app, the player picks a notable event, writes an instruction such as "Beep is known as the Stickman of the Dust", and generates a rumor, as for a bio ([section 6](#6-rumors)). The player reads and edits the text, and a save makes it a world rumor. The rumor of a kill count grows with the count, from "hundreds of bandits" to "countless".
 4. The chat scene keeps the 5 newest rumors, as today ([section 7](#7-prompt)).
 
@@ -32,7 +31,7 @@ Non-goals:
 
 The deeds depend on facts of the game that no test has shown. A probe answers them before the build, and ships on its own ([development.md](../info/development.md#probes)).
 
-`DEATH_PROBE` (`LogDeathProbe` in `plugin/game/Context.cpp`) writes one line for each new knockout (`ko`), each time a knocked-out character gets up (`up`), each call of `declareDead_hook` (`dead`), and each call of `setPrisonMode_hook` (`prison_on` or `prison_off`). The line holds the name, the `npc_id`, the faction, the player flag, the race, the animal flag, and the town of the character, and whether it lies knocked out (`down`) and is carried (`carried`) when the hook runs. Its `hits` hold each character that ever attacked the character, with the name, the `npc_id`, the faction, the player flag, and the game minutes since its last attack (`age_min`), so a test can check the rule of [section 3](#attackers). `RecordProbeHit` keeps these attackers from `attackingYou_hook`.
+`DEATH_PROBE` (`LogDeathProbe` in `plugin/game/Context.cpp`) writes one line for each new knockout (`ko`), each time a knocked-out character gets up (`up`), each call of `declareDead_hook` (`dead`), and each call of `setPrisonMode_hook` (`prison_on` or `prison_off`). The line holds the name, the `npc_id`, the faction, the player flag, the race, the animal flag, and the town of the character, and whether it lies knocked out (`down`) and is carried (`carried`) when the hook runs. Its `hits` hold each character that ever attacked the character, with the name, the `npc_id`, the faction, the player flag, and the game minutes since its last attack (`age_min`), so a test can check the rule of [section 4](#attribution). `RecordProbeHit` keeps these attackers from `attackingYou_hook`.
 
 A knockout is new when the prone state of the character was not `PS_KO` before the call, because the game sets `PS_KO` again on a character that is already knocked out.
 
@@ -51,19 +50,15 @@ The played sessions answered these questions:
 | Does a character that goes into a cage call `setPrisonMode` with `on`? | Yes. The player character that the player put into a cage got `on`, with no knockout and no attack before it, and `on` false when it left. |
 | Do the knockout, death, and prison hooks run on the game thread? | No. All 33 lines of one session came from another thread. The game thread is the thread that started the plugin (`g_mainThreadId`), because the chat context reads the inventory only on that thread, and it holds the inventory. |
 | Do the `hits` hold the attackers of a death and of a capture? | Yes. A Bonedog that died in a fight listed its 9 attackers at 0 to 1 game minutes. Scavengers that Inhuman Hunters knocked out and put into cages listed the Inhuman Hunters. |
-| Do the `hits` hold the attacks of the squad? | Yes. `RecordProbeHit` runs in the same call of `attackingYou_hook` that logged the attacks of the squad on Gurglers. |
+| Do the `hits` hold the attacks of the squad? | Yes. The bandits that the player character fought listed it with `player=1`. |
+| Does the game set another prone state when a knocked-out character gets up? | Yes. An `up` line with `carried=0` came when a knocked-out bandit woke up. An `up` line with `carried=1` also came each time the player picked up a knocked-out bandit. |
+| Is a character that bleeds out still knocked out when `declareDead` runs? | Yes. All 8 deaths after a knockout had `down=1` and `carried=0`. |
+| Does the game show the knockout or the carry when the captor puts the character into a cage? | No. The bandit that the player carried into a cage had `down=0` and `carried=0` at `prison_on`. |
+| Does `isBeingCarried` show only a carry? | No. It was also true at each call of `setPrisonMode` with `on` false for knocked-out Bonedogs that nobody carried. |
 | Does a character that bleeds out die within 3 game hours of the last attack on it? | No. 5 Bonedogs died while they lay knocked out, more than 3 game hours after the last attack on them, so their `hits` were empty. |
 | Does a knocked-out character that a captor puts into a cage call `setPrisonMode` with `on`? | Yes. A capture by the Inhuman Hunters reached the cage 158 game minutes after the last attack. The calls with `on` false came also after the knockouts and deaths of characters that nobody carried, so they tell nothing. |
 | Does `getCurrentTownLocation` give only towns? | No. It also gives animal dens, such as `Bog Dog Den 9`. |
 | Do the races of one kind of animal have one name? | No. A mod can add variants: `Wolf_Headgear.mod` gives Bonedogs the races `Bonedog (white)`, `Bonedog (yellow)`, and `Bonedog (darkbrown)` besides `Bonedog`. The name of each of these Bonedogs stays `Bonedog`. |
-
-These questions are open:
-
-| Question | Why it matters |
-|---|---|
-| Does the game set another prone state when a knocked-out character gets up, and does `isBeingCarried` show a carry? | The clock of the attackers stops while the character lies knocked out or is carried, and starts again when it gets up ([section 3](#attackers)). |
-| How does a capture count only once, when `setPrisonMode` runs again with `on` at a load? | A capture of a known figure in the 3 game hours before a save would count again at each load of the save. |
-| How does the plugin drop the attacks of play that a load undid? | The attackers stay in the memory of the plugin at a load, while the game time goes back, so an attack of the undone play could count for a later death. |
 
 The test needs no strong squad:
 
@@ -76,22 +71,30 @@ The test needs no strong squad:
 
 ## 3. Events from the game
 
+The plugin holds no state for the deeds, because its hooks run off the game thread ([section 2](#2-probe)) and the server can keep the same state. A hook reads only the characters of its call and adds one event to the queue. The server decides who did what ([Attribution](#attribution)).
+
 ### Kinds
 
-| Kind | Hook | Sent when |
-|---|---|---|
-| `death` | `declareDead_hook` | A member of the player's faction is among its attackers |
-| `imprisonment` | `setPrisonMode_hook` with `on` | A member of the player's faction is among its captors |
+| Kind | Hook | Sent when | Holds |
+|---|---|---|---|
+| `attack` | `attackingYou_hook` | The attacker is in the player's faction, and no `attack` of the same attacker and target waits in the queue | The attacker, and the `id` of the target |
+| `knockout` | `setProneState_hook` with `PS_KO` | The character was not knocked out before the call | The `id` of the character |
+| `up` | `setProneState_hook` with another state | The character was knocked out before the call | The `id` of the character, and whether it is carried (`isBeingCarried`) |
+| `death` | `declareDead_hook` | Each call | The character |
+| `imprisonment` | `setPrisonMode_hook` with `on` | Each call | The character |
 
-- `attackingYou_hook` and `setProneState_hook` send no event. They keep the attackers of each character, and the clock of the attackers, for the death and the imprisonment that follow ([Attackers](#attackers)).
+- Each event holds the game time.
+- `attackingYou_hook` runs many times a second for each attacker, for example 2,182 times in 15 s for one attacker and one target. The check against the queue sends one `attack` for each attacker and target in each report, so the queue that the plugin already has is its only memory. The check of the faction comes first, so the attacks of everybody else cost one faction read.
+- The `knockout`, `up`, `death`, and `imprisonment` events of characters that no squad member attacked reach the server too, because the plugin keeps no record of who attacked whom. They are few: a played session had 14 new knockouts and 9 deaths.
 - The hooks of damage (`applyDamage_hook`), first aid (`applyFirstAid_hook`), trades (`buyItem_hook`), loot (`isItOkForMeToLoot_hook`), raids (`triggerCampaign_hook`), new owners of towns (`setFaction_hook`), and slavery (`setChainedMode_hook`) go, because they only log events, and none of these events can make a deed.
-- The filter is in the plugin, so the buffer of 100 events holds only the deeds of the squad.
 - The plugin does not filter by `isUnique`. The server decides who is a known figure ([section 5](#known-figures)), so a generic character with a canon template, such as Yamdu without UWE ([kenshi_internals.md](../info/kenshi_internals.md#character-identity)), counts too.
 - The server stops writing the chat lines as events (`chat` in `server/chat/routes.py`), because the dialogue already holds them. No prompt reads the event log, and banter takes its recent lines from the histories of its NPCs.
+- Rejected: a map of the attackers in the plugin, as the probe keeps. It added work and a lock to hooks that run off the game thread.
+- Rejected: a place for an event. `getCurrentTownLocation` also gives animal dens, such as `Bog Dog Den 9`, and the zone around the camera is not the place of the deed.
 
 ### Parties
 
-Each character in an event is a party with these fields:
+A party is a character in an event, with these fields:
 
 | Field | Source |
 |---|---|
@@ -103,37 +106,40 @@ Each character in an event is a party with these fields:
 | `race` | The name of the race, as a context sends it |
 | `animal` | `Character::isAnimal` gives a value |
 
-- An event holds the character as `target`, and up to 5 of its attackers or captors as `attackers`, the members of the player's faction first.
+- An `attack` holds the attacker as a party. A `death` and an `imprisonment` hold the character as a party.
 - The `id` links an event to a profile. A deed therefore stays with a character after a rename, and two Dust Bandits with one name stay two characters.
-- The town of an event is the town of the target (`getCurrentTownLocation`), or none outside a town. The zone is the zone around the camera (`ZoneName`), as for the Current Location ([architecture.md](../info/architecture.md#current-location)), because a deed of the squad happens near the player.
-
-### Attackers
-
-`attackingYou_hook` runs for each attack, with the attacker and the target. `getAllAttackers` gives no attacker when the knockout hook or the death hook runs ([section 2](#2-probe)).
-
-The plugin keeps the attackers of each character by the serial of its handle: the `npc_id` of each attacker once, with the game time of its last attack. A `death` and an `imprisonment` take as their attackers each character that attacked the target in the last 3 game hours. Kenshi gives no last hit, so each of them counts as a killer, or as a captor.
-
-The clock of the attackers stops while the target lies knocked out or is carried. When the target gets up and is not carried, the plugin sets the time of each of its attackers to that moment, so the 3 game hours count from then.
-
-- A character that bleeds out keeps the attackers of its knockout, also when it dies more than 3 game hours after the last attack. 5 Bonedogs in a played session died so late ([section 2](#2-probe)).
-- A capture in Kenshi is a knockout, a carry, and a cell, so an `imprisonment` takes the attackers of the knockout as its captors, however long the carry takes. The prison hook names no captor.
-- A character that walks into a cell by itself, or a prisoner at a load, has no recent attackers, so its `imprisonment` gives no deed.
-- The hook runs many times a second for each attacker, for example 2,182 times in 15 s for one attacker and one target. A call for a known attacker therefore only sets its time.
-- The map takes a lock, because the hooks run off the game thread ([section 2](#2-probe)).
-- The plugin drops each attacker older than 3 game hours of a character that is up and not carried, and each character with no attacker left.
 
 ### Transport
 
-The frame hook sends a report when 50 events wait ([architecture.md](../info/architecture.md#game-events)). After the filter, 50 events can take hours of play, and the events that wait are lost when the game closes. The frame hook therefore also sends a report when the oldest event waited 60 s. The plugin still builds no report while no event waits.
+The frame hook sends a report when 50 events wait ([architecture.md](../info/architecture.md#game-events)). The events that wait are lost when the game closes, so the frame hook also sends a report when the oldest event waited 60 s. The plugin still builds no report while no event waits. The server reads the events of a report in their order, so the attacks on a character come before its death.
 
-The server drops a repeat: an event with the kind and the target `id` of an event in the last game hour, because some hooks fire more than once for one change. The repeat check by name and message goes (`record_event_to_history` in `server/core/game.py`), because it also dropped the event of any other character with the same name.
+The repeat check by name and message goes (`record_event_to_history` in `server/core/game.py`), because it also dropped the event of any other character with the same name. A death runs once for each character ([section 2](#2-probe)), and a capture counts once ([Attribution](#attribution)).
 
 ## 4. Deeds
 
-The `deed` table replaces the `event` table. It holds one row for each doer of each deed: the kind, `kill` or `capture`, the `npc_id` and name of the doer, the `npc_id`, name, faction, and race of the victim, whether the victim is an animal or a known figure, the town, the zone, and the game time.
+### Attribution
 
-- A death gives a kill to each attacker in the player's faction. An imprisonment of a known figure gives a capture to each captor in the player's faction. An imprisonment of another character gives no deed.
-- The `player` flag of the event decides. A kill before a recruit therefore does not count, and a kill by a squad member who later leaves stays.
+The server keeps, for each character of the events by its `id`, the squad members that attacked it, each with the game time of its last `attack`, and a knockout mark. It keeps them in memory for the active campaign, so a campaign switch or a restart of the server clears them.
+
+1. An `attack` adds the attacker to the target, or sets its time.
+2. A `knockout` sets the mark. While the mark is set, the attackers of the character do not age.
+3. An `up` that is not carried clears the mark, and sets the time of each attacker to the time of the `up`, so the 3 game hours count from then. An `up` that is carried is the pickup by a captor, and changes nothing.
+4. A `death` or an `imprisonment` takes the attackers of the character: all of them while the mark is set, else each attacker whose last attack is in the last 3 game hours. Kenshi gives no last hit, so each of them counts as a killer or as a captor.
+
+- A character that bleeds out keeps the attackers of its knockout, also when it dies more than 3 game hours after the last attack. 5 Bonedogs in a played session died so late ([section 2](#2-probe)).
+- A capture in Kenshi is a knockout, a carry, and a cell, so an `imprisonment` takes the attackers of the knockout as its captors, however long the carry takes. The prison hook names no captor.
+- The mark is the server's own, because the game shows neither the knockout nor the carry when the captor puts the character into a cage. The pickup of a knocked-out character also sets another prone state, so only an `up` that is not carried clears it.
+- A character that walks into a cell by itself has no recent attackers, so its `imprisonment` gives no deed.
+- A load puts the game time back. An event with a game time before the newest event therefore clears all attackers and marks, because the attacks of the undone play did not happen.
+- A capture counts once for each captor and known figure, because `setPrisonMode` runs again with `on` for each prisoner when a save loads.
+- The server drops each attacker older than 3 game hours of a character without the mark, and the attackers of a character that died.
+
+### Rows
+
+The `deed` table replaces the `event` table. It holds one row for each doer of each deed: the kind, `kill` or `capture`, the `npc_id` and name of the doer, the `npc_id`, name, faction, and race of the victim, whether the victim is an animal or a known figure, and the game time.
+
+- A death gives a kill to each of its attackers. An imprisonment of a known figure gives a capture to each of its captors. An imprisonment of another character gives no deed.
+- Only the attacks of members of the player's faction reach the server. A kill before a recruit therefore does not count, and a kill by a squad member who later leaves stays.
 - A victim in the player's faction gives no deed.
 - No deed is trimmed, because a count must stay whole for the whole campaign. A deed is a short row.
 - The cull deletes the deeds after the game time.
@@ -148,7 +154,7 @@ A notable event is a deed, or a count of deeds, that is worth a rumor. The serve
 | `figure` | A member of the player's faction killed or captured a known figure | Beep and Izumi of Nameless captured Tinfist. |
 | `count` | The kills of a squad member against one faction, or one animal race, reach a step of the scale | Beep has killed 100 members of the Dust Bandits. |
 
-- A row holds the kind, the game time, the place, and the deed as JSON: the doers, and the known figure, or the faction and the count.
+- A row holds the kind, the game time, and the deed as JSON: the doers, and the known figure, or the faction and the count.
 - The Events list shows each line with the current names, as for a memory (`chat_prompt.named`), so a renamed squad member shows with its new name.
 - The cull deletes the notable events after the game time, and puts a `count` back to the step of the deeds that remain.
 - Rejected: a notable event for a knockout of a known figure. A knockout is a step of a capture or of a kill, and it would add a line for each fight.
@@ -176,6 +182,7 @@ Each squad member has one `count` row for each faction that it killed members of
 - The count holds only the victims that are not known figures. A known figure makes its own notable event.
 - One death with two squad attackers counts for both.
 - An animal counts by its race, such as Beak Thing, because the faction of an animal, such as Wolves for a Bonedog, does not tell what it is. A title such as Beak Slayer then has a race to fit.
+- A mod can split one animal into several races, such as `Bonedog (white)` and `Bonedog (yellow)` of `Wolf_Headgear.mod`, so the count of that animal splits by race. This plan does not join them.
 - The line names a faction as its members, such as "members of the Dust Bandits" or "members of The Holy Nation", because many faction names are not plural. It names an animal race in the plural, with an s unless the name ends in s, such as "Beak Things".
 - The rumor of a count grows with it ([section 6](#growth)), so the count is one row and not one row for each step.
 - The scale starts at 25, because a few kills are part of any trip through the wasteland. The bounds are starting values.
@@ -227,7 +234,7 @@ The server writes the facts of a notable event as plain sentences, and the LLM g
 ```
 The player's faction: Nameless, a group of drifters.
 The deed: Beep of Nameless has killed hundreds of members of the Dust Bandits.
-Place and time: The Hub, in the Border Zone, Day 63, 18:20.
+Time: Day 63, 18:20.
 Who they are:
 - Beep (male Hive Worker Drone): Wanderer.
 ```
@@ -235,7 +242,7 @@ Who they are:
 ```
 The player's faction: Nameless, a group of drifters.
 The deed: Beep and Izumi of Nameless captured Tinfist of the Anti-Slavers.
-Place and time: Okran's Pride, Day 40, 03:10.
+Time: Day 40, 03:10.
 Who they are:
 - Tinfist (Skeleton, no sex): Leader of the Anti-Slavers.
 - Beep (male Hive Worker Drone): Wanderer.
@@ -280,7 +287,7 @@ Rejected:
 
 ## 8. Web app and game windows
 
-- **Campaign Log > Events** lists the notable events, newest first, each with its line, its game time, its place, its Generate Rumor button, and a mark when it has a rumor or has grown. The Rumors list below keeps its editable texts. `GET /api/campaign` returns the notable events instead of the events.
+- **Campaign Log > Events** lists the notable events, newest first, each with its line, its game time, its Generate Rumor button, and a mark when it has a rumor or has grown. The Rumors list below keeps its editable texts. `GET /api/campaign` returns the notable events instead of the events.
 - On Campaign Canon, Other Details of a character show its kills for each faction and the known figures that it killed or captured, read-only, as for the Current Job.
 - The Dynamic World Events Log in game lists the notable events and offers Generate Rumor and Edit Rumor ([section 6](#in-game)). Its **Generate World Event** button goes with `/synthesize`, and `/events` and `/events/content` return the notable events and their rumors.
 - The cull of the SSR HUB reports the deeds, the notable events, and the rumors that it deleted, instead of the events (`plugin/ui/LauncherWindow.cpp`).
@@ -289,8 +296,8 @@ Rejected:
 
 1. [kenshi_internals.md](../info/kenshi_internals.md) records the answers of the probe of [section 2](#2-probe).
 2. `server/tests/test_world_events.py` covers:
-   - the deeds: one kill for each attacker in the player's faction, the `player` flag at the time of the event, the capture of a known figure, no deed for the capture of another character, and no deed for a victim in the player's faction;
-   - a repeat of an event within 1 game hour, and after it;
+   - the attribution: an attacker within 3 game hours and after them, the attackers of a knocked-out character after 3 game hours, an `up` that clears the mark and restarts the clock, a carried `up` that keeps the mark, a character that walks into a cell, a load that puts the game time back, and a second capture of the same known figure at a load;
+   - the deeds: one kill for each attacker, the capture of a known figure, no deed for the capture of another character, and no deed for a victim in the player's faction;
    - the known figures: a canon character by `npc_id`, a generic character with a canon template, and a character with the `origin` `game`;
    - the notable events: the kill and the capture of a known figure, the first step of a count, each further step, a kill that reaches no new step, two factions, an animal race, two squad members, and a known figure that does not count;
    - the line of a count: a faction with and without a leading "The", and an animal race with and without a final s;
@@ -299,7 +306,7 @@ Rejected:
    - the generate route: the facts, the instruction, and the rumor so far reach the prompt, and nothing is stored;
    - the 5 newest rumors in the scene by game time, with a grown rumor.
 3. In game and on the web app:
-   - Watch guards fight Bonedogs, and knock out generic NPCs. No event reaches the server.
+   - Watch guards fight Bonedogs, and knock out generic NPCs. No deed is stored.
    - Let Beep kill 25 Dust Bandits. After a chat, the Events list shows "Beep has killed 25 members of the Dust Bandits".
    - Let Beep kill 25 Bonedogs. The Events list shows a count of the Bonedog race, not of its faction.
    - Type "Beep is known as the Stickman of the Dust", and press Generate Rumor. The rumor holds the title, and the next conversation has it in the scene.
