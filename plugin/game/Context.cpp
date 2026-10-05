@@ -424,28 +424,29 @@ struct ProbeHit {
   double hour;
 };
 
-// Game thread only: the map has no lock
+// The hooks run off the thread that started the plugin, so the map takes
+// g_eventMutex
 static std::map<unsigned int, std::vector<ProbeHit> > probeHits;
 
 void RecordProbeHit(Character *target, Character *attacker) {
   GameWorld *world = ppWorld ? *ppWorld : NULL;
-  if (!LogEnabled(LOG_DEBUG) || !world ||
-      GetCurrentThreadId() != g_mainThreadId)
+  if (!LogEnabled(LOG_DEBUG) || !world)
     return;
-  double hour = world->getTimeStamp_inGameHours().getTotalHours();
-  std::string id = GetNpcId(attacker);
-  std::vector<ProbeHit> &hits = probeHits[target->getHandle().serial];
-  for (size_t i = 0; i < hits.size(); ++i) {
-    if (hits[i].npcId == id) {
-      hits[i].hour = hour;
-      return;
-    }
-  }
   ProbeHit hit;
-  hit.npcId = id;
+  hit.npcId = GetNpcId(attacker);
   hit.attacker = attacker->getHandle();
-  hit.hour = hour;
-  hits.push_back(hit);
+  hit.hour = world->getTimeStamp_inGameHours().getTotalHours();
+  unsigned int serial = target->getHandle().serial;
+  EnterCriticalSection(&g_eventMutex);
+  std::vector<ProbeHit> &hits = probeHits[serial];
+  size_t i = 0;
+  while (i < hits.size() && hits[i].npcId != hit.npcId)
+    ++i;
+  if (i < hits.size())
+    hits[i].hour = hit.hour;
+  else
+    hits.push_back(hit);
+  LeaveCriticalSection(&g_eventMutex);
 }
 
 // Probe: knockouts, deaths, and prison changes with their attackers, for the
@@ -467,32 +468,31 @@ void LogDeathProbe(const std::string &kind, Character *npc) {
   } catch (...) {
     line += " [identity failed]";
   }
+  std::vector<ProbeHit> recent;
+  unsigned int serial = npc->getHandle().serial;
+  EnterCriticalSection(&g_eventMutex);
+  std::map<unsigned int, std::vector<ProbeHit> >::iterator found =
+      probeHits.find(serial);
+  if (found != probeHits.end())
+    recent = found->second;
+  LeaveCriticalSection(&g_eventMutex);
   std::string hits;
   GameWorld *world = ppWorld ? *ppWorld : NULL;
-  if (GetCurrentThreadId() != g_mainThreadId) {
-    hits = "off main thread";
-  } else if (world) {
-    try {
-      double now = world->getTimeStamp_inGameHours().getTotalHours();
-      std::map<unsigned int, std::vector<ProbeHit> >::iterator found =
-          probeHits.find(npc->getHandle().serial);
-      if (found != probeHits.end()) {
-        for (size_t i = 0; i < found->second.size(); ++i) {
-          const ProbeHit &hit = found->second[i];
-          double age = now - hit.hour;
-          if (age > 3)
-            continue;
-          Character *attacker = hit.attacker.getCharacter();
-          std::string party = attacker && (uintptr_t)attacker > 0x1000
-                                  ? ProbeParty(attacker)
-                                  : "npc_id=" + hit.npcId;
-          hits += (hits.empty() ? "" : "|") + party +
-                  " age_min=" + ToString((int)(age * 60));
-        }
-      }
-    } catch (...) {
-      hits += "[hits failed]";
+  try {
+    double now = world ? world->getTimeStamp_inGameHours().getTotalHours() : 0;
+    for (size_t i = 0; i < recent.size(); ++i) {
+      double age = now - recent[i].hour;
+      if (age > 3)
+        continue;
+      Character *attacker = recent[i].attacker.getCharacter();
+      std::string party = attacker && (uintptr_t)attacker > 0x1000
+                              ? ProbeParty(attacker)
+                              : "npc_id=" + recent[i].npcId;
+      hits += (hits.empty() ? "" : "|") + party +
+              " age_min=" + ToString((int)(age * 60));
     }
+  } catch (...) {
+    hits += "[hits failed]";
   }
   Log(LOG_DEBUG, "DEATH_PROBE: " + line + " hits=[" + hits + "]");
 }
