@@ -138,7 +138,6 @@ def chat():
     logging.debug("HTTP: POST /chat")
     if not data: return jsonify({"text": "Error: No JSON data provided"}), 400
 
-    # The squad member who talks
     speaker = context_dict(data.get('speaker'))
     take_report(speaker, data.get('events'))
     
