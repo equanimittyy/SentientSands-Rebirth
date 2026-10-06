@@ -24,6 +24,10 @@ class TopicTest(unittest.TestCase):
         self.assertEqual(radiant.topic([MEMORY], place, ["Beep freed the slaves."], last), "A rumour that they heard: Beep freed the slaves.")
         self.assertEqual(radiant.topic([], {"biome": "Border Zone"}, [], first), "The place where they are.")
 
+    def test_the_place_holds_the_lore_of_the_town(self):
+        location = {"name": "Squin", "aliases": [], "fields": {"type": "town"}, "description": "Squin is a town."}
+        self.assertEqual(radiant.topic([], {"town_name": "Squin"}, [], first, location=location), "The place where they are. Its lore follows. They may know only a part of it, and they never recite it.\nSquin (location; type: town): Squin is a town.")
+
     def test_no_material_gives_no_topic(self):
         self.assertIsNone(radiant.topic([], {}, [], first))
 

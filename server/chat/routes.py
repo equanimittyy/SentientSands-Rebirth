@@ -12,7 +12,7 @@ from chat.bio import BIO_PARTS, generate_bio, recorded_history, write_bio
 from chat.characters import get_character_data, npc_name, should_save_profile
 from chat.llm import call_llm
 from chat.memory import quiet_seconds
-from chat.prompts import PROMPT_RUMORS, build_system_prompt, describe_faction, describe_npc, describe_race, fill_prompt, load_prompt_component, npc_scene, scene_values
+from chat.prompts import PROMPT_RUMORS, build_system_prompt, describe_faction, describe_npc, describe_race, fill_prompt, find_location, load_prompt_component, npc_scene, scene_values
 from core import deeds, state
 from core.game import context_dict, get_current_time_prefix, is_player_faction, note_faction, take_report
 from core.pipe import send_to_pipe
@@ -49,7 +49,9 @@ def radiant_conversation():
         profiles[serial] = get_character_data(names[serial], context=json.dumps(npc))
 
     rumor_texts = [rumor["text"] for rumor in campaign_db.rumors()[-PROMPT_RUMORS:]]
-    topic = radiant.topic(campaign_db.shared_memories(npc_ids), center.get("environment") or {}, rumor_texts)
+    environment = center.get("environment") or {}
+    location = find_location(environment["town_name"]) if environment.get("town_name") else None
+    topic = radiant.topic(campaign_db.shared_memories(npc_ids), environment, rumor_texts, location=location)
     if not topic:
         logging.info("RADIANT: No topic, so nobody talks.")
         return jsonify({"status": "ignore"})
@@ -63,7 +65,7 @@ def radiant_conversation():
             f"{describe_npc(f'{names[serial]}|{serial}', profiles[serial], npc['npc_id'])}\nHEALTH: {npc.get('health') or 'Unknown'}\nGEAR: {npc.get('equipment') or 'nothing notable'}"
             for serial, npc in participants.items()
         ]
-        prompt = fill_prompt("prompt_radiant.txt", place=scene_text.location_text(center.get("environment") or {}, "They"), participants="\n\n".join(descriptions), topic=topic)
+        prompt = fill_prompt("prompt_radiant.txt", place=scene_text.location_text(environment, "They"), participants="\n\n".join(descriptions), topic=topic)
         logging.info(f"RADIANT: {', '.join(names.values())} talk. Topic: {topic}")
         for serial in participants:
             send_to_pipe(f"NPC_SAY: {names[serial]}|{serial}: ...")

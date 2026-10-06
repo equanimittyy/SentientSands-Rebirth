@@ -36,6 +36,9 @@ def find_named(records, name):
 def find_race(race):
     return find_named((entry for (category, _), entry, *_ in campaign_db.list_records("entity") if category == "races"), race)
 
+def find_location(town):
+    return find_named((entry for (category, _), entry, *_ in campaign_db.list_records("entity") if category == "locations"), town)
+
 def describe_race(race):
     entry = find_race(race)
     return describe_record(entry) if entry else f"{race}: The campaign has no entry for this race."

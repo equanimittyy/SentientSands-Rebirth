@@ -500,12 +500,14 @@ The server picks one kind of topic, at random with equal chances, from the kinds
 | Kind | Material | Has material when |
 |---|---|---|
 | Shared memory | One memory, at random, of a thread in which at least 2 participants are members, under a header that names its members (`campaign_db.shared_memories`) | Such a memory exists |
-| Surroundings | The place of the center, which the prompt always holds | The context of the center names a town or a biome |
+| Surroundings | The place of the center, which the prompt always holds, and the lore entry of its town: the location whose name or alias is the `town_name` of the center (`radiant.place_topic`) | The context of the center names a town or a biome |
 | Rumor | One rumor, at random, of the 5 newest | The campaign has a rumor |
 
 - The server picks the topic, not the LLM, so each conversation is about one specific thing. The prompt holds no list of earlier lines not to repeat.
+- Only the place topic holds the entry of the town. Without the entry, the place is only a name, so the participants can say only the same few things about it. With another topic, the entry would pull the talk to the place, because a model tends to talk about the text that it gets.
 - The system message is `prompt_system.txt` (`build_system_prompt`), the same start as a chat, so the cache serves it. The user message is `prompt_radiant.txt`: the place in the third person, each participant from `npc_chat_template.txt` with its `Name|serial`, health, and gear, the topic, and the rules. The prompt sets no tone, so the profiles of the participants decide it.
-- Each participant speaks at least once and at most 3 times. The reply holds `Name|serial: line` lines, and the server takes the bracketed text out of each line (`radiant.lines`).
+- Each participant speaks at least once and at most 3 times, and at least one participant speaks twice. Each line after the first answers an earlier line, each participant takes the topic in its own way, and no two participants share a turn of phrase. One LLM call writes every voice, so without these rules it wrote one remark on the topic for each participant, all with the same view and in the same voice.
+- The reply holds `Name|serial: line` lines, and the server takes the bracketed text out of each line (`radiant.lines`).
 - When a line that is not blank is not the line of a participant, nobody talks, because the conversation without that line can make no sense. A failed call also leaves the participants silent. Their `...` goes when its speech bubble life ends.
 - Each conversation is a new thread, with each participant as a speaker in the player's faction and no overhearers. Each participant stores every line. The memory loop writes its memory, as for a chat thread (see [Conversation memories](#conversation-memories)).
 - A radiant conversation does not change `CURRENT_THREAD` or the quiet clock, so it never joins a chat thread and never delays a memory. The memory loop therefore runs again after each radiant conversation (`state.LAST_RADIANT`), so the thread of a radiant conversation in a quiet period gets its memory without a chat.
@@ -583,7 +585,7 @@ The canon of a campaign is its copy of the template records: the overview, the h
 | Character | `character` table (see [Characters](#characters)); the profile as JSON | `u:` and the game ID |
 | Race, location, region | `entity` table, with `races`, `locations`, or `regions` as the category; the whole template record as JSON | The category and the entity ID |
 
-- The chat prompt reads the overview, the factions, the race of the player, and the profiles of the characters in the chat. The profile prompts read the races (see [Prompts](#prompts)). No prompt reads the history, the locations, or the regions yet.
+- The chat prompt reads the overview, the factions, the race of the player, and the profiles of the characters in the chat. The profile prompts read the races (see [Prompts](#prompts)). The lore search of a chat reads the history, the locations, and the regions too (see [Lore retrieval](#lore-retrieval)), and a radiant conversation about the place reads the location of its town (see [Radiant conversations](#radiant-conversations)).
 - `origin` tells where a record came from: `seed` (the copy of the template at creation), `game` (a faction that a context reported, or a character that the server added in play), or `campaign` (added on the web app).
 - A save checks the record with the template validator (`world_template.record_problems`), so a campaign record follows the same rules as a template record. The validator sees only one record, so the database refuses a second faction or character with the same game ID.
 - The key of a faction or a character, its game ID or its `npc_id`, cannot change after the record is added.
