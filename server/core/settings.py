@@ -54,7 +54,7 @@ def _save_settings_raw(settings):
 
 SETTINGS_DEFAULTS = {
     "current_campaign": "Default",
-    "enable_radiant": False,
+    "enable_radiant": True,
     "radiant_delay": 600,
     "talk_radius": 50,
     "yell_radius": 100,

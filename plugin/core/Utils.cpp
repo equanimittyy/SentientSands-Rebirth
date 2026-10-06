@@ -307,7 +307,7 @@ void LoadPluginConfig() {
       GetPrivateProfileIntA("Settings", "RadiantDelay", 600, iniPath.c_str());
 
   g_enableRadiant =
-      GetPrivateProfileIntA("Settings", "EnableRadiantConversations", 0,
+      GetPrivateProfileIntA("Settings", "EnableRadiantConversations", 1,
                             iniPath.c_str()) != 0;
 
   g_enableWelcome = GetPrivateProfileIntA("Settings", "EnableWelcomePopup", 1,
