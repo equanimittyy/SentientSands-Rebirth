@@ -1009,7 +1009,7 @@ function rumorCell(event) {
 }
 
 function newDeedForm() {
-  const text = el("input", { value: newDeed.rumor, placeholder: "Add a custom deed", required: true, oninput: (event) => { newDeed.rumor = event.target.value; } });
+  const text = el("input", { value: newDeed.rumor, placeholder: "Add a custom rumour", required: true, oninput: (event) => { newDeed.rumor = event.target.value; } });
   text.setAttribute("aria-label", "The rumor of the new custom deed");
   return el("form", { className: "inline row", onsubmit: addDeed }, text, el("button", { type: "submit" }, "Add"));
 }
