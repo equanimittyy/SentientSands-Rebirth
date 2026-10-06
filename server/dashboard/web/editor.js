@@ -898,7 +898,7 @@ function renderTestSearch() {
   const line = el("input", { type: "search", value: testSearch.message, placeholder: "A line that you say in a chat", required: true, oninput: (event) => { testSearch.message = event.target.value; } });
   line.setAttribute("aria-label", "Line to search");
   const characters = records.filter((record) => record.kind === "character" && !record.isNew);
-  const details = el("details", { className: "card", open: testSearch.open, ontoggle: () => { testSearch.open = details.open; } },
+  const details = el("details", { className: "card debug-only", open: testSearch.open, ontoggle: () => { testSearch.open = details.open; } },
     el("summary", {}, el("strong", {}, "Test search"),
       el("span", { className: "blurb" }, "Shows which lore entries and memories an NPC gets with a line that you say, in the order of the chat prompt. The search reads the saved entries.")),
     el("form", { className: "add", onsubmit: runTestSearch },

@@ -135,6 +135,7 @@ async function poll() {
     status.textContent = `Current Campaign: ${context.campaign || "None"}`;
     if (campaign !== null && context.campaign !== campaign) document.dispatchEvent(new CustomEvent("campaignchange", { detail: context.campaign }));
     campaign = context.campaign;
+    document.documentElement.toggleAttribute("data-debug", context.debug);
     if (writes !== null && context.writes !== writes) for (const id of loaded) stale.add(id);
     writes = context.writes;
     await refreshStale();

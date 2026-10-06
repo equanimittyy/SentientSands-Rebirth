@@ -472,6 +472,7 @@ These memories and this lore may have nothing to do with what Izumi means, and y
 
 The Test search box under the bar of Campaign Canon and Templates shows what a line finds, so a template author sees why a line finds nothing, and the starting values of the search get tuned on real lines (`renderTestSearch` in `server/dashboard/web/editor.js`).
 
+- The box shows only while the Log level is `DEBUG`, because it is a tool to tune the search, not a part of play. `GET /context` returns `debug`, and the poll marks the page with `data-debug`, so a change of the level shows or hides the box at the next poll, with no refresh.
 - The box lists the memories and the entries in their prompt order, with the slots of the Settings page and how each was found: by a name, or by the words that found it. It also lists each word that did not search the lore, with the reason: a common English word, not a word of the lore, or a word in too many entries.
 - On Campaign Canon, the player can pick a character to talk to and a squad member to speak as. With a character, the box gives what a chat with it finds: it skips what the system message of that chat holds, and it orders the hits by the place of the character, which it takes from the `CurrentLocation` of the profile (`background.place_of`). Without a character, the box gives a lore search alone.
 - Templates gives a lore search alone, because a template has no memories and no player.

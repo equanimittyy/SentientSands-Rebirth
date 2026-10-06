@@ -60,6 +60,10 @@ body {
   accent-color: var(--accent-strong);
 }
 
+:root:not([data-debug]) .debug-only {
+  display: none;
+}
+
 header,
 main {
   max-width: 64rem;

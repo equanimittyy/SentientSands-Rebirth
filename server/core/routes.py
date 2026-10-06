@@ -99,6 +99,7 @@ def get_context():
         "player": state.PLAYER_CONTEXT,
         "npc": last_npc or {},
         "campaign": state.ACTIVE_CAMPAIGN,
+        "debug": logging.getLogger().isEnabledFor(logging.DEBUG),
         # Both counts only grow, so the sum changes when either does
         "writes": campaign_db.writes + state.WRITE_REQUESTS,
     })
