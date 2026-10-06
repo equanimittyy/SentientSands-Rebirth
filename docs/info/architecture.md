@@ -14,7 +14,7 @@ Sentient Sands Rebirth has three parts: a C++ plugin that runs inside Kenshi, a 
 | `plugin/ui/` | The in-game MyGUI windows. `LauncherWindow` is the hub that opens the others. `ChatUIGlobals` holds the shared widget pointers. |
 | `server/main.py` | The entry point: it registers the blueprints and runs the start-up (`start`). |
 | `server/core/` | The paths (`paths.py`), the session state that the other modules share (`state.py`), the Flask app and its request hooks (`app.py`), the routes that the game calls, such as `/report` and `/history`, and the settings routes (`routes.py`), the pipe to the plugin (`pipe.py`), the INI settings (`settings.py`), the start-up checks for an old server and for the game process (`process.py`), the helpers for the game context (`game.py`), the deeds of the game events (`deeds.py`), the request checks (`request_guard.py`), and the log files and the log level (`log_setup.py`). |
-| `server/chat/` | The chat, radiant conversation, and Dialogue Library bio routes (`routes.py`), the topic and the reply of a radiant conversation (`radiant.py`), the LLM calls (`llm.py`), the prompt files and the descriptions that fill them (`prompts.py`), the profiles of the characters that the game reports (`characters.py`), the bios (`bio.py`), the conversation memories (`memory.py`), the chat prompt (`chat_prompt.py`) and its scene text (`scene_text.py`), the names (`npc_names.py`), the Current Job (`current_job.py`), the provisional profiles (`provisional_profile.py`), the prompt overrides and placeholders (`prompt_store.py`), and the LLM configuration (`llm_config.py`) and fallback chain (`llm_router.py`). |
+| `server/chat/` | The chat, radiant conversation, and Dialogue Library bio routes (`routes.py`), the topic and the reply of a radiant conversation (`radiant.py`), the LLM calls (`llm.py`), the prompt files and the descriptions that fill them (`prompts.py`), the profiles of the characters that the game reports (`characters.py`), the bios (`bio.py`), the conversation memories (`memory.py`), the chat prompt (`chat_prompt.py`) and its scene text (`scene_text.py`), the lore and memory search of a chat line (`retrieval.py`) and its campaign reads (`background.py`), the names (`npc_names.py`), the Current Job (`current_job.py`), the provisional profiles (`provisional_profile.py`), the prompt overrides and placeholders (`prompt_store.py`), and the LLM configuration (`llm_config.py`) and fallback chain (`llm_router.py`). |
 | `server/store/` | The campaign database (`campaign_db.py`), the world templates (`world_template.py`), and the creation and the switch of a campaign (`campaigns.py`). |
 | `server/dashboard/` | The routes that only the web app calls (`routes.py`) and the browser auto-open (`browser_launch.py`). |
 | `server/dashboard/web/` | The web app: plain HTML, CSS, JavaScript, fonts, and images, which the server serves at `http://127.0.0.1:5000/`. |
@@ -218,7 +218,7 @@ The toggle at the top right switches between the light and the dark colours. The
 | Models | `/api/llm`, `/api/llm/test`, `/api/llm/models`, `/api/llm/reset` | `server/config/llm_config.json` |
 | Prompts | `/api/prompts` | `server/config/prompts/` |
 | Campaigns | `/api/campaigns`, `/api/campaign/cull` (see [Campaign routes of the web app](#campaign-routes-of-the-web-app)) | `campaign.db` of each campaign |
-| Editor | `/api/campaign/canon`, `/api/campaign/records` (see [Campaign canon](#campaign-canon)); `/api/campaign` and its rumor routes (see [Campaign routes of the web app](#campaign-routes-of-the-web-app)); `/api/templates` (see [World templates](#world-templates)) | `campaign.db` of the active campaign; `server/data/user_templates/` |
+| Editor | `/api/campaign/canon`, `/api/campaign/records` (see [Campaign canon](#campaign-canon)); `/api/campaign/search`, `/api/templates/<name>/search` (see [Test search](#test-search)); `/api/campaign` and its rumor routes (see [Campaign routes of the web app](#campaign-routes-of-the-web-app)); `/api/templates` (see [World templates](#world-templates)) | `campaign.db` of the active campaign; `server/data/user_templates/` |
 
 A GET route must not change state. A page on another site can send a GET with no `Origin` header, for example through an image tag, so the Origin check from step 4 of the runtime flow does not stop it. The presence stream below is the only exception, because EventSource sends only GET requests. A page on another site that holds the stream open can only stop a new tab from opening.
 
@@ -253,7 +253,7 @@ A refresh changes the message of the save bar only when the unsaved state of the
 
 The Editor holds many records. Save sends one request for each changed record, and a record that the server rejects keeps its draft and shows the reason. A delete takes effect at once, after a confirmation.
 
-The Editor has three subtabs. Campaign Canon and Templates share the record list and forms: Campaign Canon edits the canon of the active campaign, and Templates edits the world templates that new campaigns copy. Campaign Log shows the active campaign in two subtabs of its own: Dialogue & Memories, and Deeds. Deeds lists the notable events (see [Deeds](#deeds)), adds the custom deeds, and edits the rumors (see [Rumors](#rumors)). The page holds the data of one subtab and one template at a time, so a switch with unsaved changes asks the player first. A shipped template is read-only, so the page offers a duplicate.
+The Editor has three subtabs. Campaign Canon and Templates share the record list and forms: Campaign Canon edits the canon of the active campaign, and Templates edits the world templates that new campaigns copy. Campaign Log shows the active campaign in two subtabs of its own: Dialogue & Memories, and Deeds. Deeds lists the notable events (see [Deeds](#deeds)), adds the custom deeds, and edits the rumors (see [Rumors](#rumors)). The page holds the data of one subtab and one template at a time, so a switch with unsaved changes asks the player first. A shipped template is read-only, so the page offers a duplicate. Campaign Canon and Templates have a Test search box under their bar (see [Test search](#test-search)).
 
 Dialogue & Memories lists the threads of the active campaign, newest first (see [Chat threads](#chat-threads)). Each one shows its first two speakers and the place where it started, such as `Stick and Jorge | Bar, The Hub` or `Stick, Izumi, and 1 more | The Hub` (`threadTitle`), and the game time of its first exchange. It uses the layout of Campaign Canon: a search field and the list on the left, and the selected thread on the right, with its lines, its memory under Memorised Summary (see [Conversation memories](#conversation-memories)), and its speakers and overhearers under Involved Characters. A thread with a memory shows only its memory, because the memory replaces its lines. The search matches the names of the members, the text of the lines, and the memory, with case ignored. `GET /api/campaign` returns every thread with its lines and its memory, as Campaign Canon loads every record, so the search runs in the page. The lines are the copy of a speaker, because its lines have no `(Overheard)` tag (`campaign_db.threads`). The memory under Memorised Summary is editable: Save writes each changed memory, and Delete removes the conversation after a confirmation (see [Conversation memories](#conversation-memories)). The lines are read-only. A radiant conversation shows as a thread too.
 
@@ -318,9 +318,9 @@ A chat request is ordered for a provider's prompt cache, which reuses only an id
 
 | Part | Content | Changes |
 |---|---|---|
-| System message | `prompt_chat_template.txt`: `prompt_system.txt` (`prompt_animal_system.txt` for an animal), the judgment rule, `npc_chat_template.txt`, then `prompt_chat_scene.txt`: the place, with the town walls and the weather of the squad member who talks, the 5 newest rumors, the player, and the NPC; then the memories of the NPC (see [Conversation memories](#conversation-memories)) | When a new conversation starts, and when a memory of the NPC is written |
+| System message | `prompt_chat_template.txt`: `prompt_system.txt` (`prompt_animal_system.txt` for an animal), the judgment rule, `npc_chat_template.txt`, then `prompt_chat_scene.txt`: the place, with the town walls and the weather of the squad member who talks, the 5 newest rumors, the player, and the NPC; then the newest memories of the threads in which the NPC spoke (see [Conversation memories](#conversation-memories)) | When a new conversation starts, and when a memory of a thread in which the NPC spoke is written |
 | History | The lines of the chat threads of the NPC that have no memory yet, as user and assistant turns, with an overheard note after each chat thread (see [Chat threads](#chat-threads)) | One exchange more each turn |
-| Last user message | `prompt_chat_turn.txt`: the player's line, then a one-line reminder of whom to reply as and to end with the judgment | Every turn |
+| Last user message | `prompt_chat_turn.txt`: the memories and the lore entries that the player's line finds (see [Lore retrieval](#lore-retrieval)), the player's line, then a one-line reminder of whom to reply as and to end with the judgment | Every turn |
 
 From one turn to the next, only the newest exchange and the last message are new, so the cache can serve the rest. Chats with different NPCs, by any speaker, and radiant conversations share the start of the system message.
 
@@ -352,6 +352,129 @@ A chat reply carries no game actions: the prompts offer the LLM no action tags, 
 The bio prompt, `prompt_profile_generation.txt`, takes `{race_lore}` from the race entries of the campaign (`describe_race`), or of the template for a character on the Templates page, matched by name or alias with case ignored. A template that describes its races therefore shapes the bios, and a race with no entry gets a line that says so. The player section of the scene gives the description of the player's race entry in the same way, and only the name of a race with no entry.
 
 When the origin faction of an NPC is its current faction, the chat prompt gives the origin as "Same as the current faction." (`describe_origin`), because the prompt already holds the whole entry of that faction.
+
+## Lore retrieval
+
+The last user message of a chat holds the lore entries and the memories of the NPC that the player's line is about (`server/chat/retrieval.py`). The search works only from the words of the line, in two steps: name matching finds the entries that the line names, such as "Admag" or "the Shek Kingdom", and content search finds the entries whose text holds the lore words of the line, such as "mercenary" or "Phoenix". `retrieval.py` takes the line and the records as plain values and uses the standard library only, so its tests run without a campaign. `server/chat/background.py` reads the records from the campaign for a chat and for the test search, so the test search finds what a chat finds.
+
+A search finds words, not meaning, so some hits are wrong. The slots, the score cut, the cooldown, and the note of the block keep the cost of a wrong hit small.
+
+- No vector search or embeddings.
+- No filter by what the NPC knows. That needs a knowledge bank for each character, so each NPC gets the same entries for the same line, and any NPC can speak of a secret of the history, such as Kenshi is a Moon. A memory needs no such filter, because an NPC finds only the memories of the threads in which it was a member.
+- No character records. A profile has no public text, because its Backstory mixes what the wasteland knows with a private past. The fields of a faction find a character: "Where can I find Tinfist?" finds the Anti-Slavers by their `leader` field.
+- No entries that a hit links to, such as the region of a town, because the default of 3 slots leaves no room for them.
+
+### Lore records
+
+| Record | Name | Fields | Text | Source |
+|---|---|---|---|---|
+| Race, location, region | `name`, `aliases` | the values of `fields` | `description` | `campaign_db.list_records("entity")` |
+| Faction | `name`, `aliases` | the values of `fields` | `description` | `campaign_db.list_factions()` |
+| History entry | `title` | none | `text` | `campaign_db.history()` |
+
+- A record with an empty text is skipped, for example a faction that the game reported (`note_faction`).
+- The server reads the records and builds the search index in memory for each chat line, so an edit on Campaign Canon reaches the next line, and the campaign database holds no index. A search of SSR Vanilla, with its 363 records, takes about 20 ms in the dev container.
+- The search uses SQLite FTS5. The embedded Windows runtime ships SQLite 3.49.1, which has FTS5 ([development.md](development.md#probes) has the check for a later runtime).
+
+### Name matching
+
+1. The line and each name become words: lowercase, split at each character that is not a letter or a digit. A word of 4 or more letters loses a final "s" on both sides, so "skeletons" finds Skeleton. The split at an apostrophe lets "Admag's" find Admag.
+2. A name loses a leading "the", so "Hub" finds The Hub.
+3. A name matches when its words appear in the line in the same order, with no word between them.
+4. A match inside a longer match is dropped, so "Shek Kingdom" finds the faction and not also the race Shek. Records with the same name all match: "Bast" finds the location and the region.
+
+A history entry has no aliases, so only its whole title matches.
+
+### Content search
+
+An FTS5 table holds one row for each record, with the columns name, aliases, fields, and text, and the `porter unicode61` tokenizer.
+
+1. The vocabulary is each word of the names, the aliases, and the field values, stemmed by the tokenizer.
+2. A word of the line searches only when it is in the vocabulary, is not an English stop word, and appears in no more than a tenth of the records (`COMMON_SHARE`).
+3. The search is an OR of these words, ranked by BM25 with the weights 10 for the name, 10 for the aliases, 3 for the fields, and 1 for the text (`WEIGHTS`).
+4. A hit whose score is below 60% of the best score of the search is dropped (`SCORE_RATIO`).
+
+The vocabulary keeps chat words out of the search. Chat words are rare in the lore, so BM25 ranks them high: with every word of the line, "How are you doing today?" found Fish Isle, The Shek Extinction Crisis, and Hive Village, and "I need a doctor." found Twinblades. The limit of a tenth keeps a common word of names from pulling arbitrary records: "Who rules this town?" would find the towns with "Town" in their names. A name whose words are in many records, such as The Holy Nation, still matches by name.
+
+Rejected:
+
+- A search without the vocabulary, and without the words that appear in many records. It keeps "doing" and "need" and drops "shek" and "iron", the opposite of what the search needs.
+- A content search without the name and alias columns. "Any work for a mercenary?" lost Mercenary Guild, and "Any bounties around here?" lost Bounty Hunters.
+
+### Order of the lore
+
+- The name matches come first, in the order of their first word in the line. The content hits follow, first the current location of the NPC, then its current region, then the locations of that region, then the others, each group in the order of its score (`place_order`).
+- The current location is the location whose name or alias is the `town_name` of the NPC's context. The current region is the region whose name or alias is the `zone_name`, the zone around the camera (see [Current Location](#current-location)). Without a `zone_name`, it is each region in the `zone` field of the current location.
+- The place order adds no entry, so a line that finds nothing gets nothing. "Any bonedogs around?" finds many regions with near-equal scores, and the region of the NPC is the likeliest meaning.
+- Rejected: the entry of the NPC's place in each free slot. Most lines find nothing, so the entry would be in nearly every turn, and a model tends to talk about the text that it gets.
+- A record that both steps find counts once, as a name match.
+- A record is skipped when the system message holds it: the NPC's current and origin faction, the race of the squad member who speaks, and the player's faction (`background.in_system_message`).
+- The text of an entry ends at its last sentence end before 700 characters, or at 700 characters (`clipped`), because a user template has no limit. The fields are not cut.
+
+### Memory search
+
+Each memory of a thread in which the NPC is a member, as a speaker or as an overhearer, is a record, except the memories that the system message holds (see [Conversation memories](#conversation-memories)).
+
+- The text is the memory with the current names, so a search finds a renamed character by its new name.
+- The names are the current names of the members, except the NPC, whose own name would match each of its memories.
+- A memory matches by name when the line names one of its members, or when its text holds a lore name that the line names, with the words in the same order. The lore name counts even when the search skips its entry, because the system message holds that entry but not the memory.
+- Content search uses an FTS5 table of the memory texts. A word of the line searches when it is not a stop word and not a word of the NPC's name. A memory is a hit only when it holds at least 2 different words that search (`MEMORY_WORDS`), and the score cut of the lore applies.
+- The memories have no vocabulary. A memory tells a conversation, so the words that it is about, such as "debt" or "secret", are chat words. One shared chat word is weak evidence, because "today" or "need" can be in any memory.
+
+### Slots and cooldown
+
+| Setting | INI key | Default | Effect |
+|---|---|---|---|
+| Retrieval slots | `RetrievalSlots` | 3 | The hits of a turn. 0 turns the search off. |
+| Memory slots | `MemorySlots` | 3 | The slots that the memories can take. 0 gives every slot to the lore. A value above Retrieval slots counts as Retrieval slots. |
+| Retrieval cooldown | `RetrievalCooldownTurns` | 1 | The turns for which a content hit stays out. 0 turns the cooldown off. |
+
+- The memories come first, newest first, up to the Memory slots, and the lore entries fill the slots that are left (`retrieval.chosen`). A memory is what this NPC lived through, and every NPC gets the same lore for the same line.
+- A slot costs up to about 175 tokens, plus up to about 75 tokens for the fields of an entry in SSR Vanilla, on each turn.
+- A hit that only content search finds stays out when it was a hit of the last N turns of the conversation, and leaves its slot to the next hit. Its words came from the line, not from the topic, so the same words in the next lines would bring it back on each turn. A name match always passes, because the player asked about it.
+- The server keeps the keys of the hits of the last N turns for the pair of the squad member who speaks and the NPC (`RECENT_HITS`). A chat of another pair, or a campaign switch, drops them.
+- The plugin does not use the three values, so the server does not send them through `SET_CONFIG`.
+
+Rejected:
+
+- A cooldown that also holds back a name match. The hits of a turn are not in the next request, so a second question about Admag would get no lore about Admag.
+- A carry of the hits of the line before to a line that finds nothing, such as "Tell me more about it". It would repeat the hits that the cooldown holds back. The NPC answers a vague follow-up from its own last reply.
+- Hits that stay in the history. The context would grow with each new hit, and the stored dialogue, which the Dialogue Library and the bio prompt read, would hold lore.
+
+### Block
+
+The hits go into `{background}` of `prompt_chat_turn.txt`, before the player's line (`chat_prompt.background_block`). They change on each turn, so they stay out of the cached system message and history. The stored dialogue holds only the lines, so the hits of a turn are gone from the next request, and the lore of a conversation does not grow.
+
+```
+(Background, not said aloud. Memories that Izumi's words may touch on:
+[Day 3, 14:05] You overheard Stick and Jorge.
+Stick asked Jorge for work. ...
+Lore that Izumi's words may touch on:
+- Admag (location; type: town; zone: Stenn Desert; owner: Shek Kingdom): Admag is the Shek Kingdom's capital, ...
+These memories and this lore may have nothing to do with what Izumi means, and you may know less than the lore says. Use them only where they fit your reply, and never recite them or turn the talk towards them.)
+
+[Day 12, 14:05] Izumi: Did the Dust Bandits come back to Admag?
+
+(Reply as Paladin Abel. End with [JUDGMENT: n].)
+```
+
+- Each memory gives the header from the view of the NPC, as in the system message. Each entry gives its name, its kind, its fields, and its text (`describe_record` with the kind first). A field can be why the line found the entry, such as the `leader` of a faction.
+- The headings stay in the code, as for the rumors, so an empty list leaves no heading, and no hit leaves no block.
+- The block is in parentheses and starts with "Background, not said aloud", because it is a part of the user message, and without the mark a model can take a memory for words of the player. Some chat templates accept a system message only at the start of a chat, so the block cannot be a system message of its own.
+- The closing note names only the lists that the block holds, and sits directly before the player's line, where the model reads it last.
+- An animal gets no search, because it replies only in actions. A radiant conversation gets none, because it has no line of the player.
+
+### Test search
+
+The Test search box under the bar of Campaign Canon and Templates shows what a line finds, so a template author sees why a line finds nothing, and the starting values of the search get tuned on real lines (`renderTestSearch` in `server/dashboard/web/editor.js`).
+
+- The box lists the memories and the entries in their prompt order, with the slots of the Settings page and how each was found: by a name, or by the words that found it. It also lists each word that did not search the lore, with the reason: a common English word, not a word of the lore, or a word in too many entries.
+- On Campaign Canon, the player can pick a character to talk to and a squad member to speak as. With a character, the box gives what a chat with it finds: it skips what the system message of that chat holds, and it orders the hits by the place of the character, which it takes from the `CurrentLocation` of the profile (`background.place_of`). Without a character, the box gives a lore search alone.
+- Templates gives a lore search alone, because a template has no memories and no player.
+- The search reads the saved records, so an unsaved edit counts only after Save. The box has no earlier turns, so the cooldown holds back no hit.
+- The routes are `GET /api/campaign/search?message=...&npc=...&speaker=...` and `GET /api/templates/<name>/search?message=...`. They are GETs, because a POST under `/api/` counts as a write, which makes every open page refresh (`count_write_requests` in `server/core/app.py`).
+
+Known wrong hits: "my teeth hurt" finds Bad Teeth, "Where can I get a prosthetic arm?" finds Arm of Okran, and "Any bonedogs around?", asked outside a region with bonedogs, finds 3 of the many regions with bonedogs.
 
 ## Radiant conversations
 
@@ -540,15 +663,20 @@ The server distills each chat thread into a short memory, which replaces the lin
 - A cull deletes each thread whose memory is dated after the cut, because the memory replaced every line, so nothing from before the cut is left to keep. A pending thread loses only its lines after the cut.
 - The server drops a memory when the active campaign changed during the call, because the same thread ID can name another thread in the new campaign. It also drops a memory when the game time of the thread changed during the call, for example because a cull removed its newest lines (`campaign_db.set_memory`).
 
-The chat prompt gives the NPC the newest 10 memories of the threads in which it is a member, oldest first, after the scene in the system message (`{memories}` in `prompt_chat_template.txt`, `chat_prompt.memories_block`). The memories are older than every line of the history, so they come before it.
+The chat prompt gives the NPC the newest 5 memories of the threads in which it was a speaker, oldest first, after the scene in the system message (`{memories}` in `prompt_chat_template.txt`, `chat_prompt.starting_memories`, `chat_prompt.memories_block`). The memories are older than every line of the history, so they come before it.
+
+- The search of the player's line finds the older memories and the memories of the threads that the NPC only overheard (see [Memory search](#memory-search)). Each memory in the system message costs its tokens on every turn, so the system message holds few.
+- An NPC that stands near many chats, such as a barman, overhears more conversations than it has. Its overheard memories would push its own conversations out of the newest 5.
+- A memory of a chat that the NPC only overheard does not change its system message, so it costs no miss of the prompt cache.
+- Rejected: the newest memories of the threads in which the squad member who speaks was the other speaker. The scene names the squad members that the NPC spoke with, so the NPC would know that it spoke with Stick but not what they said.
 
 - The heading stays in the code, as for the rumors, so an NPC with no memory gets no heading.
 - The heading tells the NPC that it knows what happened in its memories, but that it can lie about them and does not have to uphold them. Without the first part, an NPC claimed to forget a memory that did not suit it. Without the second part, a promise in a memory would bind the NPC.
-- The server reads the memories on each turn, not with the scene, so a memory that the distillation writes during a conversation reaches the next turn. That turn misses the prompt cache once.
+- The server reads the memories on each turn, not with the scene, so a memory that the distillation writes during a conversation reaches the next turn. When the NPC spoke in that thread, the turn misses the prompt cache once.
 - Each memory gets a header from the view of the NPC, built from the members, so one stored text serves every member: `[Day 3, 14:05] You spoke with Stick. Izumi heard it.` for a speaker, and `[Day 3, 14:05] You overheard Stick and Jorge.` for an overhearer. The header of a speaker names only the overhearers that were in the player's faction, as the overheard note does (see [Chat threads](#chat-threads)).
 - The history holds only the lines of the chat threads that have no memory (`chat_prompt.chat_lines`), so an NPC whose threads all have memories gets no history turns. A row with no thread stays out, because it would never get a memory.
-- The memory of a radiant conversation takes a place in the newest 10 of each participant. The default `RadiantDelay` of 600 s therefore allows at most 6 radiant conversations each hour.
-- The Dialogue Library and the bio prompt read each memory as one line, such as `[Day 3, 14:05] (Memory of a conversation with Stick, heard by Izumi) ...`, before the stored lines (`recorded_history`). A header line, such as `(Conversation with Stick, heard by Izumi)`, comes before the lines of each chat thread that has no memory yet (`chat_prompt.headed_lines`). The radiant prompt reads only the memory of its topic (`chat_prompt.shared_memory`).
+- Each participant of a radiant conversation is a speaker of its thread, so its memory takes a place in the newest 5 of each participant. The default `RadiantDelay` of 600 s therefore allows at most 6 radiant conversations each hour.
+- The Dialogue Library and the bio prompt read every memory of the NPC, also the overheard ones, each as one line, such as `[Day 3, 14:05] (Memory of a conversation with Stick, heard by Izumi) ...`, before the stored lines (`recorded_history`). A header line, such as `(Conversation with Stick, heard by Izumi)`, comes before the lines of each chat thread that has no memory yet (`chat_prompt.headed_lines`). The radiant prompt reads only the memory of its topic (`chat_prompt.shared_memory`).
 - The player edits or deletes a memory on the Dialogue & Memories subtab (`POST /api/campaign/memories`, `.../memories/delete`). An edit marks the names of the members again, as after the call. A delete removes the thread with its members, because the memory replaced its lines, so the NPCs forget the conversation, also for the first meeting. The in-game Dialogue Library shows the memories but cannot edit them.
 
 ### Names
@@ -694,6 +822,7 @@ Edit Bio in the Dialogue Library skips the LLM. `/read_bio` returns the stored `
 | `POST /api/campaigns/switch` | Make a campaign the current one. The name must be a folder that the campaign list shows, so a name such as `../x` cannot point outside `server/data/campaigns/`. |
 | `POST /api/campaigns/delete` | Delete a campaign folder, with the same name check. Before it deletes the current campaign, it switches to the first other one. When no other campaign remains, the server has no current campaign (see [Campaign storage](#campaign-storage)). |
 | `GET /api/campaign` | The active campaign: its notable events with their lines and rumor marks (see [Deeds](#deeds)), its rumors, and its chat threads with their members, lines, and memories. A refused campaign gives status 409 with the reason. |
+| `GET /api/campaign/search` | The hits of a test search in the active campaign (see [Test search](#test-search)). It changes nothing. A refused campaign gives status 409 with the reason. |
 | `GET /api/campaign/canon` | The canon of the active campaign, each record with its `origin` and `updated_at`, each character with the `current_faction` and the `status` (the health) that a chat reported since the server started (`LIVE_CONTEXTS`), or `null`, and each character with deeds with the known figures that it killed or captured as text (`deeds`, see [Deeds](#deeds)). A refused campaign gives status 409 with the reason. |
 | `POST /api/campaign/records`, `.../records/delete` | Save or delete one canon record of the active campaign. A faction, character, race, location, or region with no ID is new. |
 | `POST /api/campaign/characters/bio` | The LLM text of the full bio, or of one part, for the form of a character. It stores nothing (see [Provisional profiles](#provisional-profiles)). |
@@ -752,6 +881,7 @@ A world template is a folder that describes a world. A new campaign copies every
 | `POST /api/templates/<name>/records`, `.../records/delete` | Save or delete one record of a user template |
 | `POST /api/templates/<name>/duplicate`, `.../delete` | Copy a template as a user template, or delete a user template |
 | `POST /api/templates/<name>/characters/bio` | The same as `POST /api/campaign/characters/bio`, with the race and the faction from the template and no dialogue |
+| `GET /api/templates/<name>/search` | The lore hits of a test search in the saved records of the template (see [Test search](#test-search)) |
 | `GET /api/templates/<name>/export` | The shared file of a template |
 | `POST /api/templates/import` | Write a shared file as a new user template with the name that the player gives |
 
