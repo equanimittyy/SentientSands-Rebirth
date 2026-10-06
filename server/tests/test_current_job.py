@@ -38,7 +38,8 @@ class CurrentJobTest(unittest.TestCase):
         self.assertIsNone(job({"squad_jobs": ["JOB_MEDIC", "SELF_PRESERVATION"]}))
 
     def test_the_plugin_sends_each_task_of_the_table(self):
-        source = open(os.path.join(ROOT, "plugin", "game", "Context.cpp"), encoding="utf-8").read()
+        with open(os.path.join(ROOT, "plugin", "game", "Context.cpp"), encoding="utf-8") as f:
+            source = f.read()
         self.assertEqual(set(re.findall(r"ROLE_TASK\((\w+)\),", source)), current_job.TASKS)
 
 
