@@ -7,7 +7,7 @@ import time
 
 from flask import Blueprint, jsonify, request
 
-from chat import chat_prompt, radiant, rumors, scene_text
+from chat import background, chat_prompt, radiant, retrieval, rumors, scene_text
 from chat.bio import BIO_PARTS, generate_bio, recorded_history, write_bio
 from chat.characters import get_character_data, npc_name, should_save_profile
 from chat.llm import call_llm
@@ -317,9 +317,21 @@ def chat():
         state.CONVERSATION_SCENE.clear()
         state.CONVERSATION_SCENE[conversation] = scene
     # Read on each turn, not with the scene, so a memory that the distillation writes during a conversation reaches the next turn
-    memories = chat_prompt.memories_block(campaign_db.memories_of(primary_id, chat_prompt.MEMORY_LIMIT), primary_id)
+    memories = chat_prompt.memories_block(chat_prompt.starting_memories(campaign_db.memories_of(primary_id), primary_id), primary_id)
     system = fill_prompt("prompt_chat_template.txt", system_prompt=system_prompt, judgment=judgment, primary_npc=primary_npc, npc_profiles=describe_npc(primary_npc, primary_data, primary_id), scene=scene, memories=memories)
-    turn = fill_prompt("prompt_chat_turn.txt", player_line=full_player_entry, final_instruction=final_instruction)
+    pair = (speaker_id, primary_id)
+    cooldown = load_settings()["retrieval_cooldown_turns"]
+    recent_turns = state.RECENT_HITS.get(pair, [])
+    found_memories, found_entries = [], []
+    # An animal replies only in actions
+    if not animal:
+        environment = ctx_dict.get("environment") or {}
+        found_memories, found_entries, _ = background.search(
+            player_message, background.campaign_lore(), primary_id, primary_data, live.get("factionID"), (speaker or state.PLAYER_CONTEXT).get("race"),
+            environment.get("town_name"), environment.get("zone_name"), retrieval.held(recent_turns, cooldown),
+        )
+    background_block = chat_prompt.background_block([hit["record"]["memory"] for hit in found_memories], [hit["record"] for hit in found_entries], primary_id, player_name)
+    turn = fill_prompt("prompt_chat_turn.txt", background=background_block, player_line=full_player_entry, final_instruction=final_instruction).strip()
     history = chat_prompt.history_window(chat_prompt.chat_lines(rows), campaign_db.DIALOGUE_BLOCK)
     notes = chat_prompt.overheard_notes(campaign_db.thread_members({thread_id for _, _, thread_id in history if thread_id}), primary_id)
     messages = chat_prompt.chat_messages(system, chat_prompt.history_turns(chat_prompt.with_notes(history, notes), primary_id), turn)
@@ -417,6 +429,9 @@ def chat():
                 # Applied as a delta at save time: the profile read before the LLM call can be stale by then
                 new_rel = campaign_db.change_relation(npc_id, judgment_value)
                 logging.info(f"RELATION: {name} personal relation is now {new_rel} (judgment={judgment_value})")
+
+        state.RECENT_HITS.clear()
+        state.RECENT_HITS[pair] = retrieval.next_turns(recent_turns, [hit["record"]["key"] for hit in found_memories + found_entries], cooldown)
 
         interactions = campaign_db.count_interaction(primary_id) if primary_id else None
         threshold = load_settings()["bio_interactions"]

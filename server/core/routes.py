@@ -202,6 +202,14 @@ def settings_endpoint():
             logging.info(f"SETTINGS: Conversation timeout set to {val} minutes")
         except: pass
 
+    for key in ("retrieval_slots", "memory_slots", "retrieval_cooldown_turns"):
+        value = data.get(key)
+        if value is not None:
+            try:
+                changes[key] = max(0, int(value))
+                logging.info(f"SETTINGS: {key} set to {changes[key]}")
+            except: pass
+
     diag_speed = data.get("dialogue_speed")
     if diag_speed is not None:
         try:

@@ -67,6 +67,7 @@ def switch_campaign(name):
         state.SEEN_FACTIONS.clear()
         state.CONVERSATION_SCENE.clear()
         state.CURRENT_THREAD.clear()
+        state.RECENT_HITS.clear()
         state.restart_quiet_clock()
         load_campaign_config()
         return True

@@ -7,14 +7,15 @@ each turn comes last, in the final user message.
 
 import re
 
-from chat import scene_text
+from chat import retrieval, scene_text
 from chat.characters import animal_flag
+from chat.prompts import describe_record
 from store.campaign_db import game_time_text
 
 _TIME_PREFIX = re.compile(r"^\[Day [^\]]*\]\s*")
 # Some chat templates require the turns after the system message to start with a user message
 EARLIER = "(Earlier conversation)"
-MEMORY_LIMIT = 10
+MEMORY_LIMIT = 5
 
 
 def chat_lines(entries):
@@ -108,6 +109,13 @@ def _mark(npc_id):
     return "{" + npc_id + "}"
 
 
+def starting_memories(memories, npc_id):
+    """The newest MEMORY_LIMIT memories of memories_of in which the NPC was a speaker. An NPC near many chats, such as a
+    barman, overhears more conversations than it has, so its overheard memories would push its own out. The search of
+    the player's message finds the others."""
+    return [memory for memory in memories if any(member_id == npc_id and role == "speaker" for member_id, _, role, _ in memory["members"])][-MEMORY_LIMIT:]
+
+
 def memories_block(memories, npc_id):
     """The memories of the NPC, campaign_db.memories_of, each under a header that names the members from the view of the
     NPC, so one stored text serves every member. Empty without a memory, so the heading stays out."""
@@ -117,20 +125,45 @@ def memories_block(memories, npc_id):
     for memory in memories:
         partners, listeners, overheard = _members_seen_by(memory["members"], npc_id)
         parts.append(_dated(memory, scene_text.memory_header(partners, listeners, overheard)))
-        parts.append(_memory_text(memory))
+        parts.append(memory_text(memory))
     return "\n".join(parts)
+
+
+def background_block(memories, entries, npc_id, speaker):
+    """The memories of memories_of and the lore records of retrieval.lore_records that the player's message found, for the
+    last user message. The block is a part of the user message, so its mark keeps a model from taking it for words of
+    the player. Empty without either, so the block stays out."""
+    if not memories and not entries:
+        return ""
+    parts = []
+    if memories:
+        parts.append(f"Memories that {speaker}'s words may touch on:")
+        for memory in memories:
+            parts.append(_dated(memory, scene_text.memory_header(*_members_seen_by(memory["members"], npc_id))))
+            parts.append(retrieval.clipped(memory_text(memory)))
+    if entries:
+        parts.append(f"Lore that {speaker}'s words may touch on:")
+        parts += [f"- {describe_record({**entry, 'description': retrieval.clipped(entry['description'])}, entry['kind'])}" for entry in entries]
+    # A search finds words, not meaning, and a model tends to use all the text that it gets
+    if memories and entries:
+        parts.append(f"These memories and this lore may have nothing to do with what {speaker} means, and you may know less than the lore says. Use them only where they fit your reply, and never recite them or turn the talk towards them.")
+    elif memories:
+        parts.append(f"These memories may have nothing to do with what {speaker} means. Use them only where they fit your reply, and never recite them or turn the talk towards them.")
+    else:
+        parts.append(f"This lore may have nothing to do with what {speaker} means, and you may know less than it says. Use it only where it fits your reply, and never recite it or turn the talk towards it.")
+    return "(Background, not said aloud. " + "\n".join(parts) + ")"
 
 
 def memory_lines(memories, npc_id):
     """Each memory as one line in the form of a stored line, for the Dialogue Library and the bio prompt."""
-    return [_dated(memory, f"({scene_text.memory_label(*_members_seen_by(memory['members'], npc_id))}) {_memory_text(memory)}") for memory in memories]
+    return [_dated(memory, f"({scene_text.memory_label(*_members_seen_by(memory['members'], npc_id))}) {memory_text(memory)}") for memory in memories]
 
 
 def shared_memory(memory):
     """A memory of memories_of, under a header that names its members, for the prompt of a radiant conversation."""
     speakers = [name or "someone" for _, name, role, _ in memory["members"] if role == "speaker"]
     listeners = [name for _, name, role, _ in memory["members"] if role == "overheard" and name]
-    return _dated(memory, f"({scene_text.shared_memory_label(speakers, listeners)}) {_memory_text(memory)}")
+    return _dated(memory, f"({scene_text.shared_memory_label(speakers, listeners)}) {memory_text(memory)}")
 
 
 def headed_lines(entries, members, npc_id):
@@ -158,7 +191,7 @@ def _dated(memory, text):
     return f"[{game_time_text(memory['game_time'])}] {text}" if memory["game_time"] is not None else text
 
 
-def _memory_text(memory):
+def memory_text(memory):
     return named(memory["memory"], {member_id: name or "someone" for member_id, name, _, _ in memory["members"]})
 
 

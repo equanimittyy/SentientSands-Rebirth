@@ -1,3 +1,5 @@
+{background}
+
 {player_line}
 
 ({final_instruction})

@@ -15,6 +15,8 @@ CONVERSATION_SCENE = {}
 CURRENT_THREAD = {}
 # Held while a chat picks its thread and while the distillation ends the current thread, so a chat never adds lines to a thread whose memory is being written
 THREAD_LOCK = threading.Lock()
+# {(npc_id of the squad member, npc_id of the NPC): the keys of the retrieval hits of each of its last turns, oldest first}; a chat of another pair drops it
+RECENT_HITS = {}
 # Starts with the server, so the threads that a restart left pending get their memories one quiet period after the start
 QUIET_SINCE = time.monotonic()
 LAST_RADIANT = None

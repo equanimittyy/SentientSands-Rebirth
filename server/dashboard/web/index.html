@@ -86,6 +86,14 @@
           </div>
         </fieldset>
         <fieldset>
+          <legend>Lore and memories</legend>
+          <div class="columns">
+            <label><span class="label-text">Retrieval slots<span class="help" tabindex="0">?<span class="tip">How many lore entries and older memories an NPC gets with each line that you say, found from the words of the line. Each one costs up to about 250 tokens. Lower it for a small local model. 0 turns the search off.</span></span></span> <input type="number" name="retrieval_slots" min="0" required></label>
+            <label><span class="label-text">Memory slots<span class="help" tabindex="0">?<span class="tip">How many of the retrieval slots the NPC's own memories can take. The memories come first, and the lore entries fill the slots that are left. 0 gives every slot to the lore.</span></span></span> <input type="number" name="memory_slots" min="0" required></label>
+            <label><span class="label-text">Retrieval cooldown (lines)<span class="help" tabindex="0">?<span class="tip">A lore entry or a memory that only shares words with your line does not come back for this many of your next lines, so the NPC does not keep bringing it up. One that you name comes back every time. 0 turns the cooldown off.</span></span></span> <input type="number" name="retrieval_cooldown_turns" min="0" required></label>
+          </div>
+        </fieldset>
+        <fieldset>
           <legend>NPC profiles</legend>
           <label><span class="label-text">Chats before a bio<span class="help" tabindex="0">?<span class="tip">How many times you talk to an NPC with a provisional profile before the LLM writes its full bio. 0 writes a bio only when you ask for one.</span></span></span> <input type="number" name="bio_interactions" min="0" required></label>
         </fieldset>

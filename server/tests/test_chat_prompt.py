@@ -178,12 +178,53 @@ class MemoriesTest(unittest.TestCase):
         members = [(self.STICK, "Stick", "speaker", True), (self.JORGE, "Jorge", "speaker", True), (self.MIKSE, "Mikse", "overheard", True)]
         self.assertEqual(chat_prompt.shared_memory(self.memory(members)), "[Day 3, 14:05] (Memory of a conversation between Stick and Jorge, heard by Mikse) Stick asked Jorge for work.")
 
+    def test_the_starting_memories_are_the_newest_in_which_the_npc_spoke(self):
+        spoke = [(self.STICK, "Stick", "speaker", True), (self.JORGE, "Jorge", "speaker", False)]
+        heard = [(self.STICK, "Stick", "speaker", True), (self.IZUMI, "Izumi", "speaker", True), (self.JORGE, "Jorge", "overheard", False)]
+        memories = [{**self.memory(spoke), "id": i} for i in range(1, 7)] + [{**self.memory(heard), "id": 7}]
+        self.assertEqual([memory["id"] for memory in chat_prompt.starting_memories(memories, self.JORGE)], [2, 3, 4, 5, 6])
+
     def test_a_header_names_the_others_before_the_lines_of_each_thread(self):
         members = {1: [(self.STICK, "Stick", "speaker", True), (self.JORGE, "Jorge", "speaker", False)], 2: [(self.IZUMI, "Izumi", "speaker", True), (self.JORGE, "Jorge", "speaker", False), (self.STICK, "Stick", "overheard", True)]}
         entries = [("a", self.STICK, 1), ("b", self.JORGE, 1), ("stray", "h:20", None), ("c", self.IZUMI, 2), ("d", self.JORGE, 2), ("e", self.STICK, 1)]
         self.assertEqual(chat_prompt.headed_lines(entries, members, self.JORGE), [
             "(Conversation with Stick)", "a", "b", "stray", "(Conversation with Izumi, heard by Stick)", "c", "d", "(Conversation with Stick)", "e",
         ])
+
+
+class BackgroundBlockTest(unittest.TestCase):
+    STICK, JORGE, ABEL = "h:10", "h:14", "h:15"
+    ADMAG = {"kind": "location", "name": "Admag", "aliases": [], "fields": {"type": "town", "zone": ["Stenn Desert"]}, "description": "The Shek capital."}
+    MEMORY = {"id": 1, "game_time": 3 * 1440 + 14 * 60 + 5, "memory": "{h:10} asked {h:14} for work.", "members": [(STICK, "Stick", "speaker", True), (JORGE, "Jorge", "speaker", False), (ABEL, "Paladin Abel", "overheard", False)]}
+
+    def test_nothing_found_gives_no_block(self):
+        self.assertEqual(chat_prompt.background_block([], [], self.ABEL, "Izumi"), "")
+
+    def test_an_entry_gives_its_name_kind_fields_and_text(self):
+        self.assertEqual(chat_prompt.background_block([], [self.ADMAG], self.ABEL, "Izumi"), "\n".join([
+            "(Background, not said aloud. Lore that Izumi's words may touch on:",
+            "- Admag (location; type: town; zone: Stenn Desert): The Shek capital.",
+            "This lore may have nothing to do with what Izumi means, and you may know less than it says. Use it only where it fits your reply, and never recite it or turn the talk towards it.)",
+        ]))
+
+    def test_a_memory_gives_its_header_from_the_view_of_the_npc(self):
+        self.assertEqual(chat_prompt.background_block([self.MEMORY], [], self.ABEL, "Izumi"), "\n".join([
+            "(Background, not said aloud. Memories that Izumi's words may touch on:",
+            "[Day 3, 14:05] You overheard Stick and Jorge.",
+            "Stick asked Jorge for work.",
+            "These memories may have nothing to do with what Izumi means. Use them only where they fit your reply, and never recite them or turn the talk towards them.)",
+        ]))
+
+    def test_the_memories_come_before_the_lore(self):
+        lines = chat_prompt.background_block([self.MEMORY], [self.ADMAG], self.ABEL, "Izumi").splitlines()
+        self.assertEqual([lines[0], lines[3]], ["(Background, not said aloud. Memories that Izumi's words may touch on:", "Lore that Izumi's words may touch on:"])
+        self.assertTrue(lines[-1].startswith("These memories and this lore may have nothing to do with what Izumi means, and you may know less than the lore says."))
+
+    def test_a_long_text_is_cut_and_the_fields_stay(self):
+        entry = {**self.ADMAG, "description": "Walls. " * 200}
+        line = chat_prompt.background_block([], [entry], self.ABEL, "Izumi").splitlines()[1]
+        self.assertTrue(line.startswith("- Admag (location; type: town; zone: Stenn Desert): Walls."))
+        self.assertLessEqual(len(line), len("- Admag (location; type: town; zone: Stenn Desert): ") + 700)
 
 
 class NameMarksTest(unittest.TestCase):

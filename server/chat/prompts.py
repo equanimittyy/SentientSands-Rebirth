@@ -24,8 +24,8 @@ def describe_origin(origin, current):
     """Most NPCs still belong to their origin faction, whose whole entry the prompt already holds."""
     return "Same as the current faction." if origin == current else origin
 
-def describe_record(record):
-    details = "; ".join(f"{key}: {', '.join(value) if isinstance(value, list) else value}" for key, value in record.get("fields", {}).items())
+def describe_record(record, kind=None):
+    details = "; ".join([*([kind] if kind else []), *(f"{key}: {', '.join(value) if isinstance(value, list) else value}" for key, value in record.get("fields", {}).items())])
     text = f"{record['name']} ({details})" if details else record["name"]
     return f"{text}: {record['description']}" if record.get("description") else text
 

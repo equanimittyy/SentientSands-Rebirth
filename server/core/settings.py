@@ -25,7 +25,10 @@ INI_KEY_MAP = {
     "open_web_panel_on_start": "OpenWebPanelOnStart",
     "log_level": "LogLevel",
     "bio_interactions": "BioInteractions",
-    "conversation_timeout_minutes": "ConversationTimeoutMinutes"
+    "conversation_timeout_minutes": "ConversationTimeoutMinutes",
+    "retrieval_slots": "RetrievalSlots",
+    "memory_slots": "MemorySlots",
+    "retrieval_cooldown_turns": "RetrievalCooldownTurns"
 }
 
 def _save_settings_raw(settings):
@@ -66,7 +69,10 @@ SETTINGS_DEFAULTS = {
     "open_web_panel_on_start": True,
     "log_level": log_setup.DEFAULT_LEVEL,
     "bio_interactions": 5,
-    "conversation_timeout_minutes": 3
+    "conversation_timeout_minutes": 3,
+    "retrieval_slots": 3,
+    "memory_slots": 3,
+    "retrieval_cooldown_turns": 1
 }
 
 def load_settings():
@@ -126,7 +132,10 @@ def settings_page_values(settings):
         "open_web_panel_on_start": settings["open_web_panel_on_start"],
         "log_level": log_setup.parse_level(settings["log_level"]),
         "bio_interactions": settings["bio_interactions"],
-        "conversation_timeout_minutes": settings["conversation_timeout_minutes"]
+        "conversation_timeout_minutes": settings["conversation_timeout_minutes"],
+        "retrieval_slots": settings["retrieval_slots"],
+        "memory_slots": settings["memory_slots"],
+        "retrieval_cooldown_turns": settings["retrieval_cooldown_turns"]
     }
 
 def push_settings_to_plugin():
