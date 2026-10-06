@@ -168,6 +168,7 @@ def get_active_campaign():
                 {
                     "id": thread["id"],
                     "time": campaign_db.game_time_text(thread["game_time"]) if thread["game_time"] is not None else "",
+                    "location": thread["location"] or "",
                     "members": [{"name": name or "", "role": role} for _, name, role, _ in thread["members"]],
                     "memory": chat_prompt.named(thread["memory"], {npc_id: name or "Unknown" for npc_id, name, _, _ in thread["members"]}) if thread["memory"] else None,
                     "lines": thread["lines"],

@@ -61,7 +61,7 @@ def radiant_conversation():
         return jsonify({"status": "none"})
 
     time_prefix = get_current_time_prefix()
-    thread_id = campaign_db.join_thread(None, [(npc_id, "speaker", True) for npc_id in npc_ids], campaign_db.game_time(time_prefix))
+    thread_id = campaign_db.join_thread(None, [(npc_id, "speaker", True) for npc_id in npc_ids], campaign_db.game_time(time_prefix), scene_text.location_name(center))
     stored = [(f"{time_prefix}{names[serial]}: {text}", participants[serial]['npc_id']) for serial, text in lines]
     for serial, npc in participants.items():
         campaign_db.append_dialogue(npc['npc_id'], stored, profiles[serial], thread_id)
@@ -371,7 +371,7 @@ def chat():
         thread_id = None
         if primary_id:
             members = [(npc_id, "speaker" if npc_id in (primary_id, speaker_id) else "overheard", in_squad.get(npc_id, False)) for npc_id, _, _ in copies]
-            thread_id = campaign_db.join_thread(current_thread, members, campaign_db.game_time(time_prefix))
+            thread_id = campaign_db.join_thread(current_thread, members, campaign_db.game_time(time_prefix), scene_text.location_name(speaker or state.PLAYER_CONTEXT))
             state.CURRENT_THREAD.update(key=thread_key, id=thread_id, replied=time.monotonic())
         for npc_id, name, new_lines in copies:
             campaign_db.append_dialogue(npc_id, new_lines, char_datas[npc_id], thread_id)

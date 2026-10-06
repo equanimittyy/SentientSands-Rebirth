@@ -15,7 +15,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 DB_NAME = "campaign.db"
-SCHEMA_VERSION = 11
+SCHEMA_VERSION = 12
 DIALOGUE_BLOCK = 20
 # The chat count of a provisional profile also marks it as provisional: the template validator, which the campaign editor
 # also runs, takes only text and numbers as profile values, so a true/false mark could not be saved from the editor
@@ -38,6 +38,7 @@ CREATE TABLE character (
 CREATE TABLE thread (
   id        INTEGER PRIMARY KEY AUTOINCREMENT,
   game_time INTEGER,
+  location  TEXT,
   memory    TEXT
 );
 CREATE TABLE thread_member (
@@ -300,13 +301,13 @@ def append_dialogue(npc_id, lines, profile, thread_id=None):
         )
 
 
-def join_thread(thread_id, members, joined_at):
-    """Adds members, (npc_id, role, in_player_faction) triples, to the thread, or to a new thread when thread_id is None or
-    names a deleted thread. A member keeps the game time and the faction of its first join, and the thread takes joined_at
-    as the game time of its newest exchange. Returns the thread ID."""
+def join_thread(thread_id, members, joined_at, location=None):
+    """Adds members, (npc_id, role, in_player_faction) triples, to the thread, or to a new thread at location when thread_id
+    is None or names a deleted thread. A member keeps the game time and the faction of its first join, and the thread takes
+    joined_at as the game time of its newest exchange. Returns the thread ID."""
     with _connect(write=True) as conn:
         if thread_id is None or not conn.execute("SELECT 1 FROM thread WHERE id = ?", (thread_id,)).fetchone():
-            thread_id = conn.execute("INSERT INTO thread DEFAULT VALUES").lastrowid
+            thread_id = conn.execute("INSERT INTO thread (location) VALUES (?)", (location,)).lastrowid
         conn.execute("UPDATE thread SET game_time = COALESCE(?, game_time) WHERE id = ?", (joined_at, thread_id))
         conn.executemany(
             "INSERT OR IGNORE INTO thread_member (thread_id, npc_id, role, game_time, in_player_faction) VALUES (?, ?, ?, ?, ?)",
@@ -332,18 +333,19 @@ def thread_members(thread_ids):
 
 
 def threads():
-    """Each chat thread that has a line or a memory, newest first, as a dict with its members, the game time of its first
-    exchange, its memory or None, and the lines of one copy (_thread_lines). A thread with a memory has no lines."""
+    """Each thread that has a line or a memory, newest first, as a dict with its members, the game time of its first
+    exchange, the place where it started or None, its memory or None, and the lines of one copy (_thread_lines). A thread
+    with a memory has no lines."""
     with _connect() as conn:
         rows = conn.execute(
-            "SELECT t.id, MIN(m.game_time), t.memory FROM thread t LEFT JOIN thread_member m ON m.thread_id = t.id GROUP BY t.id ORDER BY t.id DESC"
+            "SELECT t.id, MIN(m.game_time), t.location, t.memory FROM thread t LEFT JOIN thread_member m ON m.thread_id = t.id GROUP BY t.id ORDER BY t.id DESC"
         ).fetchall()
         lines = _thread_lines(conn)
-    rows = [row for row in rows if row[0] in lines or row[2] is not None]
-    members = thread_members(thread_id for thread_id, _, _ in rows)
+    rows = [row for row in rows if row[0] in lines or row[3] is not None]
+    members = thread_members(thread_id for thread_id, *_ in rows)
     return [
-        {"id": thread_id, "game_time": first_time, "members": members.get(thread_id, []), "memory": memory, "lines": lines.get(thread_id, [])}
-        for thread_id, first_time, memory in rows
+        {"id": thread_id, "game_time": first_time, "location": location, "members": members.get(thread_id, []), "memory": memory, "lines": lines.get(thread_id, [])}
+        for thread_id, first_time, location, memory in rows
     ]
 
 

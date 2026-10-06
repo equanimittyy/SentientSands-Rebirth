@@ -56,7 +56,7 @@ def kill(killers, victim, when):
     deeds.take([{"kind": "attack", "attacker": killer, "target": victim["id"], **when} for killer in killers] + [{"kind": "death", "party": victim, **when}])
 
 
-def chat_thread(speaker, npc, exchanges, overhearers=(), mode="talk", memory=None):
+def chat_thread(speaker, npc, exchanges, overhearers=(), mode="talk", memory=None, location="Bar, The Hub"):
     """exchanges are (game time, line of the squad member, reply of the NPC) triples. memory is the text that the
     distillation would write, with names, or None for a pending thread."""
     thread_id = None
@@ -64,7 +64,7 @@ def chat_thread(speaker, npc, exchanges, overhearers=(), mode="talk", memory=Non
     members = [(npc_id, "speaker" if npc_id in (speaker, npc) else "overheard", npc_id in IN_SQUAD) for npc_id in copies]
     for when, said, reply in exchanges:
         prefix = f"[{when}] "
-        thread_id = campaign_db.join_thread(thread_id, members, campaign_db.game_time(prefix))
+        thread_id = campaign_db.join_thread(thread_id, members, campaign_db.game_time(prefix), location)
         for npc_id in copies:
             heard = npc_id not in (speaker, npc)
             tag = "(Overheard) " if heard else ""
@@ -80,7 +80,7 @@ def radiant(when, lines, memory):
     stores it."""
     participants = list(dict.fromkeys(npc_id for npc_id, _ in lines))
     prefix = f"[{when}] "
-    thread_id = campaign_db.join_thread(None, [(npc_id, "speaker", True) for npc_id in participants], campaign_db.game_time(prefix))
+    thread_id = campaign_db.join_thread(None, [(npc_id, "speaker", True) for npc_id in participants], campaign_db.game_time(prefix), "The Hub")
     rows = [(f"{prefix}{NAMES[npc_id]}: {text}", npc_id) for npc_id, text in lines]
     for npc_id in participants:
         campaign_db.append_dialogue(npc_id, rows, {}, thread_id)
@@ -125,7 +125,7 @@ def fill():
     chat_thread(MIKSE, BEEP, [
         ("Day 5, 20:30", "Beep, can you keep a secret?", "Beep is very good at secrets! Beep forgets most things anyway."),
         ("Day 5, 20:31", "We leave The Hub tonight.", "Beep will pack! Beep has one bag and it is empty."),
-    ], mode="whisper", memory=(
+    ], mode="whisper", location="The Hub", memory=(
         "Mikse whispered to Beep and asked Beep to keep a secret. Beep promised, and said that Beep forgets most things"
         " anyway. Mikse told Beep that the group would leave The Hub that night. Beep offered to pack, though the only bag"
         " of Beep was empty."
@@ -133,7 +133,7 @@ def fill():
     chat_thread(STICK, JOSH, [
         ("Day 6, 11:00", "You owe Jorge for three drinks!", "Come and collect it yourself, door boy!"),
         ("Day 6, 11:01", "Last warning.", "Big words for a man with a borrowed sword."),
-    ], overhearers=[IZUMI, MIKSE], mode="yell", memory=(
+    ], overhearers=[IZUMI, MIKSE], mode="yell", location="The Hub", memory=(
         "Stick yelled at Dust Bandit Josh that Josh owed Jorge for three drinks. Josh told Stick to come and collect it and"
         " called Stick a door boy. Stick gave a last warning, and Josh mocked the borrowed sword of Stick. The debt stayed"
         " unpaid."

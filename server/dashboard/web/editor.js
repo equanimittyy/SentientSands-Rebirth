@@ -1058,6 +1058,11 @@ async function deleteRumor(id) {
 }
 
 const membersAs = (thread, role) => thread.members.filter((member) => member.role === role).map((member) => member.name || "Unknown");
+const threadTitle = (thread) => {
+  const speakers = membersAs(thread, "speaker");
+  const names = speakers.length > 2 ? `${speakers.slice(0, 2).join(", ")}, and ${speakers.length - 2} more` : speakers.join(" and ");
+  return `${names} | ${thread.location || "Unknown"}`;
+};
 // Thread IDs restart in each campaign, so the selection names the campaign too
 const threadKey = (thread) => `${log.name}/${thread.id}`;
 const threadText = (thread) => [...thread.members.map((member) => member.name), ...thread.lines, thread.memory ?? ""].join("\n").toLowerCase();
@@ -1098,7 +1103,7 @@ function renderThreadList() {
         renderThreadList();
         renderThread();
       },
-    }, el("span", { className: "name" }, membersAs(thread, "speaker").join(" and ")), el("span", { className: "detail" }, thread.time || "Unknown"));
+    }, el("span", { className: "name" }, threadTitle(thread)), el("span", { className: "detail" }, thread.time || "Unknown"));
     if (threadKey(thread) === threadView.selected) item.setAttribute("aria-current", "true");
     return item;
   }));
@@ -1124,7 +1129,7 @@ function renderThread() {
   }
   container.replaceChildren(el("div", { className: "card" },
     el("div", { className: "card-head" },
-      el("span", {}, el("strong", { className: "name" }, membersAs(thread, "speaker").join(" and ")), " ", el("span", { className: "badge" }, thread.time || "Unknown"))),
+      el("span", {}, el("strong", { className: "name" }, threadTitle(thread)), " ", el("span", { className: "badge" }, thread.time || "Unknown"))),
     thread.lines.length > 0 ? field("Dialogue", el("textarea", { id: "thread-lines", className: "tall", readOnly: true, value: thread.lines.join("\n") }), null, "What was said, oldest first. The memory replaces it.") : null,
     memory,
     note ? el("p", { className: `hint${note.error ? " error" : ""}` }, note.text) : null,

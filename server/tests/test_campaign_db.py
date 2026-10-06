@@ -245,11 +245,11 @@ class ThreadTest(CampaignTestCase):
         for npc_id, name in ((self.STICK, "Stick"), (self.IZUMI, "Izumi"), (self.RUKA, "Ruka"), (GENERIC_ID, "Jorge")):
             campaign_db.upsert_profile(npc_id, {"Name": name})
 
-    def exchange(self, thread_id, when, listeners=(), speaker=None):
+    def exchange(self, thread_id, when, listeners=(), speaker=None, location=None):
         """A chat of Stick, or of speaker, with Jorge, stored as the chat route stores it."""
         speaker = speaker or self.STICK
         members = [(speaker, "speaker", True), (GENERIC_ID, "speaker", False), *((npc_id, "overheard", True) for npc_id in listeners)]
-        thread_id = campaign_db.join_thread(thread_id, members, campaign_db.game_time(when))
+        thread_id = campaign_db.join_thread(thread_id, members, campaign_db.game_time(when), location)
         lines = [(f"{when} Stick: hi", speaker), (f"{when} Jorge: Hm.", GENERIC_ID)]
         for npc_id in (speaker, GENERIC_ID):
             campaign_db.append_dialogue(npc_id, lines, {}, thread_id)
@@ -292,6 +292,12 @@ class ThreadTest(CampaignTestCase):
         self.assertEqual(threads[1]["lines"], ["[Day 3, 14:05] Stick: hi", "[Day 3, 14:05] Jorge: Hm.", "[Day 3, 14:06] Stick: hi", "[Day 3, 14:06] Jorge: Hm."])
         self.assertEqual(campaign_db.game_time_text(threads[1]["game_time"]), "Day 3, 14:05")
         self.assertEqual([member[1:3] for member in threads[1]["members"]], [("Stick", "speaker"), ("Jorge", "speaker"), ("Izumi", "overheard")])
+
+    def test_a_thread_keeps_the_place_where_it_started(self):
+        thread_id = self.exchange(None, "[Day 3, 14:05]", location="Bar, The Hub")
+        self.exchange(thread_id, "[Day 3, 14:06]", location="The Hub")
+        self.exchange(None, "[Day 4, 09:00]")
+        self.assertEqual([thread["location"] for thread in campaign_db.threads()], [None, "Bar, The Hub"])
 
     def test_a_thread_without_a_speaker_copy_shows_the_copy_of_an_overhearer(self):
         thread_id = self.exchange(None, "[Day 3, 14:05]", listeners=[self.IZUMI])
