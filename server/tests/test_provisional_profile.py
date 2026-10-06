@@ -37,7 +37,7 @@ def rolled_traits(personality):
 class DataTest(unittest.TestCase):
     def test_the_lists_have_their_sizes_and_no_text_repeats(self):
         self.assertEqual(len(provisional_profile.ANIMAL_PERSONALITIES), 20)
-        self.assertEqual(len(provisional_profile.BACKSTORIES), 100)
+        self.assertEqual(len(provisional_profile.BACKSTORIES), 200)
         self.assertEqual({group: len(quirks) for group, quirks in QUIRKS.items()}, {"universal": 55, "human": 30, "shek": 30, "hiver": 30, "skeleton": 30})
         self.assertEqual(len(ALL_TEXTS), len(set(ALL_TEXTS)))
 
