@@ -13,9 +13,8 @@ CHAT_HOTKEYS = ["\\", "[", "P", "T", "J", "U", "K"]
 # The plugin reads the same [Settings] keys, so renaming one breaks it
 INI_KEY_MAP = {
     "current_campaign": "ActiveCampaign",
-    "enable_ambient": "EnableAmbientConversations",
+    "enable_radiant": "EnableRadiantConversations",
     "radiant_delay": "RadiantDelay",
-    "radiant_range": "RadiantRange",
     "talk_radius": "TalkRadius",
     "yell_radius": "YellRadius",
     "enable_welcome": "EnableWelcomePopup",
@@ -55,9 +54,8 @@ def _save_settings_raw(settings):
 
 SETTINGS_DEFAULTS = {
     "current_campaign": "Default",
-    "enable_ambient": False,
-    "radiant_delay": 240,
-    "radiant_range": 100,
+    "enable_radiant": False,
+    "radiant_delay": 600,
     "talk_radius": 50,
     "yell_radius": 100,
     "enable_welcome": True,
@@ -103,7 +101,6 @@ def save_settings(new_settings):
     flat_changes = {}
     for k, v in new_settings.items():
         if k == "radii" and isinstance(v, dict):
-            if "radiant" in v: flat_changes["radiant_range"] = v["radiant"]
             if "talk" in v: flat_changes["talk_radius"] = v["talk"]
             if "yell" in v: flat_changes["yell_radius"] = v["yell"]
         else:
@@ -115,12 +112,11 @@ def save_settings(new_settings):
 
 def settings_page_values(settings):
     return {
-        "enable_ambient": settings["enable_ambient"],
-        "ambient_timer": settings["radiant_delay"],
+        "enable_radiant": settings["enable_radiant"],
+        "radiant_delay": settings["radiant_delay"],
         "dialogue_speed": settings["dialogue_speed_seconds"],
         "bubble_life": settings["bubble_life"],
         "radii": {
-            "radiant": settings["radiant_range"],
             "talk": settings["talk_radius"],
             "yell": settings["yell_radius"]
         },
@@ -137,15 +133,13 @@ def push_settings_to_plugin():
     """On a first start the plugin finds no INI and runs on the defaults of LoadPluginConfig, so the server sends each value that the plugin holds."""
     settings = load_settings()
     for var, value in (
-        ("g_enableAmbient", "1" if settings["enable_ambient"] else "0"),
-        ("g_ambientIntervalSeconds", settings["radiant_delay"]),
-        ("g_radiantRange", settings["radiant_range"]),
+        ("g_enableRadiant", "1" if settings["enable_radiant"] else "0"),
+        ("g_radiantIntervalSeconds", settings["radiant_delay"]),
         ("g_proximityRadius", settings["talk_radius"]),
         ("g_yellRadius", settings["yell_radius"]),
         ("g_chatHotkey", settings["chat_hotkey"]),
         ("g_enableWelcome", "1" if settings["enable_welcome"] else "0"),
         ("g_logLevel", settings["log_level"]),
-        ("g_dialogueSpeedSeconds", settings["dialogue_speed_seconds"]),
         ("g_speechBubbleLife", settings["bubble_life"]),
     ):
         send_to_pipe(f"SET_CONFIG: {var}: {value}")
@@ -153,10 +147,9 @@ def push_settings_to_plugin():
 
 def get_config_radii():
     settings = load_settings()
-    r = float(settings.get('radiant_range', 100.0))
     t = float(settings.get('talk_radius', 50.0))
     y = float(settings.get('yell_radius', 100.0))
-    return r, t, y
+    return t, y
 
 def load_configs():
     logging.debug("CONFIG: Loading the name and localization files.")

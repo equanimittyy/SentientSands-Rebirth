@@ -297,26 +297,21 @@ void LoadPluginConfig() {
                            iniPath.c_str());
   SetHotkeyFromString(hotkeyBuf);
 
-  g_radiantRange = (float)GetPrivateProfileIntA("Settings", "RadiantRange", 100,
-                                                iniPath.c_str());
   g_proximityRadius = (float)GetPrivateProfileIntA("Settings", "TalkRadius",
                                                    50, iniPath.c_str());
   g_yellRadius = (float)GetPrivateProfileIntA("Settings", "YellRadius", 100,
                                               iniPath.c_str());
 
   g_visionRange = 100.0f;
-  g_ambientIntervalSeconds =
-      GetPrivateProfileIntA("Settings", "RadiantDelay", 240, iniPath.c_str());
+  g_radiantIntervalSeconds =
+      GetPrivateProfileIntA("Settings", "RadiantDelay", 600, iniPath.c_str());
 
-  g_enableAmbient =
-      GetPrivateProfileIntA("Settings", "EnableAmbientConversations", 0,
+  g_enableRadiant =
+      GetPrivateProfileIntA("Settings", "EnableRadiantConversations", 0,
                             iniPath.c_str()) != 0;
 
   g_enableWelcome = GetPrivateProfileIntA("Settings", "EnableWelcomePopup", 1,
                                           iniPath.c_str()) != 0;
-
-  g_dialogueSpeedSeconds =
-      GetPrivateProfileIntA("Settings", "DialogueSpeed", 5, iniPath.c_str());
 
   char bubbleLifeBuf[32];
   GetPrivateProfileStringA("Settings", "SpeechBubbleLife", "15.0",
@@ -334,9 +329,8 @@ void LoadPluginConfig() {
 
   Log(LOG_INFO,
       "CONFIG: Loaded ProximityRadius=" + ToString(g_proximityRadius) +
-          ", RadiantRange=" + ToString(g_radiantRange) +
-          ", AmbientInterval=" + ToString(g_ambientIntervalSeconds) + "s" +
-          ", EnableAmbient=" + (g_enableAmbient ? "true" : "false") +
+          ", RadiantInterval=" + ToString(g_radiantIntervalSeconds) + "s" +
+          ", EnableRadiant=" + (g_enableRadiant ? "true" : "false") +
           ", EnableWelcome=" + (g_enableWelcome ? "true" : "false") +
           ", LogLevel=" + logLevelBuf);
 }
@@ -418,17 +412,4 @@ bool AttackWaits(unsigned long long attack) {
   bool waits = g_waitingAttacks.count(attack) > 0;
   LeaveCriticalSection(&g_eventMutex);
   return waits;
-}
-
-void SleepIfPaused(DWORD ms) {
-  DWORD start = GetTickCount();
-  while (GetTickCount() - start < ms) {
-    if (ppWorld && *ppWorld && (*ppWorld)->isPaused()) {
-      Sleep(100);
-      start +=
-          100; // Paused time doesn't count toward the delay
-      continue;
-    }
-    Sleep(100);
-  }
 }

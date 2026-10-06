@@ -92,6 +92,27 @@ class WorldEventsTestCase(unittest.TestCase):
         deeds.take([attack(doer, victim, minutes) for doer in doers] + [death(victim, minutes)])
 
 
+class FightTest(WorldEventsTestCase):
+    SQUAD = {BEEP["id"], IZUMI["id"]}
+
+    def test_an_attack_by_a_character_within_3_game_hours_is_a_fight(self):
+        deeds.take([attack(BEEP, KING, at(1, 10))])
+        self.assertTrue(deeds.fought_recently(self.SQUAD, when(at(1, 13))))
+        self.assertFalse(deeds.fought_recently(self.SQUAD, when(at(1, 13, 1))))
+
+    def test_a_knockout_of_a_character_is_a_fight(self):
+        deeds.take([knockout(IZUMI, at(1, 10))])
+        self.assertTrue(deeds.fought_recently(self.SQUAD, when(at(1, 12))))
+
+    def test_the_fights_of_other_characters_do_not_count(self):
+        deeds.take([attack(party("h:9", "Guard", "United Cities"), KING, at(1, 10)), knockout(KING, at(1, 10, 1)), attack(KING, BEEP, at(1, 10, 2))])
+        self.assertFalse(deeds.fought_recently(self.SQUAD, when(at(1, 11))))
+
+    def test_a_context_with_no_game_time_has_no_fight(self):
+        deeds.take([attack(BEEP, KING, at(1, 10))])
+        self.assertFalse(deeds.fought_recently(self.SQUAD, {}))
+
+
 class AttributionTest(WorldEventsTestCase):
     def test_a_death_gives_a_kill_to_each_attacker_of_the_last_3_game_hours(self):
         deeds.take([attack(BEEP, KING, at(1, 10)), attack(IZUMI, KING, at(1, 11)), death(KING, at(1, 13))])

@@ -1,7 +1,7 @@
 """Create a campaign filled with mock play data, so the web app and the Dialogue Library have data without a game.
 
 The data goes in through the campaign_db calls that the chat route makes: chat threads with speakers and overhearers,
-a whisper and a yell, the memories of all chat threads but the newest, and one banter. The deeds go in as the events of
+a whisper and a yell, a radiant conversation of the squad, and the memories of all threads but the newest. The deeds go in as the events of
 the game, through the attribution of the server: a known figure captured, with a rumor, and one killed. The script
 refuses a campaign name that is taken, so a second run cannot add the data twice. It needs no Flask, so it runs in the dev container.
 """
@@ -75,11 +75,16 @@ def chat_thread(speaker, npc, exchanges, overhearers=(), mode="talk", memory=Non
         campaign_db.set_memory(thread_id, chat_prompt.mark_names(memory, [(npc_id, NAMES[npc_id]) for npc_id in copies]), campaign_db.game_time(prefix))
 
 
-def banter(lines):
-    """lines are (game time, npc_id, text) triples. Each NPC of the banter stores every line, with no thread."""
-    rows = [(f"[{when}] {NAMES[npc_id]}: {text}", npc_id) for when, npc_id, text in lines]
-    for npc_id in {npc_id for _, npc_id, _ in lines}:
-        campaign_db.append_dialogue(npc_id, rows, {})
+def radiant(when, lines, memory):
+    """lines are (npc_id, text) pairs of squad members. Each participant is a speaker of one thread, as the radiant route
+    stores it."""
+    participants = list(dict.fromkeys(npc_id for npc_id, _ in lines))
+    prefix = f"[{when}] "
+    thread_id = campaign_db.join_thread(None, [(npc_id, "speaker", True) for npc_id in participants], campaign_db.game_time(prefix))
+    rows = [(f"{prefix}{NAMES[npc_id]}: {text}", npc_id) for npc_id, text in lines]
+    for npc_id in participants:
+        campaign_db.append_dialogue(npc_id, rows, {}, thread_id)
+    campaign_db.set_memory(thread_id, chat_prompt.mark_names(memory, [(npc_id, NAMES[npc_id]) for npc_id in participants]), campaign_db.game_time(prefix))
 
 
 def fill():
@@ -108,12 +113,15 @@ def fill():
         "Stick told Ruka that Ruka looked like a fighter. Ruka answered that they counted only the fights they lost. Stick"
         " asked whether Ruka wanted work, and Ruka refused work from a door guard until Stick proved himself."
     ))
-    banter([
-        ("Day 4, 09:30", RUKA, "Your ale tastes of rust."),
-        ("Day 4, 09:30", JORGE, "Everything here does."),
-        ("Day 4, 09:31", RUKA, "Then why do they keep drinking it?"),
-        ("Day 4, 09:31", JORGE, "Because it is the only ale for a day's walk."),
-    ])
+    radiant("Day 4, 09:30", [
+        (STICK, "That Ruka counts only the fights lost?"),
+        (IZUMI, "Odd way to keep score."),
+        (MIKSE, "An honest one."),
+        (STICK, "Honest, or just short?"),
+    ], memory=(
+        "Stick, Izumi, and Mikse talked about Ruka, who counted only the fights that Ruka lost. Izumi found it an odd way"
+        " to keep score, Mikse called it honest, and Stick asked whether the count was only short."
+    ))
     chat_thread(MIKSE, BEEP, [
         ("Day 5, 20:30", "Beep, can you keep a secret?", "Beep is very good at secrets! Beep forgets most things anyway."),
         ("Day 5, 20:31", "We leave The Hub tonight.", "Beep will pack! Beep has one bag and it is empty."),

@@ -70,9 +70,9 @@ class ValidateTest(unittest.TestCase):
     def test_route_needs_the_default_slot_once(self):
         config = built()
         config["routes"]["chat"]["profiles"] = ["kimi"]
-        config["routes"]["ambient"]["profiles"] = [llm_config.DEFAULT_SLOT, llm_config.DEFAULT_SLOT]
+        config["routes"]["radiant"]["profiles"] = [llm_config.DEFAULT_SLOT, llm_config.DEFAULT_SLOT]
         fields = [error["field"] for error in llm_config.validate(config)]
-        self.assertEqual(fields, [["routes", "chat", "profiles"], ["routes", "ambient", "profiles"]])
+        self.assertEqual(fields, [["routes", "chat", "profiles"], ["routes", "radiant", "profiles"]])
 
     def test_rejects_missing_or_malformed_default_profile(self):
         for default in ("gone", None, ["kimi"]):
@@ -82,7 +82,7 @@ class ValidateTest(unittest.TestCase):
 
     def test_rejects_missing_task_and_bad_numbers(self):
         config = built()
-        del config["routes"]["ambient"]
+        del config["routes"]["radiant"]
         config["routes"]["chat"]["temperature"] = 3
         config["routes"]["chat"]["max_tokens"] = 0
         config["profiles"]["kimi"]["timeout"] = True
@@ -210,7 +210,7 @@ class Player2InUseTest(unittest.TestCase):
     def test_lists_player2_providers_only_when_a_route_uses_them(self):
         config = built()
         self.assertEqual(llm_config.player2_providers_in_use(config), [])
-        config["routes"]["ambient"]["profiles"].append("player2-default")
+        config["routes"]["radiant"]["profiles"].append("player2-default")
         self.assertEqual(llm_config.player2_providers_in_use(config), ["player2"])
 
     def test_default_slot_counts_as_its_profile(self):

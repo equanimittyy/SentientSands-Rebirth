@@ -1,7 +1,6 @@
 #include "Comm.h"
 #include "Globals.h"
 #include "Utils.h"
-#include <sstream>
 #include <winhttp.h>
 
 DWORD WINAPI PipeThread(LPVOID lpParam) {
@@ -164,45 +163,19 @@ void AsyncPostToPython(const std::wstring &endpoint,
   CreateThread(NULL, 0, AsyncHttpThread, task, 0, NULL);
 }
 
-DWORD WINAPI AmbientPollThread(LPVOID lpParam) {
+DWORD WINAPI RadiantPollThread(LPVOID lpParam) {
   std::string *pJson = (std::string *)lpParam;
-  Log(LOG_DEBUG, "AMBIENT: Sending request to server...");
-  std::string response = PostToPythonWithResponse(L"/ambient", *pJson);
+  Log(LOG_DEBUG, "RADIANT: Sending request to server...");
+  std::string response = PostToPythonWithResponse(L"/radiant", *pJson);
   delete pJson;
 
   if (response.empty()) {
-    Log(LOG_WARN, "AMBIENT: Empty response or timeout from server.");
+    Log(LOG_WARN, "RADIANT: Empty response or timeout from server.");
     return 0;
   }
 
-  // Restart the interval on reply so a slow server doesn't shorten the gap between banters
-  g_lastAmbientTick = GetTickCount();
-
-  std::string content = GetJsonValue(response, "text");
-  if (!content.empty()) {
-    std::stringstream ss(content);
-    std::string line;
-    bool first = true;
-    int lineCount = 0;
-    while (std::getline(ss, line)) {
-      if (line.empty() || line.length() < 3)
-        continue;
-
-      if (!first) {
-        SleepIfPaused(g_dialogueSpeedSeconds * 1000);
-      }
-
-      EnterCriticalSection(&g_msgMutex);
-      g_messageQueue.push_back("NPC_SAY: " + line);
-      g_lastDialogueTick = GetTickCount();
-      LeaveCriticalSection(&g_msgMutex);
-      first = false;
-      lineCount++;
-    }
-    Log(LOG_INFO,
-        "AMBIENT: Queued " + ToString(lineCount) + " banter lines.");
-  } else {
-    Log(LOG_WARN, "AMBIENT: Invalid response or no text found.");
-  }
+  // Restart the interval on reply so a slow server doesn't shorten the gap between conversations
+  g_lastRadiantTick = GetTickCount();
+  Log(LOG_INFO, "RADIANT: Server answered " + GetJsonValue(response, "status") + ".");
   return 0;
 }

@@ -1,0 +1,17 @@
+Write a radiant conversation: a short talk between the characters below. They travel together in the player's group, and they stand near each other.
+
+PLACE: {place}
+
+CHARACTERS:
+{participants}
+
+TOPIC: {topic}
+
+RULES:
+- Every character speaks at least once and at most 3 times. The topic and the flow of the conversation decide how many lines each one gets.
+- Write each line as Name|ID: words, with the exact Name|ID of its speaker from CHARACTERS. Each line is one turn.
+- Only the characters in CHARACTERS speak. Write no narration and no bracketed text.
+- The characters talk to each other, not to the player.
+- The personality, backstory, and speech quirks of each character decide its voice and its tone.
+
+Output ONLY the lines.

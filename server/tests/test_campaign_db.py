@@ -368,6 +368,14 @@ class ThreadTest(CampaignTestCase):
         [heard] = campaign_db.memories_of(self.IZUMI)
         self.assertEqual((campaign_db.game_time_text(heard["game_time"]), [member[2] for member in heard["members"]]), ("Day 2, 08:00", ["speaker", "speaker", "overheard"]))
 
+    def test_a_shared_memory_has_at_least_two_of_the_characters_as_members(self):
+        threads = [self.exchange(None, "[Day 1, 08:00]", listeners=[self.IZUMI]), self.exchange(None, "[Day 2, 08:00]"), self.exchange(None, "[Day 3, 08:00]", speaker=self.RUKA)]
+        for day, thread_id in enumerate(threads, start=1):
+            campaign_db.set_memory(thread_id, f"Day {day}.", campaign_db.game_time(f"[Day {day}, 08:00]"))
+        self.exchange(None, "[Day 4, 08:00]", listeners=[self.IZUMI])
+        self.assertEqual([memory["memory"] for memory in campaign_db.shared_memories([self.STICK, self.IZUMI, self.RUKA])], ["Day 1."])
+        self.assertEqual([memory["memory"] for memory in campaign_db.shared_memories([self.STICK, GENERIC_ID])], ["Day 1.", "Day 2."])
+
     def test_the_partners_of_a_speaker_stay_after_the_memory(self):
         first = self.exchange(None, "[Day 1, 08:00]", listeners=[self.IZUMI])
         self.exchange(None, "[Day 2, 08:00]", speaker=self.RUKA)

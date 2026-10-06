@@ -38,7 +38,7 @@ def speech_quirks(race, kind):
 def roll(npc_id, kind, race):
     """Personality, Backstory, and SpeechQuirks for a kind of KINDS.
 
-    Seeded by npc_id: banter and a chat can meet a new NPC at the same moment, and both write its profile, so both must
+    Seeded by npc_id: a radiant conversation and a chat can meet a new character at the same moment, and both write its profile, so both must
     roll the same one.
     """
     rng = random.Random(npc_id)

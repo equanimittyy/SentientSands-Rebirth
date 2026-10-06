@@ -100,7 +100,7 @@ class HistoryTurnsTest(unittest.TestCase):
         ]
         self.assertEqual(chat_prompt.spoken_with(entries, ["h:10", "h:11", "h:10"], BEEP), ["h:10", "h:11", "h:13"])
 
-    def test_the_chat_lines_leave_out_banter(self):
+    def test_the_chat_lines_leave_out_a_row_with_no_thread(self):
         entries = [("[Day 4, 08:00] Ruka: Hot today.", "h:13", None), ("[Day 4, 09:00] Izumi: hey", "h:11", 4)]
         self.assertEqual(chat_prompt.chat_lines(entries), entries[1:])
 
@@ -174,11 +174,15 @@ class MemoriesTest(unittest.TestCase):
         self.assertEqual(chat_prompt.memory_lines([self.memory(members)], self.JORGE), ["[Day 3, 14:05] (Memory of a conversation with Stick, heard by Mikse) Stick asked Jorge for work."])
         self.assertEqual(chat_prompt.memory_lines([self.memory(members, game_time=None)], self.MIKSE), ["(Memory of an overheard conversation of Stick and Jorge) Stick asked Jorge for work."])
 
+    def test_a_shared_memory_names_every_member(self):
+        members = [(self.STICK, "Stick", "speaker", True), (self.JORGE, "Jorge", "speaker", True), (self.MIKSE, "Mikse", "overheard", True)]
+        self.assertEqual(chat_prompt.shared_memory(self.memory(members)), "[Day 3, 14:05] (Memory of a conversation between Stick and Jorge, heard by Mikse) Stick asked Jorge for work.")
+
     def test_a_header_names_the_others_before_the_lines_of_each_thread(self):
         members = {1: [(self.STICK, "Stick", "speaker", True), (self.JORGE, "Jorge", "speaker", False)], 2: [(self.IZUMI, "Izumi", "speaker", True), (self.JORGE, "Jorge", "speaker", False), (self.STICK, "Stick", "overheard", True)]}
-        entries = [("a", self.STICK, 1), ("b", self.JORGE, 1), ("banter", "h:20", None), ("c", self.IZUMI, 2), ("d", self.JORGE, 2), ("e", self.STICK, 1)]
+        entries = [("a", self.STICK, 1), ("b", self.JORGE, 1), ("stray", "h:20", None), ("c", self.IZUMI, 2), ("d", self.JORGE, 2), ("e", self.STICK, 1)]
         self.assertEqual(chat_prompt.headed_lines(entries, members, self.JORGE), [
-            "(Conversation with Stick)", "a", "b", "banter", "(Conversation with Izumi, heard by Stick)", "c", "d", "(Conversation with Stick)", "e",
+            "(Conversation with Stick)", "a", "b", "stray", "(Conversation with Izumi, heard by Stick)", "c", "d", "(Conversation with Stick)", "e",
         ])
 
 

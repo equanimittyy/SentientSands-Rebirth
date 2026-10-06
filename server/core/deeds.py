@@ -11,6 +11,8 @@ from core import state
 from store import campaign_db
 
 ATTACK_WINDOW_MINUTES = 180
+# A radiant conversation waits this long after a fight, so its participants do not talk about other things right after a battle
+FIGHT_QUIET_MINUTES = 180
 ENDS = ("death", "imprisonment")
 
 _lock = threading.Lock()
@@ -66,6 +68,26 @@ def _attribute(event, at):
         history = _histories.setdefault(key, [])
         history.append((at, event))
         return _attackers(history) if kind in ENDS else None
+
+
+def fought_recently(npc_ids, ctx):
+    """Whether one of the characters attacked someone, or was knocked out, within FIGHT_QUIET_MINUTES before the game time of
+    the context. The plugin sends no attack on a character of the player's faction, so taking hits alone is no fight."""
+    now = _minutes(ctx)
+    if now is None:
+        return False
+    with _lock:
+        if _campaign != state.ACTIVE_CAMPAIGN:
+            return False
+        for history in _histories.values():
+            for at, event in history:
+                if now - at > FIGHT_QUIET_MINUTES:
+                    continue
+                if event["kind"] == "attack" and (event.get("attacker") or {}).get("id") in npc_ids:
+                    return True
+                if event["kind"] == "knockout" and event.get("id") in npc_ids:
+                    return True
+    return False
 
 
 def _rewind(at):

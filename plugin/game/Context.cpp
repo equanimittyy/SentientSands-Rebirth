@@ -25,6 +25,7 @@
 #include <kenshi/Weather.h>
 #undef WeatherRegion
 #include <kenshi/util/hand.h>
+#include <algorithm>
 #include <map>
 #include <set>
 #include <vector>
@@ -490,6 +491,55 @@ void GetCurrentSquad(std::vector<Character *> &members) {
   }
 }
 
+static bool CanTalk(Character *c) {
+  if (!c || (uintptr_t)c < 0x1000)
+    return false;
+  try {
+    return !c->isDead() && !c->isUnconcious() && !c->isAnimal();
+  } catch (...) {
+    return false;
+  }
+}
+
+// The center is a character that the player watches, so the speech bubbles show
+// on the screen
+void GetRadiantParticipants(Character *selected,
+                            std::vector<Character *> &participants) {
+  GameWorld *world = ppWorld ? *ppWorld : NULL;
+  if (!world || !world->player)
+    return;
+  lektor<Character *> &characters = world->player->playerCharacters;
+  Character *center = nullptr;
+  for (uint32_t i = 0; i < characters.size() && !center; ++i) {
+    if (characters[i] == selected && CanTalk(selected))
+      center = selected;
+  }
+  if (!center) {
+    std::vector<Character *> squad;
+    GetCurrentSquad(squad);
+    for (size_t i = 0; i < squad.size() && !center; ++i) {
+      if (CanTalk(squad[i]))
+        center = squad[i];
+    }
+  }
+  if (!center)
+    return;
+
+  std::vector<std::pair<float, Character *> > nearby;
+  for (uint32_t i = 0; i < characters.size(); ++i) {
+    Character *c = characters[i];
+    if (c == center || !CanTalk(c))
+      continue;
+    float dist = center->getPosition().distance(c->getPosition());
+    if (dist < g_proximityRadius)
+      nearby.push_back(std::make_pair(dist, c));
+  }
+  std::sort(nearby.begin(), nearby.end());
+  participants.push_back(center);
+  for (size_t i = 0; i < nearby.size() && participants.size() < 5; ++i)
+    participants.push_back(nearby[i].second);
+}
+
 std::string GetIdentityFaction(Character *npc) {
   if (!npc || (uintptr_t)npc < 0x1000)
     return "Neutral";
@@ -568,17 +618,6 @@ std::string GetDetailedContext(Character *npc, const std::string &type) {
     json += "\"day\": " + ToString(day) + ",";
     json += "\"hour\": " + ToString(hour) + ",";
     json += "\"minute\": " + ToString(minute) + ",";
-
-    DWORD now = GetTickCount();
-    DWORD elapsed = now - g_lastAmbientTick;
-    json += "\"radiant_timer_ms\": " + ToString((int)elapsed) + ",";
-    json += "\"radiant_interval_ms\": " +
-            ToString((int)(g_ambientIntervalSeconds * 1000)) + ",";
-
-    DWORD speech_elapsed = now - g_lastDialogueTick;
-    json += "\"speech_delay_ms\": " + ToString((int)speech_elapsed) + ",";
-    json += "\"speech_interval_ms\": " +
-            ToString((int)(g_dialogueSpeedSeconds * 1000)) + ",";
   }
 
   std::string charState = "normal";

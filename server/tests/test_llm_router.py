@@ -77,7 +77,7 @@ class RunRouteTest(unittest.TestCase):
 
         self.assertIsNone(run_route(config(["a", "b"]), "chat", MESSAGES, send))
         self.assertIsNone(run_route(config([]), "chat", MESSAGES, send))
-        self.assertIsNone(run_route(config(["a"]), "ambient", MESSAGES, send))
+        self.assertIsNone(run_route(config(["a"]), "radiant", MESSAGES, send))
 
     def test_attempt_timeout_is_capped_by_time_left(self):
         clock = FakeClock()

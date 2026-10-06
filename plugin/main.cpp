@@ -147,24 +147,18 @@ void ProcessMessageQueue(GameWorld *thisptr) {
               trimInternal(var);
               trimInternal(val);
 
-              if (var == "g_enableAmbient") {
-                g_enableAmbient = (val == "1");
-                g_lastAmbientTick = GetTickCount();
-              } else if (var == "g_ambientIntervalSeconds") {
-                g_ambientIntervalSeconds = atoi(val.c_str());
-                g_lastAmbientTick =
+              if (var == "g_enableRadiant") {
+                g_enableRadiant = (val == "1");
+                g_lastRadiantTick = GetTickCount();
+              } else if (var == "g_radiantIntervalSeconds") {
+                g_radiantIntervalSeconds = atoi(val.c_str());
+                g_lastRadiantTick =
                     GetTickCount();
               } else if (var == "g_proximityRadius")
                 g_proximityRadius = (float)atof(val.c_str());
-              else if (var == "g_radiantRange")
-                g_radiantRange = (float)atof(val.c_str());
               else if (var == "g_yellRadius")
                 g_yellRadius = (float)atof(val.c_str());
-              else if (var == "g_dialogueSpeedSeconds") {
-                g_dialogueSpeedSeconds = atoi(val.c_str());
-                g_lastDialogueTick =
-                    GetTickCount();
-              } else if (var == "g_speechBubbleLife") {
+              else if (var == "g_speechBubbleLife") {
                 g_speechBubbleLife = (float)atof(val.c_str());
               } else if (var == "g_chatHotkey") {
                 SetHotkeyFromString(val);
@@ -234,7 +228,7 @@ void ProcessMessageQueue(GameWorld *thisptr) {
         g_uiActionQueue.push_back(act);
         LeaveCriticalSection(&g_uiMutex);
       } else if (isPlayerSay || isNPCAction || isNPCSay) {
-        g_lastAmbientTick = GetTickCount();
+        g_lastRadiantTick = GetTickCount();
 
         if (isPlayerSay) {
           if (thisptr->player && thisptr->player->playerCharacters.size() > 0) {
@@ -1062,121 +1056,80 @@ void playerUpdate_hook(PlayerInterface *thisptr) {
 
     DWORD now = GetTickCount();
 
-    static DWORD lastFrameTickForAmbient = GetTickCount();
-    DWORD deltaTick = now >= lastFrameTickForAmbient ? (now - lastFrameTickForAmbient) : 0;
-    lastFrameTickForAmbient = now;
+    static DWORD lastFrameTickForRadiant = GetTickCount();
+    DWORD deltaTick = now >= lastFrameTickForRadiant ? (now - lastFrameTickForRadiant) : 0;
+    lastFrameTickForRadiant = now;
 
-    if (g_enableAmbient) {
+    if (g_enableRadiant) {
       float currentSpeed = world->getFrameSpeedMultiplier();
       
-      // Shift the timer so paused time does not count toward the banter interval.
+      // Shift the timer so paused time does not count toward the radiant interval.
       if (currentSpeed <= 0.1f || world->isPaused()) {
-          g_lastAmbientTick += deltaTick;
+          g_lastRadiantTick += deltaTick;
       } else {
-        if (g_triggerAmbient || (now - g_lastAmbientTick >
-                                 (DWORD)(g_ambientIntervalSeconds * 1000))) {
-          g_triggerAmbient = false;
-          g_lastAmbientTick = now;
+        if (g_triggerRadiant || (now - g_lastRadiantTick >
+                                 (DWORD)(g_radiantIntervalSeconds * 1000))) {
+          g_triggerRadiant = false;
+          g_lastRadiantTick = now;
 
-          if (world->player && world->player->playerCharacters.size() > 0) {
-            Character *player = world->player->playerCharacters[0];
-            lektor<RootObject *> results;
-            world->getCharactersWithinSphere(results, player->getPosition(),
-                                             g_radiantRange, 0.0f, 0.0f, 16, 0,
-                                             player);
+          std::vector<Character *> participants;
+          GetRadiantParticipants(sel, participants);
+          if (participants.size() >= 3) {
+            std::string npcData = "[";
+            for (size_t i = 0; i < participants.size(); ++i) {
+              Character *other = participants[i];
+              if (i > 0)
+                npcData += ",";
 
-            if (results.size() >= 2) {
-              std::string npcData = "[";
-              bool first = true;
-              int count = 0;
-              for (uint32_t i = 0; i < results.size() && count < 5; ++i) {
-                Character *other = (Character *)results.stuff[i];
-                if (other && (uintptr_t)other > 0x1000 && other != player) {
-                  // Dead or unconscious NPCs cannot show speech bubbles.
-                  try {
-                    if (other->isDead() || other->isUnconcious())
-                      continue;
-                  } catch (...) {
-                  }
-                  if (!first)
-                    npcData += ",";
-
-                  RaceData *o_race =
-                      other->getRace() ? other->getRace() : other->myRace;
-                  std::string o_rn = "Unknown";
-                  if (o_race && (uintptr_t)o_race > 0x1000) {
-                    if (o_race->data && !o_race->data->name.empty())
-                      o_rn = o_race->data->name;
-                    else if (o_race->data && !o_race->data->stringID.empty())
-                      o_rn = o_race->data->stringID;
-                  }
-
-                  LogNpcRole(other);
-                  std::string identityFaction = GetIdentityFaction(other);
-                  npcData +=
-                      "{\"name\":\"" + EscapeJSON(other->getName()) + "\",";
-                  npcData +=
-                      "\"id\":" + ToString(other->getHandle().serial) +
-                      ",";
-                  npcData +=
-                      "\"npc_id\":\"" + EscapeJSON(GetNpcId(other)) + "\",";
-                  npcData += "\"race\":\"" + EscapeJSON(o_rn) + "\",";
-                  npcData +=
-                      "\"animal\":" +
-                      std::string(other->isAnimal() ? "true" : "false") + ",";
-                  npcData +=
-                      "\"gender\":\"" +
-                      std::string(other->isFemale() ? "female" : "male") +
-                      "\",";
-                  npcData += "\"template\":\"" +
-                             EscapeJSON(other->data ? other->data->name
-                                                    : std::string()) +
-                             "\",";
-                  npcData += "\"template_id\":\"" +
-                             EscapeJSON(other->data ? other->data->stringID
-                                                    : std::string()) +
-                             "\",";
-                  npcData += "\"unique\":" +
-                             std::string(other->isUnique() ? "true" : "false") +
-                             ",";
-                  Faction *o_faction =
-                      other->getFaction() ? other->getFaction() : other->owner;
-                  npcData += "\"in_player_faction\":" +
-                             std::string(o_faction && o_faction->isThePlayer()
-                                             ? "true"
-                                             : "false") +
-                             ",";
-                  npcData += RoleJson(other) + ",";
-                  npcData += ProfileJson(other) + ",";
-                  npcData += "\"equipment\":\"" +
-                             EscapeJSON(GetVisibleEquipment(other)) + "\",";
-                  npcData +=
-                      "\"faction\":\"" + EscapeJSON(identityFaction) + "\"}";
-                  first = false;
-                  count++;
-                }
-              }
-              npcData += "]";
-
-              int day = 0;
-              int hour = 0;
-              if (ppWorld && *ppWorld) {
-                TimeOfDay tod = (*ppWorld)->getTimeStamp_inGameHours();
-                day = (int)tod.getTotalDays();
-                hour = (int)tod.getHoursPassed();
+              RaceData *o_race =
+                  other->getRace() ? other->getRace() : other->myRace;
+              std::string o_rn = "Unknown";
+              if (o_race && (uintptr_t)o_race > 0x1000) {
+                if (o_race->data && !o_race->data->name.empty())
+                  o_rn = o_race->data->name;
+                else if (o_race->data && !o_race->data->stringID.empty())
+                  o_rn = o_race->data->stringID;
               }
 
-              if (count >= 2) {
-                std::string *pJson = new std::string(
-                    "{\"npcs\": " + npcData + ", \"player\": \"" +
-                    EscapeJSON(player->getName()) + "\", \"day\": " +
-                    ToString(day) + ", \"hour\": " + ToString(hour) +
-                    ", \"player_context\": " +
-                    GetDetailedContext(player, "player") +
-                    ", \"events\": " + TakeGameEvents() + "}");
-                CreateThread(NULL, 0, AmbientPollThread, pJson, 0, NULL);
-              }
+              LogNpcRole(other);
+              std::string identityFaction = GetIdentityFaction(other);
+              npcData +=
+                  "{\"name\":\"" + EscapeJSON(other->getName()) + "\",";
+              npcData +=
+                  "\"id\":" + ToString(other->getHandle().serial) + ",";
+              npcData +=
+                  "\"npc_id\":\"" + EscapeJSON(GetNpcId(other)) + "\",";
+              npcData += "\"race\":\"" + EscapeJSON(o_rn) + "\",";
+              npcData += "\"animal\":false,";
+              npcData +=
+                  "\"gender\":\"" +
+                  std::string(other->isFemale() ? "female" : "male") + "\",";
+              npcData += "\"template\":\"" +
+                         EscapeJSON(other->data ? other->data->name
+                                                : std::string()) +
+                         "\",";
+              npcData += "\"template_id\":\"" +
+                         EscapeJSON(other->data ? other->data->stringID
+                                                : std::string()) +
+                         "\",";
+              npcData += "\"unique\":" +
+                         std::string(other->isUnique() ? "true" : "false") +
+                         ",";
+              npcData += "\"in_player_faction\":true,";
+              npcData += RoleJson(other) + ",";
+              npcData += ProfileJson(other) + ",";
+              npcData += "\"equipment\":\"" +
+                         EscapeJSON(GetVisibleEquipment(other)) + "\",";
+              npcData +=
+                  "\"faction\":\"" + EscapeJSON(identityFaction) + "\"}";
             }
+            npcData += "]";
+
+            std::string *pJson = new std::string(
+                "{\"participants\": " + npcData + ", \"player_context\": " +
+                GetDetailedContext(participants[0], "player") +
+                ", \"events\": " + TakeGameEvents() + "}");
+            CreateThread(NULL, 0, RadiantPollThread, pJson, 0, NULL);
           }
         }
       }

@@ -10,6 +10,8 @@ std::string GetDetailedContext(Character *npc, const std::string &type = "npc");
 std::string GetIdentityFaction(Character *npc);
 std::string GetNpcId(Character *npc);
 void GetCurrentSquad(std::vector<Character *> &members);
+void GetRadiantParticipants(Character *selected,
+                            std::vector<Character *> &participants);
 void LogFactionList();
 void LogNpcRole(Character *npc);
 std::string EventParty(Character *npc);

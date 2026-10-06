@@ -153,6 +153,12 @@ def conversation_label(partners, listeners, overheard):
     return text[0].upper() + text[1:]
 
 
+def shared_memory_label(speakers, listeners):
+    """The members of a memory for a prompt that none of them reads as itself."""
+    heard = f", heard by {_join(listeners)}" if listeners else ""
+    return f"Memory of a conversation between {_join(speakers)}{heard}"
+
+
 def memory_label(partners, listeners, overheard):
     return f"Memory of {_a(_conversation(partners, listeners, overheard))}"
 
@@ -256,15 +262,15 @@ def location_name(context):
     return ", ".join(part for part in (first, place) if _known(part))
 
 
-def location_text(environment):
+def location_text(environment, subject="You"):
     town, biome = environment.get("town_name", ""), environment.get("biome", "")
     if town and biome:
-        place = f"You are in {town}, in {biome}."
+        place = f"{subject} are in {town}, in {biome}."
     elif town or biome:
-        place = f"You are in {town or biome}."
+        place = f"{subject} are in {town or biome}."
     else:
-        place = "You are somewhere in the wasteland."
-    walls = "You are inside the town walls." if environment.get("in_town") else ""
+        place = f"{subject} are somewhere in the wasteland."
+    walls = f"{subject} are inside the town walls." if environment.get("in_town") else ""
     return " ".join(part for part in (place, walls, WEATHER.get(int(_number(environment.get("weather"))), "")) if part)
 
 
@@ -279,12 +285,11 @@ def rumors_text(rumors, today):
     return _section("Rumours:", sentences)
 
 
-def player_text(name, facing, race, sex, race_description, medical, feels_hunger, faction, faction_description, items, building=None, state="normal"):
-    """facing is False for banter, which has no NPC in front of the player. building is None outdoors."""
+def player_text(name, race, sex, race_description, medical, feels_hunger, faction, faction_description, items, building=None, state="normal"):
+    """building is None outdoors."""
     who = person(race, sex)
-    opener = "The individual before you is" if facing else "Nearby is"
-    return _section("The person before you:" if facing else "The player:", [
-        f"{opener} {name}, {who}." if who else f"{opener} {name}.",
+    return _section("The person before you:", [
+        f"The individual before you is {name}, {who}." if who else f"The individual before you is {name}.",
         _sentence(race_description) if race_description else "",
         state_text("They", state),
         health_text("They", medical) if medical else "",

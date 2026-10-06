@@ -25,7 +25,6 @@
 #include <mygui/MyGUI_Window.h>
 
 #include <cstdlib>
-#include <sstream>
 #include <vector>
 
 // A layout skin in Kenshi's data\gui\templates\kenshi_templates.xml
@@ -90,97 +89,9 @@ DWORD WINAPI ChatResponseThread(LPVOID lpParam) {
     delete t;
     return 0;
   }
+  // The server sends the reply and its actions through the pipe, and paces the lines
   NotifyChatStatus("{name} has responded.", t->npcName);
-
-  Log(LOG_INFO, "CHAT: Got response for " + t->npcName + " (" +
-                    ToString((int)response.length()) + " bytes)");
-  Log(LOG_DEBUG, "CHAT: Response: " + response);
-
-  std::string npcText = GetJsonValue(response, "text");
-  std::vector<std::string> actions;
-  std::string actionsJson = GetJsonValue(response, "actions");
-  if (!actionsJson.empty() && actionsJson[0] == '[') {
-    size_t s = 0;
-    while ((s = actionsJson.find("\"", s)) != std::string::npos) {
-      s++;
-      size_t e = s;
-      while (e < actionsJson.size()) {
-        if (actionsJson[e] == '\\' && e + 1 < actionsJson.size()) {
-          e += 2;
-        } else if (actionsJson[e] == '\"') {
-          break;
-        } else {
-          e++;
-        }
-      }
-      if (e < actionsJson.size()) {
-        actions.push_back(UnescapeJSON(actionsJson.substr(s, e - s)));
-        s = e + 1;
-      } else {
-        break;
-      }
-    }
-  }
-
-  // Queue actions before speech so an AI state change cannot clear an already-queued bubble.
-  for (size_t i = 0; i < actions.size(); i++) {
-    std::string actLine;
-    // Action may already name its speaker, e.g. "Name: [ACTION: X]"
-    if (actions[i].find(':') != std::string::npos &&
-        actions[i].find('[') != std::string::npos &&
-        actions[i].find(':') < actions[i].find('[')) {
-      actLine = "NPC_ACTION: " + actions[i];
-    } else {
-      actLine =
-          "NPC_ACTION: " + t->npcName + "|" + t->handleStr + ": " + actions[i];
-    }
-
-    EnterCriticalSection(&g_msgMutex);
-    g_messageQueue.push_back(actLine);
-    LeaveCriticalSection(&g_msgMutex);
-    Sleep(50);
-  }
-
-  if (!npcText.empty()) {
-    std::stringstream ss(npcText);
-    std::string line;
-    bool first = true;
-    while (std::getline(ss, line)) {
-      if (line.empty())
-        continue;
-
-      std::string pipeLine;
-      size_t colonPos = line.find(':');
-      if (colonPos != std::string::npos && colonPos < 64 && colonPos > 0) {
-        std::string speakerName = line.substr(0, colonPos);
-        speakerName.erase(0, speakerName.find_first_not_of(" "));
-        speakerName.erase(speakerName.find_last_not_of(" ") + 1);
-
-        std::string speech = line.substr(colonPos + 1);
-        speech.erase(0, speech.find_first_not_of(" "));
-
-        if (speakerName.find('|') != std::string::npos) {
-          pipeLine = "NPC_SAY: " + speakerName + ": " + speech;
-        } else if (speakerName == t->npcName) {
-          pipeLine =
-              "NPC_SAY: " + speakerName + "|" + t->handleStr + ": " + speech;
-        } else {
-          pipeLine = "NPC_SAY: " + speakerName + ": " + speech;
-        }
-      } else {
-        pipeLine = "NPC_SAY: " + t->npcName + "|" + t->handleStr + ": " + line;
-      }
-
-      if (!first)
-        SleepIfPaused(g_dialogueSpeedSeconds * 1000);
-
-      EnterCriticalSection(&g_msgMutex);
-      g_messageQueue.push_back(pipeLine);
-      g_lastDialogueTick = GetTickCount();
-      LeaveCriticalSection(&g_msgMutex);
-      first = false;
-    }
-  }
+  Log(LOG_INFO, "CHAT: Got response for " + t->npcName);
 
   delete t;
   return 0;
@@ -440,7 +351,7 @@ void OnChatSendClick(MyGUI::Widget *sender) {
 
 void OnChatCancelClick(MyGUI::Widget *sender) { CloseChatUI(); }
 void OnRadiantClick(MyGUI::Widget *sender) {
-  g_triggerAmbient = true;
+  g_triggerRadiant = true;
   CloseChatUI();
 }
 

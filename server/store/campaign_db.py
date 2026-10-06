@@ -286,8 +286,7 @@ def promote_profile(npc_id, bio):
 
 def append_dialogue(npc_id, lines, profile, thread_id=None):
     """lines are (line, speaker) pairs, where speaker is the npc_id of the character who spoke, or None. Stores profile first
-    only if the character is not stored yet. A banter line has no thread. No line is trimmed: the memory of a chat thread
-    replaces its lines (set_memory), and banter lines stay."""
+    only if the character is not stored yet. No line is trimmed: the memory of a thread replaces its lines (set_memory)."""
     with _connect(write=True) as conn:
         row = conn.execute("SELECT id FROM character WHERE npc_id = ?", (npc_id,)).fetchone()
         if row:
@@ -389,8 +388,24 @@ def memories_of(npc_id, limit=None):
             " WHERE t.memory IS NOT NULL AND EXISTS (SELECT 1 FROM thread_member WHERE thread_id = t.id AND npc_id = ?) ORDER BY t.id DESC LIMIT ?",
             (npc_id, -1 if limit is None else limit),
         ).fetchall()
+    return _memories(list(reversed(rows)))
+
+
+def shared_memories(npc_ids):
+    """The threads with a memory in which at least 2 of the characters are members, oldest first, as memories_of gives them."""
+    npc_ids = list(npc_ids)
+    with _connect() as conn:
+        rows = conn.execute(
+            "SELECT t.id, (SELECT MIN(game_time) FROM thread_member WHERE thread_id = t.id), t.memory FROM thread t WHERE t.memory IS NOT NULL"
+            f" AND (SELECT COUNT(*) FROM thread_member WHERE thread_id = t.id AND npc_id IN ({', '.join('?' * len(npc_ids))})) >= 2 ORDER BY t.id",
+            npc_ids,
+        ).fetchall()
+    return _memories(rows)
+
+
+def _memories(rows):
     members = thread_members(thread_id for thread_id, _, _ in rows)
-    return [{"id": thread_id, "game_time": first_time, "memory": memory, "members": members.get(thread_id, [])} for thread_id, first_time, memory in reversed(rows)]
+    return [{"id": thread_id, "game_time": first_time, "memory": memory, "members": members.get(thread_id, [])} for thread_id, first_time, memory in rows]
 
 
 def thread_partners(npc_id):

@@ -3,7 +3,7 @@
 A generic template names its NPCs in one of three ways. A title with a name token, such as `Barman /GENNAME/` in UWE, makes
 the game put a name of its own in place of the token: Barman Arleen is Arleen. A template that the game data marks `named`
 gets a whole name from the game, for example a Drifter called Nuno. Any other template gives only its own name, such as
-Dust Bandit. Only this last kind gets a rolled Name, when a chat or banter first stores the NPC, and an animal never does.
+Dust Bandit. Only this last kind gets a rolled Name, when a chat or a radiant conversation first stores the NPC, and an animal never does.
 
 The server adds no title to a game name. A rename in game puts the Name in place of the token of the template, so the
 game keeps the text around the name (NPC_RENAME in plugin/main.cpp).

@@ -4,7 +4,7 @@ Status: Draft for review
 
 ## 1. Summary
 
-Chat sends no game actions since the action tags were turned off. In the old system, the chat model wrote `[ACTION: X]` tags into its reply. The model decided the words and the effect in the game together, nothing checked the game state, and the examples broke the two-step rule of trades. The plugin still runs the actions (`ExecuteQueuedActions` in `plugin/game/GameActions.cpp`), and only the debug commands of the chat send them (`server/chat/routes.py:234`).
+Chat sends no game actions since the action tags were turned off. In the old system, the chat model wrote `[ACTION: X]` tags into its reply. The model decided the words and the effect in the game together, nothing checked the game state, and the examples broke the two-step rule of trades. The plugin still runs the actions (`ExecuteQueuedActions` in `plugin/game/GameActions.cpp`), and only the debug commands of the chat send them, through the pipe before the reply line (`server/chat/routes.py:190`).
 
 This plan splits the work into two parts:
 
@@ -17,19 +17,19 @@ Each action acts on the squad member that spoke, not on the first character of t
 
 Non-goals:
 
-- Banter, radiant talk, and chats with animals.
-- The judgment of a reply. The chat reply keeps its `[JUDGMENT: n]` tag (`server/chat/routes.py:389`).
+- Radiant conversations and chats with animals.
+- The judgment of a reply. The chat reply keeps its `[JUDGMENT: n]` tag (`server/chat/routes.py:296`).
 - The stock of a shop. The trade screen of the game sells it. A chat trade moves only the items that the NPC itself carries.
 
 ## 2. Flow
 
-For each player line in a 1:1 chat (talk, whisper, or yell) to an NPC that is not an animal, the chat route (`server/chat/routes.py:177`) does these steps:
+For each player line in a 1:1 chat (talk, whisper, or yell) to an NPC that is not an animal, the chat route (`server/chat/routes.py:98`) does these steps:
 
 1. It sends the action check to Von, and gets a category with a confidence. Below the threshold of the category, the category is NONE.
 2. It applies the rules of the category to the game context of the request. The result is no action, an offer, a decline with a reason, or a done action.
 3. It keeps the offer of a result with a price ([section 5](#offers)).
-4. It adds the outcome sentence to the final instruction of the chat turn (`server/chat/routes.py:351`), and sends the chat call.
-5. It returns the actions of a done result in `actions`, which now always holds an empty list (`server/chat/routes.py:487`).
+4. It adds the outcome sentence to the final instruction of the chat turn (`server/chat/routes.py:258`), and sends the chat call.
+5. It sends the actions of a done result through the pipe before the reply line, as the debug commands do (`play_lines` in `server/chat/routes.py:73`).
 
 The check runs before the chat call, because the reply must state the outcome. A check of the reply after the chat call would let the words of the NPC decide the outcome again.
 
@@ -206,7 +206,7 @@ The outcome sentence goes after the final instruction of the chat turn (`server/
 
 The sentence is part of the turn only. The stored dialogue keeps the player's line and the reply, as now. The offer holds the price, so the deal uses the price of the rules even when the reply states another number.
 
-A done RECRUIT or DISMISS changes the faction of the NPC, so the next turn gets a new scene, because the faction is part of the scene key (`server/chat/routes.py:361`).
+A done RECRUIT or DISMISS changes the faction of the NPC, so the next turn gets a new scene, because the faction is part of the scene key (`server/chat/routes.py:268`).
 
 ### Speaker
 
@@ -214,7 +214,7 @@ The plugin now gives most actions to the first character of the squad, not to th
 
 The change:
 
-1. The chat task keeps the handle of the speaker that the chat window picked (`plugin/ui/ChatWindow.cpp:249`).
+1. The chat task keeps the handle of the speaker that the chat window picked (`plugin/ui/ChatWindow.cpp:160`).
 2. The action line carries the speaker's serial next to the NPC's serial.
 3. Each handler uses the speaker as its target. When the speaker no longer exists, the plugin drops the action.
 4. A failed take of cats or items also skips `JOIN_PARTY`, the release, and the jobs of the same reply.

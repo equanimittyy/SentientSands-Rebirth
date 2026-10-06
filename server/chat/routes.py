@@ -6,175 +6,82 @@ import time
 
 from flask import Blueprint, jsonify, request
 
-from chat import chat_prompt, rumors
+from chat import chat_prompt, radiant, rumors, scene_text
 from chat.bio import BIO_PARTS, generate_bio, recorded_history, write_bio
-from chat.characters import animal_flag, get_character_data, npc_name, reported_sex, should_save_profile
+from chat.characters import get_character_data, npc_name, should_save_profile
 from chat.llm import call_llm
 from chat.memory import quiet_seconds
-from chat.prompts import build_system_prompt, describe_faction, describe_npc, describe_race, fill_prompt, load_prompt_component, npc_scene, scene_values
-from core import state
-from core.game import context_dict, get_current_time_prefix, is_player_faction, note_faction, npc_serial, take_report
+from chat.prompts import PROMPT_RUMORS, build_system_prompt, describe_faction, describe_npc, describe_race, fill_prompt, load_prompt_component, npc_scene, scene_values
+from core import deeds, state
+from core.game import context_dict, get_current_time_prefix, is_player_faction, note_faction, take_report
+from core.pipe import send_to_pipe
 from core.routes import campaign_write
 from core.settings import get_config_radii, load_settings
 from store import campaign_db
 
 bp = Blueprint("chat", __name__)
 
-@bp.route('/ambient', methods=['POST'])
-def ambient_event():
-    logging.debug("HTTP: POST /ambient")
+@bp.route('/radiant', methods=['POST'])
+def radiant_conversation():
+    logging.debug("HTTP: POST /radiant")
     data = request.json
     if not data: return jsonify({"status": "error"}), 400
-    take_report(data.get('player_context'), data.get('events'))
-    
-    npcs_data = [npc for npc in data.get('npcs', []) if not (isinstance(npc, dict) and animal_flag(npc))]
-    player_name = data.get('player', 'Drifter')
-    
-    logging.info(f"AMBIENT: Banter request ({len(npcs_data)} NPCs nearby)")
-    
-    # Without the animals, one NPC can remain, and banter needs two
-    if len(npcs_data) < 2:
+    center = context_dict(data.get('player_context'))
+    take_report(center, data.get('events'))
+    participants = {str(npc['id']): npc for npc in data.get('participants', [])}
+    npc_ids = [npc['npc_id'] for npc in participants.values()]
+
+    if deeds.fought_recently(npc_ids, center):
+        logging.info(f"RADIANT: A participant fought within the last {deeds.FIGHT_QUIET_MINUTES // 60} game hours, so nobody talks.")
         return jsonify({"status": "ignore"})
 
-    char_profiles = ""
-    name_to_id = {}
-    
-    npc_limit = npcs_data[:12]
+    names, profiles = {}, {}
+    for serial, npc in participants.items():
+        # The faction of a participant is its identity faction, not the current faction that Campaign Canon shows
+        merge_live_context({key: value for key, value in npc.items() if key != 'faction'})
+        names[serial] = npc_name(npc)
+        profiles[serial] = get_character_data(names[serial], context=json.dumps(npc))
 
-    recent_dialogue = []
-    for npc in npc_limit:
-        if isinstance(npc, dict):
-            if npc.get('npc_id'):
-                # The faction of a banter NPC is its identity faction, not the current faction that Campaign Canon shows
-                merge_live_context({key: value for key, value in npc.items() if key != 'faction'})
-            name = npc_name(npc)
-            nid = npc.get('id', 0)
-            name_to_id[name] = nid
-            d = get_character_data(name, context=json.dumps(npc))
-            
-            if d.get("ConversationHistory"):
-                recent_dialogue.extend(d["ConversationHistory"][-15:])
+    rumor_texts = [rumor["text"] for rumor in campaign_db.rumors()[-PROMPT_RUMORS:]]
+    topic = radiant.topic(campaign_db.shared_memories(npc_ids), center.get("environment") or {}, rumor_texts)
+    if not topic:
+        logging.info("RADIANT: No topic, so nobody talks.")
+        return jsonify({"status": "ignore"})
 
-            # "Name|ID" lets the plugin map each banter line to the right NPC
-            health = npc.get('health', 'Healthy')
-            gear = npc.get('equipment') or 'nothing notable'
-            char_profiles += f"\n- {name}|{nid} ({reported_sex(npc.get('race'), npc.get('gender'))} {npc.get('race')}, {npc.get('faction')}) | Health: {health} | Gear: {gear} | Personality: {d.get('Personality') or ''} | Speech quirks: {d.get('SpeechQuirks') or ''}"
-        else:
-            name_to_id[npc] = 0
-            d = get_character_data(npc, "")
-            
-            if d.get("ConversationHistory"):
-                recent_dialogue.extend(d["ConversationHistory"][-15:])
-                
-            char_profiles += f"\n- {npc} (A traveler): {d.get('Personality') or ''} | Speech quirks: {d.get('SpeechQuirks') or ''}"
-
-    unique_history = []
-    seen_history = set()
-    for line in reversed(recent_dialogue):
-        if line not in seen_history:
-            unique_history.append(line)
-            seen_history.add(line)
-    
-    unique_history = list(reversed(unique_history))[-40:]
-    
-    history_block = ""
-    if unique_history:
-        history_block = "\nRECENT LOCAL DIALOGUE (DO NOT REPEAT TOPICS OR JOKES FROM HERE):\n" + "\n".join(unique_history)
-
-    dynamic_system_prompt = build_system_prompt()
-    scene = scene_values(state.PLAYER_CONTEXT, player_name, facing=False)
-
-    ambient_system_prompt = f"""{dynamic_system_prompt}
-
-{scene['location']}
-
-{scene['rumors']}
-
-{scene['player']}
-
-[RADIANT DIALOGUE SYSTEM - BANTER MODE]
-You are generating a short, atmospheric back-and-forth conversation (banter) between NPCs in Kenshi.
-Kenshi is a post-apocalyptic, harsh world. NPCs should sound cynical, weary, or suspicious.
-
-NEARBY CHARACTERS:
-{char_profiles}
-
-{history_block}
-
-INSTRUCTIONS:
-1. Select 2 or 3 characters from the list to have a short conversation.
-2. Each participant MUST speak AT LEAST TWICE (total 4-6 lines).
-3. DO NOT include the Player as a speaker and DO NOT let the Player participate.
-4. The topic should be grounded in the harsh reality of Kenshi: local rumors, faction politics, the weather, gear maintenance, hunger, or a passing, often cynical comment about the 'drifter' (player) nearby.
-5. Format MUST be 'Name|ID: Message' (e.g., 'Lungrot|1234: Wheeze...').
-6. Only use characters from the NEARBY list.
-7. Use the EXACT Name and ID strings provided in the list for the 'Name|ID' portion.
-8. DO NOT use [ACTION] tags or any bracketed text. Radiant mode is for atmospheric dialogue only.
-9. CRITICAL: Do NOT repeat topics, lines, or jokes found in the RECENT LOCAL DIALOGUE section. Talk about something new.
-10. WORLD-CENTRIC: Remember that in Kenshi, the player is NOT the center of the universe. NPCs have their own lives, problems, and social circles. They should speak to and about each other about what is going on around them more often than they speak about the player.
-"""
-    
-    messages = [
-        {"role": "system", "content": ambient_system_prompt},
-        {"role": "user", "content": "The world is quiet. Generate a radiant interaction."}
+    descriptions = [
+        f"{describe_npc(f'{names[serial]}|{serial}', profiles[serial], npc['npc_id'])}\nHEALTH: {npc.get('health') or 'Unknown'}\nGEAR: {npc.get('equipment') or 'nothing notable'}"
+        for serial, npc in participants.items()
     ]
-    
-    content = call_llm("ambient", messages)
-    if content:
-        # The LLM sometimes emits [ACTION] tags despite the prompt forbidding them
-        content = re.sub(r'\[\s*[A-Z_]+(?::\s*[^\]]+)?\s*\]', '', content).strip()
-        
-        content = content.replace('"', '').strip()
-        
-        lines = []
-        for line in content.split('\n'):
-            line = line.strip()
-            if not line: continue
-            
-            if ':' in line:
-                header, msg = line.split(':', 1)
-                name_part = header.split('|')[0].strip()
-                
-                if name_part.lower() == player_name.lower():
-                    continue
+    prompt = fill_prompt("prompt_radiant.txt", place=scene_text.location_text(center.get("environment") or {}, "They"), participants="\n\n".join(descriptions), topic=topic)
+    logging.info(f"RADIANT: {', '.join(names.values())} talk. Topic: {topic}")
+    content = call_llm("radiant", [{"role": "system", "content": build_system_prompt()}, {"role": "user", "content": prompt}])
+    lines = radiant.lines(content or "", participants)
+    if not lines:
+        logging.warning("RADIANT: The LLM gave no line of a participant.")
+        return jsonify({"status": "none"})
 
-                if '|' not in header:
-                    if name_part in name_to_id:
-                        header = f"{name_part}|{name_to_id[name_part]}"
-                
-                lines.append(f"{header.strip()}: {msg.strip()}")
-            elif '|' in line and len(line) < 100:
-                continue
-            else:
-                if len(line) > 5: lines.append(line)
-        
-        final_text = "\n".join(lines)
-        
-        # Keyed by npc_id, because NPCs near the player can share a name; a banter line names its speaker by the serial
-        memories = {}
-        npc_ids = {}
-        for npc_obj in npc_limit:
-            if isinstance(npc_obj, dict) and npc_obj.get('npc_id'):
-                memories[npc_obj['npc_id']] = get_character_data(npc_obj.get('name'), context=json.dumps(npc_obj))
-                npc_ids[str(npc_obj.get('id'))] = npc_obj['npc_id']
+    time_prefix = get_current_time_prefix()
+    thread_id = campaign_db.join_thread(None, [(npc_id, "speaker", True) for npc_id in npc_ids], campaign_db.game_time(time_prefix))
+    stored = [(f"{time_prefix}{names[serial]}: {text}", participants[serial]['npc_id']) for serial, text in lines]
+    for serial, npc in participants.items():
+        campaign_db.append_dialogue(npc['npc_id'], stored, profiles[serial], thread_id)
+    play_lines([f"{names[serial]}|{serial}: {text}" for serial, text in lines])
+    logging.debug(f"RADIANT: {[line for line, _ in stored]}")
+    return jsonify({"status": "ok"})
 
-        banter = []
-        for line in lines:
-            if ':' in line:
-                header, msg = line.split(':', 1)
-                speaker_name, _, serial = header.partition('|')
-                speaker_name = speaker_name.strip()
-                time_prefix = get_current_time_prefix()
-                speaker_id = npc_ids.get(serial.strip())
-                banter.append((f"{time_prefix}{speaker_name}: {msg.strip()}", speaker_id))
-
-        for npc_id, d in memories.items():
-            campaign_db.append_dialogue(npc_id, banter, d)
-
-        logging.debug(f"AMBIENT: Banter: {final_text}")
-        return jsonify({"status": "ok", "text": final_text})
-    
-    return jsonify({"status": "none"})
+def play_lines(lines, actions=()):
+    """Sends the actions, then each line with the dialogue delay before it, to the game in the background. The plugin shows
+    a line when it arrives, so the server alone paces every conversation. A pause of the game does not stop the delay. The
+    actions go first, so an AI state change cannot clear a bubble that is already up."""
+    def play():
+        for action in actions:
+            send_to_pipe(f"NPC_ACTION: {action}")
+        delay = load_settings()["dialogue_speed_seconds"]
+        for index, line in enumerate(lines):
+            if index:
+                time.sleep(delay)
+            send_to_pipe(f"NPC_SAY: {line}")
+    threading.Thread(target=play, daemon=True).start()
 
 def merge_live_context(ctx):
     # Merge rather than replace, because a nearby entry lacks fields, such as factionID, that a full context of the same character stored
@@ -206,6 +113,14 @@ def chat():
 
     primary_npc = register(raw_npc)
     npcs = [register(n) for n in raw_npcs]
+    target_serial = raw_npcs[0].partition('|')[2] if raw_npcs else ""
+
+    def reply(*texts, actions=()):
+        # The plugin takes the text before a first colon as the speaker. It finds the NPC by the serial after the bar,
+        # because its request named the NPC before a rename.
+        voice = f"{primary_npc}|{target_serial}"
+        play_lines([f"{voice}: {text}" for text in texts], [f"{voice}: {action}" for action in actions])
+        return jsonify({"status": "ok"})
     
     player_name = data.get('player', 'Drifter')
     mode = data.get('mode', 'talk')
@@ -231,7 +146,7 @@ def chat():
                         "/move, /movefast, /home, /shop, /raid [Town], /travel [Town], /medic, /rescue, /repair,\n" + \
                         "/notify [msg], /give_cats [n], /take_cats [n], /drop [item],\n" + \
                         "/take_item [item], /spawn [Templ|Name|Desc], /relations [Fact] [n], /task [TASK]"
-            return jsonify({"text": help_text, "actions": []}), 200
+            return reply(*help_text.split("\n"))
             
         if cmd == "attack": test_action = "[ATTACK]"
         elif cmd == "follow": test_action = "[ACTION: FOLLOW_PLAYER]"
@@ -260,7 +175,7 @@ def chat():
                 item_name = inv[0].get("name", "Unknown Item")
                 test_action = f"[ACTION: TAKE_ITEM: {item_name}]"
             else:
-                return jsonify({"text": "[DEBUG] Error: Player inventory is empty or unknown.", "actions": []}), 200
+                return reply("[DEBUG] Error: Player inventory is empty or unknown.")
         elif cmd == "drop": test_action = f"[ACTION: DROP_ITEM: {args}]"
         elif cmd == "spawn": test_action = f"[ACTION: SPAWN_ITEM: {args}]"
         elif cmd == "relations":
@@ -271,13 +186,10 @@ def chat():
         
         if test_action:
             logging.info(f"CHAT: Test command {cmd} -> {test_action}")
-            return jsonify({
-                "text": f"[DEBUG] Executing test command: {test_action}",
-                "actions": [test_action]
-            }), 200
+            return reply(f"[DEBUG] Executing test command: {test_action}", actions=[test_action])
 
     if not player_message:
-        return jsonify({"text": "...", "actions": []}), 200
+        return reply("...")
 
     context = data.get('context', '')
     ctx_dict = context_dict(context)
@@ -307,7 +219,7 @@ def chat():
         current_thread = state.CURRENT_THREAD.get("id") if state.CURRENT_THREAD.get("key") == thread_key and time.monotonic() - state.CURRENT_THREAD["replied"] < timeout else None
         state.restart_quiet_clock()
 
-    _, talk_radius, yell_radius = get_config_radii()
+    talk_radius, yell_radius = get_config_radii()
     # A whisper is one-on-one: nobody overhears
     radius = {"talk": talk_radius, "yell": yell_radius}.get(mode)
 
@@ -475,10 +387,7 @@ def chat():
             threading.Thread(target=generate_bio, args=(primary_id,), daemon=True).start()
 
         logging.info(f'CHAT: {mode_tag}{player_name} to {primary_npc}: "{player_message}" | {primary_npc}: "{content}" ({time.monotonic() - started:.1f} s)')
-        # The plugin takes the text before a first colon as the speaker. It finds the NPC by the serial after the bar,
-        # because its request named the NPC before a rename.
-        serial = npc_serial(primary_id)
-        return jsonify({"text": f"{primary_npc}|{serial}: {content}" if serial else f"{primary_npc}: {content}", "actions": []})
+        return reply(content)
     return jsonify({"error": "No reply from the LLM.", "status": "error"}), 502
 
 def bio_refusal(data):

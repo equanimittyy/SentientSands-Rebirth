@@ -112,14 +112,13 @@ class SentenceTest(unittest.TestCase):
         self.assertEqual(scene_text.rumors_text([], 12), "")
 
     def test_the_player_seen_by_the_npc(self):
-        text = scene_text.player_text("Drifter", True, "Skeleton", "Other", "Sentient machines from ancient times", {"blood": 100, "max_blood": 100, "hunger": 10}, False, "Nameless", "", [])
+        text = scene_text.player_text("Drifter", "Skeleton", "Other", "Sentient machines from ancient times", {"blood": 100, "max_blood": 100, "hunger": 10}, False, "Nameless", "", [])
         self.assertEqual(text, "The person before you:\nThe individual before you is Drifter, a Skeleton. Sentient machines from ancient times. They seem healthy. They are a member of Nameless.")
-        self.assertTrue(scene_text.player_text("Drifter", False, "Unknown", "male", "", {}, True, "Unknown", "", []).startswith("The player:\nNearby is Drifter."))
-        self.assertTrue(scene_text.player_text("Drifter", True, "Unknown", "male", "", {}, True, "Unknown", "", [], "Bar").endswith("They are inside Bar."))
+        self.assertTrue(scene_text.player_text("Drifter", "Unknown", "male", "", {}, True, "Unknown", "", [], "Bar").endswith("They are inside Bar."))
 
     def test_the_player_shows_its_state_and_wounds_as_an_npc_does(self):
         medical = {"blood": 100, "max_blood": 100, "is_unconscious": True, "limbs": {"right_arm": -100, "right_arm_max": 100}}
-        text = scene_text.player_text("Drifter", True, "Unknown", "male", "", medical, False, "Unknown", "", [], state="imprisoned")
+        text = scene_text.player_text("Drifter", "Unknown", "male", "", medical, False, "Unknown", "", [], state="imprisoned")
         self.assertEqual(text, "The person before you:\nThe individual before you is Drifter. They are imprisoned and cannot move freely. Their right arm is gone. They are unconscious.")
         self.assertEqual(scene_text.state_text("They", "escaped-slave"), "They escaped slavery, and they are hunted.")
 
@@ -183,6 +182,7 @@ class SentenceTest(unittest.TestCase):
         self.assertEqual(scene_text.location_text({}), "You are somewhere in the wasteland.")
         self.assertEqual(scene_text.location_text({"town_name": "Squin", "in_town": True, "weather": 1}), "You are in Squin. You are inside the town walls. A dust storm blows.")
         self.assertEqual(scene_text.location_text({"in_town": False, "weather": 0}), "You are somewhere in the wasteland.")
+        self.assertEqual(scene_text.location_text({"town_name": "Squin", "in_town": True}, "They"), "They are in Squin. They are inside the town walls.")
 
 
 if __name__ == "__main__":

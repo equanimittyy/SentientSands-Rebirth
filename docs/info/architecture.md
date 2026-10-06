@@ -14,7 +14,7 @@ Sentient Sands Rebirth has three parts: a C++ plugin that runs inside Kenshi, a 
 | `plugin/ui/` | The in-game MyGUI windows. `LauncherWindow` is the hub that opens the others. `ChatUIGlobals` holds the shared widget pointers. |
 | `server/main.py` | The entry point: it registers the blueprints and runs the start-up (`start`). |
 | `server/core/` | The paths (`paths.py`), the session state that the other modules share (`state.py`), the Flask app and its request hooks (`app.py`), the routes that the game calls, such as `/report` and `/history`, and the settings routes (`routes.py`), the pipe to the plugin (`pipe.py`), the INI settings (`settings.py`), the start-up checks for an old server and for the game process (`process.py`), the helpers for the game context (`game.py`), the deeds of the game events (`deeds.py`), the request checks (`request_guard.py`), and the log files and the log level (`log_setup.py`). |
-| `server/chat/` | The chat, banter, and Dialogue Library bio routes (`routes.py`), the LLM calls (`llm.py`), the prompt files and the descriptions that fill them (`prompts.py`), the profiles of the characters that the game reports (`characters.py`), the bios (`bio.py`), the conversation memories (`memory.py`), the chat prompt (`chat_prompt.py`) and its scene text (`scene_text.py`), the names (`npc_names.py`), the Current Job (`current_job.py`), the provisional profiles (`provisional_profile.py`), the prompt overrides and placeholders (`prompt_store.py`), and the LLM configuration (`llm_config.py`) and fallback chain (`llm_router.py`). |
+| `server/chat/` | The chat, radiant conversation, and Dialogue Library bio routes (`routes.py`), the topic and the reply of a radiant conversation (`radiant.py`), the LLM calls (`llm.py`), the prompt files and the descriptions that fill them (`prompts.py`), the profiles of the characters that the game reports (`characters.py`), the bios (`bio.py`), the conversation memories (`memory.py`), the chat prompt (`chat_prompt.py`) and its scene text (`scene_text.py`), the names (`npc_names.py`), the Current Job (`current_job.py`), the provisional profiles (`provisional_profile.py`), the prompt overrides and placeholders (`prompt_store.py`), and the LLM configuration (`llm_config.py`) and fallback chain (`llm_router.py`). |
 | `server/store/` | The campaign database (`campaign_db.py`), the world templates (`world_template.py`), and the creation and the switch of a campaign (`campaigns.py`). |
 | `server/dashboard/` | The routes that only the web app calls (`routes.py`) and the browser auto-open (`browser_launch.py`). |
 | `server/dashboard/web/` | The web app: plain HTML, CSS, JavaScript, fonts, and images, which the server serves at `http://127.0.0.1:5000/`. |
@@ -62,7 +62,7 @@ SentientSandsRebirth/
 2. `MainThread` waits for `KenshiLib.dll`. Then it starts the pipe listener (`PipeThread`), loads the INI, and starts the server.
 3. If `OpenWebPanelOnStart` in the INI is `1`, this first server start passes `--open-browser`. The server waits until its port accepts connections, and then 3 s more, so that a tab from an earlier start can reconnect. It opens the web app in the default browser only when no tab is open (see [Web app](#web-app)). A restart from the launcher does not pass the flag, so the player does not get a second tab.
 4. The server listens on `127.0.0.1:5000`. The plugin sends HTTP POST requests to it through WinHTTP (`plugin/core/Comm.cpp`) for chat, history, settings, profiles, and events. The server rejects a request whose `Host` header is not `127.0.0.1:5000` or `localhost:5000`, or whose `Origin` header names another site (`server/core/request_guard.py`). This stops web pages in the player's browser from using the server. A new caller must use one of these two host names.
-5. The server sends commands back through the named pipe `\\.\pipe\SentientSands`, which the plugin hosts. Examples are `SET_CONFIG`, `NOTIFY`, and `NPC_RENAME`.
+5. The server sends commands back through the named pipe `\\.\pipe\SentientSands`, which the plugin hosts. Examples are `SET_CONFIG`, `NOTIFY`, `NPC_RENAME`, and the lines of a conversation as `NPC_SAY` (see [Line pacing](#line-pacing)).
 6. The server builds each prompt from the prompt files (see [Prompts](#prompts)) and the campaign state, then sends it down the route of its task (see [LLM routing](#llm-routing)).
 
 ## Threading
@@ -71,12 +71,12 @@ Background threads do not change game objects or MyGUI widgets. The pipe listene
 
 ## Game state
 
-The plugin reads the game state only when a request needs it, and ambient banter is its only post on a timer. This keeps SSR from adding load to the game while no prompt uses the data.
+The plugin reads the game state only when a request needs it, and a radiant conversation is its only post on a timer. This keeps SSR from adding load to the game while no prompt uses the data.
 
 | Request | Game state that it carries |
 |---|---|
 | Chat (`/chat`) | The context of the target, the context of the squad member who speaks (`speaker`), and the game events |
-| Ambient banter (`/ambient`) | The banter NPCs, the player's context (`player_context`), and the game events |
+| Radiant conversation (`/radiant`) | The participants, the context of the center as the player's context (`player_context`), and the game events |
 | Cull Future Data (`/cull`) in the SSR HUB | A report: the player's context and the game events (`GameReport` in `plugin/game/Context.cpp`) |
 | `/report` | A report, when 50 game events wait, when the oldest game event waited 60 s, or when the server sends `REPORT` through the pipe |
 | `/squad_rename` | The context of a member of the player's faction that the game renamed (see [Names](#names)) |
@@ -255,7 +255,7 @@ The Editor holds many records. Save sends one request for each changed record, a
 
 The Editor has three subtabs. Campaign Canon and Templates share the record list and forms: Campaign Canon edits the canon of the active campaign, and Templates edits the world templates that new campaigns copy. Campaign Log shows the active campaign in two subtabs of its own: Dialogue & Memories, and Deeds. Deeds lists the notable events (see [Deeds](#deeds)), adds the custom deeds, and edits the rumors (see [Rumors](#rumors)). The page holds the data of one subtab and one template at a time, so a switch with unsaved changes asks the player first. A shipped template is read-only, so the page offers a duplicate.
 
-Dialogue & Memories lists the chat threads of the active campaign, newest first, each with the game time of its first exchange and its speakers (see [Chat threads](#chat-threads)). It uses the layout of Campaign Canon: a search field and the list on the left, and the selected thread on the right, with its lines, its memory under Memorised Summary (see [Conversation memories](#conversation-memories)), and its speakers and overhearers under Involved Characters. A thread with a memory shows only its memory, because the memory replaces its lines. The search matches the names of the members, the text of the lines, and the memory, with case ignored. `GET /api/campaign` returns every thread with its lines and its memory, as Campaign Canon loads every record, so the search runs in the page. The lines are the copy of a speaker, because its lines have no `(Overheard)` tag (`campaign_db.threads`). The memory under Memorised Summary is editable: Save writes each changed memory, and Delete removes the conversation after a confirmation (see [Conversation memories](#conversation-memories)). The lines are read-only, and banter has no threads, so it stays out.
+Dialogue & Memories lists the chat threads of the active campaign, newest first, each with the game time of its first exchange and its speakers (see [Chat threads](#chat-threads)). It uses the layout of Campaign Canon: a search field and the list on the left, and the selected thread on the right, with its lines, its memory under Memorised Summary (see [Conversation memories](#conversation-memories)), and its speakers and overhearers under Involved Characters. A thread with a memory shows only its memory, because the memory replaces its lines. The search matches the names of the members, the text of the lines, and the memory, with case ignored. `GET /api/campaign` returns every thread with its lines and its memory, as Campaign Canon loads every record, so the search runs in the page. The lines are the copy of a speaker, because its lines have no `(Overheard)` tag (`campaign_db.threads`). The memory under Memorised Summary is editable: Save writes each changed memory, and Delete removes the conversation after a confirmation (see [Conversation memories](#conversation-memories)). The lines are read-only. A radiant conversation shows as a thread too.
 
 On Campaign Canon, **Show seeded data** and **Show provisional characters** start on. While the player turns one off, the record list hides the records whose `origin` is `seed`, or the provisional characters (see [Provisional profiles](#provisional-profiles)). The browser remembers each switch. The overview and the history have no `origin`, so they always show.
 
@@ -272,7 +272,7 @@ The Race, Sex, and Faction of a character are choices, not free text (`choice` i
 Other Details shows the `Relation` of a character as a bar from -100 to 100, with the labels of the relation bar in game, and its `OriginFaction`. On Campaign Canon it also shows:
 
 - The current faction that the game reported for the character since the server started, so the player can compare it with the Faction that the prompts use.
-- The status, which is the health that a chat or banter reported for the character since the server started, for example Injured or Unconscious.
+- The status, which is the health that a chat or a radiant conversation reported for the character since the server started, for example Injured or Unconscious.
 - Whether the character is an animal (`Animal`, see [Provisional profiles](#provisional-profiles)), and whether it is unique (see [Deeds](#deeds)).
 - The Current Job (see [Current Job](#current-job)).
 - At the bottom, the Deeds of a squad member: the known figures that it killed or captured (see [Deeds](#deeds)).
@@ -322,15 +322,15 @@ A chat request is ordered for a provider's prompt cache, which reuses only an id
 | History | The lines of the chat threads of the NPC that have no memory yet, as user and assistant turns, with an overheard note after each chat thread (see [Chat threads](#chat-threads)) | One exchange more each turn |
 | Last user message | `prompt_chat_turn.txt`: the player's line, then a one-line reminder of whom to reply as and to end with the judgment | Every turn |
 
-From one turn to the next, only the newest exchange and the last message are new, so the cache can serve the rest. Chats with different NPCs, by any speaker, and banter share the start of the system message.
+From one turn to the next, only the newest exchange and the last message are new, so the cache can serve the rest. Chats with different NPCs, by any speaker, and radiant conversations share the start of the system message.
 
 The scene is a snapshot that the server takes when a conversation starts, and it keeps it for the whole conversation (`CONVERSATION_SCENE`). A conversation lasts until the player chats with another NPC, speaks as another squad member, or switches the campaign, because the plugin sends no signal when a conversation ends. A new name or a new faction of the NPC, for example after a recruit, also starts a new conversation, so the scene shows the NPC as it is now. So does the first exchange of a squad member with an NPC that never spoke with it before, so the scene stops saying that the two never spoke (see [Chat threads](#chat-threads)). A later relation or a new rumor therefore reaches the prompt only in the next conversation. The history of the NPC stays across conversations.
 
 The scene is prose that the NPC reads in the second person, built by `server/chat/scene_text.py` from the game's data: "You feel mildly hostile towards Nameless, the group Drifter travels with." A model reads a sentence more reliably than a raw number, and the cache serves the longer text after the first turn of a conversation. Each number becomes a sentence from a fixed scale, such as the relation, the faction stance, hunger, money, fighting skill, the fighting skill of the player against the NPC, and the age of a rumor. The bounds of the relation at ±25, ±60, and ±90 match the relation bar that the game shows, and steps at ±10 add finer grades. Every other person is "they", so no sentence needs a gendered pronoun.
 
-`prompt_system.txt` holds the rules and the world lore, and `build_system_prompt` fills it. `scene_values` fills the parts that change on each call, for the chat scene and for banter. A block that appears only with data, such as the rumors, keeps its heading in the code, because a placeholder has no conditions. The `{world_lore}` placeholder takes the overview of the campaign (see [Campaign storage](#campaign-storage)).
+`prompt_system.txt` holds the rules and the world lore, and `build_system_prompt` fills it. `scene_values` fills the parts of the chat scene that change on each call. A block that appears only with data, such as the rumors, keeps its heading in the code, because a placeholder has no conditions. The `{world_lore}` placeholder takes the overview of the campaign (see [Campaign storage](#campaign-storage)).
 
-`npc_chat_template.txt` describes the NPC of a chat from its profile (`describe_npc`). Banter keeps its one-line list of NPCs in the code, because the plugin reads the `Name|ID` of each line.
+`npc_chat_template.txt` describes the NPC of a chat from its profile (`describe_npc`), and each participant of a radiant conversation (see [Radiant conversations](#radiant-conversations)).
 
 - The history is a block window of those lines (`chat_prompt.history_window`). It keeps its first line while it grows from 20 to 39 lines, and then it moves on by 20 lines. A window that moved with each new line would change the start of the history on every turn, so the cache could never serve it.
 - `chat_prompt.history_turns` makes each line whose speaker is the NPC an assistant turn, without the time and the name, and every other line a user turn (see [Characters](#characters)). The lines of another NPC with the same name therefore do not count as its own turns. A rename relabels the lines that the NPC spoke with the new name (`campaign_db.rename_character`), so its dialogue shows one name.
@@ -339,23 +339,58 @@ The scene is prose that the NPC reads in the second person, built by `server/cha
 
 The server answers a Yell with one NPC, as a Talk. A Yell differs only in that the NPCs within the yell radius overhear it, and the player's line carries a `(Yelled)` prefix, as a whispered line carries `(Whispered)`. The history keeps the prefix, so the NPC remembers how each line was said.
 
-An animal never overhears a chat (`overhearers`), because it cannot understand speech, so the campaign stores only the animals that the player talks to. Banter leaves animals out too, and it takes place only when two NPCs remain (`ambient_event`).
+An animal never overhears a chat (`overhearers`), because it cannot understand speech, so the campaign stores only the animals that the player talks to. A radiant conversation leaves animals out too (see [Radiant conversations](#radiant-conversations)).
 
 An NPC that overhears a chat stores both lines with an `(Overheard)` prefix, and each line names the one that it was said to, as in `(Overheard) Drifter to Ruka: ...` and `(Overheard) Ruka to Drifter: ...`. Without that name, a listener took the "you" of the line as itself and answered the player as if the line was said to it. A reply rule in `response_rules.txt` also tells the model that an overheard line was not said to the NPC.
 
-The judgment rule sits in the cached system message, and the last message repeats only a short reminder, because a model follows an instruction at the very end of a request most reliably. Banter reads the same reply rules but forbids bracketed text, so the judgment rule stays out of `response_rules.txt`.
+The judgment rule sits in the cached system message, and the last message repeats only a short reminder, because a model follows an instruction at the very end of a request most reliably. A radiant conversation reads the same reply rules but forbids bracketed text, so the judgment rule stays out of `response_rules.txt`.
 
-The reply text of `/chat` starts with the name of the NPC, because the plugin takes the text before a first colon as the speaker (`plugin/ui/ChatWindow.cpp`). A reply such as "Listen: ..." therefore stays with the NPC. For a generic NPC, the serial of its handle follows the name, as in `Name|serial:`, so the plugin finds the NPC after a rename that its request did not know (see [Names](#names)). A reply keeps a short `*action*`, such as `*spits*`, because a speech quirk can be a gesture or a sound, and the game dialogue writes those in the same way. An animal replies only in `*actions*`: its chat takes `prompt_animal_system.txt` in place of `prompt_system.txt`, and the server drops every word outside the asterisks, because the model still gives an animal words now and then.
+Each line of a chat reply starts with the name of the NPC and the serial of its handle, as in `Name|serial:`, because the plugin takes the text before a first colon as the speaker (`ProcessMessageQueue` in `plugin/main.cpp`). A reply such as "Listen: ..." therefore stays with the NPC, and the plugin finds the NPC after a rename that its request did not know (see [Names](#names)). The chat request names its target as `Name|serial` first in `npcs`, so the server has the serial of a unique NPC too. A reply keeps a short `*action*`, such as `*spits*`, because a speech quirk can be a gesture or a sound, and the game dialogue writes those in the same way. An animal replies only in `*actions*`: its chat takes `prompt_animal_system.txt` in place of `prompt_system.txt`, and the server drops every word outside the asterisks, because the model still gives an animal words now and then.
 
-A chat reply carries no game actions: the prompts offer the LLM no action tags, and the `actions` list of a `/chat` reply is empty. The server reads only the judgment of a reply, which changes the NPC's personal relation. The debug commands of the chat, such as `/attack`, still send their action to the plugin. The scene shows only the equipment that the player and the NPC wear or hold, because the contents of a bag mattered only for trading.
+A chat reply carries no game actions: the prompts offer the LLM no action tags, and the server sends no `NPC_ACTION` for a reply. The server reads only the judgment of a reply, which changes the NPC's personal relation. The debug commands of the chat, such as `/attack`, still send their action to the plugin (see [Line pacing](#line-pacing)). The scene shows only the equipment that the player and the NPC wear or hold, because the contents of a bag mattered only for trading.
 
 The bio prompt, `prompt_profile_generation.txt`, takes `{race_lore}` from the race entries of the campaign (`describe_race`), or of the template for a character on the Templates page, matched by name or alias with case ignored. A template that describes its races therefore shapes the bios, and a race with no entry gets a line that says so. The player section of the scene gives the description of the player's race entry in the same way, and only the name of a race with no entry.
 
 When the origin faction of an NPC is its current faction, the chat prompt gives the origin as "Same as the current faction." (`describe_origin`), because the prompt already holds the whole entry of that faction.
 
+## Radiant conversations
+
+A radiant conversation is a talk between 3 to 5 of the player's characters, which one LLM call writes. The plugin asks for one when `RadiantDelay` (600 s by default) passes at normal game speed, and when the player clicks Trigger Radiant in the chat window. Paused time does not count. The interval restarts when the request goes out, when the reply arrives, and when a line of any conversation shows.
+
+1. The plugin picks the center: the selected character, when it is one of the player's characters and can talk, or else the first character of the current squad that can talk (`GetRadiantParticipants` in `plugin/game/Context.cpp`). A character can talk when it is not dead, not unconscious, and not an animal.
+2. The participants are the center and the player's characters nearest to it within `TalkRadius` that can talk, up to 5 in all. With fewer than 3 participants, the plugin sends no request.
+3. The plugin posts the participants, the context of the center as `player_context`, and the game events to `/radiant`.
+4. The server answers with no LLM call when a participant fought within the last 3 game hours, or when no kind of topic has material.
+5. It sends one call on the `radiant` task, stores the lines as a new thread, and sends them to the game (see [Line pacing](#line-pacing)).
+
+- The center is a character that the player watches, so the speech bubbles show on the screen. Rejected: the largest group of the player's characters. An outpost with many characters would always win over the squad that travels with the player.
+- A fight of a participant is an attack by the participant, or a knockout of the participant, in the game events that the server keeps for the deeds (`deeds.fought_recently`). The 3 hours (`FIGHT_QUIET_MINUTES`) are a constant, not a setting, so the participants do not talk about other things right after a battle.
+- The plugin sends no attack on a character of the player's faction, so a participant that only took hits had no fight. The events are in memory, so a restart of the server forgets the fights before it.
+
+The server picks one kind of topic, at random with equal chances, from the kinds that have material (`radiant.topic`):
+
+| Kind | Material | Has material when |
+|---|---|---|
+| Shared memory | One memory, at random, of a thread in which at least 2 participants are members, under a header that names its members (`campaign_db.shared_memories`) | Such a memory exists |
+| Surroundings | The place of the center, which the prompt always holds | The context of the center names a town or a biome |
+| Rumor | One rumor, at random, of the 5 newest | The campaign has a rumor |
+
+- The server picks the topic, not the LLM, so each conversation is about one specific thing. The prompt holds no list of earlier lines not to repeat.
+- The system message is `prompt_system.txt` (`build_system_prompt`), the same start as a chat, so the cache serves it. The user message is `prompt_radiant.txt`: the place in the third person, each participant from `npc_chat_template.txt` with its `Name|serial`, health, and gear, the topic, and the rules. The prompt sets no tone, so the profiles of the participants decide it.
+- Each participant speaks at least once and at most 3 times. The reply holds `Name|serial: line` lines, and the server keeps only a line whose serial names a participant, without bracketed text (`radiant.lines`).
+- Each conversation is a new thread, with each participant as a speaker in the player's faction and no overhearers. Each participant stores every line. The distillation of the next quiet period writes its memory, as for a chat thread (see [Conversation memories](#conversation-memories)).
+- A radiant conversation does not change `CURRENT_THREAD` or the quiet clock, so it never joins a chat thread and never delays a memory. Its thread therefore waits for its memory until the player chats again and the chat goes quiet.
+
+## Line pacing
+
+The server paces the lines of every conversation, chat and radiant (`play_lines` in `server/chat/routes.py`). The reply of `/chat` and `/radiant` holds no text. A server thread sends the actions as `NPC_ACTION`, then each line as `NPC_SAY: Name|serial: line` through the pipe, with the dialogue delay (`DialogueSpeed`, 5 s by default) before each line after the first. The plugin shows a line when it arrives, so one place paces every conversation.
+
+- The actions go first, so an AI state change cannot clear a bubble that is already up.
+- The server does not know when the game pauses, so a pause does not stop the delay.
+
 ## LLM routing
 
-Each LLM call names a task: `chat`, `ambient`, `profile`, `synthesis`, or `memory`. The rumors of the quiet period and Generate Rumor make the `synthesis` call (see [Rumors](#rumors)). `server/config/llm_config.json` holds four parts, and the web app's Models page edits all of them through `/api/llm`.
+Each LLM call names a task: `chat`, `radiant`, `profile`, `synthesis`, or `memory`. The rumors of the quiet period and Generate Rumor make the `synthesis` call (see [Rumors](#rumors)). `server/config/llm_config.json` holds four parts, and the web app's Models page edits all of them through `/api/llm`.
 
 | Part | Contents |
 |---|---|
@@ -392,7 +427,7 @@ When the server loads `llm_config.json`, each task that the file lacks gets the 
 - `/chat` changes the Relation through `change_relation`, which adds the judgment to the stored value in one transaction. Two overlapping chats with the same NPC therefore keep both changes.
 - Each operation opens a connection with a 5 s busy timeout and closes it. A campaign switch changes only the database path that `open_campaign` sets.
 - The database uses the default rollback journal, not WAL. The campaign folder therefore has no `-wal` or `-shm` file, and a player can copy it while the server is idle.
-- No dialogue line is trimmed. The memory of a chat thread replaces its lines (see [Conversation memories](#conversation-memories)), and banter lines stay. No deed is trimmed either (see [Deeds](#deeds)).
+- No dialogue line is trimmed. The memory of a thread replaces its lines (see [Conversation memories](#conversation-memories)). No deed is trimmed either (see [Deeds](#deeds)).
 - Favorites belong to each campaign.
 - Rejected: one database for all campaigns, with a `campaign_id` column. A query that missed the filter would leak data between campaigns.
 
@@ -430,7 +465,7 @@ Each campaign holds its own copy of the factions, keyed by the string ID of the 
 - The loyalty note for members of a major world power reads the `major` flag.
 - A faction that a context reports and the copy lacks gets a row with the name that the game gives and an empty description (`note_faction`). The plugin sends the name, or `Neutral`, as the ID of a faction with no string ID, and the server records no row for those.
 - The player's faction is the row of the `factionID` of the player's context. Its name follows the game, because the player can rename the faction in game. Its description is the player faction block of the chat prompt, and an empty description leaves the block out.
-- The server records each reported faction once per campaign in memory (`SEEN_FACTIONS`), because each chat and banter carries the player's context.
+- The server records each reported faction once per campaign in memory (`SEEN_FACTIONS`), because each chat and radiant conversation carries the player's context.
 
 ### Characters
 
@@ -449,20 +484,20 @@ The `character` table holds every character of a campaign in one shape: the cano
 - The name is only the `Name` key of the profile, so two NPCs with one name keep two rows, and a rename keeps the row and its dialogue.
 - A `Race`, `Sex`, or `Faction` of `Unknown` takes the value that the plugin reports for the character (`get_character_data`). A missing `Race` or `Faction` stays missing. A canon character whose race, sex, or faction the game data does not fix therefore holds `Unknown`, so the first meeting fills it with the value of the spawned NPC.
 - The game reports every skeleton as male, so the server gives a skeleton the sex Other in profiles and prompts (`reported_sex`). A skeleton race is a race whose name starts with Skeleton, P2 Unit, P4 Unit, Screamer, or Soldierbot, which covers the skeleton races of vanilla Kenshi and UWE. The race flag `is robot` cannot tell them apart, because it also marks hive queens, robot spiders, and the mechanical hive of UWE.
-- Within one chat or banter request, the server keys each NPC by its `npc_id`, because NPCs near the player can share a name, for example two Dust Bandits that the campaign does not hold yet. A banter line names its speaker as `Name|ID`, and the server maps the ID, the serial of the handle, to the `npc_id`.
+- Within one chat or radiant request, the server keys each NPC by its `npc_id`, because NPCs near the player can share a name, for example two Dust Bandits that the campaign does not hold yet. A line of a radiant conversation names its speaker as `Name|serial`, and the server maps the serial of the handle to the `npc_id`.
 - Rejected: a number in a duplicate name within a request, such as Dust Bandit (2). The number would reach the LLM and the dialogue history.
-- Each dialogue row stores the `npc_id` of its speaker in `speaker`, or nothing when the speaker is unknown. A banter line goes into the history of every NPC nearby, so a name cannot tell whose line it is when two of them share a name.
+- Each dialogue row stores the `npc_id` of its speaker in `speaker`, or nothing when the speaker is unknown. A line of a radiant conversation goes into the history of every participant, so a name cannot tell whose line it is when two of them share a name.
 - Rejected: the `npc_id` of the speaker inside the line text. The text reaches the LLM, the Dialogue Library, and the bio prompt.
-- The player section of the chat scene describes the squad member who speaks, the `speaker` of the chat request: its name, race, sex, state, health, hunger, faction with the description of the player's faction, worn equipment, and the building it is in. The state and health sentences are the ones of the NPC section in the third person (`state_text`, `health_text`), so an NPC sees a speaker who is imprisoned or has a crippled leg. A character reads as healthy only when neither its blood nor a limb shows a wound. Its money stays out, because an NPC cannot see a wallet. Its personality, backstory, and speech quirks stay out, because they serve only an LLM that speaks as that character. The chat window offers the members of the current squad except the talk target, and starts on the last speaker while that character is still in the squad. Ambient banter has no speaker, so it uses squad slot 1 from the player's context.
+- The player section of the chat scene describes the squad member who speaks, the `speaker` of the chat request: its name, race, sex, state, health, hunger, faction with the description of the player's faction, worn equipment, and the building it is in. The state and health sentences are the ones of the NPC section in the third person (`state_text`, `health_text`), so an NPC sees a speaker who is imprisoned or has a crippled leg. A character reads as healthy only when neither its blood nor a limb shows a wound. Its money stays out, because an NPC cannot see a wallet. Its personality, backstory, and speech quirks stay out, because they serve only an LLM that speaks as that character. The chat window offers the members of the current squad except the talk target, and starts on the last speaker while that character is still in the squad.
 - The Dialogue Library lists each character with dialogue and each character that is not seeded, so the seeded characters that the player never met stay out of it. A character whose lines are all `(Overheard)` stays out too, because every NPC near a chat overhears it. A member of a chat thread counts as having dialogue, and a speaker as taking part, because a memory replaces the lines (`campaign_db.list_characters`).
-- `LIVE_CONTEXTS` keeps a few fields of the latest context of each character that a chat or banter reported, by `npc_id`: the race, the faction, the origin faction, the sex, the health, the nearby NPCs, and the distance to the player. Only the characters that take part merge into it (`merge_live_context`): the talk target, the speaker, each overhearer of a talk or a yell, and each banter NPC. A whisper therefore updates only its two speakers. A merge keeps the fields that an entry lacks, because an overhearer's entry has no `factionID`, for example, and a full context of the same character can have stored one. The listeners of a chat leave out its speaker, so the speaker needs its own merge. A banter NPC merges without its faction, because that is its identity faction, not the current faction that Campaign Canon shows.
+- `LIVE_CONTEXTS` keeps a few fields of the latest context of each character that a chat or a radiant conversation reported, by `npc_id`: the race, the faction, the origin faction, the sex, the health, the nearby NPCs, and the distance to the player. Only the characters that take part merge into it (`merge_live_context`): the talk target, the speaker, each overhearer of a talk or a yell, and each participant of a radiant conversation. A whisper therefore updates only its two speakers. A merge keeps the fields that an entry lacks, because an overhearer's entry has no `factionID`, for example, and a full context of the same character can have stored one. The listeners of a chat leave out its speaker, so the speaker needs its own merge. A participant of a radiant conversation merges without its faction, because that is its identity faction, not the current faction that Campaign Canon shows.
 - The NPC section of the chat scene reads the whole context of the talk target from the chat request (`npc_scene`), so its fighting skill, health, hunger, money, equipment, task, building, and faction stance reach the scene. It also compares the fighting skill of the speaker with the fighting skill of the NPC, the higher of melee attack and melee defence, for example "Stick looks much weaker than you." (`scene_text.strength_text`).
 
 ### Chat threads
 
 Each chat exchange belongs to a chat thread, which records who took part in the conversation. The copies of a line in the histories cannot tell this, because the memory of the thread replaces them.
 
-- The `thread` table holds the ID, the game time of the newest exchange, and the memory (see [Conversation memories](#conversation-memories)). The `thread_id` column of `dialogue` links each chat row to its thread. Banter rows have no thread.
+- The `thread` table holds the ID, the game time of the newest exchange, and the memory (see [Conversation memories](#conversation-memories)). The `thread_id` column of `dialogue` links each row to its thread. Each radiant conversation is a thread too (see [Radiant conversations](#radiant-conversations)).
 - The `thread_member` table holds each member of a thread: its `npc_id`, its role (`speaker` or `overheard`), the game time when it joined, and whether it was in the player's faction then. The speakers are the squad member who speaks and the NPC, and the overhearers are the listeners of each exchange. Only a character whose copy the server stores becomes a member.
 - A member keeps the values of its first join. The history text therefore stays the same from turn to turn, so the cache serves it, and a later recruit or dismissal does not change what an NPC remembers.
 - The server keeps the current thread in memory (`CURRENT_THREAD`). A chat with another NPC, a chat as another squad member, a switch between Whisper, Talk, and Yell, a campaign switch, a cull, a server restart, or a pause without a chat reply as long as the Conversation timeout of the Settings page (`conversation_timeout_minutes`, default 3) starts a new thread. The server measures real time, because it sees the game time only in the requests that it gets. The close of the chat window does not end a thread.
@@ -477,7 +512,7 @@ Each chat exchange belongs to a chat thread, which records who took part in the 
 
 The chat prompt reads the threads and the speaker of each row, so the NPC tells the squad members apart:
 
-- **First meeting.** The NPC spoke before with the squad member who speaks when the two were the speakers of a chat thread (`campaign_db.thread_partners`), or when the history of the NPC holds a line of that squad member without the `(Overheard)` tag, such as a banter line (`chat_prompt.spoken_with`). A thread counts after its memory replaced its lines. The check reads the `npc_id` of each member and row, not the name.
+- **First meeting.** The NPC spoke before with the squad member who speaks when the two were the speakers of a chat thread (`campaign_db.thread_partners`), or when the history of the NPC holds a line of that squad member without the `(Overheard)` tag (`chat_prompt.spoken_with`). A thread counts after its memory replaced its lines. The check reads the `npc_id` of each member and row, not the name.
 - **Companions.** The scene names the others that the NPC spoke with, by the same check, when they are in the player's faction now: "Earlier you spoke with Stick, who travels with Izumi." A character counts when its `Name` is in the `squad` list of the player's context, which the plugin fills from the player's characters.
 - **Relation.** The NPC keeps one `Relation`, which the chats of every squad member change, so the relation sentence names the player's faction: "You feel friendly towards Nameless, the group Izumi travels with." Each step of the scale ends with the name, because the name carries that clause. For an NPC in the player's faction, the sentence reads as its feeling within the group.
 - **Overheard notes.** After the last line of each thread in which the NPC is a speaker, the history adds one user line that names the overhearers that were in the player's faction: "Stick and Mikse heard your conversation with Izumi." (`chat_prompt.overheard_notes`). Other overhearers are not named, because only a squad member can later speak to the NPC as the player. A thread that the NPC only overheard gets no note, and a thread with a memory has no lines, so its memory header names the overhearers instead.
@@ -496,7 +531,7 @@ The server distills each chat thread into a short memory, which replaces the lin
 - The stored text marks each name of a member with the `npc_id` of that member, and the server puts in the current name each time that it reads a memory (`chat_prompt.mark_names`, `chat_prompt.named`). A rename therefore changes the name in every memory. Only a whole name counts, the longest first, so "Dust Bandit" does not match inside "Dust Bandit Josh". A name that two members share stays as text, because its mark could name the wrong member, and so does a short form of a name.
 - Rejected: marks in the lines that the call reads. The model writes a better memory from names, and a mark that it dropped or changed would leave a broken name.
 - `campaign_db.set_memory` stores the memory and deletes every copy of the lines of the thread in one transaction. The thread keeps its members.
-- Nothing else trims the dialogue. The lines of a pending thread stay until its memory is written, so a provider that keeps failing leaves them in the histories. Banter lines have no thread, so they stay for good.
+- Nothing else trims the dialogue. The lines of a pending thread stay until its memory is written, so a provider that keeps failing leaves them in the histories.
 - Memories are not trimmed: a memory is about 500 bytes, so 10,000 conversations add about 5 MB to a campaign.
 - A cull deletes each thread whose memory is dated after the cut, because the memory replaced every line, so nothing from before the cut is left to keep. A pending thread loses only its lines after the cut.
 - The server drops a memory when the active campaign changed during the call, because the same thread ID can name another thread in the new campaign. It also drops a memory when the game time of the thread changed during the call, for example because a cull removed its newest lines (`campaign_db.set_memory`).
@@ -507,14 +542,14 @@ The chat prompt gives the NPC the newest 10 memories of the threads in which it 
 - The heading tells the NPC that it knows what happened in its memories, but that it can lie about them and does not have to uphold them. Without the first part, an NPC claimed to forget a memory that did not suit it. Without the second part, a promise in a memory would bind the NPC.
 - The server reads the memories on each turn, not with the scene, so a memory that the distillation writes during a conversation reaches the next turn. That turn misses the prompt cache once.
 - Each memory gets a header from the view of the NPC, built from the members, so one stored text serves every member: `[Day 3, 14:05] You spoke with Stick. Izumi heard it.` for a speaker, and `[Day 3, 14:05] You overheard Stick and Jorge.` for an overhearer. The header of a speaker names only the overhearers that were in the player's faction, as the overheard note does (see [Chat threads](#chat-threads)).
-- The history holds only the lines of the chat threads that have no memory (`chat_prompt.chat_lines`), so an NPC whose threads all have memories gets no history turns. Banter lines stay out, because banter has no threads, so its lines would never get a memory.
-- Rejected: threads and memories for banter. Each banter would cost a call, and the memories of banter would push the memories of chats out of the newest 10.
-- The Dialogue Library and the bio prompt read each memory as one line, such as `[Day 3, 14:05] (Memory of a conversation with Stick, heard by Izumi) ...`, before the stored lines (`recorded_history`). A header line, such as `(Conversation with Stick, heard by Izumi)`, comes before the lines of each chat thread that has no memory yet (`chat_prompt.headed_lines`). The banter prompt reads only the stored lines.
+- The history holds only the lines of the chat threads that have no memory (`chat_prompt.chat_lines`), so an NPC whose threads all have memories gets no history turns. A row with no thread stays out, because it would never get a memory.
+- The memory of a radiant conversation takes a place in the newest 10 of each participant. The default `RadiantDelay` of 600 s therefore allows at most 6 radiant conversations each hour.
+- The Dialogue Library and the bio prompt read each memory as one line, such as `[Day 3, 14:05] (Memory of a conversation with Stick, heard by Izumi) ...`, before the stored lines (`recorded_history`). A header line, such as `(Conversation with Stick, heard by Izumi)`, comes before the lines of each chat thread that has no memory yet (`chat_prompt.headed_lines`). The radiant prompt reads only the memory of its topic (`chat_prompt.shared_memory`).
 - The player edits or deletes a memory on the Dialogue & Memories subtab (`POST /api/campaign/memories`, `.../memories/delete`). An edit marks the names of the members again, as after the call. A delete removes the thread with its members, because the memory replaced its lines, so the NPCs forget the conversation, also for the first meeting. The in-game Dialogue Library shows the memories but cannot edit them.
 
 ### Names
 
-The game gives most generic NPCs a name of its own, and the server keeps that name (`server/chat/npc_names.py`). The plugin sends the template name of the NPC as `template`, its string ID as `template_id`, and `unique` for a unique NPC, in the context of an NPC, in each NPC of the `nearby` list of a chat, and in each NPC of a banter request. The server makes the `Name` of the profile from the game name and the template name (`name_of`):
+The game gives most generic NPCs a name of its own, and the server keeps that name (`server/chat/npc_names.py`). The plugin sends the template name of the NPC as `template`, its string ID as `template_id`, and `unique` for a unique NPC, in the context of an NPC, in each NPC of the `nearby` list of a chat, and in each participant of a radiant request. The server makes the `Name` of the profile from the game name and the template name (`name_of`):
 
 | Template | Name in game | `Name` |
 |---|---|---|
@@ -532,22 +567,22 @@ The game gives most generic NPCs a name of its own, and the server keeps that na
 The server adds no title to a game name. It sends `NPC_RENAME: <npc_id>|<Name>` through the pipe (`send_rename`), and the plugin puts the `Name` in place of the token of the template (`ShownName` in `plugin/main.cpp`). A rename therefore keeps the text that the game shows around the name: Barman Arleen with the `Name` Bob becomes Barman Bob, and Arleen the Blooded keeps "the Blooded".
 
 - The plugin finds the NPC by its `npc_id`. For a `u:` ID, it compares the string ID of the template, because a generic NPC whose template is a canon character carries the `npc_id` of that character.
-- The plugin renames only an NPC that the game has loaded. A save on the web app renames a loaded NPC at once. Each other NPC gets the new name at the next chat or banter that it takes part in.
-- Outside the player's faction, the profile wins. Each chat or banter renames an NPC whose game name gives another `Name` than its profile (`sync_name`). The rename goes out before the LLM call, so the name changes in game before the reply. This also gives back a name that the game lost, for example after the load of an earlier save.
+- The plugin renames only an NPC that the game has loaded. A save on the web app renames a loaded NPC at once. Each other NPC gets the new name at the next chat or radiant conversation that it takes part in.
+- Outside the player's faction, the profile wins. Each chat or radiant conversation renames an NPC whose game name gives another `Name` than its profile (`sync_name`). The rename goes out before the LLM call, so the name changes in game before the reply. This also gives back a name that the game lost, for example after the load of an earlier save.
 - The player can rename a squad member in game, so in the player's faction the game name wins, and the server stores it as the `Name`. Only the template name is not a rename by the player, because it shows that the game lost the name, so the server sends the `Name` to the game instead.
 - A rename of a squad member in game reaches the profile at once. A hook on `Character::setName` notes each member of the player's faction whose name changes (`setName_hook` in `plugin/main.cpp`). The frame hook then posts its context to `/squad_rename`, and the server stores the game name (`sync_name`). The frame hook builds the context, because a rename can come in the middle of a game update.
-- The faction of a banter NPC is its identity faction, so the plugin marks a squad member with `in_player_faction`.
+- The faction of a radiant participant is its identity faction, so the plugin marks it with `in_player_faction`.
 - A name from `/name` in the chat window becomes the `Name` as the player typed it, and the server sends no rename for it. `/rename` stores a profile for an NPC that has none, so the campaign keeps the name when the game loses it. It relabels the dialogue by the stored `Name`, because a titled game name is not the name in the dialogue.
 - The prompt and the dialogue history use the `Name`, and `campaign_db.rename_character` relabels the lines that the NPC spoke.
 - The chat window keeps the name that its target had when the window opened, so a chat request can name its target by an old name. The server therefore takes the `Name` of the target from the `npc_id` in its context, and it counts a reply line that starts with the old name as a line of the target.
 - The server drops a reply line that another NPC near the player speaks, by its game name or by its `Name`, because the two differ for an NPC with a title.
 
-Only an NPC that the game shows by its template name gets a rolled name. It gets a given name from `server/data/defaults/names.json` for the sex of the NPC when a chat or banter first stores it in the campaign. In a chat, this covers the target, the squad member who speaks, and each NPC that overhears.
+Only an NPC that the game shows by its template name gets a rolled name. It gets a given name from `server/data/defaults/names.json` for the sex of the NPC when a chat or a radiant conversation first stores it in the campaign. In a chat, this covers the target, the squad member who speaks, and each NPC that overhears.
 
 | Moment | Name in game |
 |---|---|
-| Before the NPC takes part in a chat or in banter | Starving Bandit |
-| The first chat or banter that the NPC takes part in | Josh |
+| Before the NPC takes part in a chat or in a radiant conversation | Starving Bandit |
+| The first chat or radiant conversation that the NPC takes part in | Josh |
 
 - An animal keeps the name of its template, such as Bone Mutt, because a given name of a person does not fit an animal.
 - The server rolls a name only when the campaign stores the profile. The campaign stores no profile named Someone or Unknown (`should_save_profile`), so a rolled name would live only in the game.
@@ -568,11 +603,11 @@ The `CurrentJob` of a profile is a short phrase for what the NPC does in game no
 | A squad job in `TABLE` | Its phrase, for example Patrolling the town |
 | No squad job that `TABLE` knows, for example in a squad without an AI package | None: no line in the prompt, and Unknown on the web app |
 
-- The plugin sends the squad jobs of the NPC as the names of KenshiLib's `TaskType` enum, with `is_trader` and `temporary_follower`, in the context of an NPC, in the `nearby` list of a chat, and in each NPC of a banter request (`RoleJson` in `plugin/game/Context.cpp`). It sends only the task types of its `ROLE_TASKS` list, and a test checks that the list and `TABLE` hold the same names.
+- The plugin sends the squad jobs of the NPC as the names of KenshiLib's `TaskType` enum, with `is_trader` and `temporary_follower`, in the context of an NPC, in the `nearby` list of a chat, and in each participant of a radiant request (`RoleJson` in `plugin/game/Context.cpp`). It sends only the task types of its `ROLE_TASKS` list, and a test checks that the list and `TABLE` hold the same names.
 - Mods rename AI packages, squads, and templates, but the task types belong to the engine (see [Kenshi internals](kenshi_internals.md#roles)), so one squad job gives one phrase in every mod list.
 - `TABLE` puts a side task, such as a turret or a bar visit, after the jobs that it would otherwise hide, because many guard and town packages hold one.
 - A hire contract comes before the player's faction, because a hired NPC follows the player without a recruit.
-- The server updates the `CurrentJob` only when a chat, banter, or rename writes the record of the NPC (`get_character_data`).
+- The server updates the `CurrentJob` only when a chat, a radiant conversation, or a rename writes the record of the NPC (`get_character_data`).
 - A value of None removes the key (`upsert_profile`), because the template validator takes only text and numbers as profile values.
 - Campaign Canon shows the `CurrentJob` read-only, and Templates do not show it, because the game sets it. The text of a canon role, such as Noble of the United Cities, is the first sentence of the `Backstory`.
 - Rejected: the template title as the job. A mod can rename a template, one template serves squads with different roles, and the title stayed after a recruit.
@@ -592,7 +627,7 @@ The `CurrentLocation` of a profile tells where the NPC was at its last chat (`lo
 | In a building outside the towns | Shack, Vain |
 | Outdoors outside the towns | Wilderness, Vain |
 
-- The full context of a chat target, a chat speaker, or a rename carries `building_name` (`GetDetailedContext` in `plugin/game/Context.cpp`). Each entry of the `nearby` list of a chat and each banter NPC carries it too, with the town, the zone, the health, and the origin faction (`ProfileJson`), so a banter or an overheard chat also updates the `CurrentLocation`, the status, and the `OriginFaction` of a new profile.
+- The full context of a chat target, a chat speaker, or a rename carries `building_name` (`GetDetailedContext` in `plugin/game/Context.cpp`). Each entry of the `nearby` list of a chat and each radiant participant carries it too, with the town, the zone, the health, and the origin faction (`ProfileJson`), so a radiant conversation or an overheard chat also updates the `CurrentLocation`, the status, and the `OriginFaction` of a new profile.
 - The zone, for example Vain, is the zone around the camera (`ZoneName` in `plugin/game/Context.cpp`), because the game gives no zone for each character, and a chat happens near the camera. The plugin reads the zone record at slot `0x10` of `WeatherSystem::ActiveRegion` (see [Kenshi internals](kenshi_internals.md#zones)), and sends no `zone_name` when the slot holds no zone record.
 - The chat scene reads the building from the live context, not from the profile, so a building from an earlier chat never reaches the prompt. The NPC section says "You are in your shop, …" only to a trader, and "You are inside …" to anyone else (`building_text`). `in_shop` marks every NPC inside a shop or a bar, a customer too, so it does not make a trader.
 
@@ -613,15 +648,15 @@ A character without a stored profile gets one rolled in code at its first meetin
 - `Animal` is the game's own flag (`Character::isAnimal`), which every NPC context from the plugin carries, so it knows the animal races of every mod. A Fishman (any race name with "fishman") also counts as an animal, because it cannot talk, though the game does not flag it. The profile stores it as 1 or 0, because the template validator takes no true or false, and each context updates it (`get_character_data`).
 - Rejected: a list of animal race names. It missed 18 of the 120 animal races of UWE, such as Bone Mutt, so those animals got the profile of a person and talked.
 - An animal personality describes temperament and tendencies that the animal shows where it stands, such as nudging someone, but never a movement, such as wandering off. The game moves the animal, so the player would see it stand still.
-- The roll is seeded by the `npc_id`. Banter and a chat can meet a new NPC at the same moment, and both write its profile, so both must roll the same one.
+- The roll is seeded by the `npc_id`. A radiant conversation and a chat can meet a new character at the same moment, and both write its profile, so both must roll the same one.
 - The texts are in English. The system prompt sets the reply language, so the replies follow the language setting.
 
 The squad member who speaks in a chat gets a profile at its first chat too, as the target and each listener do. The listeners of a chat leave out the speaker, so without this step a character that only speaks would have no profile. The speaker also keeps the player's line and the reply in its own history, without the `(Overheard)` tag.
 
-A profile is provisional while it holds `Interactions` (`campaign_db.PROVISIONAL`): the number of chat turns in which the NPC replied to the player. An overheard turn and banter do not count.
+A profile is provisional while it holds `Interactions` (`campaign_db.PROVISIONAL`): the number of chat turns in which the NPC replied to the player. An overheard turn and a radiant conversation do not count.
 
 - Rejected: a separate `Provisional: true` key. The template validator, which the campaign editor also runs, takes only text and numbers as profile values.
-- Rejected: a count from the dialogue history. A banter line has no tag, so it looks like a reply to the player, and a memory replaces the lines of a chat.
+- Rejected: a count from the dialogue history. A line of a radiant conversation has no tag, so it looks like a reply to the player, and a memory replaces the lines of a chat.
 
 When the count reaches the Chats before a bio setting (`bio_interactions`, default 5), the LLM writes the full bio of the NPC (`generate_bio`). It runs after the reply, in a background thread, so the reply does not wait for a second LLM call. A setting of 0 writes a bio only on request. It never rewrites a full profile, because the player may have written that profile by hand.
 

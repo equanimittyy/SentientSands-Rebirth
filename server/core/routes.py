@@ -135,26 +135,23 @@ def settings_endpoint():
     logging.debug(f"SETTINGS: Update request: {json.dumps(data)}")
     changes = {}
 
-    enable_ambient = data.get("enable_ambient")
-    if enable_ambient is not None:
-        changes["enable_ambient"] = enable_ambient
-        send_to_pipe(f"SET_CONFIG: g_enableAmbient: {'1' if enable_ambient else '0'}")
-        logging.info(f"SETTINGS: Ambient enabled set to {enable_ambient}")
+    enable_radiant = data.get("enable_radiant")
+    if enable_radiant is not None:
+        changes["enable_radiant"] = enable_radiant
+        send_to_pipe(f"SET_CONFIG: g_enableRadiant: {'1' if enable_radiant else '0'}")
+        logging.info(f"SETTINGS: Radiant conversations enabled set to {enable_radiant}")
 
-    ambient_timer = data.get("ambient_timer")
-    if ambient_timer is not None:
-        val = int(ambient_timer)
+    radiant_delay = data.get("radiant_delay")
+    if radiant_delay is not None:
+        val = int(radiant_delay)
         changes["radiant_delay"] = val
-        send_to_pipe(f"SET_CONFIG: g_ambientIntervalSeconds: {val}")
+        send_to_pipe(f"SET_CONFIG: g_radiantIntervalSeconds: {val}")
         logging.info(f"SETTINGS: Radiant delay set to {val}")
 
     radii = data.get("radii")
     if radii:
-        r = radii.get("radiant")
         t = radii.get("talk")
         y = radii.get("yell")
-        if r is not None:
-            send_to_pipe(f"SET_CONFIG: g_radiantRange: {r}")
         if t is not None:
             send_to_pipe(f"SET_CONFIG: g_proximityRadius: {t}")
         if y is not None:
@@ -210,7 +207,6 @@ def settings_endpoint():
         try:
             val = int(diag_speed)
             changes["dialogue_speed_seconds"] = val
-            send_to_pipe(f"SET_CONFIG: g_dialogueSpeedSeconds: {val}")
             logging.info(f"SETTINGS: Dialogue speed set to {val} seconds")
         except: pass
 

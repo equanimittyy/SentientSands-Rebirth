@@ -18,8 +18,8 @@ MEMORY_LIMIT = 10
 
 
 def chat_lines(entries):
-    """The (line, speaker, thread_id) rows of chat threads. Banter has no thread, so it never gets a memory and would keep
-    a history in every chat of an NPC that took part in banter."""
+    """The (line, speaker, thread_id) rows of threads. A row with no thread never gets a memory, so it would stay in every
+    chat of the NPC."""
     return [entry for entry in entries if entry[2] is not None]
 
 
@@ -48,7 +48,7 @@ def _overheard(line):
 def spoken_with(entries, partners, npc_id):
     """The characters that the NPC spoke with, in order: partners, the other speakers of its chat threads
     (campaign_db.thread_partners), which stay after a memory replaced the lines, then the speakers of its stored lines that
-    it did not only overhear, such as banter. The speaker, not the name, marks a line."""
+    it did not only overhear. The speaker, not the name, marks a line."""
     found = []
     for speaker in [*partners, *(speaker for line, speaker, *_ in entries if not _overheard(line))]:
         if speaker and speaker != npc_id and speaker not in found:
@@ -124,6 +124,13 @@ def memories_block(memories, npc_id):
 def memory_lines(memories, npc_id):
     """Each memory as one line in the form of a stored line, for the Dialogue Library and the bio prompt."""
     return [_dated(memory, f"({scene_text.memory_label(*_members_seen_by(memory['members'], npc_id))}) {_memory_text(memory)}") for memory in memories]
+
+
+def shared_memory(memory):
+    """A memory of memories_of, under a header that names its members, for the prompt of a radiant conversation."""
+    speakers = [name or "someone" for _, name, role, _ in memory["members"] if role == "speaker"]
+    listeners = [name for _, name, role, _ in memory["members"] if role == "overheard" and name]
+    return _dated(memory, f"({scene_text.shared_memory_label(speakers, listeners)}) {_memory_text(memory)}")
 
 
 def headed_lines(entries, members, npc_id):

@@ -20,4 +20,3 @@ void LoadPluginConfig();
 void SetHotkeyFromString(const std::string &keyStr);
 void LoadUITranslation(const std::string &json);
 void StartPythonServer(bool openBrowser);
-void SleepIfPaused(DWORD ms);

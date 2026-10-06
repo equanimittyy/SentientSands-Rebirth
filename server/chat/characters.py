@@ -67,7 +67,7 @@ def generate_unique_lore_name(gender="Neutral"):
     return random.choice(available)
 
 def job_of(ctx):
-    """The Current Job from the context of one NPC, or None. The faction of a banter NPC is its identity faction, so only
+    """The Current Job from the context of one NPC, or None. The faction of a radiant participant is its identity faction, so only
     in_player_faction marks a squad member there."""
     in_squad = ctx.get("in_player_faction") or is_player_faction(ctx.get("faction"), ctx.get("factionID"))
     return current_job.current_job(ctx, in_squad, state.PLAYER_CONTEXT.get("faction", "Nameless"))
@@ -243,7 +243,7 @@ def sync_name(npc, profile, in_squad):
     return name
 
 def npc_name(npc):
-    """The Name of an NPC in a chat or banter request. The rename goes out before the LLM call, so the name changes in game
+    """The Name of an NPC in a chat or radiant request. The rename goes out before the LLM call, so the name changes in game
     while the player waits for the reply."""
     name = npc_names.name_of(npc)
     npc_id = npc.get("npc_id")
@@ -253,6 +253,6 @@ def npc_name(npc):
     # The campaign stores no profile named Someone or Unknown, so a rolled name would live only in the game
     if not campaign_db.character_exists(npc_id):
         return name
-    # The faction of a banter NPC is its identity faction, so only in_player_faction marks a squad member there
+    # The faction of a radiant participant is its identity faction, so only in_player_faction marks a squad member there
     in_squad = npc.get("in_player_faction") or is_player_faction(npc.get("faction"), npc.get("factionID"))
     return sync_name(npc, profile, in_squad)

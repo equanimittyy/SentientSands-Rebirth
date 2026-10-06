@@ -13,7 +13,7 @@ from urllib.parse import urlparse
 
 TASKS = {
     "chat": {"max_tokens": 2048, "temperature": 0.8},
-    "ambient": {"max_tokens": 2048, "temperature": 0.8},
+    "radiant": {"max_tokens": 2048, "temperature": 0.8},
     "profile": {"max_tokens": 1500, "temperature": 0.7},
     "synthesis": {"max_tokens": 2048, "temperature": 0.8},
     "memory": {"max_tokens": 1500, "temperature": 0.3},

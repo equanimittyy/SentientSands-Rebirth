@@ -94,10 +94,6 @@ def generate_relation_bar(rel):
     # Plain text, not MyGUI color tags, so it renders on every UI version
     return f"RELATION: [{label}] [{bar_str}] ({rel:+} pts)"
 
-def npc_serial(npc_id):
-    """The handle serial in the npc_id of a generic NPC, or None for a unique NPC."""
-    return npc_id[2:] if npc_id and npc_id.startswith("h:") else None
-
 def take_report(player, events):
     """Keeps the player's context and takes the deeds of the game events that a request from the plugin carries. The plugin
     sends the context only with a request, so the player's context is the one of the latest request."""
