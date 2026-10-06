@@ -285,14 +285,14 @@ def chat():
 
     animal = primary_data.get("Animal")
 
+    # A rule that rated the player's politeness let a scornful NPC warm up with each apology
+    judgment = "JUDGMENT: End every reply with [JUDGMENT: n], the change that the player's line makes to how you feel about the player, from -5 (it angers, frightens, hurts, or offends you) to 5 (it pleases you); 0 is no change. Judge by your personality, not by how polite the line is."
     if animal:
         system_prompt = load_prompt_component("prompt_animal_system.txt")
-        final_instruction = f"Reply as {primary_npc} with one action or sound in asterisks, and no words."
-        judgment = ""
+        final_instruction = f"Reply as {primary_npc} with one action or sound in asterisks, and no words. End with [JUDGMENT: n]."
     else:
         system_prompt = build_system_prompt()
-        judgment = "JUDGMENT: End every reply with [JUDGMENT: n], from -5 (the player was hostile or insulting) to 5 (the player was friendly or respectful); 0 is neutral."
-        final_instruction = f"Reply as {primary_npc}{', quietly' if mode == 'whisper' else ''}.{' End with [JUDGMENT: n].' if judgment else ''}"
+        final_instruction = f"Reply as {primary_npc}{', quietly' if mode == 'whisper' else ''}. End with [JUDGMENT: n]."
 
     mode_tag = {"whisper": "(Whispered) ", "yell": "(Yelled) "}.get(mode, "")
     time_prefix = get_current_time_prefix()
