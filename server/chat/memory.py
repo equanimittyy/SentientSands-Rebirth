@@ -94,15 +94,16 @@ def write_rumors():
         write_rumor(notable_id, campaign)
 
 def memory_loop():
-    """Runs the distillation, then the rumors, once in each quiet period, so a thread or a deed whose call failed waits for
-    the next one."""
+    """Runs the distillation, then the rumors, once in each quiet period and again after each radiant conversation in it, so
+    a thread or a deed whose call failed waits for the next run."""
     distilled = None
     while True:
         time.sleep(10)
         since = state.QUIET_SINCE
-        if since == distilled or time.monotonic() - since < quiet_seconds():
+        due = (since, state.LAST_RADIANT)
+        if due == distilled or time.monotonic() - since < quiet_seconds():
             continue
-        distilled = since
+        distilled = due
         try:
             distill_threads()
         except Exception as e:

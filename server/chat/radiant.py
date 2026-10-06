@@ -24,13 +24,15 @@ def topic(memories, environment, rumors, choice=random.choice):
 
 
 def lines(content, serials):
-    """The (serial, text) of each line of the reply whose serial names a participant. A line of anyone else, or with no
-    speaker, would reach the game as a line of nobody."""
+    """The (serial, text) of each line of the reply, or none when a line is not the line of a participant. That line would
+    reach the game as a line of nobody, and the conversation without it can make no sense."""
     found = []
     for line in content.splitlines():
+        if not line.strip():
+            continue
         match = _LINE.match(line.strip())
         if not match or match.group(2) not in serials:
-            continue
+            return []
         text = _BRACKETS.sub("", match.group(3)).strip().strip('"').strip()
         if text:
             found.append((match.group(2), text))

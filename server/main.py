@@ -48,6 +48,7 @@ def start():
     init_server_state()
     llm.LLM_CONFIG = load_llm_config()
     threading.Thread(target=memory_loop, daemon=True).start()
+    threading.Thread(target=chat_routes.reply_loop, daemon=True).start()
     threading.Thread(target=player2_ping_loop, daemon=True).start()
     threading.Thread(target=monitor_kenshi_process, daemon=True).start()
 

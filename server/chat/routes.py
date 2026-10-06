@@ -1,5 +1,6 @@
 import json
 import logging
+import queue
 import re
 import threading
 import time
@@ -20,6 +21,11 @@ from core.settings import get_config_radii, load_settings
 from store import campaign_db
 
 bp = Blueprint("chat", __name__)
+
+_REPLIES = queue.Queue()
+# A radiant conversation holds it from its "..." to its last line, so a chat reply waits for it and a second one cannot start
+_STAGE = threading.Lock()
+_last_line = 0.0
 
 @bp.route('/radiant', methods=['POST'])
 def radiant_conversation():
@@ -48,40 +54,72 @@ def radiant_conversation():
         logging.info("RADIANT: No topic, so nobody talks.")
         return jsonify({"status": "ignore"})
 
-    descriptions = [
-        f"{describe_npc(f'{names[serial]}|{serial}', profiles[serial], npc['npc_id'])}\nHEALTH: {npc.get('health') or 'Unknown'}\nGEAR: {npc.get('equipment') or 'nothing notable'}"
-        for serial, npc in participants.items()
-    ]
-    prompt = fill_prompt("prompt_radiant.txt", place=scene_text.location_text(center.get("environment") or {}, "They"), participants="\n\n".join(descriptions), topic=topic)
-    logging.info(f"RADIANT: {', '.join(names.values())} talk. Topic: {topic}")
-    content = call_llm("radiant", [{"role": "system", "content": build_system_prompt()}, {"role": "user", "content": prompt}])
-    lines = radiant.lines(content or "", participants)
-    if not lines:
-        logging.warning("RADIANT: The LLM gave no line of a participant.")
-        return jsonify({"status": "none"})
+    if not _STAGE.acquire(blocking=False):
+        logging.info("RADIANT: A conversation plays, so nobody else talks.")
+        return jsonify({"status": "ignore"})
+    playing = False
+    try:
+        descriptions = [
+            f"{describe_npc(f'{names[serial]}|{serial}', profiles[serial], npc['npc_id'])}\nHEALTH: {npc.get('health') or 'Unknown'}\nGEAR: {npc.get('equipment') or 'nothing notable'}"
+            for serial, npc in participants.items()
+        ]
+        prompt = fill_prompt("prompt_radiant.txt", place=scene_text.location_text(center.get("environment") or {}, "They"), participants="\n\n".join(descriptions), topic=topic)
+        logging.info(f"RADIANT: {', '.join(names.values())} talk. Topic: {topic}")
+        for serial in participants:
+            send_to_pipe(f"NPC_SAY: {names[serial]}|{serial}: ...")
+        content = call_llm("radiant", [{"role": "system", "content": build_system_prompt()}, {"role": "user", "content": prompt}])
+        lines = radiant.lines(content or "", participants)
+        if not lines:
+            logging.warning("RADIANT: The reply of the LLM is not a conversation of the participants, so nobody talks.")
+            return jsonify({"status": "none"})
 
-    time_prefix = get_current_time_prefix()
-    thread_id = campaign_db.join_thread(None, [(npc_id, "speaker", True) for npc_id in npc_ids], campaign_db.game_time(time_prefix), scene_text.location_name(center))
-    stored = [(f"{time_prefix}{names[serial]}: {text}", participants[serial]['npc_id']) for serial, text in lines]
-    for serial, npc in participants.items():
-        campaign_db.append_dialogue(npc['npc_id'], stored, profiles[serial], thread_id)
-    play_lines([f"{names[serial]}|{serial}: {text}" for serial, text in lines])
-    logging.debug(f"RADIANT: {[line for line, _ in stored]}")
-    return jsonify({"status": "ok"})
+        time_prefix = get_current_time_prefix()
+        thread_id = campaign_db.join_thread(None, [(npc_id, "speaker", True) for npc_id in npc_ids], campaign_db.game_time(time_prefix), scene_text.location_name(center))
+        stored = [(f"{time_prefix}{names[serial]}: {text}", participants[serial]['npc_id']) for serial, text in lines]
+        for serial, npc in participants.items():
+            campaign_db.append_dialogue(npc['npc_id'], stored, profiles[serial], thread_id)
+        state.LAST_RADIANT = time.monotonic()
+        # Before the start: a thread that ends at once releases the stage, and the finally would release it again
+        playing = True
+        threading.Thread(target=play_radiant, args=([f"{names[serial]}|{serial}: {text}" for serial, text in lines],), daemon=True).start()
+        logging.debug(f"RADIANT: {[line for line, _ in stored]}")
+        return jsonify({"status": "ok"})
+    finally:
+        if not playing:
+            _STAGE.release()
+
+def say(lines, actions=()):
+    """Sends the actions, then each line at least the dialogue delay after the line before it, also when that line ended an
+    earlier conversation. The plugin shows a line when it arrives, so the server alone paces every conversation. A pause of
+    the game does not stop the delay. The actions go first, so an AI state change cannot clear a bubble that is already up."""
+    global _last_line
+    for action in actions:
+        send_to_pipe(f"NPC_ACTION: {action}")
+    delay = load_settings()["dialogue_speed_seconds"]
+    for line in lines:
+        time.sleep(max(0.0, _last_line + delay - time.monotonic()))
+        send_to_pipe(f"NPC_SAY: {line}")
+        _last_line = time.monotonic()
+
+def play_radiant(lines):
+    try:
+        say(lines)
+    finally:
+        _STAGE.release()
 
 def play_lines(lines, actions=()):
-    """Sends the actions, then each line with the dialogue delay before it, to the game in the background. The plugin shows
-    a line when it arrives, so the server alone paces every conversation. A pause of the game does not stop the delay. The
-    actions go first, so an AI state change cannot clear a bubble that is already up."""
-    def play():
-        for action in actions:
-            send_to_pipe(f"NPC_ACTION: {action}")
-        delay = load_settings()["dialogue_speed_seconds"]
-        for index, line in enumerate(lines):
-            if index:
-                time.sleep(delay)
-            send_to_pipe(f"NPC_SAY: {line}")
-    threading.Thread(target=play, daemon=True).start()
+    """Queues a chat reply, which plays after every reply before it and after a radiant conversation that holds the stage."""
+    _REPLIES.put((lines, actions))
+
+def reply_loop():
+    while True:
+        lines, actions = _REPLIES.get()
+        try:
+            with _STAGE:
+                say(lines, actions)
+        except Exception as e:
+            # An error must not end the loop, or no later chat reply would play
+            logging.error(f"CHAT: The lines of a reply failed: {e}")
 
 def merge_live_context(ctx):
     # Merge rather than replace, because a nearby entry lacks fields, such as factionID, that a full context of the same character stored

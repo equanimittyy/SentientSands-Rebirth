@@ -153,9 +153,9 @@ The player can add a custom deed for an act that the game does not track. The pl
 
 The server writes the rumor of each deed by itself, in the quiet period of the memories (see [Conversation memories](#conversation-memories)). After the distillation, it writes the rumor of each notable event of the active campaign that has none, one call at a time, the oldest first (`write_rumors` in `server/chat/memory.py`).
 
-- The rumors wait while a chat thread waits for its memory, because the memories come first. A thread whose call failed therefore holds back the rumors until a later quiet period writes its memory.
+- The rumors wait while a chat thread waits for its memory, because the memories come first. A thread whose call failed therefore holds back the rumors until a later run writes its memory.
 - Before each call, the server checks that the chat is still quiet, as for the memories, because a local model serves one request at a time.
-- The call has no instruction and no rumor so far. A failed call leaves the notable event without a rumor, and the next quiet period tries it again.
+- The call has no instruction and no rumor so far. A failed call leaves the notable event without a rumor, and the next run tries it again.
 - The server stores the text only when the notable event still has no rumor (`campaign_db.add_rumor`), so a rumor that the player saved during the call stays. It drops the text when the active campaign changed during the call, because the same notable event ID can name another deed in another campaign.
 
 The player can write a rumor sooner, or again with an instruction:
@@ -355,13 +355,14 @@ When the origin faction of an NPC is its current faction, the chat prompt gives 
 
 ## Radiant conversations
 
-A radiant conversation is a talk between 3 to 5 of the player's characters, which one LLM call writes. The plugin asks for one when `RadiantDelay` (600 s by default) passes at normal game speed, and when the player clicks Trigger Radiant in the chat window. Paused time does not count. The interval restarts when the request goes out, when the reply arrives, and when a line of any conversation shows.
+A radiant conversation is a talk between 3 to 5 of the player's characters, which one LLM call writes. The plugin asks for one when `RadiantDelay` (600 s by default) of real time passes while the game runs, at any game speed, and when the player clicks Trigger Radiant in the chat window. Paused time does not count. The interval restarts when the request goes out, when the reply arrives, and when a line of any conversation shows.
 
 1. The plugin picks the center: the selected character, when it is one of the player's characters and can talk, or else the first character of the current squad that can talk (`GetRadiantParticipants` in `plugin/game/Context.cpp`). A character can talk when it is not dead, not unconscious, and not an animal.
 2. The participants are the center and the player's characters nearest to it within `TalkRadius` that can talk, up to 5 in all. With fewer than 3 participants, the plugin sends no request.
 3. The plugin posts the participants, the context of the center as `player_context`, and the game events to `/radiant`.
-4. The server answers with no LLM call when a participant fought within the last 3 game hours, or when no kind of topic has material.
-5. It sends one call on the `radiant` task, stores the lines as a new thread, and sends them to the game (see [Line pacing](#line-pacing)).
+4. The server answers with no LLM call when a participant fought within the last 3 game hours, when no kind of topic has material, or when a conversation plays (see [Line pacing](#line-pacing)).
+5. It sends `...` as the line of each participant, so all of them show that they think, as the NPC of a chat does. No notification says that they think.
+6. It sends one call on the `radiant` task, stores the lines as a new thread, and sends them to the game (see [Line pacing](#line-pacing)).
 
 - The center is a character that the player watches, so the speech bubbles show on the screen. Rejected: the largest group of the player's characters. An outpost with many characters would always win over the squad that travels with the player.
 - A fight of a participant is an attack by the participant, or a knockout of the participant, in the game events that the server keeps for the deeds (`deeds.fought_recently`). The 3 hours (`FIGHT_QUIET_MINUTES`) are a constant, not a setting, so the participants do not talk about other things right after a battle.
@@ -377,14 +378,17 @@ The server picks one kind of topic, at random with equal chances, from the kinds
 
 - The server picks the topic, not the LLM, so each conversation is about one specific thing. The prompt holds no list of earlier lines not to repeat.
 - The system message is `prompt_system.txt` (`build_system_prompt`), the same start as a chat, so the cache serves it. The user message is `prompt_radiant.txt`: the place in the third person, each participant from `npc_chat_template.txt` with its `Name|serial`, health, and gear, the topic, and the rules. The prompt sets no tone, so the profiles of the participants decide it.
-- Each participant speaks at least once and at most 3 times. The reply holds `Name|serial: line` lines, and the server keeps only a line whose serial names a participant, without bracketed text (`radiant.lines`).
-- Each conversation is a new thread, with each participant as a speaker in the player's faction and no overhearers. Each participant stores every line. The distillation of the next quiet period writes its memory, as for a chat thread (see [Conversation memories](#conversation-memories)).
-- A radiant conversation does not change `CURRENT_THREAD` or the quiet clock, so it never joins a chat thread and never delays a memory. Its thread therefore waits for its memory until the player chats again and the chat goes quiet.
+- Each participant speaks at least once and at most 3 times. The reply holds `Name|serial: line` lines, and the server takes the bracketed text out of each line (`radiant.lines`).
+- When a line that is not blank is not the line of a participant, nobody talks, because the conversation without that line can make no sense. A failed call also leaves the participants silent. Their `...` goes when its speech bubble life ends.
+- Each conversation is a new thread, with each participant as a speaker in the player's faction and no overhearers. Each participant stores every line. The memory loop writes its memory, as for a chat thread (see [Conversation memories](#conversation-memories)).
+- A radiant conversation does not change `CURRENT_THREAD` or the quiet clock, so it never joins a chat thread and never delays a memory. The memory loop therefore runs again after each radiant conversation (`state.LAST_RADIANT`), so the thread of a radiant conversation in a quiet period gets its memory without a chat.
 
 ## Line pacing
 
-The server paces the lines of every conversation, chat and radiant (`play_lines` in `server/chat/routes.py`). The reply of `/chat` and `/radiant` holds no text. A server thread sends the actions as `NPC_ACTION`, then each line as `NPC_SAY: Name|serial: line` through the pipe, with the dialogue delay (`DialogueSpeed`, 5 s by default) before each line after the first. The plugin shows a line when it arrives, so one place paces every conversation.
+The server paces the lines of every conversation, chat and radiant (`say` in `server/chat/routes.py`). The reply of `/chat` and `/radiant` holds no text. A server thread sends the actions as `NPC_ACTION`, then each line as `NPC_SAY: Name|serial: line` through the pipe, at least the dialogue delay (`DialogueSpeed`, 5 s by default) after the line before it, also when that line ended another conversation. The plugin shows a line when it arrives, so one place paces every conversation.
 
+- One conversation plays at a time, so the lines of two conversations never mix. A chat reply waits in a queue and plays after the replies before it (`reply_loop`).
+- A radiant conversation holds the stage (`_STAGE`) from its `...` to its last line, so a chat reply plays only after the radiant conversation ends. A radiant request while a conversation plays gets no conversation, so the Trigger Radiant button cannot start a second radiant conversation over the first.
 - The actions go first, so an AI state change cannot clear a bubble that is already up.
 - The server does not know when the game pauses, so a pause does not stop the delay.
 
@@ -523,7 +527,7 @@ The chat prompt reads the threads and the speaker of each row, so the NPC tells 
 The server distills each chat thread into a short memory, which replaces the lines of the thread. The chat prompt, the Dialogue Library, the bio prompt, and the Dialogue & Memories subtab read the memories (see [Web app](#web-app)).
 
 - A thread is pending when it has a line and no memory. When no chat request or reply came for the Conversation timeout (`quiet_seconds`), the server writes the memory of each pending thread of the active campaign, one call at a time, the oldest first (`memory_loop` in `server/chat/memory.py`). The server start, a campaign switch, and a cull start this quiet clock again (`restart_quiet_clock`).
-- The distillation runs once in each quiet period, and the rumors of the deeds follow it (see [Rumors](#rumors)). After a failed call, the thread stays pending, the server moves on to the next thread, and the next quiet period tries the failed thread again.
+- The distillation runs once in each quiet period, and again after each radiant conversation in a quiet period (see [Radiant conversations](#radiant-conversations)). The rumors of the deeds follow each run (see [Rumors](#rumors)). After a failed call, the thread stays pending, the server moves on to the next thread, and the next run tries the failed thread again.
 - Before each call, the server checks that the chat is still quiet, so a chat that starts during the distillation waits for one call at most. A local model serves one request at a time, so a call during a chat would delay the reply.
 - Before each call, the server also ends the current thread, under `THREAD_LOCK`, so a chat during the call starts a new thread and each memory covers a whole thread. A pause as long as the Conversation timeout therefore splits a conversation into two threads.
 - The call takes the `memory` task (see [LLM routing](#llm-routing)) and `prompt_thread_memory.txt`, with the lines of the copy that the subtab shows (`campaign_db.pending_threads`). The memory names each speaker and never says "you" outside a quote, so every member of the thread can read the same text. It tells what came of the conversation, not the order of its lines, and quotes at most one line that stood out word for word, because people remember a sharp line better than a summary of it.

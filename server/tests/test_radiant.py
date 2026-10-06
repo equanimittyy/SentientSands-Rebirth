@@ -29,9 +29,13 @@ class TopicTest(unittest.TestCase):
 
 
 class LinesTest(unittest.TestCase):
-    def test_only_the_lines_of_participants_stay(self):
-        content = "Stick|10: Hot today.\nNarrator: The wind howls.\nJorge|99: Who am I?\nThe end.\nJorge|14: \"Too hot.\""
+    def test_the_lines_of_participants_stay(self):
+        content = "Stick|10: Hot today.\n\nJorge|14: \"Too hot.\""
         self.assertEqual(radiant.lines(content, {"10": {}, "14": {}}), [("10", "Hot today."), ("14", "Too hot.")])
+
+    def test_one_line_of_no_participant_silences_the_reply(self):
+        for stray in ("Narrator: The wind howls.", "Jorge|99: Who am I?", "The end.", "**Jorge|14**: Too hot."):
+            self.assertEqual(radiant.lines(f"Stick|10: Hot today.\n{stray}", {"10": {}, "14": {}}), [], stray)
 
     def test_bracketed_text_goes_and_an_empty_line_with_it(self):
         content = "Stick|10: [ACTION: IDLE] Fine. [JUDGMENT: 2]\nJorge|14: [ACTION: IDLE]"

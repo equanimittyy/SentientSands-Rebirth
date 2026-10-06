@@ -17,6 +17,7 @@ CURRENT_THREAD = {}
 THREAD_LOCK = threading.Lock()
 # Starts with the server, so the threads that a restart left pending get their memories one quiet period after the start
 QUIET_SINCE = time.monotonic()
+LAST_RADIANT = None
 WRITE_REQUESTS = 0
 SEEN_FACTIONS = set()
 GAME_REPORTED = threading.Event()
