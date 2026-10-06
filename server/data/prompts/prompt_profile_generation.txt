@@ -17,7 +17,7 @@ DIALOGUE SO FAR:
 
 RULES:
 - INSTRUCTIONS: The player instructions decide the parts that you write, and they win over every other rule. Drop every current trait, event, or quirk that conflicts with them.
-- CURRENT PROFILE: Keep what the instructions do not change: the traits of the current personality, the events of the current backstory, and the current speech quirk, in your own words, and do not make them stronger. A blank part has nothing to keep. A part that you do not write stays as it is, so your text must fit it.
+- CURRENT PROFILE: Keep what the instructions do not change: the traits of the current personality, the events of the current backstory, and the manner and the habits of the current speech quirks, in your own words, and do not make them stronger. A blank part has nothing to keep. A part that you do not write stays as it is, so your text must fit it.
 - DIALOGUE: Everything that "{name}" said in the dialogue stays true, and you can build on the facts they revealed. Their wording in the dialogue does not change their speech quirk.
 - PAST: A goal that their past left them is one concern among others, not their personality or the reason for their job.
 - STYLE: Write in plain words and short sentences. The Personality and the Backstory never use the speech quirk.
@@ -27,6 +27,6 @@ RULES:
 PARTS:
 - Personality: 1-2 sentences on their traits.
 - Backstory: 2-3 sentences in the past tense on the life they had, the event that changed it, and how that part of their life ended. Nothing in it says what they do, want, owe, or fear now.
-- SpeechQuirks: Their habits when they talk, such as words, sounds, or gestures.
+- SpeechQuirks: Their manner of speech, such as pace, tone, or accent, and their habits when they talk, such as words, sounds, or gestures.
 
 JSON OUTPUT ONLY: an object with exactly these keys: {parts}.

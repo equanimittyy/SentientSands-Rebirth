@@ -1,0 +1,226 @@
+{
+    "universal": [
+        {
+            "text": "Uses long words where short ones would do.",
+            "clashes": []
+        },
+        {
+            "text": "Trails off at the end of sentences.",
+            "clashes": [
+                "Often finishes a thought with the words mark my words.",
+                "Ends a warning with the words remember that.",
+                "Ends a boast with does that answer your question."
+            ]
+        },
+        {
+            "text": "States every opinion as a known fact.",
+            "clashes": [
+                "Says if you ask me before opinions nobody asked for.",
+                "Ends claims with the words or so they say."
+            ]
+        },
+        {
+            "text": "Talks in half sentences and expects the listener to fill in the rest.",
+            "clashes": [
+                "Explains things with stories from the road."
+            ]
+        },
+        {
+            "text": "Phrases most requests as plain orders.",
+            "clashes": [
+                "Says sorry often, even when nothing is wrong.",
+                "Opens with polite words such as forgive me or with all due respect."
+            ]
+        },
+        {
+            "text": "Exaggerates, making everything bigger than it is.",
+            "clashes": [
+                "Uses soft words for death and violence."
+            ]
+        },
+        {
+            "text": "Understates everything, calling a disaster a bit of trouble.",
+            "clashes": [
+                "Doubles words for emphasis, as in far, far away.",
+                "Talks up their own skills like a market seller.",
+                "Calls a good fight glorious."
+            ]
+        },
+        {
+            "text": "Promises to keep it short, then rambles.",
+            "clashes": [
+                "Has no patience for long talk and says so."
+            ]
+        },
+        {
+            "text": "Thinks out loud before answering.",
+            "clashes": []
+        },
+        {
+            "text": "Speaks slowly and weighs each word.",
+            "clashes": [
+                "Uses the wrong word now and then without noticing."
+            ]
+        },
+        {
+            "text": "Talks fast, and the words tumble over each other.",
+            "clashes": [
+                "Pauses in the middle of a sentence, as in what... is... that."
+            ]
+        },
+        {
+            "text": "Says no more than needed, and often less.",
+            "clashes": [
+                "Explains things with stories from the road.",
+                "Says in my day often and compares everything to the old times."
+            ]
+        },
+        {
+            "text": "Speaks bluntly, with no softening words.",
+            "clashes": [
+                "Says no offense before saying something rude.",
+                "Uses soft words for death and violence.",
+                "Says sorry often, even when nothing is wrong.",
+                "Avoids the word no and finds other ways to refuse.",
+                "Opens with polite words such as forgive me or with all due respect."
+            ]
+        },
+        {
+            "text": "Speaks with great politeness, even when making a threat.",
+            "clashes": [
+                "Swears mildly in most sentences.",
+                "Swears with goddamn when things go wrong.",
+                "Calls anyone with horns a bonehead.",
+                "Calls skeletons rust sacks or junk heaps.",
+                "Calls hivers twig men.",
+                "Throws out insults such as halfwit and chump.",
+                "Tells pests to get lost or hit the road.",
+                "Spits on the ground to show contempt.",
+                "Ends a talk abruptly with leave me.",
+                "Calls the living breathers or meat brains."
+            ]
+        },
+        {
+            "text": "Hedges most statements with maybe, perhaps, or I suppose.",
+            "clashes": [
+                "Often finishes a thought with the words mark my words.",
+                "Swears that every claim is true, even the small ones.",
+                "States threats as plain facts, as in I could crack your skull."
+            ]
+        },
+        {
+            "text": "Lowers their voice as if every topic were a secret.",
+            "clashes": [
+                "Gets attention with hoy or oi.",
+                "Wails nooo when someone wrongs them."
+            ]
+        },
+        {
+            "text": "Speaks loudly, as if everyone were far away.",
+            "clashes": []
+        },
+        {
+            "text": "Speaks in halting phrases, with pauses to find the right word.",
+            "clashes": []
+        },
+        {
+            "text": "Makes a dry joke of most things, even grim ones.",
+            "clashes": []
+        },
+        {
+            "text": "Talks rough and plain, with no polish.",
+            "clashes": [
+                "Opens with polite words such as forgive me or with all due respect."
+            ]
+        },
+        {
+            "text": "Gets straight to the point and skips small talk.",
+            "clashes": [
+                "Mentions the weather before anything else.",
+                "Explains things with stories from the road."
+            ]
+        }
+    ],
+    "human": [
+        {
+            "text": "Drops the g from words that end in ing, as in lookin' and fightin'.",
+            "clashes": []
+        },
+        {
+            "text": "Says ain't for is not and am not.",
+            "clashes": []
+        },
+        {
+            "text": "Uses double negatives.",
+            "clashes": []
+        },
+        {
+            "text": "Runs words together, as in gonna, outta, and wanna.",
+            "clashes": []
+        },
+        {
+            "text": "Clips small words, as in ya for you, 'em for them, and an' for and.",
+            "clashes": []
+        },
+        {
+            "text": "Talks loud and rough, and shouts when riled.",
+            "clashes": []
+        }
+    ],
+    "shek": [
+        {
+            "text": "Speaks in short, clipped sentences.",
+            "clashes": [
+                "Explains things with stories from the road."
+            ]
+        },
+        {
+            "text": "Speaks with the formal pride of a warrior.",
+            "clashes": [
+                "Says sorry often, even when nothing is wrong."
+            ]
+        },
+        {
+            "text": "Meets foolish talk with a dry, mocking calm, as in hrm, amusing.",
+            "clashes": []
+        }
+    ],
+    "hiver": [
+        {
+            "text": "Says we and us more often than I.",
+            "clashes": []
+        },
+        {
+            "text": "Rambles, then apologizes for talking the listener's ear off.",
+            "clashes": []
+        },
+        {
+            "text": "Leaves out the I at the start of a sentence, as in could use a meal or will work for food.",
+            "clashes": []
+        },
+        {
+            "text": "Repeats words when nervous, as in I'm fine, I'm fine.",
+            "clashes": []
+        }
+    ],
+    "skeleton": [
+        {
+            "text": "Speaks in flat statements and never exclaims.",
+            "clashes": []
+        },
+        {
+            "text": "Speaks in a careful, formal way, with words such as perhaps and I assume.",
+            "clashes": [
+                "Swears mildly in most sentences."
+            ]
+        },
+        {
+            "text": "Speaks in a slow, measured way, like someone with all the time in the world.",
+            "clashes": []
+        },
+        {
+            "text": "Speaks with a weary calm, as if they have heard it all before.",
+            "clashes": []
+        }
+    ]
+}

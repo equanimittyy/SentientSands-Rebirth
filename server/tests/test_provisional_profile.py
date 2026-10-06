@@ -14,8 +14,11 @@ TEMPLATE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "data"
 TRAITS = {trait["id"]: trait for trait in provisional_profile.TRAITS}
 TIER_TEXTS = {tier["text"]: (index, trait) for trait in provisional_profile.TRAITS for index, tier in enumerate(trait["tiers"])}
 BACKSTORY_TEXTS = [story["text"] for story in provisional_profile.BACKSTORIES]
+MANNERS = provisional_profile.SPEECH_MANNERS
 QUIRKS = provisional_profile.SPEECH_QUIRKS
-ALL_TEXTS = [*TIER_TEXTS, *provisional_profile.ANIMAL_PERSONALITIES, *BACKSTORY_TEXTS, *(quirk for quirks in QUIRKS.values() for quirk in quirks)]
+MANNER_TEXTS = {manner["text"]: manner for manners in MANNERS.values() for manner in manners}
+ALL_TEXTS = [*TIER_TEXTS, *provisional_profile.ANIMAL_PERSONALITIES, *BACKSTORY_TEXTS, *MANNER_TEXTS,
+             *(quirk for quirks in QUIRKS.values() for quirk in quirks)]
 
 
 def template_names():
@@ -34,12 +37,26 @@ def rolled_traits(personality):
     return [(tier, trait) for _, tier, trait in found]
 
 
+def manner_texts(group):
+    return {manner["text"] for manner in MANNERS[group]}
+
+
+def rolled_speech(speech):
+    """(manner, quirk) of a rolled SpeechQuirks text."""
+    return next((manner, speech[len(manner) + 1:]) for manner in MANNER_TEXTS if speech.startswith(manner + " "))
+
+
 class DataTest(unittest.TestCase):
     def test_the_lists_have_their_sizes_and_no_text_repeats(self):
         self.assertEqual(len(provisional_profile.ANIMAL_PERSONALITIES), 20)
         self.assertEqual(len(provisional_profile.BACKSTORIES), 200)
-        self.assertEqual({group: len(quirks) for group, quirks in QUIRKS.items()}, {"universal": 55, "human": 30, "shek": 30, "hiver": 30, "skeleton": 30})
+        self.assertEqual({group: len(manners) for group, manners in MANNERS.items()}, {"universal": 21, "human": 6, "shek": 3, "hiver": 4, "skeleton": 4})
+        self.assertEqual({group: len(quirks) for group, quirks in QUIRKS.items()}, {"universal": 46, "human": 27, "shek": 29, "hiver": 28, "skeleton": 29})
         self.assertEqual(len(ALL_TEXTS), len(set(ALL_TEXTS)))
+
+    def test_each_clash_of_a_manner_names_a_quirk(self):
+        quirks = {quirk for quirks in QUIRKS.values() for quirk in quirks}
+        self.assertFalse([clash for manner in MANNER_TEXTS.values() for clash in manner["clashes"] if clash not in quirks])
 
     def test_each_trait_has_three_tiers_and_opposites_that_name_it_back(self):
         self.assertEqual(len(TRAITS), 36)
@@ -88,23 +105,33 @@ class RollTest(unittest.TestCase):
             traits = rolled_traits(provisional_profile.roll(f"h:{n}", "skeleton", "Skeleton")["Personality"])
             self.assertTrue(all("skeleton" in trait["kinds"] for _, trait in traits))
 
-    def test_a_person_gets_a_backstory_and_a_speech_quirk(self):
+    def test_a_person_gets_a_backstory_and_a_manner_of_speech_with_a_speech_quirk(self):
         profile = provisional_profile.roll("h:1", "person", "Greenlander")
         self.assertIn(profile["Backstory"], BACKSTORY_TEXTS)
-        self.assertIn(profile["SpeechQuirks"], QUIRKS["universal"] + QUIRKS["human"])
+        manner, quirk = rolled_speech(profile["SpeechQuirks"])
+        self.assertIn(manner, manner_texts("universal") | manner_texts("human"))
+        self.assertIn(quirk, QUIRKS["universal"] + QUIRKS["human"])
 
-    def test_a_race_rolls_the_universal_quirks_and_its_own(self):
+    def test_a_race_rolls_the_universal_manners_and_quirks_and_its_own(self):
         races = {"Greenlander": ("person", "human"), "Scorchlander": ("person", "human"), "Shek": ("person", "shek"),
                  "Hive Soldier Drone": ("person", "hiver"), "Northern Hive Prince": ("person", "hiver"), "Skeleton": ("skeleton", "skeleton"),
                  "Soldierbot": ("skeleton", "skeleton")}
         for race, (kind, group) in races.items():
-            rolled = {provisional_profile.roll(f"h:{n}", kind, race)["SpeechQuirks"] for n in range(300)}
-            self.assertLessEqual(rolled, set(QUIRKS["universal"] + QUIRKS[group]), race)
-            self.assertTrue(rolled & set(QUIRKS[group]), race)
+            manners, quirks = zip(*(rolled_speech(provisional_profile.roll(f"h:{n}", kind, race)["SpeechQuirks"]) for n in range(300)))
+            for rolled, universal, own in ((set(manners), manner_texts("universal"), manner_texts(group)), (set(quirks), set(QUIRKS["universal"]), set(QUIRKS[group]))):
+                self.assertLessEqual(rolled, universal | own, race)
+                self.assertTrue(rolled & own, race)
 
-    def test_a_race_with_no_list_rolls_only_universal_quirks(self):
-        rolled = {provisional_profile.roll(f"h:{n}", "person", "Fishman")["SpeechQuirks"] for n in range(300)}
-        self.assertLessEqual(rolled, set(QUIRKS["universal"]))
+    def test_a_race_with_no_list_rolls_only_universal_manners_and_quirks(self):
+        manners, quirks = zip(*(rolled_speech(provisional_profile.roll(f"h:{n}", "person", "Fishman")["SpeechQuirks"]) for n in range(300)))
+        self.assertLessEqual(set(manners), manner_texts("universal"))
+        self.assertLessEqual(set(quirks), set(QUIRKS["universal"]))
+
+    def test_a_manner_never_rolls_with_a_quirk_that_it_clashes_with(self):
+        for race, kind in (("Greenlander", "person"), ("Shek", "person"), ("Hive Worker Drone", "person"), ("Skeleton", "skeleton")):
+            for n in range(1000):
+                manner, quirk = rolled_speech(provisional_profile.roll(f"h:{n}", kind, race)["SpeechQuirks"])
+                self.assertNotIn(quirk, MANNER_TEXTS[manner]["clashes"], race)
 
     def test_a_person_and_a_skeleton_roll_only_backstories_of_their_kind(self):
         for kind in ("person", "skeleton"):

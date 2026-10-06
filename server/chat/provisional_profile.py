@@ -1,4 +1,4 @@
-"""The provisional profile of an NPC at its first meeting: a personality, a backstory, and a speech quirk, rolled in code.
+"""The provisional profile of an NPC at its first meeting: a personality, a backstory, and a manner of speech with a speech quirk, rolled in code.
 
 The LLM writes a bio only later, when the player's chats give it something to build on. The texts live in server/data/defaults, and
 each one uses "they", so no text needs a gendered pronoun or a name.
@@ -23,16 +23,17 @@ def _load(filename):
 TRAITS = _load("personality_traits.json")
 ANIMAL_PERSONALITIES = _load("animal_personalities.json")
 BACKSTORIES = _load("backstories.json")
+SPEECH_MANNERS = _load("speech_manners.json")
 SPEECH_QUIRKS = _load("speech_quirks.json")
 # A skeleton gets its list by kind, because the server knows the skeleton races of the mods
-QUIRK_RACES = {"human": ("greenlander", "scorchlander"), "shek": ("shek",), "hiver": ("hive",)}
+SPEECH_RACES = {"human": ("greenlander", "scorchlander"), "shek": ("shek",), "hiver": ("hive",)}
 
 
-def speech_quirks(race, kind):
-    """The universal quirks plus the list of the race; a race with no list of its own gets the universal ones only."""
+def speech_pool(pool, race, kind):
+    """The universal texts of a speech pool plus the list of the race; a race with no list of its own gets the universal ones only."""
     group = "skeleton" if kind == "skeleton" else next(
-        (group for group, words in QUIRK_RACES.items() if any(word in race.lower() for word in words)), None)
-    return SPEECH_QUIRKS["universal"] + SPEECH_QUIRKS.get(group, [])
+        (group for group, words in SPEECH_RACES.items() if any(word in race.lower() for word in words)), None)
+    return pool["universal"] + pool.get(group, [])
 
 
 def roll(npc_id, kind, race):
@@ -51,8 +52,10 @@ def roll(npc_id, kind, race):
         candidates = [other for other in candidates if other is not trait and other["id"] not in trait["opposites"]]
         rolled.append((rng.choices(range(len(TIER_WEIGHTS)), TIER_WEIGHTS)[0], trait))
     rolled.sort(key=lambda pair: -pair[0])
+    manner = rng.choice(speech_pool(SPEECH_MANNERS, race, kind))
+    quirk = rng.choice([quirk for quirk in speech_pool(SPEECH_QUIRKS, race, kind) if quirk not in manner["clashes"]])
     return {
         "Personality": " ".join(trait["tiers"][tier]["text"] for tier, trait in rolled),
         "Backstory": rng.choice([story["text"] for story in BACKSTORIES if kind in story["kinds"]]),
-        "SpeechQuirks": rng.choice(speech_quirks(race, kind)),
+        "SpeechQuirks": f"{manner['text']} {quirk}",
     }

@@ -12,7 +12,7 @@ const PROFILE_HELP = {
   Faction: "The faction that SSR tells the LLM the character belongs to.",
   Personality: "The traits of the character. The LLM plays the character to match them.",
   Backstory: "The past life of the character. It shapes what the character says about where they come from.",
-  SpeechQuirks: "How the character tends to talk, for example a catchphrase.",
+  SpeechQuirks: "How the character talks: a manner or an accent, and a habit such as a catchphrase.",
 };
 const KIND_LABELS = { manifest: "Template info", overview: "Overview", history: "History", faction: "Faction", character: "Character" };
 const CATEGORY_LABELS = { races: "Race", locations: "Location", regions: "Region" };
