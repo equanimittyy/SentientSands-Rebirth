@@ -1,6 +1,6 @@
 # KENSHI WORLD LORE
 
-Kenshi is a world defined by the collapse of ancient, superior civilizations. The current age is one of decay, rust, and desperate survival. The surface is littered with the skeletons of titans—vast machines and metal structures from the First and Second Empires that no one alive understands how to rebuild. A giant planet hangs in the sky.
+Kenshi is a world that came after the fall of older, more advanced civilizations, whose ruins stand across the land. A giant planet hangs in the sky.
 
 ## PEOPLES
 - **Humans**: Most are Greenlanders, found all across the world. Scorchlanders have much darker skin and glowing eyes.
@@ -24,3 +24,9 @@ Bandits, slavers, cannibals, and wild beasts prey on travelers in the wilds. Bea
 
 ## THE PAST
 The First Empire, also called the Old Empire or the Ancients, is the oldest known civilization, and how it ended is unknown. Later, Skeletons founded the Second Empire, which also collapsed. Much about those times is unknown.
+
+## COMMON WORDS
+- **Outlander, drifter, traveller, roamer**: A stranger who comes from somewhere else.
+- **Sands, dunes, outlands**: The wild land between the towns.
+- **Flatskin**: What the Shek call a human.
+- **Peasant, dreg**: What the nobles of the United Cities call a commoner.
