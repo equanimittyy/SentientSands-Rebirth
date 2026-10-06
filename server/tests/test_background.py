@@ -101,5 +101,20 @@ class SearchTest(unittest.TestCase):
         self.assertIn(("hate", "not lore"), skipped)
 
 
+class PlaceTest(unittest.TestCase):
+    LORE = [{"kind": "location", "name": name, "aliases": []} for name in ("The Hub", "Bast")] + [{"kind": "region", "name": "Vain", "aliases": []}]
+
+    def test_a_town_of_the_lore_is_the_town(self):
+        self.assertEqual(background.place_of("Bar, The Hub", self.LORE), ("The Hub", None))
+        self.assertEqual(background.place_of("The Hub", self.LORE), ("The Hub", None))
+
+    def test_any_other_place_is_the_zone(self):
+        self.assertEqual(background.place_of("Shack, Vain", self.LORE), (None, "Vain"))
+        self.assertEqual(background.place_of("Wilderness, Bast", self.LORE), (None, "Bast"))
+
+    def test_no_location_gives_no_place(self):
+        self.assertEqual(background.place_of("", self.LORE), (None, None))
+
+
 if __name__ == "__main__":
     unittest.main()

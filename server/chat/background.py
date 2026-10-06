@@ -22,6 +22,15 @@ def in_system_message(lore, profile, faction_id, speaker_race):
     return {("factions", faction["faction_id"]) for faction in factions if faction} | ({race["key"]} if race else set())
 
 
+def place_of(location, lore):
+    """The (town, zone) of a CurrentLocation (scene_text.location_name), whose last part names the town or the zone. A
+    building outside the towns reads like a building of a town, so only the locations of the lore tell them apart."""
+    building, _, place = location.rpartition(", ")
+    if building != "Wilderness" and find_named([record for record in lore if record["kind"] == "location"], place):
+        return place, None
+    return None, place or None
+
+
 def search(message, lore, npc_id=None, profile=None, faction_id=None, speaker_race=None, town=None, zone=None, recent=frozenset()):
     """The memory hits and the lore hits of a turn in prompt order, and the words that did not search the lore, as
     retrieval gives them. Without npc_id, a lore search alone. The search skips what the system message holds."""

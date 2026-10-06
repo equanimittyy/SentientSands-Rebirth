@@ -62,6 +62,8 @@ let newCount = 0;
 const creation = { kind: "faction", name: "" };
 const duplication = { name: "" };
 const importing = { name: "" };
+const testSearch = { open: false, message: "", npc: "", speaker: "", result: null, of: "" };
+const SKIP_REASONS = { common: "a common English word", "not lore": "not a word of the lore", frequent: "in too many entries" };
 
 const commaList = (text) => text.split(",").map((item) => item.trim()).filter(Boolean);
 const lineList = (text) => text.split("\n").map((item) => item.trim()).filter(Boolean);
@@ -880,6 +882,67 @@ function renderCanonBar() {
     canon ? el("p", { className: "detail" }, counts()) : null);
 }
 
+const searchedSource = () => `${source}/${source === "template" ? current : canon?.name}`;
+
+function characterPicker(key, characters, none, label) {
+  if (!characters.some((record) => record.id === testSearch[key])) testSearch[key] = "";
+  const select = el("select", { onchange: (event) => { testSearch[key] = event.target.value; } },
+    new Option(none, ""),
+    ...characters.map((record) => new Option(title(record), record.id, false, record.id === testSearch[key])).sort((a, b) => a.text.localeCompare(b.text)));
+  select.setAttribute("aria-label", label);
+  return select;
+}
+
+function renderTestSearch() {
+  const line = el("input", { type: "search", value: testSearch.message, placeholder: "A line that you say in a chat", required: true, oninput: (event) => { testSearch.message = event.target.value; } });
+  line.setAttribute("aria-label", "Line to search");
+  const characters = records.filter((record) => record.kind === "character" && !record.isNew);
+  const details = el("details", { className: "card", open: testSearch.open, ontoggle: () => { testSearch.open = details.open; } },
+    el("summary", {}, el("strong", {}, "Test search"),
+      el("span", { className: "blurb" }, "Shows which lore entries and memories an NPC gets with a line that you say, in the order of the chat prompt. The search reads the saved entries.")),
+    el("form", { className: "add", onsubmit: runTestSearch },
+      field("Line", line),
+      ...(source === "campaign" ? [
+        field("Talk to", characterPicker("npc", characters, "Nobody (lore only)", "Character to talk to"), null, "The character that hears the line. The search then also finds its memories, and skips the entries of its factions, which it knows from its chat prompt. Without one, the search finds only lore."),
+        field("Speak as", characterPicker("speaker", characters.filter(inPlayerFaction), "Nobody", "Squad member who speaks"), null, "The squad member who says the line. The search skips the entry of its race, which the NPC sees already."),
+      ] : []),
+      el("button", { type: "submit" }, "Search")),
+    el("div", { id: "test-search-result" }, ...testSearchResult()));
+  return details;
+}
+
+function testSearchResult() {
+  const result = testSearch.of === searchedSource() ? testSearch.result : null;
+  if (!result) return [];
+  const how = (hit) => el("span", { className: "detail" }, hit.name ? `found by the name ${hit.name}` : `found by ${hit.words.join(", ")}`);
+  const hits = [
+    ...result.memories.map((hit) => el("li", {}, el("strong", {}, "Memory: "), hit.heading, " ", how(hit), el("p", { className: "hint" }, hit.text))),
+    ...result.entries.map((hit) => el("li", {}, el("strong", {}, hit.name), ` (${hit.kind}) `, how(hit))),
+  ];
+  return [
+    hits.length ? el("ol", {}, ...hits) : el("p", { className: "hint" }, "The line finds nothing."),
+    el("p", { className: "detail" }, `Retrieval slots: ${result.slots}. Memory slots: ${result.memory_slots}.`),
+    result.skipped.length ? el("p", { className: "hint" }, "Words that do not search the lore: ", ...result.skipped.map((skip) => el("span", { className: "chip" }, `${skip.word}: ${SKIP_REASONS[skip.reason]}`))) : null,
+  ];
+}
+
+async function runTestSearch(event) {
+  event.preventDefault();
+  const params = new URLSearchParams({ message: testSearch.message });
+  if (source === "campaign") {
+    if (testSearch.npc) params.set("npc", testSearch.npc);
+    if (testSearch.speaker) params.set("speaker", testSearch.speaker);
+  }
+  const url = source === "template" ? `/api/templates/${encodeURIComponent(current)}/search` : "/api/campaign/search";
+  try {
+    testSearch.result = await getJson(`${url}?${params}`);
+    testSearch.of = searchedSource();
+    document.getElementById("test-search-result").replaceChildren(...testSearchResult());
+  } catch (error) {
+    showMessage(message, `Search failed: ${error.message}`, true);
+  }
+}
+
 function renderSubtabs(tabs = SOURCES, shown = source, choose = chooseSource) {
   const list = el("div", { className: "subtabs" }, ...tabs.map(([value, text]) => {
     const tab = el("button", { type: "button", onclick: () => choose(value) }, text);
@@ -1184,6 +1247,7 @@ function render() {
   page.replaceChildren(
     renderSubtabs(),
     source === "template" ? renderTemplateBar() : renderCanonBar(),
+    (source === "template" ? template : canon) ? renderTestSearch() : null,
     (source === "template" ? template : canon) ? el("div", { className: "editor-layout" },
       el("div", { className: "record-panel" }, ...(source === "campaign" ? [
         listSwitch("showSeeded", "Show seeded data", "Entries that the campaign copied from its template when you created it."),

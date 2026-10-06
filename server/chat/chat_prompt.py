@@ -123,10 +123,13 @@ def memories_block(memories, npc_id):
         return ""
     parts = ["Memories of your earlier conversations, oldest first. You know what happened in them. When the talk turns to one, reply truthfully or with a lie. You are not required to uphold the past:"]
     for memory in memories:
-        partners, listeners, overheard = _members_seen_by(memory["members"], npc_id)
-        parts.append(_dated(memory, scene_text.memory_header(partners, listeners, overheard)))
+        parts.append(memory_heading(memory, npc_id))
         parts.append(memory_text(memory))
     return "\n".join(parts)
+
+
+def memory_heading(memory, npc_id):
+    return _dated(memory, scene_text.memory_header(*_members_seen_by(memory["members"], npc_id)))
 
 
 def background_block(memories, entries, npc_id, speaker):
@@ -139,7 +142,7 @@ def background_block(memories, entries, npc_id, speaker):
     if memories:
         parts.append(f"Memories that {speaker}'s words may touch on:")
         for memory in memories:
-            parts.append(_dated(memory, scene_text.memory_header(*_members_seen_by(memory["members"], npc_id))))
+            parts.append(memory_heading(memory, npc_id))
             parts.append(retrieval.clipped(memory_text(memory)))
     if entries:
         parts.append(f"Lore that {speaker}'s words may touch on:")

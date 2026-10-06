@@ -5,7 +5,7 @@ import os
 import requests
 from flask import Blueprint, Response, current_app, jsonify, request
 
-from chat import chat_prompt, llm, llm_config, llm_router, prompt_store
+from chat import background, chat_prompt, llm, llm_config, llm_router, prompt_store, retrieval
 from chat.bio import recorded_history
 from chat.characters import send_rename
 from chat.llm import default_llm_config, send_completion
@@ -50,6 +50,19 @@ def get_template(name):
         return template_error(e)
     template["errors"], template["warnings"] = world_template.validate(template)
     return jsonify({"status": "ok", "template": template})
+
+@bp.route('/api/templates/<name>/search', methods=['GET'])
+def search_template(name):
+    try:
+        template = world_template.load(name, WORLD_TEMPLATES_DIR, USER_TEMPLATES_DIR)
+    except world_template.TemplateError as e:
+        return template_error(e)
+    lore = retrieval.lore_records(
+        [(category, record_id, data) for category, records in template["entities"].items() for record_id, data in records.items()],
+        [{"faction_id": record_id, **data} for record_id, data in template["factions"].items()],
+        template["history"],
+    )
+    return search_reply(*background.search(request.args.get("message", ""), lore))
 
 @bp.route('/api/templates/<name>/records', methods=['POST'])
 def save_template_record(name):
@@ -206,6 +219,35 @@ def get_campaign_canon():
         })
     except campaign_db.CampaignUnavailable as e:
         return jsonify({"status": "error", "name": state.ACTIVE_CAMPAIGN, "message": str(e)}), 409
+
+def search_reply(memories, entries, skipped, npc_id=None):
+    """The hits of a test search in prompt order, each with how it was found: by a name or by the words of the line."""
+    def found(hit):
+        return {key: hit[key] for key in ("name", "words") if key in hit}
+
+    settings = load_settings()
+    return jsonify({
+        "status": "ok",
+        "slots": settings["retrieval_slots"],
+        "memory_slots": settings["memory_slots"],
+        "memories": [{"heading": chat_prompt.memory_heading(hit["record"]["memory"], npc_id), "text": retrieval.clipped(hit["record"]["text"]), **found(hit)} for hit in memories],
+        "entries": [{"name": hit["record"]["name"], "kind": hit["record"]["kind"], **found(hit)} for hit in entries],
+        "skipped": [{"word": word, "reason": reason} for word, reason in skipped],
+    })
+
+# A GET, because a POST under /api/ counts as a write, which makes every open page refresh
+@bp.route('/api/campaign/search', methods=['GET'])
+def search_campaign():
+    npc_id, speaker_id = request.args.get("npc") or None, request.args.get("speaker") or None
+    try:
+        lore = background.campaign_lore()
+        profile = (campaign_db.get_character(npc_id) or {}) if npc_id else {}
+        speaker = (campaign_db.get_character(speaker_id) or {}) if speaker_id else {}
+        town, zone = background.place_of(profile.get("CurrentLocation", ""), lore)
+        memories, entries, skipped = background.search(request.args.get("message", ""), lore, npc_id, profile, state.LIVE_CONTEXTS.get(npc_id, {}).get("factionID"), speaker.get("Race"), town, zone)
+    except campaign_db.CampaignUnavailable as e:
+        return jsonify({"status": "error", "name": state.ACTIVE_CAMPAIGN, "message": str(e)}), 409
+    return search_reply(memories, entries, skipped, npc_id)
 
 def record_refusal(errors):
     return jsonify({"status": "error", "errors": errors}), 400

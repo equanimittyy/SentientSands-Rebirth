@@ -37,7 +37,7 @@ def lore_records(entities, factions, history):
 
 
 def _record(key, kind, data):
-    return {"key": key, "kind": kind, "name": data["name"], "aliases": data.get("aliases", []), "fields": data.get("fields", {}), "description": data.get("description") or ""}
+    return {"key": key, "kind": kind, "name": data.get("name", ""), "aliases": data.get("aliases", []), "fields": data.get("fields", {}), "description": data.get("description") or ""}
 
 
 def words(text):
