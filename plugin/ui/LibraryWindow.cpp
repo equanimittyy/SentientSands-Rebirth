@@ -85,7 +85,7 @@ void OnLibraryFavoriteClick(MyGUI::Widget *sender) {
 
 static const char *BIO_PARTS[] = {"Personality", "Backstory", "SpeechQuirks"};
 static const char *BIO_CHOICES[] = {"Full bio", "Personality", "Backstory",
-                                    "Speech Quirks"};
+                                    "Speech"};
 
 MyGUI::Window *g_bioWindow = nullptr;
 MyGUI::Button *g_bioChoiceBtns[4] = {nullptr, nullptr, nullptr, nullptr};

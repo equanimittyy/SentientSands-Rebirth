@@ -4,6 +4,7 @@ const page = document.getElementById("editor-page");
 const message = document.getElementById("editor-message");
 const PROFILE_KEYS = ["Name", "Race", "Sex", "Faction", "Personality", "Backstory", "SpeechQuirks"];
 const LONG_PROFILE_KEYS = ["Personality", "Backstory", "SpeechQuirks"];
+const PROFILE_LABELS = { SpeechQuirks: "Speech" };
 const CHOICE_KEYS = ["Race", "Sex", "Faction"];
 const PROFILE_HELP = {
   Name: "The name of the character. The game shows this name.",
@@ -346,7 +347,7 @@ function characterForm(form, path, record) {
     gameIdField(form, path, record, "The string ID of the character's template in the game data, for example 19576-Dialogue.mod. The Forgotten Construction Set (FCS) shows it."),
     ...form.profile.map((row) => (CHOICE_KEYS.includes(row.key)
       ? field(row.key, choiceControl(row, [...path, "profile", row.key]), null, PROFILE_HELP[row.key])
-      : field(row.key, control(LONG_PROFILE_KEYS.includes(row.key) ? "textarea" : "input", row, "value", [...path, "profile", row.key], { rows: 4 }), null, PROFILE_HELP[row.key]))),
+      : field(PROFILE_LABELS[row.key] ?? row.key, control(LONG_PROFILE_KEYS.includes(row.key) ? "textarea" : "input", row, "value", [...path, "profile", row.key], { rows: 4 }), null, PROFILE_HELP[row.key]))),
     el("fieldset", {},
       el("legend", {}, "Other Details"),
       el("p", { className: "hint" }, "The game and your chats set these details."),
@@ -356,7 +357,7 @@ function characterForm(form, path, record) {
       field("Original Faction", el("span", {}, form.details.OriginFaction || "Unknown"), null, "The faction that the character comes from."),
       source === "campaign" ? field("Animal", el("span", {}, { 1: "Yes", 0: "No" }[form.details.Animal] ?? "Unknown"), null, "Whether the character is an animal, such as a bonedog or a goat. An animal answers only with an action or a sound, never with words. The game decides it, and a Fishman always counts as an animal.") : null,
       source === "campaign" ? field("Unique", el("span", {}, record.id ? (isUnique(record) ? "Yes" : "No") : "Unknown"), null, "Whether the game marks the character as unique, such as Tinfist.") : null,
-      isProvisional(record) ? field("Chats", el("span", {}, chatCount(form.details[PROVISIONAL])), null, "How many times you talked to the character. Its personality, backstory, and speech quirks are rolled, not written. When the count reaches Chats before a bio on the Settings page, the LLM writes its full bio.") : null,
+      isProvisional(record) ? field("Chats", el("span", {}, chatCount(form.details[PROVISIONAL])), null, "How many times you talked to the character. Its personality, backstory, and speech are rolled, not written. When the count reaches Chats before a bio on the Settings page, the LLM writes its full bio.") : null,
       source === "campaign" ? field("Current Job", el("span", {}, form.details.CurrentJob || "Unknown"), null, "What the character does in the game, for example Guarding a building. It updates each time the character chats or takes part in a radiant conversation.") : null,
       source === "campaign" ? field("Current Location", el("span", {}, form.details.CurrentLocation || "Unknown"), null, "Where the character was when you last talked to it, for example Bar, The Hub, or Wilderness, Vain.") : null,
       source === "campaign" ? field("Deeds", el("span", {}, record.deeds?.join(", ") || "Unknown"), null, "The unique characters that the character killed or captured as a member of your squad.") : null),
@@ -368,7 +369,7 @@ function chatCount(count) {
   return threshold > 0 ? `${count} of ${threshold} chats` : `${count} chats. The LLM writes the bio only when you ask for it.`;
 }
 
-const BIO_CHOICES = { all: "bio", Personality: "personality", Backstory: "backstory", SpeechQuirks: "speech quirks" };
+const BIO_CHOICES = { all: "bio", Personality: "personality", Backstory: "backstory", SpeechQuirks: "speech" };
 
 function askBio(record) {
   const dialog = document.getElementById("bio");

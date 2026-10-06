@@ -12,6 +12,6 @@ RULES:
 - Write each line as Name|ID: words, with the exact Name|ID of its speaker from CHARACTERS. Each line is one turn.
 - Only the characters in CHARACTERS speak. Write no narration and no bracketed text.
 - The characters talk to each other, not to the player.
-- The personality, backstory, and speech quirks of each character decide its voice and its tone.
+- The personality, backstory, and speech of each character decide its voice and its tone.
 
 Output ONLY the lines.

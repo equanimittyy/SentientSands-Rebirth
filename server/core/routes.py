@@ -299,7 +299,7 @@ def get_history():
         lines.append(f"BIO: Provisional. The LLM writes the full bio at {threshold} chats ({chats} so far), or press Generate Bio." if threshold
                      else f"BIO: Provisional. Press Generate Bio to have the LLM write the full bio ({chats} chats so far).")
     lines.append("-" * 30)
-    for part, title in (("Personality", "PERSONALITY"), ("Backstory", "BACKSTORY"), ("SpeechQuirks", "SPEECH QUIRKS")):
+    for part, title in (("Personality", "PERSONALITY"), ("Backstory", "BACKSTORY"), ("SpeechQuirks", "SPEECH")):
         lines.append(f"{title}:")
         lines.append(_wrap(char_data.get(part)) or "None")
         lines.append("")

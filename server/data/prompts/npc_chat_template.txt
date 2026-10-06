@@ -6,4 +6,4 @@ CURRENT FACTION: {current_faction}
 ORIGIN FACTION: {origin_faction}
 PERSONALITY: {personality}
 BACKSTORY (the past of this character; they bring it up only when the talk turns to it): {backstory}
-SPEECH QUIRKS (their manner of speech, such as pace, tone, or accent, shows lightly in every reply; a habit of a certain word, phrase, sound, or gesture comes out only once in a while, and most replies show none of it): {speech_quirks}
+SPEECH (their manner of speech, such as pace, tone, or accent, shows lightly in every reply; a habit of a certain word, phrase, sound, or gesture comes out only once in a while, and most replies show none of it): {speech_quirks}
