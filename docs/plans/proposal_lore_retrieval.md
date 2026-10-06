@@ -20,6 +20,7 @@ Non-goals:
 - Vector search or embeddings.
 - A filter by what the speaking NPC knows. That needs a knowledge bank for each character, which does not exist, so each NPC gets the same entries for the same message. Any NPC can therefore speak of any entry, even of a secret of the history such as Kenshi is a Moon. This is a known trade-off, which a later NPC knowledge system is to fix. The memories need no such filter, because an NPC finds only the memories of the conversations in which it was a member.
 - The entries that a hit links to, such as the region of a town. The default of 3 slots leaves no room for them.
+- Character records. A profile has no public text: its Backstory mixes what the wasteland knows with a private past. A character is found through the fields of its faction, such as the `leader` of the Anti-Slavers, which the entry shows ([section 7](#7-prompt)).
 
 ## 2. Records
 
@@ -67,11 +68,14 @@ Rejected:
 
 ## 5. Order and limit
 
-- The name matches come first, in the order of their first word in the message. The content hits follow, in the order of their score.
+- The name matches come first, in the order of their first word in the message. The content hits follow: first the current location of the NPC, then its current region, then the locations of that region, then the other hits. Each group is in the order of its score.
+- The current location is the location whose name or alias is the `town_name` of the NPC's context. The current region is the region whose name or alias is the `zone_name`, the zone around the camera ([architecture.md](../info/architecture.md#current-location)). Without a `zone_name`, it is each region in the `zone` field of the current location. Outside a town, the NPC has no current location.
+- The place order adds no entry. It orders only the content hits that pass the score cut, so a message that finds nothing gets nothing. "Any bonedogs around?" finds many regions with near-equal scores, and the region of the NPC is the likeliest meaning.
+- Rejected: the entry of the NPC's place in each free slot. Most messages find nothing, so the entry would be in nearly every turn, and a model tends to talk about the text that it gets. The place stays the same for a conversation, so its entry belongs in the scene.
 - A record that both steps find counts once.
 - A record is skipped when the system message already holds it: the NPC's current faction and origin faction, the player's race, and the player's faction.
 - The records fill the slots of the turn that the memories leave ([section 6](#order-and-limit)).
-- The text of an entry ends at the last sentence end before 700 characters, or at 700 characters when no sentence ends before. The longest text of SSR Vanilla has 614 characters, but a user template has no limit.
+- The text of an entry ends at the last sentence end before 700 characters, or at 700 characters when no sentence ends before. The longest text of SSR Vanilla has 614 characters, but a user template has no limit. The fields are not cut.
 
 ## 6. Memories
 
@@ -123,7 +127,8 @@ The 2 words and the ratio are starting values. No campaign holds enough memories
 - The memories that the two steps find come first, newest first, up to the Memory slots of the Settings page (`memory_slots`, default 3). A memory that both steps find counts once.
 - The lore entries of [section 5](#5-order-and-limit) follow, in their own order, until the turn holds as many hits as the Retrieval slots of the Settings page (`retrieval_slots`, default 3). With the defaults, a message that finds 3 memories therefore gets no lore.
 - A memory is what this NPC lived through, and every NPC gets the same lore entries for the same message, so a memory goes first. A newer memory goes before an older one, because it is closer to how things stand now.
-- A slot costs up to about 175 tokens on each turn, so a player with a small local model can lower the Retrieval slots. A lower Memory slots value keeps slots for the lore when a message finds many memories.
+- Rejected: the memories in which the squad member who speaks is a member first. They would push newer memories out, and the system message already holds the newest conversations of the NPC.
+- A slot costs up to about 175 tokens on each turn, and the fields of an entry add to that (at most about 75 tokens in SSR Vanilla), so a player with a small local model can lower the Retrieval slots. A lower Memory slots value keeps slots for the lore when a message finds many memories.
 - 0 Retrieval slots turns the search off, and 0 Memory slots gives every slot to the lore. Memory slots above Retrieval slots count as Retrieval slots, so the page does not check one value against the other.
 - The server keeps the three values in the INI with the other settings and does not send them to the plugin, which does not use them.
 - The text of a memory ends as in [section 5](#5-order-and-limit), because the player can edit a memory to any length.
@@ -134,7 +139,8 @@ The 2 words and the ratio are starting values. No campaign holds enough memories
 - The entries and the memories go into the last user message (`prompt_chat_turn.txt`), before the player's line. They change on each turn, and the cache can serve only an identical start of a request, so they stay out of the system message and the history ([architecture.md](../info/architecture.md#prompts)).
 - The stored dialogue holds only the lines, so the entries and the memories of a turn are gone from the next request. The lore and the memories of a conversation therefore cost the same on each turn and do not grow.
 - An animal gets no search, because it replies only in actions. It keeps its starting memories. A radiant conversation gets no search, because it has no message from the player.
-- Each memory gives its header and its text, and each entry gives its name, its kind, and its text. The memories come before the entries, in the order of [section 6](#order-and-limit). The block and the heading of each list stay in the code, as for the rumors, so an empty list leaves no heading, and two empty lists leave no block.
+- Each memory gives its header and its text. Each entry gives its name, its kind, its fields, and its text, in the form of `describe_record`, which the system message uses for a faction, with the kind first: `Admag (location; type: town; zone: Stenn Desert; owner: Shek Kingdom): ...`. A field can be why the message found the entry: "Where can I find Tinfist?" finds the Anti-Slavers by their `leader` field, and without the field the NPC would not know that Tinfist leads them.
+- The memories come before the entries, in the order of [section 6](#order-and-limit). The block and the heading of each list stay in the code, as for the rumors, so an empty list leaves no heading, and two empty lists leave no block.
 - The block is in parentheses and starts with "Background, not said aloud", as the final instruction of the turn is in parentheses. The block is part of the user message, so without this mark a model can take the lore or a memory for words of the player. Some chat templates accept a system message only at the start of a chat, so the block cannot be a system message of its own.
 - The note at the end of the block tells the NPC that the lore and the memories can be unrelated to the line, that the NPC may know less than the lore says, and that a reply must not recite them or turn the talk towards them. The note names only the lists that the block holds. A search finds words, not meaning, so some hits are wrong, and a model tends to use all the text that it gets. The note sits directly before the player's line, where the model reads it last.
 
@@ -148,8 +154,8 @@ Example: Izumi speaks to Jorge, whose memories are all in the system message.
 
 ```
 (Background, not said aloud. Lore that Izumi's words may touch on:
-- Admag (location): Admag is the Shek Kingdom's capital, a hilltop town in the Stenn Desert with one entrance, home to most of the kingdom's Shek. Esata the Stone Golem rules here with Bayan and Seto, guarded by the Five Invincibles, while Hundred Guardians defend the town. It has two bars, armour and weapon shops, and a thieves' guild.
-- Bad Teeth (location): Bad Teeth is a Holy Nation town in Okran's Pride that watches over a mountain pass leading from the fertile valley out to the wild Skinner's Roam. It has a temple, three bars, a bakery, barracks, and shops for weapons and armour, and its gate guards often kill river raptors that roam close.
+- Admag (location; type: town; zone: Stenn Desert; owner: Shek Kingdom): Admag is the Shek Kingdom's capital, a hilltop town in the Stenn Desert with one entrance, home to most of the kingdom's Shek. Esata the Stone Golem rules here with Bayan and Seto, guarded by the Five Invincibles, while Hundred Guardians defend the town. It has two bars, armour and weapon shops, and a thieves' guild.
+- Bad Teeth (location; type: town; zone: Okran's Pride; owner: The Holy Nation): Bad Teeth is a Holy Nation town in Okran's Pride that watches over a mountain pass leading from the fertile valley out to the wild Skinner's Roam. It has a temple, three bars, a bakery, barracks, and shops for weapons and armour, and its gate guards often kill river raptors that roam close.
 This lore may have nothing to do with what Izumi means, and you may know less than it says. Use it only where it fits your reply, and never recite it or turn the talk towards it.)
 
 [Day 12, 14:05] Izumi: I came from Admag through the Bad Teeth.
@@ -172,18 +178,21 @@ These memories may have nothing to do with what Izumi means. Use them only where
 
 ## 8. Test search
 
-A Test Search panel on the Campaign Canon and Templates subtabs of the Editor shows what a line of the player finds. A template author sees why a line finds nothing, and the starting values of [section 4](#4-content-search) and [section 6](#content-search) get tuned on real lines.
+A Test Search box on the Campaign Canon and Templates subtabs of the Editor shows what a line of the player finds. It folds open under the bar of the campaign or the template. A template author sees why a line finds nothing, and the starting values of [section 4](#4-content-search) and [section 6](#content-search) get tuned on real lines.
 
 - The player types a line, and the panel lists the entries in their prompt order, with the slots of the Settings page. Each entry shows its kind and how it was found: by its name, or by the words that found it.
 - The panel also lists each word of the line that did not search the lore, with the reason: a common English word, not a word of the lore, or a word in too many entries.
-- On Campaign Canon, the player can also pick a member of a chat thread with a memory, from the threads that `GET /api/campaign` already returns. The panel then lists the hits of a chat with that character in their prompt order: first the memories, each with how it was found, by a name or by the words that found it, then the entries in the slots that are left. It skips the memories that the system message of the character holds, as a chat does. A template has no memories.
+- On Campaign Canon, the panel gives what a chat finds. The player can pick a character of the campaign to talk to, and a squad member to speak as, from the characters that `GET /api/campaign/canon` returns. Without a character, the panel gives a lore search alone.
+- With a character to talk to, the panel lists the hits of a chat with it in their prompt order: first the memories, each with how it was found, by a name or by the words that found it, then the entries in the slots that are left. It skips the memories and the entries that the system message of that chat holds ([section 5](#5-order-and-limit)), and it orders the content hits by the place of the character, which it takes from the `CurrentLocation` of the profile.
+- With a squad member to speak as, the panel also skips the entry of its race. The entry of the player's faction is skipped with or without one, as in a chat.
+- A template has no memories and no player, so Templates gives a lore search alone.
 - Campaign Canon searches the active campaign, and Templates searches the open template. The search reads the saved records, so an unsaved edit counts only after Save.
-- The panel skips no entry that the system message of a chat would hold, and it has no earlier turns, so the guard holds back no hit.
-- The routes are `GET /api/campaign/search?message=...&npc=...`, where `npc` is optional, and `GET /api/templates/<name>/search?message=...`. A search changes nothing, and a POST under `/api/` counts as a write, which makes every open page refresh (`count_write_requests` in `server/core/app.py`).
+- The panel has no earlier turns, so the guard holds back no hit.
+- The routes are `GET /api/campaign/search?message=...&npc=...&speaker=...`, where `npc` and `speaker` are optional, and `GET /api/templates/<name>/search?message=...`. A search changes nothing, and a POST under `/api/` counts as a write, which makes every open page refresh (`count_write_requests` in `server/core/app.py`).
 
 ## 9. Verification
 
-1. `server/tests/test_retrieval.py` covers each rule of [section 3](#3-name-matching), [section 4](#4-content-search), and [section 5](#5-order-and-limit): case, punctuation, and the possessive; the final "s"; the leading "the"; the order of the words; a longer match over a shorter one; two records with one name; a word outside the vocabulary; a word in more than a tenth of the records; the score cut; a record that both steps find; an empty text; the records that the system message holds; the limit and the order; the cut of a long text; a history title.
+1. `server/tests/test_retrieval.py` covers each rule of [section 3](#3-name-matching), [section 4](#4-content-search), and [section 5](#5-order-and-limit): case, punctuation, and the possessive; the final "s"; the leading "the"; the order of the words; a longer match over a shorter one; two records with one name; a word outside the vocabulary; a word in more than a tenth of the records; the score cut; a record that both steps find; an empty text; the records that the system message holds; the limit and the order; the place order of the current location, the current region, and the locations of that region; a current place that is not a hit; the region from the current location without a `zone_name`; the cut of a long text and the fields that it keeps; a history title.
 2. `server/tests/test_retrieval.py` covers each rule of [section 6](#6-memories): a member's name; the NPC's own name; a lore name in the text; a lore name whose entry the system message holds; a renamed member; one shared word against two; a word of the NPC's name; the score cut; a memory that both steps find; an overheard memory; a memory that the system message holds; the newest memory first; the lore in the slots that the memories leave; the Memory slots cap; as many memories as Retrieval slots, and no lore; 0 Retrieval slots; 0 Memory slots; Memory slots above Retrieval slots; a content hit of the last N turns; a name match of the last N turns; a hit older than N turns; a Retrieval cooldown of 0; the cut of a long text.
 3. On an SSR Vanilla campaign with the memories of the examples of [section 7](#7-prompt), these messages, each the first message of a conversation, give these first hits:
 
@@ -216,13 +225,7 @@ A Test Search panel on the Campaign Canon and Templates subtabs of the Editor sh
 
 7. In the server, with the defaults, a message that finds an entry by content only gives a turn that holds it. The next message, which finds the same entry by content only, gives a turn without it, and the message after that gives it again. A message that names the entry gives it on each turn. The system message of these turns is the same. An entry that Campaign Canon edits shows the edit in the next message, and a renamed entry matches by its new name.
 8. The Settings page saves Retrieval slots, Memory slots, and Retrieval cooldown to the INI, and Reset to defaults fills 3, 3, and 1. The next chat message uses the saved values.
-9. On the test search of a new SSR Vanilla campaign, "Any work for a mercenary?" lists Mercenary Guild as found by "mercenary", "work" as not a word of the lore, and "any", "for", and "a" as common English words. The Templates subtab gives the same result for SSR Vanilla. On a campaign with the memories of the examples, "Who keeps the trouble out of here at night?" with Paladin Abel lists the memory of Stick and Jorge as found by "trouble" and "night".
+9. On the test search of a new SSR Vanilla campaign, "Any work for a mercenary?" lists Mercenary Guild as found by "mercenary", "work" as not a word of the lore, and "any", "for", and "a" as common English words. The Templates subtab gives the same result for SSR Vanilla. On a campaign with the memories of the examples, "Who keeps the trouble out of here at night?" to Paladin Abel lists the memory of Stick and Jorge as found by "trouble" and "night". "Tell me about the war with the Shek." as a Shek squad member lists Kral and the Shek Wars, and not Shek (race). A character in Bast gets Bast (region) first for "Any bonedogs around?" when the region holds bonedogs.
 10. The full server test suite passes.
 
-These messages still give wrong or arbitrary entries in the prototype, and the limit and the note of the block bound their cost: "my teeth hurt" finds Bad Teeth, "Where can I get a prosthetic arm?" finds Arm of Okran, and "Any bonedogs around?" finds 3 of the many regions with bonedogs.
-
-## 10. Open questions
-
-1. Should retrieval also find characters, such as Beep or Tinfist? Today "Tinfist" finds the Anti-Slavers, whose `leader` field names Tinfist, but not the profile of Tinfist.
-2. Should a content hit in the NPC's current region or location rank first? "Any bonedogs around?" would then find the region that the NPC stands in.
-3. Should a memory in which the squad member who speaks is a member rank first? A name that many memories hold, such as the name of a squad member, would then find the conversations that the NPC had with the speaker before the other ones.
+These messages still give wrong or arbitrary entries in the prototype, and the limit and the note of the block bound their cost: "my teeth hurt" finds Bad Teeth, "Where can I get a prosthetic arm?" finds Arm of Okran, and "Any bonedogs around?", asked outside a region with bonedogs, finds 3 of the many regions with bonedogs.
