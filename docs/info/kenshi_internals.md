@@ -1,6 +1,6 @@
 # Kenshi internals
 
-The plugin reads the game objects of Kenshi through KenshiLib. This page records how those objects behave in the game. The probe lines of in-game tests showed each fact ([development.md](development.md#probes)).
+The plugin reads the game objects of Kenshi through KenshiLib. This page records how those objects behave in the game and the methods that work in the game. The probe lines of in-game tests showed each fact ([development.md](development.md#probes)). Its sister page, [kenshi_gotchas.md](kenshi_gotchas.md), records the calls and the patterns that broke the plugin. Read both before you change plugin code that calls the game.
 
 ## String IDs
 
@@ -78,4 +78,15 @@ The role probe logged 26 characters in one town of a UWE game.
 - One character had a permajob: `JOB_REPAIR_ROBOT`, which `getPermajobName` names Robotics, as the Jobs menu does.
 - The player's squad has no AI package and no squad jobs.
 - An AI goal record of the game data holds its task type as the int `enum`, for example 20, `STAND_AT_SHOPKEEPER_NODE`, for the goal Shopkeeper.
-- `AI/AIPackage.h` and `AI/Blackboard.h` of KenshiLib define the same enum, so one source file cannot include both (error C2011). The plugin reads the package by name through `Blackboard::getCurrentAIPackageName`.
+- `Blackboard::getCurrentAIPackageName` gives the name of the AI package of a character. The plugin reads only the name, because the package data needs a header that clashes with `AI/Blackboard.h` (see [kenshi_gotchas.md](kenshi_gotchas.md#kenshilib-headers)).
+
+## Crash dumps
+
+When the game crashes, Kenshi writes a zip, for example `crashDump1.0.65_x64.zip`, with a minidump (`.dmp`) and the logs of the game. The minidump holds the exception, the registers of the thread that crashed, the loaded modules, and the stack memory. These steps find the plugin call that crashed the game:
+
+1. Compare the time stamp and the size of `SentientSands.dll` in the module list of the minidump with the build in `plugin/x64/Release`. Only a match lets `SentientSands.pdb` name the plugin frames.
+2. Read the exception code, the address that the failed instruction read, and the instruction address (`Rip`). A crash in game code shows as an offset in `kenshi_x64.exe`.
+3. Scan the stack from `Rsp` for addresses in `SentientSands.dll`, and name each with the procedure records of the PDB. The scan also finds old return addresses of earlier calls, so disassemble the plugin code before each return address to find the real call (`objdump -d`, image base `0x180000000`).
+4. Name the game frames with the `RVA = 0x...` comments of the KenshiLib headers. The function with the nearest lower RVA is the best match, because the headers do not list every function.
+
+The dev container has `objdump` with PE support, but no minidump or PDB reader. A short Python script with `struct` reads both formats.
