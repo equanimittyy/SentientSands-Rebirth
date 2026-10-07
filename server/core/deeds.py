@@ -8,6 +8,7 @@ import logging
 import threading
 
 from core import state
+from core.pipe import send_to_pipe
 from store import campaign_db
 
 ATTACK_WINDOW_MINUTES = 180
@@ -21,13 +22,14 @@ _lock = threading.Lock()
 _histories = {}
 _newest = None
 _campaign = None
+_expired = set()
 
 
 def take(events):
     """Reads the events of a report in their order, and stores the deeds that they make."""
     for event in events or []:
         logging.debug(f"EVENT: {event}")
-        at = _minutes(event)
+        at = game_minutes(event)
         if at is None:
             continue
         ended = _attribute(event, at)
@@ -38,7 +40,7 @@ def take(events):
                 pass  # The deed is lost, but the report must still update the player's context
 
 
-def _minutes(event):
+def game_minutes(event):
     try:
         at = int(event["day"]) * 1440 + int(event["hour"]) * 60 + int(event["minute"])
     except (KeyError, TypeError, ValueError):
@@ -75,7 +77,7 @@ def _attribute(event, at):
 def fought_recently(npc_ids, ctx):
     """Whether one of the characters attacked someone, or was knocked out, within FIGHT_QUIET_MINUTES before the game time of
     the context. The plugin sends no attack on a character of the player's faction, so taking hits alone is no fight."""
-    now = _minutes(ctx)
+    now = game_minutes(ctx)
     if now is None:
         return False
     with _lock:
@@ -135,8 +137,12 @@ def canon_id(party):
 
 
 def _store(kind, victim, attackers, at):
+    """The target of an open bounty counts as a known figure, so its kill or capture by the squad ends the bounty."""
     victim_id = canon_id(victim)
-    if victim.get("player") or not victim_id.startswith("u:"):
+    if victim.get("player"):
+        return
+    wanted = [deed for _, deed in open_bounties() if deed["target"]["id"] == victim_id]
+    if not victim_id.startswith("u:") and not wanted:
         return
     deed = "kill" if kind == "death" else "capture"
     doers = campaign_db.add_deed(
@@ -147,23 +153,73 @@ def _store(kind, victim, attackers, at):
     )
     if doers:
         logging.debug(f"DEEDS: {', '.join(name for _, name in doers)} {'killed' if deed == 'kill' else 'captured'} {victim.get('name', '')} ({victim_id}) at {campaign_db.game_time_text(at)}")
+        for bounty in wanted:
+            end_bounty(bounty)
+
+
+def bounty_statuses(rows):
+    """The status of each bounty deed among rows, the (id, game_time, deed) of campaign_db.notables(), by its ID. A kill or a
+    capture of its target that the squad made after it ends a bounty, so the cull of that deed opens the bounty again."""
+    now = game_minutes(state.PLAYER_CONTEXT)
+    ends = {}
+    for notable_id, _, deed in rows:
+        if deed["deed"] in ("kill", "capture"):
+            ends.setdefault(deed["victim"]["id"], []).append((notable_id, deed["deed"]))
+    statuses = {}
+    for notable_id, _, deed in rows:
+        if deed["deed"] != "bounty":
+            continue
+        end = max((end for end in ends.get(deed["target"]["id"], []) if end[0] > notable_id), default=None)
+        if end:
+            statuses[notable_id] = "Killed" if end[1] == "kill" else "Captured"
+        else:
+            statuses[notable_id] = "Expired" if now is not None and now > deed["expires"] else "Open"
+    return statuses
+
+
+def open_bounties():
+    """Each bounty deed with the status Open, as (notable ID, deed)."""
+    rows = campaign_db.notables()
+    statuses = bounty_statuses(rows)
+    return [(notable_id, deed) for notable_id, _, deed in rows if statuses.get(notable_id) == "Open"]
+
+
+def end_bounty(deed):
+    """Gives the target's squad of a bounty that is no longer open back to the game: the plugin takes it off the world map,
+    and clears the persistent flag that SSR set. A squad that another open bounty holds stays as it is."""
+    if any(other["squad"] == deed["squad"] for _, other in open_bounties()):
+        return
+    send_to_pipe(f"END_BOUNTY: {deed['squad']}|{0 if deed['persistent'] else 1}")
+
+
+def end_expired_bounties():
+    """Ends each bounty that expired since the last call. A load can open an expired bounty again, and it can then expire again."""
+    global _expired
+    rows = campaign_db.notables()
+    statuses = bounty_statuses(rows)
+    expired = {(state.ACTIVE_CAMPAIGN, notable_id): deed for notable_id, _, deed in rows if statuses.get(notable_id) == "Expired"}
+    for key in expired.keys() - _expired:
+        end_bounty(expired[key])
+    _expired = set(expired)
 
 
 def notable_events():
-    """Each notable event, newest first, as a dict with its ID, kind ("kill", "capture", "custom", or "auto"), game time,
-    line, and rumor ID.
+    """Each notable event, newest first, as a dict with its ID, kind ("kill", "capture", "custom", "auto", or "bounty"), game
+    time, line, and rumor ID, and the status of a bounty.
     The line names each character by its current name, so a renamed squad member shows with its new name."""
     rows = campaign_db.notables()
     names = campaign_db.names_of({npc_id for _, _, deed in rows for npc_id in character_ids(deed)})
     faction = (campaign_db.player_faction() or {}).get("name")
     rumors = {rumor["notable_id"]: rumor["id"] for rumor in campaign_db.rumors()}
-    return [{"id": notable_id, "kind": deed["deed"], "time": campaign_db.game_time_text(at) if at is not None else "-", "line": notable_line(deed, names, faction), "rumor": rumors.get(notable_id)}
+    statuses = bounty_statuses(rows)
+    return [{"id": notable_id, "kind": deed["deed"], "time": campaign_db.game_time_text(at) if at is not None else "-", "line": notable_line(deed, names, faction), "rumor": rumors.get(notable_id),
+             **({"status": statuses[notable_id]} if notable_id in statuses else {})}
             for notable_id, at, deed in rows]
 
 
 def character_deeds():
     """The known figures that each squad member killed or captured, oldest first, as text for Campaign Canon."""
-    deeds = [deed for _, _, deed in campaign_db.notables() if deed["deed"] not in RUMOR_ONLY]
+    deeds = [deed for _, _, deed in campaign_db.notables() if deed["deed"] in ("kill", "capture")]
     names = campaign_db.names_of({deed["victim"]["id"] for deed in deeds})
     summary = {}
     for deed in reversed(deeds):
@@ -176,11 +232,16 @@ def character_deeds():
 def character_ids(deed):
     if deed["deed"] in RUMOR_ONLY:
         return []
+    if deed["deed"] == "bounty":
+        return [deed["target"]["id"]]
     return [doer["id"] for doer in deed["doers"]] + [deed["victim"]["id"]]
 
 
 def notable_line(deed, names, player_faction):
-    """names maps an npc_id to its current name; a character with no profile keeps the name of the deed."""
+    """names maps an npc_id to its current name; a character with no profile keeps the name of the deed. A bounty is no
+    deed of the squad, so its wanted notice stands in for the line."""
+    if deed["deed"] == "bounty":
+        return deed.get("notice") or "Unknown"
     if deed["deed"] == "custom":
         return "Written by you"
     if deed["deed"] == "auto":

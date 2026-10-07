@@ -61,9 +61,6 @@ Some questions of the plans need data from the game. The plugin writes probe lin
 |---|---|---|---|
 | `FACTION_PROBE` | At the first chat of each game, one line for each faction | `LogFactionList` | The string ID of each faction, and whether it stays the same when the mod list changes |
 | `ROLE_PROBE` | For the chat target, each NPC in chat range, and each radiant participant, again when a value changes | `LogNpcRole` | Which game data tells the role of an NPC, and whether a hired NPC holds a contract (`contract=1`) |
-| `BOUNTY_PROBE` | At each `/bounty` test command of the chat | `ProbeBounty` | Which factions have a law enforcement faction, which faction holds the bounty of the target with its amount, crimes, and expiry, the name and level of each combat skill, and whether the target's squad is persistent |
-
-`/bounty [amount]` puts a bounty for a random crime on the chat target, when the target is a member of a bandit faction of `bounties.TARGETS`. The Holy Nation, the United Cities, and the Shek Kingdom each set the bounty with their law, at the same amount. The command also marks the target's squad persistent, shows that squad on the world map (`MapScreen::addSquad`), moves the start time of each bounty 100,000 game hours ahead so that it does not expire, and raises each of its 16 combat skills by 10. `/bounty` alone changes nothing, and only logs. A wrong argument shows the usage. The in-game checks are in [proposal_dynamic_bounties.md](../plans/proposal_dynamic_bounties.md#9-probe).
 
 [kenshi_internals.md](kenshi_internals.md) records the answers of the in-game tests. The contract of a hired NPC is not tested yet.
 

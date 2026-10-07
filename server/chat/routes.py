@@ -1,7 +1,6 @@
 import json
 import logging
 import queue
-import random
 import re
 import threading
 import time
@@ -225,19 +224,20 @@ def chat():
                 test_action = f"[ACTION: FACTION_RELATIONS: {rparts[0].strip()}: {rparts[1].strip()}]"
         elif cmd == "task": test_action = f"[TASK: {args.upper()}]"
         elif cmd == "bounty":
-            if not args:
-                probe = "[ACTION: BOUNTY_PROBE]"
-            elif args.isdigit():
-                target = context_dict(data.get('context'))
-                if target.get("factionID") not in bounties.TARGETS:
-                    return reply(f"[DEBUG] Only the bandits that attack people in general can get a bounty, and {target.get('faction') or 'the target'} is not one of them.",
-                                 f"[DEBUG] Bandits: {', '.join(sorted(bounties.TARGETS.values()))}")
-                probe = f"[ACTION: BOUNTY_PROBE: {random.randint(1, len(bounties.CRIMES))}: {args}: {', '.join(bounties.ISSUERS)}]"
-            else:
-                return reply("[DEBUG] /bounty [n] puts a bounty of n cats on the target with the Holy Nation, the United Cities, and the Shek Kingdom. /bounty alone logs its bounties.")
-            logging.info(f"CHAT: Test command {cmd} -> {probe}")
-            # The plugin also runs a tag in a spoken line, so an echo of the tag would place the bounty twice
-            return reply("[DEBUG] Executing test command: bounty probe", actions=[probe])
+            if args and not args.isdigit():
+                return reply("[DEBUG] /bounty [n] posts an SSR bounty of n cats on the target, or of a rolled amount without n, as the bounty timer does.")
+            target = context_dict(data.get('context'))
+            if target.get("factionID") not in bounties.TARGETS or not str(target.get("npc_id", "")).startswith("h:"):
+                return reply(f"[DEBUG] Only a generic member of a bandit faction that attacks people in general can get a bounty, and {target.get('name') or 'the target'} is not one.",
+                             f"[DEBUG] Bandits: {', '.join(sorted(bounties.TARGETS.values()))}")
+            environment = target.get("environment") or {}
+            candidate = {"npc_id": target["npc_id"], "name": target.get("name", ""), "faction": target.get("faction", ""), "faction_id": target["factionID"],
+                         "place": environment.get("town_name") or environment.get("zone_name") or ""}
+            bounty = bounties.roll([candidate], {deed["target"]["id"] for _, deed in deeds.open_bounties()}, int(args) if args else None)
+            if not bounty:
+                return reply(f"[DEBUG] {candidate['name']} already has an open bounty.")
+            bounties.send(bounty)
+            return reply(f"[DEBUG] Executing test command: bounty of {bounty['amount']} cats for {bounty['crime']}")
         
         if test_action:
             logging.info(f"CHAT: Test command {cmd} -> {test_action}")
@@ -488,6 +488,8 @@ def rumor_reply(notable_id, instruction, so_far=None, **reply):
     notable = campaign_db.notable(notable_id)
     if not notable:
         return jsonify({"status": "error", "message": "The notable event is gone. Load the events again."}), 404
+    if notable[1]["deed"] == "bounty":
+        return bounty_refusal()
     if so_far is None:
         so_far = next((rumor["text"] for rumor in campaign_db.rumors() if rumor["notable_id"] == notable_id), "")
     text = rumors.clean(call_llm("synthesis", [{"role": "user", "content": rumors.prompt(*notable, instruction, so_far)}]))
@@ -503,6 +505,9 @@ def keep_rumor_reply(data):
     if not text:
         key = str(data["id"]) if data.get("id") else f"new:{data.get('notable')}"
         return jsonify({"status": "error", "errors": [{"field": ["rumors", key], "message": "A rumor needs text. Delete it instead."}]}), 400
+    notable = campaign_db.notable(data.get("notable") or next((rumor["notable_id"] for rumor in campaign_db.rumors() if str(rumor["id"]) == str(data.get("id"))), None))
+    if notable and notable[1]["deed"] == "bounty":
+        return bounty_refusal()
     instruction = data.get("instruction")
     if not campaign_db.save_rumor(data.get("id"), data.get("notable"), text, None if instruction is None else str(instruction).strip()):
         return jsonify({"status": "error", "message": "The rumor or its event is gone. Load the events again."}), 404
@@ -525,10 +530,16 @@ def add_deed_reply(data, source):
     logging.info(f"DEEDS: Added the custom deed {notable_id} from {source}")
     return jsonify({"status": "ok", "id": notable_id})
 
+def bounty_refusal():
+    return jsonify({"status": "error", "message": "SSR writes the notice and the rumor of a bounty from the bounty in the game, so they cannot be written or edited."}), 400
+
 def delete_deed_reply(data):
+    """The game bounty of a deleted bounty stays, because the plugin can reach the target only while it is loaded."""
     refused = campaign_write(data)
     if refused: return refused
-    campaign_db.delete_custom_deed(data.get("id"))
+    notable = campaign_db.notable(data.get("id"))
+    if campaign_db.delete_custom_deed(data.get("id")) and notable[1]["deed"] == "bounty":
+        deeds.end_bounty(notable[1])
     return jsonify({"status": "ok"})
 
 @bp.route('/write_rumor', methods=['POST'])

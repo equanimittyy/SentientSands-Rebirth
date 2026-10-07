@@ -12,10 +12,11 @@
 namespace SentientSands {
 namespace UI {
 
-static const char *DEED_KINDS[] = {"all", "kill", "capture", "custom",
-                                   "auto"};
+static const char *DEED_KINDS[] = {"all",    "kill", "capture",
+                                   "custom", "auto", "bounty"};
 static const char *DEED_KIND_LABELS[] = {"All kinds", "Kill", "Capture",
-                                         "Custom", "Auto"};
+                                         "Custom",    "Auto", "Bounty"};
+static const int DEED_KIND_COUNT = sizeof(DEED_KINDS) / sizeof(DEED_KINDS[0]);
 
 MyGUI::Window *g_eventsWindow = nullptr;
 MyGUI::ListBox *g_eventsList = nullptr;
@@ -133,7 +134,7 @@ void ShowEventsKind() {
 
 void OnEventsKindClick(MyGUI::Widget *sender) {
   do
-    g_eventsKind = (g_eventsKind + 1) % 5;
+    g_eventsKind = (g_eventsKind + 1) % DEED_KIND_COUNT;
   while (g_eventsKind != 0 && CountEventsOfKind(g_eventsKind) == 0);
   ShowEventsKind();
   ApplyEventsFilter(SelectedEventId());
@@ -403,7 +404,8 @@ void CreateDeedAddUI() {
 }
 
 bool DeletesWholeDeed() {
-  return g_rumorKind == "custom" || g_rumorKind == "auto";
+  return g_rumorKind == "custom" || g_rumorKind == "auto" ||
+         g_rumorKind == "bounty";
 }
 
 void OnDeedDeleteClick(MyGUI::Widget *sender) {
@@ -420,10 +422,12 @@ void OnDeedDeleteClick(MyGUI::Widget *sender) {
 void CreateDeedDeleteUI() {
   bool whole = DeletesWholeDeed();
   bool isAuto = g_rumorKind == "auto";
+  bool isBounty = g_rumorKind == "bounty";
   MyGUI::Widget *client = CreateRumorWindow(
-      !whole   ? "Delete the rumor"
-      : isAuto ? "Delete the auto deed"
-               : "Delete the custom deed",
+      !whole     ? "Delete the rumor"
+      : isAuto   ? "Delete the auto deed"
+      : isBounty ? "Delete the bounty deed"
+                 : "Delete the custom deed",
       "Delete", OnDeedDeleteClick, "Cancel");
   if (!client)
     return;
@@ -431,8 +435,11 @@ void CreateDeedDeleteUI() {
              T(!whole   ? "NPCs stop mentioning this rumor."
                : isAuto ? "This deletes the auto deed and its rumor, so NPCs "
                           "stop mentioning it."
-                        : "This deletes the custom deed and its rumor, so NPCs "
-                          "stop mentioning it."),
+               : isBounty
+                   ? "This deletes the bounty deed and its rumor, so NPCs stop "
+                     "mentioning it. The bounty in the game stays."
+                   : "This deletes the custom deed and its rumor, so NPCs "
+                     "stop mentioning it."),
              0.12f, "SentientSands_DeedDeleteText");
   MyGUI::TextBox *warning = AddBioLine(
       client, T("The delete takes effect immediately and is irreversible."),
@@ -491,13 +498,21 @@ bool SelectRumorEvent() {
   return true;
 }
 
+bool RefusesBountyRumor() {
+  if (g_rumorKind != "bounty")
+    return false;
+  SetEventsText(T("SSR writes the notice and the rumor of a bounty, so they "
+                  "cannot be written or edited."));
+  return true;
+}
+
 void OnEventsGenerateClick(MyGUI::Widget *sender) {
-  if (SelectRumorEvent())
+  if (SelectRumorEvent() && !RefusesBountyRumor())
     CreateRumorAskUI();
 }
 
 void OnEventsEditClick(MyGUI::Widget *sender) {
-  if (!SelectRumorEvent())
+  if (!SelectRumorEvent() || RefusesBountyRumor())
     return;
   CloseRumorUI();
   g_rumorWritten = false;

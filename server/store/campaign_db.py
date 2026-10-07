@@ -254,6 +254,15 @@ def rename_character(npc_id, old_name, new_name):
         )
 
 
+def add_alias(npc_id, alias):
+    """Sets the Alias of the stored character unless it has one, which the player may have written. Returns whether it set it."""
+    with _connect(write=True) as conn:
+        return conn.execute(
+            "UPDATE character SET profile = json_set(profile, '$.Alias', ?), updated_at = ? WHERE npc_id = ? AND COALESCE(json_extract(profile, '$.Alias'), '') = ''",
+            (alias, _now(), npc_id),
+        ).rowcount > 0
+
+
 def change_relation(npc_id, delta):
     """Returns the new Relation, clamped to -100..100, or None if the character is not stored."""
     with _connect(write=True) as conn:
@@ -560,11 +569,27 @@ def add_auto_deed(rumor, thread_ids):
         return notable_id
 
 
-def delete_custom_deed(notable_id):
-    """Deletes a custom or an auto deed with its rumor. The memories of an auto deed stay out of the pool, so the next pass
-    does not spin the same rumor again."""
+def add_bounty_deed(deed, game_time):
+    """Stores a bounty that the plugin placed, with no rumor yet. Returns its notable event ID."""
     with _connect(write=True) as conn:
-        return conn.execute("DELETE FROM notable WHERE id = ? AND json_extract(deed, '$.deed') IN ('custom', 'auto')", (notable_id,)).rowcount > 0
+        return conn.execute("INSERT INTO notable (game_time, deed) VALUES (?, ?)", (game_time, json.dumps({"deed": "bounty", **deed}))).lastrowid
+
+
+def add_bounty_rumor(notable_id, notice, rumor):
+    """Adds the wanted notice and the rumor of a bounty, unless the bounty is gone or already has a rumor. Returns whether it
+    added them."""
+    with _connect(write=True) as conn:
+        if conn.execute("INSERT OR IGNORE INTO rumor (notable_id, game_time, text) SELECT id, game_time, ? FROM notable WHERE id = ?", (rumor, notable_id)).rowcount == 0:
+            return False
+        conn.execute("UPDATE notable SET deed = json_set(deed, '$.notice', ?) WHERE id = ?", (notice, notable_id))
+        return True
+
+
+def delete_custom_deed(notable_id):
+    """Deletes a custom, an auto, or a bounty deed with its rumor. The memories of an auto deed stay out of the pool, so the
+    next pass does not spin the same rumor again."""
+    with _connect(write=True) as conn:
+        return conn.execute("DELETE FROM notable WHERE id = ? AND json_extract(deed, '$.deed') IN ('custom', 'auto', 'bounty')", (notable_id,)).rowcount > 0
 
 
 def notables():

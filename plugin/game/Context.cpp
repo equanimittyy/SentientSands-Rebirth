@@ -1,4 +1,5 @@
 #include "Context.h"
+#include "../core/Comm.h"
 #include "../core/Globals.h"
 #include "../core/Utils.h"
 #include <kenshi/Building/Building.h>
@@ -478,138 +479,167 @@ void LogNpcRole(Character *npc) {
                      GetNpcId(npc) + " " + line);
 }
 
-// Probe: the facts of the game bounties that dynamic bounties build on.
-static const StatsEnumerated COMBAT_STATS[] = {
-    STAT_STRENGTH,     STAT_DEXTERITY,     STAT_TOUGHNESS, STAT_PERCEPTION,
-    STAT_MELEE_ATTACK, STAT_MELEE_DEFENCE, STAT_DODGE,     STAT_MARTIALARTS,
-    STAT_KATANAS,      STAT_SABRES,        STAT_HACKERS,   STAT_HEAVYWEAPONS,
-    STAT_BLUNT,        STAT_POLEARMS,      STAT_CROSSBOWS, STAT_FRIENDLY_FIRE};
-static const int COMBAT_STAT_COUNT =
-    sizeof(COMBAT_STATS) / sizeof(COMBAT_STATS[0]);
-static const float PROBE_SKILL_BONUS = 10.0f;
-// A start time this far ahead keeps the hours passed below any expiry
-static const double PROBE_START_SHIFT_HOURS = 100000.0;
+// A start this far ahead keeps the game from ending a bounty under 10,000 cats
+static const double BOUNTY_START_SHIFT_HOURS = 100000.0;
 
-static void PlaceProbeBounty(GameWorld *world, Character *npc,
-                             const std::string &payload) {
-  size_t a = payload.find(':');
-  size_t b = a == std::string::npos ? a : payload.find(':', a + 1);
-  if (b == std::string::npos)
-    return;
-  int crime = atoi(payload.substr(0, a).c_str());
-  int amount = atoi(payload.substr(a + 1, b - a - 1).c_str());
-  std::string issuers = payload.substr(b + 1);
-  bool placed = false;
-  for (size_t start = 0; start <= issuers.size();) {
-    size_t end = issuers.find(',', start);
-    if (end == std::string::npos)
-      end = issuers.size();
-    std::string id = issuers.substr(start, end - start);
-    id.erase(0, id.find_first_not_of(" "));
+static std::vector<std::string> SplitText(const std::string &text, char sep) {
+  std::vector<std::string> parts;
+  size_t start = 0;
+  for (size_t end = text.find(sep); end != std::string::npos;
+       end = text.find(sep, start)) {
+    parts.push_back(text.substr(start, end - start));
     start = end + 1;
-    Faction *issuer = world->factionMgr->getFactionByStringID(id);
+  }
+  parts.push_back(text.substr(start));
+  return parts;
+}
+
+static void PostPlacementFailure(const std::string &reason) {
+  Log(LOG_WARN, "BOUNTY: Placed no bounty: " + reason);
+  AsyncPostToPython(L"/bounty/placed", "{\"placed\": false, \"reason\": \"" +
+                                           EscapeJSON(reason) + "\"}");
+}
+
+// The server picks the target factions, so the plugin sends every candidate
+void ScanBounties() {
+  GameWorld *world = ppWorld ? *ppWorld : NULL;
+  if (!world)
+    return;
+  std::string zone = ZoneName();
+  std::string json;
+  const ogre_unordered_set<Character *>::type &chars =
+      world->getCharacterUpdateList();
+  for (auto it = chars.begin(); it != chars.end(); ++it) {
+    Character *c = *it;
+    if (!c || (uintptr_t)c <= 0x1000 || c->isUnique() || c->isAnimal() ||
+        c->isDead() || c->inSomething == IN_PRISON)
+      continue;
+    Faction *faction = CharacterFaction(c);
+    if (!faction || faction->isThePlayer() || !faction->data)
+      continue;
+    TownBase *town = c->getCurrentTownLocation();
+    json += std::string(json.empty() ? "" : ",") + "{\"npc_id\": \"" +
+            EscapeJSON(GetNpcId(c)) + "\", \"name\": \"" +
+            EscapeJSON(c->getName()) + "\", \"faction\": \"" +
+            EscapeJSON(FactionName(faction)) + "\", \"faction_id\": \"" +
+            EscapeJSON(faction->data->stringID) + "\", \"place\": \"" +
+            EscapeJSON(town ? ((RootObjectBase *)town)->getName() : zone) +
+            "\"}";
+  }
+  AsyncPostToPython(L"/bounty/candidates", "{\"candidates\": [" + json + "]}");
+}
+
+// The payload "serial|crime|amount|issuer,...|stat:bonus,..." places the same
+// bounty with the law of each issuer
+void PlaceBounty(const std::string &payload) {
+  GameWorld *world = ppWorld ? *ppWorld : NULL;
+  std::vector<std::string> parts = SplitText(payload, '|');
+  if (!world || !world->factionMgr || parts.size() != 5)
+    return;
+  unsigned int serial = (unsigned int)strtoul(parts[0].c_str(), NULL, 10);
+  Character *npc = NULL;
+  const ogre_unordered_set<Character *>::type &chars =
+      world->getCharacterUpdateList();
+  for (auto it = chars.begin(); it != chars.end() && !npc; ++it) {
+    Character *c = *it;
+    if (c && (uintptr_t)c > 0x1000 && c->getHandle().serial == serial &&
+        !c->isDead())
+      npc = c;
+  }
+  if (!npc) {
+    PostPlacementFailure("the target is dead or no longer loaded");
+    return;
+  }
+  int crime = atoi(parts[1].c_str());
+  int amount = atoi(parts[2].c_str());
+  double expires = -1.0;
+  std::vector<std::string> issuers = SplitText(parts[3], ',');
+  for (size_t i = 0; i < issuers.size(); ++i) {
+    Faction *issuer = world->factionMgr->getFactionByStringID(issuers[i]);
     Faction *law = issuer ? issuer->getLawEnforcementFaction() : NULL;
     if (!law) {
-      Log(LOG_DEBUG, "BOUNTY_PROBE: '" + id +
-                         "' is no faction, or has no law enforcement faction");
+      Log(LOG_WARN, "BOUNTY: '" + issuers[i] +
+                        "' is no faction, or has no law enforcement faction");
       continue;
     }
     npc->crimes.unfairAddToBounty(law, amount);
     ogre_unordered_map<Faction *, Bounty>::type::iterator bounty =
         npc->crimes.bounties.find(law);
-    bool crimeAdded = bounty != npc->crimes.bounties.end();
-    if (crimeAdded) {
-      bounty->second.addCrime((CrimeEnum)crime);
-      bounty->second.bountyAssignmentStartedTime.addHours(
-          PROBE_START_SHIFT_HOURS);
-    }
-    Log(LOG_DEBUG, "BOUNTY_PROBE: placed amount=" + ToString(amount) +
-                       " crime=" + ToString(crime) +
-                       " issuer=" + DataLabel(issuer->data) +
-                       " law=" + DataLabel(law->data) +
-                       " crime_added=" + (crimeAdded ? "1" : "0"));
-    placed = true;
+    if (bounty == npc->crimes.bounties.end())
+      continue;
+    bounty->second.addCrime((CrimeEnum)crime);
+    bounty->second.bountyAssignmentStartedTime.addHours(
+        BOUNTY_START_SHIFT_HOURS);
+    expires = bounty->second.bountyAssignmentStartedTime.getTotalHours() +
+              BountyManager::getBountyExpirationTime(bounty->second.amount);
   }
-  if (!placed)
+  if (expires < 0.0) {
+    PostPlacementFailure("no issuer has a law enforcement faction");
     return;
+  }
   ActivePlatoon *active = npc->getPlatoon();
-  if (active && active->me) {
-    active->me->setPersistentSquad(true);
+  Platoon *squad = active ? active->me : NULL;
+  bool wasPersistent = squad && squad->isPersistentSquad();
+  if (squad) {
+    squad->setPersistentSquad(true);
     // A roaming squad walks on while the player is away; the map finds it
     ManagementScreen *screen = ManagementScreen::getSingleton();
     if (screen && screen->mapScreen)
-      screen->mapScreen->addSquad(active->me);
+      screen->mapScreen->addSquad(squad);
   }
   CharStats *stats = npc->getStats();
-  for (int i = 0; stats && i < COMBAT_STAT_COUNT; ++i) {
-    float &level = stats->getStatRef(COMBAT_STATS[i]);
-    level = level + PROBE_SKILL_BONUS > 100.0f ? 100.0f
-                                               : level + PROBE_SKILL_BONUS;
+  std::vector<std::string> bonuses = SplitText(parts[4], ',');
+  for (size_t i = 0; stats && i < bonuses.size(); ++i) {
+    size_t colon = bonuses[i].find(':');
+    if (colon == std::string::npos)
+      continue;
+    float &level = stats->getStatRef(
+        (StatsEnumerated)atoi(bonuses[i].substr(0, colon).c_str()));
+    level += (float)atof(bonuses[i].substr(colon + 1).c_str());
+    level = level > 100.0f ? 100.0f : level < 0.0f ? 0.0f : level;
   }
+  Log(LOG_INFO, "BOUNTY: Placed " + ToString(amount) + " cats on '" +
+                    npc->getName() + "' (" + GetNpcId(npc) + ")");
+  AsyncPostToPython(
+      L"/bounty/placed",
+      "{\"placed\": true, \"squad\": \"" +
+          EscapeJSON(squad ? squad->getHandle().toString() : std::string()) +
+          "\", \"persistent\": " + (wasPersistent ? "true" : "false") +
+          ", \"expires\": " + ToString((int)(expires * 60.0)) +
+          ", \"context\": " + GetDetailedContext(npc) + "}");
 }
 
-static void LogProbeBounty(GameWorld *world, Character *npc) {
+// The payload "squad|clear" names the squad by its handle, which survives a
+// save and a load, unlike a pointer
+void EndBounty(const std::string &payload) {
+  GameWorld *world = ppWorld ? *ppWorld : NULL;
+  size_t bar = payload.find('|');
+  if (!world || !world->factionMgr || bar == std::string::npos)
+    return;
+  std::string id = payload.substr(0, bar);
   const lektor<Faction *> *all = world->factionMgr->getAllFactions();
   for (uint32_t i = 0; all && i < all->count; ++i) {
     Faction *faction = all->stuff[i];
     if (!faction)
       continue;
-    Faction *law = faction->getLawEnforcementFaction();
-    if (law || faction->isALawEnforcementFaction)
-      Log(LOG_DEBUG,
-          "BOUNTY_PROBE: faction=" + DataLabel(faction->data) +
-              " law=" + (law ? DataLabel(law->data) : std::string("-")) +
-              (faction->isALawEnforcementFaction ? " enforcer" : ""));
+    const lektor<Platoon *> *lists[] = {faction->getActivePlatoons(),
+                                        faction->getUnloadedPlatoons()};
+    for (int l = 0; l < 2; ++l) {
+      for (uint32_t p = 0; lists[l] && p < lists[l]->count; ++p) {
+        Platoon *squad = lists[l]->stuff[p];
+        if (!squad || squad->getHandle().toString() != id)
+          continue;
+        ManagementScreen *screen = ManagementScreen::getSingleton();
+        if (screen && screen->mapScreen)
+          screen->mapScreen->removeSquad(squad);
+        if (payload.substr(bar + 1) == "1")
+          squad->setPersistentSquad(false);
+        Log(LOG_INFO, "BOUNTY: Gave the squad " + id + " back to the game");
+        return;
+      }
+    }
   }
-  CharStats *stats = npc->getStats();
-  for (int i = 0; stats && i < COMBAT_STAT_COUNT; ++i)
-    Log(LOG_DEBUG,
-        "BOUNTY_PROBE: stat=" + ToString((int)COMBAT_STATS[i]) + " name='" +
-            CharStats::getStatName(COMBAT_STATS[i]) +
-            "' base=" + ToString(stats->getStatRef(COMBAT_STATS[i])) +
-            " current=" + ToString(stats->getStat(COMBAT_STATS[i], false)));
-  ActivePlatoon *active = npc->getPlatoon();
-  Platoon *squad = active ? active->me : NULL;
-  BountyManager &crimes = npc->crimes;
-  Log(LOG_DEBUG,
-      "BOUNTY_PROBE: target='" + npc->getName() + "' npc_id=" +
-          GetNpcId(npc) + " persistent=" +
-          (squad && squad->isPersistentSquad() ? "1" : "0") +
-          " total=" + ToString(crimes.getTotalBounty()) + " expiry_gui='" +
-          crimes.getBountyExpiryStringForGUI() + "' game_hours=" +
-          ToString((float)world->getTimeStamp_inGameHours().getTotalHours()));
-  for (ogre_unordered_map<Faction *, Bounty>::type::iterator it =
-           crimes.bounties.begin();
-       it != crimes.bounties.end(); ++it) {
-    std::string names;
-    for (int c = CRIME_NONE + 1; c < CRIME_END; ++c)
-      if (it->second.hasCrime((CrimeEnum)c))
-        names += (names.empty() ? "" : ",") +
-                 BountyManager::crimeToStr((CrimeEnum)c);
-    Log(LOG_DEBUG,
-        "BOUNTY_PROBE: bounty law=" +
-            (it->first ? DataLabel(it->first->data) : std::string("-")) +
-            " amount=" + ToString(it->second.amount) +
-            " actual=" + ToString(crimes.getActualBounty(it->first)) +
-            " crimes='" + names + "' started_hours=" +
-            ToString((float)it->second.bountyAssignmentStartedTime
-                         .getTotalHours()) +
-            " expires_after=" +
-            ToString(BountyManager::getBountyExpirationTime(
-                it->second.amount)));
-  }
-}
-
-// The payload "crime: amount: issuer, ..." places the same bounty with the law
-// of each issuer; an empty payload only logs.
-void ProbeBounty(Character *npc, const std::string &payload) {
-  GameWorld *world = ppWorld ? *ppWorld : NULL;
-  if (!world || !world->factionMgr)
-    return;
-  if (!payload.empty())
-    PlaceProbeBounty(world, npc, payload);
-  if (LogEnabled(LOG_DEBUG))
-    LogProbeBounty(world, npc);
+  Log(LOG_INFO, "BOUNTY: The squad " + id + " is gone");
 }
 
 void GetCurrentSquad(std::vector<Character *> &members) {

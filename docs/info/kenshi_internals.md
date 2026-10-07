@@ -66,6 +66,21 @@ A probe of these hooks in several played sessions showed these facts. The plugin
 
 `PlayerInterface::getCurrentPlatoon` gives the squad that the player selected. A squad member is in that squad when its `Character::getPlatoon` is the `getActivePlatoon` of that squad.
 
+## Bounties
+
+The bounty probe put bounties on generic bandits in a game with UWE and other mods. SSR bounties build on these facts ([architecture.md](architecture.md#bounties)).
+
+- `Character::crimes`, a `BountyManager`, holds one bounty for each law enforcement faction. `unfairAddToBounty(law, amount)` adds the amount, `Bounty::addCrime` adds a crime, and the game then shows the bounty on the character.
+- The Holy Nation, the United Cities, and the Shek Kingdom are each their own law enforcement faction (`Faction::getLawEnforcementFaction`).
+- `FactionManager::getFactionByStringID` finds a faction only by its exact string ID.
+- A bounty does not make the guards attack the character. The relation of their faction to the faction of the character decides that. The law still pays for the captive.
+- `BountyManager::getBountyExpirationTime(amount)` gives the game hours until a bounty ends: 20 for 500 cats, and 10,000,000 for 10,000 and 30,000 cats, which the game shows as "Notorious: The bounty will never expire."
+- `Platoon::setPersistentSquad(true)` keeps a generic roaming squad through an unload, a save, and a load, with its members, the bounty, and the raised skills.
+- `MapScreen::addSquad` shows the squad on the world map while it is unloaded, and after a load.
+- `CharStats::getStatRef` gives a writable base level. The 16 combat skills have these `StatsEnumerated` values: Strength 1, Dexterity 18, Toughness 21, Perception 24, Attack 2, Defence 19, Dodging 32, Martial arts 30, Katanas 25, Sabres 26, Hackers 27, Heavy weapons 28, Blunt 29, Polearms 34, Crossbows 35, and Precision Shooting 36 (`STAT_FRIENDLY_FIRE`).
+
+A bounty whose start time moved ahead (`Bounty::bountyAssignmentStartedTime`) is not tested yet: SSR moves it 100,000 game hours ahead, so that a bounty under 10,000 cats does not end.
+
 ## Roles
 
 The role probe logged 26 characters in one town of a UWE game.

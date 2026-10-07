@@ -2,12 +2,13 @@ import { ask, deleteButton, el, field, flashMessage, getJson, icon, iconButton, 
 
 const page = document.getElementById("editor-page");
 const message = document.getElementById("editor-message");
-const PROFILE_KEYS = ["Name", "Race", "Sex", "Faction", "Personality", "Backstory", "SpeechQuirks"];
+const PROFILE_KEYS = ["Name", "Alias", "Race", "Sex", "Faction", "Personality", "Backstory", "SpeechQuirks"];
 const LONG_PROFILE_KEYS = ["Personality", "Backstory", "SpeechQuirks"];
 const PROFILE_LABELS = { SpeechQuirks: "Speech" };
 const CHOICE_KEYS = ["Race", "Sex", "Faction"];
 const PROFILE_HELP = {
   Name: "The name of the character. The game shows this name.",
+  Alias: "The name that bounty notices give the character. SSR fills it when it posts a bounty on the character.",
   Race: "The race of the character.",
   Sex: "The sex of the character.",
   Faction: "The faction that SSR tells the LLM the character belongs to.",
@@ -40,7 +41,7 @@ const ORIGIN_LABELS = { seed: "Seeded", game: "Met in game", campaign: "Added in
 const PROVISIONAL = "Interactions";
 const IMPORT_PROBLEMS_SHOWN = 10;
 const EVENTS_PER_PAGE = 50;
-const NOTABLE_KINDS = { kill: "Kill", capture: "Capture", custom: "Custom", auto: "Auto" };
+const NOTABLE_KINDS = { kill: "Kill", capture: "Capture", custom: "Custom", auto: "Auto", bounty: "Bounty" };
 
 let source = "campaign";
 let canon = null;
@@ -1017,6 +1018,11 @@ async function writeRumor(event) {
 }
 
 function rumorCell(event) {
+  // SSR writes the rumor of a bounty from the bounty in the game, so the player cannot edit it
+  if (event.kind === "bounty") {
+    const text = log.rumors.find((rumor) => rumor.id === event.rumor)?.text ?? "Unknown";
+    return el("div", { className: "inline row" }, el("span", {}, text), deleteButton("Delete the bounty deed", () => deleteDeed(event)));
+  }
   const key = event.rumor === null ? `new:${event.id}` : String(event.rumor);
   if (!(key in rumorDrafts)) return el("button", { type: "button", onclick: () => writeRumor(event) }, icon("bot"), " Generate Rumor");
   const note = notes.get(`rumor:${key}`);
@@ -1051,7 +1057,8 @@ async function addDeed(event) {
 }
 
 async function deleteDeed(event) {
-  if (!(await ask(`Delete the ${event.kind} deed`, "Delete", `This deletes the ${event.kind} deed and its rumor, so NPCs stop mentioning it. `, "\n\n", el("b", { className: "warning" }, "The delete takes effect immediately and is irreversible.")))) return;
+  const bounty = event.kind === "bounty" ? "The bounty in the game stays, and the world map stops showing the target. " : "";
+  if (!(await ask(`Delete the ${event.kind} deed`, "Delete", `This deletes the ${event.kind} deed and its rumor, so NPCs stop mentioning it. ${bounty}`, "\n\n", el("b", { className: "warning" }, "The delete takes effect immediately and is irreversible.")))) return;
   try {
     await sendJson("POST", "/api/campaign/deeds/delete", { campaign: log.name, id: event.id });
     await fetchLog(keptLog());
@@ -1088,7 +1095,7 @@ function renderEvents() {
   return el("fieldset", {},
     el("legend", {}, `Deeds (${deeds.length})`),
     el("p", { className: "hint" },
-      "Kills and captures of known figures, and rumors that you write or that SSR makes from your conversations, for NPCs to gossip about."),
+      "Kills and captures of known figures, bounties that SSR posts on bandits, and rumors that you write or that SSR makes from your conversations, for NPCs to gossip about."),
     deeds.length > 0 ? el("div", { className: "inline row" }, search, select) : null,
     newDeedForm(),
     deeds.length > 0 ? el("div", { id: "event-page" }) : el("p", { className: "hint" }, "No deeds yet."));
@@ -1123,7 +1130,7 @@ function renderEventPage() {
   const start = (eventView.page - 1) * EVENTS_PER_PAGE;
   const rows = shown.slice(start, start + EVENTS_PER_PAGE).map((event) => el("tr", {},
     el("td", {}, event.time),
-    el("td", {}, el("span", { className: "badge" }, NOTABLE_KINDS[event.kind] ?? event.kind)),
+    el("td", {}, el("span", { className: "badge" }, NOTABLE_KINDS[event.kind] ?? event.kind), event.status ? ` (${event.status})` : null),
     el("td", {}, event.line),
     el("td", {}, rumorCell(event))));
   const head = el("tr", {}, el("th", {}, "Time"), el("th", {}, "Kind"), el("th", {}, "Deed"), el("th", {}, "Rumor"));

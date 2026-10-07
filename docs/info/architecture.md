@@ -61,6 +61,7 @@ The plugin reads the game state only when a request needs it. Do not post it on 
 | `/radiant` | The participants, the context of the center, the game events, and the changed towns |
 | `/cull`, `/report` | A report: the player's context, the game events, and the changed towns (`GameReport`). `/report` goes when 50 events wait, when the oldest event waited 60 s, or on `REPORT` from the pipe. |
 | `/squad_rename` | The context of a renamed member of the player's faction (see [Names](#names)) |
+| `/bounty/candidates`, `/bounty/placed` | The candidates of a bounty, and the result of its placement with the context of the target (see [Bounties](#bounties)) |
 
 - The server keeps the player's context of the latest request (`take_report`). It can be old, so a value that must be current comes with its own request.
 - The cull of the web app asks for a report and refuses without one, because a cull by an old game time deletes newer play.
@@ -91,12 +92,12 @@ The hooks in `plugin/main.cpp` buffer the game events (`QueueGameEvent`). The se
 - Else each attacker whose last attack is in the 3 game hours before counts. Kenshi gives no last hit.
 - An event with a game time before the newest event is a load, and drops the kept events after that time. The server skips events at Day 0, 00:00, because the clock reads that until it holds a real time.
 
-The `notable` table holds one row for each deed, with the game time and, as JSON, the kind (`kill`, `capture`, `custom`, or `auto`) and its facts.
+The `notable` table holds one row for each deed, with the game time and, as JSON, the kind (`kill`, `capture`, `custom`, `auto`, or `bounty`) and its facts.
 
-- Only a known figure outside the player's faction makes a deed: a unique character (`npc_id` starts with `u:`), or a generic character that took a canon `npc_id` (`adopt_canon`, see [Characters](#characters)).
+- Only a known figure outside the player's faction makes a deed: a unique character (`npc_id` starts with `u:`), a generic character that took a canon `npc_id` (`adopt_canon`, see [Characters](#characters)), or the target of an open bounty (see [Bounties](#bounties)).
 - A capture counts once for each captor and figure, because `setPrisonMode` runs again for each prisoner when a save loads.
 - A custom deed is a rumor that the player writes (`POST /api/campaign/deeds/add`). It has no game time, so it counts as the newest and the cull keeps it.
-- The server deletes only a custom or an auto deed, always with its rumor. The cull deletes the rows after its game time (see [Campaign routes of the web app](#campaign-routes-of-the-web-app)).
+- The server deletes only a custom, an auto, or a bounty deed, always with its rumor. The cull deletes the rows after its game time (see [Campaign routes of the web app](#campaign-routes-of-the-web-app)).
 
 ### Rumors
 
@@ -121,12 +122,31 @@ At most once in each period of the Radiant rumor timer (`radiant_rumor_minutes`,
 - `campaign_db.add_auto_deed` stores the deed and its rumor, and sets the cited threads to 6, in one transaction. Nothing is written when the active campaign changed or a cited thread left the pool during the call.
 - The deed takes the newest game time of its threads, so the cull deletes it, and the auto rumors do not hold the 5 newest places for good.
 
+### Bounties
+
+SSR posts bounties of its own through the bounty system of the game. The server rolls each bounty (`server/core/bounties.py`), and the plugin only applies it (`ScanBounties`, `PlaceBounty`, and `EndBounty` in `plugin/game/Context.cpp`), so the roll runs in the unit tests.
+
+1. `memory_loop` checks the bounty timer every 10 s (`bounties.tick`). When the Radiant bounty timer (`radiant_bounty_minutes`, default 120 real minutes) passed and fewer bounties are open than `max_open_bounties` (default 3, 0 turns the bounties off), the server sends `BOUNTY_SCAN:` and restarts the timer.
+2. The plugin posts each loaded generic character outside the player's faction that is alive and not in prison to `/bounty/candidates`, with its `npc_id`, name, faction, faction game ID, and town or zone.
+3. The server keeps the members of the 16 target factions (`bounties.TARGETS`) that have no open bounty. It rolls the target, a reason with its crime (`server/data/defaults/bounty_reasons.json`), an amount from 2,000 to 15,000 cats, and a bonus for each of the 16 combat skills, and sends `PLACE_BOUNTY: serial|crime|amount|issuers|stat:bonus,...`.
+4. The plugin finds the target by the serial of its handle. For the Holy Nation, the United Cities, and the Shek Kingdom, it adds the amount to the bounty of each law enforcement faction, adds the crime, and moves the start time of the bounty 100,000 game hours ahead, so that a bounty under 10,000 cats does not end. It marks the target's squad persistent, puts the squad on the world map, raises the skills, and posts the result to `/bounty/placed`.
+5. The server stores the target as at a first meeting (`npc_name`), so a generic target gets a rolled name, and then stores the bounty deed. A result after a campaign switch, or a second result, stores nothing (`take_pending`).
+6. The rumor pass writes the wanted notice, the rumor, and the alias of the target in one call (`prompt_bounty_rumor.txt`, the `synthesis` task). The notice goes into the deed, the rumor into the `rumor` table, and the alias into the `Alias` of the target's profile when that is empty. A reply without all three stores nothing, and the next run tries again.
+
+- The deed holds the target, the reason, the crime, the amount, the place, `expires` in game minutes, the handle of the target's squad, and `persistent`, the flag of the squad before the placement. A squad that another open bounty holds takes the `persistent` of that bounty, because SSR set the flag.
+- The status comes from the other deeds and the game time (`deeds.bounty_statuses`): Captured or Killed after a capture or a kill of the target by the squad, Expired after `expires`, else Open. A cull of the kill opens the bounty again.
+- When a bounty stops being Open, or the player deletes it, the server sends `END_BOUNTY: squad|clear`, unless another open bounty holds the same squad. The plugin finds the squad by its handle among the active and the unloaded squads, takes it off the map, and clears the persistent flag when `clear` is 1. The skill bonus and the game bounty of a living target stay.
+- The notice and the rumor tell the facts of the game bounty, so the routes that write or save a rumor refuse a bounty. The Deeds page shows the notice in the Deed column, the rumor in the Rumor column, and the status after the kind.
+- The character prompt holds the `Alias` (`alias_line`), so the target knows the name that the notices give it.
+- `/bounty [n]` in the chat posts a bounty of n cats, or of a rolled amount, on the chat target through steps 4 to 6, for tests.
+
 ### Deeds window
 
 The Deeds window of the SSR HUB mirrors Campaign Canon > Deeds through `/events`, `/events/content`, `/write_rumor`, `/read_rumor`, `/keep_rumor`, `/add_deed`, `/delete_deed`, and `/delete_rumor`. These share the code of the web app routes in `server/chat/routes.py`.
 
 - The reads return the active campaign, and each write sends it back. A write is refused when that campaign is no longer active, because the same ID can name another deed.
 - Each close of a popup makes the pending reply stale (`CloseRumorUI`).
+- Generate Rumor and Edit Rumor refuse a bounty in the window, before any request.
 
 ### Changed towns
 

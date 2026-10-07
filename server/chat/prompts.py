@@ -78,6 +78,10 @@ def current_job_line(profile):
     """The whole prompt line, because an NPC without a Current Job gets no line at all."""
     return f"CURRENT JOB: {profile['CurrentJob']}" if profile.get("CurrentJob") else ""
 
+def alias_line(profile):
+    """The whole prompt line, because an NPC without an Alias gets no line at all."""
+    return f"ALIAS (the name that the bounty notices give this character): {profile['Alias']}" if profile.get("Alias") else ""
+
 def building_of(ctx):
     """The building that the character is in, or None outdoors. The plugin sends Unknown outdoors."""
     building = ctx.get("building_name")
@@ -90,6 +94,7 @@ def describe_npc(name, profile, npc_id):
     return fill_prompt(
         "npc_chat_template.txt",
         name=name,
+        alias=alias_line(profile),
         race=describe_record(race_entry) if race_entry else race,
         sex=reported_sex(race, profile.get("Sex", "Unknown")),
         current_job=current_job_line(profile),

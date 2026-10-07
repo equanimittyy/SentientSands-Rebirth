@@ -4,7 +4,7 @@ import time
 from chat import chat_prompt, rumors
 from chat.llm import call_llm, robust_json_parse
 from chat.prompts import fill_prompt
-from core import deeds, state
+from core import bounties, deeds, state
 from core.settings import load_settings
 from store import campaign_db
 
@@ -44,6 +44,9 @@ def write_rumor(notable_id, campaign):
     notable = campaign_db.notable(notable_id)
     if not notable:
         return
+    if notable[1]["deed"] == "bounty":
+        write_bounty_rumor(notable_id, notable, campaign)
+        return
     text = rumors.clean(call_llm("synthesis", [{"role": "user", "content": rumors.prompt(*notable, "", "")}]))
     if not text:
         logging.warning(f"RUMOR: The LLM gave no rumor for the deed {notable_id}, so it waits for the next quiet period.")
@@ -56,6 +59,27 @@ def write_rumor(notable_id, campaign):
         logging.info(f"RUMOR: Stored the rumor of the deed {notable_id}.")
     else:
         logging.info(f"RUMOR: Dropped the rumor of the deed {notable_id}, because the player saved one or a cull deleted the deed while the LLM wrote it.")
+
+def write_bounty_rumor(notable_id, notable, campaign):
+    """Has the LLM write the wanted notice and the rumor of a bounty and the alias of its target in one reply, and stores
+    them. A reply without all three leaves the bounty without a rumor."""
+    try:
+        parsed = rumors.bounty_reply(robust_json_parse(call_llm("synthesis", [{"role": "user", "content": rumors.bounty_prompt(*notable)}])))
+    except ValueError:
+        parsed = None
+    if not parsed:
+        logging.warning(f"RUMOR: The LLM gave no notice, rumor, and alias for the bounty {notable_id}, so it waits for the next quiet period.")
+        return
+    if state.ACTIVE_CAMPAIGN != campaign:
+        logging.info(f"RUMOR: Dropped the rumor of the bounty {notable_id}, because the active campaign changed while the LLM wrote it.")
+        return
+    notice, text, alias = parsed
+    if not campaign_db.add_bounty_rumor(notable_id, notice, text):
+        logging.info(f"RUMOR: Dropped the rumor of the bounty {notable_id}, because a delete or a cull removed the bounty while the LLM wrote it.")
+        return
+    target = notable[1]["target"]
+    named = campaign_db.add_alias(target["id"], alias)
+    logging.info(f"RUMOR: Stored the notice and the rumor of the bounty {notable_id}" + (f", and {target['name']} is now known as {alias}." if named else "."))
 
 def distill_threads():
     """Writes the memory of each pending chat thread of the active campaign, the oldest first, while the chat stays quiet."""
@@ -115,6 +139,10 @@ def memory_loop():
     last_pass = time.monotonic()
     while True:
         time.sleep(10)
+        try:
+            bounties.tick()
+        except Exception as e:
+            logging.error(f"BOUNTY: The bounty timer failed: {e}")
         if time.monotonic() - last_pass >= auto_rumor_seconds() and chat_is_quiet():
             campaign = state.ACTIVE_CAMPAIGN
             try:

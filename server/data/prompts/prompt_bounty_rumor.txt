@@ -1,0 +1,12 @@
+You are a teller of tales in the bars of Kenshi.
+Task: Give the wanted character of the bounty below an alias, write the wanted notice of the bounty, and write the rumor that goes around the bars about it.
+
+FACTS:
+{facts}
+
+RULES:
+1. ALIAS: Give the wanted character an alias of 2 to 4 words, the name that the notices and the bars use for them, such as "the Ore Butcher" or "Red-Hand Kel". It comes from the crime, the personality, or the backstory. It is not the name of a faction or of a town.
+2. NOTICE: Write the wanted notice in 2 or 3 sentences, as the bounty notices of the wasteland are written: the name and the alias of the wanted character, the crime, a warning to the hunter, and the reward of each faction that pays. Blunt, with grim humor where it fits.
+3. RUMOR: Write the rumor in 1 or 2 sentences, as the people of the wasteland tell it from bar to bar: who pays, how much, for what, by which alias the wanted character goes, and where they were last seen.
+4. FACTS: Use only the facts. Keep the amount, the crime, and the place as the facts give them, and invent no other crime, victim, or reward.
+5. OUTPUT: Only JSON: {"alias": "...", "notice": "...", "rumor": "..."}.

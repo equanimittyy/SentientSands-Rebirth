@@ -75,8 +75,7 @@ enum ActionType {
   ACT_FACTION_RELATIONS,
   ACT_SPAWN_ITEM,
   ACT_RELEASE,
-  ACT_TAKE_ITEM,
-  ACT_BOUNTY_PROBE
+  ACT_TAKE_ITEM
 };
 
 struct GameEvent {
@@ -98,7 +97,7 @@ struct QueuedAction {
   ActionType type;
   hand actor;
   hand target;
-  std::string message; // Text, item, faction, town name, or probe payload, depending on type
+  std::string message; // Text, item, faction, or town name, depending on type
   int taskValue;       // Task ID, item count, cats, or relation delta, depending on type
 };
 

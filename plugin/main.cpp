@@ -173,6 +173,14 @@ void ProcessMessageQueue(GameWorld *thisptr) {
             RefreshLibraryUI();
           } else if (command == "REPORT") {
             AsyncPostToPython(L"/report", GameReport());
+          } else if (command == "BOUNTY_SCAN") {
+            ScanBounties();
+          } else if (command == "PLACE_BOUNTY") {
+            trim(data);
+            PlaceBounty(data);
+          } else if (command == "END_BOUNTY") {
+            trim(data);
+            EndBounty(data);
           } else if (command == "BIO_WRITTEN") {
             OpenBioEditor(data, "Write failed: ");
           } else if (command == "BIO_READ") {
@@ -472,15 +480,7 @@ void ProcessMessageQueue(GameWorld *thisptr) {
             return res;
           };
 
-          if (actStr.find("BOUNTY_PROBE") != std::string::npos) {
-            EnterCriticalSection(&g_uiMutex);
-            QueuedAction act;
-            act.type = ACT_BOUNTY_PROBE;
-            act.actor = targetHand;
-            act.message = getPayload(actStr, "BOUNTY_PROBE:");
-            g_uiActionQueue.push_back(act);
-            LeaveCriticalSection(&g_uiMutex);
-          } else if (actStr.find("JOIN_PARTY") != std::string::npos) {
+          if (actStr.find("JOIN_PARTY") != std::string::npos) {
             EnterCriticalSection(&g_uiMutex);
             QueuedAction act;
             act.type = ACT_JOIN_PARTY;

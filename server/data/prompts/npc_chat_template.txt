@@ -1,4 +1,5 @@
 CHARACTER: {name}
+{alias}
 RACE: {race}
 SEX: {sex}
 {current_job}
