@@ -28,7 +28,7 @@ const FACT_HELP = { neighbours: "The regions that share a border with this regio
 const TIERS = { global: "Global", limited: "Limited", secret: "Secret" };
 // Mirrors DEFAULTS in server/chat/knowledge.py.
 const DEFAULT_TIERS = { character: "limited" };
-const KNOWLEDGE_HELP = "Who can know this entry. Global: every NPC. Limited: only the NPCs tied to it through a faction, a race, or a place that it names or that names it. Secret: only the characters, factions, and races in Known by.";
+const KNOWLEDGE_HELP = "Who can know this entry.\nGlobal: every NPC.\nLimited: NPCs whose faction, race, home, or travels link to it.\nSecret: only the characters, factions, and races in Known by.";
 const KNOWN_BY_HELP = "The characters, factions, and races that know this entry. A member of a faction knows it, and so does a character that comes from the faction. Type to search, then choose from the list.";
 const KNOWER_KINDS = { character: "character", faction: "faction", races: "race" };
 const TEMPLATE_PARTS = ["manifest", "overview", "history"];

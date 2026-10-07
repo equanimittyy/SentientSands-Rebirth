@@ -129,6 +129,15 @@ window.addEventListener("beforeunload", (event) => {
   if (unsaved.size > 0) event.preventDefault();
 });
 
+// A click on a help mark would also activate the control of its label, which takes the focus and closes the tip
+document.addEventListener("click", (event) => {
+  const help = event.target.closest(".help");
+  for (const open of document.querySelectorAll(".help.open")) if (open !== help) open.classList.remove("open");
+  if (!help) return;
+  event.preventDefault();
+  if (!event.target.closest(".tip")) help.classList.toggle("open");
+});
+
 async function poll() {
   try {
     const context = await getJson("/context");

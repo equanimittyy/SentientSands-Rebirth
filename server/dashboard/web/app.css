@@ -323,7 +323,8 @@ label > .label-text > .help {
 }
 
 .help:hover,
-.help:focus {
+.help:focus-visible,
+.help.open {
   border-color: var(--accent);
   color: var(--accent);
 }
@@ -343,6 +344,7 @@ label > .label-text > .help {
   filter: drop-shadow(0 2px 4px rgb(0 0 0 / 0.25));
   color: var(--text);
   font-size: 1rem;
+  white-space: pre-line;
 }
 
 .tip::before {
@@ -350,7 +352,8 @@ label > .label-text > .help {
 }
 
 .help:hover > .tip,
-.help:focus > .tip {
+.help:focus-visible > .tip,
+.help.open > .tip {
   display: block;
 }
 
