@@ -32,7 +32,7 @@ const KNOWLEDGE_HELP = "Who can know this entry.\nGlobal: every NPC.\nLimited: N
 const KNOWN_BY_HELP = "The characters, factions, and races that know this entry. A member of a faction knows it, and so does a character that comes from the faction. Type to search, then choose from the list.";
 const KNOWER_KINDS = { character: "character", faction: "faction", races: "race" };
 const TEMPLATE_PARTS = ["manifest", "overview", "history"];
-const SOURCES = [["campaign", "Campaign Canon"], ["events", "Campaign Log"], ["template", "Templates"]];
+const SOURCES = [["campaign", "Campaign Canon"], ["events", "Campaign Log"], ["template", "Templates", "(Advanced)"]];
 const LOG_VIEWS = [["dialogue", "Dialogue & Memories"], ["events", "Deeds"]];
 const ORIGIN_LABELS = { seed: "Seeded", game: "Met in game", campaign: "Added in this campaign" };
 // Mirrors campaign_db.PROVISIONAL: the chat count of a provisional profile is also its mark.
@@ -948,8 +948,8 @@ async function runTestSearch(event) {
 }
 
 function renderSubtabs(tabs = SOURCES, shown = source, choose = chooseSource) {
-  const list = el("div", { className: "subtabs" }, ...tabs.map(([value, text]) => {
-    const tab = el("button", { type: "button", onclick: () => choose(value) }, text);
+  const list = el("div", { className: "subtabs" }, ...tabs.map(([value, text, tag]) => {
+    const tab = el("button", { type: "button", onclick: () => choose(value) }, text, ...(tag ? [" ", el("span", { className: "advanced" }, tag)] : []));
     tab.setAttribute("role", "tab");
     tab.setAttribute("aria-selected", String(value === shown));
     return tab;

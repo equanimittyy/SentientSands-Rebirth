@@ -282,7 +282,7 @@ legend .mandatory {
   color: var(--error);
 }
 
-legend .optional {
+.advanced {
   color: var(--info);
 }
 

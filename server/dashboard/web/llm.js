@@ -489,7 +489,7 @@ function renderRoutes() {
       field("Deadline (s)", numberInput(route, "deadline", path("deadline"), { step: 1, min: 1 }, deadlineWarning), null, "The total time that this task waits for a reply, over all of its profiles."));
   });
   return el("fieldset", {},
-    el("legend", {}, "Tasks ", el("span", { className: "optional" }, "(Optional)")),
+    el("legend", {}, "Tasks ", el("span", { className: "advanced" }, "(Advanced)")),
     el("p", { className: "hint" },
       "Each task is one kind of LLM call that SSR makes, with its own settings. It tries its profiles in order until one replies. " +
       `The game waits only ${GAME_WAIT_S} s, so keep the deadline under that.`),
