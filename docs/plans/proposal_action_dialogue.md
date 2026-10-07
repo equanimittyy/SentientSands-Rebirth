@@ -49,10 +49,10 @@ A line with no category costs two LLM calls: a classify call, and then the actio
 The classify call is as lean as possible. Its prompt holds only the player's line and a numbered list of the categories, and it tells the model to output only the number of one choice. The list follows the map of [section 3](#3-categories):
 
 1. A threat or demand
-2. A request to trade for items, services or help
+2. A request to trade for items, services or help, or a gift
 3. A request to join the squad
-4. An order to leave
-5. A gift that asks for nothing back
+4. A request to follow the squad for a time
+5. An order to leave
 6. None of these
 
 The last choice is an escape hatch: it lets the model reject a line that fits no category, instead of forcing the line into one.
@@ -68,18 +68,20 @@ A failure sends no action dialogue call. The server replies with the line "X did
 | Letter | Word | Category | The player's request |
 |---|---|---|---|
 | `t` | `threaten` | THREATEN | Threatens the NPC, demands its cats or items, or challenges it to a fight. |
-| `b` | `barter` | BARTER | Makes a deal with the NPC: buys or sells an item, or asks for a service, such as a release from prison or the treatment of wounds. The player can haggle over the price. |
+| `b` | `barter` | BARTER | Makes a deal with the NPC: buys or sells an item, gives an item or cats for nothing, or asks for a service, such as a release from prison or the treatment of wounds. The player can haggle over the price. A gift is a trade at no price, and the NPC is glad to take it. |
 | `r` | `recruit` | RECRUIT | Asks the NPC to join the squad. |
-| `d` | `dismiss` | DISMISS | Tells the NPC to leave: a squad member leaves the squad, and an NPC outside the squad goes away. |
-| `g` | `gift` | GIFT | Gives the NPC an item or cats, and asks for nothing back. |
+| `f` | `follow` | FOLLOW | Asks the NPC to follow the squad for a time. Unlike RECRUIT, the hire is temporary. |
+| `d` | `dismiss` | DISMISS | Tells the NPC to leave: a squad member leaves the squad, and an NPC outside the squad goes away. The NPC never refuses. |
 
-BARTER offers a deal only when its gate holds. The gates read three fields of the game context only.
+FOLLOW reuses the game's mercenary hire: the NPC follows the squad under a hire contract, as a hired mercenary does. The plugin already reads such a contract as `temporary_follower` (`plugin/game/Context.cpp:361`).
+
+BARTER offers a deal only when its gate holds. The gates read only the speaker's `character_state` and `health`, and the NPC's Current Job.
 
 | Deal | Gate |
 |---|---|
 | A release from prison | The speaker's `character_state` (`plugin/game/Context.cpp:650`) is `imprisoned`. |
 | Treatment | The speaker's `health` (`plugin/game/Context.cpp:651`) is `Injured` or `Crippled` (`GetHealthStatus` in `plugin/game/Context.cpp:114`). |
-| A trade of items | The NPC's `job` (`plugin/game/Context.cpp:722`) is a trade job. |
+| A trade of items, or a gift | The NPC's Current Job (`current_job` in `server/chat/current_job.py:40`) is `Trading`, `Running a shop`, or `Travelling as a trader`. |
 
 ## 4. Action dialogue
 
@@ -106,13 +108,17 @@ The action dialogue ends at the first of these events:
 - The player sends `!e` or `!end`, for example `!end Thanks`.
 - The chat thread ends: `conversation_timeout_minutes` pass without a chat, or the player starts another chat thread, for example with another NPC.
 
-The category sets when the model sends the close signal:
+A close signal or `!end` also ends the chat thread.
 
-| Category | The model closes |
+The category sets when the action dialogue closes:
+
+| Category | The action dialogue closes |
 |---|---|
 | BARTER, for a release or a treatment | When the release or the treatment is done |
 | BARTER, for a trade of items | When the player confirms the trade |
 | THREATEN | When the NPC complies, or when it attacks the player |
+| RECRUIT | When the NPC refuses and makes no offer, when the player cannot or does not pay the cats that the NPC asks, or when the NPC joins the squad. The server already reads squad membership from the game context (`server/chat/characters.py:72`). |
+| DISMISS | When the NPC leaves |
 
 ## 5. Speaker
 
@@ -120,9 +126,8 @@ The plugin gives most actions to the first character of the squad, not to the sq
 
 ## 6. Open questions
 
-1. What is the close signal of the model? When does the model close RECRUIT, DISMISS, and GIFT?
-2. After a close signal or `!end`, does the chat thread go on as plain chat, or does it end?
-3. Which deterministic nudges does code give the model, and from which facts?
-4. What does the action system prompt hold, and how does a reply send its actions to the plugin?
-5. Which values of `job` count as a trade job?
-6. Does GIFT fold into BARTER?
+1. What is the close signal of the model?
+2. Which deterministic nudges does code give the model, and from which facts?
+3. What does the action system prompt hold, and how does a reply send its actions to the plugin?
+4. How does the plugin start a hire contract? The plugin only reads one now, and no in-game test covers a contract yet ([development.md](../info/development.md#probes)).
+5. When does the action dialogue close for FOLLOW?
