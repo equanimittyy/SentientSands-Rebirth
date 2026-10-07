@@ -5,9 +5,13 @@
     "factions": [
       "Skeletons"
     ],
+    "animals": [
+      "Iron Spider"
+    ],
     "hazards": [
       "acidic ground",
-      "acidic water"
+      "acidic water",
+      "acid rain"
     ],
     "neighbours": [
       "Grey Desert",

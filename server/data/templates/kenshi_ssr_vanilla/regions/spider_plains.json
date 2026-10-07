@@ -13,6 +13,9 @@
       "Bonedog",
       "Skin Spider"
     ],
+    "hazards": [
+      "dust storms"
+    ],
     "neighbours": [
       "Arach",
       "Border Zone",

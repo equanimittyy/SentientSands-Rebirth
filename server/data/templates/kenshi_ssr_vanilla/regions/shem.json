@@ -15,6 +15,9 @@
       "Blood Spider",
       "Garru"
     ],
+    "hazards": [
+      "dust storms"
+    ],
     "neighbours": [
       "Bonefields",
       "Border Zone",

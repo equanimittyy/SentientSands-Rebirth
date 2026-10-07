@@ -5,6 +5,9 @@
     "factions": [
       "Shrieking Bandits"
     ],
+    "hazards": [
+      "dust storms"
+    ],
     "neighbours": [
       "Berserker Country",
       "Dreg",

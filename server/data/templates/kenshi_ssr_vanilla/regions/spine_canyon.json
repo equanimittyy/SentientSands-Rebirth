@@ -9,6 +9,9 @@
     "animals": [
       "Bonedog"
     ],
+    "hazards": [
+      "dust storms"
+    ],
     "neighbours": [
       "Bast",
       "Skimsands",

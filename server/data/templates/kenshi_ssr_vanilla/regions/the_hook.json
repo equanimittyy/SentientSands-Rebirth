@@ -20,6 +20,9 @@
       "Garru",
       "Goat"
     ],
+    "hazards": [
+      "dust storms"
+    ],
     "neighbours": [
       "Bonefields",
       "Shun",

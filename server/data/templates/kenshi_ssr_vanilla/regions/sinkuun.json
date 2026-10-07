@@ -12,6 +12,9 @@
       "Goat",
       "Skimmer"
     ],
+    "hazards": [
+      "dust storms"
+    ],
     "neighbours": [
       "Bast",
       "Darkfinger",

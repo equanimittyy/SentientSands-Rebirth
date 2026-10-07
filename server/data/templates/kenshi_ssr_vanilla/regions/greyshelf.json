@@ -5,6 +5,11 @@
     "factions": [
       "Southern Hive"
     ],
+    "animals": [
+      "Black Gorillo",
+      "Goat",
+      "Gorillo"
+    ],
     "hazards": [
       "acid rain"
     ],

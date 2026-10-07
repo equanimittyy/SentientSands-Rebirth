@@ -16,6 +16,9 @@
       "Leviathan",
       "Skin Spider"
     ],
+    "hazards": [
+      "dust storms"
+    ],
     "neighbours": [
       "Burning Forest",
       "Fishman Island",

@@ -2,6 +2,9 @@
   "name": "The Iron Trail",
   "aliases": [],
   "fields": {
+    "animals": [
+      "Iron Spider"
+    ],
     "hazards": [
       "acid rain"
     ],

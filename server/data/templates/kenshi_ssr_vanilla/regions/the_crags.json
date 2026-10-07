@@ -13,6 +13,10 @@
       "Black Gorillo",
       "Land Bat"
     ],
+    "hazards": [
+      "acid rain",
+      "dust storms"
+    ],
     "neighbours": [
       "Sniper Valley",
       "Stobe's Gamble",
@@ -20,7 +24,7 @@
       "The Pits"
     ]
   },
-  "description": "The Skeleton Bandits make their home in the Crags, and their leader Elder lives at their headquarters, Iron HQ. Reavers and Crab Raiders also come here and often fight one another, and some drifter bands from Stobe's Gamble attack strangers on sight. Nothing grows, though the ground is rich in ore. Land bats, black gorillos, sniper robots, and treasure hunters roam, and an old Empire supply outpost lies in ruins.",
+  "description": "The Skeleton Bandits make their home in the Crags, and their leader Elder lives at their headquarters, Iron HQ. Reavers and Crab Raiders also come here and often fight one another, and some drifter bands from Stobe's Gamble attack strangers on sight. Nothing grows and acid rain falls at times, though the ground is rich in ore. Land bats, black gorillos, sniper robots, and treasure hunters roam, and an old Empire supply outpost lies in ruins.",
   "children": [
     {
       "entry": "locations/iron_hq",

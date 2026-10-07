@@ -10,6 +10,9 @@
       "Cleanser Unit",
       "Iron Spider"
     ],
+    "hazards": [
+      "poison gas"
+    ],
     "neighbours": [
       "Sonorous Dark",
       "The Pits"

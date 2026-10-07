@@ -23,6 +23,9 @@
       "Garru",
       "Skimmer"
     ],
+    "hazards": [
+      "dust storms"
+    ],
     "neighbours": [
       "Gut",
       "Howler Maze",

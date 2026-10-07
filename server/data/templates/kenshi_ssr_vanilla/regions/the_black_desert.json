@@ -7,7 +7,8 @@
     ],
     "hazards": [
       "acidic ground",
-      "acidic water"
+      "acidic water",
+      "poison gas"
     ],
     "neighbours": [
       "Deadlands",

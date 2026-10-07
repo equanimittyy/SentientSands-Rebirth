@@ -15,6 +15,9 @@
       "Bonedog",
       "Skin Spider"
     ],
+    "hazards": [
+      "dust storms"
+    ],
     "neighbours": [
       "Border Zone",
       "Spider Plains",

@@ -13,6 +13,9 @@
     "animals": [
       "Bonedog"
     ],
+    "hazards": [
+      "dust storms"
+    ],
     "neighbours": [
       "Arm of Okran",
       "Bast",

@@ -10,6 +10,9 @@
       "Beak Thing",
       "Garru"
     ],
+    "hazards": [
+      "dust storms"
+    ],
     "neighbours": [
       "Berserker Country",
       "Cannibal Plains",

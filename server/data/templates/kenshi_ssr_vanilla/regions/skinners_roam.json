@@ -12,6 +12,9 @@
       "Bonedog",
       "Wild Bull"
     ],
+    "hazards": [
+      "dust storms"
+    ],
     "neighbours": [
       "Arm of Okran",
       "Border Zone",

@@ -12,6 +12,9 @@
       "Gorillo",
       "Skin Spider"
     ],
+    "hazards": [
+      "dust storms"
+    ],
     "neighbours": [
       "Arach",
       "Spider Plains",

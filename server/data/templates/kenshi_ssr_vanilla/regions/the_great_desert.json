@@ -24,6 +24,9 @@
       "Garru",
       "Skimmer"
     ],
+    "hazards": [
+      "dust storms"
+    ],
     "neighbours": [
       "Bast",
       "Heng",

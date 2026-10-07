@@ -12,7 +12,9 @@
       "Crab"
     ],
     "hazards": [
-      "acidic water"
+      "acidic water",
+      "acid rain",
+      "dust storms"
     ],
     "neighbours": [
       "Greenbeach",
@@ -20,7 +22,7 @@
       "The Pits"
     ]
   },
-  "description": "The Crab Raiders make their home in the Pits East, and their Crab Queen rules from Crab Town in the northeast, a town with a bar and a smithy that stays open to neutral travelers. Crabs and Crab Raider patrols are common, and the raiders sometimes clash with Reaver patrols. Nothing grows and the water is acidic, though the ground is rich in ore. Fishmen and scavengers roam, and an ancient workshop lies in ruins.",
+  "description": "The Crab Raiders make their home in the Pits East, and their Crab Queen rules from Crab Town in the northeast, a town with a bar and a smithy that stays open to neutral travelers. Crabs and Crab Raider patrols are common, and the raiders sometimes clash with Reaver patrols. Nothing grows, the water is acidic, and acid rain falls at times, though the ground is rich in ore. Fishmen and scavengers roam, and an ancient workshop lies in ruins.",
   "children": [
     {
       "entry": "locations/crab_town",

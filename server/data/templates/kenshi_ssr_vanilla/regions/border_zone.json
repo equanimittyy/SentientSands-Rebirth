@@ -16,6 +16,9 @@
       "Garru",
       "Goat"
     ],
+    "hazards": [
+      "dust storms"
+    ],
     "neighbours": [
       "Okran's Gulf",
       "Okran's Pride",
