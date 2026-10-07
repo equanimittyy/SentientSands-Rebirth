@@ -8,6 +8,7 @@
 #include "Utils.h"
 
 class GameWorld;
+class SharedKing;
 namespace Ogre {
 class Vector3;
 }
@@ -28,6 +29,7 @@ struct OriginState {
 };
 
 extern GameWorld **ppWorld;
+extern SharedKing **ppSharedKing;
 extern CRITICAL_SECTION g_LogMutex;
 extern std::deque<std::string> g_messageQueue;
 extern CRITICAL_SECTION g_msgMutex;

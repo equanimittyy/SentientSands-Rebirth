@@ -1,6 +1,7 @@
 #include "Globals.h"
 
 GameWorld **ppWorld = nullptr;
+SharedKing **ppSharedKing = nullptr;
 CRITICAL_SECTION g_LogMutex;
 std::deque<std::string> g_messageQueue;
 CRITICAL_SECTION g_msgMutex;

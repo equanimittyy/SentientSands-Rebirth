@@ -17,6 +17,7 @@
 #include <kenshi/AI/AITaskSystem.h>
 #include <kenshi/AI/Blackboard.h>
 #include <kenshi/RaceData.h>
+#include <kenshi/SharedKing.h>
 #include <kenshi/StateBroadcastData.h>
 #include <kenshi/Tasker.h>
 #include <kenshi/Town.h>
@@ -1122,14 +1123,13 @@ std::string TakeGameEvents() {
 // which the location records use, and the type is a TownType.
 std::string ChangedTowns() {
   std::string json = "[";
-  GameWorld *world = ppWorld ? *ppWorld : nullptr;
-  if (!world)
+  SharedKing *shared = ppSharedKing ? *ppSharedKing : nullptr;
+  if (!shared || !shared->townList)
     return json + "]";
-  lektor<RootObject *> found;
-  world->getObjectsWithinSphere(found, Ogre::Vector3::ZERO, 10000000.0f, TOWN,
-                                5000, NULL);
-  for (uint32_t i = 0; i < found.size(); ++i) {
-    Town *town = found[i] ? ((TownBase *)found[i])->isTown() : nullptr;
+  // Not getObjectsWithinSphere: with TOWN it gives items, and isTown crashes
+  lektor<RootObject *> &towns = shared->townList->getAllTowns();
+  for (uint32_t i = 0; i < towns.size(); ++i) {
+    Town *town = towns[i] ? ((TownBase *)towns[i])->isTown() : nullptr;
     if (!town)
       continue;
     GameData *now = town->getGameData();

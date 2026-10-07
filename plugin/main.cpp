@@ -1200,6 +1200,8 @@ DWORD WINAPI MainThread(LPVOID lpParam) {
   ppWorld = (GameWorld **)GetProcAddress(hLib, "?ou@@3PEAVGameWorld@@EA");
   if (!ppWorld)
     return 1;
+  ppSharedKing =
+      (SharedKing **)GetProcAddress(hLib, "?shou@@3PEAVSharedKing@@EA");
   CreateThread(NULL, 0, PipeThread, NULL, 0, NULL);
   LoadPluginConfig();
   StartPythonServer(g_openWebPanelOnStart);
