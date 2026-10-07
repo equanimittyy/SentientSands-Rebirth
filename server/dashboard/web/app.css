@@ -77,26 +77,56 @@ dialog h2 {
   font-weight: normal;
 }
 
+/* The image starts 7px in, under the stroke: deeper than the stroke's rough edge, so the image never shows outside the stroke, and shallower than its dry gaps, so they show the image. */
 .banner {
+  --scratch: 12px;
+  --corner: calc(2 * var(--scratch));
+  --image-inset: 7px;
   position: relative;
   margin: 0 0 0.75rem;
-  border-radius: 8px;
-  overflow: hidden;
+  padding: var(--image-inset);
+  border-radius: var(--corner);
+  background: #000 content-box;
+  isolation: isolate;
 }
 
+/* The image fades onto the black behind it, because both pseudo-elements draw the stroke and none is left for an overlay. */
 .banner > img {
   display: block;
   width: 100%;
   height: 12rem;
   object-fit: cover;
   object-position: 50% 5%;
+  border-radius: calc(var(--corner) - var(--image-inset));
+  mask: linear-gradient(#000 45%, rgb(0 0 0 / 0.4));
 }
 
+/* Each layer's padding leaves a content box as long as its straight edges, so whole strip tiles round to fit between the corner pieces and no strand is cut. The corner pieces reach 1px past their boxes, so they overlap the strips without a seam. The image's mask paints it among the positioned layers, so the stroke needs a z-index to stay on top; the isolated banner keeps that z-index off the page. */
+.banner::before,
 .banner::after {
   content: "";
   position: absolute;
+  z-index: 1;
   inset: 0;
-  background: linear-gradient(transparent 45%, rgb(0 0 0 / 0.6));
+  background: var(--text);
+}
+
+.banner::before {
+  padding: 0 var(--corner);
+  mask:
+    url("images/scratch/top_left.svg") 0 0 / calc(var(--corner) + 1px) no-repeat border-box,
+    url("images/scratch/top_right.svg") 100% 0 / calc(var(--corner) + 1px) no-repeat border-box,
+    url("images/scratch/bottom_left.svg") 0 100% / calc(var(--corner) + 1px) no-repeat border-box,
+    url("images/scratch/bottom_right.svg") 100% 100% / calc(var(--corner) + 1px) no-repeat border-box,
+    url("images/scratch/top.svg") 0 0 / 300px var(--scratch) round no-repeat content-box,
+    url("images/scratch/bottom.svg") 0 100% / 300px var(--scratch) round no-repeat content-box;
+}
+
+.banner::after {
+  padding: var(--corner) 0;
+  mask:
+    url("images/scratch/left.svg") 0 0 / var(--scratch) 140px no-repeat round content-box,
+    url("images/scratch/right.svg") 100% 0 / var(--scratch) 140px no-repeat round content-box;
 }
 
 h1 {
