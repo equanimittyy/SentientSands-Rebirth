@@ -277,7 +277,7 @@ def save_campaign_record():
     if kind in ("overview", "history"):
         if kind == "overview" and isinstance(value, str):
             value = value.replace("\r\n", "\n").strip()
-        errors, warnings = world_template.record_problems(kind, value, [kind], names=campaign_names())
+        errors, warnings = world_template.record_problems(kind, value, [kind], names=lore_names())
         if errors: return record_refusal(errors)
         (campaign_db.set_overview if kind == "overview" else campaign_db.set_history)(value)
     elif kind in ("faction", "character", "entity"):
@@ -289,7 +289,7 @@ def save_campaign_record():
                 warnings = save_campaign_faction(record_id, value, updated_at)
             elif kind == "character":
                 character = {"game_id": record_id, "profile": value.get("profile"), **{key: value[key] for key in ("knowledge", "known_by") if key in value}}
-                errors, warnings = world_template.record_problems("character", character, ["characters", data.get("id") or "new"], names=campaign_names())
+                errors, warnings = world_template.record_problems("character", character, ["characters", data.get("id") or "new"], names=lore_names())
                 if errors: return record_refusal(errors)
                 if data.get("id") is None:
                     record_id = campaign_db.unique_npc_id(record_id)
@@ -308,7 +308,7 @@ def save_campaign_record():
                 stored = campaign_db.list_records("entity")
                 record_id = record_id or world_template.new_id(value, {ext_id for (stored_category, ext_id), *_ in stored if stored_category == category})
                 entries = {f"{stored_category}/{ext_id}" for (stored_category, ext_id), *_ in stored} | {f"{category}/{record_id}"}
-                errors, warnings = world_template.record_problems("entity", value, [category, data.get("id") or "new"], entries, campaign_names())
+                errors, warnings = world_template.record_problems("entity", value, [category, data.get("id") or "new"], entries, lore_names())
                 if errors: return record_refusal(errors)
                 campaign_db.save_record("entity", (category, record_id), value, updated_at)
         except world_template.TemplateError as e:
@@ -349,7 +349,7 @@ def write_template_bio(name):
     race_lore = describe_record(race_entry) if race_entry else f"{race}: The template has no entry for this race."
     return bio_reply(data, [], race_lore, faction_text(faction, find_named(template["factions"].values(), faction)))
 
-def campaign_names():
+def lore_names():
     """The names that a known_by and a neighbour of the campaign can name, as world_template.template_names gives them
     for a template. Only a canon character is a lore record, so only its name counts."""
     entities = campaign_db.list_records("entity")
@@ -365,7 +365,7 @@ def save_campaign_faction(faction_id, value, updated_at):
     changes = {"knowledge": "", "known_by": [], **{key: value[key] for key in campaign_db.FACTION_KEYS if key in value}}
     if updated_at is None:
         faction = {"aliases": [], "major": False, "fields": {}, "description": "", **changes, "game_id": faction_id}
-        errors, warnings = world_template.record_problems("faction", faction, ["factions", "new"], names=campaign_names())
+        errors, warnings = world_template.record_problems("faction", faction, ["factions", "new"], names=lore_names())
         if errors: raise world_template.TemplateError(errors)
         campaign_db.add_faction(faction_id, faction)
         return warnings
@@ -375,7 +375,7 @@ def save_campaign_faction(faction_id, value, updated_at):
     # The game names the player's faction, and the next context would undo another name
     if stored["is_player"]:
         changes.pop("name", None)
-    errors, warnings = world_template.record_problems("faction", dict(stored, game_id=faction_id, **changes), ["factions", faction_id], names=campaign_names())
+    errors, warnings = world_template.record_problems("faction", dict(stored, game_id=faction_id, **changes), ["factions", faction_id], names=lore_names())
     if errors: raise world_template.TemplateError(errors)
     campaign_db.update_faction(faction_id, changes, updated_at)
     return warnings
