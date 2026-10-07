@@ -224,7 +224,8 @@ def get_campaign_canon():
 
 def search_reply(memories, entries, skipped, npc_id=None, dropped=()):
     """The hits of a test search in prompt order, each with how it was found: by a name or by the words of the line, and
-    with its tier. dropped holds the records that the line names and that the NPC cannot know."""
+    with its tier, and an entry with whether the NPC knows it only from its travels. dropped holds the records that the
+    line names and that the NPC cannot know."""
     def found(hit):
         return {key: hit[key] for key in ("name", "words") if key in hit}
 
@@ -234,7 +235,7 @@ def search_reply(memories, entries, skipped, npc_id=None, dropped=()):
         "slots": settings["retrieval_slots"],
         "memory_slots": settings["memory_slots"],
         "memories": [{"heading": chat_prompt.memory_heading(hit["record"]["memory"], npc_id), "text": retrieval.clipped(hit["record"]["text"]), **found(hit)} for hit in memories],
-        "entries": [{"name": hit["record"]["name"], "kind": hit["record"]["kind"], "tier": knowledge.tier(hit["record"]), **found(hit)} for hit in entries],
+        "entries": [{"name": hit["record"]["name"], "kind": hit["record"]["kind"], "tier": knowledge.tier(hit["record"]), "travels": hit["travels"], **found(hit)} for hit in entries],
         "dropped": [{"name": record["name"], "kind": record["kind"], "tier": knowledge.tier(record)} for record in dropped],
         "skipped": [{"word": word, "reason": reason} for word, reason in skipped],
     })

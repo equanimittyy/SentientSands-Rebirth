@@ -996,7 +996,7 @@ function renderTestSearch() {
     el("form", { className: "add", onsubmit: runTestSearch },
       field("Line", line),
       ...(source === "campaign" ? [
-        field("Talk to", characterPicker("npc", characters, "Nobody (lore only)", "Character to talk to"), null, "The character that hears the line. The search then also finds its memories, finds only the entries that it can know, and skips the entries of its factions, which it knows from its chat prompt. Without one, the search finds only lore, in every entry."),
+        field("Talk to", characterPicker("npc", characters, "Nobody (lore only)", "Character to talk to"), null, "The character that hears the line. The search then also finds its memories, finds only the entries that it can know, marks the entries that it learned only on its travels away from its home, and skips the entries of its factions, which it knows from its chat prompt. Without one, the search finds only lore, in every entry."),
         field("Speak as", characterPicker("speaker", characters.filter(inPlayerFaction), "Nobody", "Squad member who speaks"), null, "The squad member who says the line. The search skips the entry of its race, which the NPC sees already."),
       ] : []),
       el("button", { type: "submit" }, "Search")),
@@ -1010,7 +1010,7 @@ function testSearchResult() {
   const how = (hit) => el("span", { className: "detail" }, hit.name ? `found by the name ${hit.name}` : `found by ${hit.words.join(", ")}`);
   const hits = [
     ...result.memories.map((hit) => el("li", {}, el("strong", {}, "Memory: "), hit.heading, " ", how(hit), el("p", { className: "hint" }, hit.text))),
-    ...result.entries.map((hit) => el("li", {}, el("strong", {}, hit.name), ` (${hit.kind}, ${TIERS[hit.tier]}) `, how(hit))),
+    ...result.entries.map((hit) => el("li", {}, el("strong", {}, hit.name), ` (${hit.kind}, ${TIERS[hit.tier]}${hit.travels ? ", learned in travels" : ""}) `, how(hit))),
   ];
   return [
     hits.length ? el("ol", {}, ...hits) : el("p", { className: "hint" }, "The line finds nothing."),
