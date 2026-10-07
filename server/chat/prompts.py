@@ -94,21 +94,21 @@ def describe_npc(name, profile, npc_id):
         speech_quirks=profile.get("SpeechQuirks") or "",
     )
 
+def language_instruction():
+    # Only player2 infers the language from context; other providers need it stated
+    language = load_settings().get("language", "English")
+    if language and language.lower() != "english":
+        return f"\nLANGUAGE: You MUST respond ONLY in {language}. Do not switch to English under any circumstances.\n"
+    return ""
+
 def build_system_prompt():
     world_lore = campaign_db.overview()
     rules = load_prompt_component("response_rules.txt")
-
-    # Only player2 infers the language from context; other providers need it stated
-    language = load_settings().get("language", "English")
-    language_instruction = ""
-    if language and language.lower() != "english":
-        language_instruction = f"\nLANGUAGE: You MUST respond ONLY in {language}. Do not switch to English under any circumstances.\n"
-
     prompt = fill_prompt(
         "prompt_system.txt",
         world_lore=world_lore,
         rules=rules,
-        language_instruction=language_instruction
+        language_instruction=language_instruction()
     )
     return prompt.strip()
 

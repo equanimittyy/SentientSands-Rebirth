@@ -12,7 +12,7 @@ from chat.bio import BIO_PARTS, generate_bio, recorded_history, write_bio
 from chat.characters import get_character_data, npc_name, should_save_profile
 from chat.llm import call_llm
 from chat.memory import quiet_seconds
-from chat.prompts import PROMPT_RUMORS, build_system_prompt, describe_faction, describe_npc, describe_race, fill_prompt, find_location, load_prompt_component, npc_scene, scene_values
+from chat.prompts import PROMPT_RUMORS, build_system_prompt, describe_faction, describe_npc, describe_race, fill_prompt, find_location, language_instruction, npc_scene, scene_values
 from core import bounties, deeds, state
 from core.game import context_dict, get_current_time_prefix, is_player_faction, note_faction, take_report
 from core.pipe import send_to_pipe
@@ -302,7 +302,7 @@ def chat():
     # A rule that rated the player's politeness let a scornful NPC warm up with each apology
     judgment = "JUDGMENT: End every reply with [JUDGMENT: n], the change that the player's line makes to how you feel about the player, from -5 (it angers, frightens, hurts, or offends you) to 5 (it pleases you); 0 is no change. Judge by your personality, not by how polite the line is."
     if animal:
-        system_prompt = load_prompt_component("prompt_animal_system.txt")
+        system_prompt = fill_prompt("prompt_animal_system.txt", language_instruction=language_instruction())
         final_instruction = f"Reply as {primary_npc} with one action or sound in asterisks, and no words. End with [JUDGMENT: n]."
     else:
         system_prompt = build_system_prompt()
