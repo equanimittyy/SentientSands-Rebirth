@@ -198,6 +198,8 @@ def get_campaign_canon():
     try:
         squad_deeds = deeds.character_deeds()
         known = campaign_db.character_knowledge()
+        characters = campaign_db.list_records("character")
+        visited = background.travels(background.campaign_lore(), {npc_id: profile for (npc_id,), profile, *_ in characters})
         return jsonify({
             "status": "ok",
             "name": state.ACTIVE_CAMPAIGN,
@@ -211,8 +213,8 @@ def get_campaign_canon():
             ],
             "characters": [
                 {"id": npc_id, "data": {"game_id": npc_id.removeprefix("u:"), "profile": profile, **known[npc_id]}, "origin": origin, "updated_at": updated_at, "current_faction": state.LIVE_CONTEXTS.get(npc_id, {}).get("faction"), "status": state.LIVE_CONTEXTS.get(npc_id, {}).get("health"),
-                 **({"deeds": squad_deeds[npc_id]} if npc_id in squad_deeds else {})}
-                for (npc_id,), profile, origin, updated_at in campaign_db.list_records("character")
+                 "visited": visited.get(npc_id, []), **({"deeds": squad_deeds[npc_id]} if npc_id in squad_deeds else {})}
+                for (npc_id,), profile, origin, updated_at in characters
             ],
             "entities": [
                 {"category": category, "id": ext_id, "data": data, "origin": origin, "updated_at": updated_at}

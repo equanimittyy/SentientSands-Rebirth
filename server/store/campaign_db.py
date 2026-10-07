@@ -435,6 +435,16 @@ def thread_places(npc_id):
     return [location for (location,) in rows]
 
 
+def character_places():
+    """The place of each chat thread of each character, by npc_id, newest thread first, as thread_places gives them."""
+    with _connect() as conn:
+        rows = conn.execute("SELECT m.npc_id, t.location FROM thread t JOIN thread_member m ON m.thread_id = t.id WHERE t.location IS NOT NULL ORDER BY t.id DESC").fetchall()
+    places = {}
+    for npc_id, location in rows:
+        places.setdefault(npc_id, []).append(location)
+    return places
+
+
 def names_of(npc_ids):
     """The Name of each stored character among npc_ids."""
     npc_ids = list(npc_ids)

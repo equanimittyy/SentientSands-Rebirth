@@ -449,8 +449,13 @@ function characterForm(form, path, record) {
       isProvisional(record) ? field("Chats", el("span", {}, chatCount(form.details[PROVISIONAL])), null, "How many times you talked to the character. Its personality, backstory, and speech are rolled, not written. When the count reaches Chats before a bio on the Settings page, the LLM writes its full bio.") : null,
       source === "campaign" ? field("Current Job", el("span", {}, form.details.CurrentJob || "Unknown"), null, "What the character does in the game, for example Guarding a building. It updates each time the character chats or takes part in a radiant conversation.") : null,
       source === "campaign" ? field("Current Location", el("span", {}, form.details.CurrentLocation || "Unknown"), null, "Where the character was when you last talked to it, for example Bar, The Hub, or Wilderness, Vain.") : null,
+      source === "campaign" ? field("Visited", el("span", { title: record.visited?.join(", ") ?? "" }, visitedText(record.visited ?? [])), null, "The towns and regions where the character talked or heard a chat, newest first, except the lands of its original faction. The character knows the local lore of these places from its travels.") : null,
       source === "campaign" ? field("Deeds", el("span", {}, record.deeds?.join(", ") || "Unknown"), null, "The unique characters that the character killed or captured as a member of your squad.") : null),
   ];
+}
+
+function visitedText(places) {
+  return places.length > 2 ? `${places.slice(0, 2).join(", ")}, and ${places.length - 2} more...` : places.join(" and ") || "None";
 }
 
 function chatCount(count) {

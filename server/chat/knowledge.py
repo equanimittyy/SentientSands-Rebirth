@@ -34,7 +34,7 @@ def known(records, identity, origin=None, places=()):
     by_words = _by_words(records)
     home = _home(records, by_words, origin)
     located = [place(records, town, zone) for town, zone in set(places)]
-    inside = [found for found in located if home & {*found[0], *found[1]}]
+    inside = [found for found in located if at_home(home, found)]
     base = identity | home | _own_place(records, by_words, inside)
     travels = _own_place(records, by_words, [found for found in located if found not in inside])
     links = _links(records, by_words)
@@ -46,6 +46,17 @@ def known(records, identity, origin=None, places=()):
         elif level == "limited" and (key in travels or links[key] & travels):
             result[key] = True
     return result
+
+
+def home_of(records, origin):
+    """The keys of the land of the origin faction, which is the home of an NPC of that faction."""
+    return _home(records, _by_words(records), origin)
+
+
+def at_home(home, located):
+    """Whether a place, as retrieval.place gives it, lies inside home: its location or its region belongs to it."""
+    current, regions, _ = located
+    return bool(home & {*current, *regions})
 
 
 def _home(records, by_words, origin):

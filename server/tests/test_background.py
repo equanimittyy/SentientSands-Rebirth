@@ -163,6 +163,12 @@ class KnowledgeTest(unittest.TestCase):
         campaign_db.join_thread(None, [("h:1", "overheard", False)], None, "Wilderness, Vain")
         self.assertEqual(self.travels("Where is Fang Hollow?", "h:1"), [("Fang Hollow", True)])
 
+    def test_the_travels_are_the_places_of_past_chats_away_from_home_newest_first(self):
+        for location in ("Bar, Fang Hollow", "Wilderness, Vain", "Shack, The Barren", "Wilderness, The Barren", ""):
+            campaign_db.join_thread(None, [("h:1", "overheard", False), ("h:2", "overheard", False)], None, location)
+        profiles = {"h:1": {"Name": "Stick"}, "h:2": {"Name": "Kang", "OriginFaction": "Shek Kingdom"}}
+        self.assertEqual(background.travels(background.campaign_lore(), profiles), {"h:1": ["The Barren", "Vain", "Fang Hollow"], "h:2": ["The Barren"]})
+
 
 class PlaceTest(unittest.TestCase):
     LORE = [{"kind": "location", "name": name, "aliases": []} for name in ("The Hub", "Bast")] + [{"kind": "region", "name": "Vain", "aliases": []}]

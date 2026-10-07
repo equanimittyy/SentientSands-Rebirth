@@ -308,6 +308,14 @@ class ThreadTest(CampaignTestCase):
         self.assertEqual(campaign_db.thread_places(self.IZUMI), ["Bar, The Hub"])
         self.assertEqual(campaign_db.thread_places(self.RUKA), [])
 
+    def test_the_places_of_each_character_come_newest_thread_first(self):
+        self.exchange(None, "[Day 3, 14:05]", listeners=[self.IZUMI], location="Bar, The Hub")
+        self.exchange(None, "[Day 4, 09:00]", location="Wilderness, Vain")
+        self.exchange(None, "[Day 5, 09:00]")
+        places = campaign_db.character_places()
+        self.assertEqual((places[self.STICK], places[self.IZUMI]), (["Wilderness, Vain", "Bar, The Hub"], ["Bar, The Hub"]))
+        self.assertNotIn(self.RUKA, places)
+
     def test_a_thread_without_a_speaker_copy_shows_the_copy_of_an_overhearer(self):
         thread_id = self.exchange(None, "[Day 3, 14:05]", listeners=[self.IZUMI])
         for npc_id in (self.STICK, GENERIC_ID):

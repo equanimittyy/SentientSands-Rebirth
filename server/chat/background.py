@@ -39,6 +39,22 @@ def known_keys(lore, npc_id, profile, faction_id, town, zone):
     return knowledge.known(lore, identity(lore, npc_id, profile, faction_id), _faction_key(None, profile.get("OriginFaction")), [(town, zone), *visited])
 
 
+def travels(lore, profiles):
+    """The town or the zone of each place of a past chat of each character, newest first, each once, by npc_id. A place
+    inside the home of the character drops out, because known_keys counts it as base, not travel. profiles holds the
+    profile of each character by npc_id."""
+    stored = {npc_id: [location for location in locations if location] for npc_id, locations in campaign_db.character_places().items() if npc_id in profiles}
+    places = {location: place_of(location, lore) for location in {location for locations in stored.values() for location in locations}}
+    located = {found: retrieval.place(lore, *found) for found in set(places.values())}
+    homes = {name: knowledge.home_of(lore, _faction_key(None, name)) for name in {profiles[npc_id].get("OriginFaction") for npc_id in stored}}
+    return {
+        npc_id: list(dict.fromkeys(
+            town or zone for town, zone in map(places.get, locations) if not knowledge.at_home(homes[profiles[npc_id].get("OriginFaction")], located[town, zone])
+        ))
+        for npc_id, locations in stored.items()
+    }
+
+
 def _faction_key(game_id, name):
     name = name if name != "Unknown" else None
     faction = campaign_db.find_faction(game_id, name) if game_id or name else None

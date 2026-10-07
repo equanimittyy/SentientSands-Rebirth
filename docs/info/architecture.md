@@ -495,6 +495,7 @@ The own records form two groups, so the prompt can tell the NPC where it learned
 - An NPC whose origin faction holds no land is a drifter. It has no home, so it knows each place from its travels. In SSR Vanilla, 10 of the 106 factions give no home. 7 hold no land, such as the Drifters and the Slaves, and 3 name only places that have no record, such as the Police, whose `territory` names the faction United Cities.
 - A past place is the `location` of a thread (see [Chat threads](#chat-threads)). A past place counts as a full place, as the current place does, with its neighbouring regions and holding factions.
 - The server reads the past places from the threads at each chat line, so nothing tracks an NPC between its chats. A place that the NPC passes through without a chat adds nothing. A deleted memory or a cull of a thread removes its place.
+- Visited on a character of Campaign Canon lists the town or the zone of each past place away from the home, newest first (`background.travels`). A drifter lists each past place.
 - In SSR Vanilla, `knowledge.known` takes about 4 ms for a member of the Holy Nation in Heng, 6 ms with 10 past places, and 12 ms with 40 past places.
 
 #### Secret access
