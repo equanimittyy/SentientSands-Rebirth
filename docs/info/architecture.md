@@ -126,7 +126,7 @@ The hooks in `plugin/main.cpp` add the game events to a buffer (`QueueGameEvent`
 - The deeds of the undone play stay until the player culls (see [Campaign routes of the web app](#campaign-routes-of-the-web-app)).
 - The `npc_id` of a generic character whose template is a canon character becomes the `npc_id` of that character, as for a context (`adopt_canon`).
 
-The `notable` table holds one row for each deed. Campaign Log > Deeds on the web app lists them, newest first, for example "Beep and Izumi of Nameless captured Tinfist."
+The `notable` table holds one row for each deed. Campaign Canon > Deeds on the web app lists them, newest first, for example "Beep and Izumi of Nameless captured Tinfist."
 
 - A row holds the game time, and as JSON the kind (`kill` or `capture`), the doers, and the `npc_id`, name, and faction of the victim. A custom deed holds no game time, and as JSON only the kind `custom`. An auto deed holds the newest game time of its memories, and as JSON the kind `auto` and the IDs of the chat threads whose memories its rumor tells (see [Auto rumors](#auto-rumors)).
 - A death of a known figure gives a kill to each attacker, and an imprisonment of a known figure gives a capture to each captor. A victim in the player's faction gives no deed, and neither does a character that is not a known figure.
@@ -140,7 +140,7 @@ The `notable` table holds one row for each deed. Campaign Log > Deeds on the web
 
 The player can add a custom deed for an act that the game does not track. The player writes its rumor, such as "They say Beep freed the slaves of Rebirth.":
 
-1. On Campaign Log > Deeds, the player types the rumor under the search field and presses **Add**.
+1. On Campaign Canon > Deeds, the player types the rumor under the search field and presses **Add**.
 2. `POST /api/campaign/deeds/add` stores the deed and its rumor with no game time (`add_custom_deed` in `server/store/campaign_db.py`), so the game need not run.
 3. The row of the deed shows "-" as its time, "Written by you" as its deed, and the rumor in its edit box, which Save and the robot treat as any other rumor (see [Rumors](#rumors)). Delete removes the deed with its rumor after a confirmation (`delete_custom_deed`).
 
@@ -160,7 +160,7 @@ The server writes the rumor of each deed by itself, in the quiet period of the m
 
 The player can write a rumor sooner, or again with an instruction:
 
-1. On Campaign Log > Deeds, the player presses **Generate Rumor** in the row of a notable event that has no rumor, or the robot button next to its rumor, and types an instruction, such as "Beep is known as the Stickman of the Dust". The dialog starts with the instruction of the rumor, if any.
+1. On Campaign Canon > Deeds, the player presses **Generate Rumor** in the row of a notable event that has no rumor, or the robot button next to its rumor, and types an instruction, such as "Beep is known as the Stickman of the Dust". The dialog starts with the instruction of the rumor, if any.
 2. `POST /api/campaign/rumors/generate` sends the facts of the notable event, the instruction, and the rumor so far to the LLM, with the `synthesis` task, and returns the text (`rumor_reply` in `server/chat/routes.py`). It stores nothing.
 3. The page puts the text into the edit box of the row, so the player reads and edits it before a save keeps it.
 4. Save stores the rumor with its notable event and its instruction (`save_rumor`).
@@ -243,7 +243,7 @@ The call takes the `synthesis` task and `prompt_auto_rumor.txt` (`rumors.auto_pr
 
 ### Deeds window
 
-The Deeds window of the SSR HUB mirrors Campaign Log > Deeds, as the Dialogue Library mirrors Generate Bio (see [Provisional profiles](#provisional-profiles)):
+The Deeds window of the SSR HUB mirrors Campaign Canon > Deeds, as the Dialogue Library mirrors Generate Bio (see [Provisional profiles](#provisional-profiles)):
 
 1. The list holds the deeds, newest first (`/events`). A deed of the game has "(rumor)" after its line when it has a rumor. The line of a custom or an auto deed tells nothing of the deed, so the list shows its rumor after "Custom:" or "Auto:". The right side shows the line, the kind, the game time, and the rumor of the selected deed (`/events/content`).
 2. The search field finds a deed by its line and its rumor. The button under it goes to the next kind on each click, and shows only the deeds of that kind with their count, as the select of the web app does.
@@ -300,7 +300,7 @@ Each tab holds `GET /web_panel/presence` open. This event stream sends a heartbe
 
 **Open Web Panel** in the SSR HUB always opens the web app in a new tab of the default browser. The button does not check for an open tab. A version that brought the browser window of an open tab to the front left an empty box on the game screen in exclusive fullscreen.
 
-Another tab can switch the campaign while a tab is open, so the poll also shows the active campaign. When the poll sees another campaign, it sends a `campaignchange` event. The Campaigns page loads the new campaign, and the open Campaign Canon or Campaign Log subtab of the Editor loads it unless the subtab has unsaved changes.
+Another tab can switch the campaign while a tab is open, so the poll also shows the active campaign. When the poll sees another campaign, it sends a `campaignchange` event. The Campaigns page loads the new campaign, and the open Campaign Canon subtab of the Editor loads it unless the subtab has unsaved changes.
 
 The save bar of each page has a Refresh button at its right end. Refresh loads the stored data again and keeps the unsaved changes of the page (`refreshers` in `server/dashboard/web/app.js`).
 
@@ -323,9 +323,9 @@ A refresh changes the message of the save bar only when the unsaved state of the
 
 The Editor holds many records. Save sends one request for each changed record, and a record that the server rejects keeps its draft and shows the reason. A delete takes effect at once, after a confirmation.
 
-The Editor has three subtabs. Campaign Canon and Templates share the record list and forms: Campaign Canon edits the canon of the active campaign, and Templates edits the world templates that new campaigns copy. Campaign Log shows the active campaign in two subtabs of its own: Dialogue & Memories, and Deeds. Deeds lists the notable events (see [Deeds](#deeds)), adds the custom deeds, and edits the rumors (see [Rumors](#rumors)). The page holds the data of one subtab and one template at a time, so a switch with unsaved changes asks the player first. A shipped template is read-only, so the page offers a duplicate. Campaign Canon and Templates have a Test search box under their bar (see [Test search](#test-search)).
+The Editor has two subtabs, Campaign Canon and Templates. Campaign Canon shows the active campaign in three subtabs of its own: Database, Dialogue & Memories, and Deeds. Database and Templates share the record list and forms: Database edits the canon of the active campaign, and Templates edits the world templates that new campaigns copy. Deeds lists the notable events (see [Deeds](#deeds)), adds the custom deeds, and edits the rumors (see [Rumors](#rumors)). The page holds the data of Database, of Dialogue & Memories and Deeds together, or of one template at a time, so a switch between them with unsaved changes asks the player first. A shipped template is read-only, so the page offers a duplicate. Database and Templates have a Test search box under their bar (see [Test search](#test-search)).
 
-Dialogue & Memories lists the threads of the active campaign, newest first (see [Chat threads](#chat-threads)). Each one shows its first two speakers and the place where it started, such as `Stick and Jorge | Bar, The Hub` or `Stick, Izumi, and 1 more | The Hub` (`threadTitle`), and the game time of its first exchange. It uses the layout of Campaign Canon: a search field and the list on the left, and the selected thread on the right, with its lines, its memory under Memorised Summary (see [Conversation memories](#conversation-memories)), and its speakers and overhearers under Involved Characters. A thread with a memory shows only its memory, because the memory replaces its lines. The search matches the names of the members, the text of the lines, and the memory, with case ignored. `GET /api/campaign` returns every thread with its lines and its memory, as Campaign Canon loads every record, so the search runs in the page. The lines are the copy of a speaker, because its lines have no `(Overheard)` tag (`campaign_db.threads`). The memory under Memorised Summary is editable: Save writes each changed memory, and Delete removes the conversation after a confirmation (see [Conversation memories](#conversation-memories)). The lines are read-only. A radiant conversation shows as a thread too.
+Dialogue & Memories lists the threads of the active campaign, newest first (see [Chat threads](#chat-threads)). Each one shows its first two speakers and the place where it started, such as `Stick and Jorge | Bar, The Hub` or `Stick, Izumi, and 1 more | The Hub` (`threadTitle`), and the game time of its first exchange. It uses the layout of Database: a search field and the list on the left, and the selected thread on the right, with its lines, its memory under Memorised Summary (see [Conversation memories](#conversation-memories)), and its speakers and overhearers under Involved Characters. A thread with a memory shows only its memory, because the memory replaces its lines. The search matches the names of the members, the text of the lines, and the memory, with case ignored. `GET /api/campaign` returns every thread with its lines and its memory, as Database loads every record, so the search runs in the page. The lines are the copy of a speaker, because its lines have no `(Overheard)` tag (`campaign_db.threads`). The memory under Memorised Summary is editable: Save writes each changed memory, and Delete removes the conversation after a confirmation (see [Conversation memories](#conversation-memories)). The lines are read-only. A radiant conversation shows as a thread too.
 
 On Campaign Canon, **Show seeded data** and **Show provisional characters** start on. While the player turns one off, the record list hides the records whose `origin` is `seed`, or the provisional characters (see [Provisional profiles](#provisional-profiles)). The browser remembers each switch. The overview and the history have no `origin`, so they always show.
 

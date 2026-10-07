@@ -32,8 +32,8 @@ const KNOWLEDGE_HELP = "Who can know this entry.\nGlobal: every NPC.\nLimited: N
 const KNOWN_BY_HELP = "The characters, factions, and races that know this entry. A member of a faction knows it, and so does a character that comes from the faction. Type to search, then choose from the list.";
 const KNOWER_KINDS = { character: "character", faction: "faction", races: "race" };
 const TEMPLATE_PARTS = ["manifest", "overview", "history"];
-const SOURCES = [["campaign", "Campaign Canon"], ["events", "Campaign Log"], ["template", "Templates", "(Advanced)"]];
-const LOG_VIEWS = [["dialogue", "Dialogue & Memories"], ["events", "Deeds"]];
+const SOURCES = [["campaign", "Campaign Canon"], ["template", "Templates", "(Advanced)"]];
+const CANON_VIEWS = [["database", "Database"], ["dialogue", "Dialogue & Memories"], ["events", "Deeds"]];
 const ORIGIN_LABELS = { seed: "Seeded", game: "Met in game", campaign: "Added in this campaign" };
 // Mirrors campaign_db.PROVISIONAL: the chat count of a provisional profile is also its mark.
 const PROVISIONAL = "Interactions";
@@ -723,9 +723,8 @@ async function openTemplate(name) {
 const campaignName = () => (source === "events" ? log : canon)?.name;
 const sourceTitle = () => (source === "template" ? templateTitle() : `the campaign ${campaignName()}`);
 
-async function chooseSource(value) {
+async function chooseSource(value, label) {
   if (value === source) return;
-  const label = SOURCES.find(([key]) => key === value)[1];
   if (hasChanges() && !(await ask("Discard the changes", "Discard", `Your changes to ${sourceTitle()} are not saved. Open ${label} and lose them?`))) return;
   const previous = source;
   source = value;
@@ -947,9 +946,9 @@ async function runTestSearch(event) {
   }
 }
 
-function renderSubtabs(tabs = SOURCES, shown = source, choose = chooseSource) {
+function renderSubtabs(tabs = SOURCES, shown = source === "template" ? "template" : "campaign", choose = chooseSource) {
   const list = el("div", { className: "subtabs" }, ...tabs.map(([value, text, tag]) => {
-    const tab = el("button", { type: "button", onclick: () => choose(value) }, text, ...(tag ? [" ", el("span", { className: "advanced" }, tag)] : []));
+    const tab = el("button", { type: "button", onclick: () => value !== shown && choose(value, text) }, text, ...(tag ? [" ", el("span", { className: "advanced" }, tag)] : []));
     tab.setAttribute("role", "tab");
     tab.setAttribute("aria-selected", String(value === shown));
     return tab;
@@ -1215,20 +1214,24 @@ async function deleteMemory(id) {
   }
 }
 
-function chooseLogView(value) {
+function chooseCanonView(value, label) {
+  if (value === "database") return chooseSource("campaign", label);
   logView = value;
-  render();
+  if (source === "events") render();
+  else chooseSource("events", label);
 }
 
+const renderCanonViews = () => renderSubtabs(CANON_VIEWS, source === "campaign" ? "database" : logView, chooseCanonView);
+
 function renderLog() {
-  if (log) return [renderSubtabs(LOG_VIEWS, logView, chooseLogView), ...(logView === "events" ? [renderEvents()] : renderThreads())];
+  if (log) return logView === "events" ? [renderEvents()] : renderThreads();
   const hint = el("p", { className: "hint" }, "Open a campaign to read its dialogue and deeds, and to edit its rumors.");
   return refusal ? [el("p", { className: "hint error" }, refusal), hint] : [hint];
 }
 
 function render() {
   if (source === "events") {
-    page.replaceChildren(renderSubtabs(), ...renderLog());
+    page.replaceChildren(renderSubtabs(), renderCanonViews(), ...renderLog());
     if (log && logView === "events") renderEventPage();
     if (log && logView === "dialogue") {
       renderThreadList();
@@ -1248,7 +1251,7 @@ function render() {
   search.setAttribute("aria-label", "Search the entries");
   page.replaceChildren(
     renderSubtabs(),
-    source === "template" ? renderTemplateBar() : renderCanonBar(),
+    ...(source === "template" ? [renderTemplateBar()] : [renderCanonViews(), renderCanonBar()]),
     (source === "template" ? template : canon) ? renderTestSearch() : null,
     (source === "template" ? template : canon) ? el("div", { className: "editor-layout" },
       el("div", { className: "record-panel" }, ...(source === "campaign" ? [
