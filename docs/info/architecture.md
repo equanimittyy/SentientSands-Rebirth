@@ -128,7 +128,7 @@ The hooks in `plugin/main.cpp` add the game events to a buffer (`QueueGameEvent`
 
 The `notable` table holds one row for each deed. Campaign Log > Deeds on the web app lists them, newest first, for example "Beep and Izumi of Nameless captured Tinfist."
 
-- A row holds the game time, and as JSON the kind (`kill` or `capture`), the doers, and the `npc_id`, name, and faction of the victim. A custom deed holds no game time, and as JSON only the kind `custom`.
+- A row holds the game time, and as JSON the kind (`kill` or `capture`), the doers, and the `npc_id`, name, and faction of the victim. A custom deed holds no game time, and as JSON only the kind `custom`. An auto deed holds the newest game time of its memories, and as JSON the kind `auto` and the IDs of the chat threads whose memories its rumor tells (see [Auto rumors](#auto-rumors)).
 - A death of a known figure gives a kill to each attacker, and an imprisonment of a known figure gives a capture to each captor. A victim in the player's faction gives no deed, and neither does a character that is not a known figure.
 - A known figure is a character that the game marks as unique (`Character::isUnique`), whose `npc_id` therefore starts with `u:`. A generic character whose template is a canon character counts too, because it takes the `npc_id` of that character (see [Characters](#characters)).
 - A capture counts once for each captor and known figure, because `setPrisonMode` runs again with `on` for each prisoner when a save loads.
@@ -142,12 +142,12 @@ The player can add a custom deed for an act that the game does not track. The pl
 
 1. On Campaign Log > Deeds, the player types the rumor under the search field and presses **Add**.
 2. `POST /api/campaign/deeds/add` stores the deed and its rumor with no game time (`add_custom_deed` in `server/store/campaign_db.py`), so the game need not run.
-3. The row of the deed shows "-" as its time, a hint to add a rumor as its deed, and the rumor in its edit box, which Save and the robot treat as any other rumor (see [Rumors](#rumors)). Delete removes the deed with its rumor after a confirmation (`delete_custom_deed`).
+3. The row of the deed shows "-" as its time, "Written by you" as its deed, and the rumor in its edit box, which Save and the robot treat as any other rumor (see [Rumors](#rumors)). Delete removes the deed with its rumor after a confirmation (`delete_custom_deed`).
 
 - A custom deed counts as newer than every deed of the game, so Deeds lists it first, and its rumor is among the newest that NPCs hear. Among the custom deeds, the last one added comes first.
 - The cull keeps a custom deed and its rumor, because they have no game time.
 - Campaign Canon lists no custom deed under the Deeds of a squad member, because a custom deed names no characters.
-- The server deletes only a custom deed. A custom deed without its rumor would hold nothing, so the page offers no delete for its rumor alone, and no delete for the other deeds.
+- The server deletes only a custom or an auto deed. Such a deed without its rumor would hold nothing, so the page offers no delete for its rumor alone, and no delete for the other deeds.
 
 ### Rumors
 
@@ -181,6 +181,7 @@ The factions:
 ```
 
 - A custom deed gives no time, no characters, and no factions, because the server does not know when it happened or who is in it. Its deed is "The one that the rumor so far tells", because the rumor of the player is the only account of the deed.
+- An auto deed gives its time, but no characters and no factions, and the same deed, because its rumor is the only account of the memories that it tells.
 - Each character of the deed that has a profile gets its sex, its race, and the first sentence of its `Backstory`, so the LLM knows why a known figure matters and which pronouns fit.
 - The faction of the victim gets its `allies` and `enemies` from the canon factions, so the LLM knows who cheers the news and who fears it.
 - `prompt_world_synthesis.txt` takes the instruction right after the task line, because a model that read the instructions of the bio prompt after the current texts ignored them (see [Provisional profiles](#provisional-profiles)).
@@ -191,11 +192,60 @@ The `rumor` table holds the text, the game time, the instruction, and the notabl
 - A rumor takes the game time of its notable event, so the cull deletes a rumor with its notable event. The rumor of a custom deed has no game time and counts as the newest.
 - The chat scene gives each NPC the 5 newest rumors by game time (`PROMPT_RUMORS`), each with its age, except the rumor of a custom deed.
 
+### Auto rumors
+
+At most once in each hour of real time, the server reads the conversation memories that no rumor used, and the LLM spins at most one rumor from them. The rumor is an auto deed, which the player edits and deletes as a custom deed (see [Deeds](#deeds)).
+
+`memory_loop` checks on each tick of 10 s whether a pass is due (`server/chat/memory.py`). A pass runs when these conditions are all true:
+
+1. 60 minutes of real time passed since the server start or the last pass (`AUTO_RUMOR_SECONDS`).
+2. The chat is quiet (`chat_is_quiet`).
+3. No chat thread waits for its memory, and no deed waits for its rumor, because the memories and the deed rumors come first (`rumors.auto_pool`).
+4. The newest 40 memories of the pool hold a memory that no pass read. A pool without a new memory therefore costs no LLM call.
+
+- The hour counts in real time, because each pass is an LLM call, which costs real time and money. A game hour passes much faster.
+- The hour counts from each pass, also from a failed one, so a provider that keeps failing costs one call in each hour.
+- The pass runs in the thread of the memories, so its call never overlaps a call of the memories or of the deed rumors, because a local model serves one request at a time.
+
+The pool holds each memory whose `thread.rumor_passes` is less than 6 (`RUMOR_PASSES`). A pass reads the newest 40 of them by thread ID, oldest first, which is about 3,000 tokens (`campaign_db.rumor_pool`). After a valid reply, the counts change (`campaign_db.count_rumor_pass`):
+
+| Memory | `rumor_passes` |
+|---|---|
+| Cited by the rumor | 6 |
+| Read and not cited | +1 |
+| In the pool, and older than the newest 40 | 6 |
+
+- The count drops a memory that the LLM passed over 6 times. Without it, the same dull memories go into each prompt, and they invite the LLM to make a theme from unrelated talk.
+- A pass runs at most once an hour, and only for a new memory, so a memory stays in the pool for about 6 hours of play. A theme whose memories are further apart makes no rumor.
+- The memories older than the newest 40 leave for good, so a cited memory does not let an old memory back into the window.
+- Only the cited memories leave for a rumor. The other memories stay, so a theme can build over several passes.
+- The pool decides only which memories can feed an auto rumor. Each memory stays in the campaign, and the chat, the Dialogue Library, and the bio prompt still read it.
+- Rejected: a mark on each memory that a pass read. A theme whose memories come in two passes never shows together.
+- Rejected: only a window of the newest 40 memories. The same dull memories go into each prompt, and the unused memories wait forever.
+- Rejected: a cull of the pool by game days. The game time jumps with sleep, fast-forward, and the load of a save.
+- Rejected: an LLM that lists the memories to drop. A weak model drops the wrong memories, and each reply carries a second judgment.
+
+The call takes the `synthesis` task and `prompt_auto_rumor.txt` (`rumors.auto_prompt`). The prompt holds the player's faction, the memories, and the newest 30 rumors, which the LLM must not tell again. The LLM picks a theme that comes back in several memories, or one conversation whose outcome changes the world, and answers only with JSON: `{"rumor": "...", "memories": [1, 2]}`.
+
+- Each memory carries a label from 1 to N, its game time, its place, and the current names (`chat_prompt.memory_text`). The server maps each label to its thread ID, because a short label is harder for the LLM to get wrong than a thread ID.
+- A valid reply is a JSON object with an empty rumor, or with a rumor that cites at least one label of the pass (`rumors.auto_reply`). The server drops each other label.
+- An empty rumor is the usual reply. It adds 1 to each memory that the pass read.
+- Only a valid reply changes the counts, because in another reply the LLM judged no memory.
+- The server writes nothing when the active campaign changed during the call, because the same thread ID can name another thread in the other campaign.
+- Rejected: several rumors in each pass. One rumor in each pass keeps the volume low, so the auto rumors do not push the deed rumors out of the 5 newest.
+
+`campaign_db.add_auto_deed` stores the deed and its rumor, and sets each cited thread to 6, in one transaction. It writes nothing when a cited thread is gone or out of the pool, because a delete or a cull changed the pool during the call.
+
+- The deed takes the newest game time of its cited threads. The cull therefore deletes an auto deed with its newest memory, and its rumor sorts among the other rumors by game time, so NPCs hear it among the 5 newest with its age.
+- The deed text is "From 3 conversations" (`notable_line`).
+- The delete of an auto deed keeps its threads at 6, so the next pass does not spin the same rumor again.
+- Rejected: no game time for an auto deed, as for a custom deed. Its rumor would count as the newest, so the auto rumors would hold the 5 newest places for good, and the cull would keep them.
+
 ### Deeds window
 
 The Deeds window of the SSR HUB mirrors Campaign Log > Deeds, as the Dialogue Library mirrors Generate Bio (see [Provisional profiles](#provisional-profiles)):
 
-1. The list holds the deeds, newest first (`/events`). A deed of the game has "(rumor)" after its line when it has a rumor. The line of a custom deed is only its kind, so the list shows its rumor after "Custom:". The right side shows the line, the kind, the game time, and the rumor of the selected deed (`/events/content`).
+1. The list holds the deeds, newest first (`/events`). A deed of the game has "(rumor)" after its line when it has a rumor. The line of a custom or an auto deed tells nothing of the deed, so the list shows its rumor after "Custom:" or "Auto:". The right side shows the line, the kind, the game time, and the rumor of the selected deed (`/events/content`).
 2. The search field finds a deed by its line and its rumor. The button under it goes to the next kind on each click, and shows only the deeds of that kind with their count, as the select of the web app does.
 3. **Generate Rumor** opens a window that asks for the instruction, and starts with the instruction of the rumor. `/write_rumor` returns the text, and a second window shows it in an edit box. Keep sends the text and the instruction to `/keep_rumor`, and Discard drops it.
 4. **Edit Rumor** skips the LLM: `/read_rumor` returns the stored text, and the same edit window opens.
@@ -652,7 +702,7 @@ The server paces the lines of every conversation, chat and radiant (`say` in `se
 
 ## LLM routing
 
-Each LLM call names a task: `chat`, `radiant`, `profile`, `synthesis`, or `memory`. The rumors of the quiet period and Generate Rumor make the `synthesis` call (see [Rumors](#rumors)). `server/config/llm_config.json` holds four parts, and the web app's Models page edits all of them through `/api/llm`.
+Each LLM call names a task: `chat`, `radiant`, `profile`, `synthesis`, or `memory`. The rumors of the quiet period, the auto rumors, and Generate Rumor make the `synthesis` call (see [Rumors](#rumors) and [Auto rumors](#auto-rumors)). `server/config/llm_config.json` holds four parts, and the web app's Models page edits all of them through `/api/llm`.
 
 | Part | Contents |
 |---|---|
@@ -760,7 +810,7 @@ The `character` table holds every character of a campaign in one shape: the cano
 
 Each chat exchange belongs to a chat thread, which records who took part in the conversation. The copies of a line in the histories cannot tell this, because the memory of the thread replaces them.
 
-- The `thread` table holds the ID, the game time of the newest exchange, the place where the thread started, and the memory (see [Conversation memories](#conversation-memories)). The place is the `location_name` of the squad member who speaks, or of the center of a radiant conversation, when the thread starts. The `thread_id` column of `dialogue` links each row to its thread. Each radiant conversation is a thread too (see [Radiant conversations](#radiant-conversations)).
+- The `thread` table holds the ID, the game time of the newest exchange, the place where the thread started, the memory (see [Conversation memories](#conversation-memories)), and the count of the passes of the auto rumors that read the memory and did not cite it (see [Auto rumors](#auto-rumors)). The place is the `location_name` of the squad member who speaks, or of the center of a radiant conversation, when the thread starts. The `thread_id` column of `dialogue` links each row to its thread. Each radiant conversation is a thread too (see [Radiant conversations](#radiant-conversations)).
 - The `thread_member` table holds each member of a thread: its `npc_id`, its role (`speaker` or `overheard`), the game time when it joined, and whether it was in the player's faction then. The speakers are the squad member who speaks and the NPC, and the overhearers are the listeners of each exchange. Only a character whose copy the server stores becomes a member.
 - A member keeps the values of its first join. The history text therefore stays the same from turn to turn, so the cache serves it, and a later recruit or dismissal does not change what an NPC remembers.
 - The server keeps the current thread in memory (`CURRENT_THREAD`). A chat with another NPC, a chat as another squad member, a switch between Whisper, Talk, and Yell, a campaign switch, a cull, a server restart, or a pause without a chat reply as long as the Conversation timeout of the Settings page (`conversation_timeout_minutes`, default 3) starts a new thread. The server measures real time, because it sees the game time only in the requests that it gets. The close of the chat window does not end a thread.
@@ -966,7 +1016,7 @@ Edit Bio in the Dialogue Library skips the LLM. `/read_bio` returns the stored `
 | `POST /api/campaign/characters/bio` | The LLM text of the full bio, or of one part, for the form of a character. It stores nothing (see [Provisional profiles](#provisional-profiles)). |
 | `POST /api/campaign/rumors/generate` | The LLM text of a rumor of a notable event. It stores nothing (see [Rumors](#rumors)). |
 | `POST /api/campaign/rumors`, `.../rumors/delete` | Save a rumor by its ID, or the rumor of a notable event, which a new rumor has no ID for yet; or delete a rumor |
-| `POST /api/campaign/deeds/add`, `.../deeds/delete` | Add a custom deed with the rumor that the player wrote and no game time (see [Deeds](#deeds)), or delete a custom deed with its rumor |
+| `POST /api/campaign/deeds/add`, `.../deeds/delete` | Add a custom deed with the rumor that the player wrote and no game time (see [Deeds](#deeds)), or delete a custom or an auto deed with its rumor |
 | `POST /api/campaign/memories`, `.../memories/delete` | Edit or delete a memory of the active campaign (see [Conversation memories](#conversation-memories)) |
 | `POST /api/campaign/cull` | Delete the dialogue, deeds, notable events, rumors, thread members, and memories dated after the current game time, except the custom deeds and their rumors, after the player loads an older save. It asks the running game for a report and refuses the cull without one (see [Game state](#game-state)), because without the game time day 0 would count as now and the cull would delete the whole history. |
 

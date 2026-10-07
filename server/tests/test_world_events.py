@@ -246,6 +246,78 @@ class RumorTest(WorldEventsTestCase):
         self.assertEqual(rumors.clean('- "They say Beep\nkilled Tinfist."'), "They say Beep killed Tinfist.")
 
 
+class AutoRumorTest(WorldEventsTestCase):
+    def memory(self, day, text="{u:longen} sold water."):
+        thread_id = campaign_db.join_thread(None, [("u:longen", "speaker", False)], at(day), "Bar, Squin")
+        campaign_db.append_dialogue("u:longen", [(f"[Day {day}, 00:00] Longen: Water.", "u:longen")], {}, thread_id)
+        campaign_db.set_memory(thread_id, text, at(day))
+        return thread_id
+
+    def pool(self):
+        return [(memory["id"], memory["passes"]) for memory in campaign_db.rumor_pool(rumors.AUTO_POOL)]
+
+    def test_a_pass_waits_for_a_new_memory_and_for_the_memories_and_the_rumors_of_the_deeds(self):
+        self.assertIsNone(rumors.auto_pool())
+        first = self.memory(1)
+        self.assertEqual([memory["id"] for memory in rumors.auto_pool()], [first])
+        pending = campaign_db.join_thread(None, [("u:longen", "speaker", False)], at(2))
+        campaign_db.append_dialogue("u:longen", [("[Day 2, 00:00] Longen: More water.", "u:longen")], {}, pending)
+        self.assertIsNone(rumors.auto_pool())
+        campaign_db.set_memory(pending, "Longen sold more water.", at(2))
+        self.kill([BEEP], TINFIST, at(3))
+        self.assertIsNone(rumors.auto_pool())
+        campaign_db.save_rumor(None, deeds.notable_events()[0]["id"], "Beep killed Tinfist.")
+        self.assertEqual([memory["id"] for memory in rumors.auto_pool()], [first, pending])
+        campaign_db.count_rumor_pass([first, pending])
+        self.assertIsNone(rumors.auto_pool())
+
+    def test_the_prompt_labels_each_memory_with_its_time_its_place_and_the_current_names(self):
+        self.memory(1)
+        campaign_db.upsert_profile("u:longen", {"Name": "Lord Longen"})
+        campaign_db.add_custom_deed("They say Beep freed the slaves of Rebirth.")
+        with tempfile.TemporaryDirectory() as empty, mock.patch.object(prompts, "USER_PROMPTS_DIR", empty), mock.patch.object(rumors, "load_settings", return_value={"language": "English"}):
+            text = rumors.auto_prompt(campaign_db.rumor_pool(rumors.AUTO_POOL))
+        self.assertIn("The player's faction: Nameless.", text)
+        self.assertIn("MEMORIES:\n[1] (Day 1, 00:00; Bar, Squin) Lord Longen sold water.", text)
+        self.assertIn("RUMORS ALREADY TOLD:\n- They say Beep freed the slaves of Rebirth.", text)
+
+    def test_a_reply_cites_the_memories_by_their_labels(self):
+        memories = [{"id": 12}, {"id": 15}, {"id": 19}]
+        self.assertEqual(rumors.auto_reply({"rumor": '"Word is that Longen sells water."', "memories": [3, "1", "[3]", 7]}, memories), ("Word is that Longen sells water.", [19, 12]))
+        self.assertEqual(rumors.auto_reply({"rumor": "", "memories": [1]}, memories), ("", []))
+        self.assertEqual(rumors.auto_reply({"rumor": None}, memories), ("", []))
+        self.assertIsNone(rumors.auto_reply({"rumor": "Word is that Longen sells water.", "memories": [7]}, memories))
+        self.assertIsNone(rumors.auto_reply({"memories": [1]}, memories))
+        self.assertIsNone(rumors.auto_reply(None, memories))
+
+    def test_a_rumor_takes_its_memories_out_of_the_pool_and_the_others_count_the_pass(self):
+        _, read, cited = self.memory(1), self.memory(2), self.memory(3)
+        pool = campaign_db.rumor_pool(2)
+        rumors.keep_auto_rumor({"rumor": "Word in Squin is that Longen sells water.", "memories": [2]}, pool, state.ACTIVE_CAMPAIGN)
+        self.assertEqual([(event["kind"], event["time"], event["line"], event["rumor"] is not None) for event in deeds.notable_events()], [("auto", "Day 3, 00:00", "From 1 conversation", True)])
+        self.assertEqual(self.pool(), [(read, 1)])
+
+    def test_an_empty_rumor_counts_each_memory_that_the_pass_read(self):
+        first = self.memory(1)
+        rumors.keep_auto_rumor({"rumor": "", "memories": []}, campaign_db.rumor_pool(rumors.AUTO_POOL), state.ACTIVE_CAMPAIGN)
+        self.assertEqual((campaign_db.notables(), self.pool()), ([], [(first, 1)]))
+
+    def test_a_reply_that_is_not_valid_or_a_campaign_switch_changes_nothing(self):
+        first = self.memory(1)
+        pool = campaign_db.rumor_pool(rumors.AUTO_POOL)
+        with self.assertLogs(level="WARNING"):
+            rumors.keep_auto_rumor({"rumor": "Word is that Longen sells water.", "memories": []}, pool, state.ACTIVE_CAMPAIGN)
+        rumors.keep_auto_rumor({"rumor": "Word is that Longen sells water.", "memories": [1]}, pool, "another campaign")
+        self.assertEqual((campaign_db.notables(), self.pool()), ([], [(first, 0)]))
+
+    def test_an_auto_deed_lists_for_no_squad_member_and_its_rumor_is_its_deed(self):
+        self.kill([BEEP], TINFIST, at(1))
+        notable_id = campaign_db.add_auto_deed("Word in Squin is that Longen sells water.", [self.memory(2), self.memory(3)])
+        self.assertEqual(deeds.notable_events()[0]["line"], "From 2 conversations")
+        self.assertEqual(deeds.character_deeds(), {"h:1": ["Killed Tinfist"]})
+        self.assertEqual(rumors.facts(*campaign_db.notable(notable_id)), "The player's faction: Nameless.\nThe deed: The one that the rumor so far tells.\nTime: Day 3, 00:00.")
+
+
 class LineTest(unittest.TestCase):
     def test_names_join_with_and(self):
         self.assertEqual(deeds.name_list(["Beep"]), "Beep")

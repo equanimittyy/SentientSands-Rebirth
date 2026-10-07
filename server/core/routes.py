@@ -56,10 +56,10 @@ def list_events():
     rumors = {rumor["id"]: rumor for rumor in campaign_db.rumors()}
     for event in deeds.notable_events():
         rumor = rumors.get(event["rumor"])
-        custom = event["kind"] == "custom"
-        # The line of a custom deed tells nothing of the deed, so its rumor tells it apart in the list
-        words = (f"Custom: {rumor['text']}" if custom and rumor else event["line"]).split()
-        mark = " (rumor)" if rumor and not custom else ""
+        own = event["kind"] in deeds.RUMOR_ONLY
+        # The line of a custom or an auto deed tells nothing of the deed, so its rumor tells it apart in the list
+        words = (f"{event['kind'].capitalize()}: {rumor['text']}" if own and rumor else event["line"]).split()
+        mark = " (rumor)" if rumor and not own else ""
         # "N." numbering rather than "#N": MyGUI parses "#" as a color tag
         title = f"{len(events) + 1}. " + " ".join(words[:7]) + ("..." if len(words) > 7 else "")
         events.append({"id": str(event["id"]), "title": title[:80] + mark, "inner": event["line"] + (" " + rumor["text"] if rumor else ""),

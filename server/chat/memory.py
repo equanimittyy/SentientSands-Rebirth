@@ -2,11 +2,14 @@ import logging
 import time
 
 from chat import chat_prompt, rumors
-from chat.llm import call_llm
+from chat.llm import call_llm, robust_json_parse
 from chat.prompts import fill_prompt
 from core import deeds, state
 from core.settings import load_settings
 from store import campaign_db
+
+# Real time, because each pass costs an LLM call, and a game hour passes much faster
+AUTO_RUMOR_SECONDS = 3600
 
 def quiet_seconds():
     """The plugin sends no signal when a conversation ends, so this long without a chat ends a chat thread."""
@@ -93,12 +96,34 @@ def write_rumors():
             return
         write_rumor(notable_id, campaign)
 
+def write_auto_rumor(pool, campaign):
+    """Has the LLM spin at most one rumor from the memories of the pool (rumors.auto_pool)."""
+    logging.info(f"RUMOR: Looking for an auto rumor in the memories ({len(pool)})...")
+    text = call_llm("synthesis", [{"role": "user", "content": rumors.auto_prompt(pool)}])
+    try:
+        reply = robust_json_parse(text)
+    except ValueError:
+        reply = None
+    rumors.keep_auto_rumor(reply, pool, campaign)
+
 def memory_loop():
     """Runs the distillation, then the rumors, once in each quiet period and again after each radiant conversation in it, so
-    a thread or a deed whose call failed waits for the next run."""
+    a thread or a deed whose call failed waits for the next run. A pass of the auto rumors runs in the same thread, so its
+    call never overlaps a call of the memories or of the deed rumors, because a local model serves one request at a time."""
     distilled = None
+    last_pass = time.monotonic()
     while True:
         time.sleep(10)
+        if time.monotonic() - last_pass >= AUTO_RUMOR_SECONDS and chat_is_quiet():
+            campaign = state.ACTIVE_CAMPAIGN
+            try:
+                pool = rumors.auto_pool()
+                if pool:
+                    # Before the call, so a provider that keeps failing costs one call in each hour
+                    last_pass = time.monotonic()
+                    write_auto_rumor(pool, campaign)
+            except Exception as e:
+                logging.error(f"RUMOR: The auto rumor failed: {e}")
         since = state.QUIET_SINCE
         due = (since, state.LAST_RADIANT)
         if due == distilled or time.monotonic() - since < quiet_seconds():

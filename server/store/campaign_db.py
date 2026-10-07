@@ -15,8 +15,10 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 DB_NAME = "campaign.db"
-SCHEMA_VERSION = 13
+SCHEMA_VERSION = 14
 DIALOGUE_BLOCK = 20
+# A memory that this many passes read and did not cite leaves the auto rumor pool, so dull memories do not fill each prompt
+RUMOR_PASSES = 6
 # The chat count of a provisional profile also marks it as provisional: the template validator, which the campaign editor
 # also runs, takes only text and numbers as profile values, so a true/false mark could not be saved from the editor
 PROVISIONAL = "Interactions"
@@ -38,10 +40,11 @@ CREATE TABLE character (
 );
 -- AUTOINCREMENT: the server keeps the ID of the current thread in memory, so the ID of a deleted thread must never name a new one
 CREATE TABLE thread (
-  id        INTEGER PRIMARY KEY AUTOINCREMENT,
-  game_time INTEGER,
-  location  TEXT,
-  memory    TEXT
+  id           INTEGER PRIMARY KEY AUTOINCREMENT,
+  game_time    INTEGER,
+  location     TEXT,
+  memory       TEXT,
+  rumor_passes INTEGER NOT NULL DEFAULT 0
 );
 CREATE TABLE thread_member (
   thread_id         INTEGER NOT NULL REFERENCES thread(id) ON DELETE CASCADE,
@@ -409,6 +412,32 @@ def shared_memories(npc_ids):
     return _memories(rows)
 
 
+def rumor_pool(limit):
+    """The newest limit memories in the pool of the auto rumors, oldest first, as memories_of gives them, with the place of
+    the thread and the count of the passes that read the memory and did not cite it."""
+    with _connect() as conn:
+        rows = conn.execute(
+            "SELECT t.id, (SELECT MIN(game_time) FROM thread_member WHERE thread_id = t.id), t.memory, t.location, t.rumor_passes FROM thread t"
+            " WHERE t.memory IS NOT NULL AND t.rumor_passes < ? ORDER BY t.id DESC LIMIT ?",
+            (RUMOR_PASSES, limit),
+        ).fetchall()
+    rows.reverse()
+    memories = _memories([row[:3] for row in rows])
+    for memory, (_, _, _, location, passes) in zip(memories, rows):
+        memory.update(location=location, passes=passes)
+    return memories
+
+
+def count_rumor_pass(thread_ids):
+    """Counts a pass of the auto rumors that read the memories of the threads, the newest of the pool. Each of them that is
+    still in the pool gets one more pass, and each memory of the pool older than them leaves it, so a cited memory does not
+    let an old memory back into the window that the next pass reads."""
+    thread_ids = list(thread_ids)
+    with _connect(write=True) as conn:
+        conn.execute(f"UPDATE thread SET rumor_passes = rumor_passes + 1 WHERE rumor_passes < ? AND id IN ({', '.join('?' * len(thread_ids))})", (RUMOR_PASSES, *thread_ids))
+        conn.execute("UPDATE thread SET rumor_passes = ?1 WHERE memory IS NOT NULL AND rumor_passes < ?1 AND id < ?2", (RUMOR_PASSES, min(thread_ids)))
+
+
 def _memories(rows):
     members = thread_members(thread_id for thread_id, _, _ in rows)
     return [{"id": thread_id, "game_time": first_time, "memory": memory, "members": members.get(thread_id, [])} for thread_id, first_time, memory in rows]
@@ -513,10 +542,29 @@ def add_custom_deed(rumor):
         return notable_id
 
 
-def delete_custom_deed(notable_id):
-    """Deletes a custom deed with its rumor."""
+def add_auto_deed(rumor, thread_ids):
+    """Stores an auto deed, with the rumor that the LLM spun from the memories of the threads, each once. The deed takes the
+    newest game time of the threads, so the cull deletes it with its memories. The threads leave the pool of the auto rumors.
+    Returns its notable event ID, or None, with no write, when a thread is gone or out of the pool, because a delete or a
+    cull changed the pool during the call."""
+    thread_ids = list(thread_ids)
+    marks = ", ".join("?" * len(thread_ids))
     with _connect(write=True) as conn:
-        return conn.execute("DELETE FROM notable WHERE id = ? AND json_extract(deed, '$.deed') = 'custom'", (notable_id,)).rowcount > 0
+        times = [at for (at,) in conn.execute(f"SELECT game_time FROM thread WHERE memory IS NOT NULL AND rumor_passes < ? AND id IN ({marks})", (RUMOR_PASSES, *thread_ids))]
+        if len(times) != len(thread_ids):
+            return None
+        at = max((at for at in times if at is not None), default=None)
+        notable_id = conn.execute("INSERT INTO notable (game_time, deed) VALUES (?, ?)", (at, json.dumps({"deed": "auto", "threads": thread_ids}))).lastrowid
+        conn.execute("INSERT INTO rumor (notable_id, game_time, text) VALUES (?, ?, ?)", (notable_id, at, rumor))
+        conn.execute(f"UPDATE thread SET rumor_passes = ? WHERE id IN ({marks})", (RUMOR_PASSES, *thread_ids))
+        return notable_id
+
+
+def delete_custom_deed(notable_id):
+    """Deletes a custom or an auto deed with its rumor. The memories of an auto deed stay out of the pool, so the next pass
+    does not spin the same rumor again."""
+    with _connect(write=True) as conn:
+        return conn.execute("DELETE FROM notable WHERE id = ? AND json_extract(deed, '$.deed') IN ('custom', 'auto')", (notable_id,)).rowcount > 0
 
 
 def notables():

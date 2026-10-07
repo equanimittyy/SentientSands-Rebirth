@@ -14,6 +14,8 @@ ATTACK_WINDOW_MINUTES = 180
 # A radiant conversation waits this long after a fight, so its participants do not talk about other things right after a battle
 FIGHT_QUIET_MINUTES = 180
 ENDS = ("death", "imprisonment")
+# The rumor is the only account of these deeds, so they name no characters and no factions
+RUMOR_ONLY = ("custom", "auto")
 
 _lock = threading.Lock()
 _histories = {}
@@ -148,8 +150,8 @@ def _store(kind, victim, attackers, at):
 
 
 def notable_events():
-    """Each notable event, newest first, as a dict with its ID, kind ("kill", "capture", or "custom"), game time, line, and
-    rumor ID.
+    """Each notable event, newest first, as a dict with its ID, kind ("kill", "capture", "custom", or "auto"), game time,
+    line, and rumor ID.
     The line names each character by its current name, so a renamed squad member shows with its new name."""
     rows = campaign_db.notables()
     names = campaign_db.names_of({npc_id for _, _, deed in rows for npc_id in character_ids(deed)})
@@ -161,7 +163,7 @@ def notable_events():
 
 def character_deeds():
     """The known figures that each squad member killed or captured, oldest first, as text for Campaign Canon."""
-    deeds = [deed for _, _, deed in campaign_db.notables() if deed["deed"] != "custom"]
+    deeds = [deed for _, _, deed in campaign_db.notables() if deed["deed"] not in RUMOR_ONLY]
     names = campaign_db.names_of({deed["victim"]["id"] for deed in deeds})
     summary = {}
     for deed in reversed(deeds):
@@ -172,7 +174,7 @@ def character_deeds():
 
 
 def character_ids(deed):
-    if deed["deed"] == "custom":
+    if deed["deed"] in RUMOR_ONLY:
         return []
     return [doer["id"] for doer in deed["doers"]] + [deed["victim"]["id"]]
 
@@ -181,6 +183,9 @@ def notable_line(deed, names, player_faction):
     """names maps an npc_id to its current name; a character with no profile keeps the name of the deed."""
     if deed["deed"] == "custom":
         return "Written by you"
+    if deed["deed"] == "auto":
+        count = len(deed["threads"])
+        return f"From {count} conversation{'' if count == 1 else 's'}"
     doers = name_list([names.get(doer["id"], doer["name"]) for doer in deed["doers"]])
     victim = names.get(deed["victim"]["id"], deed["victim"]["name"])
     verb = "killed" if deed["deed"] == "kill" else "captured"

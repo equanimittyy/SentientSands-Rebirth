@@ -1,52 +1,132 @@
 """The facts of a notable event, which the LLM turns into a rumor. The server writes the rumor of each deed in a quiet
-period of the chat (write_rumors in chat/memory.py), and Generate Rumor writes it again with the player's instruction."""
+period of the chat (write_rumors in chat/memory.py), and Generate Rumor writes it again with the player's instruction. An
+auto deed is a rumor that the LLM spins from the conversation memories (auto_prompt), so its rumor is its only account."""
+import logging
 import re
 
 from chat.characters import reported_sex
+from chat.chat_prompt import memory_text
 from chat.prompts import fill_prompt
-from core import deeds
+from core import deeds, state
 from core.settings import load_settings
 from store import campaign_db
 
 _FIRST_SENTENCE = re.compile(r".+?[.!?](?=\s|$)", re.S)
+AUTO_POOL = 40
+AUTO_TOLD = 30
 
 
 def prompt(at, deed, instruction, rumor_so_far):
-    text = fill_prompt(
+    return in_language(fill_prompt(
         "prompt_world_synthesis.txt",
         instruction=instruction.strip() or "None.",
         facts=facts(at, deed),
         rumor=rumor_so_far.strip() or "None.",
-    )
+    ))
+
+
+def auto_pool():
+    """The memories that a pass of the auto rumors reads, or None when the pass waits: for the memories and the rumors of the
+    deeds, which come first, or for a memory that no pass read, so a pool without a new memory costs no LLM call."""
+    try:
+        pool = campaign_db.rumor_pool(AUTO_POOL)
+        if not any(memory["passes"] == 0 for memory in pool) or campaign_db.pending_threads() or any(event["rumor"] is None for event in deeds.notable_events()):
+            return None
+    except campaign_db.CampaignUnavailable:
+        return None
+    return pool
+
+
+def auto_prompt(memories):
+    """memories are rumor_pool dicts. A label stands for each memory, because a short label is harder for the LLM to get
+    wrong than a thread ID."""
+    told = [rumor["text"] for rumor in campaign_db.rumors()[-AUTO_TOLD:]]
+    return in_language(fill_prompt(
+        "prompt_auto_rumor.txt",
+        faction=player_line()[1],
+        memories="\n".join(f"[{label}] {memory_line(memory)}" for label, memory in enumerate(memories, 1)),
+        rumors="\n".join(f"- {text}" for text in told) or "None.",
+    ))
+
+
+def memory_line(memory):
+    where = [campaign_db.game_time_text(memory["game_time"])] if memory["game_time"] is not None else []
+    where += [memory["location"]] if memory["location"] else []
+    return f"({'; '.join(where)}) {memory_text(memory)}" if where else memory_text(memory)
+
+
+def keep_auto_rumor(reply, memories, campaign):
+    """Stores the auto deed of reply, the parsed JSON of the LLM, and counts the pass that read the memories. A reply that is
+    not valid changes nothing, because the LLM judged no memory."""
+    parsed = auto_reply(reply, memories)
+    if parsed is None:
+        logging.warning("RUMOR: The LLM gave no valid reply for the auto rumor, so the memories wait for the next pass.")
+        return
+    # The same thread ID can name another thread in another campaign
+    if state.ACTIVE_CAMPAIGN != campaign:
+        logging.info("RUMOR: Dropped the auto rumor, because the active campaign changed while the LLM wrote it.")
+        return
+    text, cited = parsed
+    if text:
+        notable_id = campaign_db.add_auto_deed(text, cited)
+        if notable_id is None:
+            logging.info("RUMOR: Dropped the auto rumor, because a delete or a cull changed its memories while the LLM wrote it.")
+            return
+        logging.info(f"RUMOR: Stored the auto deed {notable_id} from the memories of the chat threads {', '.join(map(str, cited))}.")
+    else:
+        logging.info("RUMOR: The LLM found no story in the memories.")
+    campaign_db.count_rumor_pass(memory["id"] for memory in memories)
+
+
+def auto_reply(reply, memories):
+    """The rumor of reply with the thread IDs of the memories that it cites, each once, or None when the reply is not valid:
+    not a JSON object, or a rumor that cites no memory of the pass. An empty rumor cites nothing."""
+    if not isinstance(reply, dict) or "rumor" not in reply or not isinstance(reply["rumor"], (str, type(None))):
+        return None
+    rumor = clean(reply["rumor"])
+    if not rumor:
+        return "", []
+    threads = {str(label): memory["id"] for label, memory in enumerate(memories, 1)}
+    labels = reply.get("memories") if isinstance(reply.get("memories"), list) else []
+    cited = list(dict.fromkeys(threads[key] for key in (str(label).strip("[] ") for label in labels) if key in threads))
+    return (rumor, cited) if cited else None
+
+
+def in_language(text):
     language = load_settings().get("language", "English")
     if language and language.lower() != "english":
         text += f"\nLANGUAGE: Write the rumor ONLY in {language}. Do not use English.\n"
     return text
 
 
+def player_line():
+    """The name of the player's faction, and a sentence that names and describes it."""
+    player = campaign_db.player_faction() or {}
+    faction = player.get("name") or "Nameless"
+    description = (player.get("description") or "").strip()
+    return faction, f"The player's faction: {faction}." + (f" {description}" if description else "")
+
+
 def facts(at, deed):
     """Plain sentences, because the LLM gets only these facts and must invent no other event."""
     ids = deeds.character_ids(deed)
     names = campaign_db.names_of(ids)
-    player = campaign_db.player_faction() or {}
-    faction = player.get("name") or "Nameless"
-    description = (player.get("description") or "").strip()
-    lines = [f"The player's faction: {faction}." + (f" {description}" if description else ""), f"The deed: {deed_sentence(deed, names, faction)}"]
+    faction, faction_sentence = player_line()
+    lines = [faction_sentence, f"The deed: {deed_sentence(deed, names, faction)}"]
     if at is not None:
         lines.append(f"Time: {campaign_db.game_time_text(at)}.")
     # The victim first, because a known figure is the news
     people = [person_line(profile) for profile in (campaign_db.get_character(npc_id) for npc_id in [*ids[-1:], *ids[:-1]]) if profile]
     if people:
         lines += ["Who they are:", *people]
-    stance = faction_line(deed["victim"]["faction"]) if deed["deed"] != "custom" else None
+    stance = faction_line(deed["victim"]["faction"]) if deed["deed"] not in deeds.RUMOR_ONLY else None
     if stance:
         lines += ["The factions:", stance]
     return "\n".join(lines)
 
 
 def deed_sentence(deed, names, player_faction):
-    # The player wrote the rumor of a custom deed, so it is the only account of the deed
-    if deed["deed"] == "custom":
+    if deed["deed"] in deeds.RUMOR_ONLY:
         return "The one that the rumor so far tells."
     doers = deeds.name_list([names.get(doer["id"], doer["name"]) for doer in deed["doers"]])
     victim = names.get(deed["victim"]["id"], deed["victim"]["name"])
