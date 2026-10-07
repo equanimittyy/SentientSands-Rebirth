@@ -5,7 +5,13 @@
   "major": false,
   "knowledge": "limited",
   "fields": {
-    "leader": "Elder"
+    "leader": "Elder",
+    "territory": [
+      "Stobe's Gamble",
+      "Stobe's Garden",
+      "The Crags",
+      "The Pits"
+    ]
   },
   "description": "Bandits of the far southeast, mostly humans in Skeleton masks. Their leader Elder, a Skeleton who enjoys watching humans kill each other, has convinced them that they are Skeletons. They revere Stobe as a deity."
 }

@@ -6,6 +6,16 @@
   "knowledge": "limited",
   "fields": {
     "leader": "Boss Simion",
+    "territory": [
+      "Bast",
+      "Grey Desert",
+      "Heng",
+      "Sinkuun",
+      "Skimsands",
+      "Stormgap Coast",
+      "The Great Desert",
+      "The Hook"
+    ],
     "enemies": [
       "United Cities"
     ]

@@ -5,6 +5,7 @@ campaign. A search finds words, not meaning, so some hits are wrong: the slots, 
 wrong hit cheap.
 """
 
+import functools
 import re
 import sqlite3
 
@@ -60,6 +61,8 @@ def words(text):
     return [word[:-1] if len(word) >= 4 and word.endswith("s") else word for word in _WORD.findall(text.casefold())]
 
 
+# The knowledge filter takes the name words of each name and field value of the lore on each chat line
+@functools.cache
 def name_words(name):
     found = words(name)
     return tuple(found[1:] if len(found) > 1 and found[0] == "the" else found)

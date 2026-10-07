@@ -31,7 +31,7 @@ def known(records, identity, origin=None, places=()):
     faction holds no land is a drifter, so it knows each place from its travels."""
     identity = set(identity)
     by_words = _by_words(records)
-    base = identity | _own_place(records, by_words, _home(records, by_words, origin))
+    base = identity | _home(records, by_words, origin)
     travels = _own_place(records, by_words, places)
     links = _links(records, by_words)
     result = {}
@@ -45,10 +45,19 @@ def known(records, identity, origin=None, places=()):
 
 
 def _home(records, by_words, origin):
-    """The (town, zone) of each location and region that the territory, bases, or capital of the origin faction names."""
+    """The keys of the land of the origin faction: each location and region that its territory, bases, or capital names,
+    each location whose owner names it, and the region of each of these locations. Unlike a place, the home takes no
+    neighbouring region and no holding faction, which would spread it over a third of the world."""
     faction = next((record for record in records if record["key"] == origin), None)
-    held = {key for field in HOLDING_FIELDS for value in _listed(faction["fields"].get(field)) for key in by_words.get(name_words(value), ())} if faction else set()
-    return [(record["name"], None) if record["kind"] == "location" else (None, record["name"]) for record in records if record["key"] in held and record["kind"] in ("location", "region")]
+    if not faction:
+        return set()
+    named = {key for field in HOLDING_FIELDS for value in _listed(faction["fields"].get(field)) for key in by_words.get(name_words(value), ())}
+    towns = [
+        record for record in records if record["kind"] == "location"
+        and (record["key"] in named or any(origin in by_words.get(name_words(value), ()) for value in _listed(record["fields"].get("owner"))))
+    ]
+    regions = {key for town in towns for value in _listed(town["fields"].get("zone")) for key in by_words.get(name_words(value), ()) if key[0] == "regions"}
+    return {town["key"] for town in towns} | {key for key in named if key[0] == "regions"} | regions
 
 
 def _own_place(records, by_words, places):

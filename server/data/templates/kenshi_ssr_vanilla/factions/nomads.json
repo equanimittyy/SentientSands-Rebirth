@@ -4,6 +4,22 @@
   "aliases": [],
   "major": false,
   "knowledge": "limited",
-  "fields": {},
+  "fields": {
+    "territory": [
+      "Border Zone",
+      "Darkfinger",
+      "Dreg",
+      "Flats Lagoon",
+      "Grey Desert",
+      "Heng",
+      "Hidden Forest",
+      "Northern Coast",
+      "Okran's Gulf",
+      "Shem",
+      "Sinkuun",
+      "Stenn Desert",
+      "The Great Desert"
+    ]
+  },
   "description": "Human wanderers and herders who tend their animals and stay neutral. Their camps lie in the southwest and the northeast of the continent and are open to travelers."
 }

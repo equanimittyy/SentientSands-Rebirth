@@ -4,6 +4,20 @@
   "aliases": [],
   "major": false,
   "knowledge": "limited",
-  "fields": {},
+  "fields": {
+    "territory": [
+      "Border Zone",
+      "Heng",
+      "Skimsands",
+      "Spider Plains",
+      "The Great Desert",
+      "The Hook",
+      "The Swamp"
+    ],
+    "bases": [
+      "Admag",
+      "The Hub"
+    ]
+  },
   "description": "Career criminals who work as thieves, fences, and smugglers. They keep watchtowers in many towns, most of all in the United Cities, and newcomers can buy their way in through a Thief Boss."
 }

@@ -4,6 +4,14 @@
   "aliases": [],
   "major": false,
   "knowledge": "limited",
-  "fields": {},
+  "fields": {
+    "territory": [
+      "Heng",
+      "Skimsands",
+      "The Eye",
+      "The Great Desert",
+      "The Hook"
+    ]
+  },
   "description": "Hunters of escaped slaves, stronger and better armed than the Slave Hunters. They capture vagrants and rebel farmers, and sometimes seize innocent travelers to sell to the slavers as runaways."
 }

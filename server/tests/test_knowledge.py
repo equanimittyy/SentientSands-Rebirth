@@ -134,8 +134,16 @@ class TravelsTest(unittest.TestCase):
     def test_the_lands_of_the_origin_faction_are_base_and_another_place_is_travels(self):
         shek = key("faction", "Shek Kingdom")
         found = self.known([shek], shek, [("The Hub", None)])
-        self.assertEqual({name for name, travels in found.items() if travels}, {"Holy Nation Outlaws"})
-        self.assertTrue({"Admag", "Stenn Desert", "Vain", "Mercenary Guild", "The Hub", "Dust King"} <= {name for name, travels in found.items() if not travels})
+        self.assertEqual({name for name, travels in found.items() if not travels}, {"Shek Kingdom", "Admag", "Stenn Desert", "Hungry Bandits"})
+        self.assertEqual({name for name, travels in found.items() if travels}, {"The Hub", "Border Zone", "Dust Bandits", "Dust King", "Holy Nation Outlaws"})
+
+    def test_the_home_takes_no_neighbouring_region_and_no_holding_faction(self):
+        found = self.known(origin=key("faction", "Shek Kingdom"))
+        self.assertFalse({"Border Zone", "Vain", "Dust Bandits", "Mercenary Guild"} & set(found))
+
+    def test_a_location_that_the_origin_faction_owns_and_its_region_are_home(self):
+        found = self.known(origin=key("faction", "Holy Nation Outlaws"))
+        self.assertEqual({name for name, travels in found.items() if not travels}, {"The Hub", "Border Zone", "Holy Nation Outlaws", "Dust Bandits"})
 
     def test_an_origin_faction_without_land_gives_no_home(self):
         found = self.known(origin=key("faction", "Hungry Bandits"), places=[("The Hub", None)])

@@ -386,7 +386,7 @@ A search finds words, not meaning, so some hits are wrong. The slots, the score 
 - A record with an empty text is no hit, for example a faction that the game reported (`note_faction`). It stays among the records, because a link or a `known_by` can name it (see [Knowledge](#knowledge)).
 - A character is a record only when it is canon, with the `origin` `seed` or `campaign`. A character that the server added in play (`game`) stays out, because its rolled backstory is invented. A `Race` or `Faction` of `Unknown` is left out of the fields.
 - The Personality and the Speech of a character stay out. They describe the character for an LLM that speaks as that character, as the scene of the squad member who speaks leaves them out (see [Characters](#characters)).
-- The server reads the records and builds the search index in memory for each chat line, so an edit on Campaign Canon reaches the next line, and the campaign database holds no index. A search of SSR Vanilla, with its 574 records, takes about 30 ms in the dev container, of which the knowledge filter takes about 15 ms.
+- The server reads the records and builds the search index in memory for each chat line, so an edit on Campaign Canon reaches the next line, and the campaign database holds no index. A search of SSR Vanilla, with its 574 records, takes about 20 ms in the dev container, of which the knowledge filter takes about 6 ms for a member of the Holy Nation. The filter takes the name words of each name and field value of the lore, so `retrieval.name_words` caches them.
 - The search uses SQLite FTS5. The embedded Windows runtime ships SQLite 3.49.1, which has FTS5 ([development.md](development.md#probes) has the check for a later runtime).
 
 ### Name matching
@@ -467,15 +467,15 @@ The own records of an NPC are the start of its links (`knowledge.known`, with th
 | The current faction | The `factionID` of the NPC's context, or the `Faction` of the profile (`find_faction`) |
 | The origin faction | The `OriginFaction` of the profile |
 | The race | The `Race` of the profile |
-| The home | Each location and region that the `territory`, `bases`, or `capital` of the origin faction names |
+| The home | Each location and region that the `territory`, `bases`, or `capital` of the origin faction names, each location whose `owner` names the origin faction, and the region of each of these locations |
 | The current location and the current region | As for the place order (see [Order of the lore](#order-of-the-lore)) |
 | The past places | The place of each chat thread in which the NPC is a member, as a speaker or as an overhearer (`campaign_db.thread_places`) |
-| The neighbouring regions | The regions next to a region of the home, of the current place, or of a past place |
-| The holding factions | Each faction whose `territory`, `bases`, or `capital` names one of these locations and regions, and each `owner` of one of these locations |
+| The neighbouring regions | The regions next to a region of the current place or of a past place |
+| The holding factions | Each faction whose `territory`, `bases`, or `capital` names a location or a region of the current place or of a past place, or a neighbouring region, and each `owner` of one of these locations |
 
 - Links go one hop from the own records. In SSR Vanilla, one hop from a faction reaches a median of 1 and at most 28 of the 211 canon characters. A member of the Holy Nation therefore does not reach Tinfist through the `enemies` field of its faction.
 - The holding factions make the place take a second hop: the Border Zone, the Dust Bandits, then the Dust King. An NPC in the Hub therefore knows the Dust King, because the Dust Bandits hold the Border Zone. The step to a neighbouring region costs no hop, so the same path runs from each neighbouring region: a member of the Shek Kingdom in Admag knows the Dust King through the Border Zone next to the Stenn Desert. No other path takes a second hop.
-- In SSR Vanilla, an NPC in the Hub has 24 holding factions, such as the gangs of the Swamp and the Holy Nation, and knows 43 canon characters through them. From its region and the neighbouring regions, an NPC knows a median of 19 and at most 53 canon characters through the holding factions.
+- In SSR Vanilla, an NPC in the Hub has 28 holding factions, such as the gangs of the Swamp and the Holy Nation, and knows 43 canon characters through them. From its region and the neighbouring regions, an NPC knows a median of 20 and at most 53 canon characters through the holding factions.
 - A character links only to factions, so an NPC knows a Limited character through its current faction, its origin faction, or a holding faction, never through its race.
 - Only one step of neighbours counts. A region two regions away is not an own record, and the NPC knows it only through another link. The `neighbours` fact is no link.
 - The current location and the current region come from the context of each chat line, so a squad member that walks into Admag knows a Limited Admag while it stands there, and also after it leaves when it talked there.
@@ -486,15 +486,15 @@ The own records form two groups, so the prompt can tell the NPC where it learned
 
 | Group | Own records |
 |---|---|
-| Base | The character record, the current faction, the origin faction, the race, and the home, with the neighbouring regions and the holding factions of the home |
+| Base | The character record, the current faction, the origin faction, the race, and the home |
 | Travels | The current place and the past places, with their neighbouring regions and holding factions |
 
 - A Limited record that links to a base record is base knowledge. A Limited record that links only to a travel record is travel knowledge, and the block gives it under a heading of its own (see [Block](#block)). A Global or a Secret record is always base knowledge.
 - The home stands for the place where the NPC grew up. A caravan guard of the Holy Nation in Heng knows the lands of the Holy Nation as base knowledge, and Heng from its travels.
-- An NPC whose origin faction holds no land is a drifter. It has no home, so it knows each place from its travels. In SSR Vanilla, 14 of the 106 factions hold no land, such as the Drifters and the Nomads.
+- An NPC whose origin faction holds no land is a drifter. It has no home, so it knows each place from its travels. In SSR Vanilla, 10 of the 106 factions give no home. 7 hold no land, such as the Drifters and the Slaves, and 3 name only places that have no record, such as the Police, whose `territory` names the faction United Cities.
 - A past place is the `location` of a thread (see [Chat threads](#chat-threads)). A past place counts as a full place, as the current place does, with its neighbouring regions and holding factions.
 - The server reads the past places from the threads at each chat line, so nothing tracks an NPC between its chats. A place that the NPC passes through without a chat adds nothing. A deleted memory or a cull of a thread removes its place.
-- In SSR Vanilla, the filter takes about 17 ms for a member of the Holy Nation in Heng, 22 ms with 10 past places, and 37 ms with 40 past places.
+- In SSR Vanilla, `knowledge.known` takes about 4 ms for a member of the Holy Nation in Heng, 6 ms with 10 past places, and 11 ms with 40 past places.
 
 #### Secret access
 
@@ -508,11 +508,12 @@ Rejected:
 
 - A knowledge bank for each character. The links of the seeded data decide Limited access, and only a Secret entry lists who knows it.
 - The whitelist of a secret on the character. It reaches only canon characters, so no generic NPC could know a secret, and the knowers of one secret would spread over many files.
-- A second hop through every link. A member of the Holy Nation would know the past of Tinfist, Bo, Grey, and Jaegar through the `enemies` field of its faction. Two hops take a member of the United Cities from 15 to 67 of the 211 canon characters of SSR Vanilla.
+- A second hop through every link. A member of the Holy Nation would know the past of Tinfist, Bo, Grey, and Jaegar through the `enemies` field of its faction. Two hops take a member of the United Cities from 15 to 65 of the 211 canon characters of SSR Vanilla.
 - Direct links only. A member of the Anti-Slavers would not know Tinfist, its leader.
-- The `factions` of a region as holding factions. They list each faction that roams a region, also a faction that only passes through. From its region and the neighbouring regions, an NPC of SSR Vanilla would know a median of 54 and at most 108 canon characters, against 19 and 53 through the holding factions.
+- The `factions` of a region as holding factions. They list each faction that roams a region, also a faction that only passes through. From its region and the neighbouring regions, an NPC of SSR Vanilla would know a median of 54 and at most 108 canon characters, against 20 and 53 through the holding factions.
 - A second step of neighbours. It would give an NPC of SSR Vanilla a median of 16 and at most 30 regions in its place, against 6 and 10.
 - The current place as base knowledge. A caravan guard of the Holy Nation in Heng would know Heng as if it grew up there, and it would lose the lore of Heng when it left.
+- The home as a full place, with its neighbouring regions and holding factions. The home of the Holy Nation would span 24 of the 69 regions of SSR Vanilla, and a member would know 135 of the 298 Limited records as base knowledge, against 27.
 - The place of the first chat as the home. A caravan guard of the Holy Nation that the player first meets in Heng would get Heng as its home.
 - A record of each place that each NPC passes through. It would write for every NPC all the time, but only an NPC in a chat uses its knowledge, and the threads already hold the place of each chat.
 - A filter after the search. A record that the NPC cannot know could set the best score and cut the hits that it can know below `SCORE_RATIO`, and its words would count towards `COMMON_SHARE`.
