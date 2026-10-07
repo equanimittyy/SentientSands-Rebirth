@@ -94,6 +94,7 @@ class SearchTest(unittest.TestCase):
     def test_the_lore_of_the_system_message_is_skipped(self):
         self.assertEqual(self.search("The Holy Nation, the Nameless, and the Greenlander walk into a bar.")[1], [])
         self.assertEqual(self.search("The Holy Nation, the Nameless, and the Shek walk into a bar.")[1], ["Shek"])
+        self.assertEqual(self.search("The Holy Nation, the Nameless, and the Shek walk into a bar.", profile=dict(self.ABEL_PROFILE, Race="Shek"))[1], [])
 
     def test_a_lore_search_alone_skips_nothing(self):
         memories, entries, skipped = background.search("I hate the Holy Nation.", background.campaign_lore())

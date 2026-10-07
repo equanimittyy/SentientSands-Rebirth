@@ -17,13 +17,14 @@ def campaign_lore():
 
 def in_system_message(lore, npc_id, profile, faction_id, speaker_race):
     """The keys of the lore records that the system message of a chat with the NPC holds: its own character record, its
-    current and origin faction (describe_npc), the race of the speaker, and the player's faction (scene_values)."""
+    current and origin faction and its race (describe_npc), the race of the speaker, and the player's faction
+    (scene_values)."""
     factions = [campaign_db.player_faction()]
     for name, game_id in ((profile.get("Faction"), faction_id), (profile.get("OriginFaction"), None)):
         if name and name != "Unknown":
             factions.append(campaign_db.find_faction(game_id, name))
-    race = _race(lore, speaker_race)
-    return {("characters", npc_id)} | {("factions", faction["faction_id"]) for faction in factions if faction} | ({race["key"]} if race else set())
+    races = {race["key"] for race in (_race(lore, profile.get("Race")), _race(lore, speaker_race)) if race}
+    return {("characters", npc_id)} | {("factions", faction["faction_id"]) for faction in factions if faction} | races
 
 
 def identity(lore, npc_id, profile, faction_id):

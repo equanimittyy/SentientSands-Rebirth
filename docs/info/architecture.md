@@ -407,7 +407,7 @@ The scene is prose that the NPC reads in the second person, built by `server/cha
 
 `prompt_system.txt` holds the rules and the world lore, and `build_system_prompt` fills it. `scene_values` fills the parts of the chat scene that change on each call. A block that appears only with data, such as the rumors, keeps its heading in the code, because a placeholder has no conditions. The `{world_lore}` placeholder takes the overview of the campaign (see [Campaign storage](#campaign-storage)).
 
-`npc_chat_template.txt` describes the NPC of a chat from its profile (`describe_npc`), and each participant of a radiant conversation (see [Radiant conversations](#radiant-conversations)).
+`npc_chat_template.txt` describes the NPC of a chat from its profile (`describe_npc`), and each participant of a radiant conversation (see [Radiant conversations](#radiant-conversations)). The race line gives the whole race entry, so a word that only one race uses, such as the "flatskin" of the Shek, reaches the NPCs of that race and stays out of the world lore that every NPC reads. A race with no entry gives only its name.
 
 - The history is a block window of those lines (`chat_prompt.history_window`). It keeps its first line while it grows from 20 to 39 lines, and then it moves on by 20 lines. A window that moved with each new line would change the start of the history on every turn, so the cache could never serve it.
 - `chat_prompt.history_turns` makes each line whose speaker is the NPC an assistant turn, without the time and the name, and every other line a user turn (see [Characters](#characters)). The lines of another NPC with the same name therefore do not count as its own turns. A rename relabels the lines that the NPC spoke with the new name (`campaign_db.rename_character`), so its dialogue shows one name.
@@ -495,7 +495,7 @@ Rejected:
 - The place order adds no entry, so a line that finds nothing gets nothing. "Any bonedogs around?" finds many regions with near-equal scores, and the region of the NPC is the likeliest meaning, then a region next to it. Asked in the Deadlands, it gives Skinner's Roam first, a neighbour with bonedogs.
 - Rejected: the entry of the NPC's place in each free slot. Most lines find nothing, so the entry would be in nearly every turn, and a model tends to talk about the text that it gets.
 - A record that both steps find counts once, as a name match.
-- A record is skipped when the system message holds it: the NPC's own character record, its current and origin faction, the race of the squad member who speaks, and the player's faction (`background.in_system_message`).
+- A record is skipped when the system message holds it: the NPC's own character record, its current and origin faction, its race, the race of the squad member who speaks, and the player's faction (`background.in_system_message`).
 - The text of an entry ends at its last sentence end before 700 characters, or at 700 characters (`clipped`), because a user template has no limit. The fields are not cut.
 
 ### Knowledge
