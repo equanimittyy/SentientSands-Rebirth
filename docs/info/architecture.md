@@ -225,7 +225,10 @@ The pool holds each memory whose `thread.rumor_passes` is less than 6 (`RUMOR_PA
 - Rejected: a cull of the pool by game days. The game time jumps with sleep, fast-forward, and the load of a save.
 - Rejected: an LLM that lists the memories to drop. A weak model drops the wrong memories, and each reply carries a second judgment.
 
-The call takes the `synthesis` task and `prompt_auto_rumor.txt` (`rumors.auto_prompt`). The prompt holds the player's faction, the memories, and the newest 30 rumors, which the LLM must not tell again. The LLM picks a theme that comes back in several memories, or one conversation whose outcome changes the world, and answers only with JSON: `{"rumor": "...", "memories": [1, 2]}`.
+The call takes the `synthesis` task and `prompt_auto_rumor.txt` (`rumors.auto_prompt`). The prompt holds the player's faction, the memories, and the newest 30 rumors, which the LLM must not tell again. The LLM answers only with JSON: `{"rumor": "...", "memories": [1, 2]}`.
+
+- The empty rumor is the default. The LLM writes a rumor only for a story that passes four tests: it changes the world outside the conversation or comes back in several memories, a stranger in another town would retell it, the memories tell who did it and what came of it, and no rumor already tells it.
+- When the LLM is not sure, it gives the empty rumor. A dull rumor is worse than none, because NPCs hear only the 5 newest rumors.
 
 - Each memory carries a label from 1 to N, its game time, its place, and the current names (`chat_prompt.memory_text`). The server maps each label to its thread ID, because a short label is harder for the LLM to get wrong than a thread ID.
 - A valid reply is a JSON object with an empty rumor, or with a rumor that cites at least one label of the pass (`rumors.auto_reply`). The server drops each other label.
