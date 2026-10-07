@@ -1128,7 +1128,8 @@ void playerUpdate_hook(PlayerInterface *thisptr) {
             std::string *pJson = new std::string(
                 "{\"participants\": " + npcData + ", \"player_context\": " +
                 GetDetailedContext(participants[0], "player") +
-                ", \"events\": " + TakeGameEvents() + "}");
+                ", \"events\": " + TakeGameEvents() +
+                ", \"changed_towns\": " + ChangedTowns() + "}");
             CreateThread(NULL, 0, RadiantPollThread, pJson, 0, NULL);
           }
         }

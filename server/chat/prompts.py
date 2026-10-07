@@ -1,6 +1,6 @@
 import logging
 
-from chat import prompt_store, scene_text
+from chat import prompt_store, scene_text, towns
 from chat.characters import is_skeleton, reported_sex
 from core import state
 from core.game import is_player_faction
@@ -37,7 +37,8 @@ def find_race(race):
     return find_named((entry for (category, _), entry, *_ in campaign_db.list_records("entity") if category == "races"), race)
 
 def find_location(town):
-    return find_named((entry for (category, _), entry, *_ in campaign_db.list_records("entity") if category == "locations"), town)
+    location = find_named((entry for (category, _), entry, *_ in campaign_db.list_records("entity") if category == "locations"), town)
+    return towns.current(location) if location else None
 
 def describe_race(race):
     entry = find_race(race)
@@ -116,8 +117,10 @@ def scene_values(player, player_name):
     race = player.get("race", "Unknown")
     race_entry = find_race(race)
     player_faction = campaign_db.player_faction()
+    environment = player.get("environment") or {}
+    location = find_location(environment["town_name"]) if environment.get("town_name") else None
     return {
-        "location": scene_text.location_text(player.get("environment") or {}),
+        "location": " ".join(part for part in (scene_text.location_text(environment), (location or {}).get("change")) if part),
         "rumors": scene_text.rumors_text(rumors, state.PLAYER_CONTEXT.get("day")),
         "player": scene_text.player_text(
             player_name, race, reported_sex(race, player.get("gender", "Unknown")),

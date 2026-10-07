@@ -1003,11 +1003,45 @@ std::string TakeGameEvents() {
   return json + "]";
 }
 
+// The towns whose data a world state swapped for an override, for example
+// Brink after the Reavers take it. The name is the one of the original data,
+// which the location records use, and the type is a TownType.
+std::string ChangedTowns() {
+  std::string json = "[";
+  GameWorld *world = ppWorld ? *ppWorld : nullptr;
+  if (!world)
+    return json + "]";
+  lektor<RootObject *> found;
+  world->getObjectsWithinSphere(found, Ogre::Vector3::ZERO, 10000000.0f, TOWN,
+                                5000, NULL);
+  for (uint32_t i = 0; i < found.size(); ++i) {
+    Town *town = found[i] ? ((TownBase *)found[i])->isTown() : nullptr;
+    if (!town)
+      continue;
+    GameData *now = town->getGameData();
+    GameData *original = town->getOriginalGameData();
+    if (!now || !original || now == original)
+      continue;
+    Faction *owner = ((RootObjectBase *)town)->getFaction();
+    auto type = now->idata.find("type");
+    if (json.size() > 1)
+      json += ",";
+    json += "{\"name\": \"" + EscapeJSON(original->name) + "\", \"owner\": \"" +
+            EscapeJSON(owner ? FactionName(owner) : std::string()) +
+            "\", \"owner_id\": \"" +
+            EscapeJSON(owner && owner->data ? owner->data->stringID
+                                            : std::string()) +
+            "\", \"type\": " +
+            ToString(type != now->idata.end() ? type->second : -1) + "}";
+  }
+  return json + "]";
+}
+
 std::string GameReport() {
   std::string player = "{}";
   GameWorld *world = ppWorld ? *ppWorld : nullptr;
   if (world && world->player && world->player->playerCharacters.size() > 0)
     player = GetDetailedContext(world->player->playerCharacters[0], "player");
   return "{\"player\": " + player + ", \"events\": " + TakeGameEvents() +
-         "}";
+         ", \"changed_towns\": " + ChangedTowns() + "}";
 }

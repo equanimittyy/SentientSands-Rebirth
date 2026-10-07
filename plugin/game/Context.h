@@ -19,4 +19,5 @@ std::string RoleJson(Character *npc);
 std::string ProfileJson(Character *npc);
 std::string GetVisibleEquipment(Character *npc);
 std::string TakeGameEvents();
+std::string ChangedTowns();
 std::string GameReport();

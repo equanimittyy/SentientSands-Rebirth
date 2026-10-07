@@ -33,7 +33,7 @@ def radiant_conversation():
     data = request.json
     if not data: return jsonify({"status": "error"}), 400
     center = context_dict(data.get('player_context'))
-    take_report(center, data.get('events'))
+    take_report(center, data.get('events'), data.get('changed_towns'))
     participants = {str(npc['id']): npc for npc in data.get('participants', [])}
     npc_ids = [npc['npc_id'] for npc in participants.values()]
 
@@ -141,7 +141,7 @@ def chat():
     if not data: return jsonify({"text": "Error: No JSON data provided"}), 400
 
     speaker = context_dict(data.get('speaker'))
-    take_report(speaker, data.get('events'))
+    take_report(speaker, data.get('events'), data.get('changed_towns'))
     
     raw_npc = data.get('npc', 'Someone')
     raw_npcs = data.get('npcs', [])

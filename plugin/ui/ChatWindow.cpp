@@ -340,7 +340,8 @@ void OnChatSendClick(MyGUI::Widget *sender) {
       EscapeJSON(text) + "\", \"player\": \"" + EscapeJSON(playerName) +
       "\", \"mode\": \"" + mode + "\", \"context\": " + detailedContext +
       ", \"speaker\": " + speakerContext +
-      ", \"events\": " + TakeGameEvents() + "}";
+      ", \"events\": " + TakeGameEvents() +
+      ", \"changed_towns\": " + ChangedTowns() + "}";
 
   ChatTask *task = new ChatTask();
   task->json = json;

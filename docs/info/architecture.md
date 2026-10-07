@@ -75,9 +75,9 @@ The plugin reads the game state only when a request needs it, and a radiant conv
 
 | Request | Game state that it carries |
 |---|---|
-| Chat (`/chat`) | The context of the target, the context of the squad member who speaks (`speaker`), and the game events |
-| Radiant conversation (`/radiant`) | The participants, the context of the center as the player's context (`player_context`), and the game events |
-| Cull Future Data (`/cull`) in the SSR HUB | A report: the player's context and the game events (`GameReport` in `plugin/game/Context.cpp`) |
+| Chat (`/chat`) | The context of the target, the context of the squad member who speaks (`speaker`), the game events, and the changed towns |
+| Radiant conversation (`/radiant`) | The participants, the context of the center as the player's context (`player_context`), the game events, and the changed towns |
+| Cull Future Data (`/cull`) in the SSR HUB | A report: the player's context, the game events, and the changed towns (`GameReport` in `plugin/game/Context.cpp`) |
 | `/report` | A report, when 50 game events wait, when the oldest game event waited 60 s, or when the server sends `REPORT` through the pipe |
 | `/squad_rename` | The context of a member of the player's faction that the game renamed (see [Names](#names)) |
 
@@ -205,6 +205,25 @@ The Deeds window of the SSR HUB mirrors Campaign Log > Deeds, as the Dialogue Li
 - The routes of the window share the code of the routes of the web app (`rumor_reply`, `keep_rumor_reply`, `add_deed_reply`, `delete_deed_reply`, and `delete_rumor_reply` in `server/chat/routes.py`).
 - The replies of `/events`, `/write_rumor`, and `/read_rumor` carry the active campaign, and Keep, Add, and Delete send it back. The routes refuse the change when that campaign is no longer active, because the same ID can name another deed in another campaign.
 - Each close of a popup window makes the pending reply stale (`CloseRumorUI` in `plugin/ui/EventsWindow.cpp`), because the player can close the window or open it for another deed while a request runs.
+
+### Changed towns
+
+A world state of the game can swap the data of a town for an override with another owner or another type. For example, Brink becomes a town of the Reavers when Lady Tsugi is dead and Valamon is alive. In vanilla, 55 towns have overrides, and 48 of them can change their owner. The location records describe the start of a game, so the server lays the changes over them (`server/chat/towns.py`):
+
+1. Each chat, radiant conversation, and report carries `changed_towns` (`ChangedTowns` in `plugin/game/Context.cpp`). It lists each town whose current data (`Town::getGameData`) is not its original data (`getOriginalGameData`), with the name of the original data, the owner, the game ID of the owner, and the type (`TownType` in `deps/KenshiLib/Include/kenshi/Town.h`).
+2. The server keeps the list of the latest request (`take_report`). A load of an older save can undo a change, so an older list counts for nothing.
+3. `towns.current` lays the change over the location record that has the name of the town. The campaign lore (`background.campaign_lore`) and `find_location` use it, so the change reaches the knowledge, the lore hits, and the place topic of a radiant conversation.
+
+- The owner takes the name of its faction record (`find_faction`), so it links as the names of the template do.
+- A sentence leads the description, for example "Brink is now a town held by Reavers. It was a town of United Cities before." The rest of the description still tells of the start of a game, and the sentence tells the LLM that it is old. The chat scene gives the sentence after the place when the player's town changed.
+- A town that falls to ruins keeps its owner as the former owner, and a new owner of a ruin changes nothing, because a ruin is no one's land (see [Links](#links)).
+- The knowledge follows the new owner. Brink and the Stormgap Coast become the home of a Reaver, and the Reavers become a holding faction of Brink (see [Own records](#own-records)).
+- An override with the owner and the type of the record changes nothing, for example a prosperous Heng of the United Cities.
+- Each NPC that knows a town knows its change. The plugin sees only that a change holds, not when it happened, so the sentence gives no time, and the news does not spread over time.
+- No vanilla override holds at the start of a game, so a new game has no changed town.
+- The game decides which world states hold, so the overrides of a mod work too, such as the Dominion in Heng under UWE.
+- Rejected: a table of the world states and the overrides in the template. UWE alone has 669 world states and 900 gated towns, and each mod would need a table of its own.
+- Rejected: the patrols and the camps that a world state adds or removes. They change the land of a faction without a new owner of a town, so the `territory` of a faction stays as at the start of a game.
 
 ## Web app
 
@@ -440,7 +459,7 @@ Each lore record has a tier (`server/chat/knowledge.py`). The search of a chat l
 - `background.search` drops the records that the NPC cannot know before `find_lore` builds its index. A record that the NPC cannot know therefore sets neither the best score of the score cut nor the common share of a word.
 - A lore search alone, with no NPC, searches every record, so a template author can test each one in the test search.
 - The memory search takes the lore names of the lore hits, so a lore name that the NPC cannot know finds no memory through its name.
-- Access reads only the seeded data, the current place of the NPC, and the places of its past chats. What an NPC hears in a chat stays out, because the memories already give an NPC what it lived through. The overview goes into every prompt, so it has no tier. Radiant conversations and animals get no search (see [Block](#block)).
+- Access reads only the seeded data with the changed towns (see [Changed towns](#changed-towns)), the current place of the NPC, and the places of its past chats. What an NPC hears in a chat stays out, because the memories already give an NPC what it lived through. The overview goes into every prompt, so it has no tier. Radiant conversations and animals get no search (see [Block](#block)).
 
 #### Links
 
@@ -1010,7 +1029,7 @@ SSR writes the content of SSR Vanilla itself. Each fact comes from the game: its
 - A region is a zone of the game data (record type 95), such as Border Zone or Shem. Record type 28 is a ground texture set and type 99 is a soil type, so neither is a region. Six zones have no towns and almost no data, so the template leaves them out: Akakus, Central, Desert, Empire, Rim Sands, and The Desert.
 - A location is a town of the game data (record type 13). The game data does not say which zone holds a town, so the zone comes from the town infobox of the wiki, joined to the game data on the string ID. A camp that a zone places at random, a nest, is not a location.
 - The `territory` of a faction names each region where its own patrols, army, or camps spawn at the start of a game, and each region where it owns a town that is not a ruin. Caravans, lone travellers, escapees, raids, and invasions only pass through, so the Traders Guild, the Slave Traders, and the Drifters hold no region that only their caravans or travellers cross. A region that two enemies both patrol, such as Bast, is in the territory of each.
-- The facts and the descriptions describe the start of a game, because a new campaign does not know which world states changed. The `factions` and `animals` of a region therefore leave out each squad whose world state does not hold at the start of a game, such as the death of a leader. A world state tests whether an NPC is dead, alive, or imprisoned, so a gate on "All Slave Masters are not alive" being false holds at the start, and a gate on "Tinfist is not alive" being true does not.
+- The facts and the descriptions describe the start of a game, because the world states change in play. The server lays only the changed towns over them (see [Changed towns](#changed-towns)). The `factions` and `animals` of a region therefore leave out each squad whose world state does not hold at the start of a game, such as the death of a leader. A world state tests whether an NPC is dead, alive, or imprisoned, so a gate on "All Slave Masters are not alive" being false holds at the start, and a gate on "Tinfist is not alive" being true does not.
 - SSR Vanilla has a record for each vanilla faction that a source describes. It leaves out the factions of wild animals, the owners of ruins, and Nameless, the player's starting faction.
 - Spiders, Gutters, and Old Machines are creature factions, but each has a record, because Bugmaster, No-Face, and the Spider Foreman belong to them. A `Faction` that names no faction of the template shows as Unknown in the editor, and a save writes Unknown. The `factions` of a region leave these three out, because its `animals` name their creatures.
 - The `animals` of a region name the wild creatures that its squads and nests spawn, not the dogs and pack animals of NPC squads, such as the goats of the Merchant Nomads.

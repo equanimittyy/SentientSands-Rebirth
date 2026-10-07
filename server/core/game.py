@@ -94,12 +94,14 @@ def generate_relation_bar(rel):
     # Plain text, not MyGUI color tags, so it renders on every UI version
     return f"RELATION: [{label}] [{bar_str}] ({rel:+} pts)"
 
-def take_report(player, events):
-    """Keeps the player's context and takes the deeds of the game events that a request from the plugin carries. The plugin
-    sends the context only with a request, so the player's context is the one of the latest request."""
+def take_report(player, events, towns):
+    """Keeps the player's context and the changed towns, and takes the deeds of the game events that a request from the
+    plugin carries. The plugin sends the context only with a request, so the player's context is the one of the latest
+    request. A load of an older save can undo a change of a town, so only the latest list counts."""
     if player:
         state.PLAYER_CONTEXT = player
         note_faction(player, is_player=True)
+    state.CHANGED_TOWNS = towns or []
     deeds.take(events)
 
 def report_from_game(timeout=5):

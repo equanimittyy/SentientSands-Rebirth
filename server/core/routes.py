@@ -83,7 +83,7 @@ def events_content():
 @bp.route('/report', methods=['POST'])
 def game_report():
     data = request.get_json(silent=True) or {}
-    take_report(data.get("player"), data.get("events"))
+    take_report(data.get("player"), data.get("events"), data.get("changed_towns"))
     state.GAME_REPORTED.set()
     return jsonify({"status": "ok"})
 
@@ -248,7 +248,7 @@ def settings_endpoint():
 @bp.route('/cull', methods=['POST'])
 def cull_from_game():
     data = request.get_json(silent=True) or {}
-    take_report(data.get("player"), data.get("events"))
+    take_report(data.get("player"), data.get("events"), data.get("changed_towns"))
     return cull_future_data()
 
 def cull_future_data():
