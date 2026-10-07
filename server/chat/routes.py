@@ -48,7 +48,7 @@ def radiant_conversation():
         names[serial] = npc_name(npc)
         profiles[serial] = get_character_data(names[serial], context=json.dumps(npc))
 
-    rumor_texts = [rumor["text"] for rumor in campaign_db.rumors()[-PROMPT_RUMORS:]]
+    rumor_texts = [rumor["text"] for rumor in deeds.told_rumors()[-PROMPT_RUMORS:]]
     environment = center.get("environment") or {}
     location = find_location(environment["town_name"]) if environment.get("town_name") else None
     topic = radiant.topic(campaign_db.shared_memories(npc_ids), environment, rumor_texts, location=location)

@@ -143,6 +143,13 @@ class BountyDeedTest(unittest.TestCase):
         end_pipe.assert_called_once_with("END_BOUNTY: 0-5-6-7-8|1")
         self.assertEqual(deeds.character_deeds(), {"h:100": ["Killed Arleen"]})
 
+    def test_npcs_tell_the_rumor_of_a_bounty_only_while_it_is_open(self, place_pipe, end_pipe):
+        campaign_db.add_bounty_rumor(self.place(1), "WANTED: Arleen.", "They say Arleen is wanted.")
+        self.assertEqual([rumor["text"] for rumor in deeds.told_rumors()], ["They say Arleen is wanted."])
+        self.kill(1, 150)
+        campaign_db.save_rumor(None, deeds.notable_events()[0]["id"], "Beep killed Arleen.")
+        self.assertEqual([rumor["text"] for rumor in deeds.told_rumors()], ["Beep killed Arleen."])
+
     def test_a_cull_of_the_kill_opens_the_bounty_again(self, place_pipe, end_pipe):
         self.place(1)
         self.kill(1, 150)

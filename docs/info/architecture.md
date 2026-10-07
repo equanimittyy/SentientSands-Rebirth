@@ -108,7 +108,7 @@ The server writes the rumor of each deed in the quiet period of the memories, af
 - The player can generate a rumor with an instruction (`POST /api/campaign/rumors/generate`, the `synthesis` task), which stores nothing until Save. The instruction wins over the rumor so far.
 - The LLM gets only plain facts (`server/chat/rumors.py`), so it invents no other event: the player's faction, the deed, the time, the profiles of its characters, and the allies and enemies of the victim's faction. A custom or an auto deed gives no characters and no factions, because its rumor is the only account.
 
-The `rumor` table holds the text, the game time of its deed, the instruction, and the deed. A deed has at most one rumor. The chat scene gives each NPC the 5 newest rumors with their age (`PROMPT_RUMORS`).
+The `rumor` table holds the text, the game time of its deed, the instruction, and the deed. A deed has at most one rumor. The chat scene gives each NPC the 5 newest rumors with their age (`PROMPT_RUMORS`), and a radiant conversation can take one of them as its topic. Both leave out the rumor of a bounty that is no longer open (`deeds.told_rumors`), because the kill or the capture of its target has a rumor of its own.
 
 ### Auto rumors
 

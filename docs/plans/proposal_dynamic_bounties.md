@@ -174,6 +174,7 @@ The rumor pass writes the rumor of a bounty deed in the next quiet period, as fo
 - It asks for an alias of a few words that fits the reason and the profile, such as "the Ore Butcher".
 - The reply is JSON with `notice`, `rumor`, and `alias`. `rumors.clean` trims each. A reply without all three stores nothing, so the deed waits for the next pass, as a deed with a failed call does.
 - `campaign_db.add_bounty_rumor` adds the rumor and the notice in one write.
+- NPCs tell the rumor only while the bounty is open (`deeds.told_rumors`), because the kill or the capture of the target has a rumor of its own. The Deeds page keeps it.
 - The server writes the alias into the `Alias` field of the target's profile, unless the field already holds one.
 - Rejected: the deed rumor prompt. A deed rumor tells the news of a deed that is done, and a bounty rumor is a call to hunt, with a price and a place.
 

@@ -184,6 +184,13 @@ def open_bounties():
     return [(notable_id, deed) for notable_id, _, deed in rows if statuses.get(notable_id) == "Open"]
 
 
+def told_rumors():
+    """The rumors that NPCs tell, oldest first: each but the rumor of a bounty that is no longer open, because the kill or
+    the capture of its target has a rumor of its own, and a closed bounty calls no one to hunt."""
+    statuses = bounty_statuses(campaign_db.notables())
+    return [rumor for rumor in campaign_db.rumors() if statuses.get(rumor["notable_id"], "Open") == "Open"]
+
+
 def end_bounty(deed):
     """Gives the target's squad of a bounty that is no longer open back to the game: the plugin takes it off the world map,
     and clears the persistent flag that SSR set. A squad that another open bounty holds stays as it is."""
