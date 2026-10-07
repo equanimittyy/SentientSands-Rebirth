@@ -1068,7 +1068,7 @@ function renderEvents() {
   return el("fieldset", {},
     el("legend", {}, `Deeds (${deeds.length})`),
     el("p", { className: "hint" },
-      "Kills and captures of known figures, such as Tinfist, and rumors that you write or that SSR makes from your conversations, for NPCs to gossip about."),
+      "Kills and captures of known figures, and rumors that you write or that SSR makes from your conversations, for NPCs to gossip about."),
     deeds.length > 0 ? el("div", { className: "inline row" }, search, select) : null,
     newDeedForm(),
     deeds.length > 0 ? el("div", { id: "event-page" }) : el("p", { className: "hint" }, "No deeds yet."));
