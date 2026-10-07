@@ -12,9 +12,10 @@
 namespace SentientSands {
 namespace UI {
 
-static const char *DEED_KINDS[] = {"all", "kill", "capture", "custom"};
+static const char *DEED_KINDS[] = {"all", "kill", "capture", "custom",
+                                   "auto"};
 static const char *DEED_KIND_LABELS[] = {"All kinds", "Kill", "Capture",
-                                         "Custom"};
+                                         "Custom", "Auto"};
 
 MyGUI::Window *g_eventsWindow = nullptr;
 MyGUI::ListBox *g_eventsList = nullptr;
@@ -132,7 +133,7 @@ void ShowEventsKind() {
 
 void OnEventsKindClick(MyGUI::Widget *sender) {
   do
-    g_eventsKind = (g_eventsKind + 1) % 4;
+    g_eventsKind = (g_eventsKind + 1) % 5;
   while (g_eventsKind != 0 && CountEventsOfKind(g_eventsKind) == 0);
   ShowEventsKind();
   ApplyEventsFilter(SelectedEventId());
@@ -401,28 +402,37 @@ void CreateDeedAddUI() {
              0.62f, "SentientSands_DeedAddCullHint");
 }
 
+bool DeletesWholeDeed() {
+  return g_rumorKind == "custom" || g_rumorKind == "auto";
+}
+
 void OnDeedDeleteClick(MyGUI::Widget *sender) {
-  bool custom = g_rumorKind == "custom";
+  bool whole = DeletesWholeDeed();
   SetRumorStatus("");
-  StartRumorRequest(custom ? L"/delete_deed" : L"/delete_rumor",
+  StartRumorRequest(whole ? L"/delete_deed" : L"/delete_rumor",
                     "{\"campaign\":\"" + EscapeJSON(g_eventsCampaign) +
                         "\",\"id\":\"" +
-                        EscapeJSON(custom ? g_rumorNotable : g_rumorId) +
+                        EscapeJSON(whole ? g_rumorNotable : g_rumorId) +
                         "\"}",
                     "DEED_DELETED");
 }
 
 void CreateDeedDeleteUI() {
-  bool custom = g_rumorKind == "custom";
+  bool whole = DeletesWholeDeed();
+  bool isAuto = g_rumorKind == "auto";
   MyGUI::Widget *client = CreateRumorWindow(
-      custom ? "Delete the custom deed" : "Delete the rumor", "Delete",
-      OnDeedDeleteClick, "Cancel");
+      !whole   ? "Delete the rumor"
+      : isAuto ? "Delete the auto deed"
+               : "Delete the custom deed",
+      "Delete", OnDeedDeleteClick, "Cancel");
   if (!client)
     return;
   AddBioLine(client,
-             T(custom ? "This deletes the custom deed and its rumor, so NPCs "
-                        "stop mentioning it."
-                      : "NPCs stop mentioning this rumor."),
+             T(!whole   ? "NPCs stop mentioning this rumor."
+               : isAuto ? "This deletes the auto deed and its rumor, so NPCs "
+                          "stop mentioning it."
+                        : "This deletes the custom deed and its rumor, so NPCs "
+                          "stop mentioning it."),
              0.12f, "SentientSands_DeedDeleteText");
   MyGUI::TextBox *warning = AddBioLine(
       client, T("The delete takes effect immediately and is irreversible."),
@@ -501,8 +511,7 @@ void OnEventsAddClick(MyGUI::Widget *sender) { CreateDeedAddUI(); }
 void OnEventsDeleteClick(MyGUI::Widget *sender) {
   if (!SelectRumorEvent())
     return;
-  // Delete takes a custom deed itself, so it needs no rumor
-  if (g_rumorKind != "custom" && g_rumorId.empty()) {
+  if (!DeletesWholeDeed() && g_rumorId.empty()) {
     SetEventsText(T("The deed has no rumor yet."));
     return;
   }

@@ -250,7 +250,7 @@ The Deeds window of the SSR HUB mirrors Campaign Log > Deeds, as the Dialogue Li
 3. **Generate Rumor** opens a window that asks for the instruction, and starts with the instruction of the rumor. `/write_rumor` returns the text, and a second window shows it in an edit box. Keep sends the text and the instruction to `/keep_rumor`, and Discard drops it.
 4. **Edit Rumor** skips the LLM: `/read_rumor` returns the stored text, and the same edit window opens.
 5. **Add Deed** opens a window for the rumor of a custom deed. Add sends the rumor to `/add_deed`, and the list selects the new deed. The search and the kind filter reset, because they can hide the new deed.
-6. **Delete** asks for a confirmation. Then it deletes a custom deed with its rumor (`/delete_deed`), or the rumor of a deed of the game (`/delete_rumor`).
+6. **Delete** asks for a confirmation. Then it deletes a custom or an auto deed with its rumor (`/delete_deed`), or the rumor of a deed of the game (`/delete_rumor`).
 
 - The routes of the window share the code of the routes of the web app (`rumor_reply`, `keep_rumor_reply`, `add_deed_reply`, `delete_deed_reply`, and `delete_rumor_reply` in `server/chat/routes.py`).
 - The replies of `/events`, `/write_rumor`, and `/read_rumor` carry the active campaign, and Keep, Add, and Delete send it back. The routes refuse the change when that campaign is no longer active, because the same ID can name another deed in another campaign.
