@@ -101,7 +101,11 @@ def take_report(player, events, towns):
     if player:
         state.PLAYER_CONTEXT = player
         note_faction(player, is_player=True)
-    state.CHANGED_TOWNS = towns or []
+    towns = towns or []
+    if towns != state.CHANGED_TOWNS:
+        listed = "; ".join(f"{town.get('name')}: owner {town.get('owner') or 'none'} ({town.get('owner_id')}), type {town.get('type')}" for town in towns)
+        logging.debug(f"TOWNS: {listed or 'No changed town.'}")
+    state.CHANGED_TOWNS = towns
     deeds.take(events)
 
 def report_from_game(timeout=5):

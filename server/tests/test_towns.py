@@ -6,7 +6,7 @@ import unittest
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
 
 from chat import background, knowledge, prompts, towns
-from core import state
+from core import game, state
 from store import campaign_db
 
 UNITED_CITIES, REAVERS = "1-gamedata.base", "2-gamedata.base"
@@ -87,6 +87,18 @@ class CurrentTest(unittest.TestCase):
         self.assertNotIn(self.brink()["key"], knowledge.known(background.campaign_lore(), {reavers}, reavers))
         state.CHANGED_TOWNS = [{"name": "Brink", "owner": "Reavers", "owner_id": REAVERS, "type": 2}]
         self.assertFalse(knowledge.known(background.campaign_lore(), {reavers}, reavers)[self.brink()["key"]])
+
+
+class ReportTest(unittest.TestCase):
+    def tearDown(self):
+        state.CHANGED_TOWNS = []
+
+    def test_a_new_list_is_logged_once(self):
+        towns = [{"name": "Brink", "owner": "Reavers", "owner_id": REAVERS, "type": 2}]
+        with self.assertLogs(level="DEBUG") as logs:
+            game.take_report(None, [], towns)
+            game.take_report(None, [], towns)
+        self.assertEqual([record.getMessage() for record in logs.records if record.getMessage().startswith("TOWNS")], [f"TOWNS: Brink: owner Reavers ({REAVERS}), type 2"])
 
 
 if __name__ == "__main__":

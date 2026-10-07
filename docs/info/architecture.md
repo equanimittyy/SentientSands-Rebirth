@@ -221,6 +221,7 @@ A world state of the game can swap the data of a town for an override with anoth
 - An override with the owner and the type of the record changes nothing, for example a prosperous Heng of the United Cities.
 - Each NPC that knows a town knows its change. The plugin sees only that a change holds, not when it happened, so the sentence gives no time, and the news does not spread over time.
 - No vanilla override holds at the start of a game, so a new game has no changed town.
+- The server logs the list at DEBUG (`TOWNS`) only when it changes, because each request carries it.
 - The game decides which world states hold, so the overrides of a mod work too, such as the Dominion in Heng under UWE.
 - Rejected: a table of the world states and the overrides in the template. UWE alone has 669 world states and 900 gated towns, and each mod would need a table of its own.
 - Rejected: the patrols and the camps that a world state adds or removes. They change the land of a faction without a new owner of a town, so the `territory` of a faction stays as at the start of a game.
