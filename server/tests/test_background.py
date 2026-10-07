@@ -103,12 +103,14 @@ class SearchTest(unittest.TestCase):
 
 KNOWLEDGE_SEED = dict(
     SEED,
+    factions=[dict(faction, fields={"territory": ["Vain"]}) if faction["faction_id"] == SHEK_KINGDOM else faction for faction in SEED["factions"]],
     history=[{"title": "Kenshi is a Moon", "text": "The world is a moon.", "knowledge": "secret", "known_by": ["Paladin Abel"]}],
     characters=[{"game_id": "abel", "profile": {"Name": "Paladin Abel", "Faction": "The Holy Nation", "Backstory": "A paladin of Okran."}}],
     entities=SEED["entities"] + [
         {"category": "regions", "id": "bonedog_plains", "data": {"name": "Bonedog Plains", "aliases": ["Bonedog Den"], "fields": {"animals": ["Bonedogs"]}, "description": "Bonedogs.", "knowledge": "limited"}},
         {"category": "regions", "id": "vain", "data": {"name": "Vain", "fields": {"animals": ["Bonedogs", "Goats", "Beak Things", "Garru", "Leviathans", "Spiders", "Gorillos", "Crabs", "Landbats", "Raptors"]}, "description": "Cliffs."}},
         {"category": "regions", "id": "barren", "data": {"name": "The Barren"}},
+        {"category": "locations", "id": "fang_hollow", "data": {"name": "Fang Hollow", "fields": {"zone": ["Vain"]}, "description": "A cave.", "knowledge": "limited"}},
     ] + [{"category": "locations", "id": f"waystation_{i}", "data": {"name": f"Waystation {i}", "description": "A stop."}} for i in range(20)],
 )
 
@@ -127,6 +129,9 @@ class KnowledgeTest(unittest.TestCase):
 
     def search(self, message, npc_id=None, profile=None):
         return [hit["record"]["name"] for hit in background.search(message, background.campaign_lore(), npc_id, profile or self.HOLY)[1]]
+
+    def travels(self, message, npc_id, profile=None):
+        return [(hit["record"]["name"], hit["travels"]) for hit in background.search(message, background.campaign_lore(), npc_id, profile or self.HOLY)[1]]
 
     def test_a_record_that_the_npc_cannot_know_cuts_no_hit_that_it_can_know(self):
         self.assertEqual(self.search("Any bonedogs?"), ["Bonedog Plains"])
@@ -149,6 +154,14 @@ class KnowledgeTest(unittest.TestCase):
 
     def test_a_record_without_text_is_no_hit(self):
         self.assertEqual(self.search("Where is the Barren?"), [])
+
+    def test_the_lands_of_the_origin_faction_are_base_knowledge(self):
+        self.assertEqual(self.travels("Where is Fang Hollow?", "h:2", {"Name": "Kang", "Faction": "Nameless", "OriginFaction": "Shek Kingdom"}), [("Fang Hollow", False)])
+        self.assertEqual(self.travels("Where is Fang Hollow?", "h:1"), [])
+
+    def test_the_place_of_a_past_chat_is_travel_knowledge(self):
+        campaign_db.join_thread(None, [("h:1", "overheard", False)], None, "Wilderness, Vain")
+        self.assertEqual(self.travels("Where is Fang Hollow?", "h:1"), [("Fang Hollow", True)])
 
 
 class PlaceTest(unittest.TestCase):

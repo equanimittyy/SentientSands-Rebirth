@@ -20,7 +20,7 @@ def key(kind, name):
 
 
 def knows(records, identity=(), town=None, zone=None):
-    return {name for _, name in knowledge.known(records, set(identity), town, zone)}
+    return {name for _, name in knowledge.known(records, set(identity), places=[(town, zone)])}
 
 
 class TierTest(unittest.TestCase):
@@ -125,6 +125,25 @@ class PlaceTest(unittest.TestCase):
 
     def test_no_link_through_neighbours(self):
         self.assertEqual(knows(self.WORLD, [key("region", "Stenn Desert")]), {"Stenn Desert", "Admag", "Shek Kingdom", "Hungry Bandits"})
+
+
+class TravelsTest(unittest.TestCase):
+    def known(self, identity=(), origin=None, places=()):
+        return {name: travels for (_, name), travels in knowledge.known(PlaceTest.WORLD, set(identity), origin, places).items()}
+
+    def test_the_lands_of_the_origin_faction_are_base_and_another_place_is_travels(self):
+        shek = key("faction", "Shek Kingdom")
+        found = self.known([shek], shek, [("The Hub", None)])
+        self.assertEqual({name for name, travels in found.items() if travels}, {"Holy Nation Outlaws"})
+        self.assertTrue({"Admag", "Stenn Desert", "Vain", "Mercenary Guild", "The Hub", "Dust King"} <= {name for name, travels in found.items() if not travels})
+
+    def test_an_origin_faction_without_land_gives_no_home(self):
+        found = self.known(origin=key("faction", "Hungry Bandits"), places=[("The Hub", None)])
+        self.assertEqual(set(found), knows(PlaceTest.WORLD, town="The Hub"))
+        self.assertTrue(all(found.values()))
+
+    def test_each_place_adds_its_own_records(self):
+        self.assertTrue({"Vain", "Border Zone"} <= set(self.known(places=[(None, "Vain"), (None, "Border Zone")])))
 
 
 class SecretTest(unittest.TestCase):

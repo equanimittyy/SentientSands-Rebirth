@@ -28,18 +28,21 @@ def in_system_message(lore, npc_id, profile, faction_id, speaker_race):
 def identity(lore, npc_id, profile, faction_id):
     """The keys of the records that a known_by can name for the NPC: its own character record, its current faction, its
     origin faction, and its race. A generic NPC can carry the name of a canon character, so only the npc_id counts."""
-    keys = {("characters", npc_id)}
-    for game_id, name in ((faction_id, profile.get("Faction")), (None, profile.get("OriginFaction"))):
-        name = name if name != "Unknown" else None
-        faction = campaign_db.find_faction(game_id, name) if game_id or name else None
-        if faction:
-            keys.add(("factions", faction["faction_id"]))
+    keys = {("characters", npc_id)} | {key for key in (_faction_key(faction_id, profile.get("Faction")), _faction_key(None, profile.get("OriginFaction"))) if key}
     race = _race(lore, profile.get("Race"))
     return keys | ({race["key"]} if race else set())
 
 
 def known_keys(lore, npc_id, profile, faction_id, town, zone):
-    return knowledge.known(lore, identity(lore, npc_id, profile, faction_id), town, zone)
+    """The places of the past chats of the NPC stand for its travels, so nothing tracks an NPC between its chats."""
+    visited = {place_of(location, lore) for location in campaign_db.thread_places(npc_id)}
+    return knowledge.known(lore, identity(lore, npc_id, profile, faction_id), _faction_key(None, profile.get("OriginFaction")), [(town, zone), *visited])
+
+
+def _faction_key(game_id, name):
+    name = name if name != "Unknown" else None
+    faction = campaign_db.find_faction(game_id, name) if game_id or name else None
+    return ("factions", faction["faction_id"]) if faction else None
 
 
 def _race(lore, name):
@@ -59,12 +62,15 @@ def search(message, lore, npc_id=None, profile=None, faction_id=None, speaker_ra
     """The memory hits and the lore hits of a turn in prompt order, and the words that did not search the lore, as
     retrieval gives them. Without npc_id, a lore search alone of every record, so a template author can test each one.
     With it, the search skips what the system message holds, and the records that the NPC cannot know drop out before
-    the index, so they set neither the best score of the score cut nor the common share."""
+    the index, so they set neither the best score of the score cut nor the common share. A lore hit holds travels, which
+    is true when the NPC knows the record only from its travels."""
     searched = [record for record in lore if record["description"].strip()]
+    keys = {}
     if npc_id is not None:
         keys = known_keys(lore, npc_id, profile, faction_id, town, zone)
         searched = [record for record in searched if record["key"] in keys]
     lore_hits, skipped = retrieval.find_lore(message, searched, town, zone)
+    lore_hits = [{**hit, "travels": keys.get(hit["record"]["key"], False)} for hit in lore_hits]
     memory_hits, skip = [], set()
     if npc_id is not None:
         stored = campaign_db.memories_of(npc_id)

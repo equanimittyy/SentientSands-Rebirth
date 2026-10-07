@@ -220,6 +220,16 @@ class BackgroundBlockTest(unittest.TestCase):
         self.assertEqual([lines[0], lines[3]], ["(Background, not said aloud. Memories that Izumi's words may touch on:", "Lore that Izumi's words may touch on:"])
         self.assertTrue(lines[-1].startswith("These memories and this lore may have nothing to do with what Izumi means, and you may know less than the lore says."))
 
+    def test_the_lore_from_travels_follows_under_its_own_heading(self):
+        vain = {"kind": "region", "name": "Vain", "aliases": [], "fields": {}, "description": "Cliffs."}
+        self.assertEqual(chat_prompt.background_block([], [self.ADMAG], self.ABEL, "Izumi", [vain]).splitlines()[:4], [
+            "(Background, not said aloud. Lore that Izumi's words may touch on:",
+            "- Admag (location; type: town; zone: Stenn Desert): The Shek capital.",
+            "You learned the following in your travels:",
+            "- Vain (region): Cliffs.",
+        ])
+        self.assertEqual(chat_prompt.background_block([], [], self.ABEL, "Izumi", [vain]).splitlines()[0], "(Background, not said aloud. You learned the following in your travels:")
+
     def test_a_long_text_is_cut_and_the_fields_stay(self):
         entry = {**self.ADMAG, "description": "Walls. " * 200}
         line = chat_prompt.background_block([], [entry], self.ABEL, "Izumi").splitlines()[1]

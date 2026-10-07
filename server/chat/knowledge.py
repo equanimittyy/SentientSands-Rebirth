@@ -1,6 +1,10 @@
 """Which lore records an NPC can know. Each record has a tier: a Global record reaches every NPC, a Limited record the NPCs
 that link to it through the seeded data, and a Secret record the characters, factions, and races of its known_by.
 
+A Limited record is base knowledge when it links to the NPC itself or to the lands of its origin faction, and travel
+knowledge when it links only to the current place or to a place of a past chat, so the prompt can tell the NPC where it
+learned it.
+
 It takes the records of retrieval.lore_records and the NPC as plain values and uses the standard library only, so it
 never touches the campaign. Links go one hop from the own records of the NPC. Only the place takes a second hop, through
 the factions that hold it, so a member of the Holy Nation does not reach Tinfist through the enemies of its faction.
@@ -19,34 +23,50 @@ def tier(record):
     return record.get("knowledge") or DEFAULTS.get(record["kind"], "global")
 
 
-def known(records, identity, town=None, zone=None):
-    """The keys of the records that the NPC can know. identity holds the keys of the records that a known_by can name for
-    the NPC: its own character record, its current faction, its origin faction, and its race."""
+def known(records, identity, origin=None, places=()):
+    """The records that the NPC can know, as a dict from the key to whether the NPC knows the record only from its travels.
+    identity holds the keys of the records that a known_by can name for the NPC: its own character record, its current
+    faction, its origin faction, and its race. origin is the key of the origin faction, whose lands are the home of the
+    NPC, and places holds the (town, zone) of the current place and of each place of a past chat. An NPC whose origin
+    faction holds no land is a drifter, so it knows each place from its travels."""
     identity = set(identity)
     by_words = _by_words(records)
-    own = identity | _own_place(records, by_words, town, zone)
+    base = identity | _own_place(records, by_words, _home(records, by_words, origin))
+    travels = _own_place(records, by_words, places)
     links = _links(records, by_words)
-    result = set()
+    result = {}
     for record in records:
-        level = tier(record)
-        if (level == "global"
-                or level == "limited" and (record["key"] in own or links[record["key"]] & own)
-                or level == "secret" and knowers(record, by_words) & identity):
-            result.add(record["key"])
+        level, key = tier(record), record["key"]
+        if level == "global" or level == "limited" and (key in base or links[key] & base) or level == "secret" and knowers(record, by_words) & identity:
+            result[key] = False
+        elif level == "limited" and (key in travels or links[key] & travels):
+            result[key] = True
     return result
 
 
-def _own_place(records, by_words, town, zone):
-    """The current location, the current region, the neighbouring regions, and the factions that hold one of them: each
-    faction whose territory, bases, or capital names one of them, and each owner of the current location."""
-    current, regions, neighbours = place(records, town, zone)
-    places = {*current, *regions, *neighbours}
+def _home(records, by_words, origin):
+    """The (town, zone) of each location and region that the territory, bases, or capital of the origin faction names."""
+    faction = next((record for record in records if record["key"] == origin), None)
+    held = {key for field in HOLDING_FIELDS for value in _listed(faction["fields"].get(field)) for key in by_words.get(name_words(value), ())} if faction else set()
+    return [(record["name"], None) if record["kind"] == "location" else (None, record["name"]) for record in records if record["key"] in held and record["kind"] in ("location", "region")]
+
+
+def _own_place(records, by_words, places):
+    """The locations, the regions, and the neighbouring regions of places, which holds (town, zone) pairs, and the factions
+    that hold one of them: each faction whose territory, bases, or capital names one of them, and each owner of one of the
+    locations."""
+    towns, regions = set(), set()
+    for town, zone in places:
+        current, own_regions, neighbours = place(records, town, zone)
+        towns.update(current)
+        regions.update(own_regions, neighbours)
+    found = towns | regions
     holders = {
         record["key"] for record in records if record["kind"] == "faction"
-        and any(places & by_words.get(name_words(value), set()) for field in HOLDING_FIELDS for value in _listed(record["fields"].get(field)))
+        and any(found & by_words.get(name_words(value), set()) for field in HOLDING_FIELDS for value in _listed(record["fields"].get(field)))
     }
-    owners = {key for record in records if record["key"] in current for value in record["fields"].get("owner", []) for key in by_words.get(name_words(value), ()) if key[0] == "factions"}
-    return places | holders | owners
+    owners = {key for record in records if record["key"] in towns for value in record["fields"].get("owner", []) for key in by_words.get(name_words(value), ()) if key[0] == "factions"}
+    return found | holders | owners
 
 
 def knowers(record, by_words):

@@ -132,11 +132,13 @@ def memory_heading(memory, npc_id):
     return _dated(memory, scene_text.memory_header(*_members_seen_by(memory["members"], npc_id)))
 
 
-def background_block(memories, entries, npc_id, speaker):
+def background_block(memories, entries, npc_id, speaker, travels=()):
     """The memories of memories_of and the lore records of retrieval.lore_records that the player's message found, for the
-    last user message. The block is a part of the user message, so its mark keeps a model from taking it for words of
-    the player. Empty without either, so the block stays out."""
-    if not memories and not entries:
+    last user message. travels holds the found records that the NPC knows only from its travels (knowledge.known). The
+    block is a part of the user message, so its mark keeps a model from taking it for words of the player. Empty without
+    a memory or a record, so the block stays out."""
+    lore = [*entries, *travels]
+    if not memories and not lore:
         return ""
     parts = []
     if memories:
@@ -144,11 +146,12 @@ def background_block(memories, entries, npc_id, speaker):
         for memory in memories:
             parts.append(memory_heading(memory, npc_id))
             parts.append(retrieval.clipped(memory_text(memory)))
-    if entries:
-        parts.append(f"Lore that {speaker}'s words may touch on:")
-        parts += [f"- {describe_record({**entry, 'description': retrieval.clipped(entry['description'])}, entry['kind'])}" for entry in entries]
+    for heading, records in ((f"Lore that {speaker}'s words may touch on:", entries), ("You learned the following in your travels:", travels)):
+        if records:
+            parts.append(heading)
+            parts += [f"- {describe_record({**entry, 'description': retrieval.clipped(entry['description'])}, entry['kind'])}" for entry in records]
     # A search finds words, not meaning, and a model tends to use all the text that it gets
-    if memories and entries:
+    if memories and lore:
         parts.append(f"These memories and this lore may have nothing to do with what {speaker} means, and you may know less than the lore says. Use them only where they fit your reply, and never recite them or turn the talk towards them.")
     elif memories:
         parts.append(f"These memories may have nothing to do with what {speaker} means. Use them only where they fit your reply, and never recite them or turn the talk towards them.")

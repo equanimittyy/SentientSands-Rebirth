@@ -426,6 +426,15 @@ def thread_partners(npc_id):
     return [partner for (partner,) in rows]
 
 
+def thread_places(npc_id):
+    """The place of each chat thread in which the character is a member, as a speaker or as an overhearer, each once."""
+    with _connect() as conn:
+        rows = conn.execute(
+            "SELECT DISTINCT t.location FROM thread t JOIN thread_member m ON m.thread_id = t.id WHERE m.npc_id = ? AND t.location IS NOT NULL", (npc_id,)
+        ).fetchall()
+    return [location for (location,) in rows]
+
+
 def names_of(npc_ids):
     """The Name of each stored character among npc_ids."""
     npc_ids = list(npc_ids)

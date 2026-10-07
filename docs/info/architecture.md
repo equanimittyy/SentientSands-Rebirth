@@ -442,7 +442,7 @@ Each lore record has a tier (`server/chat/knowledge.py`). The search of a chat l
 - `background.search` drops the records that the NPC cannot know before `find_lore` builds its index. A record that the NPC cannot know therefore sets neither the best score of the score cut nor the common share of a word.
 - A lore search alone, with no NPC, searches every record, so a template author can test each one in the test search.
 - The memory search takes the lore names of the lore hits, so a lore name that the NPC cannot know finds no memory through its name.
-- Access reads only the seeded data and the current place of the NPC. Knowledge that an NPC gains in play, for example from a chat, stays out, because the memories already give an NPC what it lived through. The overview goes into every prompt, so it has no tier. Radiant conversations and animals get no search (see [Block](#block)).
+- Access reads only the seeded data, the current place of the NPC, and the places of its past chats. What an NPC hears in a chat stays out, because the memories already give an NPC what it lived through. The overview goes into every prompt, so it has no tier. Radiant conversations and animals get no search (see [Block](#block)).
 
 #### Links
 
@@ -467,16 +467,34 @@ The own records of an NPC are the start of its links (`knowledge.known`, with th
 | The current faction | The `factionID` of the NPC's context, or the `Faction` of the profile (`find_faction`) |
 | The origin faction | The `OriginFaction` of the profile |
 | The race | The `Race` of the profile |
+| The home | Each location and region that the `territory`, `bases`, or `capital` of the origin faction names |
 | The current location and the current region | As for the place order (see [Order of the lore](#order-of-the-lore)) |
-| The neighbouring regions | The regions next to the current region |
-| The holding factions | Each faction whose `territory`, `bases`, or `capital` names the current location, the current region, or a neighbouring region, and each `owner` of the current location |
+| The past places | The place of each chat thread in which the NPC is a member, as a speaker or as an overhearer (`campaign_db.thread_places`) |
+| The neighbouring regions | The regions next to a region of the home, of the current place, or of a past place |
+| The holding factions | Each faction whose `territory`, `bases`, or `capital` names one of these locations and regions, and each `owner` of one of these locations |
 
 - Links go one hop from the own records. In SSR Vanilla, one hop from a faction reaches a median of 1 and at most 28 of the 211 canon characters. A member of the Holy Nation therefore does not reach Tinfist through the `enemies` field of its faction.
 - The holding factions make the place take a second hop: the Border Zone, the Dust Bandits, then the Dust King. An NPC in the Hub therefore knows the Dust King, because the Dust Bandits hold the Border Zone. The step to a neighbouring region costs no hop, so the same path runs from each neighbouring region: a member of the Shek Kingdom in Admag knows the Dust King through the Border Zone next to the Stenn Desert. No other path takes a second hop.
 - In SSR Vanilla, an NPC in the Hub has 24 holding factions, such as the gangs of the Swamp and the Holy Nation, and knows 43 canon characters through them. From its region and the neighbouring regions, an NPC knows a median of 19 and at most 53 canon characters through the holding factions.
 - A character links only to factions, so an NPC knows a Limited character through its current faction, its origin faction, or a holding faction, never through its race.
 - Only one step of neighbours counts. A region two regions away is not an own record, and the NPC knows it only through another link. The `neighbours` fact is no link.
-- The current location and the current region come from the context of each chat line, so a squad member that walks into Admag knows a Limited Admag while it stands there.
+- The current location and the current region come from the context of each chat line, so a squad member that walks into Admag knows a Limited Admag while it stands there, and also after it leaves when it talked there.
+
+#### Base and travels
+
+The own records form two groups, so the prompt can tell the NPC where it learned a Limited record (`knowledge.known`):
+
+| Group | Own records |
+|---|---|
+| Base | The character record, the current faction, the origin faction, the race, and the home, with the neighbouring regions and the holding factions of the home |
+| Travels | The current place and the past places, with their neighbouring regions and holding factions |
+
+- A Limited record that links to a base record is base knowledge. A Limited record that links only to a travel record is travel knowledge, and the block gives it under a heading of its own (see [Block](#block)). A Global or a Secret record is always base knowledge.
+- The home stands for the place where the NPC grew up. A caravan guard of the Holy Nation in Heng knows the lands of the Holy Nation as base knowledge, and Heng from its travels.
+- An NPC whose origin faction holds no land is a drifter. It has no home, so it knows each place from its travels. In SSR Vanilla, 14 of the 106 factions hold no land, such as the Drifters and the Nomads.
+- A past place is the `location` of a thread (see [Chat threads](#chat-threads)). A past place counts as a full place, as the current place does, with its neighbouring regions and holding factions.
+- The server reads the past places from the threads at each chat line, so nothing tracks an NPC between its chats. A place that the NPC passes through without a chat adds nothing. A deleted memory or a cull of a thread removes its place.
+- In SSR Vanilla, the filter takes about 17 ms for a member of the Holy Nation in Heng, 22 ms with 10 past places, and 37 ms with 40 past places.
 
 #### Secret access
 
@@ -494,6 +512,9 @@ Rejected:
 - Direct links only. A member of the Anti-Slavers would not know Tinfist, its leader.
 - The `factions` of a region as holding factions. They list each faction that roams a region, also a faction that only passes through. From its region and the neighbouring regions, an NPC of SSR Vanilla would know a median of 54 and at most 108 canon characters, against 19 and 53 through the holding factions.
 - A second step of neighbours. It would give an NPC of SSR Vanilla a median of 16 and at most 30 regions in its place, against 6 and 10.
+- The current place as base knowledge. A caravan guard of the Holy Nation in Heng would know Heng as if it grew up there, and it would lose the lore of Heng when it left.
+- The place of the first chat as the home. A caravan guard of the Holy Nation that the player first meets in Heng would get Heng as its home.
+- A record of each place that each NPC passes through. It would write for every NPC all the time, but only an NPC in a chat uses its knowledge, and the threads already hold the place of each chat.
 - A filter after the search. A record that the NPC cannot know could set the best score and cut the hits that it can know below `SCORE_RATIO`, and its words would count towards `COMMON_SHARE`.
 - Every character with a profile as a record. A rolled backstory is invented, and only its Faction links it.
 - Limited as the default of all lore. The common history and the races would reach only linked NPCs until an author marks them Global.
@@ -547,6 +568,7 @@ These memories and this lore may have nothing to do with what Izumi means, and y
 ```
 
 - Each memory gives the header from the view of the NPC, as in the system message. Each entry gives its name, its kind, its fields, and its text (`describe_record` with the kind first), for example `Tinfist (character; race: Skeleton; faction: Anti-Slavers): Leader of the Anti-Slavers. ...`. A field can be why the line found the entry, such as the `leader` of a faction, and the `neighbours` of a region tell the NPC which regions lie next to it.
+- An entry that the NPC knows only from its travels goes under the heading "You learned the following in your travels:", after the other lore (see [Base and travels](#base-and-travels)). The closing note counts it as lore.
 - The headings stay in the code, as for the rumors, so an empty list leaves no heading, and no hit leaves no block.
 - The block is in parentheses and starts with "Background, not said aloud", because it is a part of the user message, and without the mark a model can take a memory for words of the player. Some chat templates accept a system message only at the start of a chat, so the block cannot be a system message of its own.
 - The closing note names only the lists that the block holds, and sits directly before the player's line, where the model reads it last.

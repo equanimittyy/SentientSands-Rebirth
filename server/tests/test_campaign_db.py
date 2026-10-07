@@ -299,6 +299,15 @@ class ThreadTest(CampaignTestCase):
         self.exchange(None, "[Day 4, 09:00]")
         self.assertEqual([thread["location"] for thread in campaign_db.threads()], [None, "Bar, The Hub"])
 
+    def test_the_places_of_a_member_count_each_place_once(self):
+        self.exchange(None, "[Day 3, 14:05]", listeners=[self.IZUMI], location="Bar, The Hub")
+        self.exchange(None, "[Day 4, 09:00]", location="Bar, The Hub")
+        self.exchange(None, "[Day 5, 09:00]", location="Wilderness, Vain")
+        self.exchange(None, "[Day 6, 09:00]")
+        self.assertEqual(sorted(campaign_db.thread_places(self.STICK)), ["Bar, The Hub", "Wilderness, Vain"])
+        self.assertEqual(campaign_db.thread_places(self.IZUMI), ["Bar, The Hub"])
+        self.assertEqual(campaign_db.thread_places(self.RUKA), [])
+
     def test_a_thread_without_a_speaker_copy_shows_the_copy_of_an_overhearer(self):
         thread_id = self.exchange(None, "[Day 3, 14:05]", listeners=[self.IZUMI])
         for npc_id in (self.STICK, GENERIC_ID):
