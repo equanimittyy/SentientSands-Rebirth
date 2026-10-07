@@ -14,18 +14,51 @@ In this plan, the player marks a chat thread as an action dialogue. An action di
 
 A player line that starts with `!` marks its chat thread as an action dialogue. The mark holds for the whole chat thread, not only for that line. A chat thread is one speaker with one NPC in one mode, and it ends after `conversation_timeout_minutes` without a chat (`server/chat/routes.py:255`).
 
-After the `!`, the player can name the category of the action, with one letter or with the full word of the category ([section 3](#3-categories)). A space after the `!` means no category.
+The characters right after the `!` decide the result. A word after the `!` runs up to the first character that is not a letter.
 
-| Line | Category |
+| After the `!` | Result |
 |---|---|
-| `! Hand me over all your money!` | None named |
+| A space | An action dialogue with no category ([No category](#no-category)) |
+| One letter or the full word of a category ([section 3](#3-categories)) | An action dialogue in that category |
+| Any other letter or word | A [failure](#failure), with no LLM call |
+| Any other character, such as `!` or `?` | Plain chat, with no mark |
+
+| Line | Result |
+|---|---|
+| `! Hand me over all your money!` | No category |
 | `!t Hand me over your cats!` | THREATEN |
 | `!b I'd like to trade` | BARTER |
 | `!barter` | BARTER |
+| `!o` | Failure |
+| `!I see the light` | Failure |
+| `!light the way` | Failure |
+| `!!!` | Plain chat |
+| `!?!?!` | Plain chat |
 
 The text after the mark can be empty, as in `!barter`.
 
 The debug commands of the chat keep the `/` mark (`server/chat/routes.py:176`), so the two marks do not collide.
+
+### No category
+
+A line with no category costs two LLM calls: a classify call, and then the action dialogue call. A line that names its category skips the classify call.
+
+The classify call is as lean as possible. Its prompt holds only the player's line and a numbered list of the categories, and it tells the model to output only the number of one choice. The list follows the draft map of [section 3](#3-categories):
+
+1. A threat or demand
+2. A request to trade for items, services or help
+3. A request to join the squad
+4. An order to leave
+5. A gift that asks for nothing back
+6. None of these
+
+The last choice is an escape hatch: it lets the model reject a line that fits no category, instead of forcing the line into one.
+
+The classify call fails when the call gives an error, or when its output is not the number of a category. The escape hatch is therefore a [failure](#failure) too.
+
+### Failure
+
+A failure sends no action dialogue call. The server replies with the line "X didn't understand what you meant.", where X is the name of the NPC. The chat thread then ends, and the server keeps neither the player's line nor the reply, so a failed line leaves no junk thread.
 
 ## 3. Categories
 
@@ -49,10 +82,9 @@ The plugin gives most actions to the first character of the squad, not to the sq
 
 1. What ends the action dialogue: the end of the chat thread, a line with its own mark, or a done action?
 2. Can a later line of the chat thread name another category, for example `!t` after `!b`?
-3. What category does a bare `!` get: does the model pick one under the action prompt, or does the chat thread wait for a later line that names one?
-4. What does the server do with a word after `!` that is not in the map, such as `!hey`? Are the letters and the words case-insensitive?
-5. Who decides whether an action happens, and at what price: code with fixed rules from the game state, or the model under the action prompt?
-6. What does the action system prompt hold, and how does a reply send its actions to the plugin?
-7. Which values of `character_state` (`plugin/game/Context.cpp:650`), `health` (`:651`), and `job` (`:722`) open each deal of BARTER?
-8. Does the chat window show that a chat thread is an action dialogue?
-9. Is the draft map of [section 3](#3-categories) right?
+3. Are the letters and the words case-insensitive? Is a line of only `!` plain chat?
+4. Who decides whether an action happens, and at what price: code with fixed rules from the game state, or the model under the action prompt?
+5. What does the action system prompt hold, and how does a reply send its actions to the plugin?
+6. Which values of `character_state` (`plugin/game/Context.cpp:650`), `health` (`:651`), and `job` (`:722`) open each deal of BARTER?
+7. Does the chat window show that a chat thread is an action dialogue?
+8. Is the draft map of [section 3](#3-categories) right?
