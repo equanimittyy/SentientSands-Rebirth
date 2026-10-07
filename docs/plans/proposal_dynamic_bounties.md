@@ -9,7 +9,7 @@ Kenshi has its own bounties. Police see a wanted character, bounty hunters hunt 
 This plan lets SSR post bounties of its own:
 
 1. Code rolls the bounty without an LLM call: a target from the loaded NPCs, a police faction that is an enemy of the target's faction, a crime, an amount, and a bonus for each skill ([section 4](#4-roll)).
-2. The plugin puts the bounty on the target through the bounty system of the game, raises the target's skills, and keeps the target's squad in the save ([section 5](#5-target-and-persistence)).
+2. The plugin puts the bounty on the target through the bounty system of the game, raises the target's skills, keeps the target's squad in the save, and marks that squad on the world map ([section 5](#5-target-and-persistence)).
 3. The bounty becomes a deed of the new kind `bounty`. The LLM writes its rumor with a prompt of its own, so NPCs gossip about it. The player can delete the deed, but cannot edit its rumor ([section 6](#6-bounty-deeds)).
 4. The game pays the reward, as for any vanilla bounty. SSR pays nothing.
 
@@ -36,6 +36,7 @@ The headers of KenshiLib and the game data files show these facts. The probe con
 | `GameWorld::getCharacterUpdateList` lists each loaded character. | `GameWorld.h:140` |
 | `CharStats::getStatRef` gives a writable stat level. | `CharStats.h:80` |
 | `Platoon::setPersistentSquad` marks a squad that the game keeps. | `Platoon.h:166-168` |
+| `MapScreen::addSquad` puts a squad on the world map, and `removeSquad` takes it off. `ManagementScreen::getSingleton()->mapScreen` gives the map. | `gui/MapScreen.h:64-65`, `gui/ManagementScreen.h:87,129` |
 | Most vanilla bounties on generic characters are 500 to 6,000 cats, for example 500 to 1,500 for bar thugs and 4,000 for a Sand Ninja. Unique leaders have 10,000 to 100,000. | `bounty amount` of the CHARACTER records |
 
 ## 3. Flow
@@ -62,7 +63,10 @@ A pair of factions is eligible when the issuer is a police faction, and the temp
 
 1. The roll keeps each candidate whose faction has at least one eligible issuer.
 2. It picks the target among them at random.
-3. It picks the issuer among the eligible issuers of the target's faction at random.
+3. It picks the issuer nearest to the target on the map among the eligible issuers of the target's faction: a major faction first, and another faction only when no major faction is eligible (`bounties.issuer_ids`). The distance is the number of region steps through the neighbours from the target's zone to the land of the issuer, and a tie goes at random.
+
+- The `enemies` of the template factions hold each pair whose relation in the game data is -50 or less, and, for a faction whose default relation is -50 or less, each major faction without a better relation. A vanilla faction holds only the enemies that are the same with and without UWE.
+- The nearest major faction is the local power, so a Dust Bandit in the Border Zone gets a bounty of the United Cities, and one in Stobe's Gamble a bounty of the Anti-Slavers.
 
 ### Crime and amount
 
@@ -123,6 +127,15 @@ The game checks the persistence of a squad again when it unloads (`Platoon::reCh
 - The mod would add such squads that no faction lists under `special squads`, so the game never spawns them alone. The plugin would spawn one for each bounty near the player's squads, and SSR would rename its leader.
 - The pool size would cap the bounties of a campaign. Each spawn call is untested: `RootObjectFactory::createRandomSquad`, or the private `FactionUniqueSquadManager::spawnNewUniqueSquad` by its address.
 
+The plugin adds the target's squad to the world map (`MapScreen::addSquad`), so the player can find a roaming target. The probe showed the squad on the map while the squad was unloaded, and after a load.
+
+When the bounty ends, the plugin gives the squad back to the game: it takes the squad off the map (`MapScreen::removeSquad`), and clears the persistent flag that SSR set (`setPersistentSquad(false)`), so the game can delete the squad again after an unload.
+
+- The plugin finds the squad by its handle among the active and the unloaded squads of each faction (`Faction::getActivePlatoons`, `getUnloadedPlatoons`). The handle stays the same through a save and a load ([kenshi_internals.md](../info/kenshi_internals.md#character-identity)), but a squad pointer does not.
+- The plugin clears the flag only when the squad was not persistent before the placement. The game keeps some squads itself, such as the residents of a town, and a cleared flag would delete them.
+- The server ends the hold only when no other open bounty has a target in the same squad.
+- The skill bonus stays, and so does the game bounty of a target that is still alive.
+
 ## 6. Bounty deeds
 
 ### Storage
@@ -135,6 +148,7 @@ The `notable` row holds the game time of the placement, and as JSON:
 
 - `expires` is the game time at which the game bounty ends, from `getBountyExpirationTime` at the placement.
 - `place` is the town of the target, or its zone outside a town.
+- `squad` is the handle of the target's squad (`hand::toString`), which finds the squad when the bounty ends. `persistent` tells whether the squad was persistent before the placement.
 
 ### Line and status
 
@@ -152,6 +166,7 @@ For example: "The Holy Nation: 1,200 cats on Arleen of the Dust Bandits for farm
 - The target of an open bounty counts as a known figure for the deeds, so its kill or capture by the squad makes a deed and a rumor (`_store` in `server/core/deeds.py:137`).
 - A death without the squad leaves the bounty open until it expires. The death of a target that is not loaded makes no game event.
 - The setting of open bounties counts the deeds with the status Open.
+- When the status leaves Open, the server sends `END_BOUNTY` ([section 5](#5-target-and-persistence)).
 
 ### Rumor
 
@@ -166,7 +181,7 @@ The rumor pass writes the rumor of a bounty deed in the next quiet period, as fo
 
 - The rumor of a bounty cannot be edited. Its row shows the rumor as text, with no Save, no robot, and no Generate Rumor, and shows Unknown until the rumor exists. The rumor tells the facts of the game bounty, so an edit could give it another price, crime, or faction than the game.
 - The routes that save or write a rumor refuse a bounty deed, because both the web app and the in-game Deeds window call them.
-- Delete removes the deed and its rumor after a confirmation, as for a custom or an auto deed (`delete_custom_deed`). The game bounty stays, because the plugin can clear it only while the target is loaded.
+- Delete removes the deed and its rumor after a confirmation, as for a custom or an auto deed (`delete_custom_deed`). The game bounty stays, because the plugin can clear it only while the target is loaded. The server sends `END_BOUNTY`, as when the status leaves Open.
 - The cull deletes a bounty deed placed after the game time. The game bounty stays in a save that the player keeps.
 - Campaign Canon lists no bounty under the Deeds of a squad member, because a bounty has no doers (`deeds.character_deeds`).
 
@@ -187,14 +202,18 @@ The rumor pass writes the rumor of a bounty deed in the next quiet period, as fo
 | `BOUNTY_SCAN` | Pipe, server to plugin | None |
 | `/bounty/candidates` | HTTP, plugin to server | The game IDs of the police factions, and for each candidate: `npc_id`, name, faction, faction game ID, and place |
 | `PLACE_BOUNTY` | Pipe, server to plugin | JSON: the serial of the target, the game ID of the issuer, the crime index, the amount, and the 16 skill bonuses, each with its `StatsEnumerated` index |
-| `/bounty/placed` | HTTP, plugin to server | The detailed context of the target (`GetDetailedContext`), the game time, and the expiry time, or a failure |
+| `/bounty/placed` | HTTP, plugin to server | The detailed context of the target (`GetDetailedContext`), the handle of its squad, whether that squad was persistent before, the game time, and the expiry time, or a failure |
+| `END_BOUNTY` | Pipe, server to plugin | The handle of the target's squad, and whether to clear its persistent flag |
 
 `PLACE_BOUNTY` does these steps on the game thread (`ExecuteQueuedActions` in `plugin/game/GameActions.cpp`):
 
 1. It finds the target in `getCharacterUpdateList` by the serial of its handle.
-2. It marks the target's squad persistent.
+2. It notes whether the target's squad is persistent, and marks it persistent.
 3. It calls `unfairAddToBounty` with the law enforcement faction of the issuer, and adds the crime to that bounty.
 4. It adds the bonus of each skill to its level (`CharStats::getStatRef`).
+5. It adds the target's squad to the world map (`MapScreen::addSquad`).
+
+`END_BOUNTY` finds the squad by its handle, takes it off the map (`MapScreen::removeSquad`), and clears its persistent flag when the message says so. A squad that the game deleted is not found, and needs nothing.
 
 The in-game Deeds window gets the kind button Bounty. The rumor of a bounty shows without the edit box and the robot, and Delete removes a bounty deed (`DeletesWholeDeed` in `plugin/ui/EventsWindow.cpp`).
 
@@ -212,6 +231,8 @@ In the game, the probe checks:
 2. The law of the issuer pays for the captive, and pays half for the body.
 3. A roaming squad with `setPersistentSquad(true)`: the player goes far away until the squad unloads, saves, loads, and comes back. The target is there, with the same serial, the bounty, and the raised skills.
 4. The raised skills stay after the target changes its equipment.
+5. The target's squad shows on the world map while it is unloaded, and after a load.
+6. A bounty under 10,000 cats whose start time the probe moved ahead (`Bounty::bountyAssignmentStartedTime`) stays after its expiry time passes and after a load, and the law still pays for the captive.
 
 The result of step 3 decides between the persistent flag and the pool of unique squads ([section 5](#5-target-and-persistence)). The probe results go into [kenshi_internals.md](../info/kenshi_internals.md).
 
@@ -219,7 +240,7 @@ The result of step 3 decides between the persistent flag and the pool of unique 
 
 1. The probe.
 2. The server: the settings, `bounties.py` with its tests, the bounty deed in `deeds.py`, `rumors.py`, and `campaign_db.py`, `prompt_bounty_rumor.txt`, the two routes, the refusal of the rumor routes, and the timer in `memory_loop`.
-3. The plugin: `BOUNTY_SCAN`, `PLACE_BOUNTY`, and the Deeds window.
+3. The plugin: `BOUNTY_SCAN`, `PLACE_BOUNTY`, `END_BOUNTY`, and the Deeds window.
 4. The web app: the kind Bounty on Deeds, its rumor as text, its delete, the two settings, the bounty prompt on the Prompts page, and the hints.
 5. The docs: architecture.md, README.md, and the deletion of this plan.
 
@@ -243,15 +264,15 @@ Unit tests, which run with the standard library only (`server/tests/`):
 - The roll: only the eligible pairs, an issuer that is a police faction, an amount in the range of the crime and rounded to 100, 16 bonuses within 2 levels of L and not below 0, L at most 20, and no roll without a candidate.
 - The filter of the candidates: a unique, an animal, a member of the player's faction, and the target of an open bounty drop out.
 - The due check: the timer, the count of open bounties, and 0 open bounties.
-- The deed: the line with each status, the facts of the rumor, the known figure check of `_store`, the delete, the cull, and `character_deeds`.
+- The deed: the line with each status, the facts of the rumor, the known figure check of `_store`, the delete, the cull, `character_deeds`, and `END_BOUNTY` when the status leaves Open and at a delete, with the flag clear only for a squad that SSR made persistent, and no `END_BOUNTY` while another open bounty has a target in the same squad.
 - `/bounty/placed`: a failed result stores nothing, and a campaign switch between the scan and the result stores nothing.
 - The bounty prompt: the fill names the issuer, the amount, the crime, the target, and the place. The routes that save or write a rumor refuse a bounty deed.
 
 In the game and the web app:
 
 1. Set the bounty timer to 1 minute, and stand near a roaming bandit squad.
-2. The server logs the scan and the roll. The target gets a bounty, and Campaign Canon > Deeds shows the bounty deed with the status Open.
+2. The server logs the scan and the roll. The target gets a bounty, the world map shows its squad, and Campaign Canon > Deeds shows the bounty deed with the status Open.
 3. After the next quiet period, the deed has a rumor, and an NPC who is asked about news may mention the bounty.
-4. Capture the target, and hand the captive to the law of the issuer. The game pays, and the deed shows Captured.
-5. The rumor of the bounty has no edit box and no robot. Delete the deed. The game bounty stays.
+4. Capture the target, and hand the captive to the law of the issuer. The game pays, the deed shows Captured, and the squad leaves the map.
+5. The rumor of the bounty has no edit box and no robot. Delete the deed. The game bounty stays, and the squad leaves the map.
 6. In the in-game Deeds window, the kind button shows Bounty, the rumor has no edit box and no robot, and Delete removes the bounty deed.
