@@ -9,6 +9,10 @@
     "bases": [
       "New Kralia"
     ],
+    "territory": [
+      "Spider Plains",
+      "Stenn Desert"
+    ],
     "enemies": [
       "Shek Kingdom"
     ]

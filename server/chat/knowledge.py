@@ -61,14 +61,15 @@ def at_home(home, located):
 
 def _home(records, by_words, origin):
     """The keys of the land of the origin faction: each location and region that its territory, bases, or capital names,
-    each location whose owner names it, and the region of each of these locations. Unlike a place, the home takes no
-    neighbouring region and no holding faction, which would spread it over a third of the world."""
+    each location whose owner names it, and the region of each of these locations, except a ruin. Unlike a place, the
+    home takes no neighbouring region and no holding faction, which would spread it over a third of the world."""
     faction = next((record for record in records if record["key"] == origin), None)
     if not faction:
         return set()
     named = {key for field in HOLDING_FIELDS for value in _listed(faction["fields"].get(field)) for key in by_words.get(name_words(value), ())}
+    ruins = _ruins(records)
     towns = [
-        record for record in records if record["kind"] == "location"
+        record for record in records if record["kind"] == "location" and record["key"] not in ruins
         and (record["key"] in named or any(origin in by_words.get(name_words(value), ()) for value in _listed(record["fields"].get("owner"))))
     ]
     regions = {key for town in towns for value in _listed(town["fields"].get("zone")) for key in by_words.get(name_words(value), ()) if key[0] == "regions"}
@@ -78,18 +79,25 @@ def _home(records, by_words, origin):
 def _own_place(records, by_words, located):
     """The locations, the regions, and the neighbouring regions of located, which holds what retrieval.place gives for
     each place, and the factions that hold one of them: each faction whose territory, bases, or capital names one of them,
-    and each owner of one of the locations."""
+    and each owner of one of the locations. A ruin gives no holding faction."""
     towns, regions = set(), set()
     for current, own_regions, neighbours in located:
         towns.update(current)
         regions.update(own_regions, neighbours)
     found = towns | regions
+    held = found - _ruins(records)
     holders = {
         record["key"] for record in records if record["kind"] == "faction"
-        and any(found & by_words.get(name_words(value), set()) for field in HOLDING_FIELDS for value in _listed(record["fields"].get(field)))
+        and any(held & by_words.get(name_words(value), set()) for field in HOLDING_FIELDS for value in _listed(record["fields"].get(field)))
     }
-    owners = {key for record in records if record["key"] in towns for value in record["fields"].get("owner", []) for key in by_words.get(name_words(value), ()) if key[0] == "factions"}
+    owners = {key for record in records if record["key"] in held for value in record["fields"].get("owner", []) for key in by_words.get(name_words(value), ()) if key[0] == "factions"}
     return found | holders | owners
+
+
+def _ruins(records):
+    """The keys of the locations whose type is ruins. A ruin is no one's land: its owner is a former owner, so a ruin
+    makes no home, no holding faction, and no link but to its region."""
+    return {record["key"] for record in records if record["kind"] == "location" and name_words(str(record["fields"].get("type") or "")) == name_words("ruins")}
 
 
 def knowers(record, by_words):
@@ -111,7 +119,7 @@ def _links(records, by_words):
     """The keys that each record links to, in both directions: through a field value, the Faction and the OriginFaction
     of a character, and the text of a history entry. A history entry has no fields, so without its text no
     link could reach a Limited one. The text of another record links nothing, because it finds wrong names, such as the
-    character Cat in "Cat-Lon"."""
+    character Cat in "Cat-Lon". A ruin links only to the regions of its zone, so the NPCs in and next to them know it."""
     links = {record["key"]: set() for record in records}
 
     def join(key, other):
@@ -120,15 +128,18 @@ def _links(records, by_words):
             links[other].add(key)
 
     names = [(name, record["key"]) for record in records for name in (record["name"], *record["aliases"])]
+    ruins = _ruins(records)
     for record in records:
-        if record["kind"] == "character":
+        if record["key"] in ruins:
+            targets = {key for value in _listed(record["fields"].get("zone")) for key in by_words.get(name_words(value), ()) if key[0] == "regions"}
+        elif record["kind"] == "character":
             # The race is no link, or every canon Greenlander would know the past of every other one
             targets = {key for value in (record["fields"].get("faction"), record["origin_faction"]) if value for key in by_words.get(name_words(value), ()) if key[0] == "factions"}
         else:
             targets = {key for field, value in record["fields"].items() if field != "neighbours" for item in _listed(value) for key in by_words.get(name_words(item), ())}
         if record["kind"] == "history":
             targets |= {key for _, key in name_matches(record["description"], names)}
-        for other in targets:
+        for other in targets - ruins:
             join(record["key"], other)
     return links
 

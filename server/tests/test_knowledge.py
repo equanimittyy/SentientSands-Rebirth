@@ -161,6 +161,29 @@ class TravelsTest(unittest.TestCase):
         self.assertTrue({"Vain", "Border Zone"} <= set(self.known(places=[(None, "Vain"), (None, "Border Zone")])))
 
 
+class RuinTest(unittest.TestCase):
+    WORLD = [
+        record("region", "Border Zone"),
+        record("region", "Vain"),
+        record("location", "Ruined Holy Outpost", {"type": "ruins", "zone": ["Border Zone"], "owner": ["Holy Nation"]}),
+        record("location", "Tower of Abuse", {"type": "ruins", "zone": ["Vain"]}),
+        record("faction", "Holy Nation", knowledge="limited"),
+        record("faction", "Thrall Masters", {"bases": ["Tower of Abuse"]}, knowledge="limited"),
+    ]
+
+    def test_a_ruin_that_the_origin_faction_owns_or_bases_in_makes_no_home(self):
+        for origin in ("Holy Nation", "Thrall Masters"):
+            self.assertEqual(knowledge.known(self.WORLD, set(), key("faction", origin)), {})
+
+    def test_a_ruin_gives_no_holding_faction(self):
+        self.assertEqual(knows(self.WORLD, town="Ruined Holy Outpost"), {"Ruined Holy Outpost", "Border Zone"})
+        self.assertEqual(knows(self.WORLD, town="Tower of Abuse"), {"Tower of Abuse", "Vain"})
+
+    def test_a_ruin_links_only_to_its_region(self):
+        self.assertEqual(knows(self.WORLD, [key("faction", "Holy Nation"), key("faction", "Thrall Masters")]), {"Holy Nation", "Thrall Masters"})
+        self.assertEqual(knows(self.WORLD, zone="Border Zone"), {"Border Zone", "Ruined Holy Outpost"})
+
+
 class SecretTest(unittest.TestCase):
     def secret(self, *known_by):
         return [

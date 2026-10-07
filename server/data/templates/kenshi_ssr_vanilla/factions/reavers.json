@@ -8,6 +8,13 @@
     "leader": "Valamon",
     "bases": [
       "Ark"
+    ],
+    "territory": [
+      "Greenbeach",
+      "Stobe's Garden",
+      "The Crags",
+      "The Outlands",
+      "The Pits East"
     ]
   },
   "description": "Bandits led by Valamon who believe they should rule instead of the United Cities. They capture their targets and force them into their ranks, to prove themselves in battle or die."

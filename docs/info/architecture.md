@@ -452,6 +452,7 @@ A link joins two records when one names the other. It works in both directions, 
 - The text of another record links nothing, because a match in a text finds wrong names, such as the character Cat in "Cat-Lon".
 - The `Race` of a character is no link. Otherwise every canon Greenlander would know the past of every other canon Greenlander.
 - A field value that names no record links nothing. In SSR Vanilla, some `leader`, `founder`, and `nobles` values name a figure with no record, such as Cat-Lon, or join two names in one value, such as `Dimak and Buzan`.
+- A ruin, a location whose `type` is ruins, links only to the regions of its `zone`, so the NPCs in and next to them know it. A ruin is no one's land, so neither its `owner`, a former owner such as the Holy Nation of the Ruined Holy Outpost, nor a faction whose `bases` name it, such as the Thrall Masters of the Tower of Abuse, links to it.
 - The links do not depend on the tier. A Secret record still links the records around it, but the NPC does not find the Secret record itself unless its `known_by` reaches the NPC.
 
 #### Own records
@@ -464,15 +465,15 @@ The own records of an NPC are the start of its links (`knowledge.known`, with th
 | The current faction | The `factionID` of the NPC's context, or the `Faction` of the profile (`find_faction`) |
 | The origin faction | The `OriginFaction` of the profile |
 | The race | The `Race` of the profile |
-| The home | Each location and region that the `territory`, `bases`, or `capital` of the origin faction names, each location whose `owner` names the origin faction, and the region of each of these locations |
+| The home | Each location and region that the `territory`, `bases`, or `capital` of the origin faction names, each location whose `owner` names the origin faction, and the region of each of these locations, except a ruin |
 | The current location and the current region | As for the place order (see [Order of the lore](#order-of-the-lore)) |
 | The past places | The place of each chat thread in which the NPC is a member, as a speaker or as an overhearer (`campaign_db.thread_places`) |
 | The neighbouring regions | The regions next to a region of the current place or of a past place |
-| The holding factions | Each faction whose `territory`, `bases`, or `capital` names a location or a region of the current place or of a past place, or a neighbouring region, and each `owner` of one of these locations |
+| The holding factions | Each faction whose `territory`, `bases`, or `capital` names a location or a region of the current place or of a past place, or a neighbouring region, and each `owner` of one of these locations. A ruin gives no holding faction |
 
 - Links go one hop from the own records. In SSR Vanilla, one hop from a faction reaches a median of 1 and at most 28 of the 211 canon characters. A member of the Holy Nation therefore does not reach Tinfist through the `enemies` field of its faction.
 - The holding factions make the place take a second hop: the Border Zone, the Dust Bandits, then the Dust King. An NPC in the Hub therefore knows the Dust King, because the Dust Bandits hold the Border Zone. The step to a neighbouring region costs no hop, so the same path runs from each neighbouring region: a member of the Shek Kingdom in Admag knows the Dust King through the Border Zone next to the Stenn Desert. No other path takes a second hop.
-- In SSR Vanilla, an NPC in the Hub has 28 holding factions, such as the gangs of the Swamp and the Holy Nation, and knows 43 canon characters through them. From its region and the neighbouring regions, an NPC knows a median of 20 and at most 53 canon characters through the holding factions.
+- In SSR Vanilla, an NPC in the Hub has 31 holding factions, such as the gangs of the Swamp and the Holy Nation, and knows 46 canon characters through them. From its region and the neighbouring regions, an NPC knows a median of 32 and at most 66 canon characters through the holding factions.
 - A character links only to factions, so an NPC knows a Limited character through its current faction, its origin faction, or a holding faction, never through its race.
 - Only one step of neighbours counts. A region two regions away is not an own record, and the NPC knows it only through another link. The `neighbours` fact is no link.
 - The current location and the current region come from the context of each chat line, so a squad member that walks into Admag knows a Limited Admag while it stands there, and also after it leaves when it talked there.
@@ -488,12 +489,12 @@ The own records form two groups, so the prompt can tell the NPC where it learned
 
 - A Limited record that links to a base record is base knowledge. A Limited record that links only to a travel record is travel knowledge, and the block gives it under a heading of its own (see [Block](#block)). A Global or a Secret record is always base knowledge.
 - The home stands for the place where the NPC grew up. A caravan guard of the Holy Nation in Heng knows the lands of the Holy Nation as base knowledge, and Heng from its travels.
-- A place is inside the home when its location or its region belongs to the home. What an NPC hears around its home is not travel, so a farmer of the Holy Nation in Okran's Valley knows the Rebel Farmers as base knowledge, through Bast next to Okran's Valley. The caravan guard in Heng knows them from its travels.
-- An NPC whose origin faction holds no land is a drifter. It has no home, so it knows each place from its travels. In SSR Vanilla, 10 of the 106 factions give no home. 7 hold no land, such as the Drifters and the Slaves, and 3 name only places that have no record, such as the Police, whose `territory` names the faction United Cities.
+- A place is inside the home when its location or its region belongs to the home. What an NPC hears around its home is not travel, so a farmer of the Holy Nation in Okran's Pride knows the Hill Marauders as base knowledge, through the Border Zone next to Okran's Pride. The caravan guard in Heng knows them from its travels.
+- An NPC whose origin faction holds no land is a drifter. It has no home, so it knows each place from its travels. In SSR Vanilla, 12 of the 106 factions give no home. 7 hold no land, such as the Drifters and the Slaves, 3 name only places that have no record, such as the Police, whose `territory` names the faction United Cities, and 2 hold only ruins: the Second Empire and the Old Machines.
 - A past place is the `location` of a thread (see [Chat threads](#chat-threads)). A past place counts as a full place, as the current place does, with its neighbouring regions and holding factions.
 - The server reads the past places from the threads at each chat line, so nothing tracks an NPC between its chats. A place that the NPC passes through without a chat adds nothing. A deleted memory or a cull of a thread removes its place.
 - Visited on a character of Campaign Canon lists the town or the zone of each past place away from the home, newest first (`background.travels`). A drifter lists each past place.
-- In SSR Vanilla, `knowledge.known` takes about 4 ms for a member of the Holy Nation in Heng, 6 ms with 10 past places, and 12 ms with 40 past places.
+- In SSR Vanilla, `knowledge.known` takes about 5 ms for a member of the Holy Nation in Heng, 7 ms with 10 past places, and 13 ms with 40 past places.
 
 #### Secret access
 
@@ -509,10 +510,10 @@ Rejected:
 - The whitelist of a secret on the character. It reaches only canon characters, so no generic NPC could know a secret, and the knowers of one secret would spread over many files.
 - A second hop through every link. A member of the Holy Nation would know the past of Tinfist, Bo, Grey, and Jaegar through the `enemies` field of its faction. Two hops take a member of the United Cities from 15 to 65 of the 211 canon characters of SSR Vanilla.
 - Direct links only. A member of the Anti-Slavers would not know Tinfist, its leader.
-- The `factions` of a region as holding factions. They list each faction that roams a region, also a faction that only passes through. From its region and the neighbouring regions, an NPC of SSR Vanilla would know a median of 54 and at most 108 canon characters, against 20 and 53 through the holding factions.
+- The `factions` of a region as holding factions. They list each faction that roams a region, also a faction that only passes through. From its region and the neighbouring regions, an NPC of SSR Vanilla would know a median of 52 and at most 94 canon characters, against 32 and 66 through the holding factions.
 - A second step of neighbours. It would give an NPC of SSR Vanilla a median of 16 and at most 30 regions in its place, against 6 and 10.
 - The current place as base knowledge. A caravan guard of the Holy Nation in Heng would know Heng as if it grew up there, and it would lose the lore of Heng when it left.
-- The home as a full place, with its neighbouring regions and holding factions. The home of the Holy Nation would span 24 of the 69 regions of SSR Vanilla, and a member would know 270 of the 545 Limited records as base knowledge, against 64.
+- The home as a full place, with its neighbouring regions and holding factions. The home of the Holy Nation would span 26 of the 69 regions of SSR Vanilla, and a member would know 307 of the 545 Limited records as base knowledge, against 66.
 - The place of the first chat as the home. A caravan guard of the Holy Nation that the player first meets in Heng would get Heng as its home.
 - A record of each place that each NPC passes through. It would write for every NPC all the time, but only an NPC in a chat uses its knowledge, and the threads already hold the place of each chat.
 - A filter after the search. A record that the NPC cannot know could set the best score and cut the hits that it can know below `SCORE_RATIO`, and its words would count towards `COMMON_SHARE`.
@@ -1008,6 +1009,7 @@ SSR writes the content of SSR Vanilla itself. Each fact comes from the game: its
 
 - A region is a zone of the game data (record type 95), such as Border Zone or Shem. Record type 28 is a ground texture set and type 99 is a soil type, so neither is a region. Six zones have no towns and almost no data, so the template leaves them out: Akakus, Central, Desert, Empire, Rim Sands, and The Desert.
 - A location is a town of the game data (record type 13). The game data does not say which zone holds a town, so the zone comes from the town infobox of the wiki, joined to the game data on the string ID. A camp that a zone places at random, a nest, is not a location.
+- The `territory` of a faction names each region where its own patrols, army, or camps spawn at the start of a game, and each region where it owns a town that is not a ruin. Caravans, lone travellers, escapees, raids, and invasions only pass through, so the Traders Guild, the Slave Traders, and the Drifters hold no region that only their caravans or travellers cross. A region that two enemies both patrol, such as Bast, is in the territory of each. The Border Zone is disputed land, so the territory of the Shek Kingdom leaves it out, although Squin stands there.
 - The facts and the descriptions describe the start of a game, because a new campaign does not know which world states changed. The `factions` and `animals` of a region therefore leave out each squad whose world state does not hold at the start of a game, such as the death of a leader. A world state tests whether an NPC is dead, alive, or imprisoned, so a gate on "All Slave Masters are not alive" being false holds at the start, and a gate on "Tinfist is not alive" being true does not.
 - SSR Vanilla has a record for each vanilla faction that a source describes. It leaves out the factions of wild animals, the owners of ruins, and Nameless, the player's starting faction.
 - Spiders, Gutters, and Old Machines are creature factions, but each has a record, because Bugmaster, No-Face, and the Spider Foreman belong to them. A `Faction` that names no faction of the template shows as Unknown in the editor, and a save writes Unknown. The `factions` of a region leave these three out, because its `animals` name their creatures.
@@ -1020,9 +1022,9 @@ SSR writes the content of SSR Vanilla itself. Each fact comes from the game: its
 
 Each tier of SSR Vanilla that differs from the default of its kind has a source in the dialogue of the game or in the wiki (see [Knowledge](#knowledge)). The other records keep the default.
 
-SSR Vanilla sets each faction that is not `major` to Limited, and keeps its 10 major factions Global. A member of the United Cities in Heft therefore does not know Narko's Disciples, while a member of the Holy Nation knows them anywhere, because the `enemies` of Narko's Disciples name the Holy Nation.
+SSR Vanilla sets each faction that is not `major` to Limited, and keeps its 10 major factions Global. A member of the United Cities in Brink therefore does not know Narko's Disciples, while a member of the Holy Nation knows them anywhere, because the `enemies` of Narko's Disciples name the Holy Nation.
 
-The locations and the regions of SSR Vanilla keep the default, Limited. A member of the Holy Nation in Blister Hill knows 32 of the 164 locations and 28 of the 69 regions. 25 locations and 2 regions, mostly ruins and labs such as Ashland Dome Ruin and The Grid, link to no faction and no home, so an NPC knows them only from a current or past place in or next to their region.
+The locations and the regions of SSR Vanilla keep the default, Limited. A member of the Holy Nation in Blister Hill knows 47 of the 164 locations and 38 of the 69 regions. The 55 ruins, 7 other locations such as Tiny Settlement and Waystation, and 2 regions, Raptor Island and The Grid, link to no faction and no home, so an NPC knows them only from a current or past place in or next to their region.
 
 These records are Secret:
 

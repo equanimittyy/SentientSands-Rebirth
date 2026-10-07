@@ -11,6 +11,9 @@
       "Port North",
       "Port South"
     ],
+    "territory": [
+      "South Wetlands"
+    ],
     "enemies": [
       "Anti-Slavers"
     ]
