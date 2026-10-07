@@ -472,7 +472,15 @@ void ProcessMessageQueue(GameWorld *thisptr) {
             return res;
           };
 
-          if (actStr.find("JOIN_PARTY") != std::string::npos) {
+          if (actStr.find("BOUNTY_PROBE") != std::string::npos) {
+            EnterCriticalSection(&g_uiMutex);
+            QueuedAction act;
+            act.type = ACT_BOUNTY_PROBE;
+            act.actor = targetHand;
+            act.message = getPayload(actStr, "BOUNTY_PROBE:");
+            g_uiActionQueue.push_back(act);
+            LeaveCriticalSection(&g_uiMutex);
+          } else if (actStr.find("JOIN_PARTY") != std::string::npos) {
             EnterCriticalSection(&g_uiMutex);
             QueuedAction act;
             act.type = ACT_JOIN_PARTY;

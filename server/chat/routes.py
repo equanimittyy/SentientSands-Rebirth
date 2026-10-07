@@ -13,7 +13,7 @@ from chat.characters import get_character_data, npc_name, should_save_profile
 from chat.llm import call_llm
 from chat.memory import quiet_seconds
 from chat.prompts import PROMPT_RUMORS, build_system_prompt, describe_faction, describe_npc, describe_race, fill_prompt, find_location, load_prompt_component, npc_scene, scene_values
-from core import deeds, state
+from core import bounties, deeds, state
 from core.game import context_dict, get_current_time_prefix, is_player_faction, note_faction, take_report
 from core.pipe import send_to_pipe
 from core.routes import campaign_write
@@ -184,7 +184,8 @@ def chat():
                         "/take, /attack, /follow, /idle, /patrol, /join, /leave, /free, /breakout,\n" + \
                         "/move, /movefast, /home, /shop, /raid [Town], /travel [Town], /medic, /rescue, /repair,\n" + \
                         "/notify [msg], /give_cats [n], /take_cats [n], /drop [item],\n" + \
-                        "/take_item [item], /spawn [Templ|Name|Desc], /relations [Fact] [n], /task [TASK]"
+                        "/take_item [item], /spawn [Templ|Name|Desc], /relations [Fact] [n], /task [TASK],\n" + \
+                        "/bounty [Fact] [crime] [n]"
             return reply(*help_text.split("\n"))
             
         if cmd == "attack": test_action = "[ATTACK]"
@@ -222,6 +223,18 @@ def chat():
             if len(rparts) == 2:
                 test_action = f"[ACTION: FACTION_RELATIONS: {rparts[0].strip()}: {rparts[1].strip()}]"
         elif cmd == "task": test_action = f"[TASK: {args.upper()}]"
+        elif cmd == "bounty":
+            parts = args.rsplit(' ', 2)
+            if not args:
+                probe = "[ACTION: BOUNTY_PROBE]"
+            elif len(parts) == 3 and parts[1].upper() in bounties.CRIMES and parts[2].isdigit():
+                probe = f"[ACTION: BOUNTY_PROBE: {bounties.CRIMES.index(parts[1].upper()) + 1}: {parts[2]}: {parts[0]}]"
+            else:
+                return reply("[DEBUG] /bounty [Fact] [crime] [n] puts a bounty on the target. /bounty alone logs its bounties.",
+                             f"[DEBUG] Crimes: {', '.join(crime.lower() for crime in bounties.CRIMES)}")
+            logging.info(f"CHAT: Test command {cmd} -> {probe}")
+            # The plugin also runs a tag in a spoken line, so an echo of the tag would place the bounty twice
+            return reply("[DEBUG] Executing test command: bounty probe", actions=[probe])
         
         if test_action:
             logging.info(f"CHAT: Test command {cmd} -> {test_action}")

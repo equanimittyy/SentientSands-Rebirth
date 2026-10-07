@@ -863,6 +863,8 @@ void ExecuteQueuedActions(GameWorld *thisptr, int &inventoryTimer) {
                   true);
             }
           }
+        } else if (act.type == ACT_BOUNTY_PROBE && npc) {
+          ProbeBounty(npc, act.message);
         } else if (act.type == ACT_SPAWN_ITEM) {
           std::string payload = act.message;
 
