@@ -39,7 +39,7 @@ const ORIGIN_LABELS = { seed: "Seeded", game: "Met in game", campaign: "Added in
 const PROVISIONAL = "Interactions";
 const IMPORT_PROBLEMS_SHOWN = 10;
 const EVENTS_PER_PAGE = 50;
-const NOTABLE_KINDS = { kill: "Kill", capture: "Capture", custom: "Custom" };
+const NOTABLE_KINDS = { kill: "Kill", capture: "Capture", custom: "Custom", auto: "Auto" };
 
 let source = "campaign";
 let canon = null;
@@ -1004,7 +1004,7 @@ function rumorCell(event) {
   const input = control("textarea", rumorDrafts, key, ["rumors", key], { rows: 3, label: "Rumor" });
   if (note?.field) setFieldError(input, note.text);
   const again = iconButton("bot", "Generate the rumor again", () => writeRumor(event));
-  const remove = event.kind === "custom" ? deleteButton("Delete the custom deed", () => deleteDeed(event.id))
+  const remove = event.kind === "custom" || event.kind === "auto" ? deleteButton(`Delete the ${event.kind} deed`, () => deleteDeed(event))
     : event.rumor === null ? deleteButton("Discard the new rumor", () => discardRumor(key)) : deleteButton("Delete the rumor", () => deleteRumor(event.rumor));
   return el("div", {},
     el("div", { className: "inline row" }, input, again, remove),
@@ -1031,10 +1031,10 @@ async function addDeed(event) {
   }
 }
 
-async function deleteDeed(id) {
-  if (!(await ask("Delete the custom deed", "Delete", "This deletes the custom deed and its rumor, so NPCs stop mentioning it. ", "\n\n", el("b", { className: "warning" }, "The delete takes effect immediately and is irreversible.")))) return;
+async function deleteDeed(event) {
+  if (!(await ask(`Delete the ${event.kind} deed`, "Delete", `This deletes the ${event.kind} deed and its rumor, so NPCs stop mentioning it. `, "\n\n", el("b", { className: "warning" }, "The delete takes effect immediately and is irreversible.")))) return;
   try {
-    await sendJson("POST", "/api/campaign/deeds/delete", { campaign: log.name, id });
+    await sendJson("POST", "/api/campaign/deeds/delete", { campaign: log.name, id: event.id });
     await fetchLog(keptLog());
   } catch (error) {
     showMessage(message, `Delete failed: ${error.message}`, true);
@@ -1069,9 +1069,7 @@ function renderEvents() {
   return el("fieldset", {},
     el("legend", {}, `Deeds (${deeds.length})`),
     el("p", { className: "hint" },
-      "Each known figure that your squad killed or captured, and each custom deed, newest first. A known figure is a character that the game marks as unique, such as Tinfist. A custom deed is a rumor that you write. It has no game time, so it shows at the top, and Cull future data keeps it."),
-    el("p", { className: "hint" },
-      "SSR writes each rumor after the memories, when you stop chatting for the Conversation timeout. Generate Rumor writes one sooner, and the robot rewrites it with new instructions. NPCs hear the 5 newest."),
+      "Kills and captures of known figures, such as Tinfist, and rumors that you write or that SSR makes from your conversations, for NPCs to gossip about."),
     deeds.length > 0 ? el("div", { className: "inline row" }, search, select) : null,
     newDeedForm(),
     deeds.length > 0 ? el("div", { id: "event-page" }) : el("p", { className: "hint" }, "No deeds yet."));
