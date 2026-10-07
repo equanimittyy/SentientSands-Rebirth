@@ -25,6 +25,8 @@
 #define WeatherRegion WeatherRegion_WeatherH
 #include <kenshi/Weather.h>
 #undef WeatherRegion
+#include <kenshi/gui/ManagementScreen.h>
+#include <kenshi/gui/MapScreen.h>
 #include <kenshi/util/hand.h>
 #include <algorithm>
 #include <map>
@@ -508,8 +510,10 @@ static void PlaceProbeBounty(GameWorld *world, Character *npc,
   ActivePlatoon *active = npc->getPlatoon();
   if (active && active->me) {
     active->me->setPersistentSquad(true);
-    // A roaming squad walks on while the player is away; the marker finds it
-    active->me->showDebugMarker(true);
+    // A roaming squad walks on while the player is away; the map finds it
+    ManagementScreen *screen = ManagementScreen::getSingleton();
+    if (screen && screen->mapScreen)
+      screen->mapScreen->addSquad(active->me);
   }
   npc->crimes.unfairAddToBounty(law, amount);
   ogre_unordered_map<Faction *, Bounty>::type::iterator bounty =
