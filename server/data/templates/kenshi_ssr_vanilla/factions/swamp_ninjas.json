@@ -3,6 +3,7 @@
   "name": "Swamp Ninjas",
   "aliases": [],
   "major": false,
+  "knowledge": "limited",
   "fields": {
     "leader": "Shade",
     "bases": [

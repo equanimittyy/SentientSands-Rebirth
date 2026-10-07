@@ -519,6 +519,12 @@ class FactionTest(CampaignTestCase):
         self.assertTrue(campaign_db.delete_faction("42022-rebirth.mod"))
         self.assertIsNone(campaign_db.find_faction("42022-rebirth.mod"))
 
+    def test_the_knowledge_of_a_faction_keeps_its_values(self):
+        self.assertEqual({key: campaign_db.find_faction("204-gamedata.base")[key] for key in ("knowledge", "known_by")}, {"knowledge": "", "known_by": []})
+        faction = campaign_db.find_faction("1083-gamedata.base")
+        campaign_db.update_faction("1083-gamedata.base", {"knowledge": "secret", "known_by": ["Nameless"]}, faction["updated_at"])
+        self.assertEqual({key: campaign_db.find_faction("1083-gamedata.base")[key] for key in ("knowledge", "known_by")}, {"knowledge": "secret", "known_by": ["Nameless"]})
+
     def test_overview_and_history_edit(self):
         campaign_db.set_overview("A new world.")
         campaign_db.set_history([])
@@ -538,6 +544,14 @@ class RecordTest(CampaignTestCase):
         self.assertIn((("zones", "stenn"), {"name": "The Stenn"}), [record[:2] for record in campaign_db.list_records("entity")])
         self.assertTrue(campaign_db.delete_record("entity", key))
         self.assertFalse(campaign_db.delete_record("entity", key))
+
+    def test_the_knowledge_of_a_character_keeps_its_values_beside_the_profile(self):
+        self.assertEqual(campaign_db.character_knowledge(), {BEEP_ID: {"knowledge": "", "known_by": []}})
+        (key, _, _, updated_at), = campaign_db.list_records("character")
+        campaign_db.save_record("character", key, {"Name": "Beep"}, updated_at, {"knowledge": "secret", "known_by": ["Hivers"]})
+        campaign_db.save_record("character", ("u:new",), {"Name": "New"}, None, {"knowledge": "global", "known_by": []})
+        self.assertEqual(campaign_db.character_knowledge(), {BEEP_ID: {"knowledge": "secret", "known_by": ["Hivers"]}, "u:new": {"knowledge": "global", "known_by": []}})
+        self.assertEqual(campaign_db.get_character(BEEP_ID), {"Name": "Beep", "ConversationHistory": []})
 
     def test_a_taken_key_and_a_stale_save_are_refused(self):
         (key, _, _, updated_at), = campaign_db.list_records("character")

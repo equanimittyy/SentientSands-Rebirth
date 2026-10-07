@@ -22,8 +22,15 @@ const FACTS = {
   factions: { leader: "text", capital: "text", founder: "text", nobles: "list", bases: "list", territory: "list", allies: "list", enemies: "list" },
   races: { type: "text", homeland: "text", faction: "text" },
   locations: { type: "text", zone: "list", owner: "list" },
-  regions: { animals: "list", factions: "list", hazards: "list" },
+  regions: { animals: "list", factions: "list", hazards: "list", neighbours: "list" },
 };
+const FACT_HELP = { neighbours: "The regions that share a border with this region on the world map of the game." };
+const TIERS = { global: "Global", limited: "Limited", secret: "Secret" };
+// Mirrors DEFAULTS in server/chat/knowledge.py.
+const DEFAULT_TIERS = { character: "limited" };
+const KNOWLEDGE_HELP = "Who can know this entry. Global: every NPC. Limited: only the NPCs tied to it through a faction, a race, or a place that it names or that names it. Secret: only the characters, factions, and races in Known by.";
+const KNOWN_BY_HELP = "The characters, factions, and races that know this entry. A member of a faction knows it, and so does a character that comes from the faction. Type to search, then choose from the list.";
+const KNOWER_KINDS = { character: "character", faction: "faction", races: "race" };
 const TEMPLATE_PARTS = ["manifest", "overview", "history"];
 const SOURCES = [["campaign", "Campaign Canon"], ["events", "Campaign Log"], ["template", "Templates"]];
 const LOG_VIEWS = [["dialogue", "Dialogue & Memories"], ["events", "Deeds"]];
@@ -96,42 +103,54 @@ function fromRows(list, skipEmpty = []) {
   return result;
 }
 
+// The default tier shows as "", so a record keeps no knowledge key that changes nothing.
+function knowledgeForm(kind, data) {
+  const knowledge = data?.knowledge ?? "";
+  return { knowledge: knowledge === (DEFAULT_TIERS[kind] ?? "global") ? "" : knowledge, known_by: (data?.known_by ?? []).map((name) => ({ name })) };
+}
+
+// A record that is not Secret saves no known_by, so no list stays behind the hidden field.
+function knowledgeData(form) {
+  const names = form.known_by.map((row) => row.name.trim()).filter(Boolean);
+  return { ...(form.knowledge ? { knowledge: form.knowledge } : {}), ...(form.knowledge === "secret" && names.length > 0 ? { known_by: names } : {}) };
+}
+
 function toForm(kind, data) {
   if (kind === "overview") return { text: data ?? "" };
-  if (kind === "history") return { entries: (Array.isArray(data) ? data : []).map((entry) => ({ title: entry?.title ?? "", text: entry?.text ?? "" })) };
+  if (kind === "history") return { entries: (Array.isArray(data) ? data : []).map((entry) => ({ title: entry?.title ?? "", text: entry?.text ?? "", ...knowledgeForm("history", entry) })) };
   if (kind === "manifest") {
     return { name: data.name ?? "", description: data.description ?? "", version: data.version ?? "", authors: (data.authors ?? []).join(", "), credits: (data.credits ?? []).join("\n"), extra: rest(data, ["name", "description", "version", "authors", "credits"]) };
   }
   if (kind === "faction") {
     return {
       game_id: data.game_id ?? "", name: data.name ?? "", aliases: (data.aliases ?? []).join(", "), major: Boolean(data.major), fields: rows(data.fields), description: data.description ?? "",
-      extra: rest(data, ["game_id", "name", "aliases", "major", "fields", "description"]),
+      ...knowledgeForm(kind, data), extra: rest(data, ["game_id", "name", "aliases", "major", "fields", "description", "knowledge", "known_by"]),
     };
   }
   if (kind === "character") {
     const profile = data.profile ?? {};
     const known = PROFILE_KEYS.map((key) => ({ key, value: profile[key] === undefined ? "" : String(profile[key]), list: false, original: profile[key] }));
-    return { game_id: data.game_id ?? "", profile: known, details: rest(profile, PROFILE_KEYS), extra: rest(data, ["game_id", "profile"]) };
+    return { game_id: data.game_id ?? "", profile: known, details: rest(profile, PROFILE_KEYS), ...knowledgeForm(kind, data), extra: rest(data, ["game_id", "profile", "knowledge", "known_by"]) };
   }
   const labels = entryLabels();
   return {
     name: data.name ?? "", aliases: (data.aliases ?? []).join(", "), fields: rows(data.fields), description: data.description ?? "",
     children: (data.children ?? []).map((child) => ({ entry: child.entry ?? "", text: labels.get(child.entry) ?? child.entry ?? "", weight: child.weight === undefined ? "" : String(child.weight) })),
-    extra: rest(data, ["name", "aliases", "fields", "description", "children"]),
+    ...knowledgeForm(kind, data), extra: rest(data, ["name", "aliases", "fields", "description", "children", "knowledge", "known_by"]),
   };
 }
 
 // Throws when a relation names no entry.
 function toData(kind, form) {
   if (kind === "overview") return form.text.trim();
-  if (kind === "history") return form.entries.map((entry) => ({ title: entry.title.trim(), text: entry.text.trim() }));
+  if (kind === "history") return form.entries.map((entry) => ({ title: entry.title.trim(), text: entry.text.trim(), ...knowledgeData(entry) }));
   if (kind === "manifest") return { ...form.extra, name: form.name.trim(), description: form.description.trim(), version: form.version.trim(), authors: commaList(form.authors), credits: lineList(form.credits) };
   if (kind === "faction") {
-    return { ...form.extra, game_id: form.game_id.trim(), name: form.name.trim(), aliases: commaList(form.aliases), major: form.major, fields: fromRows(form.fields), description: form.description.trim() };
+    return { ...form.extra, game_id: form.game_id.trim(), name: form.name.trim(), aliases: commaList(form.aliases), major: form.major, fields: fromRows(form.fields), description: form.description.trim(), ...knowledgeData(form) };
   }
   if (kind === "character") {
     const profile = form.profile.map((row) => (CHOICE_KEYS.includes(row.key) ? { ...row, value: choice(row.key, row.value) } : row));
-    return { ...form.extra, game_id: form.game_id.trim(), profile: { ...fromRows(profile, PROFILE_KEYS), ...form.details } };
+    return { ...form.extra, game_id: form.game_id.trim(), profile: { ...fromRows(profile, PROFILE_KEYS), ...form.details }, ...knowledgeData(form) };
   }
   return {
     ...form.extra,
@@ -143,6 +162,7 @@ function toData(kind, form) {
       if (!child.entry) throw new Error(`${child.text.trim()} is not an entry. Choose one from the list.`);
       return { entry: child.entry, ...(child.weight.trim() ? { weight: numberOr(child.weight) } : {}) };
     }),
+    ...knowledgeData(form),
   };
 }
 
@@ -239,6 +259,7 @@ function kindLabel(record) {
   return record.kind === "entity" ? CATEGORY_LABELS[record.category] : KIND_LABELS[record.kind];
 }
 
+const isCanon = (record) => record.kind !== "character" || source === "template" || record.origin !== "game";
 const isProvisional = (record) => source === "campaign" && record.kind === "character" && PROVISIONAL in (record.data?.profile ?? {});
 // Mirrors GetNpcId in plugin/game/Context.cpp: the game's unique flag gives the u: prefix, as the deeds read it.
 const isUnique = (record) => record.kind === "character" && Boolean(record.id?.startsWith("u:"));
@@ -305,6 +326,7 @@ function factsEditor(list, path, categories) {
     ...list.map((row, index) => el("div", { className: "inline row" },
       factCategory(row, free, categories),
       control("input", row, "value", [...path, index, "value"], { placeholder: row.list ? "Values, separated by commas" : "Value", label: "Fact value" }),
+      FACT_HELP[row.key] ? withHelp("", FACT_HELP[row.key]) : null,
       removeButton(list, index, "Delete the fact"))),
     add);
 }
@@ -324,6 +346,65 @@ function factCategory(row, free, categories) {
   return select;
 }
 
+function knowledgeSelect(form, path, kind) {
+  const fallback = DEFAULT_TIERS[kind] ?? "global";
+  const select = control("select", form, "knowledge", [...path, "knowledge"], { label: "Knowledge Level", onchange: renderForm });
+  select.append(...Object.entries(TIERS).map(([tier, text]) => (tier === fallback ? new Option(`${text} (default)`, "") : new Option(text, tier))));
+  select.value = form.knowledge;
+  return select;
+}
+
+// Mirrors world_template.template_names, whose names the validator checks a known_by against.
+function knowerOptions() {
+  const kindOf = (record) => (isCanon(record) ? KNOWER_KINDS[record.kind === "entity" ? record.category : record.kind] : undefined);
+  return records.filter(kindOf).flatMap((record) => {
+    const kind = kindOf(record);
+    const form = drafts.get(record.key)?.form;
+    const aliases = record.kind === "character" ? [] : form ? commaList(form.aliases) : record.data?.aliases ?? [];
+    return [title(record), ...aliases].map((name) => ({ name, label: `${name} (${kind})` }));
+  });
+}
+
+// A name that names nothing only gets a note, because the validator only warns about it.
+function knownByEditor(form, path) {
+  const options = knowerOptions();
+  const plain = new Map(options.map((option) => [option.label.toLowerCase(), option.name]));
+  const names = new Set(options.map((option) => option.name.toLowerCase()));
+  // A campaign faction ID can hold spaces, which an ID reference cannot
+  const list = `knowers-${path.join("-").replace(/[^A-Za-z0-9_-]/g, "_")}`;
+  const unknown = (name) => (name.trim() && !names.has(name.trim().toLowerCase()) ? "No character, faction, or race has this name." : "");
+  return el("div", {},
+    withHelp("Known by", KNOWN_BY_HELP),
+    ...form.known_by.map((row, index) => {
+      const note = el("span", { className: "detail" }, unknown(row.name));
+      const input = el("input", {
+        value: row.name,
+        placeholder: "Type to search",
+        disabled: readOnly(),
+        oninput: (event) => {
+          const name = plain.get(event.target.value.trim().toLowerCase());
+          if (name) event.target.value = name;
+          row.name = event.target.value;
+          note.textContent = unknown(row.name);
+          changed();
+        },
+      });
+      input.dataset.field = JSON.stringify([...path, "known_by", index]);
+      input.setAttribute("aria-label", "Knower");
+      input.setAttribute("list", list);
+      return el("div", { className: "inline row" }, input, note, removeButton(form.known_by, index, "Delete the knower"));
+    }),
+    el("datalist", { id: list }, ...options.map((option) => el("option", { value: option.label }))),
+    addButton("Add knower", () => form.known_by.push({ name: "" })));
+}
+
+function knowledgeEditor(form, path, kind) {
+  return el("fieldset", {},
+    el("legend", {}, "Knowledge"),
+    field("Knowledge Level", knowledgeSelect(form, path, kind), null, KNOWLEDGE_HELP),
+    form.knowledge === "secret" ? knownByEditor(form, path) : null);
+}
+
 function gameIdField(form, path, record, help) {
   const locked = inCampaign(record);
   return field("Game ID", control("input", form, "game_id", [...path, "game_id"], { disabled: locked }), null, `${help}${locked ? " It cannot change after you add the entry." : ""}`);
@@ -339,6 +420,7 @@ function factionForm(form, path, record) {
     el("label", { className: "check" }, major, "Major world power. Its members resist an offer to join your squad."),
     field("Description", control("textarea", form, "description", [...path, "description"], { rows: 5 }), null, record.is_player ? "What every NPC knows about your squad." : "What NPCs know about the faction."),
     factsEditor(form.fields, [...path, "fields"], FACTS.factions),
+    knowledgeEditor(form, path, "faction"),
   ];
 }
 
@@ -348,6 +430,7 @@ function characterForm(form, path, record) {
     ...form.profile.map((row) => (CHOICE_KEYS.includes(row.key)
       ? field(row.key, choiceControl(row, [...path, "profile", row.key]), null, PROFILE_HELP[row.key])
       : field(PROFILE_LABELS[row.key] ?? row.key, control(LONG_PROFILE_KEYS.includes(row.key) ? "textarea" : "input", row, "value", [...path, "profile", row.key], { rows: 4 }), null, PROFILE_HELP[row.key]))),
+    isCanon(record) ? knowledgeEditor(form, path, "character") : null,
     el("fieldset", {},
       el("legend", {}, "Other Details"),
       el("p", { className: "hint" }, "The game and your chats set these details."),
@@ -507,6 +590,7 @@ function entityForm(form, path, record) {
     field("Aliases", control("input", form, "aliases", [...path, "aliases"]), null, "Other names of the entry, separated by commas."),
     field("Description", control("textarea", form, "description", [...path, "description"], { rows: 5 }), null, `What NPCs know about the ${CATEGORY_LABELS[record.category].toLowerCase()}.`),
     factsEditor(form.fields, [...path, "fields"], FACTS[record.category]),
+    knowledgeEditor(form, path, "entity"),
     relationsEditor(form, path, record),
   ];
 }
@@ -517,9 +601,11 @@ function historyForm(form, path) {
     ...form.entries.map((entry, index) => el("div", { className: "card" },
       el("div", { className: "inline row" },
         control("input", entry, "title", [...path, index, "title"], { placeholder: "Title, for example The Second Empire", label: "Title" }),
+        Object.assign(knowledgeSelect(entry, [...path, index], "history"), { title: KNOWLEDGE_HELP }),
         removeButton(form.entries, index, "Delete the history entry")),
-      control("textarea", entry, "text", [...path, index, "text"], { rows: 4, label: "Text" }))),
-    addButton("Add history entry", () => form.entries.push({ title: "", text: "" })),
+      control("textarea", entry, "text", [...path, index, "text"], { rows: 4, label: "Text" }),
+      entry.knowledge === "secret" ? knownByEditor(entry, [...path, index]) : null)),
+    addButton("Add history entry", () => form.entries.push({ title: "", text: "", ...knowledgeForm("history", {}) })),
   ];
 }
 
@@ -904,7 +990,7 @@ function renderTestSearch() {
     el("form", { className: "add", onsubmit: runTestSearch },
       field("Line", line),
       ...(source === "campaign" ? [
-        field("Talk to", characterPicker("npc", characters, "Nobody (lore only)", "Character to talk to"), null, "The character that hears the line. The search then also finds its memories, and skips the entries of its factions, which it knows from its chat prompt. Without one, the search finds only lore."),
+        field("Talk to", characterPicker("npc", characters, "Nobody (lore only)", "Character to talk to"), null, "The character that hears the line. The search then also finds its memories, finds only the entries that it can know, and skips the entries of its factions, which it knows from its chat prompt. Without one, the search finds only lore, in every entry."),
         field("Speak as", characterPicker("speaker", characters.filter(inPlayerFaction), "Nobody", "Squad member who speaks"), null, "The squad member who says the line. The search skips the entry of its race, which the NPC sees already."),
       ] : []),
       el("button", { type: "submit" }, "Search")),
@@ -918,10 +1004,11 @@ function testSearchResult() {
   const how = (hit) => el("span", { className: "detail" }, hit.name ? `found by the name ${hit.name}` : `found by ${hit.words.join(", ")}`);
   const hits = [
     ...result.memories.map((hit) => el("li", {}, el("strong", {}, "Memory: "), hit.heading, " ", how(hit), el("p", { className: "hint" }, hit.text))),
-    ...result.entries.map((hit) => el("li", {}, el("strong", {}, hit.name), ` (${hit.kind}) `, how(hit))),
+    ...result.entries.map((hit) => el("li", {}, el("strong", {}, hit.name), ` (${hit.kind}, ${TIERS[hit.tier]}) `, how(hit))),
   ];
   return [
     hits.length ? el("ol", {}, ...hits) : el("p", { className: "hint" }, "The line finds nothing."),
+    result.dropped.length ? el("p", { className: "hint" }, "Names that the character cannot know: ", ...result.dropped.map((hit) => el("span", { className: "chip" }, `${hit.name} (${hit.kind}, ${TIERS[hit.tier]})`))) : null,
     el("p", { className: "detail" }, `Retrieval slots: ${result.slots}. Memory slots: ${result.memory_slots}.`),
     result.skipped.length ? el("p", { className: "hint" }, "Words that do not search the lore: ", ...result.skipped.map((skip) => el("span", { className: "chip" }, `${skip.word}: ${SKIP_REASONS[skip.reason]}`))) : null,
   ];

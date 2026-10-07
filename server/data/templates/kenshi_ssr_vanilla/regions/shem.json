@@ -14,6 +14,16 @@
       "Beak Thing",
       "Blood Spider",
       "Garru"
+    ],
+    "neighbours": [
+      "Bonefields",
+      "Border Zone",
+      "Burning Forest",
+      "Deadlands",
+      "Flats Lagoon",
+      "Skinner's Roam",
+      "The Swamp",
+      "Venge"
     ]
   },
   "description": "Shem is a sandy oasis near the middle of the continent, bordered by Skinner's Roam, the Border Zone, Venge, and the Swamp. Few people live there: Nomads keep a small village with an animal shop, and Grayflayer smugglers run a bar with beds upstairs. No faction collects taxes on its flat ground, but Dust Bandits, starving bandit mobs, Beak Things, and blood spiders roam it.",

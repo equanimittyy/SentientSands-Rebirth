@@ -22,8 +22,9 @@ FACTS = {
     "factions": {"leader": str, "capital": str, "founder": str, "nobles": list, "bases": list, "territory": list, "allies": list, "enemies": list},
     "races": {"type": str, "homeland": str, "faction": str},
     "locations": {"type": str, "zone": list, "owner": list},
-    "regions": {"animals": list, "factions": list, "hazards": list},
+    "regions": {"animals": list, "factions": list, "hazards": list, "neighbours": list},
 }
+TIERS = ("global", "limited", "secret")
 _NAME = re.compile(r"[A-Za-z0-9][A-Za-z0-9 _-]*")
 _ID = re.compile(r"[A-Za-z0-9_-]+")
 
@@ -99,27 +100,40 @@ def validate(template):
 
     if not isinstance(template["overview"], str):
         error(["overview"], "The overview must be text.")
-    _check_history(template["history"], error)
+    names = template_names(template)
+    _check_history(template["history"], error, warnings, names)
 
     game_ids = {}
     for record_id, faction in template["factions"].items():
-        _check_faction(faction, ["factions", record_id], game_ids, error)
+        _check_faction(faction, ["factions", record_id], game_ids, error, warnings, names)
 
     game_ids = {}
     for record_id, character in template["characters"].items():
-        _check_character(character, ["characters", record_id], game_ids, error)
+        _check_character(character, ["characters", record_id], game_ids, error, warnings, names)
 
     entries = {f"{category}/{record_id}" for category, records in template["entities"].items() for record_id in records}
     for category, records in template["entities"].items():
         for record_id, entity in records.items():
-            _check_entity(entity, [category, record_id], entries, error, warnings)
+            _check_entity(entity, [category, record_id], entries, error, warnings, names)
     return errors, warnings
 
 
-def record_problems(kind, data, field, entries=frozenset()):
+def template_names(template):
+    """The names, in lowercase, that a known_by and a neighbour of the template can name."""
+    def names(records):
+        return {name.lower() for record in records if isinstance(record, dict) for name in [record.get("name"), *_list(record.get("aliases"))] if _is_text(name)}
+
+    profiles = [character.get("profile") for character in template["characters"].values() if isinstance(character, dict)]
+    characters = {profile["Name"].lower() for profile in profiles if isinstance(profile, dict) and _is_text(profile.get("Name"))}
+    entities = template["entities"]
+    return {"knowers": names(template["factions"].values()) | characters | names(entities["races"].values()), "regions": names(entities["regions"].values())}
+
+
+def record_problems(kind, data, field, entries=frozenset(), names=None):
     """The (errors, warnings) of one record outside a template, for example its copy in a campaign.
 
-    entries holds the "<category>/<id>" of each race, location, and region that a child may point to.
+    entries holds the "<category>/<id>" of each race, location, and region that a child may point to, and names holds
+    the names that a known_by and a neighbour may name, in the form of template_names. Without names, no name is checked.
     """
     errors, warnings = [], []
 
@@ -130,13 +144,13 @@ def record_problems(kind, data, field, entries=frozenset()):
         if not isinstance(data, str):
             error(field, "The overview must be text.")
     elif kind == "history":
-        _check_history(data, error)
+        _check_history(data, error, warnings, names)
     elif kind == "faction":
-        _check_faction(data, field, {}, error)
+        _check_faction(data, field, {}, error, warnings, names)
     elif kind == "character":
-        _check_character(data, field, {}, error)
+        _check_character(data, field, {}, error, warnings, names)
     elif kind == "entity":
-        _check_entity(data, field, entries, error, warnings)
+        _check_entity(data, field, entries, error, warnings, names)
     else:
         error(["kind"], f"{kind} is not a kind of record.")
     return errors, warnings
@@ -160,13 +174,18 @@ def campaign_seed(name, shipped_dir, user_dir):
                 "major": faction.get("major", False),
                 "fields": faction.get("fields", {}),
                 "description": faction.get("description", ""),
+                **_knowledge(faction),
             }
             for faction in template["factions"].values()
         ],
         "history": template["history"],
-        "characters": [{"game_id": character["game_id"], "profile": character["profile"]} for character in template["characters"].values()],
+        "characters": [{"game_id": character["game_id"], "profile": character["profile"], **_knowledge(character)} for character in template["characters"].values()],
         "entities": [{"category": category, "id": record_id, "data": entity} for category, records in template["entities"].items() for record_id, entity in records.items()],
     }
+
+
+def _knowledge(record):
+    return {key: record[key] for key in ("knowledge", "known_by") if key in record}
 
 
 def save_record(name, kind, record_id, data, shipped_dir, user_dir, category=None):
@@ -299,10 +318,10 @@ def _write_new_template(user_dir, name, files):
 
 _FORMAT_KEYS = {
     "manifest": {"format_version", "name", "description", "version", "authors", "credits"},
-    "history": {"title", "text"},
-    "factions": {"game_id", "name", "aliases", "major", "fields", "description"},
-    "characters": {"game_id", "profile"},
-    "entity": {"name", "aliases", "fields", "description", "children"},
+    "history": {"title", "text", "knowledge", "known_by"},
+    "factions": {"game_id", "name", "aliases", "major", "fields", "description", "knowledge", "known_by"},
+    "characters": {"game_id", "profile", "knowledge", "known_by"},
+    "entity": {"name", "aliases", "fields", "description", "children", "knowledge", "known_by"},
     "child": {"entry", "weight"},
 }
 
@@ -463,16 +482,33 @@ def _content_hash(path):
     return digest.hexdigest()
 
 
-def _check_history(history, error):
+def _check_history(history, error, warnings, names):
     if not isinstance(history, list):
         error(["history"], "The history must be a list of entries.")
         return
     for index, entry in enumerate(history):
         if not isinstance(entry, dict) or not _is_text(entry.get("title")) or not isinstance(entry.get("text"), str):
             error(["history", index], f"History entry {index + 1} needs a title and a text.")
+        else:
+            _check_knowledge(entry, entry["title"], ["history", index], error, warnings, names)
 
 
-def _check_faction(faction, field, game_ids, error):
+def _check_knowledge(record, name, field, error, warnings, names):
+    """An empty knowledge reads as a missing one, because the campaign stores the default of the kind as empty."""
+    knowledge, known_by = record.get("knowledge", ""), record.get("known_by", [])
+    if knowledge not in ("", *TIERS):
+        error(field + ["knowledge"], f"The knowledge level must be one of {', '.join(TIERS)}.")
+    if not _is_text_list(known_by):
+        error(field + ["known_by"], "Known by must be a list of names.")
+        return
+    if known_by and knowledge != "secret":
+        warnings.append({"field": field + ["known_by"], "message": f"{name} is not Secret, so its Known by does nothing."})
+    for knower in known_by if names else []:
+        if knower.lower() not in names["knowers"]:
+            warnings.append({"field": field + ["known_by"], "message": f"{knower} in the Known by of {name} names no character, faction, or race."})
+
+
+def _check_faction(faction, field, game_ids, error, warnings, names):
     if not _check_object(faction, field, error):
         return
     if not _is_text(faction.get("name")):
@@ -484,9 +520,10 @@ def _check_faction(faction, field, game_ids, error):
     _check_fields(faction.get("fields", {}), "factions", field + ["fields"], error)
     if not isinstance(faction.get("description", ""), str):
         error(field + ["description"], "The description must be text.")
+    _check_knowledge(faction, faction.get("name") or field[-1], field, error, warnings, names)
 
 
-def _check_character(character, field, game_ids, error):
+def _check_character(character, field, game_ids, error, warnings, names):
     if not _check_object(character, field, error):
         return
     _check_game_id(character, field, "character", game_ids, error)
@@ -495,9 +532,11 @@ def _check_character(character, field, game_ids, error):
         error(field + ["profile", "Name"], "Give the character a name.")
     elif not all(isinstance(value, (str, int, float)) and not isinstance(value, bool) for value in profile.values()):
         error(field + ["profile"], "Each profile value must be text or a number.")
+    name = profile.get("Name") if isinstance(profile, dict) and _is_text(profile.get("Name")) else field[-1]
+    _check_knowledge(character, name, field, error, warnings, names)
 
 
-def _check_entity(entity, field, entries, error, warnings):
+def _check_entity(entity, field, entries, error, warnings, names):
     if not _check_object(entity, field, error):
         return
     if not _is_text(entity.get("name")):
@@ -513,6 +552,11 @@ def _check_entity(entity, field, entries, error, warnings):
         for child in children:
             if child["entry"] not in entries:
                 warnings.append({"field": field + ["children"], "message": f"The relation {child['entry']} of {entity.get('name', field[-1])} names no entry."})
+    neighbours = entity.get("fields", {}).get("neighbours", []) if isinstance(entity.get("fields"), dict) else []
+    for neighbour in neighbours if names and _is_text_list(neighbours) else []:
+        if neighbour.lower() not in names["regions"]:
+            warnings.append({"field": field + ["fields"], "message": f"The neighbour {neighbour} of {entity.get('name', field[-1])} names no region."})
+    _check_knowledge(entity, entity.get("name") or field[-1], field, error, warnings, names)
 
 
 def _check_object(record, field, error):
@@ -557,6 +601,10 @@ def _is_text(value):
 
 def _is_text_list(value):
     return isinstance(value, list) and all(isinstance(item, str) for item in value)
+
+
+def _list(value):
+    return value if _is_text_list(value) else []
 
 
 def _is_number(value):

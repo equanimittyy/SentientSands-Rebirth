@@ -3,6 +3,7 @@
   "name": "Reavers",
   "aliases": [],
   "major": false,
+  "knowledge": "limited",
   "fields": {
     "leader": "Valamon",
     "bases": [

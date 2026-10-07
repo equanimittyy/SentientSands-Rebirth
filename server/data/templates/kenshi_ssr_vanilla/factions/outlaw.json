@@ -3,6 +3,7 @@
   "name": "Outlaw",
   "aliases": [],
   "major": false,
+  "knowledge": "limited",
   "fields": {
     "enemies": [
       "United Cities",

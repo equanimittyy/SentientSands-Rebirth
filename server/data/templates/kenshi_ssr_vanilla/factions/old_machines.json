@@ -3,6 +3,7 @@
   "name": "Old Machines",
   "aliases": [],
   "major": false,
+  "knowledge": "limited",
   "fields": {
     "bases": [
       "Spider Factory"

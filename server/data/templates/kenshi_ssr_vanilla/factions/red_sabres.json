@@ -3,6 +3,7 @@
   "name": "Red Sabres",
   "aliases": [],
   "major": false,
+  "knowledge": "limited",
   "fields": {
     "leader": "Red Sabre Boss",
     "bases": [

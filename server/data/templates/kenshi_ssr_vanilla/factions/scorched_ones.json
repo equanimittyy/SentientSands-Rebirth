@@ -3,6 +3,7 @@
   "name": "The Scorched Ones",
   "aliases": [],
   "major": false,
+  "knowledge": "limited",
   "fields": {
     "leader": "Scorched One King",
     "bases": [

@@ -3,6 +3,7 @@
   "name": "Hill Marauders",
   "aliases": [],
   "major": false,
+  "knowledge": "limited",
   "fields": {
     "leader": "Hill Marauder King",
     "bases": [

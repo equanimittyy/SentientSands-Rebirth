@@ -3,6 +3,7 @@
   "name": "Starving Bandits",
   "aliases": [],
   "major": false,
+  "knowledge": "limited",
   "fields": {
     "territory": [
       "the lands around the Holy Nation"

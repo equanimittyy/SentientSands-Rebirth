@@ -3,6 +3,7 @@
   "name": "Preacher Cult",
   "aliases": [],
   "major": false,
+  "knowledge": "limited",
   "fields": {
     "leader": "The Preacher",
     "bases": [

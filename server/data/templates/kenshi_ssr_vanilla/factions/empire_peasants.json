@@ -3,6 +3,7 @@
   "name": "Empire Peasants",
   "aliases": [],
   "major": false,
+  "knowledge": "limited",
   "fields": {
     "territory": [
       "United Cities"

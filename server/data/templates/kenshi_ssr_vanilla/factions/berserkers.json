@@ -3,6 +3,7 @@
   "name": "Berserkers",
   "aliases": [],
   "major": false,
+  "knowledge": "limited",
   "fields": {
     "leader": "Ghost",
     "territory": [

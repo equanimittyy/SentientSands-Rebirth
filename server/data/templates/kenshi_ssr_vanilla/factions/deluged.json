@@ -3,6 +3,7 @@
   "name": "The Deluged",
   "aliases": [],
   "major": false,
+  "knowledge": "limited",
   "fields": {
     "leader": "Deluged King",
     "bases": [

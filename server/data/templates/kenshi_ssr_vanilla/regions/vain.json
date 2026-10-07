@@ -16,6 +16,13 @@
     ],
     "hazards": [
       "acidic water"
+    ],
+    "neighbours": [
+      "Border Zone",
+      "Dreg",
+      "Okran's Gulf",
+      "Spider Plains",
+      "Stenn Desert"
     ]
   },
   "description": "Vain is the heartland of the Western Hive, a red-hued land on the west coast of the continent's middle, cut by a red river of acidic water. The Holy Nation lies to the east and the Shek's Stenn Desert to the south. The Hivers live in Hive villages, and the Queen keeps her hive on an island; few humans go there. Fast Beak Things that eat their prey alive, lone gorillos, and wild bulls roam, and red rain falls at times.",

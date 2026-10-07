@@ -3,6 +3,7 @@
   "name": "Sand Ninjas",
   "aliases": [],
   "major": false,
+  "knowledge": "limited",
   "fields": {
     "leader": "Sand Ninja Oni",
     "bases": [

@@ -15,7 +15,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 DB_NAME = "campaign.db"
-SCHEMA_VERSION = 12
+SCHEMA_VERSION = 13
 DIALOGUE_BLOCK = 20
 # The chat count of a provisional profile also marks it as provisional: the template validator, which the campaign editor
 # also runs, takes only text and numbers as profile values, so a true/false mark could not be saved from the editor
@@ -32,6 +32,8 @@ CREATE TABLE character (
   profile    TEXT NOT NULL,
   origin     TEXT NOT NULL DEFAULT 'campaign',
   favorite   INTEGER NOT NULL DEFAULT 0,
+  knowledge  TEXT NOT NULL DEFAULT '',
+  known_by   TEXT NOT NULL DEFAULT '[]',
   updated_at TEXT NOT NULL
 );
 -- AUTOINCREMENT: the server keeps the ID of the current thread in memory, so the ID of a deleted thread must never name a new one
@@ -81,6 +83,8 @@ CREATE TABLE faction (
   description TEXT NOT NULL DEFAULT '',
   is_player   INTEGER NOT NULL DEFAULT 0,
   origin      TEXT NOT NULL DEFAULT 'campaign',
+  knowledge   TEXT NOT NULL DEFAULT '',
+  known_by    TEXT NOT NULL DEFAULT '[]',
   updated_at  TEXT NOT NULL
 );
 CREATE TABLE entity (
@@ -170,12 +174,12 @@ def create(folder, seed):
         )
         now = _now()
         conn.executemany(
-            "INSERT INTO faction (faction_id, name, aliases, major, fields, description, origin, updated_at) VALUES (?, ?, ?, ?, ?, ?, 'seed', ?)",
-            [(f["faction_id"], f["name"], json.dumps(f["aliases"]), int(f["major"]), json.dumps(f["fields"]), f["description"], now) for f in seed["factions"]],
+            "INSERT INTO faction (faction_id, name, aliases, major, fields, description, knowledge, known_by, origin, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'seed', ?)",
+            [(f["faction_id"], f["name"], json.dumps(f["aliases"]), int(f["major"]), json.dumps(f["fields"]), f["description"], f.get("knowledge", ""), json.dumps(f.get("known_by", [])), now) for f in seed["factions"]],
         )
         conn.executemany(
-            "INSERT INTO character (npc_id, profile, origin, updated_at) VALUES (?, ?, 'seed', ?)",
-            [(unique_npc_id(c["game_id"]), json.dumps(c["profile"]), now) for c in seed["characters"]],
+            "INSERT INTO character (npc_id, profile, knowledge, known_by, origin, updated_at) VALUES (?, ?, ?, ?, 'seed', ?)",
+            [(unique_npc_id(c["game_id"]), json.dumps(c["profile"]), c.get("knowledge", ""), json.dumps(c.get("known_by", [])), now) for c in seed["characters"]],
         )
         conn.executemany(
             "INSERT INTO entity (category, ext_id, data, origin, updated_at) VALUES (?, ?, ?, 'seed', ?)",
@@ -599,8 +603,8 @@ class DuplicateRecord(Exception):
     pass
 
 
-FACTION_KEYS = ("name", "aliases", "major", "fields", "description")
-_FACTION_COLUMNS = "faction_id, name, aliases, major, fields, description, is_player, origin, updated_at"
+FACTION_KEYS = ("name", "aliases", "major", "fields", "description", "knowledge", "known_by")
+_FACTION_COLUMNS = "faction_id, name, aliases, major, fields, description, knowledge, known_by, is_player, origin, updated_at"
 
 
 def list_factions():
@@ -653,8 +657,8 @@ def add_faction(faction_id, values):
         if conn.execute("SELECT 1 FROM faction WHERE faction_id = ?", (faction_id,)).fetchone():
             raise DuplicateRecord(faction_id)
         conn.execute(
-            "INSERT INTO faction (faction_id, name, aliases, major, fields, description, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
-            (faction_id, values["name"], json.dumps(values["aliases"]), int(values["major"]), json.dumps(values["fields"]), values["description"], _now()),
+            "INSERT INTO faction (faction_id, name, aliases, major, fields, description, knowledge, known_by, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            (faction_id, values["name"], json.dumps(values["aliases"]), int(values["major"]), json.dumps(values["fields"]), values["description"], values.get("knowledge", ""), json.dumps(values.get("known_by", [])), _now()),
         )
 
 
@@ -676,7 +680,7 @@ def update_faction(faction_id, changes, updated_at):
         if row[0] != updated_at:
             raise StaleRecord(faction_id)
         values = {key: changes[key] for key in FACTION_KEYS if key in changes}
-        for key in ("aliases", "fields"):
+        for key in ("aliases", "fields", "known_by"):
             if key in values:
                 values[key] = json.dumps(values[key])
         if "major" in values:
@@ -688,7 +692,7 @@ def update_faction(faction_id, changes, updated_at):
 
 
 def _faction(row):
-    faction_id, name, aliases, major, fields, description, is_player, origin, updated_at = row
+    faction_id, name, aliases, major, fields, description, knowledge, known_by, is_player, origin, updated_at = row
     return {
         "faction_id": faction_id,
         "name": name,
@@ -696,6 +700,8 @@ def _faction(row):
         "major": bool(major),
         "fields": json.loads(fields),
         "description": description,
+        "knowledge": knowledge,
+        "known_by": json.loads(known_by),
         "is_player": bool(is_player),
         "origin": origin,
         "updated_at": updated_at,
@@ -714,24 +720,33 @@ def list_records(kind):
     return [(row[:len(keys)], json.loads(row[len(keys)]), *row[len(keys) + 1:]) for row in rows]
 
 
-def save_record(kind, key, value, updated_at):
-    """Adds the record when updated_at is None, else replaces its value.
+def save_record(kind, key, value, updated_at, knowledge=None):
+    """Adds the record when updated_at is None, else replaces its value. knowledge holds the knowledge and known_by of a
+    character, which its row keeps beside the profile, because the validator takes only text and numbers as profile values.
 
     Raises DuplicateRecord if a new record's key is taken, and StaleRecord if the record changed after the caller read
     updated_at or is gone.
     """
     table, keys, column = _RECORDS[kind]
     match = " AND ".join(f"{name} = ?" for name in keys)
+    columns = {column: json.dumps(value), **({"knowledge": knowledge["knowledge"], "known_by": json.dumps(knowledge["known_by"])} if knowledge else {}), "updated_at": _now()}
     with _connect(write=True) as conn:
         row = conn.execute(f"SELECT updated_at FROM {table} WHERE {match}", key).fetchone()
         if updated_at is None:
             if row:
                 raise DuplicateRecord(key)
-            conn.execute(f"INSERT INTO {table} ({', '.join(keys)}, {column}, updated_at) VALUES ({', '.join('?' * (len(keys) + 2))})", (*key, json.dumps(value), _now()))
+            conn.execute(f"INSERT INTO {table} ({', '.join([*keys, *columns])}) VALUES ({', '.join('?' * (len(keys) + len(columns)))})", (*key, *columns.values()))
         elif row is None or row[0] != updated_at:
             raise StaleRecord(key)
         else:
-            conn.execute(f"UPDATE {table} SET {column} = ?, updated_at = ? WHERE {match}", (json.dumps(value), _now(), *key))
+            conn.execute(f"UPDATE {table} SET {', '.join(f'{name} = ?' for name in columns)} WHERE {match}", (*columns.values(), *key))
+
+
+def character_knowledge():
+    """The knowledge and known_by of each character, by npc_id. An empty knowledge means the default of a character."""
+    with _connect() as conn:
+        rows = conn.execute("SELECT npc_id, knowledge, known_by FROM character").fetchall()
+    return {npc_id: {"knowledge": knowledge, "known_by": json.loads(known_by)} for npc_id, knowledge, known_by in rows}
 
 
 def delete_record(kind, key):

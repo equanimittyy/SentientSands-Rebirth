@@ -3,6 +3,7 @@
   "name": "Black Desert Ninjas",
   "aliases": [],
   "major": false,
+  "knowledge": "limited",
   "fields": {
     "territory": [
       "Grey Desert",

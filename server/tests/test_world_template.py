@@ -120,6 +120,35 @@ class ValidateTest(TemplateTestCase):
         self.write("base", "locations/bast.json", {"name": "Bast"})
         self.assertEqual(self.fields(), [["regions", "bast", "children"]])
 
+    def test_an_unknown_tier_is_an_error(self):
+        self.write("base", "factions/holy_nation.json", dict(HOLY_NATION, knowledge="public"))
+        self.assertEqual(self.fields(), [["factions", "holy_nation", "knowledge"]])
+
+    def test_a_known_by_warns_on_a_record_that_is_not_secret_and_on_a_name_that_names_nothing(self):
+        self.write("base", "races/skeleton.json", {"name": "Skeleton"})
+        self.write("base", "characters/elder.json", {"game_id": "x", "knowledge": "secret", "profile": {"Name": "Elder"}})
+        self.write("base", "history.json", [
+            {"title": "Obedience", "text": "The quarry.", "knowledge": "secret", "known_by": ["Skeleton", "okranites", "Elder", "Nobody"]},
+            {"title": "Stobe", "text": "A legend.", "known_by": ["Skeleton"]},
+        ])
+        errors, warnings = self.problems()
+        self.assertEqual(errors, [])
+        self.assertEqual([(warning["field"], warning["message"]) for warning in warnings], [
+            (["history", 0, "known_by"], "Nobody in the Known by of Obedience names no character, faction, or race."),
+            (["history", 1, "known_by"], "Stobe is not Secret, so its Known by does nothing."),
+        ])
+
+    def test_a_neighbour_that_names_no_region_is_a_warning(self):
+        self.write("base", "regions/vain.json", {"name": "Vain", "fields": {"neighbours": ["stenn desert", "Nowhere"]}})
+        self.write("base", "regions/stenn_desert.json", {"name": "Stenn Desert"})
+        self.assertEqual([warning["message"] for warning in self.problems()[1]], ["The neighbour Nowhere of Vain names no region."])
+
+    def test_the_knowledge_of_a_character_goes_beside_its_profile(self):
+        self.write("base", "characters/beep.json", {"game_id": "x", "knowledge": "global", "profile": {"Name": "Beep"}})
+        self.assertEqual(self.problems(), ([], []))
+        self.write("base", "characters/beep.json", {"game_id": "x", "profile": {"Name": "Beep", "knowledge": ["global"]}})
+        self.assertEqual(self.fields(), [["characters", "beep", "profile"]])
+
     def test_record_problems_checks_one_record(self):
         self.assertEqual(world_template.record_problems("faction", HOLY_NATION, ["f"]), ([], []))
         self.assertEqual([e["field"] for e in world_template.record_problems("faction", dict(HOLY_NATION, major="yes"), ["f"])[0]], [["f", "major"]])
@@ -128,6 +157,9 @@ class ValidateTest(TemplateTestCase):
         self.assertEqual(len(world_template.record_problems("entity", hub, ["locations", "hub"])[1]), 1)
         self.assertEqual(world_template.record_problems("entity", hub, ["locations", "hub"], {"locations/bar"}), ([], []))
         self.assertEqual([e["field"] for e in world_template.record_problems("history", [{"title": ""}], ["history"])[0]], [["history", 0]])
+        secret = dict(HOLY_NATION, knowledge="secret", known_by=["Nobody"])
+        self.assertEqual(world_template.record_problems("faction", secret, ["f"]), ([], []))
+        self.assertEqual(len(world_template.record_problems("faction", secret, ["f"], names={"knowers": {"skeleton"}, "regions": set()})[1]), 1)
 
 
 class SaveTest(TemplateTestCase):
@@ -207,6 +239,9 @@ class SaveTest(TemplateTestCase):
         seed = world_template.campaign_seed("Mine", self.shipped, self.user)
         self.assertEqual(seed["history"], [{"title": "Then", "text": "It was."}])
         self.assertEqual(seed["characters"], [{"game_id": "19576-Dialogue.mod", "profile": {"Name": "Beep"}}])
+        world_template.save_record("Mine", "character", "beep", {"game_id": "19576-Dialogue.mod", "profile": {"Name": "Beep"}, "knowledge": "secret", "known_by": ["Beep"]}, self.shipped, self.user)
+        seed = world_template.campaign_seed("Mine", self.shipped, self.user)
+        self.assertEqual(seed["characters"], [{"game_id": "19576-Dialogue.mod", "profile": {"Name": "Beep"}, "knowledge": "secret", "known_by": ["Beep"]}])
         self.assertEqual(seed["entities"], [{"category": "regions", "id": "stenn_desert", "data": {"name": "Stenn Desert"}}])
 
     def test_a_template_with_an_error_gives_no_campaign_seed(self):
@@ -220,6 +255,14 @@ class ExchangeTest(TemplateTestCase):
         exported = world_template.export_template("base", self.shipped, self.user)
         self.assertEqual(list(exported), ["manifest", "overview", "history", "factions", "characters", "races", "locations", "regions"])
         self.assertEqual(world_template.import_template(exported, "Shared", self.shipped, self.user), "Shared")
+        self.assertEqual(world_template.export_template("Shared", self.shipped, self.user), dict(exported, manifest=dict(exported["manifest"], name="Shared")))
+
+    def test_an_import_takes_the_knowledge_keys(self):
+        exported = world_template.export_template("base", self.shipped, self.user)
+        exported["factions"]["holy_nation"].update(knowledge="secret", known_by=["Okranites"])
+        exported.update(history=[{"title": "Then", "text": "It was.", "knowledge": "limited"}], regions={"vain": {"name": "Vain", "knowledge": "limited"}},
+                        characters={"beep": {"game_id": "x", "knowledge": "global", "profile": {"Name": "Beep"}}})
+        world_template.import_template(exported, "Shared", self.shipped, self.user)
         self.assertEqual(world_template.export_template("Shared", self.shipped, self.user), dict(exported, manifest=dict(exported["manifest"], name="Shared")))
 
     def test_the_vanilla_template_survives_a_round_trip(self):

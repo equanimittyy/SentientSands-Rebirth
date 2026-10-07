@@ -15,6 +15,14 @@
     ],
     "hazards": [
       "acid rain"
+    ],
+    "neighbours": [
+      "Floodlands",
+      "Hidden Forest",
+      "Leviathan Coast",
+      "Northern Coast",
+      "Purple Sands",
+      "The Iron Trail"
     ]
   },
   "description": "The Cannibal Plains lie in the northwest, between the Hidden Forest, the Northern Coast, the Floodlands, and the Purple Sands. Cannibals roam them in endless numbers, and their capital is Deadcat, a town that fell to them. Shrieking bandits and Berserkers join the fighting, Cannibal Hunters come to hunt the cannibals and are sometimes hunted in turn, and beak things nest there. Flotsam Ninjas hold two scout posts on the edge of the Hidden Forest, and acid rain falls at times.",

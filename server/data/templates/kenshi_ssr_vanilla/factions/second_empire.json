@@ -3,6 +3,7 @@
   "name": "Second Empire",
   "aliases": [],
   "major": false,
+  "knowledge": "limited",
   "fields": {
     "founder": "Cat-Lon"
   },

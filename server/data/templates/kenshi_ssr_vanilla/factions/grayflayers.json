@@ -3,6 +3,7 @@
   "name": "Grayflayers",
   "aliases": [],
   "major": false,
+  "knowledge": "limited",
   "fields": {
     "leader": "Big Gray",
     "bases": [

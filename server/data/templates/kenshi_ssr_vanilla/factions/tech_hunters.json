@@ -3,6 +3,7 @@
   "name": "Tech Hunters",
   "aliases": [],
   "major": false,
+  "knowledge": "limited",
   "fields": {
     "bases": [
       "Black Scratch",

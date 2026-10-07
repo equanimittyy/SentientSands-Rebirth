@@ -3,6 +3,7 @@
   "name": "The Bastards",
   "aliases": [],
   "major": false,
+  "knowledge": "limited",
   "fields": {
     "leader": "Bastard King",
     "bases": [

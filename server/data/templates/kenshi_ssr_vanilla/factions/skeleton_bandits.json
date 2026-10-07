@@ -3,6 +3,7 @@
   "name": "Skeleton Bandits",
   "aliases": [],
   "major": false,
+  "knowledge": "limited",
   "fields": {
     "leader": "Elder"
   },

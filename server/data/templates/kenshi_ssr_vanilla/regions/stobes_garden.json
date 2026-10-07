@@ -13,6 +13,15 @@
     "animals": [
       "Black Gorillo",
       "Land Bat"
+    ],
+    "neighbours": [
+      "Greenbeach",
+      "Stobe's Gamble",
+      "The Crags",
+      "The Outlands",
+      "The Pits",
+      "The Pits East",
+      "The Unwanted Zone"
     ]
   },
   "description": "The Reavers make their home in Stobe's Garden, and their leader Valamon rules from Ark near its center. Crab Raiders hold a village on a plateau, and Reavers, Crab Raiders, and Skeleton Bandits often skirmish across the land. The remains of Stobe, whom the Skeleton Bandits revere as a god, lie here. Land bats, black gorillos, Black Dragon Ninjas, and bounty hunters roam, and an old watchtower teems with blood spiders.",

@@ -51,9 +51,13 @@ class LoreRecordsTest(unittest.TestCase):
         ])
         self.assertEqual(records[0]["aliases"], ["Shek warriors"])
 
-    def test_a_record_without_text_is_left_out(self):
+    def test_a_record_without_text_stays_for_its_links(self):
         records = retrieval.lore_records([], [{"faction_id": "9-x", "name": "Bugmaster", "aliases": [], "fields": {}, "description": ""}], [{"title": "Empty", "text": " "}])
-        self.assertEqual(records, [])
+        self.assertEqual([record["name"] for record in records], ["Bugmaster", "Empty"])
+
+    def test_each_record_keeps_its_knowledge_and_its_children(self):
+        [region] = retrieval.lore_records([("regions", "bast", {"name": "Bast", "children": [{"entry": "locations/bast"}], "knowledge": "secret", "known_by": ["Shek"]})], [], [])
+        self.assertEqual((region["children"], region["knowledge"], region["known_by"]), (["locations/bast"], "secret", ["Shek"]))
 
 
 class NameMatchTest(unittest.TestCase):
@@ -132,6 +136,21 @@ class PlaceOrderTest(unittest.TestCase):
     def test_a_current_place_that_is_not_a_hit_adds_no_entry(self):
         self.assertNotIn(("location", "The Hub"), names(lore("Any bonedogs around?", town="The Hub")))
         self.assertEqual(lore("Nice weather.", town="Squin", zone="Border Zone"), [])
+
+    def test_the_neighbouring_regions_follow_the_locations_of_the_current_region(self):
+        found = names(retrieval.find_lore("Any bonedogs around?", NEIGHBOURS, zone="Border Zone")[0])
+        self.assertEqual(found[:3], [("region", "Border Zone"), ("location", "Squin"), ("region", "Stenn Desert")])
+
+    def test_a_neighbour_is_no_content_hit(self):
+        self.assertEqual(names(retrieval.find_lore("Is the Fog Islands dangerous?", NEIGHBOURS)[0]), [("region", "Fog Islands")])
+
+
+def with_neighbours(entry):
+    neighbours = {"Stenn Desert": ["Fog Islands"], "Border Zone": ["Stenn Desert"]}.get(entry["name"]) if entry["kind"] == "region" else None
+    return {**entry, "fields": {**entry["fields"], "neighbours": neighbours}} if neighbours else entry
+
+
+NEIGHBOURS = [with_neighbours(entry) for entry in LORE]
 
 
 def memory(key, text, *members):

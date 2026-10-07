@@ -3,6 +3,7 @@
   "name": "Vagrants",
   "aliases": [],
   "major": false,
+  "knowledge": "limited",
   "fields": {
     "territory": [
       "The Great Desert"

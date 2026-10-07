@@ -15,6 +15,10 @@
     ],
     "hazards": [
       "acid rain"
+    ],
+    "neighbours": [
+      "Cannibal Plains",
+      "The Iron Trail"
     ]
   },
   "description": "The Leviathan Coast lies in the far northwest, north of the Cannibal Plains and the Iron Trail. Leviathans are common there and are hunted for their pearls, while garru herds fall prey to the many beak things, and swamp raptors, river raptors, and bonedogs make their dens there too. Ruins of the Second Empire dot the coast, and Tech Hunters come to search them. Acid rain falls at times.",

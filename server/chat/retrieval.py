@@ -27,17 +27,32 @@ MEMORY_WORDS = 2
 KINDS = {"races": "race", "locations": "location", "regions": "region"}
 
 
-def lore_records(entities, factions, history):
-    """entities are (category, ext_id, data) triples, factions are dicts with a faction_id, and history holds the entries of
-    the history. A record has a key that is unique in the campaign, and a record without text is left out."""
+def lore_records(entities, factions, history, characters=()):
+    """entities are (category, ext_id, data) triples, factions are dicts with a faction_id, history holds the entries of
+    the history, and characters are dicts with an npc_id, a profile, and the knowledge keys. A record has a key that is
+    unique in the campaign. A record without text stays, because a link or a known_by can name it, but it is no hit."""
     records = [_record((category, ext_id), KINDS[category], data) for category, ext_id, data in entities]
     records += [_record(("factions", faction["faction_id"]), "faction", faction) for faction in factions]
-    records += [{"key": ("history", i), "kind": "history", "name": entry["title"], "aliases": [], "fields": {}, "description": entry["text"]} for i, entry in enumerate(history)]
-    return [record for record in records if record["description"].strip()]
+    records += [_record(("history", i), "history", {**entry, "name": entry["title"], "description": entry["text"]}) for i, entry in enumerate(history)]
+    records += [_character(character) for character in characters]
+    return records
 
 
 def _record(key, kind, data):
-    return {"key": key, "kind": kind, "name": data.get("name", ""), "aliases": data.get("aliases", []), "fields": data.get("fields", {}), "description": data.get("description") or ""}
+    return {
+        "key": key, "kind": kind, "name": data.get("name", ""), "aliases": data.get("aliases", []), "fields": data.get("fields", {}), "description": data.get("description") or "",
+        "children": [child["entry"] for child in data.get("children", [])], "knowledge": data.get("knowledge", ""), "known_by": data.get("known_by", []),
+    }
+
+
+def _character(character):
+    """The Personality and the Speech stay out: they describe the character for an LLM that speaks as it."""
+    profile = character["profile"]
+    given = {key: value for key, value in profile.items() if value and value != "Unknown"}
+    record = _record(("characters", character["npc_id"]), "character", {
+        **character, "name": profile.get("Name", ""), "fields": {field: given[key] for field, key in (("race", "Race"), ("faction", "Faction")) if key in given}, "description": profile.get("Backstory"),
+    })
+    return {**record, "origin_faction": given.get("OriginFaction", "")}
 
 
 def words(text):
@@ -55,7 +70,13 @@ def name_matches(message, names):
     between them, in the order of their first word in the message. A match inside a longer match is dropped, so "Shek
     Kingdom" finds the faction and not also the race Shek."""
     said = words(message)
-    found = [(start, start + len(wanted), name, item) for name, item in names for wanted in [name_words(name)] if wanted for start in _starts(said, wanted)]
+    starts = {}
+    for start, word in enumerate(said):
+        starts.setdefault(word, []).append(start)
+    found = [
+        (start, start + len(wanted), name, item) for name, item in names for wanted in [name_words(name)] if wanted
+        for start in starts.get(wanted[0], ()) if tuple(said[start:start + len(wanted)]) == wanted
+    ]
     kept = [match for match in found if not any(other[0] <= match[0] and match[1] <= other[1] and other[1] - other[0] > match[1] - match[0] for other in found)]
     return [(name, item) for _, _, name, item in sorted(kept, key=lambda match: match[0])]
 
@@ -72,6 +93,11 @@ def _values(fields):
     return [item for value in fields.values() for item in (value if isinstance(value, list) else [value])]
 
 
+def _searched_fields(fields):
+    """The neighbours stay out: "Is the Border Zone dangerous?", asked in Vain, would find Vain by its neighbour."""
+    return {key: value for key, value in fields.items() if key != "neighbours"}
+
+
 def find_lore(message, records, town=None, zone=None):
     """The records that the message is about: the name matches, then the content hits in the order of place_order.
     Returns (hits, skipped). A hit is {"record", "name"} for a name match and {"record", "words"} for a content hit,
@@ -79,7 +105,7 @@ def find_lore(message, records, town=None, zone=None):
     named = {}
     for name, i in name_matches(message, [(name, i) for i, record in enumerate(records) for name in _names(record)]):
         named.setdefault(i, name)
-    db = _index(("name", "aliases", "fields", "text"), [(record["name"], " | ".join(record["aliases"]), " | ".join(_values(record["fields"])), record["description"]) for record in records])
+    db = _index(("name", "aliases", "fields", "text"), [(record["name"], " | ".join(record["aliases"]), " | ".join(_values(_searched_fields(record["fields"]))), record["description"]) for record in records])
     db.execute("CREATE VIRTUAL TABLE row_terms USING fts5vocab(entry, 'row')")
     db.execute("CREATE VIRTUAL TABLE column_terms USING fts5vocab(entry, 'col')")
     # The lore words: chat words are rare in the lore, so BM25 would rank a hit on "doing" or "need" high
@@ -101,26 +127,43 @@ def find_lore(message, records, town=None, zone=None):
     return hits, skipped
 
 
-def place_order(content, records, town, zone):
-    """content holds (index, words) pairs in the order of their score. The current location comes first, then the current
-    region, then the locations of that region, then the others, each group in the order of its score. The region of the
-    NPC is the likeliest meaning of a message that finds many regions with near-equal scores, such as "Any bonedogs around?"."""
+def place(records, town, zone):
+    """The keys of the current location, the current region, and the neighbouring regions. The current region is the region
+    called zone, or without a zone each region in the zone field of the current location. A region is next to another
+    when either names the other in its neighbours."""
     def called(record, name):
         return bool(name) and name.casefold() in {other.casefold() for other in _names(record)}
 
     current = [record for record in records if record["kind"] == "location" and called(record, town)]
     zones = [zone] if zone else [name for record in current for name in record["fields"].get("zone", [])]
     regions = [record for record in records if record["kind"] == "region" and any(called(record, name) for name in zones)]
-    region_names = {name.casefold() for record in regions for name in _names(record)}
+    words = {name_words(name) for record in regions for name in _names(record)}
+    named = {name_words(name) for record in regions for name in record["fields"].get("neighbours", [])}
+    neighbours = [
+        record for record in records if record["kind"] == "region" and record not in regions
+        and (any(name_words(name) in words for name in record["fields"].get("neighbours", [])) or any(name_words(name) in named for name in _names(record)))
+    ]
+    return [record["key"] for record in current], [record["key"] for record in regions], [record["key"] for record in neighbours]
+
+
+def place_order(content, records, town, zone):
+    """content holds (index, words) pairs in the order of their score. The current location comes first, then the current
+    region, then the locations of that region, then the neighbouring regions, then the others, each group in the order of
+    its score. The region of the NPC is the likeliest meaning of a message that finds many regions with near-equal scores,
+    such as "Any bonedogs around?", and a region next to it the next likeliest."""
+    current, regions, neighbours = place(records, town, zone)
+    region_names = {name.casefold() for record in records if record["key"] in regions for name in _names(record)}
 
     def group(record):
-        if record in current:
+        if record["key"] in current:
             return 0
-        if record in regions:
+        if record["key"] in regions:
             return 1
         if record["kind"] == "location" and region_names & {name.casefold() for name in record["fields"].get("zone", [])}:
             return 2
-        return 3
+        if record["key"] in neighbours:
+            return 3
+        return 4
 
     return sorted(content, key=lambda hit: group(records[hit[0]]))
 

@@ -3,6 +3,7 @@
   "name": "Mechanical Hive",
   "aliases": [],
   "major": false,
+  "knowledge": "limited",
   "fields": {
     "leader": "Mechanical Queen",
     "bases": [

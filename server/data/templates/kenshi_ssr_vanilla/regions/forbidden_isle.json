@@ -10,6 +10,9 @@
     ],
     "hazards": [
       "acid rain"
+    ],
+    "neighbours": [
+      "Stormgap Coast"
     ]
   },
   "description": "The Forbidden Isle lies east of the Stormgap Coast and is a hostile, miserable place. Legions of Iron Spiders roam it, and the Spider Factory stands at its center, run by a deadly Skeleton called the Spider Foreman. Aggressive Tech Hunters prowl its ruins in search of lost secrets, and acid rain often blankets the island.",

@@ -3,6 +3,7 @@
   "name": "Highlanders",
   "aliases": [],
   "major": false,
+  "knowledge": "limited",
   "fields": {
     "bases": [
       "Craggy Pass",

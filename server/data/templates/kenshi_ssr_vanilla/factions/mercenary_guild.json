@@ -3,6 +3,7 @@
   "name": "Mercenary Guild",
   "aliases": [],
   "major": false,
+  "knowledge": "limited",
   "fields": {
     "territory": [
       "Heng",

@@ -3,6 +3,7 @@
   "name": "Savage Hive",
   "aliases": [],
   "major": false,
+  "knowledge": "limited",
   "fields": {
     "bases": [
       "Savage Hive Village"

@@ -3,6 +3,7 @@
   "name": "Second Empire Exile",
   "aliases": [],
   "major": false,
+  "knowledge": "limited",
   "fields": {
     "leader": "Cat-Lon",
     "territory": [

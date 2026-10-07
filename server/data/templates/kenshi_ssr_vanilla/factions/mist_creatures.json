@@ -3,6 +3,7 @@
   "name": "Mist Creatures",
   "aliases": [],
   "major": false,
+  "knowledge": "limited",
   "fields": {
     "leader": "Mother of the Mist",
     "bases": [

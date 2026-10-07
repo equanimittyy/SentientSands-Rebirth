@@ -3,6 +3,7 @@
   "name": "Thrall Masters",
   "aliases": [],
   "major": false,
+  "knowledge": "limited",
   "fields": {
     "leader": "Ponk and Screamer the False",
     "bases": [

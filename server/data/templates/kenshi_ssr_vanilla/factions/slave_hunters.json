@@ -3,6 +3,7 @@
   "name": "Slave Hunters",
   "aliases": [],
   "major": false,
+  "knowledge": "limited",
   "fields": {
     "territory": [
       "Heng",

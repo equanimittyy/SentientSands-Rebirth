@@ -5,7 +5,7 @@ import os
 import requests
 from flask import Blueprint, Response, current_app, jsonify, request
 
-from chat import background, chat_prompt, llm, llm_config, llm_router, prompt_store, retrieval
+from chat import background, chat_prompt, knowledge, llm, llm_config, llm_router, prompt_store, retrieval
 from chat.bio import recorded_history
 from chat.characters import send_rename
 from chat.llm import default_llm_config, send_completion
@@ -61,6 +61,7 @@ def search_template(name):
         [(category, record_id, data) for category, records in template["entities"].items() for record_id, data in records.items()],
         [{"faction_id": record_id, **data} for record_id, data in template["factions"].items()],
         template["history"],
+        [{"npc_id": record_id, "profile": data.get("profile", {}), **{key: data[key] for key in ("knowledge", "known_by") if key in data}} for record_id, data in template["characters"].items()],
     )
     return search_reply(*background.search(request.args.get("message", ""), lore))
 
@@ -196,6 +197,7 @@ def get_active_campaign():
 def get_campaign_canon():
     try:
         squad_deeds = deeds.character_deeds()
+        known = campaign_db.character_knowledge()
         return jsonify({
             "status": "ok",
             "name": state.ACTIVE_CAMPAIGN,
@@ -208,7 +210,7 @@ def get_campaign_canon():
                 for f in campaign_db.list_factions()
             ],
             "characters": [
-                {"id": npc_id, "data": {"game_id": npc_id.removeprefix("u:"), "profile": profile}, "origin": origin, "updated_at": updated_at, "current_faction": state.LIVE_CONTEXTS.get(npc_id, {}).get("faction"), "status": state.LIVE_CONTEXTS.get(npc_id, {}).get("health"),
+                {"id": npc_id, "data": {"game_id": npc_id.removeprefix("u:"), "profile": profile, **known[npc_id]}, "origin": origin, "updated_at": updated_at, "current_faction": state.LIVE_CONTEXTS.get(npc_id, {}).get("faction"), "status": state.LIVE_CONTEXTS.get(npc_id, {}).get("health"),
                  **({"deeds": squad_deeds[npc_id]} if npc_id in squad_deeds else {})}
                 for (npc_id,), profile, origin, updated_at in campaign_db.list_records("character")
             ],
@@ -220,8 +222,9 @@ def get_campaign_canon():
     except campaign_db.CampaignUnavailable as e:
         return jsonify({"status": "error", "name": state.ACTIVE_CAMPAIGN, "message": str(e)}), 409
 
-def search_reply(memories, entries, skipped, npc_id=None):
-    """The hits of a test search in prompt order, each with how it was found: by a name or by the words of the line."""
+def search_reply(memories, entries, skipped, npc_id=None, dropped=()):
+    """The hits of a test search in prompt order, each with how it was found: by a name or by the words of the line, and
+    with its tier. dropped holds the records that the line names and that the NPC cannot know."""
     def found(hit):
         return {key: hit[key] for key in ("name", "words") if key in hit}
 
@@ -231,7 +234,8 @@ def search_reply(memories, entries, skipped, npc_id=None):
         "slots": settings["retrieval_slots"],
         "memory_slots": settings["memory_slots"],
         "memories": [{"heading": chat_prompt.memory_heading(hit["record"]["memory"], npc_id), "text": retrieval.clipped(hit["record"]["text"]), **found(hit)} for hit in memories],
-        "entries": [{"name": hit["record"]["name"], "kind": hit["record"]["kind"], **found(hit)} for hit in entries],
+        "entries": [{"name": hit["record"]["name"], "kind": hit["record"]["kind"], "tier": knowledge.tier(hit["record"]), **found(hit)} for hit in entries],
+        "dropped": [{"name": record["name"], "kind": record["kind"], "tier": knowledge.tier(record)} for record in dropped],
         "skipped": [{"word": word, "reason": reason} for word, reason in skipped],
     })
 
@@ -244,10 +248,16 @@ def search_campaign():
         profile = (campaign_db.get_character(npc_id) or {}) if npc_id else {}
         speaker = (campaign_db.get_character(speaker_id) or {}) if speaker_id else {}
         town, zone = background.place_of(profile.get("CurrentLocation", ""), lore)
-        memories, entries, skipped = background.search(request.args.get("message", ""), lore, npc_id, profile, state.LIVE_CONTEXTS.get(npc_id, {}).get("factionID"), speaker.get("Race"), town, zone)
+        message, faction_id = request.args.get("message", ""), state.LIVE_CONTEXTS.get(npc_id, {}).get("factionID")
+        memories, entries, skipped = background.search(message, lore, npc_id, profile, faction_id, speaker.get("Race"), town, zone)
+        dropped = []
+        if npc_id:
+            known = background.known_keys(lore, npc_id, profile, faction_id, town, zone)
+            named = retrieval.name_matches(message, [(name, record) for record in lore if record["description"].strip() for name in (record["name"], *record["aliases"])])
+            dropped = list({record["key"]: record for _, record in named if record["key"] not in known}.values())
     except campaign_db.CampaignUnavailable as e:
         return jsonify({"status": "error", "name": state.ACTIVE_CAMPAIGN, "message": str(e)}), 409
-    return search_reply(memories, entries, skipped, npc_id)
+    return search_reply(memories, entries, skipped, npc_id, dropped)
 
 def record_refusal(errors):
     return jsonify({"status": "error", "errors": errors}), 400
@@ -264,7 +274,7 @@ def save_campaign_record():
     if kind in ("overview", "history"):
         if kind == "overview" and isinstance(value, str):
             value = value.replace("\r\n", "\n").strip()
-        errors, _ = world_template.record_problems(kind, value, [kind])
+        errors, warnings = world_template.record_problems(kind, value, [kind], names=campaign_names())
         if errors: return record_refusal(errors)
         (campaign_db.set_overview if kind == "overview" else campaign_db.set_history)(value)
     elif kind in ("faction", "character", "entity"):
@@ -275,8 +285,8 @@ def save_campaign_record():
             if kind == "faction":
                 warnings = save_campaign_faction(record_id, value, updated_at)
             elif kind == "character":
-                character = {"game_id": record_id, "profile": value.get("profile")}
-                errors, _ = world_template.record_problems("character", character, ["characters", data.get("id") or "new"])
+                character = {"game_id": record_id, "profile": value.get("profile"), **{key: value[key] for key in ("knowledge", "known_by") if key in value}}
+                errors, warnings = world_template.record_problems("character", character, ["characters", data.get("id") or "new"], names=campaign_names())
                 if errors: return record_refusal(errors)
                 if data.get("id") is None:
                     record_id = campaign_db.unique_npc_id(record_id)
@@ -285,7 +295,7 @@ def save_campaign_record():
                     stored = campaign_db.get_character(record_id) or {}
                     if any(character["profile"].get(key) != stored.get(key) for key in ("Personality", "Backstory", "SpeechQuirks")):
                         del character["profile"][campaign_db.PROVISIONAL]
-                campaign_db.save_record("character", (record_id,), character["profile"], updated_at)
+                campaign_db.save_record("character", (record_id,), character["profile"], updated_at, {"knowledge": character.get("knowledge", ""), "known_by": character.get("known_by", [])})
                 send_rename(record_id, character["profile"]["Name"])
                 send_to_pipe("REFRESH_LIBRARY:")
             else:
@@ -295,7 +305,7 @@ def save_campaign_record():
                 stored = campaign_db.list_records("entity")
                 record_id = record_id or world_template.new_id(value, {ext_id for (stored_category, ext_id), *_ in stored if stored_category == category})
                 entries = {f"{stored_category}/{ext_id}" for (stored_category, ext_id), *_ in stored} | {f"{category}/{record_id}"}
-                errors, warnings = world_template.record_problems("entity", value, [category, data.get("id") or "new"], entries)
+                errors, warnings = world_template.record_problems("entity", value, [category, data.get("id") or "new"], entries, campaign_names())
                 if errors: return record_refusal(errors)
                 campaign_db.save_record("entity", (category, record_id), value, updated_at)
         except world_template.TemplateError as e:
@@ -336,12 +346,23 @@ def write_template_bio(name):
     race_lore = describe_record(race_entry) if race_entry else f"{race}: The template has no entry for this race."
     return bio_reply(data, [], race_lore, faction_text(faction, find_named(template["factions"].values(), faction)))
 
+def campaign_names():
+    """The names that a known_by and a neighbour of the campaign can name, as world_template.template_names gives them
+    for a template. Only a canon character is a lore record, so only its name counts."""
+    entities = campaign_db.list_records("entity")
+    return world_template.template_names({
+        "factions": {faction["faction_id"]: faction for faction in campaign_db.list_factions()},
+        "characters": {npc_id: {"profile": profile} for (npc_id,), profile, origin, _ in campaign_db.list_records("character") if origin != "game"},
+        "entities": {category: {ext_id: data for (stored, ext_id), data, *_ in entities if stored == category} for category in world_template.CATEGORIES},
+    })
+
 def save_campaign_faction(faction_id, value, updated_at):
-    """Returns the warnings. Raises world_template.TemplateError, or a campaign_db error, with the reason."""
-    changes = {key: value[key] for key in campaign_db.FACTION_KEYS if key in value}
+    """Returns the warnings. Raises world_template.TemplateError, or a campaign_db error, with the reason. A missing
+    knowledge or known_by is the default, because the editor saves no key for the default."""
+    changes = {"knowledge": "", "known_by": [], **{key: value[key] for key in campaign_db.FACTION_KEYS if key in value}}
     if updated_at is None:
         faction = {"aliases": [], "major": False, "fields": {}, "description": "", **changes, "game_id": faction_id}
-        errors, warnings = world_template.record_problems("faction", faction, ["factions", "new"])
+        errors, warnings = world_template.record_problems("faction", faction, ["factions", "new"], names=campaign_names())
         if errors: raise world_template.TemplateError(errors)
         campaign_db.add_faction(faction_id, faction)
         return warnings
@@ -351,7 +372,7 @@ def save_campaign_faction(faction_id, value, updated_at):
     # The game names the player's faction, and the next context would undo another name
     if stored["is_player"]:
         changes.pop("name", None)
-    errors, warnings = world_template.record_problems("faction", dict(stored, game_id=faction_id, **changes), ["factions", faction_id])
+    errors, warnings = world_template.record_problems("faction", dict(stored, game_id=faction_id, **changes), ["factions", faction_id], names=campaign_names())
     if errors: raise world_template.TemplateError(errors)
     campaign_db.update_faction(faction_id, changes, updated_at)
     return warnings

@@ -1,7 +1,14 @@
 {
   "name": "The Grid",
   "aliases": [],
-  "fields": {},
+  "fields": {
+    "neighbours": [
+      "South Wetlands",
+      "Spider Plains",
+      "The Crater",
+      "The Swamp"
+    ]
+  },
   "description": "The Grid lies between the Crater to the southwest and the Swamp to the northeast, a land of huge rock spikes set out in a grid. No one lives there, nothing grows, and there is no water to draw. Its one notable site is an ancient workshop complex of great hangar-like buildings.",
   "children": [
     {

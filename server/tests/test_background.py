@@ -101,6 +101,56 @@ class SearchTest(unittest.TestCase):
         self.assertIn(("hate", "not lore"), skipped)
 
 
+KNOWLEDGE_SEED = dict(
+    SEED,
+    history=[{"title": "Kenshi is a Moon", "text": "The world is a moon.", "knowledge": "secret", "known_by": ["Paladin Abel"]}],
+    characters=[{"game_id": "abel", "profile": {"Name": "Paladin Abel", "Faction": "The Holy Nation", "Backstory": "A paladin of Okran."}}],
+    entities=SEED["entities"] + [
+        {"category": "regions", "id": "bonedog_plains", "data": {"name": "Bonedog Plains", "aliases": ["Bonedog Den"], "fields": {"animals": ["Bonedogs"]}, "description": "Bonedogs.", "knowledge": "limited"}},
+        {"category": "regions", "id": "vain", "data": {"name": "Vain", "fields": {"animals": ["Bonedogs", "Goats", "Beak Things", "Garru", "Leviathans", "Spiders", "Gorillos", "Crabs", "Landbats", "Raptors"]}, "description": "Cliffs."}},
+        {"category": "regions", "id": "barren", "data": {"name": "The Barren"}},
+    ] + [{"category": "locations", "id": f"waystation_{i}", "data": {"name": f"Waystation {i}", "description": "A stop."}} for i in range(20)],
+)
+
+
+@mock.patch.object(background, "load_settings", lambda: {"retrieval_slots": 3, "memory_slots": 3})
+class KnowledgeTest(unittest.TestCase):
+    ABEL, HOLY = "u:abel", {"Name": "Paladin Abel", "Faction": "The Holy Nation"}
+
+    def setUp(self):
+        self._tmp = tempfile.TemporaryDirectory()
+        campaign_db.open_campaign(self._tmp.name, lambda: KNOWLEDGE_SEED)
+
+    def tearDown(self):
+        campaign_db.close_campaign()
+        self._tmp.cleanup()
+
+    def search(self, message, npc_id=None, profile=None):
+        return [hit["record"]["name"] for hit in background.search(message, background.campaign_lore(), npc_id, profile or self.HOLY)[1]]
+
+    def test_a_record_that_the_npc_cannot_know_cuts_no_hit_that_it_can_know(self):
+        self.assertEqual(self.search("Any bonedogs?"), ["Bonedog Plains"])
+        self.assertEqual(self.search("Any bonedogs?", "h:1"), ["Vain"])
+
+    def test_the_npc_finds_a_limited_character_of_its_faction_but_not_its_own_record(self):
+        self.assertEqual(self.search("Who is Paladin Abel?", "h:1"), ["Paladin Abel"])
+        self.assertEqual(self.search("Who is Paladin Abel?", self.ABEL), [])
+
+    def test_a_secret_reaches_the_character_in_its_known_by_but_not_a_generic_npc_with_its_name(self):
+        self.assertEqual(self.search("Is Kenshi a Moon?", self.ABEL), ["Kenshi is a Moon"])
+        self.assertEqual(self.search("Is Kenshi a Moon?", "h:1"), [])
+
+    def test_a_lore_search_alone_searches_every_record(self):
+        self.assertEqual(self.search("Is Kenshi a Moon?"), ["Kenshi is a Moon"])
+
+    def test_a_character_that_the_server_added_in_play_is_no_record(self):
+        campaign_db.upsert_profile("h:10", {"Name": "Stick", "Backstory": "A drifter."})
+        self.assertEqual([record["key"] for record in background.campaign_lore() if record["kind"] == "character"], [("characters", self.ABEL)])
+
+    def test_a_record_without_text_is_no_hit(self):
+        self.assertEqual(self.search("Where is the Barren?"), [])
+
+
 class PlaceTest(unittest.TestCase):
     LORE = [{"kind": "location", "name": name, "aliases": []} for name in ("The Hub", "Bast")] + [{"kind": "region", "name": "Vain", "aliases": []}]
 

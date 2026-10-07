@@ -3,6 +3,7 @@
   "name": "Southern Hive",
   "aliases": [],
   "major": false,
+  "knowledge": "limited",
   "fields": {
     "leader": "Queen of the South",
     "territory": [

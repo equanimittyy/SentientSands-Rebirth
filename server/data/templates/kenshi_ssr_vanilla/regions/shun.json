@@ -11,6 +11,13 @@
       "Goat",
       "Gorillo",
       "Skin Spider"
+    ],
+    "neighbours": [
+      "Arach",
+      "Spider Plains",
+      "The Crater",
+      "The Hook",
+      "Watcher's Rim"
     ]
   },
   "description": "Shun is an abandoned land in the southwestern corner of the continent, scattered with ancient ruins: lost libraries, armories, and labs. No town or outpost stands there. Skin spider packs, gorillos, goats, and garru roam, along with Band of Bones raiders and Tech Hunters who search the ruins. The Tech Hunters here may attack travelers without provocation.",

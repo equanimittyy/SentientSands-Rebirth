@@ -265,6 +265,12 @@ On Campaign Canon, **Show seeded data** and **Show provisional characters** star
 
 The Facts section of a faction, race, location, or region offers only the categories of its kind (`FACTS` in `server/store/world_template.py`), because the validator refuses any other category. `server/dashboard/web/editor.js` keeps a copy of the categories, so a change to them changes both files. A category holds one text, such as the leader of a faction, or a list of text, such as its enemies.
 
+The Knowledge section of a faction, a character, a race, a location, and a region follows its Facts, and each history entry holds the same fields beside its title (see [Knowledge](#knowledge)):
+
+- **Knowledge Level** offers Global, Limited, and Secret, with the default of the kind marked "(default)". The default saves no `knowledge` key, so a template does not fill with keys that change nothing.
+- **Known by** shows only while the level is Secret, and a record that is not Secret saves no `known_by`, so no list stays behind the hidden field. Each name has a row with a search box, as the Relations section has, because a list separated by commas cannot offer suggestions. The suggestions are the characters, the factions, and the races of the page, each with its kind, such as "Skeleton (race)", and a row saves the plain name. A name that names nothing gets a note on its row and still saves, because the validator only warns about it.
+- On Campaign Canon, a character shows the section only when it is canon, because no other character is a lore record.
+
 The Relations section of a race, location, or region lists its children, which the entry stores, and its parents, which are the entries whose children name it. Each row opens its entry. A parent row is read-only, because the relation is stored in the parent entry.
 
 The Race, Sex, and Faction of a character are choices, not free text (`choice` in `server/dashboard/web/editor.js`). Race offers the race entries of the page, Faction offers its factions, and Sex offers Male, Female, and Other. A stored value selects the choice whose name or alias it matches, with case ignored. A blank value or a value that matches no choice shows as Unknown, and a save of the character writes Unknown.
@@ -364,20 +370,23 @@ The last user message of a chat holds the lore entries and the memories of the N
 A search finds words, not meaning, so some hits are wrong. The slots, the score cut, the cooldown, and the note of the block keep the cost of a wrong hit small.
 
 - No vector search or embeddings.
-- No filter by what the NPC knows. That needs a knowledge bank for each character, so each NPC gets the same entries for the same line, and any NPC can speak of a secret of the history, such as Kenshi is a Moon. A memory needs no such filter, because an NPC finds only the memories of the threads in which it was a member.
-- No character records. A profile has no public text, because its Backstory mixes what the wasteland knows with a private past. The fields of a faction find a character: "Where can I find Tinfist?" finds the Anti-Slavers by their `leader` field.
+- An NPC finds only the records that it can know (see [Knowledge](#knowledge)). A memory needs no such filter, because an NPC finds only the memories of the threads in which it was a member.
 - No entries that a hit links to, such as the region of a town, because the default of 3 slots leaves no room for them.
+- What the model knows from its training stays out of reach of the filter. An NPC without an entry can still talk of Tinfist from that knowledge, as it can of any name that the lore does not hold.
 
 ### Lore records
 
 | Record | Name | Fields | Text | Source |
 |---|---|---|---|---|
-| Race, location, region | `name`, `aliases` | the values of `fields` | `description` | `campaign_db.list_records("entity")` |
+| Race, location, region | `name`, `aliases` | the values of `fields`, except `neighbours` | `description` | `campaign_db.list_records("entity")` |
 | Faction | `name`, `aliases` | the values of `fields` | `description` | `campaign_db.list_factions()` |
 | History entry | `title` | none | `text` | `campaign_db.history()` |
+| Character | `Name` | `race` and `faction`, from `Race` and `Faction` of the profile | `Backstory` | `campaign_db.list_records("character")` |
 
-- A record with an empty text is skipped, for example a faction that the game reported (`note_faction`).
-- The server reads the records and builds the search index in memory for each chat line, so an edit on Campaign Canon reaches the next line, and the campaign database holds no index. A search of SSR Vanilla, with its 363 records, takes about 20 ms in the dev container.
+- A record with an empty text is no hit, for example a faction that the game reported (`note_faction`). It stays among the records, because a link or a `known_by` can name it (see [Knowledge](#knowledge)).
+- A character is a record only when it is canon, with the `origin` `seed` or `campaign`. A character that the server added in play (`game`) stays out, because its rolled backstory is invented. A `Race` or `Faction` of `Unknown` is left out of the fields.
+- The Personality and the Speech of a character stay out. They describe the character for an LLM that speaks as that character, as the scene of the squad member who speaks leaves them out (see [Characters](#characters)).
+- The server reads the records and builds the search index in memory for each chat line, so an edit on Campaign Canon reaches the next line, and the campaign database holds no index. A search of SSR Vanilla, with its 574 records, takes about 30 ms in the dev container, of which the knowledge filter takes about 15 ms.
 - The search uses SQLite FTS5. The embedded Windows runtime ships SQLite 3.49.1, which has FTS5 ([development.md](development.md#probes) has the check for a later runtime).
 
 ### Name matching
@@ -388,6 +397,8 @@ A search finds words, not meaning, so some hits are wrong. The slots, the score 
 4. A match inside a longer match is dropped, so "Shek Kingdom" finds the faction and not also the race Shek. Records with the same name all match: "Bast" finds the location and the region.
 
 A history entry has no aliases, so only its whole title matches.
+
+About 25 of the one-word character names of SSR Vanilla are English words, such as Knife, Red, Fish, and Ghost, so "I need a knife" names Knife. A name match passes the cooldown. The Limited default of a character limits the cost to the NPCs that link to it, and the closing note of the block tells the NPC that an entry can be unrelated to the line.
 
 ### Content search
 
@@ -407,13 +418,86 @@ Rejected:
 
 ### Order of the lore
 
-- The name matches come first, in the order of their first word in the line. The content hits follow, first the current location of the NPC, then its current region, then the locations of that region, then the others, each group in the order of its score (`place_order`).
+- The name matches come first, in the order of their first word in the line. The content hits follow, first the current location of the NPC, then its current region, then the locations of that region, then the neighbouring regions, then the others, each group in the order of its score (`place_order`).
 - The current location is the location whose name or alias is the `town_name` of the NPC's context. The current region is the region whose name or alias is the `zone_name`, the zone around the camera (see [Current Location](#current-location)). Without a `zone_name`, it is each region in the `zone` field of the current location.
-- The place order adds no entry, so a line that finds nothing gets nothing. "Any bonedogs around?" finds many regions with near-equal scores, and the region of the NPC is the likeliest meaning.
+- A neighbouring region is a region next to the current region: either of the two names the other in its `neighbours` fact (`retrieval.place`).
+- The place order adds no entry, so a line that finds nothing gets nothing. "Any bonedogs around?" finds many regions with near-equal scores, and the region of the NPC is the likeliest meaning, then a region next to it. Asked in the Deadlands, it gives Skinner's Roam first, a neighbour with bonedogs.
 - Rejected: the entry of the NPC's place in each free slot. Most lines find nothing, so the entry would be in nearly every turn, and a model tends to talk about the text that it gets.
 - A record that both steps find counts once, as a name match.
-- A record is skipped when the system message holds it: the NPC's current and origin faction, the race of the squad member who speaks, and the player's faction (`background.in_system_message`).
+- A record is skipped when the system message holds it: the NPC's own character record, its current and origin faction, the race of the squad member who speaks, and the player's faction (`background.in_system_message`).
 - The text of an entry ends at its last sentence end before 700 characters, or at 700 characters (`clipped`), because a user template has no limit. The fields are not cut.
+
+### Knowledge
+
+Each lore record has a tier (`server/chat/knowledge.py`). The search of a chat line finds only the records that the NPC can know:
+
+| Tier | The NPC finds the record when |
+|---|---|
+| Global | Always |
+| Limited | The record is one of the own records of the NPC, or links to one of them |
+| Secret | The `known_by` list of the record names the NPC, its current faction, its origin faction, or its race |
+
+- A record without a tier takes the default of its kind: Limited for a character, and Global for a race, a location, a region, a faction, and a history entry. A Backstory mixes what the wasteland knows with a private past, so a character defaults to Limited. The rest of the lore keeps its reach until an author marks it.
+- The tier decides only whether the NPC finds the record. A found record goes into the block of the turn, and the closing note of the block stays (see [Block](#block)).
+- `background.search` drops the records that the NPC cannot know before `find_lore` builds its index. A record that the NPC cannot know therefore sets neither the best score of the score cut nor the common share of a word.
+- A lore search alone, with no NPC, searches every record, so a template author can test each one in the test search.
+- The memory search takes the lore names of the lore hits, so a lore name that the NPC cannot know finds no memory through its name.
+- Access reads only the seeded data and the current place of the NPC. Knowledge that an NPC gains in play, for example from a chat, stays out, because the memories already give an NPC what it lived through. The overview goes into every prompt, so it has no tier. Radiant conversations and animals get no search (see [Block](#block)).
+
+#### Links
+
+A link joins two records when one names the other. It works in both directions, so a member of the Anti-Slavers knows Tinfist through the `leader` field of the faction, and Bo through the `Faction` of Bo.
+
+- A field value links to each record whose name or alias has the same name words (`retrieval.name_words`): case ignored, a leading "the" dropped, and a final "s" dropped from each word of 4 or more letters. "Great Desert" in the `territory` of the United Cities therefore names the region The Great Desert. A value of `neighbours` links nothing (see [Own records](#own-records)).
+- A child of an entry links to the entry that it names.
+- The `Faction` and the `OriginFaction` of a character link to their factions, and only to factions. "Skeletons" names the faction Skeletons and the race Skeleton, and a link to the race would give the character to every Skeleton.
+- The text of a history entry links to each record that it names, by the name matching of the lore search (`retrieval.name_matches`). A history entry has no fields, so without its text no link could reach a Limited history entry. A longer name wins, so "the First Empire" names the history entry and not the United Cities through its alias The Empire.
+- The text of another record links nothing, because a match in a text finds wrong names, such as the character Cat in "Cat-Lon".
+- The `Race` of a character is no link. Otherwise every canon Greenlander would know the past of every other canon Greenlander.
+- A field value that names no record links nothing. In SSR Vanilla, some `leader`, `founder`, and `nobles` values name a figure with no record, such as Cat-Lon, or join two names in one value, such as `Dimak and Buzan`.
+- The links do not depend on the tier. A Secret record still links the records around it, but the NPC does not find the Secret record itself unless its `known_by` reaches the NPC.
+
+#### Own records
+
+The own records of an NPC are the start of its links (`knowledge.known`, with the NPC from `background.identity`):
+
+| Own record | Source |
+|---|---|
+| The character record | The record of the NPC itself, for a canon character |
+| The current faction | The `factionID` of the NPC's context, or the `Faction` of the profile (`find_faction`) |
+| The origin faction | The `OriginFaction` of the profile |
+| The race | The `Race` of the profile |
+| The current location and the current region | As for the place order (see [Order of the lore](#order-of-the-lore)) |
+| The neighbouring regions | The regions next to the current region |
+| The holding factions | Each faction whose `territory`, `bases`, or `capital` names the current location, the current region, or a neighbouring region, and each `owner` of the current location |
+
+- Links go one hop from the own records. In SSR Vanilla, one hop from a faction reaches a median of 1 and at most 28 of the 211 canon characters. A member of the Holy Nation therefore does not reach Tinfist through the `enemies` field of its faction.
+- The holding factions make the place take a second hop: the Border Zone, the Dust Bandits, then the Dust King. An NPC in the Hub therefore knows the Dust King, because the Dust Bandits hold the Border Zone. The step to a neighbouring region costs no hop, so the same path runs from each neighbouring region: a member of the Shek Kingdom in Admag knows the Dust King through the Border Zone next to the Stenn Desert. No other path takes a second hop.
+- In SSR Vanilla, an NPC in the Hub has 24 holding factions, such as the gangs of the Swamp and the Holy Nation, and knows 43 canon characters through them. From its region and the neighbouring regions, an NPC knows a median of 19 and at most 53 canon characters through the holding factions.
+- A character links only to factions, so an NPC knows a Limited character through its current faction, its origin faction, or a holding faction, never through its race.
+- Only one step of neighbours counts. A region two regions away is not an own record, and the NPC knows it only through another link. The `neighbours` fact is no link.
+- The current location and the current region come from the context of each chat line, so a squad member that walks into Admag knows a Limited Admag while it stands there.
+
+#### Secret access
+
+An NPC knows a Secret record when its `known_by` names the NPC itself, for a canon character, its current faction, its origin faction, or its race. A holding faction does not count: an NPC in the Hub is not a member of the Dust Bandits. A Secret record with an empty `known_by` reaches no NPC.
+
+- A name of `known_by` matches a canon character by its `Name`, and a faction or a race by its name or an alias, with the name words of a field value (`knowledge.knowers`). A name can match more than one record, and then names each of them, so "Skeleton" names both the race Skeleton and the faction Skeletons.
+- The server compares the `npc_id`, the faction ID, and the race record, not the name. A generic NPC can carry the name of a canon character, because the game gives most generic NPCs a name of its own (see [Names](#names)).
+- A race counts because the game gates its own dialogue by race more often than by faction or by character: the conditions `my race`, `my faction`, and `is character` gate 350, 258, and 206 dialogue lines. A Limited record about a place cannot reach only the Skeletons, because its links also give it to the NPCs in and next to that place.
+
+Rejected:
+
+- A knowledge bank for each character. The links of the seeded data decide Limited access, and only a Secret entry lists who knows it.
+- The whitelist of a secret on the character. It reaches only canon characters, so no generic NPC could know a secret, and the knowers of one secret would spread over many files.
+- A second hop through every link. A member of the Holy Nation would know the past of Tinfist, Bo, Grey, and Jaegar through the `enemies` field of its faction. Two hops take a member of the United Cities from 15 to 67 of the 211 canon characters of SSR Vanilla.
+- Direct links only. A member of the Anti-Slavers would not know Tinfist, its leader.
+- The `factions` of a region as holding factions. They list each faction that roams a region, also a faction that only passes through. From its region and the neighbouring regions, an NPC of SSR Vanilla would know a median of 54 and at most 108 canon characters, against 19 and 53 through the holding factions.
+- A second step of neighbours. It would give an NPC of SSR Vanilla a median of 15 and at most 30 regions in its place, against 6 and 10.
+- A filter after the search. A record that the NPC cannot know could set the best score and cut the hits that it can know below `SCORE_RATIO`, and its words would count towards `COMMON_SHARE`.
+- Every character with a profile as a record. A rolled backstory is invented, and only its Faction links it.
+- Limited as the default of all lore. The common history and the races would reach only linked NPCs until an author marks them Global.
+- Two tiers, Global and Limited, without Secret. Only Secret can hide a record: without it, the Skeleton Bandits would read in the Elder's Backstory that his Stobe story is false, and a player could not keep a plot secret of Campaign Canon from the other NPCs.
 
 ### Memory search
 
@@ -462,7 +546,7 @@ These memories and this lore may have nothing to do with what Izumi means, and y
 (Reply as Paladin Abel. End with [JUDGMENT: n].)
 ```
 
-- Each memory gives the header from the view of the NPC, as in the system message. Each entry gives its name, its kind, its fields, and its text (`describe_record` with the kind first). A field can be why the line found the entry, such as the `leader` of a faction.
+- Each memory gives the header from the view of the NPC, as in the system message. Each entry gives its name, its kind, its fields, and its text (`describe_record` with the kind first), for example `Tinfist (character; race: Skeleton; faction: Anti-Slavers): Leader of the Anti-Slavers. ...`. A field can be why the line found the entry, such as the `leader` of a faction, and the `neighbours` of a region tell the NPC which regions lie next to it.
 - The headings stay in the code, as for the rumors, so an empty list leaves no heading, and no hit leaves no block.
 - The block is in parentheses and starts with "Background, not said aloud", because it is a part of the user message, and without the mark a model can take a memory for words of the player. Some chat templates accept a system message only at the start of a chat, so the block cannot be a system message of its own.
 - The closing note names only the lists that the block holds, and sits directly before the player's line, where the model reads it last.
@@ -473,8 +557,9 @@ These memories and this lore may have nothing to do with what Izumi means, and y
 The Test search box under the bar of Campaign Canon and Templates shows what a line finds, so a template author sees why a line finds nothing, and the starting values of the search get tuned on real lines (`renderTestSearch` in `server/dashboard/web/editor.js`).
 
 - The box shows only while the Log level is `DEBUG`, because it is a tool to tune the search, not a part of play. `GET /context` returns `debug`, and the poll marks the page with `data-debug`, so a change of the level shows or hides the box at the next poll, with no refresh.
-- The box lists the memories and the entries in their prompt order, with the slots of the Settings page and how each was found: by a name, or by the words that found it. It also lists each word that did not search the lore, with the reason: a common English word, not a word of the lore, or a word in too many entries.
-- On Campaign Canon, the player can pick a character to talk to and a squad member to speak as. With a character, the box gives what a chat with it finds: it skips what the system message of that chat holds, and it orders the hits by the place of the character, which it takes from the `CurrentLocation` of the profile (`background.place_of`). Without a character, the box gives a lore search alone.
+- The box lists the memories and the entries in their prompt order, with the slots of the Settings page, how each was found: by a name, or by the words that found it, and the tier of each entry. It also lists each word that did not search the lore, with the reason: a common English word, not a word of the lore, or a word in too many entries.
+- On Campaign Canon, the player can pick a character to talk to and a squad member to speak as. With a character, the box gives what a chat with it finds: it finds only the entries that the character can know, it skips what the system message of that chat holds, and it orders the hits by the place of the character, which it takes from the `CurrentLocation` of the profile (`background.place_of`). The links take the same place. Without a character, the box gives a lore search alone of every entry.
+- With a character, the box also lists each name match that the filter dropped, with its tier, so a template author sees why a name finds nothing.
 - Templates gives a lore search alone, because a template has no memories and no player.
 - The search reads the saved records, so an unsaved edit counts only after Save. The box has no earlier turns, so the cooldown holds back no hit.
 - The routes are `GET /api/campaign/search?message=...&npc=...&speaker=...` and `GET /api/templates/<name>/search?message=...`. They are GETs, because a POST under `/api/` counts as a write, which makes every open page refresh (`count_write_requests` in `server/core/app.py`).
@@ -583,10 +668,11 @@ The canon of a campaign is its copy of the template records: the overview, the h
 |---|---|---|
 | Overview, history | `meta` rows; the history as JSON | None |
 | Faction | `faction` table (see [Factions](#factions)) | The game ID |
-| Character | `character` table (see [Characters](#characters)); the profile as JSON | `u:` and the game ID |
+| Character | `character` table (see [Characters](#characters)); the profile as JSON, and the `knowledge` and `known_by` as columns of their own | `u:` and the game ID |
 | Race, location, region | `entity` table, with `races`, `locations`, or `regions` as the category; the whole template record as JSON | The category and the entity ID |
 
-- The chat prompt reads the overview, the factions, the race of the player, and the profiles of the characters in the chat. The profile prompts read the races (see [Prompts](#prompts)). The lore search of a chat reads the history, the locations, and the regions too (see [Lore retrieval](#lore-retrieval)), and a radiant conversation about the place reads the location of its town (see [Radiant conversations](#radiant-conversations)).
+- The chat prompt reads the overview, the factions, the race of the player, and the profiles of the characters in the chat. The profile prompts read the races (see [Prompts](#prompts)). The lore search of a chat reads the history, the locations, the regions, and the canon characters too (see [Lore retrieval](#lore-retrieval)), and a radiant conversation about the place reads the location of its town (see [Radiant conversations](#radiant-conversations)).
+- The `knowledge` and the `known_by` of a record (see [Knowledge](#knowledge)) go into the JSON of a race, a location, a region, or a history entry, and into columns of their own for a faction and a character. A character keeps them beside its profile, because the validator takes only text and numbers as profile values, and the chat prompt reads the profile. An empty `knowledge` column means the default of the kind, as a missing key does, and a save from the editor writes the default as empty.
 - `origin` tells where a record came from: `seed` (the copy of the template at creation), `game` (a faction that a context reported, or a character that the server added in play), or `campaign` (added on the web app).
 - A save checks the record with the template validator (`world_template.record_problems`), so a campaign record follows the same rules as a template record. The validator sees only one record, so the database refuses a second faction or character with the same game ID.
 - The key of a faction or a character, its game ID or its `npc_id`, cannot change after the record is added.
@@ -861,9 +947,9 @@ A world template is a folder that describes a world. A new campaign copies every
 | `races/<id>.json`, `locations/<id>.json`, `regions/<id>.json` | `name`, `aliases`, `fields`, `description`, and `children`: a list of `entry` and `weight` |
 
 - The ID of a record is its file name without `.json`.
-- `fields` holds the facts of a record, in the categories of its kind (see [Web app](#web-app)).
+- `fields` holds the facts of a record, in the categories of its kind (see [Web app](#web-app)). The `neighbours` of a region are the regions that share a border with it on the world map of the game.
 - A child names its entry as `<category>/<entity ID>`, for example `locations/bast`, not by name, because a location and a region can share a name, for example Bast.
-- An entry holds no access rules, because what an NPC knows belongs to the character, not to the entry.
+- Each faction, character, race, location, region, and history entry can hold `knowledge`, one of `global`, `limited`, and `secret`, and `known_by`, a list of names of characters, factions, and races (see [Knowledge](#knowledge)). A missing `knowledge` takes the default of the kind, so a template without the keys works with the defaults, and `format_version` stays 1. A character holds the keys beside its `profile`, not in it.
 
 | Template | Location | Edits |
 |---|---|---|
@@ -872,7 +958,8 @@ A world template is a folder that describes a world. A new campaign copies every
 
 `server/store/world_template.py` reads, validates, and writes templates, and imports only the standard library.
 
-- One validator runs before each write and each campaign creation. It rejects an unknown `format_version`, a `version` that is not text, a folder that the format does not name, a JSON file that does not parse, a faction or an entity without a name, a faction or a character without `game_id`, two factions or two characters with one `game_id`, a character without a `Name` in its profile, and a fact whose category is not one of its kind or whose value does not have the shape of its category. A child whose `entry` names no race, location, or region of the template is a warning.
+- One validator runs before each write and each campaign creation. It rejects an unknown `format_version`, a `version` that is not text, a folder that the format does not name, a JSON file that does not parse, a faction or an entity without a name, a faction or a character without `game_id`, two factions or two characters with one `game_id`, a character without a `Name` in its profile, a fact whose category is not one of its kind or whose value does not have the shape of its category, an unknown `knowledge`, and a `known_by` that is not a list of names.
+- These are warnings: a child whose `entry` names no race, location, or region of the template, a neighbour that names no region, a `known_by` on a record that is not Secret, and a name of `known_by` that names no character, faction, or race. The validator compares these names with case ignored (`template_names`). A save on Campaign Canon checks them against the records of the campaign, with only the canon characters.
 - A faction binds to the game by `game_id`, the string ID of the faction in the game data, so a rename in game does not break the link. The IDs of the vanilla factions come from the `FACTION_PROBE` lines of an in-game test ([kenshi_internals.md](kenshi_internals.md#factions)).
 - A route takes a template name, a record kind, a category, and a record ID, never a path. The category must be `races`, `locations`, or `regions`, and each other part must match a fixed pattern, so a request cannot write outside the template folders. A new record takes its ID from its name.
 - A duplicate copies every file of the template, its credit and licence files included, so a derived template keeps its attribution.
@@ -903,9 +990,42 @@ SSR writes the content of SSR Vanilla itself. Each fact comes from the game: its
 - The facts and the descriptions describe the start of a game, because a new campaign does not know which world states changed. The `factions` and `animals` of a region therefore leave out each squad whose world state does not hold at the start of a game, such as the death of a leader. A world state tests whether an NPC is dead, alive, or imprisoned, so a gate on "All Slave Masters are not alive" being false holds at the start, and a gate on "Tinfist is not alive" being true does not.
 - SSR Vanilla has a record for each vanilla faction that a source describes. It leaves out the factions of wild animals, the owners of ruins, and Nameless, the player's starting faction.
 - Spiders, Gutters, and Old Machines are creature factions, but each has a record, because Bugmaster, No-Face, and the Spider Foreman belong to them. A `Faction` that names no faction of the template shows as Unknown in the editor, and a save writes Unknown. The `factions` of a region leave these three out, because its `animals` name their creatures.
+- The `neighbours` of the regions come from a map of the zones, read by hand, because the game data holds no list of neighbours. A pair counts when the two zones share a stretch of border, not only a corner, and each pair is on both regions, so the editor shows it on both. Raptor Island has no neighbours. A zone of the map without a record, such as the unnamed zone next to Howler Maze, is no neighbour, so Howler Maze and Stormgap Coast are not neighbours. The `neighboring_zones` of the wiki are not the source, because their lists disagree: at least 40 pairs appear on one side only.
 - SSR Vanilla also holds the factions and the unique characters of Universal Wasteland Expansion (UWE). They bind by the `game_id` of a UWE record, which a game without UWE never reports, so they change nothing there. The overview, the history, and the entities do not bind by `game_id`, so they hold only facts that are true with and without UWE. Where UWE changes a fact of a vanilla record, for example the race of Bugmaster, the vanilla record sets that field to `Unknown`, so the game fills it (see [Characters](#characters)).
 - The `OriginFaction` of an SSR Vanilla character is the character's own faction in the game data. A character without one, which takes its faction from the squad that spawns it, has its `Faction` there.
 - A character text that no source supports stays blank, and no text says that its data is missing. The system prompt tells the LLM what a blank field means, so a note such as "his past is unknown" would only take tokens, and the LLM could read it as a trait.
+
+Each tier of SSR Vanilla that differs from the default of its kind has a source in the dialogue of the game or in the wiki (see [Knowledge](#knowledge)). The other records keep the default.
+
+SSR Vanilla sets each faction that is not `major` to Limited, and keeps its 14 major factions Global. A member of the United Cities in Heft therefore does not know Narko's Disciples, while a member of the Holy Nation knows them anywhere, because the `enemies` of Narko's Disciples name the Holy Nation.
+
+These records are Secret:
+
+| Record | `known_by` | Source |
+|---|---|---|
+| Obedience (history) | Skeleton | At Obedience, only a Skeleton in the squad recalls why the Behemoths walked into the quarry, and the other races say "What the...". |
+| The Chaos Age (history) | Skeleton | Quin of the Skeleton junkyard breaks off in front of a human or a Hiver: "back in the cha- uh... back some time ago". |
+| Kenshi is a Moon (history) | None | No line of the game says it. NPCs call the world "this planet", and "the moons" are the moons in its sky. |
+| Elder (character) | None | His Backstory says that he does not care that the Stobe story is false. He admits the sham only to a Skeleton, while his followers fight "in memory of Great Stobe". |
+
+The game gives the Skeletons faction only Skeletons and P4 Units, a Skeleton race with no record of its own, so the faction that "Skeleton" also names adds no knower.
+
+These history entries are Limited:
+
+| Entry | Source |
+|---|---|
+| The War of Behemoths | The lines of the Skeleton at Obedience. Of the records that can be own records, its text links only the race Skeleton and the faction Skeletons, so Limited reaches the Skeletons only. |
+| Stobe | The Skeleton Bandits and the Elder. |
+| The Second Empire | The Skeletons of Black Desert City, Quin, and the Armour King. Bar patrons know only the legend of "Old King Cat-Lon". |
+| The Hydraulic Knights | The cannibals greet Jang with "The Inedible One returns!". |
+| The Shek Extinction Crisis | Shek warriors: "it weakens our numbers. The queen knows this". |
+| The Fleshless Doctrine | The Skin Bandits. The record of their faction, which is Limited, holds the same belief. |
+
+These canon characters are Global, because speakers far from their factions name them, mostly the bar patrons of the Swamp, World's End, and the United Cities, who talk of their fates: Tinfist, Holy Lord Phoenix, Emperor Tengu, Esata the Stone Golem, Bugmaster, Eyegore, Longen, High Inquisitor Seta, Boss Simion, and Luquin.
+
+- Mad Cat-Lon stays Limited. The bar patrons know his legend, but the Skeletons of Black Desert City do not know where he went ("While Cat-Lon disappears into thin air..."), and his Backstory names his throne.
+- Lady Kana and Lord Inaba stay Limited. Only the bars of the United Cities name them, and Limited already gives them to the members of their factions and to the NPCs in the places that those factions hold.
+- A longer name wins in the text of a history entry, so the texts of The Second Empire and The Hydraulic Knights say "the Second Empire", not "an empire" or "the empire", which name the United Cities through its alias The Empire. The texts also avoid "brink" and "pit", which name the location Brink and the region The Pits. "Cat-Lon" in The Second Empire still names the character Cat, which only gives the entry to Cat.
 
 ## Logging
 

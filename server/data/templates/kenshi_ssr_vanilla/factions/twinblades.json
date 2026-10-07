@@ -3,6 +3,7 @@
   "name": "Twinblades",
   "aliases": [],
   "major": false,
+  "knowledge": "limited",
   "fields": {
     "leader": "Big Fang",
     "bases": [

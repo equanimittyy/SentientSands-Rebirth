@@ -5,6 +5,12 @@
     "factions": [
       "Flotsam Ninjas",
       "The Holy Nation"
+    ],
+    "neighbours": [
+      "Floodlands",
+      "Okran's Gulf",
+      "Okran's Pride",
+      "Wend"
     ]
   },
   "description": "Rebirth is a mountain region northwest of Blister Hill that holds little but the Holy Nation labor camp of the same name, the largest slave mine in the land. The Holy Nation sends criminals of every race but Skeletons there to work and repent, and non-humans who stray close risk being enslaved. North of the camp, the Flotsam Ninjas keep a safehouse with food, hacksaws, and clothes for escaped slaves.",

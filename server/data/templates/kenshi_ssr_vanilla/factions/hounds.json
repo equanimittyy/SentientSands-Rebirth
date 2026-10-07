@@ -3,6 +3,7 @@
   "name": "Hounds",
   "aliases": [],
   "major": false,
+  "knowledge": "limited",
   "fields": {
     "leader": "Big Grim",
     "bases": [

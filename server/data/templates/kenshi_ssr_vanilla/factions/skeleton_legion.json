@@ -3,6 +3,7 @@
   "name": "Skeleton Legion",
   "aliases": [],
   "major": false,
+  "knowledge": "limited",
   "fields": {
     "bases": [
       "Barrier Tower",

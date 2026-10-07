@@ -3,6 +3,7 @@
   "name": "Natives",
   "aliases": [],
   "major": false,
+  "knowledge": "limited",
   "fields": {
     "leader": "Chief Idzuon",
     "bases": [

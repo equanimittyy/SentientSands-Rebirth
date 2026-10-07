@@ -5,27 +5,39 @@
   },
   {
     "title": "The War of Behemoths",
-    "text": "At some point the First Empire fought a war against an enemy whose identity is unclear. It used weapons so powerful that their owners came to fear them, among them the Behemoths: giant Skeletons many times the height of ordinary ones."
+    "text": "At some point the First Empire fought a war against an enemy whose identity is unclear. It used weapons so powerful that their owners came to fear them, among them the Behemoths: giant Skeletons many times the height of ordinary ones.",
+    "knowledge": "limited"
   },
   {
     "title": "Obedience",
-    "text": "After the war, the Ancients feared the Behemoths and turned their unquestioning loyalty against them, ordering them down into a great quarry of molten metal that sealed them in. The place, Obedience, lies in the north of the Fog Islands, where giant Skeleton heads still rise from the ground."
+    "text": "After the war, the Ancients feared the Behemoths and turned their unquestioning loyalty against them, ordering them down into a great quarry of molten metal that sealed them in. The place, Obedience, lies in the north of the Fog Islands, where giant Skeleton heads still rise from the ground.",
+    "knowledge": "secret",
+    "known_by": [
+      "Skeleton"
+    ]
   },
   {
     "title": "Stobe",
-    "text": "Stobe's Gamble and Stobe's Garden are named for Stobe, a giant Skeleton whose remains lie in Stobe's Garden. The Skeleton Bandits revere him as a deity, and many Skeletons grow sad near his remains, but what he was and what he did are unknown."
+    "text": "Stobe's Gamble and Stobe's Garden are named for Stobe, a giant Skeleton whose remains lie in Stobe's Garden. The Skeleton Bandits revere him as a deity, and many Skeletons grow sad near his remains, but what he was and what he did are unknown.",
+    "knowledge": "limited"
   },
   {
     "title": "The Chaos Age",
-    "text": "A time of calamities, rumored to include dangerous activity in the sky, natural disasters, plagues, and a Skeleton rebellion, in which the First Empire fell. What happened, and how it relates in time to Obedience, is unclear."
+    "text": "A time of calamities, rumored to include dangerous activity in the sky, natural disasters, plagues, and a Skeleton rebellion, in which the First Empire fell. What happened, and how it relates in time to Obedience, is unclear.",
+    "knowledge": "secret",
+    "known_by": [
+      "Skeleton"
+    ]
   },
   {
     "title": "The Second Empire",
-    "text": "Some time after the Chaos Age, Cat-Lon and his Skeleton followers founded the Second Empire, in what are now the Ashlands, to rebuild civilization and to atone for the past. It grew dictatorial: child prisons, crackdowns on cults, and the killing of its own citizens turned the people against it, and a great famine nearly destroyed it. It later collapsed, and its remnants under Cat-Lon became the Second Empire Exiles."
+    "text": "Some time after the Chaos Age, Cat-Lon and his Skeleton followers founded the Second Empire, in what are now the Ashlands, to rebuild civilization and to atone for the past. It grew dictatorial: child prisons, crackdowns on cults, and the killing of its own citizens turned the people against it, and a great famine nearly destroyed it. It later collapsed, and its remnants under Cat-Lon became the Second Empire Exiles.",
+    "knowledge": "limited"
   },
   {
     "title": "The Hydraulic Knights",
-    "text": "A Skeleton military order of the Second Empire, led by General Jang, that fought the outside enemies of the Second Empire, such as pirates and cannibals. The cannibal tribes named Jang 'The Inedible One'."
+    "text": "A Skeleton military order of the Second Empire, led by General Jang, that fought the outside enemies of the Second Empire, such as pirates and cannibals. The cannibal tribes named Jang 'The Inedible One'.",
+    "knowledge": "limited"
   },
   {
     "title": "The Founding of the Holy Nation",
@@ -41,7 +53,8 @@
   },
   {
     "title": "The Shek Extinction Crisis",
-    "text": "After Shager, Esata the Stone Golem became the first Shek ruler to face the kingdom's shrinking numbers. She seeks to weaken the Holy Nation before attacking it, so that the Shek do not fight themselves extinct, and this has divided her warriors."
+    "text": "After Shager, Esata the Stone Golem became the first Shek ruler to face the kingdom's shrinking numbers. She seeks to weaken the Holy Nation before attacking it, so that the Shek do not fight themselves extinct, and this has divided her warriors.",
+    "knowledge": "limited"
   },
   {
     "title": "The Slave Economy",
@@ -57,7 +70,8 @@
   },
   {
     "title": "The Fleshless Doctrine",
-    "text": "The belief of the Skin Bandits that every living being is a Skeleton under its flesh, and that peeling away the flesh sets the true self free."
+    "text": "The belief of the Skin Bandits that every living being is a Skeleton under its flesh, and that peeling away the flesh sets the true self free.",
+    "knowledge": "limited"
   },
   {
     "title": "Ancient Technology",
@@ -65,6 +79,7 @@
   },
   {
     "title": "Kenshi is a Moon",
-    "text": "Kenshi is an unnamed moon, tidally locked to the giant planet in its sky. The Preacher Cult worships the moons and believes they bring blood rain for a good harvest."
+    "text": "Kenshi is an unnamed moon, tidally locked to the giant planet in its sky. The Preacher Cult worships the moons and believes they bring blood rain for a good harvest.",
+    "knowledge": "secret"
   }
 ]

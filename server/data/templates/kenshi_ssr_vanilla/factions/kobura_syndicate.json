@@ -3,6 +3,7 @@
   "name": "Kobura Syndicate",
   "aliases": [],
   "major": false,
+  "knowledge": "limited",
   "fields": {
     "leader": "Kobura King",
     "bases": [

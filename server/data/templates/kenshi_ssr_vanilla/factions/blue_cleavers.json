@@ -3,6 +3,7 @@
   "name": "Blue Cleavers",
   "aliases": [],
   "major": false,
+  "knowledge": "limited",
   "fields": {
     "leader": "Blue Cleaver Boss",
     "bases": [

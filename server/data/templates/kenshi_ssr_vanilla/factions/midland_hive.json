@@ -3,6 +3,7 @@
   "name": "Midland Hive",
   "aliases": [],
   "major": false,
+  "knowledge": "limited",
   "fields": {
     "leader": "Queen of the Midlands",
     "bases": [

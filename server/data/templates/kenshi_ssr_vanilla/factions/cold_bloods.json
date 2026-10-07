@@ -3,6 +3,7 @@
   "name": "The Cold Bloods",
   "aliases": [],
   "major": false,
+  "knowledge": "limited",
   "fields": {
     "leader": "Julius the Fork-Tongued",
     "bases": [

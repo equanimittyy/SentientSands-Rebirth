@@ -3,6 +3,7 @@
   "name": "Holy Nation Outlaws",
   "aliases": [],
   "major": false,
+  "knowledge": "limited",
   "fields": {
     "bases": [
       "The Hub",

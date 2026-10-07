@@ -3,6 +3,7 @@
   "name": "White Eyebrow Clan",
   "aliases": [],
   "major": false,
+  "knowledge": "limited",
   "fields": {
     "leader": "White Eyebrow",
     "enemies": [

@@ -3,6 +3,7 @@
   "name": "Herdsmen",
   "aliases": [],
   "major": false,
+  "knowledge": "limited",
   "fields": {
     "leader": "Commodore Thomas",
     "bases": [

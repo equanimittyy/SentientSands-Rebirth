@@ -3,6 +3,7 @@
   "name": "Cannibal Hunters",
   "aliases": [],
   "major": false,
+  "knowledge": "limited",
   "fields": {
     "leader": "Cannibal Hunter Robun",
     "bases": [

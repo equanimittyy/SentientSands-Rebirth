@@ -3,6 +3,7 @@
   "name": "United Heroes League",
   "aliases": [],
   "major": false,
+  "knowledge": "limited",
   "fields": {
     "bases": [
       "Fort Mirage"

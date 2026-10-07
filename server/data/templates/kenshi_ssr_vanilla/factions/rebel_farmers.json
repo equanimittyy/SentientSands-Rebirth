@@ -3,6 +3,7 @@
   "name": "Rebel Farmers",
   "aliases": [],
   "major": false,
+  "knowledge": "limited",
   "fields": {
     "leader": "Boss Simion",
     "enemies": [

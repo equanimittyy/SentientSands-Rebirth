@@ -3,6 +3,7 @@
   "name": "Swamp Ruffians",
   "aliases": [],
   "major": false,
+  "knowledge": "limited",
   "fields": {
     "leader": "Swamp Ruffian King",
     "bases": [

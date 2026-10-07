@@ -3,6 +3,7 @@
   "name": "Shrieking Bandits",
   "aliases": [],
   "major": false,
+  "knowledge": "limited",
   "fields": {
     "territory": [
       "The Shrieking Forest",

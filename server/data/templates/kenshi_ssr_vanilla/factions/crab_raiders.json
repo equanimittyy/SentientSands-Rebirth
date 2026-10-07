@@ -3,6 +3,7 @@
   "name": "Crab Raiders",
   "aliases": [],
   "major": false,
+  "knowledge": "limited",
   "fields": {
     "leader": "Crab Queen",
     "bases": [

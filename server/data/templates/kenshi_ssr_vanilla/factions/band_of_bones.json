@@ -3,6 +3,7 @@
   "name": "Band of Bones",
   "aliases": [],
   "major": false,
+  "knowledge": "limited",
   "fields": {
     "leader": "Tora The Fearless",
     "bases": [

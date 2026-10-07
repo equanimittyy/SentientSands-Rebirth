@@ -15,6 +15,15 @@
       "Blood Spider",
       "Swamp Raptor",
       "Swamp Turtle"
+    ],
+    "neighbours": [
+      "Border Zone",
+      "Burning Forest",
+      "High Bonefields",
+      "Shem",
+      "South Wetlands",
+      "Spider Plains",
+      "The Grid"
     ]
   },
   "description": "The Swamp is a large, foggy marsh of dense growth, south of the Border Zone and north of the South Wetlands, and it is easy to get lost there. No one person rules it: the Swampers share its villages with five gangs who deal in hashish, and the Hounds run the city of Shark and the village of Rot. The Red Sabres keep a hideout here and Swamp Ninjas patrol. Swamp raptors and blood spiders are common, and swamp turtles live here.",

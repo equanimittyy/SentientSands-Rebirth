@@ -3,6 +3,7 @@
   "name": "Kral's Chosen",
   "aliases": [],
   "major": false,
+  "knowledge": "limited",
   "fields": {
     "leader": "Flying Bull",
     "bases": [

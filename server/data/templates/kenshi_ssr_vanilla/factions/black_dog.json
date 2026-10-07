@@ -3,6 +3,7 @@
   "name": "Black Dog",
   "aliases": [],
   "major": false,
+  "knowledge": "limited",
   "fields": {
     "bases": [
       "Black Dog HQ"

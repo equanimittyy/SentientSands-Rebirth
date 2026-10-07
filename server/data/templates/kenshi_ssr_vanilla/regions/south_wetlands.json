@@ -11,6 +11,14 @@
       "Blood Spider",
       "Swamp Raptor",
       "Swamp Turtle"
+    ],
+    "neighbours": [
+      "Bonefields",
+      "High Bonefields",
+      "The Crater",
+      "The Grid",
+      "The Hook",
+      "The Swamp"
     ]
   },
   "description": "The South Wetlands is a swamp around a large central lake, bordering the Swamp. The Swamp Ninjas keep their base here under their leader Shade, and their patrols often clash with the rival Red Sabres. On the eastern side, slavers sell captives at the Slave Markets. Water is plentiful, swamp raptors nest in the marsh, and blood spiders and big herds of swamp turtles roam.",

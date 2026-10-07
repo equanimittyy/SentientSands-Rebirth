@@ -3,6 +3,7 @@
   "name": "Black Dragon Ninjas",
   "aliases": [],
   "major": false,
+  "knowledge": "limited",
   "fields": {
     "leader": "Dimak and Buzan",
     "bases": [

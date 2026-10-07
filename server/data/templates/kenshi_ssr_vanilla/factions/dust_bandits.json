@@ -3,6 +3,7 @@
   "name": "Dust Bandits",
   "aliases": [],
   "major": false,
+  "knowledge": "limited",
   "fields": {
     "leader": "Dust King",
     "territory": [

@@ -5,6 +5,16 @@
     "factions": [
       "Tech Hunters",
       "The Holy Nation"
+    ],
+    "neighbours": [
+      "Bast",
+      "Hidden Forest",
+      "Northern Coast",
+      "Okran's Pride",
+      "Okran's Valley",
+      "Skimsands",
+      "Skinner's Roam",
+      "Wend"
     ]
   },
   "description": "The Arm of Okran is two green mountain ranges that flank Okran's Valley to the east and west, and water is plentiful there. The western range holds World's End, the town of the Tech Hunters and the Machinists' university. The eastern range holds the fortresses of the Holy Nation, among them Okran's Fist, which guards the northeastern way into Holy Nation lands.",

@@ -3,6 +3,7 @@
   "name": "Grass Pirates",
   "aliases": [],
   "major": false,
+  "knowledge": "limited",
   "fields": {
     "territory": [
       "The Eye",

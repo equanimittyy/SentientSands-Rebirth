@@ -3,6 +3,7 @@
   "name": "Scorpion Roughnecks",
   "aliases": [],
   "major": false,
+  "knowledge": "limited",
   "fields": {
     "bases": [
       "Burrow"

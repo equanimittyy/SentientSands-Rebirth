@@ -3,6 +3,7 @@
   "name": "Green Katanas",
   "aliases": [],
   "major": false,
+  "knowledge": "limited",
   "fields": {
     "leader": "Green Katana Boss",
     "bases": [

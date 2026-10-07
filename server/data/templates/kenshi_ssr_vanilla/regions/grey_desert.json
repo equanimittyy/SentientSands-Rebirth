@@ -16,6 +16,12 @@
     "animals": [
       "Iron Spider",
       "Skimmer"
+    ],
+    "neighbours": [
+      "Deadlands",
+      "The Black Desert",
+      "The Eye",
+      "Venge"
     ]
   },
   "description": "The Grey Desert is a small, mostly empty desert between Venge, the Eye, the Black Desert, and the Deadlands, some of the most polluted lands there are. Its Tech Hunter waystation is the last place to resupply for travelers from the east bound for Black Desert City. Trade caravans, slaver caravans, nomads, and Grayflayer smugglers cross it, while Bloodraiders, rebel farmers, Black Desert ninjas, and stray thralls from Venge roam it too. Water is scarce, and skimmers and Iron Spiders prowl.",

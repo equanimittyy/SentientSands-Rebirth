@@ -3,6 +3,7 @@
   "name": "Police",
   "aliases": [],
   "major": false,
+  "knowledge": "limited",
   "fields": {
     "territory": [
       "United Cities"
