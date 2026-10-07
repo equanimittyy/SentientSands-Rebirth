@@ -304,7 +304,8 @@ void LoadPluginConfig() {
 
   g_visionRange = 100.0f;
   g_radiantIntervalSeconds =
-      GetPrivateProfileIntA("Settings", "RadiantDelay", 600, iniPath.c_str());
+      60 * GetPrivateProfileIntA("Settings", "RadiantChatMinutes", 10,
+                                 iniPath.c_str());
 
   g_enableRadiant =
       GetPrivateProfileIntA("Settings", "EnableRadiantConversations", 1,

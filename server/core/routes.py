@@ -141,12 +141,12 @@ def settings_endpoint():
         send_to_pipe(f"SET_CONFIG: g_enableRadiant: {'1' if enable_radiant else '0'}")
         logging.info(f"SETTINGS: Radiant conversations enabled set to {enable_radiant}")
 
-    radiant_delay = data.get("radiant_delay")
-    if radiant_delay is not None:
-        val = int(radiant_delay)
-        changes["radiant_delay"] = val
-        send_to_pipe(f"SET_CONFIG: g_radiantIntervalSeconds: {val}")
-        logging.info(f"SETTINGS: Radiant chat timer set to {val} seconds")
+    radiant_chat = data.get("radiant_chat_minutes")
+    if radiant_chat is not None:
+        val = int(radiant_chat)
+        changes["radiant_chat_minutes"] = val
+        send_to_pipe(f"SET_CONFIG: g_radiantIntervalSeconds: {val * 60}")
+        logging.info(f"SETTINGS: Radiant chat timer set to {val} minutes")
 
     radiant_rumor = data.get("radiant_rumor_minutes")
     if radiant_rumor is not None:

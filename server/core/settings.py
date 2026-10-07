@@ -14,7 +14,7 @@ CHAT_HOTKEYS = ["\\", "[", "P", "T", "J", "U", "K"]
 INI_KEY_MAP = {
     "current_campaign": "ActiveCampaign",
     "enable_radiant": "EnableRadiantConversations",
-    "radiant_delay": "RadiantDelay",
+    "radiant_chat_minutes": "RadiantChatMinutes",
     "radiant_rumor_minutes": "RadiantRumorMinutes",
     "talk_radius": "TalkRadius",
     "yell_radius": "YellRadius",
@@ -59,7 +59,7 @@ def _save_settings_raw(settings):
 SETTINGS_DEFAULTS = {
     "current_campaign": "Default",
     "enable_radiant": True,
-    "radiant_delay": 600,
+    "radiant_chat_minutes": 10,
     "radiant_rumor_minutes": 60,
     "talk_radius": 50,
     "yell_radius": 100,
@@ -121,7 +121,7 @@ def save_settings(new_settings):
 def settings_page_values(settings):
     return {
         "enable_radiant": settings["enable_radiant"],
-        "radiant_delay": settings["radiant_delay"],
+        "radiant_chat_minutes": settings["radiant_chat_minutes"],
         "radiant_rumor_minutes": settings["radiant_rumor_minutes"],
         "dialogue_speed": settings["dialogue_speed_seconds"],
         "bubble_life": settings["bubble_life"],
@@ -146,7 +146,7 @@ def push_settings_to_plugin():
     settings = load_settings()
     for var, value in (
         ("g_enableRadiant", "1" if settings["enable_radiant"] else "0"),
-        ("g_radiantIntervalSeconds", settings["radiant_delay"]),
+        ("g_radiantIntervalSeconds", settings["radiant_chat_minutes"] * 60),
         ("g_proximityRadius", settings["talk_radius"]),
         ("g_yellRadius", settings["yell_radius"]),
         ("g_chatHotkey", settings["chat_hotkey"]),
