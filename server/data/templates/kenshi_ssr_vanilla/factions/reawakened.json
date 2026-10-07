@@ -15,6 +15,18 @@
       "Skeleton Legion",
       "Skeleton Bandits",
       "The Scorched Ones"
+    ],
+    "enemies": [
+      "Anti-Slavers",
+      "Northern Nobles",
+      "Shek Kingdom",
+      "Skeletons",
+      "Southern Nobles",
+      "The Holy Nation",
+      "Traders Guild",
+      "United Cities",
+      "Western Hive",
+      "Western Nobles"
     ]
   },
   "description": "The surviving officials of the Second Empire, who form an army after Cat-Lon's death and rebuild their thrall armies. They want back the lands they once ruled, and with no common enemy they strike in every direction to make their rule legitimate."

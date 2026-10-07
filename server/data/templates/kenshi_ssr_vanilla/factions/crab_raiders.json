@@ -19,7 +19,10 @@
       "The Pits"
     ],
     "enemies": [
-      "United Cities"
+      "United Cities",
+      "Reavers",
+      "Skeleton Bandits",
+      "Skin Bandits"
     ]
   },
   "description": "Scorchlander bandits who revere crabs and keep them as companions. They raid their rivals around the Pits, are hostile to the United Cities, and wear heavy crab armor."

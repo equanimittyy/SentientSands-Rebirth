@@ -22,7 +22,11 @@
     "enemies": [
       "United Cities",
       "Traders Guild",
-      "Slave Traders"
+      "Slave Traders",
+      "Northern Nobles",
+      "Southern Nobles",
+      "The Dominion",
+      "Western Nobles"
     ]
   },
   "description": "Farmers, laborers, and other common people who took up arms against the United Cities, which treated them badly. They want to bring down the Empire and replace it with a meritocracy, where skill counts for more than a rich father. They rob trade caravans and travelers, and the Empire's corruption keeps it from crushing them."

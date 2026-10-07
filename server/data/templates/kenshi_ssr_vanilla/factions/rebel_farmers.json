@@ -17,7 +17,13 @@
       "The Hook"
     ],
     "enemies": [
-      "United Cities"
+      "United Cities",
+      "Shek Kingdom",
+      "Skeletons",
+      "Slave Traders",
+      "The Holy Nation",
+      "Traders Guild",
+      "Western Hive"
     ]
   },
   "description": "The poorest peasants and farmers of the United Cities, risen in revolt under Boss Simion. They rob travelers on the roads and retreat to their camps. Because they rob rich and poor alike, few commoners sympathize with them."

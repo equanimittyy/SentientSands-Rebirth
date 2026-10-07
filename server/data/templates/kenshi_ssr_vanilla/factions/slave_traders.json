@@ -15,7 +15,11 @@
       "South Wetlands"
     ],
     "enemies": [
-      "Anti-Slavers"
+      "Anti-Slavers",
+      "Band of Bones",
+      "Berserkers",
+      "Mongrel",
+      "Rebel Farmers"
     ]
   },
   "description": "The practitioners of slavery: they capture, trade, and work slaves on farms and in mines. They have close ties to the Holy Nation and the United Cities, and the Traders Guild holds great sway over them; every slave master is a member of the guild."

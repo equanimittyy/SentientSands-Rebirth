@@ -11,6 +11,17 @@
       "Cannibal Plains",
       "Spider Plains",
       "Stenn Desert"
+    ],
+    "enemies": [
+      "Bloodraiders",
+      "Holy Nation Outlaws",
+      "Old Machines",
+      "Police",
+      "Shek Kingdom",
+      "Slave Traders",
+      "The Holy Nation",
+      "Traders Guild",
+      "United Cities"
     ]
   },
   "description": "Rogue Shek warriors who left the Shek Kingdom to return to the old tribal ways and seek out fights. Many went north to Berserker Country; others stayed near the Kingdom with their leader, Ghost."

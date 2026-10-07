@@ -11,7 +11,14 @@
       "The Outlands"
     ],
     "enemies": [
-      "United Cities"
+      "United Cities",
+      "Anti-Slavers",
+      "Police",
+      "Shek Kingdom",
+      "Skeletons",
+      "The Holy Nation",
+      "Traders Guild",
+      "Western Hive"
     ]
   },
   "description": "Bandits of the Eye and the Stormgap Coast who fight anyone over territory, the United Cities above all."

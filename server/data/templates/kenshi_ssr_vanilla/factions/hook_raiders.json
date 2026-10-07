@@ -21,7 +21,11 @@
     "enemies": [
       "United Cities",
       "Traders Guild",
-      "Slave Traders"
+      "Slave Traders",
+      "Northern Nobles",
+      "Southern Nobles",
+      "The Dominion",
+      "Western Nobles"
     ]
   },
   "description": "A group founded to harass the United Cities. They call themselves pirates and strike fast from boats, and with little competition nearby they raid freely across the Hook."

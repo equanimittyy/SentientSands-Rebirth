@@ -11,6 +11,9 @@
       "Skimsands",
       "The Great Desert",
       "The Hook"
+    ],
+    "enemies": [
+      "The Holy Nation"
     ]
   },
   "description": "The poor, heavily taxed peasants of the United Cities. Many live in shacks at the edges of towns and work as farmers or servants; the poorest camp in the wilds, unable to afford the towns."

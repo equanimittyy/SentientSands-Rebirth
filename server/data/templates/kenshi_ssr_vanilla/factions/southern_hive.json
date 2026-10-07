@@ -10,6 +10,14 @@
       "Royal Valley",
       "Greyshelf",
       "Stobe's Gamble"
+    ],
+    "enemies": [
+      "Shek Kingdom",
+      "Skeletons",
+      "The Holy Nation",
+      "Traders Guild",
+      "United Cities",
+      "Western Hive"
     ]
   },
   "description": "A hostile Hive in the Royal Valley and Greyshelf, south of Flats Lagoon and Mourn. Swarms of Droneguard meet anyone who enters, and the Queen of the South waits at the Hive itself. Southern Hivers have pink skin with white lines."

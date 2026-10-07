@@ -12,7 +12,9 @@
       "Fog Islands"
     ],
     "enemies": [
-      "Fogmen"
+      "Fogmen",
+      "Slave Traders",
+      "The Holy Nation"
     ]
   },
   "description": "The people of Mongrel, an outlaw town of shady characters in the middle of the Fog Islands. The way there through the Fogmen is deadly, but powerful guards protect the town."

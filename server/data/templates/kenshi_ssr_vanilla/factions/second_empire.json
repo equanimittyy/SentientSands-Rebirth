@@ -5,7 +5,15 @@
   "major": false,
   "knowledge": "limited",
   "fields": {
-    "founder": "Cat-Lon"
+    "founder": "Cat-Lon",
+    "enemies": [
+      "Anti-Slavers",
+      "Shek Kingdom",
+      "The Holy Nation",
+      "Traders Guild",
+      "United Cities",
+      "Western Hive"
+    ]
   },
   "description": "The empire that Skeletons founded in what are now the Ashlands after the Old Empire fell. It had a military order, the Hydraulic Knights under General Jang, and a skilled police force. It grew into a tyranny and collapsed long ago, but some of its old officers still hold the domes of the Ashlands."
 }

@@ -15,6 +15,18 @@
     ],
     "allies": [
       "Fogmen"
+    ],
+    "enemies": [
+      "Anti-Slavers",
+      "Northern Nobles",
+      "Shek Kingdom",
+      "Skeletons",
+      "Southern Nobles",
+      "The Holy Nation",
+      "Traders Guild",
+      "United Cities",
+      "Western Hive",
+      "Western Nobles"
     ]
   },
   "description": "Mist ghouls of the Fog Islands and Obedience, hostile to everyone except the Fogmen."

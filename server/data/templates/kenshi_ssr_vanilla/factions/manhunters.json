@@ -11,6 +11,9 @@
       "The Eye",
       "The Great Desert",
       "The Hook"
+    ],
+    "enemies": [
+      "Anti-Slavers"
     ]
   },
   "description": "Hunters of escaped slaves, stronger and better armed than the Slave Hunters. They capture vagrants and rebel farmers, and sometimes seize innocent travelers to sell to the slavers as runaways."

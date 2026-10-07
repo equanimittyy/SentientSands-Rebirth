@@ -13,6 +13,10 @@
       "Spine Canyon",
       "The Eye",
       "The Great Desert"
+    ],
+    "enemies": [
+      "Outlaw",
+      "Police"
     ]
   },
   "description": "A cult of skilled ninja highwaymen who prey on travelers they judge weak. Sand Ninja Oni leads them from the Cactus Den, a watchtower at the centre of Spine Canyon, and their bands roam the Eye and the dunes of the Great Desert. Some must pass the cult's trials, such as surviving alone in the badlands, to become lieutenants."

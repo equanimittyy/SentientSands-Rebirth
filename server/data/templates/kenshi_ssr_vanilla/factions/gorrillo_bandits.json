@@ -14,6 +14,15 @@
     "territory": [
       "Bonefields",
       "Flats Lagoon"
+    ],
+    "enemies": [
+      "Anti-Slavers",
+      "Shek Kingdom",
+      "Skeletons",
+      "The Holy Nation",
+      "Traders Guild",
+      "United Cities",
+      "Western Hive"
     ]
   },
   "description": "Bandits who hold the Old Prison, a ruin in the Bonefields, and roam the Bonefields and Flats Lagoon, hostile to all they meet. All but their leader Gorrillo, a huge man called the Boulder, fight bare-handed in gi and light armour. Gorrillo is wanted in the Shek Kingdom and in the United Cities for robbery and assault in Mourn."

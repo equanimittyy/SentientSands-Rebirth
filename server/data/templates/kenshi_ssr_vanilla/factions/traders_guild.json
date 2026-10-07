@@ -9,7 +9,9 @@
       "Trader's Edge"
     ],
     "enemies": [
-      "Anti-Slavers"
+      "Anti-Slavers",
+      "Band of Bones",
+      "Berserkers"
     ]
   },
   "description": "A guild that handles trade between towns and claims to be neutral. It is based in the United Cities and vital to its economy, yet it trades even with the Empire's enemies such as the Holy Nation. Through the Noble Circle it runs the slave camps of the United Cities."

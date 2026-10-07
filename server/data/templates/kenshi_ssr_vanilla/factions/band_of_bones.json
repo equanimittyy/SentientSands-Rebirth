@@ -18,6 +18,17 @@
       "Spider Plains",
       "Stenn Desert",
       "The Hook"
+    ],
+    "enemies": [
+      "Bloodraiders",
+      "Holy Nation Outlaws",
+      "Old Machines",
+      "Police",
+      "Shek Kingdom",
+      "Slave Traders",
+      "The Holy Nation",
+      "Traders Guild",
+      "United Cities"
     ]
   },
   "description": "A violent band of Shek bandits, mostly warriors who lost in battle but refused to give up the sword. Many of them have no horns and go hungry."

@@ -7,6 +7,16 @@
   "fields": {
     "territory": [
       "United Cities"
+    ],
+    "enemies": [
+      "Band of Bones",
+      "Berserkers",
+      "Cannibals",
+      "Dust Bandits",
+      "Grass Pirates",
+      "Outlaw",
+      "Sand Ninjas",
+      "Starving Bandits"
     ]
   },
   "description": "The law officers of the towns of the United Cities, who arrest thieves and wanted people."

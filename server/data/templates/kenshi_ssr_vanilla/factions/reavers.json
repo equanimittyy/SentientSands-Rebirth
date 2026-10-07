@@ -15,6 +15,12 @@
       "The Crags",
       "The Outlands",
       "The Pits East"
+    ],
+    "enemies": [
+      "Crab Raiders",
+      "Skeleton Bandits",
+      "Skin Bandits",
+      "United Cities"
     ]
   },
   "description": "Bandits led by Valamon who believe they should rule instead of the United Cities. They capture their targets and force them into their ranks, to prove themselves in battle or die."

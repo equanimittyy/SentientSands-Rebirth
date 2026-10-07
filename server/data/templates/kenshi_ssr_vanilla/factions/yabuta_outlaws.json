@@ -5,7 +5,16 @@
   "major": false,
   "knowledge": "limited",
   "fields": {
-    "leader": "Yabuta Chief"
+    "leader": "Yabuta Chief",
+    "enemies": [
+      "Anti-Slavers",
+      "Shek Kingdom",
+      "Skeletons",
+      "The Holy Nation",
+      "Traders Guild",
+      "United Cities",
+      "Western Hive"
+    ]
   },
   "description": "Outlaws who bear the name of Yabuta of the Sands, though he is not one of them. The Yabuta Chief leads them from Fort Yabuta, the former Fort Simion in Sinkuun. They are hostile to nearly everyone, claim the desert as their own, and promise to paint the sands with the blood of the weak."
 }

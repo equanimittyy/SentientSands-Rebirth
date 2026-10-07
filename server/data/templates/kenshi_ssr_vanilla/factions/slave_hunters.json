@@ -9,6 +9,9 @@
       "Heng",
       "The Great Desert",
       "The Hook"
+    ],
+    "enemies": [
+      "Anti-Slavers"
     ]
   },
   "description": "Hunters who recapture escaped slaves and sell them, like the Manhunters but weaker and worse equipped. They roam the Hook, Heng, and the Great Desert, catching starving vagrants and rebel farmers, and sometimes attack innocents to sell them as slaves. They haul anyone they find unconscious off into slavery."

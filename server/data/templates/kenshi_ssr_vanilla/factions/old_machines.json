@@ -7,6 +7,16 @@
   "fields": {
     "bases": [
       "Spider Factory"
+    ],
+    "enemies": [
+      "Anti-Slavers",
+      "Band of Bones",
+      "Berserkers",
+      "Shek Kingdom",
+      "The Holy Nation",
+      "Traders Guild",
+      "United Cities",
+      "Western Hive"
     ]
   },
   "description": "Old robots that roam the deadliest ruined lands and attack nearly everyone, though they leave the Skeleton Legion in peace. They include Iron Spiders, sniper bots, Cleanser Units and broken Skeletons. On the Forbidden Isle, the Spider Foreman runs their Spider Factory. Their Skeletons hold the Dead Fishing Village in Cheaters Run and arrest anyone who enters."

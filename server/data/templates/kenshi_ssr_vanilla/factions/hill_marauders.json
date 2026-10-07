@@ -14,7 +14,14 @@
     ],
     "enemies": [
       "United Cities",
-      "Police"
+      "Police",
+      "Anti-Slavers",
+      "Deadcat",
+      "Fisher",
+      "Northern Nobles",
+      "Outlaw",
+      "Southern Nobles",
+      "Western Nobles"
     ]
   },
   "description": "Bandits of the Border Zone. They demand a fee from anyone they find on their land and leave in peace only when it is paid."

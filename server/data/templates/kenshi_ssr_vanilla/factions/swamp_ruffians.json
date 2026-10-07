@@ -15,7 +15,14 @@
     ],
     "enemies": [
       "United Cities",
-      "Police"
+      "Police",
+      "Anti-Slavers",
+      "Deadcat",
+      "Fisher",
+      "Northern Nobles",
+      "Outlaw",
+      "Southern Nobles",
+      "Western Nobles"
     ]
   },
   "description": "Outcast bandits of the Swamp and the South Wetlands. They compete with many other gangs for travelers and unguarded shops, and they take a share of the drug trade."

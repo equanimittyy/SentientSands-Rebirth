@@ -11,6 +11,10 @@
       "The Eye",
       "Grey Desert",
       "Spine Canyon"
+    ],
+    "enemies": [
+      "Band of Bones",
+      "Berserkers"
     ]
   },
   "description": "Bandits who roam the Eye, the Grey Desert, and Spine Canyon. They make their home in Spine Canyon, where they live in temporary camps. Both Greenlanders and Shek are among them, and their armour and clothes are dyed in the same colours as the Reavers'."

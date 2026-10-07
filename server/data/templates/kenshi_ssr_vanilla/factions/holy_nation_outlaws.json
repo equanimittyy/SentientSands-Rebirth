@@ -8,6 +8,11 @@
     "bases": [
       "The Hub",
       "Rebel Base"
+    ],
+    "enemies": [
+      "Band of Bones",
+      "Berserkers",
+      "The Holy Nation"
     ]
   },
   "description": "Bandits and criminals on the run from the Holy Nation, who wander the wilds in small gangs. The Hub and the Rebel Base are nominally theirs."

@@ -13,6 +13,14 @@
       "Ashlands",
       "Sonorous Dark",
       "The Pits"
+    ],
+    "enemies": [
+      "Anti-Slavers",
+      "Shek Kingdom",
+      "The Holy Nation",
+      "Traders Guild",
+      "United Cities",
+      "Western Hive"
     ]
   },
   "description": "Skeletons whose roots lie in the Second Empire, most of them thralls. They roam the Ashlands, the Sonorous Dark, and the Pits, and are hostile to nearly everyone. Their watchbots man the harpoon turrets of Barrier Tower and Sniper Tower, which guard the ways into the Ashlands."

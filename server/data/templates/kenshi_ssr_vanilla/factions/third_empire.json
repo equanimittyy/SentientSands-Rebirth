@@ -21,6 +21,18 @@
       "Skeleton Legion",
       "Skeleton Bandits",
       "The Scorched Ones"
+    ],
+    "enemies": [
+      "Anti-Slavers",
+      "Northern Nobles",
+      "Shek Kingdom",
+      "Skeletons",
+      "Southern Nobles",
+      "The Holy Nation",
+      "Traders Guild",
+      "United Cities",
+      "Western Hive",
+      "Western Nobles"
     ]
   },
   "description": "An army led by a madman, held back for hundreds of years and eager for war to swell its numbers. It wants to conquer and enslave the whole land, and it carries on much of the Second Empire."

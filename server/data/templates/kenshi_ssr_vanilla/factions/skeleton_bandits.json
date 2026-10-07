@@ -11,6 +11,11 @@
       "Stobe's Garden",
       "The Crags",
       "The Pits"
+    ],
+    "enemies": [
+      "Crab Raiders",
+      "Reavers",
+      "United Cities"
     ]
   },
   "description": "Bandits of the far southeast, mostly humans in Skeleton masks who call themselves Skeletons. Their leader is Elder, a Skeleton. They revere Stobe as a deity."
