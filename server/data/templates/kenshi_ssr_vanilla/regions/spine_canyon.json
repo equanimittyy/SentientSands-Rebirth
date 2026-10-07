@@ -12,11 +12,11 @@
     "hazards": [
       "dust storms"
     ],
-    "neighbours": [
-      "Bast",
-      "Skimsands",
-      "The Great Desert"
-    ]
+    "neighbours": {
+      "Bast": "north",
+      "Skimsands": "southwest",
+      "The Great Desert": "northeast"
+    }
   },
   "description": "Spine Canyon is a long range of rocky plateaus dividing the Skimsands from the Great Desert. Both the Bloodraiders and the Sand Ninjas make their home there. The Sand Ninjas keep their hideout, the Cactus Den, in the middle of the canyon, where their leader Sand Ninja Oni lives, while the Bloodraiders live in temporary camps. Bonedog packs hunt at night."
 }

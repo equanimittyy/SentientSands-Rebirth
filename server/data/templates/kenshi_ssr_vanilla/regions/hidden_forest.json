@@ -13,13 +13,13 @@
       "Goat",
       "River Raptor"
     ],
-    "neighbours": [
-      "Arm of Okran",
-      "Cannibal Plains",
-      "Floodlands",
-      "Northern Coast",
-      "Wend"
-    ]
+    "neighbours": {
+      "Arm of Okran": "southeast",
+      "Cannibal Plains": "northwest",
+      "Floodlands": "west",
+      "Northern Coast": "northeast",
+      "Wend": "south"
+    }
   },
   "description": "The Hidden Forest is a land of sparse, rocky woods beyond the Holy Nation's borders, between the Arm of Okran, Wend, the Floodlands, the Cannibal Plains, and the Northern Coast. Flotsam Village, home of the Flotsam Ninjas and their leader Moll, lies there, north of Rebirth and west of World's End. Cannibals raid the forest often, and Cannibal Hunters camp and patrol there. Nomad goatherds also camp in the woods, water is plentiful, and bonedogs and river raptors roam."
 }

@@ -9,10 +9,10 @@
     "animals": [
       "Wild Bull"
     ],
-    "neighbours": [
-      "Purple Sands",
-      "The Shrieking Forest"
-    ]
+    "neighbours": {
+      "Purple Sands": "northeast",
+      "The Shrieking Forest": "southeast"
+    }
   },
   "description": "Berserker Country is a barren land of red rock between the Shrieking Forest and the Purple Sands, named for the Berserkers who roam it. These rogue Shek warriors clash there with cannibal raiders, and herds of wild bulls wander the land. Little of use can be found there, and inactive Iron Spiders line its coast."
 }

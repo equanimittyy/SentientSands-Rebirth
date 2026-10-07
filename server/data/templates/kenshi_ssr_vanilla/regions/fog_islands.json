@@ -7,11 +7,11 @@
       "Holy Nation Outlaws",
       "Mongrel"
     ],
-    "neighbours": [
-      "Dreg",
-      "Obedience",
-      "Okran's Gulf"
-    ]
+    "neighbours": {
+      "Dreg": "southwest",
+      "Obedience": "north",
+      "Okran's Gulf": "east"
+    }
   },
   "description": "The Fog Islands are valleys under a low, lasting fog, bordering Dreg, Okran's Gulf, and Obedience, and strewn with huge metal scraps of a forgotten age. Hordes of Fogmen, savage Hivers led by Fog Princes, rule them and use the fog to seize travelers and carry them off to be eaten. Mongrel, a free outlaw town the Fogmen have never overrun, stands in the middle. Only the desperate come here, mostly refugees from the Holy Nation who hope to lose their pursuers among the Fogmen."
 }

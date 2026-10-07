@@ -25,9 +25,14 @@ def describe_origin(origin, current):
     return "Same as the current faction." if origin == current else origin
 
 def describe_record(record, kind=None):
-    details = "; ".join([*([kind] if kind else []), *(f"{key}: {', '.join(value) if isinstance(value, list) else value}" for key, value in record.get("fields", {}).items())])
+    details = "; ".join([*([kind] if kind else []), *(f"{key}: {_fact_text(value)}" for key, value in record.get("fields", {}).items())])
     text = f"{record['name']} ({details})" if details else record["name"]
     return f"{text}: {record['description']}" if record.get("description") else text
+
+def _fact_text(value):
+    if isinstance(value, dict):
+        return ", ".join(f"{name} to the {direction}" for name, direction in value.items())
+    return ", ".join(value) if isinstance(value, list) else value
 
 def find_named(records, name):
     wanted = str(name).strip().lower()

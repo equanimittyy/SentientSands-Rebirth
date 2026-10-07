@@ -21,16 +21,16 @@
     "hazards": [
       "acidic water"
     ],
-    "neighbours": [
-      "Flats Lagoon",
-      "Greyshelf",
-      "Sniper Valley",
-      "Sonorous Dark",
-      "Stobe's Garden",
-      "The Crags",
-      "The Unwanted Zone",
-      "Venge"
-    ]
+    "neighbours": {
+      "Flats Lagoon": "west",
+      "Greyshelf": "southwest",
+      "Sniper Valley": "southeast",
+      "Sonorous Dark": "south",
+      "Stobe's Garden": "east",
+      "The Crags": "east",
+      "The Unwanted Zone": "northeast",
+      "Venge": "northwest"
+    }
   },
   "description": "The Anti-Slavers make their home in Stobe's Gamble, and their leader Tinfist lives in the mountaintop town of Spring. Nothing grows, the water is acidic, and ash falls, yet old ruins abound, among them the lab where King Gorillo nests and a Blackshifter drug farm guarded by security spiders. Swarms of land bats, black gorillos, and Southern Hive patrols roam, along with Karate Drifters, Skeleton Bandits, and Crab Raiders."
 }

@@ -15,13 +15,13 @@
       "acidic water",
       "acid rain"
     ],
-    "neighbours": [
-      "Stobe's Gamble",
-      "Stobe's Garden",
-      "Stormgap Coast",
-      "The Outlands",
-      "Venge"
-    ]
+    "neighbours": {
+      "Stobe's Gamble": "southwest",
+      "Stobe's Garden": "southeast",
+      "Stormgap Coast": "north",
+      "The Outlands": "northeast",
+      "Venge": "west"
+    }
   },
   "description": "The Unwanted Zone lies between Stobe's Gamble and the Outlands, and travelers between the two do well to go around it. Beak Things and crabs crowd the land and often fight one another, and their nests and those of swamp raptors are everywhere. The water is acidic, and acid rain falls."
 }

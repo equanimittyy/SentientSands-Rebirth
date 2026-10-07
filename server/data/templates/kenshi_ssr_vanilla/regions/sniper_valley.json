@@ -14,12 +14,12 @@
     "hazards": [
       "acidic water"
     ],
-    "neighbours": [
-      "Sonorous Dark",
-      "Stobe's Gamble",
-      "The Crags",
-      "The Pits"
-    ]
+    "neighbours": {
+      "Sonorous Dark": "south",
+      "Stobe's Gamble": "northwest",
+      "The Crags": "northeast",
+      "The Pits": "east"
+    }
   },
   "description": "Sniper Valley is a corner of the far southeast, close to the Ashlands. Unseen sniper robots shoot at those who pass. Nothing grows, the water is acidic, and black ash falls. Black gorillos, goats, scavengers, and Crab Raider scouts wander past an old supply outpost and an empty police barracks."
 }

@@ -5,13 +5,13 @@
     "animals": [
       "Iron Spider"
     ],
-    "neighbours": [
-      "Dreg",
-      "Floodlands",
-      "Fog Islands",
-      "Okran's Gulf",
-      "The Shrieking Forest"
-    ]
+    "neighbours": {
+      "Dreg": "southwest",
+      "Floodlands": "northeast",
+      "Fog Islands": "south",
+      "Okran's Gulf": "southeast",
+      "The Shrieking Forest": "northwest"
+    }
   },
   "description": "Obedience is a dark, sunken quarry in the north of the Fog Islands, still hung with old scaffolding, and nothing grows on its solid metal ground. Around a lake that looks like ice lie the heads and upper bodies of giant Skeletons. Skeletons say these behemoths lost their purpose after the war, that men came to fear what they had built, and that the giants walked into the pit without resisting. Iron Spiders, broken Skeletons, and an ancient lab remain there."
 }

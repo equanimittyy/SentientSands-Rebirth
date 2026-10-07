@@ -21,14 +21,14 @@
     "hazards": [
       "acid rain"
     ],
-    "neighbours": [
-      "Forbidden Isle",
-      "Gut",
-      "The Eye",
-      "The Outlands",
-      "The Unwanted Zone",
-      "Venge"
-    ]
+    "neighbours": {
+      "Forbidden Isle": "east",
+      "Gut": "northwest",
+      "The Eye": "west",
+      "The Outlands": "southeast",
+      "The Unwanted Zone": "south",
+      "Venge": "southwest"
+    }
   },
   "description": "The Stormgap Coast is United Cities land on the frontier that divides the Empire from the wild southeast and the Reavers of the Outlands. Lady Tsugi governs the town of Brink, which lives on supplies from Eyesocket, a slave camp run by Slave Master Grande. A small farming village and the village of the Preacher's cult also stand here. Grass Pirates, Rebel Farmers, and Beak Things roam the wilds, and acid rain sometimes falls."
 }

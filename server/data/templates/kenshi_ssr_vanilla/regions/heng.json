@@ -26,13 +26,13 @@
     "hazards": [
       "dust storms"
     ],
-    "neighbours": [
-      "Gut",
-      "Howler Maze",
-      "Skimsands",
-      "The Eye",
-      "The Great Desert"
-    ]
+    "neighbours": {
+      "Gut": "south",
+      "Howler Maze": "southeast",
+      "Skimsands": "west",
+      "The Eye": "southwest",
+      "The Great Desert": "north"
+    }
   },
   "description": "Heng is a dry canyon country at the heart of the United Cities' trade, bordering the Great Desert, Skimsands, Gut, the Howler Maze, and the Eye. Its city of Heng, seat of Lord Yoshinaga, stands on a plateau beside Trader's Edge, home of the Traders Guild, and slave camps lie nearby. Slave and trade caravans, mercenaries, bounty hunters, manhunters, rebel farmers, and vagrants crowd its roads. Travelers keep spare cats for bribes there, and skimmers hunt the sands."
 }

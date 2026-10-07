@@ -4,7 +4,7 @@ import unittest
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
 
-from chat import chat_prompt
+from chat import chat_prompt, prompts
 
 
 class HistoryWindowTest(unittest.TestCase):
@@ -273,6 +273,12 @@ class ChatMessagesTest(unittest.TestCase):
         history += [("Drifter: again", None), ("Beep: Again?", BEEP)]
         second = chat_prompt.chat_messages("S", chat_prompt.history_turns(chat_prompt.history_window(history, 20), BEEP), "scene 2")
         self.assertEqual(second[:len(first) - 1], first[:-1])
+
+
+class DescribeRecordTest(unittest.TestCase):
+    def test_a_neighbour_reads_with_its_direction(self):
+        vain = {"name": "Vain", "fields": {"hazards": ["acid rain"], "neighbours": {"Stenn Desert": "south", "Okran's Gulf": "east"}}, "description": "Hive lands."}
+        self.assertEqual(prompts.describe_record(vain, "region"), "Vain (region; hazards: acid rain; neighbours: Stenn Desert to the south, Okran's Gulf to the east): Hive lands.")
 
 
 if __name__ == "__main__":

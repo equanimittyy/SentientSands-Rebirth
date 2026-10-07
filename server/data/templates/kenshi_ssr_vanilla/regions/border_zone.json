@@ -19,16 +19,16 @@
     "hazards": [
       "dust storms"
     ],
-    "neighbours": [
-      "Okran's Gulf",
-      "Okran's Pride",
-      "Shem",
-      "Skinner's Roam",
-      "Spider Plains",
-      "Stenn Desert",
-      "The Swamp",
-      "Vain"
-    ]
+    "neighbours": {
+      "Okran's Gulf": "north",
+      "Okran's Pride": "north",
+      "Shem": "east",
+      "Skinner's Roam": "northeast",
+      "Spider Plains": "southwest",
+      "Stenn Desert": "west",
+      "The Swamp": "south",
+      "Vain": "west"
+    }
   },
   "description": "The Border Zone is a dry, lawless stretch between the Holy Nation and the Shek Kingdom, east of Vain and below Okran's Pride, and the Holy Nation's old settlements there are in ruins. The Shek hold the canyon town of Squin, the Tech Hunters keep a waystation in the southeast, and outlaws squat in the Hub, a ruined Holy Nation town. Dust bandits, based at the Dust King's tower, and mobs of starving bandits prey on travelers and each other. Slave hunters, nomads, and bonedog packs roam there too."
 }

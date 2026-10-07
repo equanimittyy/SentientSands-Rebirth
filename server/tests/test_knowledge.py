@@ -86,9 +86,9 @@ class LinkTest(unittest.TestCase):
 
 class PlaceTest(unittest.TestCase):
     WORLD = [
-        record("region", "Border Zone", {"neighbours": ["Stenn Desert"]}, knowledge="limited"),
+        record("region", "Border Zone", {"neighbours": {"Stenn Desert": "west"}}, knowledge="limited"),
         record("region", "Stenn Desert", {"factions": ["Hungry Bandits"]}, knowledge="limited"),
-        record("region", "Vain", {"neighbours": ["Stenn Desert"]}, knowledge="limited"),
+        record("region", "Vain", {"neighbours": {"Stenn Desert": "south"}}, knowledge="limited"),
         record("location", "The Hub", {"zone": ["Border Zone"], "owner": ["Holy Nation Outlaws"]}, knowledge="limited"),
         record("location", "Admag", {"zone": ["Stenn Desert"]}, knowledge="limited"),
         record("faction", "Holy Nation Outlaws", knowledge="limited"),
@@ -189,7 +189,7 @@ class SecretTest(unittest.TestCase):
         return [
             record("history", "Obedience", knowledge="secret", known_by=known_by),
             record("character", "Elder", {"faction": "Skeleton Bandits"}), record("faction", "Skeleton Bandits"), record("faction", "Skeletons", {"leader": "Elder"}),
-            record("race", "Skeleton"), record("region", "Obedience Region", {"neighbours": []}),
+            record("race", "Skeleton"), record("region", "Obedience Region", {"neighbours": {}}),
         ]
 
     def test_secret_by_the_npc_its_current_faction_its_origin_faction_and_its_race(self):

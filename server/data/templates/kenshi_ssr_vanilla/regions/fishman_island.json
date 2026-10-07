@@ -11,9 +11,9 @@
     "hazards": [
       "acid rain"
     ],
-    "neighbours": [
-      "Bonefields"
-    ]
+    "neighbours": {
+      "Bonefields": "north"
+    }
   },
   "description": "Fishman Island is a small island south of the Bonefields, reached by a bridge from the north. Fishmen overrun it: they nest across the island, roam in packs of dozens, and hold the ruined town of Fish Isle, while their leader, King Gurgler, lives in an ancient lab on the southwest tip. Crabs wander the shores, water is plentiful, and acid rain falls at times. A famous sword is said to lie somewhere on the island."
 }

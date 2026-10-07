@@ -11,12 +11,12 @@
     "hazards": [
       "acid rain"
     ],
-    "neighbours": [
-      "Bonefields",
-      "Cheaters Run",
-      "Greyshelf",
-      "Sonorous Dark"
-    ]
+    "neighbours": {
+      "Bonefields": "northwest",
+      "Cheaters Run": "south",
+      "Greyshelf": "northeast",
+      "Sonorous Dark": "east"
+    }
   },
   "description": "The Royal Valley belongs to the hostile Southern Hive. Its Queen of the South lives at the Hive itself with her elite Droneguard. Hive patrols and scouts sweep the valley, and the Hive also holds a village and an armory there. Acid rain falls at times, and wild goats roam."
 }

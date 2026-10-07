@@ -9,12 +9,12 @@
       "Scavengers",
       "Tech Hunters"
     ],
-    "neighbours": [
-      "Greenbeach",
-      "Stobe's Garden",
-      "Stormgap Coast",
-      "The Unwanted Zone"
-    ]
+    "neighbours": {
+      "Greenbeach": "southeast",
+      "Stobe's Garden": "south",
+      "Stormgap Coast": "northwest",
+      "The Unwanted Zone": "southwest"
+    }
   },
   "description": "The Outlands is a rugged land beyond the frontier of the United Cities, and the home of the small Black Dog faction, whose headquarters stands west of Black Scratch. The Tech Hunters hold Black Scratch, a hilltop town built around an ancient structure and home to the Great Library. Reaver patrols are common, and those they defeat are often robbed and enslaved. The Reavers also keep a camp here, and Grass Pirates and scavengers roam."
 }

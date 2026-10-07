@@ -13,13 +13,13 @@
     "hazards": [
       "acid rain"
     ],
-    "neighbours": [
-      "Bonefields",
-      "Flats Lagoon",
-      "Royal Valley",
-      "Sonorous Dark",
-      "Stobe's Gamble"
-    ]
+    "neighbours": {
+      "Bonefields": "west",
+      "Flats Lagoon": "northwest",
+      "Royal Valley": "southwest",
+      "Sonorous Dark": "southeast",
+      "Stobe's Gamble": "northeast"
+    }
   },
   "description": "Greyshelf is a barren highland in the southeast, rising above Stobe's Gamble and walled off from the Royal Valley by mountains. The Southern Hive holds it, with a hive village, old armories it has claimed, and patrols of Droneguard led by Princes, and the Hive's heartland lies to the south. Gorillos and black gorillos are common, nothing grows, there is no water, and acid rain falls at times."
 }

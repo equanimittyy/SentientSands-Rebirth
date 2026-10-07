@@ -100,6 +100,13 @@ class ValidateTest(TemplateTestCase):
         self.write("base", "factions/holy_nation.json", dict(HOLY_NATION, fields={"leader": ["Phoenix"], "enemies": "Shek Kingdom"}))
         self.assertEqual([error["message"] for error in self.problems()[0]], ["The fact leader must be text.", "The fact enemies must be a list of text."])
 
+    def test_each_neighbour_needs_a_direction(self):
+        for neighbours in (["Stenn Desert"], {"Stenn Desert": ""}, {"Stenn Desert": "up"}):
+            self.write("base", "regions/vain.json", {"name": "Vain", "fields": {"neighbours": neighbours}})
+            self.assertEqual([error["message"] for error in self.problems()[0]], [
+                "The fact neighbours must give each region one of the directions north, northeast, east, southeast, south, southwest, west, northwest.",
+            ])
+
     def test_an_entity_description_must_be_text(self):
         self.write("base", "locations/hub.json", {"name": "The Hub", "description": {"text": "Bars."}})
         self.assertEqual(self.fields(), [["locations", "hub", "description"]])
@@ -127,9 +134,19 @@ class ValidateTest(TemplateTestCase):
         ])
 
     def test_a_neighbour_that_names_no_region_is_a_warning(self):
-        self.write("base", "regions/vain.json", {"name": "Vain", "fields": {"neighbours": ["the Stenn Deserts", "Nowhere"]}})
+        self.write("base", "regions/vain.json", {"name": "Vain", "fields": {"neighbours": {"the Stenn Deserts": "south", "Nowhere": "east"}}})
         self.write("base", "regions/stenn_desert.json", {"name": "Stenn Desert"})
         self.assertEqual([warning["message"] for warning in self.problems()[1]], ["The neighbour Nowhere of Vain names no region."])
+
+    def test_the_two_sides_of_a_neighbour_pair_must_be_opposite(self):
+        self.write("base", "regions/vain.json", {"name": "Vain", "fields": {"neighbours": {"Stenn Desert": "south"}}})
+        self.write("base", "regions/stenn_desert.json", {"name": "Stenn Desert", "aliases": ["Stenn"], "fields": {"neighbours": {"Vain": "north"}}})
+        self.assertEqual(self.problems(), ([], []))
+        self.write("base", "regions/stenn_desert.json", {"name": "Stenn Desert", "aliases": ["Stenn"], "fields": {"neighbours": {"the Vain": "northwest"}}})
+        self.assertEqual([warning["message"] for warning in self.problems()[1]], [
+            "Stenn Desert puts the Vain to the northwest, so the Vain must put Stenn Desert to the southeast, not the south.",
+            "Vain puts Stenn Desert to the south, so Stenn Desert must put Vain to the north, not the northwest.",
+        ])
 
     def test_the_knowledge_of_a_character_goes_beside_its_profile(self):
         self.write("base", "characters/beep.json", {"game_id": "x", "knowledge": "global", "profile": {"Name": "Beep"}})

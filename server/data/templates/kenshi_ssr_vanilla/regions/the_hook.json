@@ -23,12 +23,12 @@
     "hazards": [
       "dust storms"
     ],
-    "neighbours": [
-      "Bonefields",
-      "Shun",
-      "South Wetlands",
-      "The Crater"
-    ]
+    "neighbours": {
+      "Bonefields": "east",
+      "Shun": "northwest",
+      "South Wetlands": "northeast",
+      "The Crater": "northwest"
+    }
   },
   "description": "The Hook is a stretch of the south coast and, with the Bonefields, one of the two southern lands of the United Cities. Lady Merin, one of the Noble Circle, lives in Drifter's Last, a farming town often raided by outlaw farmers, and the Empire also holds Clownsteady. Slave Mistress Grace runs Slave Farm South, and the Manhunters keep their only base here, so anyone who falls risks being enslaved. Band of Bones raiders and bonedog packs also roam."
 }

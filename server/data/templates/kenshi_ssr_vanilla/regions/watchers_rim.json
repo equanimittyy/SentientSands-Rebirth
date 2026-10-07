@@ -6,11 +6,11 @@
       "Bounty Hunters",
       "Mercenary Guild"
     ],
-    "neighbours": [
-      "Arach",
-      "Shun",
-      "Spider Plains"
-    ]
+    "neighbours": {
+      "Arach": "south",
+      "Shun": "south",
+      "Spider Plains": "east"
+    }
   },
   "description": "Watcher's Rim is the ring of mountains around Arach, the land of the Bugmaster. Bounty hunters and mercenaries camp in its heights, many of them after the Bugmaster's head. No one lives there, nothing grows, and there is no water to draw."
 }

@@ -22,8 +22,10 @@ const FACTS = {
   factions: { leader: "text", capital: "text", founder: "text", nobles: "list", bases: "list", territory: "list", allies: "list", enemies: "list" },
   races: { type: "text", homeland: "text", faction: "text" },
   locations: { type: "text", zone: "list", owner: "list" },
-  regions: { animals: "list", factions: "list", hazards: "list", neighbours: "list" },
+  regions: { animals: "list", factions: "list", hazards: "list", neighbours: "directions" },
 };
+// Mirrors DIRECTIONS in server/store/world_template.py.
+const DIRECTIONS = ["north", "northeast", "east", "southeast", "south", "southwest", "west", "northwest"];
 const TIERS = { global: "Global", limited: "Limited", secret: "Secret" };
 // Mirrors DEFAULTS in server/chat/knowledge.py.
 const DEFAULT_TIERS = { character: "limited", locations: "limited", regions: "limited" };
@@ -83,7 +85,9 @@ function rest(object, keys) {
 
 // "original" keeps a value's JSON type, such as a number in a profile, when the player leaves the row as it was.
 function rows(object) {
-  return Object.entries(object ?? {}).map(([key, value]) => ({ key, value: Array.isArray(value) ? value.join(", ") : String(value), list: Array.isArray(value), original: value }));
+  return Object.entries(object ?? {}).map(([key, value]) => (value !== null && typeof value === "object" && !Array.isArray(value)
+    ? { key, value: "", list: false, directions: Object.entries(value).map(([name, direction]) => ({ name, direction })) }
+    : { key, value: Array.isArray(value) ? value.join(", ") : String(value), list: Array.isArray(value), original: value }));
 }
 
 function fromRows(list, skipEmpty = []) {
@@ -91,7 +95,8 @@ function fromRows(list, skipEmpty = []) {
   for (const row of list) {
     const key = row.key.trim();
     if (!key || (skipEmpty.includes(key) && row.value.trim() === "")) continue;
-    if (row.list) result[key] = commaList(row.value);
+    if (row.directions) result[key] = Object.fromEntries(row.directions.filter((pair) => pair.name.trim()).map((pair) => [pair.name.trim(), pair.direction]));
+    else if (row.list) result[key] = commaList(row.value);
     else result[key] = row.original !== undefined && row.value === String(row.original) ? row.original : row.value;
   }
   return result;
@@ -288,16 +293,32 @@ function removeButton(list, index, label) {
 
 function factsEditor(list, path, categories) {
   const free = Object.keys(categories).filter((key) => !list.some((row) => row.key === key));
-  const add = addButton("Add fact", () => list.push({ key: free[0], value: "", list: categories[free[0]] === "list" }));
+  const add = addButton("Add fact", () => list.push({ key: free[0], value: "", list: categories[free[0]] === "list", directions: categories[free[0]] === "directions" ? [] : undefined }));
   add.disabled ||= free.length === 0;
   return el("fieldset", {},
     el("legend", {}, "Facts"),
     el("p", { className: "hint" }, "Short facts about the entry. Each fact has a predefined type."),
     ...list.map((row, index) => el("div", { className: "inline row" },
       factCategory(row, free, categories),
-      control("input", row, "value", [...path, index, "value"], { placeholder: row.list ? "Values, separated by commas" : "Value", label: "Fact value" }),
+      row.directions
+        ? directionsEditor(row.directions, [...path, index])
+        : control("input", row, "value", [...path, index, "value"], { placeholder: row.list ? "Values, separated by commas" : "Value", label: "Fact value" }),
       removeButton(list, index, "Delete the fact"))),
     add);
+}
+
+function directionsEditor(pairs, path) {
+  return el("div", { className: "directions" },
+    ...pairs.map((pair, index) => {
+      const direction = control("select", pair, "direction", [...path, "directions", index, "direction"], { label: "Direction" });
+      direction.append(new Option("Unknown", ""), ...DIRECTIONS.map((name) => new Option(name[0].toUpperCase() + name.slice(1), name)));
+      direction.value = pair.direction;
+      return el("div", { className: "inline row" },
+        direction,
+        control("input", pair, "name", [...path, "directions", index, "name"], { placeholder: "Region", label: "Neighbour" }),
+        removeButton(pairs, index, "Delete the neighbour"));
+    }),
+    addButton("Add neighbour", () => pairs.push({ name: "", direction: "" })));
 }
 
 function factCategory(row, free, categories) {
@@ -307,6 +328,7 @@ function factCategory(row, free, categories) {
     onchange: (event) => {
       row.key = event.target.value;
       row.list = categories[row.key] === "list";
+      row.directions = categories[row.key] === "directions" ? row.directions ?? [] : undefined;
       changed();
       renderForm();
     },

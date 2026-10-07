@@ -10,12 +10,12 @@
     "hazards": [
       "acid rain"
     ],
-    "neighbours": [
-      "Bonefields",
-      "High Bonefields",
-      "Shem",
-      "The Swamp"
-    ]
+    "neighbours": {
+      "Bonefields": "southeast",
+      "High Bonefields": "south",
+      "Shem": "north",
+      "The Swamp": "west"
+    }
   },
   "description": "The Burning Forest is a marshy woodland bordering the Swamp, the South Wetlands, Shem, and the Bonefields, and it takes its name from the acid rain that often falls there. Blood spiders infest it, sometimes in swarms of young, and swamp raptors and swamp turtles live there too. Water is plentiful, and the forest hides an ancient lab guarded by security spiders and a ruined United Cities farm."
 }

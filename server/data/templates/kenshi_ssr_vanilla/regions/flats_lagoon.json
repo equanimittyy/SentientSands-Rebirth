@@ -16,13 +16,13 @@
       "Garru",
       "Land Bat"
     ],
-    "neighbours": [
-      "Bonefields",
-      "Greyshelf",
-      "Shem",
-      "Stobe's Gamble",
-      "Venge"
-    ]
+    "neighbours": {
+      "Bonefields": "southwest",
+      "Greyshelf": "southeast",
+      "Shem": "northwest",
+      "Stobe's Gamble": "east",
+      "Venge": "northeast"
+    }
   },
   "description": "Flats Lagoon is a region in the southeast, bordering the Bonefields, Shem, Venge, and Greyshelf, and it is safer than most lands around it. Its one town, also named Flats Lagoon, belongs to the Tech Hunters, and the Ashlands lie to the southeast, the greatest expedition a tech hunter can dream of. Western Hive merchant caravans and nomads often pass through. Beak things, Boneyard Wolves, land bats, Gorillo bandits, and Black Dog extortionists roam the flats."
 }

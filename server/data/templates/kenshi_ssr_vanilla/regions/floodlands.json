@@ -8,16 +8,16 @@
     "animals": [
       "Iron Spider"
     ],
-    "neighbours": [
-      "Cannibal Plains",
-      "Hidden Forest",
-      "Obedience",
-      "Okran's Gulf",
-      "Purple Sands",
-      "Rebirth",
-      "The Shrieking Forest",
-      "Wend"
-    ]
+    "neighbours": {
+      "Cannibal Plains": "north",
+      "Hidden Forest": "east",
+      "Obedience": "southwest",
+      "Okran's Gulf": "south",
+      "Purple Sands": "northwest",
+      "Rebirth": "southeast",
+      "The Shrieking Forest": "west",
+      "Wend": "southeast"
+    }
   },
   "description": "The Floodlands are a drowned, dead marsh between the Cannibal Plains and Okran's Gulf, under rain that never ends. It is a remnant of the old world, where wonders of technology were once made in vast numbers, and its labs and towers now stand in ruins. Nothing grows there, and only Iron Spiders and Skeletons roam it. The Skeleton Burn keeps a lonely tower in the north."
 }

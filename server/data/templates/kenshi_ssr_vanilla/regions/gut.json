@@ -5,12 +5,12 @@
     "animals": [
       "Beak Thing"
     ],
-    "neighbours": [
-      "Heng",
-      "Howler Maze",
-      "Stormgap Coast",
-      "The Eye"
-    ]
+    "neighbours": {
+      "Heng": "north",
+      "Howler Maze": "northeast",
+      "Stormgap Coast": "southeast",
+      "The Eye": "west"
+    }
   },
   "description": "Gut is a land of sky-blue sands and iron trees bordering Heng, the Howler Maze, the Eye, and the Stormgap Coast. Beak things nest across it in great numbers, which makes it extremely dangerous to cross. On a small island stands a lonely camp where the wanted criminal No-Face lives and attacks anyone who comes ashore."
 }

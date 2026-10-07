@@ -16,17 +16,17 @@
     "hazards": [
       "dust storms"
     ],
-    "neighbours": [
-      "Arach",
-      "Border Zone",
-      "Shun",
-      "Stenn Desert",
-      "The Crater",
-      "The Grid",
-      "The Swamp",
-      "Vain",
-      "Watcher's Rim"
-    ]
+    "neighbours": {
+      "Arach": "southwest",
+      "Border Zone": "northeast",
+      "Shun": "southwest",
+      "Stenn Desert": "north",
+      "The Crater": "south",
+      "The Grid": "southeast",
+      "The Swamp": "east",
+      "Vain": "north",
+      "Watcher's Rim": "west"
+    }
   },
   "description": "The Spider Plains are wide, hilly fields overrun by skin spiders, which eat the fallen. The Shek Kingdom holds Last Stand, a walled fortress with a bar and shops, where older Shek prepare to die with honor fighting the Bugmaster of neighboring Arach. The hostile Berserkers keep a ruined village here under their leader Ghost, and bands of Kral's Chosen and the Band of Bones also roam."
 }

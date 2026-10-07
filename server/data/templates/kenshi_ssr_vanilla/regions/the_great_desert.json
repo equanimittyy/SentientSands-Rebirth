@@ -27,13 +27,13 @@
     "hazards": [
       "dust storms"
     ],
-    "neighbours": [
-      "Bast",
-      "Heng",
-      "Sinkuun",
-      "Skimsands",
-      "Spine Canyon"
-    ]
+    "neighbours": {
+      "Bast": "west",
+      "Heng": "south",
+      "Sinkuun": "northwest",
+      "Skimsands": "southwest",
+      "Spine Canyon": "southwest"
+    }
   },
   "description": "The Great Desert, a vast, dry, and mostly empty sea of dunes in the northeast of the continent, belongs to the United Cities. Emperor Tengu rules from the capital, Heft, while Lady Sanda holds Bark and Lord Inaba holds Stoat; Sho-Battai is the fourth town. Slavers keep work camps and markets, and Rebel Farmers, Manhunters, Sand Ninjas, starving vagrants, and skimmers roam. Water is scarce and farming poor, but metal and stone abound."
 }

@@ -24,8 +24,9 @@ FACTS = {
     "factions": {"leader": str, "capital": str, "founder": str, "nobles": list, "bases": list, "territory": list, "allies": list, "enemies": list},
     "races": {"type": str, "homeland": str, "faction": str},
     "locations": {"type": str, "zone": list, "owner": list},
-    "regions": {"animals": list, "factions": list, "hazards": list, "neighbours": list},
+    "regions": {"animals": list, "factions": list, "hazards": list, "neighbours": dict},
 }
+DIRECTIONS = ("north", "northeast", "east", "southeast", "south", "southwest", "west", "northwest")
 TIERS = ("global", "limited", "secret")
 _NAME = re.compile(r"[A-Za-z0-9][A-Za-z0-9 _-]*")
 _ID = re.compile(r"[A-Za-z0-9_-]+")
@@ -121,14 +122,22 @@ def validate(template):
 
 def template_names(template):
     """The name words of the names that a known_by and a neighbour of the template can name. The server matches these
-    names by their name words, so a warning never flags a name that works, such as "the Skeletons"."""
+    names by their name words, so a warning never flags a name that works, such as "the Skeletons". Each region name
+    maps to the directions of its neighbours, so a check can compare the two sides of a pair."""
     def names(records):
         return {name_words(name) for record in records if isinstance(record, dict) for name in [record.get("name"), *_list(record.get("aliases"))] if _is_text(name)}
 
     profiles = [character.get("profile") for character in template["characters"].values() if isinstance(character, dict)]
     characters = {name_words(profile["Name"]) for profile in profiles if isinstance(profile, dict) and _is_text(profile.get("Name"))}
     entities = template["entities"]
-    return {"knowers": names(template["factions"].values()) | characters | names(entities["races"].values()), "regions": names(entities["regions"].values())}
+    regions = {name_words(name): _neighbour_directions(record) for record in entities["regions"].values() if isinstance(record, dict) for name in [record.get("name"), *_list(record.get("aliases"))] if _is_text(name)}
+    return {"knowers": names(template["factions"].values()) | characters | names(entities["races"].values()), "regions": regions}
+
+
+def _neighbour_directions(entity):
+    fields = entity.get("fields")
+    neighbours = fields.get("neighbours") if isinstance(fields, dict) else None
+    return {name_words(name): direction for name, direction in neighbours.items()} if isinstance(neighbours, dict) else {}
 
 
 def record_problems(kind, data, field, names=None):
@@ -542,10 +551,18 @@ def _check_entity(entity, field, error, warnings, names):
     _check_fields(entity.get("fields", {}), field[0], field + ["fields"], error)
     if not isinstance(entity.get("description", ""), str):
         error(field + ["description"], "The description must be text.")
-    neighbours = entity.get("fields", {}).get("neighbours", []) if isinstance(entity.get("fields"), dict) else []
-    for neighbour in neighbours if names and _is_text_list(neighbours) else []:
-        if name_words(neighbour) not in names["regions"]:
-            warnings.append({"field": field + ["fields"], "message": f"The neighbour {neighbour} of {entity.get('name', field[-1])} names no region."})
+    neighbours = entity.get("fields", {}).get("neighbours", {}) if isinstance(entity.get("fields"), dict) else {}
+    name = entity.get("name", field[-1])
+    own = {name_words(own_name) for own_name in [entity.get("name"), *_list(entity.get("aliases"))] if _is_text(own_name)}
+    for neighbour, direction in neighbours.items() if names and isinstance(neighbours, dict) else []:
+        back = names["regions"].get(name_words(neighbour))
+        if back is None:
+            warnings.append({"field": field + ["fields"], "message": f"The neighbour {neighbour} of {name} names no region."})
+            continue
+        reverse = next((back[key] for key in own if key in back), None)
+        opposite = DIRECTIONS[(DIRECTIONS.index(direction) + 4) % 8] if direction in DIRECTIONS else None
+        if opposite and reverse in DIRECTIONS and reverse != opposite:
+            warnings.append({"field": field + ["fields"], "message": f"{name} puts {neighbour} to the {direction}, so {neighbour} must put {name} to the {opposite}, not the {reverse}."})
     _check_knowledge(entity, entity.get("name") or field[-1], field, error, warnings, names)
 
 
@@ -583,6 +600,8 @@ def _check_fields(fields, kind, field, error):
             error(field, f"The fact {key} must be a list of text.")
         elif categories[key] is str and not isinstance(value, str):
             error(field, f"The fact {key} must be text.")
+        elif categories[key] is dict and not (isinstance(value, dict) and all(direction in DIRECTIONS for direction in value.values())):
+            error(field, f"The fact {key} must give each region one of the directions {', '.join(DIRECTIONS)}.")
 
 
 def _is_text(value):

@@ -146,7 +146,7 @@ class PlaceOrderTest(unittest.TestCase):
 
 
 def with_neighbours(entry):
-    neighbours = {"Stenn Desert": ["Fog Islands"], "Border Zone": ["Stenn Desert"]}.get(entry["name"]) if entry["kind"] == "region" else None
+    neighbours = {"Stenn Desert": {"Fog Islands": "north"}, "Border Zone": {"Stenn Desert": "west"}}.get(entry["name"]) if entry["kind"] == "region" else None
     return {**entry, "fields": {**entry["fields"], "neighbours": neighbours}} if neighbours else entry
 
 

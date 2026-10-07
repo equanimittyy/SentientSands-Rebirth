@@ -13,16 +13,16 @@
     "hazards": [
       "burning beams"
     ],
-    "neighbours": [
-      "Deadlands",
-      "Flats Lagoon",
-      "Grey Desert",
-      "Shem",
-      "Stobe's Gamble",
-      "Stormgap Coast",
-      "The Eye",
-      "The Unwanted Zone"
-    ]
+    "neighbours": {
+      "Deadlands": "northwest",
+      "Flats Lagoon": "southwest",
+      "Grey Desert": "north",
+      "Shem": "west",
+      "Stobe's Gamble": "southeast",
+      "Stormgap Coast": "northeast",
+      "The Eye": "north",
+      "The Unwanted Zone": "east"
+    }
   },
   "description": "Venge is a land of hot valleys and mountains where burning beams strike down from the sky by day, so travelers cross at night or shelter indoors. Skeletons say the beams come from \"the other Eye\", which is still running. Beak Things, known as gutters, come here to hunt spiders, but the worst danger is the large bands of thralls, and the Thrall Masters keep their base at the Tower of Abuse. The Scavengers, led by Gutterhead, live in an old control tower, and part of a Behemoth's remains lies near Stobe's Gamble."
 }

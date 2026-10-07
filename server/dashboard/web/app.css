@@ -984,6 +984,15 @@ input[type="search"] {
   flex: 0 0 9rem;
 }
 
+.row > .directions {
+  flex: 1;
+  min-width: 0;
+}
+
+.directions > .row:first-child {
+  margin-top: 0;
+}
+
 .subtabs {
   position: relative;
   display: flex;
