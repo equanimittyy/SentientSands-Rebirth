@@ -8,7 +8,7 @@ Kenshi has its own bounties. Police see a wanted character, bounty hunters hunt 
 
 This plan lets SSR post bounties of its own:
 
-1. Code rolls the bounty without an LLM call: a target from the loaded NPCs, a police faction that is an enemy of the target's faction, a crime, an amount, and a bonus for each skill ([section 4](#4-roll)).
+1. Code rolls the bounty without an LLM call: a target from the loaded NPCs, each of The Holy Nation, the United Cities, and the Shek Kingdom that is an enemy of the target's faction, a crime, an amount, and a bonus for each skill ([section 4](#4-roll)).
 2. The plugin puts the bounty on the target through the bounty system of the game, raises the target's skills, keeps the target's squad in the save, and marks that squad on the world map ([section 5](#5-target-and-persistence)).
 3. The bounty becomes a deed of the new kind `bounty`. The LLM writes its rumor with a prompt of its own, so NPCs gossip about it. The player can delete the deed, but cannot edit its rumor ([section 6](#6-bounty-deeds)).
 4. The game pays the reward, as for any vanilla bounty. SSR pays nothing.
@@ -42,7 +42,7 @@ The headers of KenshiLib and the game data files show these facts. The probe con
 ## 3. Flow
 
 1. The bounty timer passes, and fewer bounties are open than the setting allows ([section 7](#7-settings)). The server sends `BOUNTY_SCAN` through the pipe, and restarts the timer.
-2. The plugin lists the candidates and the police factions, and posts them to `/bounty/candidates` ([section 8](#8-plugin)).
+2. The plugin lists the candidates, and posts them to `/bounty/candidates` ([section 8](#8-plugin)).
 3. The server rolls the bounty. With no candidate, the pass ends.
 4. The server sends `PLACE_BOUNTY` with the roll.
 5. On the game thread, the plugin finds the target by the serial of its handle, applies the bounty, and posts the result to `/bounty/placed`.
@@ -59,14 +59,13 @@ The headers of KenshiLib and the game data files show these facts. The probe con
 
 ### Factions
 
-A pair of factions is eligible when the issuer is a police faction, and the template lists one of the pair in the `enemies` of the other. A police faction is a faction that has a law enforcement faction in the game (from the scan). The server finds each faction of the template by the game ID that the plugin sends.
+The Holy Nation, the United Cities, and the Shek Kingdom issue the bounties (`bounties.ISSUERS`). Each of them that the template sets against the target's faction sets the bounty with its law, at the same amount and for the same crime (`bounties.issuer_ids`). The server finds each faction of the template by the game ID that the plugin sends.
 
-1. The roll keeps each candidate whose faction has at least one eligible issuer.
+1. The roll keeps each candidate whose faction is an enemy of at least one of the three: the faction lists it in its `enemies`, or it lists the faction.
 2. It picks the target among them at random.
-3. It picks the issuer nearest to the target on the map among the eligible issuers of the target's faction: a major faction first, and another faction only when no major faction is eligible (`bounties.issuer_ids`). The distance is the number of region steps through the neighbours from the target's zone to the land of the issuer, and a tie goes at random.
 
 - The `enemies` of the template factions hold each pair whose relation in the game data is -50 or less, and, for a faction whose default relation is -50 or less, each major faction without a better relation. A vanilla faction holds only the enemies that are the same with and without UWE.
-- The nearest major faction is the local power, so a Dust Bandit in the Border Zone gets a bounty of the United Cities, and one in Stobe's Gamble a bounty of the Anti-Slavers.
+- 53 of the 106 factions of the vanilla template are an enemy of at least one of the three. The three are enemies of one another, so a member of one of them can get a bounty of the other two.
 
 ### Crime and amount
 
@@ -143,7 +142,7 @@ When the bounty ends, the plugin gives the squad back to the game: it takes the 
 The `notable` row holds the game time of the placement, and as JSON:
 
 ```json
-{"deed": "bounty", "target": {"id": "h:3051296712", "name": "Arleen", "faction": "Dust Bandits"}, "issuer": "The Holy Nation", "crime": "FARM_EATING", "amount": 1200, "place": "Stack", "expires": 23760}
+{"deed": "bounty", "target": {"id": "h:3051296712", "name": "Arleen", "faction": "Dust Bandits"}, "issuers": ["United Cities"], "crime": "FARM_EATING", "amount": 1200, "place": "Stack", "expires": 23760}
 ```
 
 - `expires` is the game time at which the game bounty ends, from `getBountyExpirationTime` at the placement.
@@ -160,7 +159,7 @@ The Deed column shows the line of the deed, with its status at the end:
 | Captured or Killed | A capture or a kill deed of the player's squad has the target as its victim |
 | Expired | The latest game time is after `expires` |
 
-For example: "The Holy Nation: 1,200 cats on Arleen of the Dust Bandits for farm eating. Open."
+For example: "United Cities: 1,200 cats on Arleen of the Dust Bandits for farm eating. Open."
 
 - The status comes from the other deeds and the game time, so the cull of a kill deed opens the bounty again.
 - The target of an open bounty counts as a known figure for the deeds, so its kill or capture by the squad makes a deed and a rumor (`_store` in `server/core/deeds.py:137`).
@@ -172,7 +171,7 @@ For example: "The Holy Nation: 1,200 cats on Arleen of the Dust Bandits for farm
 
 The rumor pass writes the rumor of a bounty deed in the next quiet period, as for the other deeds (`write_rumors`), but with `prompt_bounty_rumor.txt` (`rumors.bounty_prompt`). The call takes the `synthesis` task.
 
-- The prompt holds the player's faction, the issuer, the amount, the crime, the target with its race, sex, and faction, the place, and the allies and enemies of the target's faction.
+- The prompt holds the player's faction, the issuers, the amount, the crime, the target with its race, sex, and faction, the place, and the allies and enemies of the target's faction.
 - It asks for one or two sentences of gossip about the wanted character, which tell who pays, how much, for what, and where the target was last seen. A petty crime with a big price can read as a joke.
 - The reply is plain text, which `rumors.clean` trims, as for a deed rumor.
 - Rejected: the deed rumor prompt. A deed rumor tells the news of a deed that is done, and a bounty rumor is a call to hunt, with a price and a place.
@@ -200,8 +199,8 @@ The rumor pass writes the rumor of a bounty deed in the next quiet period, as fo
 | Message | Direction | Content |
 |---|---|---|
 | `BOUNTY_SCAN` | Pipe, server to plugin | None |
-| `/bounty/candidates` | HTTP, plugin to server | The game IDs of the police factions, and for each candidate: `npc_id`, name, faction, faction game ID, and place |
-| `PLACE_BOUNTY` | Pipe, server to plugin | JSON: the serial of the target, the game ID of the issuer, the crime index, the amount, and the 16 skill bonuses, each with its `StatsEnumerated` index |
+| `/bounty/candidates` | HTTP, plugin to server | For each candidate: `npc_id`, name, faction, faction game ID, and place |
+| `PLACE_BOUNTY` | Pipe, server to plugin | JSON: the serial of the target, the game IDs of the issuers, the crime index, the amount, and the 16 skill bonuses, each with its `StatsEnumerated` index |
 | `/bounty/placed` | HTTP, plugin to server | The detailed context of the target (`GetDetailedContext`), the handle of its squad, whether that squad was persistent before, the game time, and the expiry time, or a failure |
 | `END_BOUNTY` | Pipe, server to plugin | The handle of the target's squad, and whether to clear its persistent flag |
 
@@ -209,7 +208,7 @@ The rumor pass writes the rumor of a bounty deed in the next quiet period, as fo
 
 1. It finds the target in `getCharacterUpdateList` by the serial of its handle.
 2. It notes whether the target's squad is persistent, and marks it persistent.
-3. It calls `unfairAddToBounty` with the law enforcement faction of the issuer, and adds the crime to that bounty.
+3. For each issuer, it calls `unfairAddToBounty` with the law enforcement faction of the issuer and the same amount, and adds the crime to that bounty.
 4. It adds the bonus of each skill to its level (`CharStats::getStatRef`).
 5. It adds the target's squad to the world map (`MapScreen::addSquad`).
 
@@ -228,7 +227,7 @@ Before the build, a debug command of the chat puts a bounty on the chat target, 
 In the game, the probe checks:
 
 1. The character screen shows the bounty and the crime, and the police react to the target.
-2. The law of the issuer pays for the captive, and pays half for the body.
+2. The law of an issuer pays for the captive, and pays half for the body.
 3. A roaming squad with `setPersistentSquad(true)`: the player goes far away until the squad unloads, saves, loads, and comes back. The target is there, with the same serial, the bounty, and the raised skills.
 4. The raised skills stay after the target changes its equipment.
 5. The target's squad shows on the world map while it is unloaded, and after a load.
@@ -249,7 +248,7 @@ The result of step 3 decides between the persistent flag and the pool of unique 
 | Alternative | Reason |
 |---|---|
 | SSR pays the reward on a kill or a capture | The cats would come from nowhere, and the game already pays a bounty. |
-| Issuers without a police faction | Nobody in the game could pay the reward. |
+| Any enemy faction with a police faction as the issuer | Three fixed powers are easy to follow, and need no scan of the police factions. |
 | An LLM picks the target, the crime, or the amount | A weak model picks badly, and code makes the same picks without a call. |
 | The plugin rolls the bounty | A roll in Python runs in the unit tests of the dev container. |
 | Delete clears the game bounty | The plugin can reach the target only while it is loaded. |
@@ -261,18 +260,18 @@ The result of step 3 decides between the persistent flag and the pool of unique 
 
 Unit tests, which run with the standard library only (`server/tests/`):
 
-- The roll: only the eligible pairs, an issuer that is a police faction, an amount in the range of the crime and rounded to 100, 16 bonuses within 2 levels of L and not below 0, L at most 20, and no roll without a candidate.
+- The roll: only a target whose faction is an enemy of one of the three, each of the three that is its enemy as an issuer, an amount in the range of the crime and rounded to 100, 16 bonuses within 2 levels of L and not below 0, L at most 20, and no roll without a candidate.
 - The filter of the candidates: a unique, an animal, a member of the player's faction, and the target of an open bounty drop out.
 - The due check: the timer, the count of open bounties, and 0 open bounties.
 - The deed: the line with each status, the facts of the rumor, the known figure check of `_store`, the delete, the cull, `character_deeds`, and `END_BOUNTY` when the status leaves Open and at a delete, with the flag clear only for a squad that SSR made persistent, and no `END_BOUNTY` while another open bounty has a target in the same squad.
 - `/bounty/placed`: a failed result stores nothing, and a campaign switch between the scan and the result stores nothing.
-- The bounty prompt: the fill names the issuer, the amount, the crime, the target, and the place. The routes that save or write a rumor refuse a bounty deed.
+- The bounty prompt: the fill names the issuers, the amount, the crime, the target, and the place. The routes that save or write a rumor refuse a bounty deed.
 
 In the game and the web app:
 
 1. Set the bounty timer to 1 minute, and stand near a roaming bandit squad.
 2. The server logs the scan and the roll. The target gets a bounty, the world map shows its squad, and Campaign Canon > Deeds shows the bounty deed with the status Open.
 3. After the next quiet period, the deed has a rumor, and an NPC who is asked about news may mention the bounty.
-4. Capture the target, and hand the captive to the law of the issuer. The game pays, the deed shows Captured, and the squad leaves the map.
+4. Capture the target, and hand the captive to the law of an issuer. The game pays, the deed shows Captured, and the squad leaves the map.
 5. The rumor of the bounty has no edit box and no robot. Delete the deed. The game bounty stays, and the squad leaves the map.
 6. In the in-game Deeds window, the kind button shows Bounty, the rumor has no edit box and no robot, and Delete removes the bounty deed.
