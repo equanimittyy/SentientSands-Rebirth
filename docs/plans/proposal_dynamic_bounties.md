@@ -8,7 +8,7 @@ Kenshi has its own bounties. Police see a wanted character, bounty hunters hunt 
 
 This plan lets SSR post bounties of its own:
 
-1. Code rolls the bounty without an LLM call: a target from the loaded NPCs, each of The Holy Nation, the United Cities, and the Shek Kingdom that is an enemy of the target's faction, a crime, an amount, and a bonus for each skill ([section 4](#4-roll)).
+1. Code rolls the bounty without an LLM call: a target from the loaded members of a fixed list of bandit factions, a crime, an amount, and a bonus for each skill. The Holy Nation, the United Cities, and the Shek Kingdom each set the bounty at the same amount ([section 4](#4-roll)).
 2. The plugin puts the bounty on the target through the bounty system of the game, raises the target's skills, keeps the target's squad in the save, and marks that squad on the world map ([section 5](#5-target-and-persistence)).
 3. The bounty becomes a deed of the new kind `bounty`. The LLM writes its rumor with a prompt of its own, so NPCs gossip about it. The player can delete the deed, but cannot edit its rumor ([section 6](#6-bounty-deeds)).
 4. The game pays the reward, as for any vanilla bounty. SSR pays nothing.
@@ -59,13 +59,12 @@ The headers of KenshiLib and the game data files show these facts. The probe con
 
 ### Factions
 
-The Holy Nation, the United Cities, and the Shek Kingdom issue the bounties (`bounties.ISSUERS`). Each of them that the template sets against the target's faction sets the bounty with its law, at the same amount and for the same crime (`bounties.issuer_ids`). The server finds each faction of the template by the game ID that the plugin sends.
+The Holy Nation, the United Cities, and the Shek Kingdom issue every bounty (`bounties.ISSUERS`). Each of them sets it with its law, at the same amount and for the same crime. The targets are the members of 16 bandit factions that attack people in general (`bounties.TARGETS`), chosen from the bandit factions of the Kenshi wiki and the default relations of the game data. The server finds the faction of a candidate by the game ID that the plugin sends.
 
-1. The roll keeps each candidate whose faction is an enemy of at least one of the three: the faction lists it in its `enemies`, or it lists the faction.
+1. The roll keeps each candidate whose faction is a target faction.
 2. It picks the target among them at random.
 
-- The `enemies` of the template factions hold each pair whose relation in the game data is -50 or less, and, for a faction whose default relation is -50 or less, each major faction without a better relation. A vanilla faction holds only the enemies that are the same with and without UWE.
-- 53 of the 106 factions of the vanilla template are an enemy of at least one of the three. The three are enemies of one another, so a member of one of them can get a bounty of the other two.
+- Rival gangs that fight only certain factions stay out, such as the Reavers, the Crab Raiders, the Red Sabres, and the Swamp Ninjas. So do the tribes, the creatures, the armies, and the Skeleton bandits that attack everyone, such as the Cannibals, the Fogmen, the Second Empire, the Skeleton Legion, and the Thrall Masters.
 
 ### Crime and amount
 
@@ -142,7 +141,7 @@ When the bounty ends, the plugin gives the squad back to the game: it takes the 
 The `notable` row holds the game time of the placement, and as JSON:
 
 ```json
-{"deed": "bounty", "target": {"id": "h:3051296712", "name": "Arleen", "faction": "Dust Bandits"}, "issuers": ["United Cities"], "crime": "FARM_EATING", "amount": 1200, "place": "Stack", "expires": 23760}
+{"deed": "bounty", "target": {"id": "h:3051296712", "name": "Arleen", "faction": "Dust Bandits"}, "crime": "FARM_EATING", "amount": 1200, "place": "Stack", "expires": 23760}
 ```
 
 - `expires` is the game time at which the game bounty ends, from `getBountyExpirationTime` at the placement.
@@ -159,7 +158,7 @@ The Deed column shows the line of the deed, with its status at the end:
 | Captured or Killed | A capture or a kill deed of the player's squad has the target as its victim |
 | Expired | The latest game time is after `expires` |
 
-For example: "United Cities: 1,200 cats on Arleen of the Dust Bandits for farm eating. Open."
+For example: "1,200 cats on Arleen of the Dust Bandits for farm eating. Open."
 
 - The status comes from the other deeds and the game time, so the cull of a kill deed opens the bounty again.
 - The target of an open bounty counts as a known figure for the deeds, so its kill or capture by the squad makes a deed and a rumor (`_store` in `server/core/deeds.py:137`).
@@ -249,6 +248,7 @@ The result of step 3 decides between the persistent flag and the pool of unique 
 |---|---|
 | SSR pays the reward on a kill or a capture | The cats would come from nowhere, and the game already pays a bounty. |
 | Any enemy faction with a police faction as the issuer | Three fixed powers are easy to follow, and need no scan of the police factions. |
+| The enemies of the template factions as the targets | The game data gives some of the most common bandits, such as the Starving Bandits, no hostile relation with the three issuers. |
 | An LLM picks the target, the crime, or the amount | A weak model picks badly, and code makes the same picks without a call. |
 | The plugin rolls the bounty | A roll in Python runs in the unit tests of the dev container. |
 | Delete clears the game bounty | The plugin can reach the target only while it is loaded. |
@@ -260,7 +260,7 @@ The result of step 3 decides between the persistent flag and the pool of unique 
 
 Unit tests, which run with the standard library only (`server/tests/`):
 
-- The roll: only a target whose faction is an enemy of one of the three, each of the three that is its enemy as an issuer, an amount in the range of the crime and rounded to 100, 16 bonuses within 2 levels of L and not below 0, L at most 20, and no roll without a candidate.
+- The roll: only a member of a target faction as the target, an amount in the range of the crime and rounded to 100, 16 bonuses within 2 levels of L and not below 0, L at most 20, and no roll without a candidate.
 - The filter of the candidates: a unique, an animal, a member of the player's faction, and the target of an open bounty drop out.
 - The due check: the timer, the count of open bounties, and 0 open bounties.
 - The deed: the line with each status, the facts of the rumor, the known figure check of `_store`, the delete, the cull, `character_deeds`, and `END_BOUNTY` when the status leaves Open and at a delete, with the flag clear only for a squad that SSR made persistent, and no `END_BOUNTY` while another open bounty has a target in the same squad.
