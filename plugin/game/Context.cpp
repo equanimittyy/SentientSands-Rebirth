@@ -506,8 +506,11 @@ static void PlaceProbeBounty(GameWorld *world, Character *npc,
     return;
   }
   ActivePlatoon *active = npc->getPlatoon();
-  if (active && active->me)
+  if (active && active->me) {
     active->me->setPersistentSquad(true);
+    // A roaming squad walks on while the player is away; the marker finds it
+    active->me->showDebugMarker(true);
+  }
   npc->crimes.unfairAddToBounty(law, amount);
   ogre_unordered_map<Faction *, Bounty>::type::iterator bounty =
       npc->crimes.bounties.find(law);
