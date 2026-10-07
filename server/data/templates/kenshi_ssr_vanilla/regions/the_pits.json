@@ -27,7 +27,7 @@
       "The Pits East"
     ]
   },
-  "description": "The Pits lies in the southeast, within the Forbidden Zone, and Skeleton Bandits and Crab Raiders often fight there. Fishmen from Fishman Island come to carry off the living from these battles, and some drifter bands attack strangers on sight. Nothing grows, the water is acidic, and acid rain falls at times, though the ground is rich in ore. Skeletons with harpoon turrets hold a sniper tower that bars the way to the Ashlands, and police robots attack anyone who enters an old barracks.",
+  "description": "The Pits lies in the southeast, within the Forbidden Zone, and Skeleton Bandits and Crab Raiders often fight there. Fishmen from Fishman Island come to carry off the living from these battles, and some drifter bands attack strangers on sight. Nothing grows and the water is acidic, though the ground is rich in ore. Skeletons with harpoon turrets hold a sniper tower that bars the way to the Ashlands, and police robots attack anyone who enters an old barracks.",
   "children": [
     {
       "entry": "locations/lost_armoury",
