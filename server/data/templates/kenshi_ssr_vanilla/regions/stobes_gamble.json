@@ -32,35 +32,5 @@
       "Venge"
     ]
   },
-  "description": "The Anti-Slavers make their home in Stobe's Gamble, and their leader Tinfist lives in the mountaintop town of Spring. Nothing grows, the water is acidic, and ash falls, yet old ruins abound, among them the lab where King Gorillo nests and a Blackshifter drug farm guarded by security spiders. Swarms of land bats, black gorillos, and Southern Hive patrols roam, along with Karate Drifters, Skeleton Bandits, and Crab Raiders.",
-  "children": [
-    {
-      "entry": "locations/crumbling_labs",
-      "weight": 1
-    },
-    {
-      "entry": "locations/expedition_5",
-      "weight": 1
-    },
-    {
-      "entry": "locations/free_settlement",
-      "weight": 1
-    },
-    {
-      "entry": "locations/lost_armour_store",
-      "weight": 1
-    },
-    {
-      "entry": "locations/old_empire_supply_outpost",
-      "weight": 1
-    },
-    {
-      "entry": "locations/secret_drug_farm",
-      "weight": 2
-    },
-    {
-      "entry": "locations/spring",
-      "weight": 3
-    }
-  ]
+  "description": "The Anti-Slavers make their home in Stobe's Gamble, and their leader Tinfist lives in the mountaintop town of Spring. Nothing grows, the water is acidic, and ash falls, yet old ruins abound, among them the lab where King Gorillo nests and a Blackshifter drug farm guarded by security spiders. Swarms of land bats, black gorillos, and Southern Hive patrols roam, along with Karate Drifters, Skeleton Bandits, and Crab Raiders."
 }

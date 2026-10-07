@@ -42,7 +42,7 @@ def lore_records(entities, factions, history, characters=()):
 def _record(key, kind, data):
     return {
         "key": key, "kind": kind, "name": data.get("name", ""), "aliases": data.get("aliases", []), "fields": data.get("fields", {}), "description": data.get("description") or "",
-        "children": [child["entry"] for child in data.get("children", [])], "knowledge": data.get("knowledge", ""), "known_by": data.get("known_by", []),
+        "knowledge": data.get("knowledge", ""), "known_by": data.get("known_by", []),
     }
 
 

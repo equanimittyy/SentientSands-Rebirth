@@ -108,8 +108,8 @@ def _by_words(records):
 
 
 def _links(records, by_words):
-    """The keys that each record links to, in both directions: through a field value, a child, the Faction and the
-    OriginFaction of a character, and the text of a history entry. A history entry has no fields, so without its text no
+    """The keys that each record links to, in both directions: through a field value, the Faction and the OriginFaction
+    of a character, and the text of a history entry. A history entry has no fields, so without its text no
     link could reach a Limited one. The text of another record links nothing, because it finds wrong names, such as the
     character Cat in "Cat-Lon"."""
     links = {record["key"]: set() for record in records}
@@ -126,7 +126,6 @@ def _links(records, by_words):
             targets = {key for value in (record["fields"].get("faction"), record["origin_faction"]) if value for key in by_words.get(name_words(value), ()) if key[0] == "factions"}
         else:
             targets = {key for field, value in record["fields"].items() if field != "neighbours" for item in _listed(value) for key in by_words.get(name_words(item), ())}
-            targets |= {tuple(child.split("/", 1)) for child in record["children"]}
         if record["kind"] == "history":
             targets |= {key for _, key in name_matches(record["description"], names)}
         for other in targets:

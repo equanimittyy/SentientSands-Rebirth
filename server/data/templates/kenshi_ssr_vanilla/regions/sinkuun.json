@@ -22,23 +22,5 @@
       "The Great Desert"
     ]
   },
-  "description": "Sinkuun is a large peninsula northwest of the Great Desert, where many outcasts of the United Cities end up. Peasants driven out by slavery, taxes, and hunger have turned to banditry as the Rebel Farmers, led by Boss Simion from Fort Simion. Cannibal Hunters hold the Bastion on the Darkfinger border and keep the cannibals out, and a small group of Western Hivers lives in two distant villages. Yabuta's outlaws, lone skimmers, and goats roam the dry land.",
-  "children": [
-    {
-      "entry": "locations/distant_hive_village",
-      "weight": 2
-    },
-    {
-      "entry": "locations/fort_simion",
-      "weight": 2
-    },
-    {
-      "entry": "locations/the_bastion",
-      "weight": 2
-    },
-    {
-      "entry": "locations/tower_of_goats",
-      "weight": 1
-    }
-  ]
+  "description": "Sinkuun is a large peninsula northwest of the Great Desert, where many outcasts of the United Cities end up. Peasants driven out by slavery, taxes, and hunger have turned to banditry as the Rebel Farmers, led by Boss Simion from Fort Simion. Cannibal Hunters hold the Bastion on the Darkfinger border and keep the cannibals out, and a small group of Western Hivers lives in two distant villages. Yabuta's outlaws, lone skimmers, and goats roam the dry land."
 }

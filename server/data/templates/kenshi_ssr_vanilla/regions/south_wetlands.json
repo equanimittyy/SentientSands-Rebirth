@@ -21,15 +21,5 @@
       "The Swamp"
     ]
   },
-  "description": "The South Wetlands is a swamp around a large central lake, bordering the Swamp. The Swamp Ninjas keep their base here under their leader Shade, and their patrols often clash with the rival Red Sabres. On the eastern side, slavers sell captives at the Slave Markets. Water is plentiful, swamp raptors nest in the marsh, and blood spiders and big herds of swamp turtles roam.",
-  "children": [
-    {
-      "entry": "locations/slave_markets",
-      "weight": 2
-    },
-    {
-      "entry": "locations/swamp_ninja_base",
-      "weight": 1
-    }
-  ]
+  "description": "The South Wetlands is a swamp around a large central lake, bordering the Swamp. The Swamp Ninjas keep their base here under their leader Shade, and their patrols often clash with the rival Red Sabres. On the eastern side, slavers sell captives at the Slave Markets. Water is plentiful, swamp raptors nest in the marsh, and blood spiders and big herds of swamp turtles roam."
 }

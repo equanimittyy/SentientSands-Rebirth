@@ -14,15 +14,5 @@
       "The Hook"
     ]
   },
-  "description": "The Crater lies in the far southwest, ringed on every side by high walls. Inside, Beak Things nest and feast on packs of swamp raptors, and the land is very hostile. Nothing grows, there is no water to draw, and most of the ancient labs within are ruined or empty.",
-  "children": [
-    {
-      "entry": "locations/empty_lab",
-      "weight": 1
-    },
-    {
-      "entry": "locations/lab_ruin",
-      "weight": 1
-    }
-  ]
+  "description": "The Crater lies in the far southwest, ringed on every side by high walls. Inside, Beak Things nest and feast on packs of swamp raptors, and the land is very hostile. Nothing grows, there is no water to draw, and most of the ancient labs within are ruined or empty."
 }

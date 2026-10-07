@@ -23,19 +23,5 @@
       "Wend"
     ]
   },
-  "description": "Okran's Pride is the heartland of the Holy Nation, home to its capital Blister Hill and the town of Bad Teeth, and the most populous land in the world. Its grasslands are green, fertile, and well watered, a river runs through them, Holy farms dot the land, and copper is scarce. Swarms of river raptors plague the farms, while Holy armies patrol heavily and keep bandits from gathering in large bands. Escaped servants, starving bandits, mercenaries, and prisoner caravans travel its roads.",
-  "children": [
-    {
-      "entry": "locations/bad_teeth",
-      "weight": 3
-    },
-    {
-      "entry": "locations/blister_hill",
-      "weight": 3
-    },
-    {
-      "entry": "locations/holy_farms",
-      "weight": 2
-    }
-  ]
+  "description": "Okran's Pride is the heartland of the Holy Nation, home to its capital Blister Hill and the town of Bad Teeth, and the most populous land in the world. Its grasslands are green, fertile, and well watered, a river runs through them, Holy farms dot the land, and copper is scarce. Swarms of river raptors plague the farms, while Holy armies patrol heavily and keep bandits from gathering in large bands. Escaped servants, starving bandits, mercenaries, and prisoner caravans travel its roads."
 }

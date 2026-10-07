@@ -24,23 +24,5 @@
       "The Unwanted Zone"
     ]
   },
-  "description": "Venge is a land of hot valleys and mountains where burning beams strike down from the sky by day, so travelers cross at night or shelter indoors. Skeletons say the beams come from \"the other Eye\", which is still running. Beak Things, known as gutters, come here to hunt spiders, but the worst danger is the large bands of thralls, and the Thrall Masters keep their base at the Tower of Abuse. The Scavengers, led by Gutterhead, live in an old control tower, and part of a Behemoth's remains lies near Stobe's Gamble.",
-  "children": [
-    {
-      "entry": "locations/old_control_tower",
-      "weight": 1
-    },
-    {
-      "entry": "locations/ruined_control_tower",
-      "weight": 1
-    },
-    {
-      "entry": "locations/tower_of_abuse",
-      "weight": 1
-    },
-    {
-      "entry": "locations/waystation_ruins",
-      "weight": 1
-    }
-  ]
+  "description": "Venge is a land of hot valleys and mountains where burning beams strike down from the sky by day, so travelers cross at night or shelter indoors. Skeletons say the beams come from \"the other Eye\", which is still running. Beak Things, known as gutters, come here to hunt spiders, but the worst danger is the large bands of thralls, and the Thrall Masters keep their base at the Tower of Abuse. The Scavengers, led by Gutterhead, live in an old control tower, and part of a Behemoth's remains lies near Stobe's Gamble."
 }

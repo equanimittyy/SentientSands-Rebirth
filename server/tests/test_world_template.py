@@ -108,18 +108,6 @@ class ValidateTest(TemplateTestCase):
         self.write("base", "items/sword.json", {"name": "Sword"})
         self.assertEqual(self.fields(), [["items"]])
 
-    def test_a_relation_to_a_missing_entry_is_a_warning(self):
-        self.write("base", "regions/bast.json", {"name": "Bast", "children": [{"entry": "locations/bast", "weight": 2}, {"entry": "locations/heng"}]})
-        self.write("base", "locations/bast.json", {"name": "Bast"})
-        errors, warnings = self.problems()
-        self.assertEqual(errors, [])
-        self.assertEqual([(warning["field"], warning["message"]) for warning in warnings], [(["regions", "bast", "children"], "The relation locations/heng of Bast names no entry.")])
-
-    def test_a_relation_by_name_is_an_error(self):
-        self.write("base", "regions/bast.json", {"name": "Bast", "children": [{"name": "Bast"}]})
-        self.write("base", "locations/bast.json", {"name": "Bast"})
-        self.assertEqual(self.fields(), [["regions", "bast", "children"]])
-
     def test_an_unknown_tier_is_an_error(self):
         self.write("base", "factions/holy_nation.json", dict(HOLY_NATION, knowledge="public"))
         self.assertEqual(self.fields(), [["factions", "holy_nation", "knowledge"]])
@@ -153,9 +141,7 @@ class ValidateTest(TemplateTestCase):
         self.assertEqual(world_template.record_problems("faction", HOLY_NATION, ["f"]), ([], []))
         self.assertEqual([e["field"] for e in world_template.record_problems("faction", dict(HOLY_NATION, major="yes"), ["f"])[0]], [["f", "major"]])
         self.assertEqual([e["field"] for e in world_template.record_problems("character", {"game_id": "x", "profile": {}}, ["c"])[0]], [["c", "profile", "Name"]])
-        hub = {"name": "The Hub", "children": [{"entry": "locations/bar"}]}
-        self.assertEqual(len(world_template.record_problems("entity", hub, ["locations", "hub"])[1]), 1)
-        self.assertEqual(world_template.record_problems("entity", hub, ["locations", "hub"], {"locations/bar"}), ([], []))
+        self.assertEqual([e["field"] for e in world_template.record_problems("entity", {"name": ""}, ["locations", "hub"])[0]], [["locations", "hub", "name"]])
         self.assertEqual([e["field"] for e in world_template.record_problems("history", [{"title": ""}], ["history"])[0]], [["history", 0]])
         secret = dict(HOLY_NATION, knowledge="secret", known_by=["Nobody"])
         self.assertEqual(world_template.record_problems("faction", secret, ["f"]), ([], []))
@@ -284,7 +270,6 @@ class ExchangeTest(TemplateTestCase):
             "an unknown key in the manifest": (dict(exported, manifest=dict(exported["manifest"], licence="GPL")), "Shared"),
             "an unknown key in a history entry": (dict(exported, history=[{"title": "Then", "text": "It was.", "year": 1}]), "Shared"),
             "an unknown key in a record": (dict(exported, factions={"holy_nation": dict(HOLY_NATION, descripton="Zealots.")}), "Shared"),
-            "an unknown key in a relation": (dict(exported, races={"shek": {"name": "Shek", "children": [{"entry": "races/shek", "colour": "red"}]}}), "Shared"),
             "IDs that differ only in case": (dict(exported, characters={"beep": {"game_id": "1", "profile": {"Name": "Beep"}}, "Beep": {"game_id": "2", "profile": {"Name": "Beep"}}}), "Shared"),
             "a taken name": (exported, "BASE"),
             "an unsafe name": (exported, "../escape"),
@@ -305,7 +290,6 @@ class ExchangeTest(TemplateTestCase):
         self.assertEqual(messages({"campaign": "Default"}), ["This file is not an SSR world template. Choose a file that the Export button saved."])
         self.assertEqual(messages(dict(exported, factions={"holy_nation": dict(HOLY_NATION, descripton="Zealots.")})), ["The Holy Nation (faction): SSR does not use descripton. Check the spelling, or remove it."])
         self.assertEqual(messages(dict(exported, characters={"beep": {"profile": {"Name": "Beep"}}})), ["Beep (character): Give the character its game ID."])
-        self.assertEqual(messages(dict(exported, races={"shek": {"name": "Shek", "children": [{"entry": "races/shek", "colour": "red"}]}})), ["Shek (race), relation 1: SSR does not use colour. Check the spelling, or remove it."])
         self.assertEqual(messages(dict(exported, history=[{"title": "Then", "text": "It was.", "year": 1}])), ["History entry 1: SSR does not use year. Check the spelling, or remove it."])
 
 

@@ -307,8 +307,7 @@ def save_campaign_record():
                     return record_refusal([{"field": ["category"], "message": f"{category} is not a category. Use races, locations, or regions."}])
                 stored = campaign_db.list_records("entity")
                 record_id = record_id or world_template.new_id(value, {ext_id for (stored_category, ext_id), *_ in stored if stored_category == category})
-                entries = {f"{stored_category}/{ext_id}" for (stored_category, ext_id), *_ in stored} | {f"{category}/{record_id}"}
-                errors, warnings = world_template.record_problems("entity", value, [category, data.get("id") or "new"], entries, lore_names())
+                errors, warnings = world_template.record_problems("entity", value, [category, data.get("id") or "new"], names=lore_names())
                 if errors: return record_refusal(errors)
                 campaign_db.save_record("entity", (category, record_id), value, updated_at)
         except world_template.TemplateError as e:

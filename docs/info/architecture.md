@@ -268,10 +268,8 @@ The Facts section of a faction, race, location, or region offers only the catego
 The Knowledge section of a faction, a character, a race, a location, and a region follows its Facts, and each history entry holds the same fields beside its title (see [Knowledge](#knowledge)):
 
 - **Knowledge Level** offers Global, Limited, and Secret, with the default of the kind marked "(default)". The default saves no `knowledge` key, so a template does not fill with keys that change nothing.
-- **Known by** shows only while the level is Secret, and a record that is not Secret saves no `known_by`, so no list stays behind the hidden field. Each name has a row with a search box, as the Relations section has, because a list separated by commas cannot offer suggestions. The suggestions are the characters, the factions, and the races of the page, each with its kind, such as "Skeleton (race)", and a row saves the plain name. A name that names nothing gets a note on its row and still saves, because the validator only warns about it.
+- **Known by** shows only while the level is Secret, and a record that is not Secret saves no `known_by`, so no list stays behind the hidden field. Each name has a row with a search box, because a list separated by commas cannot offer suggestions. The suggestions are the characters, the factions, and the races of the page, each with its kind, such as "Skeleton (race)", and a row saves the plain name. A name that names nothing gets a note on its row and still saves, because the validator only warns about it.
 - On Campaign Canon, a character shows the section only when it is canon, because no other character is a lore record.
-
-The Relations section of a race, location, or region lists its children, which the entry stores, and its parents, which are the entries whose children name it. Each row opens its entry. A parent row is read-only, because the relation is stored in the parent entry.
 
 The Race, Sex, and Faction of a character are choices, not free text (`choice` in `server/dashboard/web/editor.js`). Race offers the race entries of the page, Faction offers its factions, and Sex offers Male, Female, and Other. A stored value selects the choice whose name or alias it matches, with case ignored. A blank value or a value that matches no choice shows as Unknown, and a save of the character writes Unknown.
 
@@ -449,7 +447,6 @@ Each lore record has a tier (`server/chat/knowledge.py`). The search of a chat l
 A link joins two records when one names the other. It works in both directions, so a member of the Anti-Slavers knows Tinfist through the `leader` field of the faction, and Bo through the `Faction` of Bo.
 
 - A field value links to each record whose name or alias has the same name words (`retrieval.name_words`): case ignored, a leading "the" dropped, and a final "s" dropped from each word of 4 or more letters. "Great Desert" in the `territory` of the United Cities therefore names the region The Great Desert. A value of `neighbours` links nothing (see [Own records](#own-records)).
-- A child of an entry links to the entry that it names.
 - The `Faction` and the `OriginFaction` of a character link to their factions, and only to factions. "Skeletons" names the faction Skeletons and the race Skeleton, and a link to the race would give the character to every Skeleton.
 - The text of a history entry links to each record that it names, by the name matching of the lore search (`retrieval.name_matches`). A history entry has no fields, so without its text no link could reach a Limited history entry. A longer name wins, so "the First Empire" names the history entry and not the United Cities through its alias The Empire.
 - The text of another record links nothing, because a match in a text finds wrong names, such as the character Cat in "Cat-Lon".
@@ -969,11 +966,10 @@ A world template is a folder that describes a world. A new campaign copies every
 | `history.json` | The lore timeline: a list of `title` and `text`, in timeline order |
 | `factions/<id>.json` | `game_id`, `name`, `aliases`, `major`, `fields`, `description` |
 | `characters/<id>.json` | `game_id`, and a `profile` with the keys of a profile in the character store, such as `Name`, `Race`, `Faction`, and `Personality` |
-| `races/<id>.json`, `locations/<id>.json`, `regions/<id>.json` | `name`, `aliases`, `fields`, `description`, and `children`: a list of `entry` and `weight` |
+| `races/<id>.json`, `locations/<id>.json`, `regions/<id>.json` | `name`, `aliases`, `fields`, `description` |
 
 - The ID of a record is its file name without `.json`.
 - `fields` holds the facts of a record, in the categories of its kind (see [Web app](#web-app)). The `neighbours` of a region are the regions that share a border with it on the world map of the game.
-- A child names its entry as `<category>/<entity ID>`, for example `locations/bast`, not by name, because a location and a region can share a name, for example Bast.
 - Each faction, character, race, location, region, and history entry can hold `knowledge`, one of `global`, `limited`, and `secret`, and `known_by`, a list of names of characters, factions, and races (see [Knowledge](#knowledge)). A missing `knowledge` takes the default of the kind, so a template without the keys works with the defaults, and `format_version` stays 1. A character holds the keys beside its `profile`, not in it.
 
 | Template | Location | Edits |
@@ -984,7 +980,7 @@ A world template is a folder that describes a world. A new campaign copies every
 `server/store/world_template.py` reads, validates, and writes templates. It imports only the standard library and `retrieval.name_words`, which also uses only the standard library.
 
 - One validator runs before each write and each campaign creation. It rejects an unknown `format_version`, a `version` that is not text, a folder that the format does not name, a JSON file that does not parse, a faction or an entity without a name, a faction or a character without `game_id`, two factions or two characters with one `game_id`, a character without a `Name` in its profile, a fact whose category is not one of its kind or whose value does not have the shape of its category, an unknown `knowledge`, and a `known_by` that is not a list of names.
-- These are warnings: a child whose `entry` names no race, location, or region of the template, a neighbour that names no region, a `known_by` on a record that is not Secret, and a name of `known_by` that names no character, faction, or race. The validator compares these names by their name words, as the server matches them (`template_names`), so "the Skeletons" names the faction Skeletons and gets no warning. A save on Campaign Canon checks them against the records of the campaign, with only the canon characters.
+- These are warnings: a neighbour that names no region, a `known_by` on a record that is not Secret, and a name of `known_by` that names no character, faction, or race. The validator compares these names by their name words, as the server matches them (`template_names`), so "the Skeletons" names the faction Skeletons and gets no warning. A save on Campaign Canon checks them against the records of the campaign, with only the canon characters.
 - A faction binds to the game by `game_id`, the string ID of the faction in the game data, so a rename in game does not break the link. The IDs of the vanilla factions come from the `FACTION_PROBE` lines of an in-game test ([kenshi_internals.md](kenshi_internals.md#factions)).
 - A route takes a template name, a record kind, a category, and a record ID, never a path. The category must be `races`, `locations`, or `regions`, and each other part must match a fixed pattern, so a request cannot write outside the template folders. A new record takes its ID from its name.
 - A duplicate copies every file of the template, its credit and licence files included, so a derived template keeps its attribution.

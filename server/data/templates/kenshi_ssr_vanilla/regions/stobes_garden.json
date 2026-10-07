@@ -27,27 +27,5 @@
       "The Unwanted Zone"
     ]
   },
-  "description": "The Reavers make their home in Stobe's Garden, and their leader Valamon rules from Ark near its center. Crab Raiders hold a village on a plateau, and Reavers, Crab Raiders, and Skeleton Bandits often skirmish across the land. The remains of Stobe, whom the Skeleton Bandits revere as a god, lie here. Land bats, black gorillos, Black Dragon Ninjas, and bounty hunters roam, and an old watchtower teems with blood spiders.",
-  "children": [
-    {
-      "entry": "locations/ark",
-      "weight": 2
-    },
-    {
-      "entry": "locations/crab_village",
-      "weight": 2
-    },
-    {
-      "entry": "locations/expedition_4",
-      "weight": 1
-    },
-    {
-      "entry": "locations/tower_of_spiders",
-      "weight": 1
-    },
-    {
-      "entry": "locations/waystation_ruins",
-      "weight": 1
-    }
-  ]
+  "description": "The Reavers make their home in Stobe's Garden, and their leader Valamon rules from Ark near its center. Crab Raiders hold a village on a plateau, and Reavers, Crab Raiders, and Skeleton Bandits often skirmish across the land. The remains of Stobe, whom the Skeleton Bandits revere as a god, lie here. Land bats, black gorillos, Black Dragon Ninjas, and bounty hunters roam, and an old watchtower teems with blood spiders."
 }

@@ -19,11 +19,5 @@
       "The Pits East"
     ]
   },
-  "description": "Greenbeach is a stretch of coast held by the Crab Raiders, bordering the Outlands, Stobe's Garden, and the Pits East. The raiders keep a village there with a smithy and a shop that sells crabs, and they skirmish with Reaver patrols. Crabs swarm the beaches, some of them huge, beak things appear at times, and acid rain falls now and then.",
-  "children": [
-    {
-      "entry": "locations/crab_village",
-      "weight": 2
-    }
-  ]
+  "description": "Greenbeach is a stretch of coast held by the Crab Raiders, bordering the Outlands, Stobe's Garden, and the Pits East. The raiders keep a village there with a smithy and a shop that sells crabs, and they skirmish with Reaver patrols. Crabs swarm the beaches, some of them huge, beak things appear at times, and acid rain falls now and then."
 }

@@ -31,19 +31,5 @@
       "The Hook"
     ]
   },
-  "description": "The Bonefields are a wide, dry plain strewn with bones, bordering the Hook, the South Wetlands, Flats Lagoon, and the Burning Forest. It is animal country, where even the Empire's hold is fading: beak things hunt skin spiders, and Boneyard Wolves, bonedog packs, and Gorillo bandits roam. The United Cities hold the fortified plateau town of Catun, and the Tech Hunters hold Mourn, an old mining town wrecked by a slave revolt. Shek of the Band of Bones wander the plain too.",
-  "children": [
-    {
-      "entry": "locations/catun",
-      "weight": 3
-    },
-    {
-      "entry": "locations/mourn",
-      "weight": 3
-    },
-    {
-      "entry": "locations/the_old_prison",
-      "weight": 1
-    }
-  ]
+  "description": "The Bonefields are a wide, dry plain strewn with bones, bordering the Hook, the South Wetlands, Flats Lagoon, and the Burning Forest. It is animal country, where even the Empire's hold is fading: beak things hunt skin spiders, and Boneyard Wolves, bonedog packs, and Gorillo bandits roam. The United Cities hold the fortified plateau town of Catun, and the Tech Hunters hold Mourn, an old mining town wrecked by a slave revolt. Shek of the Band of Bones wander the plain too."
 }

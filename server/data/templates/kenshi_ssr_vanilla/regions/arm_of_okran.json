@@ -17,23 +17,5 @@
       "Wend"
     ]
   },
-  "description": "The Arm of Okran is two green mountain ranges that flank Okran's Valley to the east and west, and water is plentiful there. The western range holds World's End, the town of the Tech Hunters and the Machinists' university. The eastern range holds the fortresses of the Holy Nation, among them Okran's Fist, which guards the northeastern way into Holy Nation lands.",
-  "children": [
-    {
-      "entry": "locations/okrans_fist",
-      "weight": 2
-    },
-    {
-      "entry": "locations/okrans_shield",
-      "weight": 2
-    },
-    {
-      "entry": "locations/watchtower",
-      "weight": 1
-    },
-    {
-      "entry": "locations/worlds_end",
-      "weight": 3
-    }
-  ]
+  "description": "The Arm of Okran is two green mountain ranges that flank Okran's Valley to the east and west, and water is plentiful there. The western range holds World's End, the town of the Tech Hunters and the Machinists' university. The eastern range holds the fortresses of the Holy Nation, among them Okran's Fist, which guards the northeastern way into Holy Nation lands."
 }

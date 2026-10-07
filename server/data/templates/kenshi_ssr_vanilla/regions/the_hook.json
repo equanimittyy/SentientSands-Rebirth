@@ -30,35 +30,5 @@
       "The Crater"
     ]
   },
-  "description": "The Hook is a stretch of the south coast and, with the Bonefields, one of the two southern lands of the United Cities. Lady Merin, one of the Noble Circle, lives in Drifter's Last, a farming town often raided by outlaw farmers, and the Empire also holds Clownsteady. Slave Mistress Grace runs Slave Farm South, and the Manhunters keep their only base here, so anyone who falls risks being enslaved. Band of Bones raiders and bonedog packs also roam.",
-  "children": [
-    {
-      "entry": "locations/abandoned_town",
-      "weight": 1
-    },
-    {
-      "entry": "locations/clownsteady",
-      "weight": 3
-    },
-    {
-      "entry": "locations/drifters_last",
-      "weight": 3
-    },
-    {
-      "entry": "locations/library_ruins",
-      "weight": 1
-    },
-    {
-      "entry": "locations/manhunter_base",
-      "weight": 2
-    },
-    {
-      "entry": "locations/slave_farm_south",
-      "weight": 2
-    },
-    {
-      "entry": "locations/waystation",
-      "weight": 1
-    }
-  ]
+  "description": "The Hook is a stretch of the south coast and, with the Bonefields, one of the two southern lands of the United Cities. Lady Merin, one of the Noble Circle, lives in Drifter's Last, a farming town often raided by outlaw farmers, and the Empire also holds Clownsteady. Slave Mistress Grace runs Slave Farm South, and the Manhunters keep their only base here, so anyone who falls risks being enslaved. Band of Bones raiders and bonedog packs also roam."
 }

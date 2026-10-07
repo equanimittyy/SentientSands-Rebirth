@@ -78,11 +78,6 @@ const lineList = (text) => text.split("\n").map((item) => item.trim()).filter(Bo
 const readOnly = () => ({ campaign: !canon, events: !log, template: !template || template.builtin })[source];
 const inCampaign = (record) => source === "campaign" && !record.isNew;
 
-function numberOr(text) {
-  const number = Number(text);
-  return String(text).trim() !== "" && Number.isFinite(number) ? number : text;
-}
-
 function rest(object, keys) {
   return Object.fromEntries(Object.entries(object ?? {}).filter(([key]) => !keys.includes(key)));
 }
@@ -132,15 +127,12 @@ function toForm(kind, data, category) {
     const known = PROFILE_KEYS.map((key) => ({ key, value: profile[key] === undefined ? "" : String(profile[key]), list: false, original: profile[key] }));
     return { game_id: data.game_id ?? "", profile: known, details: rest(profile, PROFILE_KEYS), ...knowledgeForm(kind, data), extra: rest(data, ["game_id", "profile", "knowledge", "known_by"]) };
   }
-  const labels = entryLabels();
   return {
     name: data.name ?? "", aliases: (data.aliases ?? []).join(", "), fields: rows(data.fields), description: data.description ?? "",
-    children: (data.children ?? []).map((child) => ({ entry: child.entry ?? "", text: labels.get(child.entry) ?? child.entry ?? "", weight: child.weight === undefined ? "" : String(child.weight) })),
-    ...knowledgeForm(category, data), extra: rest(data, ["name", "aliases", "fields", "description", "children", "knowledge", "known_by"]),
+    ...knowledgeForm(category, data), extra: rest(data, ["name", "aliases", "fields", "description", "knowledge", "known_by"]),
   };
 }
 
-// Throws when a relation names no entry.
 function toData(kind, form) {
   if (kind === "overview") return form.text.trim();
   if (kind === "history") return form.entries.map((entry) => ({ title: entry.title.trim(), text: entry.text.trim(), ...knowledgeData(entry) }));
@@ -158,10 +150,6 @@ function toData(kind, form) {
     aliases: commaList(form.aliases),
     fields: fromRows(form.fields),
     description: form.description.trim(),
-    children: form.children.filter((child) => child.text.trim()).map((child) => {
-      if (!child.entry) throw new Error(`${child.text.trim()} is not an entry. Choose one from the list.`);
-      return { entry: child.entry, ...(child.weight.trim() ? { weight: numberOr(child.weight) } : {}) };
-    }),
     ...knowledgeData(form),
   };
 }
@@ -178,23 +166,6 @@ function choices(key) {
 function choice(key, value) {
   const text = String(value).trim().toLowerCase();
   return choices(key).find((option) => [option.name, ...option.aliases].some((name) => name.toLowerCase() === text))?.name ?? "Unknown";
-}
-
-const entryKey = (record) => `${record.category}/${record.id}`;
-
-// A label names one entry, so two entries with one name and category also show their IDs.
-function entryLabels() {
-  const entries = records.filter((record) => record.kind === "entity");
-  const plain = (record) => `${title(record)} (${CATEGORY_LABELS[record.category]})`;
-  const seen = new Set();
-  const repeated = new Set();
-  for (const record of entries) (seen.has(plain(record)) ? repeated : seen).add(plain(record));
-  return new Map(entries.map((record) => [entryKey(record), repeated.has(plain(record)) ? `${title(record)} (${CATEGORY_LABELS[record.category]}, ${record.id})` : plain(record)]));
-}
-
-function entryOf(label) {
-  const wanted = label.trim().toLowerCase();
-  return [...entryLabels()].find(([, text]) => text.toLowerCase() === wanted)?.[0] ?? "";
 }
 
 function savedRecords(loaded) {
@@ -530,71 +501,6 @@ function choiceControl(row, path) {
   return select;
 }
 
-function relationEntry(child, path, open) {
-  const input = el("input", {
-    value: child.text,
-    placeholder: "Type to search",
-    disabled: readOnly(),
-    oninput: (event) => {
-      child.text = event.target.value;
-      child.entry = entryOf(child.text);
-      open.disabled = !child.entry;
-      setFieldError(event.target, child.text.trim() && !child.entry ? "Choose an entry from the list." : "");
-      changed();
-    },
-  });
-  input.dataset.field = JSON.stringify(path);
-  input.setAttribute("aria-label", "Related entry");
-  input.setAttribute("list", "relation-entries");
-  return input;
-}
-
-function openEntry(key) {
-  selected = records.find((record) => record.kind === "entity" && entryKey(record) === key).key;
-  renderList();
-  renderForm();
-}
-
-async function deleteRelation(form, index, record) {
-  const { text } = form.children[index];
-  if (text.trim() && !(await ask("Delete the relation", "Delete", `This deletes the relation between ${title(record)} and ${text}. The delete takes effect when you save.`))) return;
-  form.children.splice(index, 1);
-  changed();
-  renderForm();
-}
-
-function relationsEditor(form, path, record) {
-  const labels = entryLabels();
-  const self = record.id ? entryKey(record) : null;
-  const parents = records.filter((entry) => entry.kind === "entity").flatMap((entry) =>
-    (drafts.get(entry.key)?.form.children ?? entry.data.children ?? []).filter((child) => child.entry === self).map((child) => ({ entry, weight: child.weight })));
-  return el("fieldset", {},
-    el("legend", {}, "Relations"),
-    el("p", { className: "hint" }, "The entries that belong to this one, and the entries that it belongs to."),
-    el("div", { className: "relation-grid" },
-      withHelp("Entry", "The race, location, or region on the other side of the relation. Type to search, then choose one from the list."),
-      withHelp("Relationship", "Child: the entry belongs to this one, for example a town in its region. Parent: this one belongs to the entry. Open the parent to change that relation."),
-      withHelp("Weight", "How strong the relation is. A higher number marks a closer link. Empty counts as 1."),
-      el("span"),
-      ...form.children.flatMap((child, index) => {
-        const open = el("button", { type: "button", disabled: !labels.has(child.entry), onclick: () => openEntry(child.entry) }, "Open");
-        return [
-          relationEntry(child, [...path, "children", index, "entry"], open),
-          el("span", {}, "Child"),
-          control("input", child, "weight", [...path, "children", index, "weight"], { placeholder: "1", inputMode: "decimal", label: "Relation weight" }),
-          el("span", { className: "inline" }, open, deleteButton("Delete the relation", () => deleteRelation(form, index, record), readOnly())),
-        ];
-      }),
-      ...parents.flatMap(({ entry, weight }) => [
-        el("span", {}, labels.get(entryKey(entry))),
-        el("span", {}, "Parent"),
-        el("span", {}, weight === undefined || weight === "" ? "1" : String(weight)),
-        el("button", { type: "button", onclick: () => openEntry(entryKey(entry)) }, "Open"),
-      ])),
-    el("datalist", { id: "relation-entries" }, ...[...labels].filter(([key]) => key !== self).map(([, text]) => el("option", { value: text }))),
-    addButton("Add child", () => form.children.push({ entry: "", text: "", weight: "" })));
-}
-
 function entityForm(form, path, record) {
   return [
     field("Name", control("input", form, "name", [...path, "name"]), null, "The name that NPCs use for it."),
@@ -602,7 +508,6 @@ function entityForm(form, path, record) {
     field("Description", control("textarea", form, "description", [...path, "description"], { rows: 5 }), null, `What NPCs know about the ${CATEGORY_LABELS[record.category].toLowerCase()}.`),
     factsEditor(form.fields, [...path, "fields"], FACTS[record.category]),
     knowledgeEditor(form, path, record.category),
-    relationsEditor(form, path, record),
   ];
 }
 

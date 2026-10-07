@@ -21,15 +21,5 @@
       "The Pits"
     ]
   },
-  "description": "Sniper Valley is a corner of the far southeast, close to the Ashlands. Unseen sniper robots shoot at those who pass. Nothing grows, the water is acidic, and black ash falls. Black gorillos, goats, scavengers, and Crab Raider scouts wander past an old supply outpost and an empty police barracks.",
-  "children": [
-    {
-      "entry": "locations/old_empire_supply_outpost",
-      "weight": 1
-    },
-    {
-      "entry": "locations/police_barracks",
-      "weight": 1
-    }
-  ]
+  "description": "Sniper Valley is a corner of the far southeast, close to the Ashlands. Unseen sniper robots shoot at those who pass. Nothing grows, the water is acidic, and black ash falls. Black gorillos, goats, scavengers, and Crab Raider scouts wander past an old supply outpost and an empty police barracks."
 }

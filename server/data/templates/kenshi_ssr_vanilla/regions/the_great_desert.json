@@ -35,47 +35,5 @@
       "Spine Canyon"
     ]
   },
-  "description": "The Great Desert, a vast, dry, and mostly empty sea of dunes in the northeast of the continent, belongs to the United Cities. Emperor Tengu rules from the capital, Heft, while Lady Sanda holds Bark and Lord Inaba holds Stoat; Sho-Battai is the fourth town. Slavers keep work camps and markets, and Rebel Farmers, Manhunters, Sand Ninjas, starving vagrants, and skimmers roam. Water is scarce and farming poor, but metal and stone abound.",
-  "children": [
-    {
-      "entry": "locations/bark",
-      "weight": 3
-    },
-    {
-      "entry": "locations/distant_hive_village",
-      "weight": 2
-    },
-    {
-      "entry": "locations/fort_mirage",
-      "weight": 2
-    },
-    {
-      "entry": "locations/heft",
-      "weight": 3
-    },
-    {
-      "entry": "locations/old_village",
-      "weight": 1
-    },
-    {
-      "entry": "locations/port_north",
-      "weight": 2
-    },
-    {
-      "entry": "locations/port_south",
-      "weight": 2
-    },
-    {
-      "entry": "locations/sho_battai",
-      "weight": 3
-    },
-    {
-      "entry": "locations/stoat",
-      "weight": 3
-    },
-    {
-      "entry": "locations/stone_camp",
-      "weight": 2
-    }
-  ]
+  "description": "The Great Desert, a vast, dry, and mostly empty sea of dunes in the northeast of the continent, belongs to the United Cities. Emperor Tengu rules from the capital, Heft, while Lady Sanda holds Bark and Lord Inaba holds Stoat; Sho-Battai is the fourth town. Slavers keep work camps and markets, and Rebel Farmers, Manhunters, Sand Ninjas, starving vagrants, and skimmers roam. Water is scarce and farming poor, but metal and stone abound."
 }

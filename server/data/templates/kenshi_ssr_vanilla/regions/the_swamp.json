@@ -26,43 +26,5 @@
       "The Grid"
     ]
   },
-  "description": "The Swamp is a large, foggy marsh of dense growth, south of the Border Zone and north of the South Wetlands, and it is easy to get lost there. No one person rules it: the Swampers share its villages with five gangs who deal in hashish, and the Hounds run the city of Shark and the village of Rot. The Red Sabres keep a hideout here and Swamp Ninjas patrol. Swamp raptors and blood spiders are common, and swamp turtles live here.",
-  "children": [
-    {
-      "entry": "locations/grayflayer_village",
-      "weight": 2
-    },
-    {
-      "entry": "locations/infested_lab",
-      "weight": 1
-    },
-    {
-      "entry": "locations/mud_town",
-      "weight": 2
-    },
-    {
-      "entry": "locations/red_sabre_hideout",
-      "weight": 1
-    },
-    {
-      "entry": "locations/rot",
-      "weight": 2
-    },
-    {
-      "entry": "locations/shark",
-      "weight": 3
-    },
-    {
-      "entry": "locations/stone_rat_village",
-      "weight": 2
-    },
-    {
-      "entry": "locations/swamp_village",
-      "weight": 2
-    },
-    {
-      "entry": "locations/swamped_lab",
-      "weight": 1
-    }
-  ]
+  "description": "The Swamp is a large, foggy marsh of dense growth, south of the Border Zone and north of the South Wetlands, and it is easy to get lost there. No one person rules it: the Swampers share its villages with five gangs who deal in hashish, and the Hounds run the city of Shark and the village of Rot. The Red Sabres keep a hideout here and Swamp Ninjas patrol. Swamp raptors and blood spiders are common, and swamp turtles live here."
 }

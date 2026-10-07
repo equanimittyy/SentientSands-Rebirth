@@ -23,31 +23,5 @@
       "Watcher's Rim"
     ]
   },
-  "description": "Shun is an abandoned land in the southwestern corner of the continent, scattered with ancient ruins: lost libraries, armories, and labs. No town or outpost stands there. Skin spider packs, gorillos, goats, and garru roam, along with Band of Bones raiders and Tech Hunters who search the ruins. The Tech Hunters here may attack travelers without provocation.",
-  "children": [
-    {
-      "entry": "locations/abandoned_town",
-      "weight": 1
-    },
-    {
-      "entry": "locations/ancient_tech_lab",
-      "weight": 1
-    },
-    {
-      "entry": "locations/armoury_ruin",
-      "weight": 1
-    },
-    {
-      "entry": "locations/library_ruins",
-      "weight": 1
-    },
-    {
-      "entry": "locations/lost_armoury",
-      "weight": 1
-    },
-    {
-      "entry": "locations/lost_library",
-      "weight": 1
-    }
-  ]
+  "description": "Shun is an abandoned land in the southwestern corner of the continent, scattered with ancient ruins: lost libraries, armories, and labs. No town or outpost stands there. Skin spider packs, gorillos, goats, and garru roam, along with Band of Bones raiders and Tech Hunters who search the ruins. The Tech Hunters here may attack travelers without provocation."
 }

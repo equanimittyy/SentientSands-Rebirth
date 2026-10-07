@@ -18,19 +18,5 @@
       "Sonorous Dark"
     ]
   },
-  "description": "The Royal Valley belongs to the hostile Southern Hive. Its Queen of the South lives at the Hive itself with her elite Droneguard. Hive patrols and scouts sweep the valley, and the Hive also holds a village and an armory there. Acid rain falls at times, and wild goats roam.",
-  "children": [
-    {
-      "entry": "locations/hiver_claimed_armoury",
-      "weight": 1
-    },
-    {
-      "entry": "locations/southern_hive",
-      "weight": 3
-    },
-    {
-      "entry": "locations/southern_hive_village",
-      "weight": 2
-    }
-  ]
+  "description": "The Royal Valley belongs to the hostile Southern Hive. Its Queen of the South lives at the Hive itself with her elite Droneguard. Hive patrols and scouts sweep the valley, and the Hive also holds a village and an armory there. Acid rain falls at times, and wild goats roam."
 }

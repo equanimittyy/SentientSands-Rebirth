@@ -113,10 +113,9 @@ def validate(template):
     for record_id, character in template["characters"].items():
         _check_character(character, ["characters", record_id], game_ids, error, warnings, names)
 
-    entries = {f"{category}/{record_id}" for category, records in template["entities"].items() for record_id in records}
     for category, records in template["entities"].items():
         for record_id, entity in records.items():
-            _check_entity(entity, [category, record_id], entries, error, warnings, names)
+            _check_entity(entity, [category, record_id], error, warnings, names)
     return errors, warnings
 
 
@@ -132,11 +131,11 @@ def template_names(template):
     return {"knowers": names(template["factions"].values()) | characters | names(entities["races"].values()), "regions": names(entities["regions"].values())}
 
 
-def record_problems(kind, data, field, entries=frozenset(), names=None):
+def record_problems(kind, data, field, names=None):
     """The (errors, warnings) of one record outside a template, for example its copy in a campaign.
 
-    entries holds the "<category>/<id>" of each race, location, and region that a child may point to, and names holds
-    the names that a known_by and a neighbour may name, in the form of template_names. Without names, no name is checked.
+    names holds the names that a known_by and a neighbour may name, in the form of template_names. Without names, no
+    name is checked.
     """
     errors, warnings = [], []
 
@@ -153,7 +152,7 @@ def record_problems(kind, data, field, entries=frozenset(), names=None):
     elif kind == "character":
         _check_character(data, field, {}, error, warnings, names)
     elif kind == "entity":
-        _check_entity(data, field, entries, error, warnings, names)
+        _check_entity(data, field, error, warnings, names)
     else:
         error(["kind"], f"{kind} is not a kind of record.")
     return errors, warnings
@@ -324,8 +323,7 @@ _FORMAT_KEYS = {
     "history": {"title", "text", "knowledge", "known_by"},
     "factions": {"game_id", "name", "aliases", "major", "fields", "description", "knowledge", "known_by"},
     "characters": {"game_id", "profile", "knowledge", "known_by"},
-    "entity": {"name", "aliases", "fields", "description", "children", "knowledge", "known_by"},
-    "child": {"entry", "weight"},
+    "entity": {"name", "aliases", "fields", "description", "knowledge", "known_by"},
 }
 
 
@@ -348,9 +346,6 @@ def _unknown_keys(data):
         for record_id, record in data.get(key, {}).items():
             kind = key if key in _FORMAT_KEYS else "entity"
             check(record, kind, [key, record_id])
-            children = record.get("children") if kind == "entity" and isinstance(record, dict) else None
-            for index, child in enumerate(children if isinstance(children, list) else []):
-                check(child, "child", [key, record_id, "children", index])
     return errors
 
 
@@ -367,8 +362,7 @@ def _place(data, field):
     if field[0] == "characters" and isinstance(record, dict):
         record = record.get("profile")
     name = record.get("Name" if field[0] == "characters" else "name") if isinstance(record, dict) else None
-    place = f"{name if _is_text(name) else field[1]} ({_KIND_LABELS[field[0]]})"
-    return f"{place}, relation {field[3] + 1}" if field[2:3] == ["children"] and len(field) > 3 else place
+    return f"{name if _is_text(name) else field[1]} ({_KIND_LABELS[field[0]]})"
 
 
 def delete(name, shipped_dir, user_dir):
@@ -539,7 +533,7 @@ def _check_character(character, field, game_ids, error, warnings, names):
     _check_knowledge(character, name, field, error, warnings, names)
 
 
-def _check_entity(entity, field, entries, error, warnings, names):
+def _check_entity(entity, field, error, warnings, names):
     if not _check_object(entity, field, error):
         return
     if not _is_text(entity.get("name")):
@@ -548,13 +542,6 @@ def _check_entity(entity, field, entries, error, warnings, names):
     _check_fields(entity.get("fields", {}), field[0], field + ["fields"], error)
     if not isinstance(entity.get("description", ""), str):
         error(field + ["description"], "The description must be text.")
-    children = entity.get("children", [])
-    if not isinstance(children, list) or not all(isinstance(child, dict) and _is_text(child.get("entry")) and _is_number(child.get("weight", 1)) for child in children):
-        error(field + ["children"], "Each relation needs an entry and a number as its weight.")
-    else:
-        for child in children:
-            if child["entry"] not in entries:
-                warnings.append({"field": field + ["children"], "message": f"The relation {child['entry']} of {entity.get('name', field[-1])} names no entry."})
     neighbours = entity.get("fields", {}).get("neighbours", []) if isinstance(entity.get("fields"), dict) else []
     for neighbour in neighbours if names and _is_text_list(neighbours) else []:
         if name_words(neighbour) not in names["regions"]:
@@ -608,10 +595,6 @@ def _is_text_list(value):
 
 def _list(value):
     return value if _is_text_list(value) else []
-
-
-def _is_number(value):
-    return isinstance(value, (int, float)) and not isinstance(value, bool)
 
 
 def _write(path, text):

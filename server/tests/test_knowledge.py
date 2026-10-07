@@ -9,9 +9,9 @@ from chat import knowledge, retrieval
 CATEGORIES = {"race": "races", "faction": "factions", "location": "locations", "region": "regions", "history": "history", "character": "characters"}
 
 
-def record(kind, name, fields=None, knowledge="", known_by=(), children=(), origin_faction="", text="Text."):
+def record(kind, name, fields=None, knowledge="", known_by=(), origin_faction="", text="Text."):
     found = {"key": (CATEGORIES[kind], name), "kind": kind, "name": name, "aliases": [], "fields": fields or {}, "description": text,
-             "children": list(children), "knowledge": knowledge, "known_by": list(known_by)}
+             "knowledge": knowledge, "known_by": list(known_by)}
     return {**found, "origin_faction": origin_faction} if kind == "character" else found
 
 
@@ -52,10 +52,6 @@ class LinkTest(unittest.TestCase):
         records = [record("faction", "Anti-Slavers", {"leader": "Tinfist"}, knowledge="limited"), record("character", "Tinfist")]
         self.assertEqual(knows(records, [key("faction", "Anti-Slavers")]), {"Anti-Slavers", "Tinfist"})
         self.assertEqual(knows(records, [key("character", "Tinfist")]), {"Anti-Slavers", "Tinfist"})
-
-    def test_a_child_links_to_its_entry(self):
-        records = [record("region", "Bast", knowledge="limited", children=["locations/Bast Ruins"]), record("location", "Bast Ruins", knowledge="limited")]
-        self.assertEqual(knows(records, [key("location", "Bast Ruins")]), {"Bast", "Bast Ruins"})
 
     def test_the_faction_and_the_origin_faction_of_a_character_link(self):
         records = [record("faction", "Anti-Slavers"), record("faction", "Holy Nation"), record("character", "Bo", {"faction": "Anti-Slavers"}, origin_faction="Holy Nation")]
