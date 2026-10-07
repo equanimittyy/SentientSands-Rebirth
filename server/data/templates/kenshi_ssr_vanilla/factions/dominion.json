@@ -4,7 +4,8 @@
   "aliases": [
     "The Shogunate"
   ],
-  "major": true,
+  "major": false,
+  "knowledge": "limited",
   "fields": {
     "leader": "Shogun Kazuhiro",
     "bases": [

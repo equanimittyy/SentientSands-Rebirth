@@ -515,7 +515,7 @@ Rejected:
 - The `factions` of a region as holding factions. They list each faction that roams a region, also a faction that only passes through. From its region and the neighbouring regions, an NPC of SSR Vanilla would know a median of 54 and at most 108 canon characters, against 20 and 53 through the holding factions.
 - A second step of neighbours. It would give an NPC of SSR Vanilla a median of 16 and at most 30 regions in its place, against 6 and 10.
 - The current place as base knowledge. A caravan guard of the Holy Nation in Heng would know Heng as if it grew up there, and it would lose the lore of Heng when it left.
-- The home as a full place, with its neighbouring regions and holding factions. The home of the Holy Nation would span 24 of the 69 regions of SSR Vanilla, and a member would know 135 of the 298 Limited records as base knowledge, against 27.
+- The home as a full place, with its neighbouring regions and holding factions. The home of the Holy Nation would span 24 of the 69 regions of SSR Vanilla, and a member would know 139 of the 305 Limited records as base knowledge, against 30.
 - The place of the first chat as the home. A caravan guard of the Holy Nation that the player first meets in Heng would get Heng as its home.
 - A record of each place that each NPC passes through. It would write for every NPC all the time, but only an NPC in a chat uses its knowledge, and the threads already hold the place of each chat.
 - A filter after the search. A record that the NPC cannot know could set the best score and cut the hits that it can know below `SCORE_RATIO`, and its words would count towards `COMMON_SHARE`.
@@ -1024,7 +1024,7 @@ SSR writes the content of SSR Vanilla itself. Each fact comes from the game: its
 
 Each tier of SSR Vanilla that differs from the default of its kind has a source in the dialogue of the game or in the wiki (see [Knowledge](#knowledge)). The other records keep the default.
 
-SSR Vanilla sets each faction that is not `major` to Limited, and keeps its 14 major factions Global. A member of the United Cities in Heft therefore does not know Narko's Disciples, while a member of the Holy Nation knows them anywhere, because the `enemies` of Narko's Disciples name the Holy Nation.
+SSR Vanilla sets each faction that is not `major` to Limited, and keeps its 10 major factions Global. A member of the United Cities in Heft therefore does not know Narko's Disciples, while a member of the Holy Nation knows them anywhere, because the `enemies` of Narko's Disciples name the Holy Nation.
 
 These records are Secret:
 
@@ -1048,10 +1048,11 @@ These history entries are Limited:
 | The Shek Extinction Crisis | Shek warriors: "it weakens our numbers. The queen knows this". |
 | The Fleshless Doctrine | The Skin Bandits. The record of their faction, which is Limited, holds the same belief. |
 
-These canon characters are Global, because speakers far from their factions name them, mostly the bar patrons of the Swamp, World's End, and the United Cities, who talk of their fates: Tinfist, Holy Lord Phoenix, Emperor Tengu, Esata the Stone Golem, Bugmaster, Eyegore, Longen, High Inquisitor Seta, Boss Simion, and Luquin.
+These canon characters are Global, because speakers far from their factions name them, mostly the bar patrons of the Swamp, World's End, and the United Cities, who talk of their fates: Tinfist, Holy Lord Phoenix, Emperor Tengu, Esata the Stone Golem, Bugmaster, Longen, and Luquin.
 
 - Mad Cat-Lon stays Limited. The bar patrons know his legend, but the Skeletons of Black Desert City do not know where he went ("While Cat-Lon disappears into thin air..."), and his Backstory names his throne.
 - Lady Kana and Lord Inaba stay Limited. Only the bars of the United Cities name them, and Limited already gives them to the members of their factions and to the NPCs in the places that those factions hold.
+- Boss Simion, Eyegore, and High Inquisitor Seta stay Limited for the same reason. The bar patrons name Simion only in the towns of the United Cities (`in town of`), and only the bar patrons of the United Cities name Eyegore. Seta is named by the Holy Nation and by Moll of the Flotsam Ninjas.
 - A longer name wins in the text of a history entry, so the texts of The Second Empire and The Hydraulic Knights say "the Second Empire", not "an empire" or "the empire", which name the United Cities through its alias The Empire. The texts also avoid "brink" and "pit", which name the location Brink and the region The Pits. "Cat-Lon" in The Second Empire still names the character Cat, which only gives the entry to Cat.
 
 ## Logging

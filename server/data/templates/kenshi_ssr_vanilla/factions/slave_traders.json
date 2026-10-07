@@ -2,7 +2,8 @@
   "game_id": "1084-gamedata.base",
   "name": "Slave Traders",
   "aliases": [],
-  "major": true,
+  "major": false,
+  "knowledge": "limited",
   "fields": {
     "bases": [
       "Eyesocket",

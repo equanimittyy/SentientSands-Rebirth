@@ -2,7 +2,8 @@
   "game_id": "49377-rebirth.mod",
   "name": "Flotsam Ninjas",
   "aliases": [],
-  "major": true,
+  "major": false,
+  "knowledge": "limited",
   "fields": {
     "leader": "Moll",
     "bases": [

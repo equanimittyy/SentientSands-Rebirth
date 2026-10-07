@@ -4,7 +4,8 @@
   "aliases": [
     "Chitrinites"
   ],
-  "major": true,
+  "major": false,
+  "knowledge": "limited",
   "fields": {
     "leader": "Grand Marshall Krug",
     "bases": [
