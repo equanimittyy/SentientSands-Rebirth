@@ -8,7 +8,7 @@ The server writes a rumor only for a deed: a kill or a capture of a known figure
 
 This plan adds a third kind of deed, `auto`. At most once in each hour of real time, a pass reads the conversation memories that no rumor used, and the LLM spins at most one rumor from them. The player edits and deletes an auto deed as a custom deed.
 
-The plan also shortens the Deed text of a custom deed ([section 2](#2-deed-text)).
+The plan also shortens the Deed text of a custom deed ([section 2](#2-deed-text)) and the hints of the Deeds list ([section 3](#3-deeds-hints)).
 
 Campaigns move to schema 14 for a new column of the `thread` table, so a campaign of schema 13 does not open.
 
@@ -23,7 +23,13 @@ The Deed column of a custom deed shows "Custom deed - add any rumours you would 
 
 `notable_line` (`server/core/deeds.py:180`) gives these texts, so the web app and the in-game window drop their own text for a custom deed and show the line of the deed. "From 1 conversation" takes the singular.
 
-## 3. Auto deeds
+## 3. Deeds hints
+
+The two hints above the Deeds list (`server/dashboard/web/editor.js:1071-1074`) become one sentence that tells only what the list is:
+
+> Kills and captures of known figures, such as Tinfist, and rumors that you write or that SSR makes from your conversations, for NPCs to gossip about.
+
+## 4. Auto deeds
 
 ### Storage
 
@@ -120,7 +126,7 @@ Each place that treats a custom deed apart treats an auto deed the same way:
 | `server/chat/rumors.py:41,49` | No faction line, and the deed is the rumor so far. |
 | `server/core/routes.py:59-62` (`/events`) | The list title of an auto deed is "Auto:" and its rumor. |
 | `campaign_db.delete_custom_deed` | It also deletes an auto deed. |
-| `server/dashboard/web/editor.js` | `NOTABLE_KINDS` gets "Auto". An auto deed gets the delete of the whole deed, and the confirmation names its kind. The Deeds hints tell what an auto deed is. |
+| `server/dashboard/web/editor.js` | `NOTABLE_KINDS` gets "Auto". An auto deed gets the delete of the whole deed, and the confirmation names its kind. The Deeds hints change as [section 3](#3-deeds-hints) tells. |
 | `server/dashboard/web/llm.js:14`, `server/dashboard/web/prompts.js:22` | The blurb of the `synthesis` task names the auto rumors, and the Prompts tab lists the new prompt. |
 | `plugin/ui/EventsWindow.cpp:15,405,416,505` | `DEED_KINDS` gets `auto`, and Delete removes an auto deed as a custom deed. Without this, Delete in the game removes only the rumor and leaves an empty deed. |
 
@@ -130,7 +136,7 @@ The plugin change needs a build on Windows.
 
 The chat scene still gives the 5 newest rumors of each kind (`PROMPT_RUMORS` in `server/chat/prompts.py:11`). An auto rumor has a game time, so it comes with its age.
 
-## 4. Rejected alternatives
+## 5. Rejected alternatives
 
 | Alternative | Reason |
 |---|---|
@@ -143,7 +149,7 @@ The chat scene still gives the 5 newest rumors of each kind (`PROMPT_RUMORS` in 
 | The LLM lists the memories to drop | A weak model drops the wrong memories, and each reply carries a second judgment. |
 | Free the memories when the player deletes an auto deed | The next pass would probably spin the same rumor again. |
 
-## 5. Verification
+## 6. Verification
 
 Unit tests, which run with the standard library only (`server/tests/`):
 
