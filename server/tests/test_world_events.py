@@ -214,7 +214,7 @@ class CustomDeedTest(WorldEventsTestCase):
         self.kill([BEEP], TINFIST, at(1))
         campaign_db.add_custom_deed("They say Beep freed the slaves of Rebirth.")
         self.assertEqual([(event["time"], event["line"], event["rumor"] is not None) for event in deeds.notable_events()],
-                         [("-", "Custom", True), ("Day 1, 00:00", "Beep of Nameless killed Tinfist.", False)])
+                         [("-", "Written by you", True), ("Day 1, 00:00", "Beep of Nameless killed Tinfist.", False)])
         self.assertEqual(deeds.character_deeds(), {"h:1": ["Killed Tinfist"]})
 
     def test_the_facts_of_a_custom_deed_leave_the_deed_to_the_rumor_so_far(self):

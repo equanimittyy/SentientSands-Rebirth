@@ -1107,7 +1107,7 @@ function renderEventPage() {
   const rows = shown.slice(start, start + EVENTS_PER_PAGE).map((event) => el("tr", {},
     el("td", {}, event.time),
     el("td", {}, el("span", { className: "badge" }, NOTABLE_KINDS[event.kind] ?? event.kind)),
-    el("td", {}, event.kind === "custom" ? "Custom deed - add any rumours you would like characters to possibly comment on" : event.line),
+    el("td", {}, event.line),
     el("td", {}, rumorCell(event))));
   const head = el("tr", {}, el("th", {}, "Time"), el("th", {}, "Kind"), el("th", {}, "Deed"), el("th", {}, "Rumor"));
   const table = el("table", { className: "event-table" }, el("thead", {}, head), el("tbody", {}, ...rows));

@@ -57,7 +57,7 @@ def list_events():
     for event in deeds.notable_events():
         rumor = rumors.get(event["rumor"])
         custom = event["kind"] == "custom"
-        # The line of a custom deed is only its kind, so its rumor tells it apart in the list
+        # The line of a custom deed tells nothing of the deed, so its rumor tells it apart in the list
         words = (f"Custom: {rumor['text']}" if custom and rumor else event["line"]).split()
         mark = " (rumor)" if rumor and not custom else ""
         # "N." numbering rather than "#N": MyGUI parses "#" as a color tag
@@ -75,8 +75,7 @@ def events_content():
     if not event:
         return jsonify({"status": "error", "text": "The deed is gone."}), 404
     rumor = next((rumor for rumor in campaign_db.rumors() if rumor["id"] == event["rumor"]), None)
-    line = "Custom deed - add any rumours you would like characters to possibly comment on" if event["kind"] == "custom" else event["line"]
-    lines = (["=" * 38, "  DEED", "=" * 38, ""] + textwrap.wrap(line, width=76) + ["", f"Kind: {event['kind'].capitalize()}", f"Time: {event['time']}", "", "RUMOR:"]
+    lines = (["=" * 38, "  DEED", "=" * 38, ""] + textwrap.wrap(event["line"], width=76) + ["", f"Kind: {event['kind'].capitalize()}", f"Time: {event['time']}", "", "RUMOR:"]
              + (textwrap.wrap(rumor["text"], width=76) if rumor else ["None yet. Press Generate Rumor to write one."]))
     return jsonify({"status": "ok", "text": "\n".join(lines)})
 

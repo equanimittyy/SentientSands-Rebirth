@@ -180,7 +180,7 @@ def character_ids(deed):
 def notable_line(deed, names, player_faction):
     """names maps an npc_id to its current name; a character with no profile keeps the name of the deed."""
     if deed["deed"] == "custom":
-        return "Custom"
+        return "Written by you"
     doers = name_list([names.get(doer["id"], doer["name"]) for doer in deed["doers"]])
     victim = names.get(deed["victim"]["id"], deed["victim"]["name"])
     verb = "killed" if deed["deed"] == "kill" else "captured"
