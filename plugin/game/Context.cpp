@@ -487,6 +487,8 @@ static const StatsEnumerated COMBAT_STATS[] = {
 static const int COMBAT_STAT_COUNT =
     sizeof(COMBAT_STATS) / sizeof(COMBAT_STATS[0]);
 static const float PROBE_SKILL_BONUS = 10.0f;
+// A start time this far ahead keeps the hours passed below any expiry
+static const double PROBE_START_SHIFT_HOURS = 100000.0;
 
 static void PlaceProbeBounty(GameWorld *world, Character *npc,
                              const std::string &payload) {
@@ -496,15 +498,22 @@ static void PlaceProbeBounty(GameWorld *world, Character *npc,
     return;
   int crime = atoi(payload.substr(0, a).c_str());
   int amount = atoi(payload.substr(a + 1, b - a - 1).c_str());
-  std::string issuerName = payload.substr(b + 1);
-  issuerName.erase(0, issuerName.find_first_not_of(" "));
-  Faction *issuer = world->factionMgr->getFactionByStringID(issuerName);
-  if (!issuer)
-    issuer = world->factionMgr->getFactionByName(issuerName);
-  Faction *law = issuer ? issuer->getLawEnforcementFaction() : NULL;
+  std::string issuers = payload.substr(b + 1);
+  Faction *issuer = NULL;
+  Faction *law = NULL;
+  for (size_t start = 0; !law && start <= issuers.size();) {
+    size_t end = issuers.find(',', start);
+    if (end == std::string::npos)
+      end = issuers.size();
+    std::string id = issuers.substr(start, end - start);
+    id.erase(0, id.find_first_not_of(" "));
+    issuer = world->factionMgr->getFactionByStringID(id);
+    law = issuer ? issuer->getLawEnforcementFaction() : NULL;
+    start = end + 1;
+  }
   if (!law) {
-    Log(LOG_DEBUG, "BOUNTY_PROBE: '" + issuerName +
-                       "' is no faction, or has no law enforcement faction");
+    Log(LOG_DEBUG, "BOUNTY_PROBE: no faction of '" + issuers +
+                       "' has a law enforcement faction");
     return;
   }
   ActivePlatoon *active = npc->getPlatoon();
@@ -519,8 +528,11 @@ static void PlaceProbeBounty(GameWorld *world, Character *npc,
   ogre_unordered_map<Faction *, Bounty>::type::iterator bounty =
       npc->crimes.bounties.find(law);
   bool crimeAdded = bounty != npc->crimes.bounties.end();
-  if (crimeAdded)
+  if (crimeAdded) {
     bounty->second.addCrime((CrimeEnum)crime);
+    bounty->second.bountyAssignmentStartedTime.addHours(
+        PROBE_START_SHIFT_HOURS);
+  }
   CharStats *stats = npc->getStats();
   for (int i = 0; stats && i < COMBAT_STAT_COUNT; ++i) {
     float &level = stats->getStatRef(COMBAT_STATS[i]);
@@ -586,7 +598,8 @@ static void LogProbeBounty(GameWorld *world, Character *npc) {
   }
 }
 
-// The payload "crime: amount: issuer" places a bounty; an empty one only logs.
+// The payload "crime: amount: issuer, ..." places a bounty of the first issuer
+// with a law enforcement faction; an empty payload only logs.
 void ProbeBounty(Character *npc, const std::string &payload) {
   GameWorld *world = ppWorld ? *ppWorld : NULL;
   if (!world || !world->factionMgr)

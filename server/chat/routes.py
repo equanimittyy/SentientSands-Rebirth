@@ -1,6 +1,7 @@
 import json
 import logging
 import queue
+import random
 import re
 import threading
 import time
@@ -185,7 +186,7 @@ def chat():
                         "/move, /movefast, /home, /shop, /raid [Town], /travel [Town], /medic, /rescue, /repair,\n" + \
                         "/notify [msg], /give_cats [n], /take_cats [n], /drop [item],\n" + \
                         "/take_item [item], /spawn [Templ|Name|Desc], /relations [Fact] [n], /task [TASK],\n" + \
-                        "/bounty [Fact] [crime] [n]"
+                        "/bounty [n]"
             return reply(*help_text.split("\n"))
             
         if cmd == "attack": test_action = "[ATTACK]"
@@ -224,14 +225,18 @@ def chat():
                 test_action = f"[ACTION: FACTION_RELATIONS: {rparts[0].strip()}: {rparts[1].strip()}]"
         elif cmd == "task": test_action = f"[TASK: {args.upper()}]"
         elif cmd == "bounty":
-            parts = args.rsplit(' ', 2)
             if not args:
                 probe = "[ACTION: BOUNTY_PROBE]"
-            elif len(parts) == 3 and parts[1].upper() in bounties.CRIMES and parts[2].isdigit():
-                probe = f"[ACTION: BOUNTY_PROBE: {bounties.CRIMES.index(parts[1].upper()) + 1}: {parts[2]}: {parts[0]}]"
+            elif args.isdigit():
+                target = context_dict(data.get('context'))
+                faction = campaign_db.find_faction(target.get("factionID"), target.get("faction"))
+                place = target.get("environment") or {}
+                issuers = bounties.issuer_ids(faction, campaign_db.list_factions(), background.campaign_lore(), place.get("town_name"), place.get("zone_name")) if faction else []
+                if not issuers:
+                    return reply(f"[DEBUG] No faction of the campaign is an enemy of {target.get('faction') or 'the target'}.")
+                probe = f"[ACTION: BOUNTY_PROBE: {random.randint(1, len(bounties.CRIMES))}: {args}: {', '.join(issuers)}]"
             else:
-                return reply("[DEBUG] /bounty [Fact] [crime] [n] puts a bounty on the target. /bounty alone logs its bounties.",
-                             f"[DEBUG] Crimes: {', '.join(crime.lower() for crime in bounties.CRIMES)}")
+                return reply("[DEBUG] /bounty [n] puts a bounty of n cats on the target, from an enemy faction. /bounty alone logs its bounties.")
             logging.info(f"CHAT: Test command {cmd} -> {probe}")
             # The plugin also runs a tag in a spoken line, so an echo of the tag would place the bounty twice
             return reply("[DEBUG] Executing test command: bounty probe", actions=[probe])
