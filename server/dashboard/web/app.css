@@ -305,7 +305,8 @@ label > .label-text {
   position: relative;
 }
 
-label > .label-text > .help {
+label > .label-text > .help,
+.known-by > .label-text > .help {
   margin-left: 0.35em;
 }
 

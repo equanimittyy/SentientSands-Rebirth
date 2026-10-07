@@ -379,7 +379,7 @@ function knownByEditor(form, path) {
   // A campaign faction ID can hold spaces, which an ID reference cannot
   const list = `knowers-${path.join("-").replace(/[^A-Za-z0-9_-]/g, "_")}`;
   const unknown = (name) => (name.trim() && !names.has(nameWords(name)) ? "No character, faction, or race has this name." : "");
-  return el("div", {},
+  return el("div", { className: "known-by" },
     withHelp("Known by", KNOWN_BY_HELP),
     ...form.known_by.map((row, index) => {
       const note = el("span", { className: "detail" }, unknown(row.name));
