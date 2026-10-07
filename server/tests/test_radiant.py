@@ -22,7 +22,7 @@ class TopicTest(unittest.TestCase):
         place = {"town_name": "Squin"}
         self.assertEqual(radiant.topic([MEMORY], place, ["Beep freed the slaves."], first), "A conversation that some of them remember. (Memory of a conversation between Stick and Jorge) Stick asked Jorge for work.")
         self.assertEqual(radiant.topic([MEMORY], place, ["Beep freed the slaves."], last), "A rumour that they heard: Beep freed the slaves.")
-        self.assertEqual(radiant.topic([], {"biome": "Border Zone"}, [], first), "The place where they are.")
+        self.assertEqual(radiant.topic([], {"zone_name": "Border Zone"}, [], first), "The place where they are.")
 
     def test_the_place_holds_the_lore_of_the_town(self):
         location = {"name": "Squin", "aliases": [], "fields": {"type": "town"}, "description": "Squin is a town."}

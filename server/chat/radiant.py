@@ -18,7 +18,7 @@ def topic(memories, environment, rumors, choice=random.choice, location=None):
     kinds = []
     if memories:
         kinds.append(lambda: f"A conversation that some of them remember. {chat_prompt.shared_memory(choice(memories))}")
-    if environment.get("town_name") or environment.get("biome"):
+    if environment.get("town_name") or environment.get("zone_name"):
         kinds.append(lambda: place_topic(location))
     if rumors:
         kinds.append(lambda: f"A rumour that they heard: {choice(rumors)}")

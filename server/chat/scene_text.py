@@ -263,11 +263,11 @@ def location_name(context):
 
 
 def location_text(environment, subject="You"):
-    town, biome = environment.get("town_name", ""), environment.get("biome", "")
-    if town and biome:
-        place = f"{subject} are in {town}, in {biome}."
-    elif town or biome:
-        place = f"{subject} are in {town or biome}."
+    town, zone = environment.get("town_name", ""), environment.get("zone_name", "")
+    if town and zone:
+        place = f"{subject} are in {town}, in {zone}."
+    elif town or zone:
+        place = f"{subject} are in {town or zone}."
     else:
         place = f"{subject} are somewhere in the wasteland."
     walls = f"{subject} are inside the town walls." if environment.get("in_town") else ""
