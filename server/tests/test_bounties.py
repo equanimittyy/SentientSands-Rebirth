@@ -1,51 +1,38 @@
+import glob
+import json
 import os
 import sys
 import unittest
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
 
-from chat import retrieval
 from core import bounties
+from core.paths import WORLD_TEMPLATES_DIR
+
+HOLY_NATION, UNITED_CITIES, SHEK_KINGDOM = bounties.ISSUERS
 
 
-def faction(faction_id, name, enemies=(), aliases=(), major=False, territory=()):
-    return {"faction_id": faction_id, "name": name, "aliases": list(aliases), "major": major, "fields": {"enemies": list(enemies), "territory": list(territory)}}
-
-
-def region(name, *neighbours):
-    return ("regions", name.lower(), {"name": name, "fields": {"neighbours": {other: "east" for other in neighbours}}})
-
-
-class EnemyTest(unittest.TestCase):
-    def test_an_enemy_in_either_list_counts(self):
-        target = faction("1-a", "Dust Bandits", ["Holy Nation"])
-        factions = [target, faction("2-a", "The Holy Nation"), faction("3-a", "United Cities", ["Dust Bandits"]), faction("4-a", "Shek Kingdom")]
-        self.assertEqual(bounties.enemy_ids(target, factions), ["2-a", "3-a"])
-
-    def test_an_alias_names_the_enemy(self):
-        target = faction("1-a", "Dust Bandits", ["The Empire"])
-        self.assertEqual(bounties.enemy_ids(target, [target, faction("2-a", "United Cities", aliases=["The Empire"])]), ["2-a"])
-
-    def test_the_own_faction_and_a_faction_without_a_game_id_drop_out(self):
-        target = faction("1-a", "Dust Bandits", ["Dust Bandits", "Rebel Farmers"])
-        self.assertEqual(bounties.enemy_ids(target, [target, faction(None, "Rebel Farmers")]), [])
+def faction(faction_id, name, enemies=(), aliases=()):
+    return {"faction_id": faction_id, "name": name, "aliases": list(aliases), "fields": {"enemies": list(enemies)}}
 
 
 class IssuerTest(unittest.TestCase):
-    def setUp(self):
-        self.target = faction("1-t", "Bandits", ["Far Major", "Near Major", "Near Minor", "Landless Major"])
-        self.factions = [
-            self.target, faction("2-t", "Far Major", major=True, territory=["Cold"]), faction("3-t", "Near Major", major=True, territory=["Middle"]),
-            faction("4-t", "Near Minor", territory=["Home"]), faction("5-t", "Landless Major", major=True),
-        ]
-        regions = [region("Home", "Middle"), region("Middle", "Cold"), region("Cold")]
-        self.lore = retrieval.lore_records(regions, self.factions, [])
+    def test_an_issuer_in_either_list_counts(self):
+        target = faction("200-a", "Dust Bandits", ["Holy Nation"])
+        factions = [target, faction(HOLY_NATION, "The Holy Nation"), faction(UNITED_CITIES, "United Cities", ["Dust Bandits"]), faction(SHEK_KINGDOM, "Shek Kingdom")]
+        self.assertEqual(bounties.issuer_ids(target, factions), [HOLY_NATION, UNITED_CITIES])
 
-    def test_the_major_factions_come_first_and_each_group_nearest_first(self):
-        self.assertEqual(bounties.issuer_ids(self.target, self.factions, self.lore, None, "Home", shuffle=lambda ids: None), ["3-t", "2-t", "5-t", "4-t"])
+    def test_an_alias_names_the_issuer(self):
+        target = faction("200-a", "Rebel Farmers", ["The Empire"])
+        self.assertEqual(bounties.issuer_ids(target, [target, faction(UNITED_CITIES, "United Cities", aliases=["The Empire"])]), [UNITED_CITIES])
 
-    def test_an_unknown_place_keeps_the_major_factions_first(self):
-        self.assertEqual(bounties.issuer_ids(self.target, self.factions, self.lore, None, None, shuffle=lambda ids: None), ["2-t", "3-t", "5-t", "4-t"])
+    def test_an_enemy_that_is_no_issuer_and_the_own_faction_drop_out(self):
+        target = faction(HOLY_NATION, "The Holy Nation", ["The Holy Nation", "Flotsam Ninjas"])
+        self.assertEqual(bounties.issuer_ids(target, [target, faction("300-a", "Flotsam Ninjas")]), [])
+
+    def test_each_issuer_is_a_faction_of_the_vanilla_template(self):
+        ids = {json.load(open(path, encoding="utf-8"))["game_id"] for path in glob.glob(os.path.join(WORLD_TEMPLATES_DIR, "kenshi_ssr_vanilla", "factions", "*.json"))}
+        self.assertLessEqual(set(bounties.ISSUERS), ids)
 
 
 if __name__ == "__main__":

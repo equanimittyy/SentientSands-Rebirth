@@ -230,13 +230,12 @@ def chat():
             elif args.isdigit():
                 target = context_dict(data.get('context'))
                 faction = campaign_db.find_faction(target.get("factionID"), target.get("faction"))
-                place = target.get("environment") or {}
-                issuers = bounties.issuer_ids(faction, campaign_db.list_factions(), background.campaign_lore(), place.get("town_name"), place.get("zone_name")) if faction else []
+                issuers = bounties.issuer_ids(faction, campaign_db.list_factions()) if faction else []
                 if not issuers:
-                    return reply(f"[DEBUG] No faction of the campaign is an enemy of {target.get('faction') or 'the target'}.")
+                    return reply(f"[DEBUG] None of the Holy Nation, the United Cities, and the Shek Kingdom is an enemy of {target.get('faction') or 'the target'}.")
                 probe = f"[ACTION: BOUNTY_PROBE: {random.randint(1, len(bounties.CRIMES))}: {args}: {', '.join(issuers)}]"
             else:
-                return reply("[DEBUG] /bounty [n] puts a bounty of n cats on the target, from an enemy faction. /bounty alone logs its bounties.")
+                return reply("[DEBUG] /bounty [n] puts a bounty of n cats on the target with each of the Holy Nation, the United Cities, and the Shek Kingdom that is its enemy. /bounty alone logs its bounties.")
             logging.info(f"CHAT: Test command {cmd} -> {probe}")
             # The plugin also runs a tag in a spoken line, so an echo of the tag would place the bounty twice
             return reply("[DEBUG] Executing test command: bounty probe", actions=[probe])
