@@ -12,6 +12,8 @@ import re
 import shutil
 import tempfile
 
+from chat.retrieval import name_words
+
 FORMAT_VERSION = 1
 MANIFEST = "manifest.json"
 OVERVIEW = "overview.txt"
@@ -119,12 +121,13 @@ def validate(template):
 
 
 def template_names(template):
-    """The names, in lowercase, that a known_by and a neighbour of the template can name."""
+    """The name words of the names that a known_by and a neighbour of the template can name. The server matches these
+    names by their name words, so a warning never flags a name that works, such as "the Skeletons"."""
     def names(records):
-        return {name.lower() for record in records if isinstance(record, dict) for name in [record.get("name"), *_list(record.get("aliases"))] if _is_text(name)}
+        return {name_words(name) for record in records if isinstance(record, dict) for name in [record.get("name"), *_list(record.get("aliases"))] if _is_text(name)}
 
     profiles = [character.get("profile") for character in template["characters"].values() if isinstance(character, dict)]
-    characters = {profile["Name"].lower() for profile in profiles if isinstance(profile, dict) and _is_text(profile.get("Name"))}
+    characters = {name_words(profile["Name"]) for profile in profiles if isinstance(profile, dict) and _is_text(profile.get("Name"))}
     entities = template["entities"]
     return {"knowers": names(template["factions"].values()) | characters | names(entities["races"].values()), "regions": names(entities["regions"].values())}
 
@@ -504,7 +507,7 @@ def _check_knowledge(record, name, field, error, warnings, names):
     if known_by and knowledge != "secret":
         warnings.append({"field": field + ["known_by"], "message": f"{name} is not Secret, so its Known by does nothing."})
     for knower in known_by if names else []:
-        if knower.lower() not in names["knowers"]:
+        if name_words(knower) not in names["knowers"]:
             warnings.append({"field": field + ["known_by"], "message": f"{knower} in the Known by of {name} names no character, faction, or race."})
 
 
@@ -554,7 +557,7 @@ def _check_entity(entity, field, entries, error, warnings, names):
                 warnings.append({"field": field + ["children"], "message": f"The relation {child['entry']} of {entity.get('name', field[-1])} names no entry."})
     neighbours = entity.get("fields", {}).get("neighbours", []) if isinstance(entity.get("fields"), dict) else []
     for neighbour in neighbours if names and _is_text_list(neighbours) else []:
-        if neighbour.lower() not in names["regions"]:
+        if name_words(neighbour) not in names["regions"]:
             warnings.append({"field": field + ["fields"], "message": f"The neighbour {neighbour} of {entity.get('name', field[-1])} names no region."})
     _check_knowledge(entity, entity.get("name") or field[-1], field, error, warnings, names)
 

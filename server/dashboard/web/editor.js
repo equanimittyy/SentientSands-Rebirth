@@ -354,6 +354,12 @@ function knowledgeSelect(form, path, kind) {
   return select;
 }
 
+// Mirrors name_words in server/chat/retrieval.py, by which the server matches a known_by name.
+function nameWords(name) {
+  const found = (name.toLowerCase().match(/[\p{L}\p{N}]+/gu) ?? []).map((word) => (word.length >= 4 && word.endsWith("s") ? word.slice(0, -1) : word));
+  return (found.length > 1 && found[0] === "the" ? found.slice(1) : found).join(" ");
+}
+
 // Mirrors world_template.template_names, whose names the validator checks a known_by against.
 function knowerOptions() {
   const kindOf = (record) => (isCanon(record) ? KNOWER_KINDS[record.kind === "entity" ? record.category : record.kind] : undefined);
@@ -369,10 +375,10 @@ function knowerOptions() {
 function knownByEditor(form, path) {
   const options = knowerOptions();
   const plain = new Map(options.map((option) => [option.label.toLowerCase(), option.name]));
-  const names = new Set(options.map((option) => option.name.toLowerCase()));
+  const names = new Set(options.map((option) => nameWords(option.name)));
   // A campaign faction ID can hold spaces, which an ID reference cannot
   const list = `knowers-${path.join("-").replace(/[^A-Za-z0-9_-]/g, "_")}`;
-  const unknown = (name) => (name.trim() && !names.has(name.trim().toLowerCase()) ? "No character, faction, or race has this name." : "");
+  const unknown = (name) => (name.trim() && !names.has(nameWords(name)) ? "No character, faction, or race has this name." : "");
   return el("div", {},
     withHelp("Known by", KNOWN_BY_HELP),
     ...form.known_by.map((row, index) => {

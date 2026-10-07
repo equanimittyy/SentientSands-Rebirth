@@ -128,7 +128,7 @@ class ValidateTest(TemplateTestCase):
         self.write("base", "races/skeleton.json", {"name": "Skeleton"})
         self.write("base", "characters/elder.json", {"game_id": "x", "knowledge": "secret", "profile": {"Name": "Elder"}})
         self.write("base", "history.json", [
-            {"title": "Obedience", "text": "The quarry.", "knowledge": "secret", "known_by": ["Skeleton", "okranites", "Elder", "Nobody"]},
+            {"title": "Obedience", "text": "The quarry.", "knowledge": "secret", "known_by": ["the Skeletons", "Holy Nation", "okranite", "Elder", "Nobody"]},
             {"title": "Stobe", "text": "A legend.", "known_by": ["Skeleton"]},
         ])
         errors, warnings = self.problems()
@@ -139,7 +139,7 @@ class ValidateTest(TemplateTestCase):
         ])
 
     def test_a_neighbour_that_names_no_region_is_a_warning(self):
-        self.write("base", "regions/vain.json", {"name": "Vain", "fields": {"neighbours": ["stenn desert", "Nowhere"]}})
+        self.write("base", "regions/vain.json", {"name": "Vain", "fields": {"neighbours": ["the Stenn Deserts", "Nowhere"]}})
         self.write("base", "regions/stenn_desert.json", {"name": "Stenn Desert"})
         self.assertEqual([warning["message"] for warning in self.problems()[1]], ["The neighbour Nowhere of Vain names no region."])
 
@@ -159,7 +159,7 @@ class ValidateTest(TemplateTestCase):
         self.assertEqual([e["field"] for e in world_template.record_problems("history", [{"title": ""}], ["history"])[0]], [["history", 0]])
         secret = dict(HOLY_NATION, knowledge="secret", known_by=["Nobody"])
         self.assertEqual(world_template.record_problems("faction", secret, ["f"]), ([], []))
-        self.assertEqual(len(world_template.record_problems("faction", secret, ["f"], names={"knowers": {"skeleton"}, "regions": set()})[1]), 1)
+        self.assertEqual(len(world_template.record_problems("faction", secret, ["f"], names={"knowers": {("skeleton",)}, "regions": set()})[1]), 1)
 
 
 class SaveTest(TemplateTestCase):
