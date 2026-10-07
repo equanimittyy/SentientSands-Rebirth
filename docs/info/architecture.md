@@ -486,15 +486,16 @@ The own records form two groups, so the prompt can tell the NPC where it learned
 
 | Group | Own records |
 |---|---|
-| Base | The character record, the current faction, the origin faction, the race, and the home |
-| Travels | The current place and the past places, with their neighbouring regions and holding factions |
+| Base | The character record, the current faction, the origin faction, the race, the home, and each current or past place inside the home, with its neighbouring regions and holding factions |
+| Travels | Each current or past place away from the home, with its neighbouring regions and holding factions |
 
 - A Limited record that links to a base record is base knowledge. A Limited record that links only to a travel record is travel knowledge, and the block gives it under a heading of its own (see [Block](#block)). A Global or a Secret record is always base knowledge.
 - The home stands for the place where the NPC grew up. A caravan guard of the Holy Nation in Heng knows the lands of the Holy Nation as base knowledge, and Heng from its travels.
+- A place is inside the home when its location or its region belongs to the home. What an NPC hears around its home is not travel, so a farmer of the Holy Nation in Okran's Valley knows the Rebel Farmers as base knowledge, through Bast next to Okran's Valley. The caravan guard in Heng knows them from its travels.
 - An NPC whose origin faction holds no land is a drifter. It has no home, so it knows each place from its travels. In SSR Vanilla, 10 of the 106 factions give no home. 7 hold no land, such as the Drifters and the Slaves, and 3 name only places that have no record, such as the Police, whose `territory` names the faction United Cities.
 - A past place is the `location` of a thread (see [Chat threads](#chat-threads)). A past place counts as a full place, as the current place does, with its neighbouring regions and holding factions.
 - The server reads the past places from the threads at each chat line, so nothing tracks an NPC between its chats. A place that the NPC passes through without a chat adds nothing. A deleted memory or a cull of a thread removes its place.
-- In SSR Vanilla, `knowledge.known` takes about 4 ms for a member of the Holy Nation in Heng, 6 ms with 10 past places, and 11 ms with 40 past places.
+- In SSR Vanilla, `knowledge.known` takes about 4 ms for a member of the Holy Nation in Heng, 6 ms with 10 past places, and 12 ms with 40 past places.
 
 #### Secret access
 

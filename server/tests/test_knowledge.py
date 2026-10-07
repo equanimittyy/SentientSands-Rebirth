@@ -137,6 +137,17 @@ class TravelsTest(unittest.TestCase):
         self.assertEqual({name for name, travels in found.items() if not travels}, {"Shek Kingdom", "Admag", "Stenn Desert", "Hungry Bandits"})
         self.assertEqual({name for name, travels in found.items() if travels}, {"The Hub", "Border Zone", "Dust Bandits", "Dust King", "Holy Nation Outlaws"})
 
+    def test_a_place_inside_the_home_is_base_with_its_neighbouring_regions_and_holding_factions(self):
+        shek = key("faction", "Shek Kingdom")
+        found = self.known([shek], shek, [("Admag", None)])
+        self.assertEqual(set(found), knows(PlaceTest.WORLD, town="Admag"))
+        self.assertFalse(any(found.values()))
+
+    def test_a_past_place_inside_the_home_is_base_and_the_place_away_is_travels(self):
+        shek = key("faction", "Shek Kingdom")
+        found = self.known([shek], shek, [("The Hub", None), (None, "Stenn Desert")])
+        self.assertEqual((found["Vain"], found["Dust King"], found["Holy Nation Outlaws"]), (False, False, True))
+
     def test_the_home_takes_no_neighbouring_region_and_no_holding_faction(self):
         found = self.known(origin=key("faction", "Shek Kingdom"))
         self.assertFalse({"Border Zone", "Vain", "Dust Bandits", "Mercenary Guild"} & set(found))

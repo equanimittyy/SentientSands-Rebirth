@@ -1,9 +1,9 @@
 """Which lore records an NPC can know. Each record has a tier: a Global record reaches every NPC, a Limited record the NPCs
 that link to it through the seeded data, and a Secret record the characters, factions, and races of its known_by.
 
-A Limited record is base knowledge when it links to the NPC itself or to the lands of its origin faction, and travel
-knowledge when it links only to the current place or to a place of a past chat, so the prompt can tell the NPC where it
-learned it.
+A Limited record is base knowledge when it links to the NPC itself, to the lands of its origin faction, or to a place
+inside them, and travel knowledge when it links only to a place away from home: the current place or a place of a past
+chat. The prompt can therefore tell the NPC where it learned it.
 
 It takes the records of retrieval.lore_records and the NPC as plain values and uses the standard library only, so it
 never touches the campaign. Links go one hop from the own records of the NPC. Only the place takes a second hop, through
@@ -27,12 +27,16 @@ def known(records, identity, origin=None, places=()):
     """The records that the NPC can know, as a dict from the key to whether the NPC knows the record only from its travels.
     identity holds the keys of the records that a known_by can name for the NPC: its own character record, its current
     faction, its origin faction, and its race. origin is the key of the origin faction, whose lands are the home of the
-    NPC, and places holds the (town, zone) of the current place and of each place of a past chat. An NPC whose origin
-    faction holds no land is a drifter, so it knows each place from its travels."""
+    NPC, and places holds the (town, zone) of the current place and of each place of a past chat. A place inside the home
+    is base, with its neighbouring regions and holding factions, so what an NPC hears around its home is not travel. An NPC
+    whose origin faction holds no land is a drifter, so it knows each place from its travels."""
     identity = set(identity)
     by_words = _by_words(records)
-    base = identity | _home(records, by_words, origin)
-    travels = _own_place(records, by_words, places)
+    home = _home(records, by_words, origin)
+    located = [place(records, town, zone) for town, zone in set(places)]
+    inside = [found for found in located if home & {*found[0], *found[1]}]
+    base = identity | home | _own_place(records, by_words, inside)
+    travels = _own_place(records, by_words, [found for found in located if found not in inside])
     links = _links(records, by_words)
     result = {}
     for record in records:
@@ -60,13 +64,12 @@ def _home(records, by_words, origin):
     return {town["key"] for town in towns} | {key for key in named if key[0] == "regions"} | regions
 
 
-def _own_place(records, by_words, places):
-    """The locations, the regions, and the neighbouring regions of places, which holds (town, zone) pairs, and the factions
-    that hold one of them: each faction whose territory, bases, or capital names one of them, and each owner of one of the
-    locations."""
+def _own_place(records, by_words, located):
+    """The locations, the regions, and the neighbouring regions of located, which holds what retrieval.place gives for
+    each place, and the factions that hold one of them: each faction whose territory, bases, or capital names one of them,
+    and each owner of one of the locations."""
     towns, regions = set(), set()
-    for town, zone in places:
-        current, own_regions, neighbours = place(records, town, zone)
+    for current, own_regions, neighbours in located:
         towns.update(current)
         regions.update(own_regions, neighbours)
     found = towns | regions
