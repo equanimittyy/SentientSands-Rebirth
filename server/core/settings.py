@@ -15,6 +15,7 @@ INI_KEY_MAP = {
     "current_campaign": "ActiveCampaign",
     "enable_radiant": "EnableRadiantConversations",
     "radiant_delay": "RadiantDelay",
+    "radiant_rumor_minutes": "RadiantRumorMinutes",
     "talk_radius": "TalkRadius",
     "yell_radius": "YellRadius",
     "enable_welcome": "EnableWelcomePopup",
@@ -59,6 +60,7 @@ SETTINGS_DEFAULTS = {
     "current_campaign": "Default",
     "enable_radiant": True,
     "radiant_delay": 600,
+    "radiant_rumor_minutes": 60,
     "talk_radius": 50,
     "yell_radius": 100,
     "enable_welcome": True,
@@ -120,6 +122,7 @@ def settings_page_values(settings):
     return {
         "enable_radiant": settings["enable_radiant"],
         "radiant_delay": settings["radiant_delay"],
+        "radiant_rumor_minutes": settings["radiant_rumor_minutes"],
         "dialogue_speed": settings["dialogue_speed_seconds"],
         "bubble_life": settings["bubble_life"],
         "radii": {

@@ -146,7 +146,15 @@ def settings_endpoint():
         val = int(radiant_delay)
         changes["radiant_delay"] = val
         send_to_pipe(f"SET_CONFIG: g_radiantIntervalSeconds: {val}")
-        logging.info(f"SETTINGS: Radiant delay set to {val}")
+        logging.info(f"SETTINGS: Radiant chat timer set to {val} seconds")
+
+    radiant_rumor = data.get("radiant_rumor_minutes")
+    if radiant_rumor is not None:
+        try:
+            val = max(1, int(radiant_rumor))
+            changes["radiant_rumor_minutes"] = val
+            logging.info(f"SETTINGS: Radiant rumor timer set to {val} minutes")
+        except: pass
 
     radii = data.get("radii")
     if radii:

@@ -194,17 +194,17 @@ The `rumor` table holds the text, the game time, the instruction, and the notabl
 
 ### Auto rumors
 
-At most once in each hour of real time, the server reads the conversation memories that no rumor used, and the LLM spins at most one rumor from them. The rumor is an auto deed, which the player edits and deletes as a custom deed (see [Deeds](#deeds)).
+At most once in each period of the Radiant rumor timer of the Settings page (`radiant_rumor_minutes`, default 60), the server reads the conversation memories that no rumor used, and the LLM spins at most one rumor from them. The rumor is an auto deed, which the player edits and deletes as a custom deed (see [Deeds](#deeds)).
 
 `memory_loop` checks on each tick of 10 s whether a pass is due (`server/chat/memory.py`). A pass runs when these conditions are all true:
 
-1. 60 minutes of real time passed since the server start or the last pass (`AUTO_RUMOR_SECONDS`).
+1. The Radiant rumor timer passed in real time since the server start or the last pass (`auto_rumor_seconds`).
 2. The chat is quiet (`chat_is_quiet`).
 3. No chat thread waits for its memory, and no deed waits for its rumor, because the memories and the deed rumors come first (`rumors.auto_pool`).
 4. The newest 40 memories of the pool hold a memory that no pass read. A pool without a new memory therefore costs no LLM call.
 
-- The hour counts in real time, because each pass is an LLM call, which costs real time and money. A game hour passes much faster.
-- The hour counts from each pass, also from a failed one, so a provider that keeps failing costs one call in each hour.
+- The timer counts real time, because each pass is an LLM call, which costs real time and money. A game hour passes much faster.
+- The timer counts from each pass, also from a failed one, so a provider that keeps failing costs one call in each period of the timer.
 - The pass runs in the thread of the memories, so its call never overlaps a call of the memories or of the deed rumors, because a local model serves one request at a time.
 
 The pool holds each memory whose `thread.rumor_passes` is less than 6 (`RUMOR_PASSES`). A pass reads the newest 40 of them by thread ID, oldest first, which is about 3,000 tokens (`campaign_db.rumor_pool`). After a valid reply, the counts change (`campaign_db.count_rumor_pass`):
@@ -216,7 +216,7 @@ The pool holds each memory whose `thread.rumor_passes` is less than 6 (`RUMOR_PA
 | In the pool, and older than the newest 40 | 6 |
 
 - The count drops a memory that the LLM passed over 6 times. Without it, the same dull memories go into each prompt, and they invite the LLM to make a theme from unrelated talk.
-- A pass runs at most once an hour, and only for a new memory, so a memory stays in the pool for about 6 hours of play. A theme whose memories are further apart makes no rumor.
+- A pass runs at most once in each period of the timer, and only for a new memory, so with the default timer a memory stays in the pool for about 6 hours of play. A theme whose memories are further apart makes no rumor.
 - The memories older than the newest 40 leave for good, so a cited memory does not let an old memory back into the window.
 - Only the cited memories leave for a rumor. The other memories stay, so a theme can build over several passes.
 - The pool decides only which memories can feed an auto rumor. Each memory stays in the campaign, and the chat, the Dialogue Library, and the bio prompt still read it.
@@ -661,7 +661,7 @@ Known wrong hits: "my teeth hurt" finds Bad Teeth, "Where can I get a prosthetic
 
 ## Radiant conversations
 
-A radiant conversation is a talk between 3 to 5 of the player's characters, which one LLM call writes. The plugin asks for one when `RadiantDelay` (600 s by default) of real time passes while the game runs, at any game speed, and when the player clicks Trigger Radiant in the chat window. Paused time does not count. The interval restarts when the request goes out, when the reply arrives, and when a line of any conversation shows.
+A radiant conversation is a talk between 3 to 5 of the player's characters, which one LLM call writes. The plugin asks for one when the Radiant chat timer of the Settings page (`RadiantDelay`, 600 s by default) of real time passes while the game runs, at any game speed, and when the player clicks Trigger Radiant in the chat window. Paused time does not count. The interval restarts when the request goes out, when the reply arrives, and when a line of any conversation shows.
 
 1. The plugin picks the center: the selected character, when it is one of the player's characters and can talk, or else the first character of the current squad that can talk (`GetRadiantParticipants` in `plugin/game/Context.cpp`). A character can talk when it is not dead, not unconscious, and not an animal.
 2. The participants are the center and the player's characters nearest to it within `TalkRadius` that can talk, up to 5 in all. With fewer than 3 participants, the plugin sends no request.

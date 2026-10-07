@@ -8,12 +8,13 @@ from core import deeds, state
 from core.settings import load_settings
 from store import campaign_db
 
-# Real time, because each pass costs an LLM call, and a game hour passes much faster
-AUTO_RUMOR_SECONDS = 3600
-
 def quiet_seconds():
     """The plugin sends no signal when a conversation ends, so this long without a chat ends a chat thread."""
     return load_settings()["conversation_timeout_minutes"] * 60
+
+def auto_rumor_seconds():
+    """Real time, because each pass costs an LLM call, and a game hour passes much faster."""
+    return load_settings()["radiant_rumor_minutes"] * 60
 
 def chat_is_quiet():
     return time.monotonic() - state.QUIET_SINCE >= quiet_seconds()
@@ -114,12 +115,12 @@ def memory_loop():
     last_pass = time.monotonic()
     while True:
         time.sleep(10)
-        if time.monotonic() - last_pass >= AUTO_RUMOR_SECONDS and chat_is_quiet():
+        if time.monotonic() - last_pass >= auto_rumor_seconds() and chat_is_quiet():
             campaign = state.ACTIVE_CAMPAIGN
             try:
                 pool = rumors.auto_pool()
                 if pool:
-                    # Before the call, so a provider that keeps failing costs one call in each hour
+                    # Before the call, so a provider that keeps failing costs one call in each period of the timer
                     last_pass = time.monotonic()
                     write_auto_rumor(pool, campaign)
             except Exception as e:
