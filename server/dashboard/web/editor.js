@@ -27,7 +27,7 @@ const FACTS = {
 const FACT_HELP = { neighbours: "The regions that share a border with this region on the world map of the game." };
 const TIERS = { global: "Global", limited: "Limited", secret: "Secret" };
 // Mirrors DEFAULTS in server/chat/knowledge.py.
-const DEFAULT_TIERS = { character: "limited" };
+const DEFAULT_TIERS = { character: "limited", locations: "limited", regions: "limited" };
 const KNOWLEDGE_HELP = "Who can know this entry.\nGlobal: every NPC.\nLimited: NPCs whose faction, race, home, or travels link to it.\nSecret: only the characters, factions, and races in Known by.";
 const KNOWN_BY_HELP = "The characters, factions, and races that know this entry. A member of a faction knows it, and so does a character that comes from the faction. Type to search, then choose from the list.";
 const KNOWER_KINDS = { character: "character", faction: "faction", races: "race" };
@@ -115,7 +115,7 @@ function knowledgeData(form) {
   return { ...(form.knowledge ? { knowledge: form.knowledge } : {}), ...(form.knowledge === "secret" && names.length > 0 ? { known_by: names } : {}) };
 }
 
-function toForm(kind, data) {
+function toForm(kind, data, category) {
   if (kind === "overview") return { text: data ?? "" };
   if (kind === "history") return { entries: (Array.isArray(data) ? data : []).map((entry) => ({ title: entry?.title ?? "", text: entry?.text ?? "", ...knowledgeForm("history", entry) })) };
   if (kind === "manifest") {
@@ -136,7 +136,7 @@ function toForm(kind, data) {
   return {
     name: data.name ?? "", aliases: (data.aliases ?? []).join(", "), fields: rows(data.fields), description: data.description ?? "",
     children: (data.children ?? []).map((child) => ({ entry: child.entry ?? "", text: labels.get(child.entry) ?? child.entry ?? "", weight: child.weight === undefined ? "" : String(child.weight) })),
-    ...knowledgeForm(kind, data), extra: rest(data, ["name", "aliases", "fields", "description", "children", "knowledge", "known_by"]),
+    ...knowledgeForm(category, data), extra: rest(data, ["name", "aliases", "fields", "description", "children", "knowledge", "known_by"]),
   };
 }
 
@@ -226,7 +226,7 @@ function isChanged(record) {
   if (!entry) return false;
   if (entry.isNew) return true;
   try {
-    return JSON.stringify(toData(record.kind, entry.form)) !== JSON.stringify(toData(record.kind, toForm(record.kind, record.data)));
+    return JSON.stringify(toData(record.kind, entry.form)) !== JSON.stringify(toData(record.kind, toForm(record.kind, record.data, record.category)));
   } catch {
     return true;
   }
@@ -241,7 +241,7 @@ const changedMemories = () => (log?.threads ?? []).filter((thread) => thread.mem
 const hasChanges = () => (source === "events" ? [...changedRumors(), ...changedMemories()] : changedRecords()).length > 0;
 
 function formOf(record) {
-  if (!drafts.has(record.key)) drafts.set(record.key, { form: toForm(record.kind, record.data) });
+  if (!drafts.has(record.key)) drafts.set(record.key, { form: toForm(record.kind, record.data, record.category) });
   return drafts.get(record.key).form;
 }
 
@@ -601,7 +601,7 @@ function entityForm(form, path, record) {
     field("Aliases", control("input", form, "aliases", [...path, "aliases"]), null, "Other names of the entry, separated by commas."),
     field("Description", control("textarea", form, "description", [...path, "description"], { rows: 5 }), null, `What NPCs know about the ${CATEGORY_LABELS[record.category].toLowerCase()}.`),
     factsEditor(form.fields, [...path, "fields"], FACTS[record.category]),
-    knowledgeEditor(form, path, "entity"),
+    knowledgeEditor(form, path, record.category),
     relationsEditor(form, path, record),
   ];
 }
@@ -749,7 +749,7 @@ function addRecord(event) {
   const kind = category ? "entity" : creation.kind;
   const key = `new:${++newCount}`;
   const data = kind === "character" ? { profile: { Name: name } } : { name };
-  drafts.set(key, { isNew: true, key, kind, category, data, form: toForm(kind, data) });
+  drafts.set(key, { isNew: true, key, kind, category, data, form: toForm(kind, data, category) });
   creation.name = "";
   selected = key;
   query = "";

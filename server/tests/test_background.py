@@ -108,10 +108,10 @@ KNOWLEDGE_SEED = dict(
     characters=[{"game_id": "abel", "profile": {"Name": "Paladin Abel", "Faction": "The Holy Nation", "Backstory": "A paladin of Okran."}}],
     entities=SEED["entities"] + [
         {"category": "regions", "id": "bonedog_plains", "data": {"name": "Bonedog Plains", "aliases": ["Bonedog Den"], "fields": {"animals": ["Bonedogs"]}, "description": "Bonedogs.", "knowledge": "limited"}},
-        {"category": "regions", "id": "vain", "data": {"name": "Vain", "fields": {"animals": ["Bonedogs", "Goats", "Beak Things", "Garru", "Leviathans", "Spiders", "Gorillos", "Crabs", "Landbats", "Raptors"]}, "description": "Cliffs."}},
+        {"category": "regions", "id": "vain", "data": {"name": "Vain", "fields": {"animals": ["Bonedogs", "Goats", "Beak Things", "Garru", "Leviathans", "Spiders", "Gorillos", "Crabs", "Landbats", "Raptors"]}, "description": "Cliffs.", "knowledge": "global"}},
         {"category": "regions", "id": "barren", "data": {"name": "The Barren"}},
         {"category": "locations", "id": "fang_hollow", "data": {"name": "Fang Hollow", "fields": {"zone": ["Vain"]}, "description": "A cave.", "knowledge": "limited"}},
-    ] + [{"category": "locations", "id": f"waystation_{i}", "data": {"name": f"Waystation {i}", "description": "A stop."}} for i in range(20)],
+    ] + [{"category": "locations", "id": f"waystation_{i}", "data": {"name": f"Waystation {i}", "description": "A stop.", "knowledge": "global"}} for i in range(20)],
 )
 
 

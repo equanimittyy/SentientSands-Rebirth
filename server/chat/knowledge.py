@@ -12,8 +12,8 @@ the factions that hold it, so a member of the Holy Nation does not reach Tinfist
 
 from chat.retrieval import name_matches, name_words, place
 
-# A Backstory mixes what the wasteland knows with a private past
-DEFAULTS = {"character": "limited"}
+# A Backstory mixes what the wasteland knows with a private past, and a far ruin is known only to those near it
+DEFAULTS = {"character": "limited", "location": "limited", "region": "limited"}
 HOLDING_FIELDS = ("territory", "bases", "capital")
 KNOWER_CATEGORIES = ("characters", "factions", "races")
 

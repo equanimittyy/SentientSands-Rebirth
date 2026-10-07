@@ -437,7 +437,7 @@ Each lore record has a tier (`server/chat/knowledge.py`). The search of a chat l
 | Limited | The record is one of the own records of the NPC, or links to one of them |
 | Secret | The `known_by` list of the record names the NPC, its current faction, its origin faction, or its race |
 
-- A record without a tier takes the default of its kind: Limited for a character, and Global for a race, a location, a region, a faction, and a history entry. A Backstory mixes what the wasteland knows with a private past, so a character defaults to Limited. The rest of the lore keeps its reach until an author marks it.
+- A record without a tier takes the default of its kind: Limited for a character, a location, and a region, and Global for a race, a faction, and a history entry. A Backstory mixes what the wasteland knows with a private past, so a character defaults to Limited. A place is local knowledge, so an NPC knows a far place only through its factions, its home, and its travels, and a far ruin stays unknown. The `bases` and the `capital` of a Global faction still give each NPC the name of a far town, as its `leader` gives the name of a ruler. The rest of the lore keeps its reach until an author marks it.
 - The tier decides only whether the NPC finds the record. A found record goes into the block of the turn, and the closing note of the block stays (see [Block](#block)).
 - `background.search` drops the records that the NPC cannot know before `find_lore` builds its index. A record that the NPC cannot know therefore sets neither the best score of the score cut nor the common share of a word.
 - A lore search alone, with no NPC, searches every record, so a template author can test each one in the test search.
@@ -515,7 +515,7 @@ Rejected:
 - The `factions` of a region as holding factions. They list each faction that roams a region, also a faction that only passes through. From its region and the neighbouring regions, an NPC of SSR Vanilla would know a median of 54 and at most 108 canon characters, against 20 and 53 through the holding factions.
 - A second step of neighbours. It would give an NPC of SSR Vanilla a median of 16 and at most 30 regions in its place, against 6 and 10.
 - The current place as base knowledge. A caravan guard of the Holy Nation in Heng would know Heng as if it grew up there, and it would lose the lore of Heng when it left.
-- The home as a full place, with its neighbouring regions and holding factions. The home of the Holy Nation would span 24 of the 69 regions of SSR Vanilla, and a member would know 139 of the 305 Limited records as base knowledge, against 30.
+- The home as a full place, with its neighbouring regions and holding factions. The home of the Holy Nation would span 24 of the 69 regions of SSR Vanilla, and a member would know 270 of the 545 Limited records as base knowledge, against 64.
 - The place of the first chat as the home. A caravan guard of the Holy Nation that the player first meets in Heng would get Heng as its home.
 - A record of each place that each NPC passes through. It would write for every NPC all the time, but only an NPC in a chat uses its knowledge, and the threads already hold the place of each chat.
 - A filter after the search. A record that the NPC cannot know could set the best score and cut the hits that it can know below `SCORE_RATIO`, and its words would count towards `COMMON_SHARE`.
@@ -1025,6 +1025,8 @@ SSR writes the content of SSR Vanilla itself. Each fact comes from the game: its
 Each tier of SSR Vanilla that differs from the default of its kind has a source in the dialogue of the game or in the wiki (see [Knowledge](#knowledge)). The other records keep the default.
 
 SSR Vanilla sets each faction that is not `major` to Limited, and keeps its 10 major factions Global. A member of the United Cities in Heft therefore does not know Narko's Disciples, while a member of the Holy Nation knows them anywhere, because the `enemies` of Narko's Disciples name the Holy Nation.
+
+The locations and the regions of SSR Vanilla keep the default, Limited. A member of the Holy Nation in Blister Hill knows 32 of the 164 locations and 28 of the 69 regions. 25 locations and 2 regions, mostly ruins and labs such as Ashland Dome Ruin and The Grid, link to no faction and no home, so an NPC knows them only from a current or past place in or next to their region.
 
 These records are Secret:
 

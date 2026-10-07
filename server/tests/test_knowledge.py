@@ -24,15 +24,15 @@ def knows(records, identity=(), town=None, zone=None):
 
 
 class TierTest(unittest.TestCase):
-    def test_a_character_defaults_to_limited_and_every_other_kind_to_global(self):
-        self.assertEqual({kind: knowledge.tier(record(kind, "X")) for kind in CATEGORIES}, {kind: "limited" if kind == "character" else "global" for kind in CATEGORIES})
+    def test_a_character_and_a_place_default_to_limited_and_every_other_kind_to_global(self):
+        self.assertEqual({kind: knowledge.tier(record(kind, "X")) for kind in CATEGORIES}, {kind: "limited" if kind in ("character", "location", "region") else "global" for kind in CATEGORIES})
 
     def test_an_empty_knowledge_is_the_default(self):
         self.assertEqual(knowledge.tier(record("character", "X", knowledge="")), "limited")
         self.assertEqual(knowledge.tier(record("character", "X", knowledge="global")), "global")
 
     def test_a_global_record_reaches_every_npc(self):
-        self.assertEqual(knows([record("region", "Vain")]), {"Vain"})
+        self.assertEqual(knows([record("region", "Vain", knowledge="global")]), {"Vain"})
 
 
 class OwnRecordTest(unittest.TestCase):
