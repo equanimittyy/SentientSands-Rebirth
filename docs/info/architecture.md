@@ -1048,12 +1048,9 @@ These history entries are Limited:
 | The Shek Extinction Crisis | Shek warriors: "it weakens our numbers. The queen knows this". |
 | The Fleshless Doctrine | The Skin Bandits. The record of their faction, which is Limited, holds the same belief. |
 
-These canon characters are Global, because speakers far from their factions name them, mostly the bar patrons of the Swamp, World's End, and the United Cities, who talk of their fates: Tinfist, Holy Lord Phoenix, Emperor Tengu, Esata the Stone Golem, Bugmaster, Longen, and Luquin.
-
-- Mad Cat-Lon stays Limited. The bar patrons know his legend, but the Skeletons of Black Desert City do not know where he went ("While Cat-Lon disappears into thin air..."), and his Backstory names his throne.
-- Lady Kana and Lord Inaba stay Limited. Only the bars of the United Cities name them, and Limited already gives them to the members of their factions and to the NPCs in the places that those factions hold.
-- Boss Simion, Eyegore, and High Inquisitor Seta stay Limited for the same reason. The bar patrons name Simion only in the towns of the United Cities (`in town of`), and only the bar patrons of the United Cities name Eyegore. Seta is named by the Holy Nation and by Moll of the Flotsam Ninjas.
 - A longer name wins in the text of a history entry, so the texts of The Second Empire and The Hydraulic Knights say "the Second Empire", not "an empire" or "the empire", which name the United Cities through its alias The Empire. The texts also avoid "brink" and "pit", which name the location Brink and the region The Pits. "Cat-Lon" in The Second Empire still names the character Cat, which only gives the entry to Cat.
+
+Each canon character of SSR Vanilla keeps the default, Limited. The `leader` and `nobles` fields of the major factions name their rulers, so each NPC knows the names of the rulers through the Global factions. Only the NPCs that link to a ruler, such as the members of its faction, know the Backstory.
 
 ## Logging
 
