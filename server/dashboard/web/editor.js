@@ -24,7 +24,6 @@ const FACTS = {
   locations: { type: "text", zone: "list", owner: "list" },
   regions: { animals: "list", factions: "list", hazards: "list", neighbours: "list" },
 };
-const FACT_HELP = { neighbours: "The regions that share a border with this region on the world map of the game." };
 const TIERS = { global: "Global", limited: "Limited", secret: "Secret" };
 // Mirrors DEFAULTS in server/chat/knowledge.py.
 const DEFAULT_TIERS = { character: "limited", locations: "limited", regions: "limited" };
@@ -297,7 +296,6 @@ function factsEditor(list, path, categories) {
     ...list.map((row, index) => el("div", { className: "inline row" },
       factCategory(row, free, categories),
       control("input", row, "value", [...path, index, "value"], { placeholder: row.list ? "Values, separated by commas" : "Value", label: "Fact value" }),
-      FACT_HELP[row.key] ? withHelp("", FACT_HELP[row.key]) : null,
       removeButton(list, index, "Delete the fact"))),
     add);
 }
