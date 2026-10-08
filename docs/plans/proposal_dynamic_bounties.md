@@ -253,7 +253,7 @@ The character profile gets the field `Alias`: the name by which the bounty notic
 
 | Setting | Key | INI key | Default | Effect |
 |---|---|---|---|---|
-| Radiant bounty timer (min) | `radiant_bounty_minutes` | `RadiantBountyMinutes` | 120 | The shortest real time between two scans |
+| Radiant bounty timer (min) | `radiant_bounty_minutes` | `RadiantBountyMinutes` | 60 | The shortest real time between two scans |
 | Open bounties | `max_open_bounties` | `MaxOpenBounties` | 3 | The most bounties with the status Open. 0 turns the bounties off. |
 
 - The plugin does not use the values, so the server does not send them through `SET_CONFIG`.

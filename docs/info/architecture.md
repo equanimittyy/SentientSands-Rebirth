@@ -112,7 +112,7 @@ The `rumor` table holds the text, the game time of its deed, the instruction, an
 
 ### Auto rumors
 
-At most once in each period of the Radiant rumor timer (`radiant_rumor_minutes`, default 60 real minutes), the LLM can spin one rumor from the memories that no rumor used. The rumor is an auto deed (see [Deeds](#deeds)).
+At most once in each period of the Radiant rumor timer (`radiant_rumor_minutes`, default 30 real minutes), the LLM can spin one rumor from the memories that no rumor used. The rumor is an auto deed (see [Deeds](#deeds)).
 
 `memory_loop` runs a pass when the timer passed, the chat is quiet, no memory or deed rumor waits, and the pool holds a memory that no pass read. The pass runs in the thread of the memories, so its call overlaps no other call.
 
@@ -126,7 +126,7 @@ At most once in each period of the Radiant rumor timer (`radiant_rumor_minutes`,
 
 SSR posts bounties of its own through the bounty system of the game. The server rolls each bounty (`server/core/bounties.py`), and the plugin only applies it (`ScanBounties`, `PlaceBounty`, and `EndBounty` in `plugin/game/Context.cpp`), so the roll runs in the unit tests.
 
-1. `memory_loop` checks the bounty timer every 10 s (`bounties.tick`). When the Radiant bounty timer (`radiant_bounty_minutes`, default 120 real minutes) passed and fewer bounties are open than `max_open_bounties` (default 3, 0 turns the bounties off), the server sends `BOUNTY_SCAN:` and restarts the timer.
+1. `memory_loop` checks the bounty timer every 10 s (`bounties.tick`). When the Radiant bounty timer (`radiant_bounty_minutes`, default 60 real minutes) passed and fewer bounties are open than `max_open_bounties` (default 3, 0 turns the bounties off), the server sends `BOUNTY_SCAN:` and restarts the timer.
 2. The plugin posts each loaded generic character outside the player's faction that is alive and not in prison to `/bounty/candidates`, with its `npc_id`, name, faction, faction game ID, and town or zone.
 3. The server keeps the members of the 16 target factions (`bounties.TARGETS`) that have no open bounty. It rolls the target, a reason with its crime (`server/data/defaults/bounty_reasons.json`), an amount from 2,000 to 15,000 cats, and a bonus for each of the 16 combat skills, and sends `PLACE_BOUNTY: serial|crime|amount|issuers|stat:bonus,...`.
 4. The plugin finds the target by the serial of its handle. For each of the Holy Nation, the United Cities, and the Shek Kingdom that still holds a town (`FactionWarMgr::myTowns`), it adds the amount to the bounty of its law enforcement faction, adds the crime, and moves the start time of the bounty 100,000 game hours ahead, so that a bounty under 10,000 cats does not end. It marks the target's squad persistent, puts the squad on the world map, raises the skills, and posts the result to `/bounty/placed` with the names of the factions that posted the bounty. When none of the three holds a town, the faction that is its own law enforcement faction and holds the town closest to the target posts the bounty (`NearestLaw`). It is never the player's faction or the target's faction, and never a friend of the target's faction: a relation above 0 either way.
