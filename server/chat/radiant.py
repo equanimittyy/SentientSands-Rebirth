@@ -33,6 +33,19 @@ def place_topic(location):
     return f"The place where they are. Its lore follows. They may know only a part of it, and they never recite it.\n{entry}"
 
 
+def acquaintance(names, partners):
+    """One line for each pair of participants, because strangers have more to ask each other than old companions. names maps
+    each npc_id to its name in the order of the participants, and partners maps it to its thread_partners."""
+    ids = list(names)
+    pairs = []
+    for index, first in enumerate(ids):
+        for second in ids[index + 1:]:
+            count = partners[first].count(second)
+            talks = "never talked before" if not count else f"talked {count} time{'s' if count > 1 else ''} before"
+            pairs.append(f"- {names[first]} and {names[second]}: {talks}.")
+    return "\n".join(pairs)
+
+
 def lines(content, serials):
     """The (serial, text) of each line of the reply, or none when a line is not the line of a participant. That line would
     reach the game as a line of nobody, and the conversation without it can make no sense."""

@@ -32,6 +32,13 @@ class TopicTest(unittest.TestCase):
         self.assertIsNone(radiant.topic([], {}, [], first))
 
 
+class AcquaintanceTest(unittest.TestCase):
+    def test_each_pair_gets_the_count_of_its_earlier_talks(self):
+        names = {"h:10": "Stick", "h:14": "Jorge", "h:20": "Ruka"}
+        partners = {"h:10": ["h:14", "h:20", "h:14"], "h:14": ["h:10", "h:10"], "h:20": ["h:10"]}
+        self.assertEqual(radiant.acquaintance(names, partners), "- Stick and Jorge: talked 2 times before.\n- Stick and Ruka: talked 1 time before.\n- Jorge and Ruka: never talked before.")
+
+
 class LinesTest(unittest.TestCase):
     def test_the_lines_of_participants_stay(self):
         content = "Stick|10: Hot today.\n\nJorge|14: \"Too hot.\""

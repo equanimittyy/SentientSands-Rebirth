@@ -1,18 +1,24 @@
-Write a radiant conversation: a short talk about the TOPIC between the characters below. They travel together in the player's group, and they stand near each other.
+Write a radiant conversation: a short talk between the characters below. They travel together in the player's group, and they stand near each other. The TOPIC starts the talk, and the talk can move on from it, as a real conversation does.
 
 PLACE: {place}
 
 CHARACTERS:
 {participants}
 
+HOW WELL THEY KNOW EACH OTHER:
+{acquaintance}
+
 TOPIC: {topic}
 
 RULES:
-- Every character speaks at least once and at most 3 times, and at least one character speaks twice. The topic and the flow of the conversation decide how many lines each one gets.
+- Every character speaks at least once and at most 3 times, and at least one character speaks twice. The flow of the conversation decides how many lines each one gets.
 - Write each line as Name|ID: words, with the exact Name|ID of its speaker from CHARACTERS. Each line is one turn.
 - Only the characters in CHARACTERS speak. Write no narration and no bracketed text.
-- The characters talk to each other, not to the player. Each line after the first answers an earlier line: it agrees, disagrees, asks, teases, or turns the talk. The conversation is an exchange, not a row of separate remarks on the topic.
-- Each character takes the topic in its own way, from its personality and its own concerns, so the characters do not have to agree.
-- Each character sounds like no one else: its speech decides its words, its rhythm, and the length of its lines. Two characters never share a turn of phrase or a kind of image.
+- The characters talk to each other, not to the player. Each line reacts to what was just said: it gives an opinion, disagrees, answers, asks, teases, or turns the talk. The conversation is an exchange, not a row of separate remarks on the topic.
+- The characters speak to each other by name now and then, and ask each other questions: what the other thinks, what it saw, or what it did before. The one asked answers, and its answer can lead the talk somewhere new.
+- The order of the speakers follows the talk, not a fixed round: the one asked or teased speaks next, two characters can trade lines while the others listen, and no character speaks twice in a row.
+- Characters that know each other little are curious about each other, when their personality allows it. Characters that talked often skip the introductions and bring up what they know of each other.
+- Each character takes the topic in its own way, from its personality, its past, and its own concerns, and says what it thinks, so the characters do not have to agree.
+- Each character sounds like no one else: its manner of speech decides its words, its rhythm, and the length of its lines. Two characters never share a turn of phrase or a kind of image.
 
 Output ONLY the lines.

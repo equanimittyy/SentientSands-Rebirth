@@ -23,9 +23,10 @@ from store import campaign_db
 bp = Blueprint("chat", __name__)
 
 _REPLIES = queue.Queue()
-# A radiant conversation holds it from its "..." to its last line, so a chat reply waits for it and a second one cannot start
+# A radiant conversation holds it from its call to its last line, so a chat reply waits for it and a second one cannot start
 _STAGE = threading.Lock()
 _last_line = 0.0
+THINK_SHARE = 0.4
 
 @bp.route('/radiant', methods=['POST'])
 def radiant_conversation():
@@ -65,10 +66,9 @@ def radiant_conversation():
             f"{describe_npc(f'{names[serial]}|{serial}', profiles[serial], npc['npc_id'])}\nHEALTH: {npc.get('health') or 'Unknown'}\nGEAR: {npc.get('equipment') or 'nothing notable'}"
             for serial, npc in participants.items()
         ]
-        prompt = fill_prompt("prompt_radiant.txt", place=scene_text.location_text(environment, "They"), participants="\n\n".join(descriptions), topic=topic)
+        known = radiant.acquaintance({npc['npc_id']: names[serial] for serial, npc in participants.items()}, {npc_id: campaign_db.thread_partners(npc_id) for npc_id in npc_ids})
+        prompt = fill_prompt("prompt_radiant.txt", place=scene_text.location_text(environment, "They"), participants="\n\n".join(descriptions), acquaintance=known, topic=topic)
         logging.info(f"RADIANT: {', '.join(names.values())} talk. Topic: {topic}")
-        for serial in participants:
-            send_to_pipe(f"NPC_SAY: {names[serial]}|{serial}: ...")
         content = call_llm("radiant", [{"role": "system", "content": build_system_prompt()}, {"role": "user", "content": prompt}])
         lines = radiant.lines(content or "", participants)
         if not lines:
@@ -90,22 +90,29 @@ def radiant_conversation():
         if not playing:
             _STAGE.release()
 
-def say(lines, actions=()):
+def say(lines, actions=(), think=False):
     """Sends the actions, then each line at least the dialogue delay after the line before it, also when that line ended an
     earlier conversation. The plugin shows a line when it arrives, so the server alone paces every conversation. A pause of
-    the game does not stop the delay. The actions go first, so an AI state change cannot clear a bubble that is already up."""
+    the game does not stop the delay. The actions go first, so an AI state change cannot clear a bubble that is already up.
+    With think, the speaker of each line shows "..." for the last THINK_SHARE of the delay, so a conversation that one call
+    wrote seems to be thought out line by line."""
     global _last_line
     for action in actions:
         send_to_pipe(f"NPC_ACTION: {action}")
     delay = load_settings()["dialogue_speed_seconds"]
     for line in lines:
-        time.sleep(max(0.0, _last_line + delay - time.monotonic()))
+        due = _last_line + delay
+        if think:
+            time.sleep(max(0.0, due - THINK_SHARE * delay - time.monotonic()))
+            send_to_pipe(f"NPC_SAY: {line.split(':', 1)[0]}: ...")
+            due = max(due, time.monotonic() + THINK_SHARE * delay)
+        time.sleep(max(0.0, due - time.monotonic()))
         send_to_pipe(f"NPC_SAY: {line}")
         _last_line = time.monotonic()
 
 def play_radiant(lines):
     try:
-        say(lines)
+        say(lines, think=True)
     finally:
         _STAGE.release()
 
