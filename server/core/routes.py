@@ -6,7 +6,7 @@ from flask import Blueprint, jsonify, request
 from chat.bio import recorded_history
 from chat.characters import get_character_data, npc_name, reported_sex, sync_name
 from core import bounties, log_setup, state, world_events
-from core.game import context_dict, generate_relation_bar, take_report
+from core.game import context_dict, relation_text, take_report
 from core.pipe import send_to_pipe
 from core.settings import CHAT_HOTKEYS, SETTINGS_DEFAULTS, load_configs, load_settings, save_settings, settings_page_values
 from store import campaign_db
@@ -336,55 +336,38 @@ def get_history():
     npc_id = data.get('npc', '')
     logging.debug(f"HISTORY: Request for {npc_id}")
     char_data = campaign_db.get_character(npc_id) or {}
-
-    if "Race" not in char_data: char_data["Race"] = "Unknown"
-    if "Faction" not in char_data: char_data["Faction"] = "Unknown"
-    
     history = recorded_history(npc_id)
-    
-    import textwrap
-    def _wrap(text):
-        if not text: return ""
-        paragraphs = text.split('\n')
-        wrapped = []
-        for p in paragraphs:
-            if not p.strip():
-                wrapped.append("")
-                continue
-            wrapped.extend(textwrap.wrap(p, width=110))
-        return "\n".join(wrapped)
-        
-    lines = []
-    race = char_data['Race']
-    lines.append(f"--- PROFILE: {char_data.get('Name', npc_id)} ---")
-    lines.append(f"Race: {race} | Sex: {reported_sex(race, char_data.get('Sex', 'Unknown'))} | Current Job: {char_data.get('CurrentJob') or 'Unknown'}")
-    lines.append(f"Faction: {char_data['Faction']} | Origin Faction: {char_data.get('OriginFaction', 'Unknown')}")
-    lines.append(generate_relation_bar(char_data.get('Relation', 0)))
+    race = char_data.get("Race") or "Unknown"
+
+    bio = "Full"
     if campaign_db.PROVISIONAL in char_data:
         chats, threshold = int(char_data[campaign_db.PROVISIONAL]), load_settings()["bio_interactions"]
-        lines.append(f"BIO: Provisional. The LLM writes the full bio at {threshold} chats ({chats} so far), or press Generate Bio." if threshold
-                     else f"BIO: Provisional. Press Generate Bio to have the LLM write the full bio ({chats} chats so far).")
-    lines.append("-" * 30)
+        bio = (f"Provisional, {chats} of {threshold} chats" if threshold
+               else f"Provisional, {chats} chats. Press Generate Bio to write it.")
+
+    lines = []
     for part, title in (("Personality", "PERSONALITY"), ("Backstory", "BACKSTORY"), ("SpeechQuirks", "SPEECH")):
-        lines.append(f"{title}:")
-        lines.append(_wrap(char_data.get(part)) or "None")
-        lines.append("")
-    lines.append("-" * 30)
-    lines.append(f"CONVERSATION LOG (Showing last 250 of {len(history)} lines):")
-    if history:
-        # Capped: longer logs freeze the in-game history window
-        trimmed_history = history[-250:]
-        for log_line in trimmed_history:
-            lines.append(_wrap(log_line))
-    else:
-        lines.append("(No history recorded)")
-        
-    formatted_output = "\n".join(lines)
-    
-    logging.debug(f"HISTORY: Returning formatted report for {npc_id} ({len(history)} lines)")
+        lines += [title, char_data.get(part) or "None", ""]
+    # Capped: longer logs freeze the in-game history window
+    shown = history[-250:]
+    count = f"last {len(shown)} of {len(history)}" if len(shown) < len(history) else str(len(history))
+    lines.append(f"CONVERSATION LOG ({count} {'line' if len(history) == 1 else 'lines'})")
+    lines += shown
+
+    logging.debug(f"HISTORY: Returning the profile of {npc_id} ({len(history)} lines)")
     return jsonify({
         "status": "ok",
-        "text": formatted_output
+        "name": char_data.get("Name", npc_id),
+        "race": race,
+        "sex": reported_sex(race, char_data.get("Sex", "Unknown")),
+        "faction": char_data.get("Faction") or "Unknown",
+        "origin": char_data.get("OriginFaction") or "Unknown",
+        "job": char_data.get("CurrentJob") or "Unknown",
+        "location": char_data.get("CurrentLocation") or "Unknown",
+        "alias": char_data.get("Alias") or "None",
+        "relation": relation_text(char_data.get("Relation", 0)),
+        "bio": bio,
+        "text": "\n".join(lines),
     })
 
 @bp.route('/characters', methods=['GET', 'POST'])

@@ -130,8 +130,8 @@ void ProcessMessageQueue(GameWorld *thisptr) {
             RefreshWelcomeUI();
           } else if (command == "POPULATE_LIBRARY") {
             PopulateLibraryUI(data);
-          } else if (command == "SET_LIBRARY_TEXT") {
-            SetLibraryText(data);
+          } else if (command == "SET_LIBRARY_PROFILE") {
+            SetLibraryProfile(data);
           } else if (command == "SET_EVENTS_TEXT") {
             SetEventsText(data);
           } else if (command == "SET_CONFIG") {

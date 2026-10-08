@@ -69,20 +69,12 @@ def adopt_canon(node):
             changed = True
     return changed
 
-def generate_relation_bar(rel):
+def relation_text(rel):
     try:
         rel = int(rel)
     except:
         rel = 0
-    
-    # rel ranges -100..100, mapped to bar slots 0..20
-    pos = int((rel + 100) / 10)
-    pos = max(0, min(20, pos))
-    
-    bar = list("---------------------")
-    bar[pos] = "X"
-    bar_str = "".join(bar)
-    
+
     label = "NEUTRAL"
     if rel <= -90: label = "ARCH-ENEMY"
     elif rel <= -60: label = "HOSTILE"
@@ -90,9 +82,7 @@ def generate_relation_bar(rel):
     elif rel >= 90: label = "SOUL-MATE"
     elif rel >= 60: label = "ALLIED"
     elif rel >= 25: label = "FRIENDLY"
-    
-    # Plain text, not MyGUI color tags, so it renders on every UI version
-    return f"RELATION: [{label}] [{bar_str}] ({rel:+} pts)"
+    return f"{label} ({rel:+} pts)"
 
 def take_report(player, events, towns):
     """Keeps the player's context and the changed towns, and takes the events that the game events of a request from the

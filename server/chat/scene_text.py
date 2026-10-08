@@ -13,7 +13,7 @@ def _scale(value, steps):
             return text
 
 
-# The bounds at -89, -59, -24, 25, 60, and 90 match the relation bar that the game shows (generate_relation_bar)
+# The bounds at -89, -59, -24, 25, 60, and 90 match the relation labels of the Dialogue Library (relation_text)
 # Each step ends with the name, because the name of the player's faction comes with a clause: "Nameless, the group Izumi travels with"
 RELATION = [
     (-89, "You loathe {name}."),

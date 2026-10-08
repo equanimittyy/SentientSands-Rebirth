@@ -17,7 +17,8 @@ namespace UI {
 
 MyGUI::Window *g_libraryWindow = nullptr;
 MyGUI::ListBox *g_libraryList = nullptr;
-MyGUI::ListBox *g_libraryText = nullptr;
+MyGUI::EditBox *g_libraryText = nullptr;
+MyGUI::TextBox *g_libraryName = nullptr;
 MyGUI::Button *g_libraryLatestBtn = nullptr;
 MyGUI::Button *g_libraryAZBtn = nullptr;
 MyGUI::Button *g_libraryFavBtn = nullptr;
@@ -30,6 +31,15 @@ std::vector<std::string> g_libraryAllSids;
 std::string g_librarySortMode = "alphabetical";
 std::vector<std::string> g_libraryFavorites;
 
+static const int LIBRARY_FACT_COUNT = 9;
+static const char *LIBRARY_FACT_KEYS[] = {"race",     "faction", "sex",
+                                          "origin",   "job",     "location",
+                                          "relation", "alias",   "bio"};
+static const char *LIBRARY_FACT_LABELS[] = {"Race",     "Faction", "Sex",
+                                            "Origin",   "Job",     "Location",
+                                            "Relation", "Alias",   "Bio"};
+MyGUI::TextBox *g_libraryFacts[LIBRARY_FACT_COUNT] = {nullptr};
+
 void CloseLibraryUI() {
   if (g_libraryWindow) {
     if (MyGUI::Gui::getInstancePtr())
@@ -37,6 +47,9 @@ void CloseLibraryUI() {
     g_libraryWindow = nullptr;
     g_libraryList = nullptr;
     g_libraryText = nullptr;
+    g_libraryName = nullptr;
+    for (int i = 0; i < LIBRARY_FACT_COUNT; i++)
+      g_libraryFacts[i] = nullptr;
     g_libraryLatestBtn = nullptr;
     g_libraryAZBtn = nullptr;
     g_libraryFavBtn = nullptr;
@@ -527,18 +540,23 @@ void PopulateLibraryUI(const std::string &dataInput) {
   ApplyLibraryFilter(selSid);
 }
 
-void SetLibraryText(const std::string &data) {
+void SetLibraryText(const std::string &text) {
   if (!g_libraryText)
     return;
-  Log(LOG_DEBUG,
-      "LIBRARY: Received " + ToString((int)data.length()) + " bytes");
-  size_t start = (data.length() > 0 && data[0] == ' ') ? 1 : 0;
-  std::stringstream ss(data.substr(start));
-  std::string line;
-  g_libraryText->removeAllItems();
-  while (std::getline(ss, line)) {
-    g_libraryText->addItem(Utf8ToWide(line).c_str());
-  }
+  g_libraryText->setOnlyText(Utf8ToWide(text).c_str());
+  // setOnlyText leaves the cursor at the end, and the view follows the cursor
+  g_libraryText->setTextCursor(0);
+  g_libraryText->setVScrollPosition(0);
+}
+
+void SetLibraryProfile(const std::string &json) {
+  if (!g_libraryName)
+    return;
+  g_libraryName->setCaption(Utf8ToWide(GetJsonValue(json, "name")).c_str());
+  for (int i = 0; i < LIBRARY_FACT_COUNT; i++)
+    g_libraryFacts[i]->setCaption(
+        Utf8ToWide(GetJsonValue(json, LIBRARY_FACT_KEYS[i])).c_str());
+  SetLibraryText(GetJsonValue(json, "text"));
 }
 
 void OnLibraryNPCSelect(MyGUI::ListBox *sender, size_t index) {
@@ -564,11 +582,8 @@ void OnLibraryNPCSelect(MyGUI::ListBox *sender, size_t index) {
         Utf8ToWide(isFav ? T("Fav: [YES]") : T("Fav: [NO]")).c_str());
   }
 
-  if (g_libraryText) {
-    g_libraryText->removeAllItems();
-    g_libraryText->addItem(
-        Utf8ToWide(T("Loading profile for ") + displayName + "...").c_str());
-  }
+  SetLibraryProfile("");
+  SetLibraryText(T("Loading profile for ") + displayName + "...");
 
   LibraryTask *t = new LibraryTask();
   t->npcName = displayName;
@@ -607,14 +622,12 @@ DWORD WINAPI LibraryHistoryThread(LPVOID lpParam) {
   LibraryTask *t = (LibraryTask *)lpParam;
   Log(LOG_DEBUG, "LIBRARY: Fetching history for " + t->npcName);
   std::string response = PostToPythonWithResponse(L"/history", t->json);
-  if (!response.empty()) {
-    std::string content = GetJsonValue(response, "text");
-    if (!content.empty()) {
-      std::string pipeMsg = "CMD: SET_LIBRARY_TEXT: " + content;
-      EnterCriticalSection(&g_msgMutex);
-      g_messageQueue.push_back(pipeMsg);
-      LeaveCriticalSection(&g_msgMutex);
-    }
+  Log(LOG_DEBUG,
+      "LIBRARY: Received " + ToString((int)response.length()) + " bytes");
+  if (!GetJsonValue(response, "text").empty()) {
+    EnterCriticalSection(&g_msgMutex);
+    g_messageQueue.push_back("CMD: SET_LIBRARY_PROFILE: " + response);
+    LeaveCriticalSection(&g_msgMutex);
   }
   delete t;
   return 0;
@@ -631,6 +644,25 @@ void RefreshLibraryUI() {
   t->npcName = g_libraryList->getItemNameAt(index).asUTF8();
   t->json = "{\"npc\":\"" + EscapeJSON(g_libraryStorageIds[index]) + "\"}";
   CreateThread(NULL, 0, LibraryHistoryThread, t, 0, NULL);
+}
+
+void AddLibraryFact(MyGUI::Widget *client, int i) {
+  float left = i % 2 ? 0.66f : 0.32f;
+  float top = 0.075f + (i / 2) * 0.045f;
+  float valueWidth = i == LIBRARY_FACT_COUNT - 1 ? 0.57f : 0.23f;
+  MyGUI::TextBox *label = client->createWidgetReal<MyGUI::TextBox>(
+      "Kenshi_TextboxStandardText", left, top, 0.09f, 0.045f,
+      MyGUI::Align::Left | MyGUI::Align::Top,
+      "SentientSands_LibFactLabel_" + ToString(i));
+  label->setCaption(Utf8ToWide(T(LIBRARY_FACT_LABELS[i])).c_str());
+  label->setTextAlign(MyGUI::Align::Left | MyGUI::Align::VCenter);
+  label->setTextColour(MyGUI::Colour(0.7f, 0.7f, 0.7f));
+
+  g_libraryFacts[i] = client->createWidgetReal<MyGUI::TextBox>(
+      "Kenshi_TextboxStandardText", left + 0.09f, top, valueWidth, 0.045f,
+      MyGUI::Align::Left | MyGUI::Align::Top,
+      "SentientSands_LibFact_" + ToString(i));
+  g_libraryFacts[i]->setTextAlign(MyGUI::Align::Left | MyGUI::Align::VCenter);
 }
 
 void CreateLibraryUI() {
@@ -695,27 +727,41 @@ void CreateLibraryUI() {
   g_libraryList->eventListChangePosition +=
       MyGUI::newDelegate(OnLibraryNPCSelect);
 
+  g_libraryName = client->createWidgetReal<MyGUI::TextBox>(
+      "Kenshi_TextboxStandardText", 0.32f, 0.015f, 0.44f, 0.05f,
+      MyGUI::Align::Left | MyGUI::Align::Top, "SentientSands_LibName");
+  g_libraryName->setTextAlign(MyGUI::Align::Left | MyGUI::Align::VCenter);
+  g_libraryName->setTextColour(MyGUI::Colour(1.0f, 0.9f, 0.5f));
+
   g_libraryBioBtn = client->createWidgetReal<MyGUI::Button>(
-      "Kenshi_Button1", 0.305f, 0.015f, 0.11f, 0.05f, MyGUI::Align::Left,
+      "Kenshi_Button1", 0.775f, 0.015f, 0.11f, 0.05f, MyGUI::Align::Left,
       "SentientSands_LibBioBtn");
   g_libraryBioBtn->setCaption(Utf8ToWide(T("Generate Bio")).c_str());
   g_libraryBioBtn->eventMouseButtonClick +=
       MyGUI::newDelegate(OnLibraryBioClick);
 
   MyGUI::Button *editBioBtn = client->createWidgetReal<MyGUI::Button>(
-      "Kenshi_Button1", 0.42f, 0.015f, 0.09f, 0.05f, MyGUI::Align::Left,
+      "Kenshi_Button1", 0.89f, 0.015f, 0.09f, 0.05f, MyGUI::Align::Left,
       "SentientSands_LibEditBioBtn");
   editBioBtn->setCaption(Utf8ToWide(T("Edit Bio")).c_str());
   editBioBtn->eventMouseButtonClick +=
       MyGUI::newDelegate(OnLibraryEditBioClick);
 
-  g_libraryText = client->createWidgetReal<MyGUI::ListBox>(
-      "Kenshi_ListBox", 0.32f, 0.07f, 0.66f, 0.91f, MyGUI::Align::Default,
+  for (int i = 0; i < LIBRARY_FACT_COUNT; i++)
+    AddLibraryFact(client, i);
+
+  g_libraryText = client->createWidgetReal<MyGUI::EditBox>(
+      "Kenshi_EditBox", 0.32f, 0.31f, 0.66f, 0.67f, MyGUI::Align::Default,
       "SentientSands_LibraryText");
-  g_libraryText->addItem(
-      Utf8ToWide(
-          T("Select an NPC from the list to view their raw profile data."))
-          .c_str());
+  g_libraryText->setEditMultiLine(true);
+  g_libraryText->setEditWordWrap(true);
+  g_libraryText->setEditReadOnly(true);
+  g_libraryText->setVisibleVScroll(true);
+  // The default cap of 2048 characters would cut the newest lines of the log
+  g_libraryText->setMaxTextLength(262144);
+  g_libraryText->setTextAlign(MyGUI::Align::Left | MyGUI::Align::Top);
+  g_libraryText->setFontHeight(18);
+  SetLibraryText(T("Select an NPC from the list to view their profile."));
 
   CreateThread(NULL, 0, LibraryListThread, NULL, 0, NULL);
 }

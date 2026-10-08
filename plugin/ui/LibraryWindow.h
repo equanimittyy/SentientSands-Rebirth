@@ -6,14 +6,15 @@ namespace UI {
 
 extern MyGUI::Window *g_libraryWindow;
 extern MyGUI::ListBox *g_libraryList;
-extern MyGUI::ListBox *g_libraryText;
+extern MyGUI::EditBox *g_libraryText;
 extern std::vector<std::string> g_libraryStorageIds;
 
 void CreateLibraryUI();
 void CloseLibraryUI();
 void RefreshLibraryUI();
 void PopulateLibraryUI(const std::string &data);
-void SetLibraryText(const std::string &data);
+void SetLibraryText(const std::string &text);
+void SetLibraryProfile(const std::string &json);
 void OpenBioEditor(const std::string &data, const std::string &failureKey);
 void FinishKeptBio(const std::string &data);
 MyGUI::TextBox *AddBioLine(MyGUI::Widget *client, const std::string &text,

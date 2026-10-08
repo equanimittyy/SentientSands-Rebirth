@@ -493,7 +493,7 @@ async function writeBio(record) {
 
 const bioButton = (record) => el("button", { type: "button", disabled: readOnly(), onclick: () => writeBio(record) }, icon("bot"), " Generate Bio");
 
-// The labels and thresholds match the relation bar that the game shows (generate_relation_bar in server/core/game.py).
+// The labels and thresholds match the relation that the Dialogue Library shows in game (relation_text in server/core/game.py).
 function relationLabel(value) {
   if (value <= -90) return "ARCH-ENEMY";
   if (value <= -60) return "HOSTILE";

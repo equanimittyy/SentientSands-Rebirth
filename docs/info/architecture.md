@@ -214,7 +214,7 @@ A chat request is ordered for the provider's prompt cache, which reuses only an 
 | Last user message | `prompt_chat_turn.txt`: the found memories, rumors, and lore (see [Lore retrieval](#lore-retrieval)), the player's line, a short reminder | Every turn |
 
 - The scene is a snapshot for the whole conversation (`CONVERSATION_SCENE`). A conversation ends when the player chats with another NPC, speaks as another squad member, switches the campaign, when the NPC's name or faction changes, or when the other speakers of the current chat thread change.
-- `server/chat/scene_text.py` writes the scene as second-person prose, because a model reads a sentence more reliably than a number. The relation bounds match the game's relation bar.
+- `server/chat/scene_text.py` writes the scene as second-person prose, because a model reads a sentence more reliably than a number. The relation bounds match the relation labels of the Dialogue Library.
 - The history is a block window (`chat_prompt.history_window`) that moves by 20 lines, so its start stays cacheable. `history_turns` makes only the NPC's own lines assistant turns.
 - An overheard line is stored as `(Overheard) Speaker to Target: ...`, because without the target a listener took "you" as itself. An animal never overhears.
 - The judgment is the change in how the NPC feels about the player, from -5 to 5. Rejected: a judgment of politeness, because a scornful NPC grew friendlier with each apology.
