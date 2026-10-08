@@ -109,31 +109,10 @@ void CreateWelcomeUI() {
   MyGUI::TextBox *l5 = client->createWidgetReal<MyGUI::TextBox>(
       "Kenshi_TextboxStandardText", 0.05f, yProg, 0.9f, 0.06f,
       MyGUI::Align::Top | MyGUI::Align::HStretch, "SentientSands_WelcomeL5");
-  l5->setCaption(Utf8ToWide(T("Many original Sentient Sands features are now "
-                              "in the SSR web app"))
+  l5->setCaption(Utf8ToWide(T("See the Web app for a tutorial on SSR!"))
                      .c_str());
   l5->setTextAlign(MyGUI::Align::Center);
   l5->setTextColour(MyGUI::Colour(0.85f, 0.85f, 0.85f));
-  yProg += yDelta;
-
-  MyGUI::TextBox *l6 = client->createWidgetReal<MyGUI::TextBox>(
-      "Kenshi_TextboxStandardText", 0.05f, yProg, 0.9f, 0.06f,
-      MyGUI::Align::Top | MyGUI::Align::HStretch, "SentientSands_WelcomeL6");
-  l6->setCaption(Utf8ToWide(T("In game: chat with NPCs, the Dialogue Library, "
-                              "and events"))
-                     .c_str());
-  l6->setTextAlign(MyGUI::Align::Center);
-  l6->setTextColour(MyGUI::Colour(0.85f, 0.85f, 0.85f));
-  yProg += yDelta;
-
-  MyGUI::TextBox *l7 = client->createWidgetReal<MyGUI::TextBox>(
-      "Kenshi_TextboxStandardText", 0.05f, yProg, 0.9f, 0.06f,
-      MyGUI::Align::Top | MyGUI::Align::HStretch, "SentientSands_WelcomeL7");
-  l7->setCaption(Utf8ToWide(T("Web app: settings, LLM models, prompts, "
-                              "campaigns, and the editor"))
-                     .c_str());
-  l7->setTextAlign(MyGUI::Align::Center);
-  l7->setTextColour(MyGUI::Colour(0.85f, 0.85f, 0.85f));
 
   MyGUI::TextBox *instructions = client->createWidgetReal<MyGUI::TextBox>(
       "Kenshi_TextboxStandardText", 0.05f, 0.47f, 0.9f, 0.1f,
