@@ -68,7 +68,7 @@ SETTINGS_DEFAULTS = {
     "talk_radius": 50,
     "yell_radius": 100,
     "enable_welcome": True,
-    "dialogue_speed_seconds": 3,
+    "dialogue_speed_seconds": 5,
     "bubble_life": 10.0,
     "language": "English",
     "chat_hotkey": "\\",
