@@ -635,7 +635,7 @@ Each record is one line (a line break is written as `\n`). The tag after the lev
 | Level | Use |
 |---|---|
 | DEBUG | Game events, pipe traffic, prompts, full replies |
-| INFO | Start-up, configuration, campaign changes, one line per LLM call, and the lines of each chat |
+| INFO | Start-up, configuration, campaign changes, one line per LLM call, and the lines of each chat and radiant conversation |
 | WARN | A problem that the code handles |
 | ERROR | A failure: the action did not happen |
 

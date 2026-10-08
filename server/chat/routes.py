@@ -87,7 +87,7 @@ def radiant_conversation():
         # Before the start: a thread that ends at once releases the stage, and the finally would release it again
         playing = True
         threading.Thread(target=play_radiant, args=([f"{names[serial]}|{serial}: {text}" for serial, text in lines],), daemon=True).start()
-        logging.debug(f"RADIANT: {[line for line, _ in stored]}")
+        logging.info("RADIANT: " + " | ".join(f'{names[serial]}: "{text}"' for serial, text in lines))
         return jsonify({"status": "ok"})
     finally:
         if not playing:
