@@ -273,8 +273,10 @@ MyGUI::TextBox *AddBioLine(MyGUI::Widget *client, const std::string &text,
 MyGUI::EditBox *AddBioEditBox(MyGUI::Widget *client, float top, float height,
                               const std::string &name) {
   MyGUI::EditBox *box = client->createWidgetReal<MyGUI::EditBox>(
-      "Kenshi_EditBox", 0.05f, top, 0.9f, height,
+      "Kenshi_WordWrap", 0.05f, top, 0.9f, height,
       MyGUI::Align::Top | MyGUI::Align::HStretch, name);
+  // Kenshi_WordWrap sets Static, which blocks typing
+  box->setEditStatic(false);
   box->setEditMultiLine(true);
   box->setEditWordWrap(true);
   box->setVisibleVScroll(true);
@@ -765,7 +767,7 @@ void CreateLibraryUI() {
     AddLibraryFact(client, i);
 
   g_libraryText = client->createWidgetReal<MyGUI::EditBox>(
-      "Kenshi_EditBox", 0.32f, 0.31f, 0.66f, 0.67f, MyGUI::Align::Default,
+      "Kenshi_WordWrap", 0.32f, 0.31f, 0.66f, 0.67f, MyGUI::Align::Default,
       "SentientSands_LibraryText");
   g_libraryText->setEditMultiLine(true);
   g_libraryText->setEditWordWrap(true);
