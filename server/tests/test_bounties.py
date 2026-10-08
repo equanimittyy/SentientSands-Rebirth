@@ -137,6 +137,13 @@ class BountyDeedTest(unittest.TestCase):
         self.assertEqual(self.statuses(), [("Unknown", "Expired")])
         self.assertEqual(deeds.open_bounties(), [])
 
+    def test_each_stored_bounty_makes_a_rumor_pass_due_without_a_chat(self, place_pipe, end_pipe):
+        self.place(1)
+        first = state.LAST_BOUNTY
+        self.place(2, squad="0-1-2-3-4")
+        self.assertIsNotNone(first)
+        self.assertGreater(state.LAST_BOUNTY, first)
+
     def test_the_target_of_an_open_bounty_is_a_known_figure_and_its_kill_ends_the_bounty(self, place_pipe, end_pipe):
         self.place(1)
         self.kill(1, 150)

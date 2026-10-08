@@ -143,7 +143,7 @@ def store(bounty, name, result):
     Returns its notable event ID."""
     target, context = bounty["target"], result["context"]
     held = next((deed for _, deed in deeds.open_bounties() if deed["squad"] == result["squad"]), None)
-    return campaign_db.add_bounty_deed({
+    notable_id = campaign_db.add_bounty_deed({
         "target": {"id": target["npc_id"], "name": name, "faction": target["faction"]},
         "reason": bounty["reason"],
         "crime": bounty["crime"],
@@ -155,3 +155,5 @@ def store(bounty, name, result):
         # SSR made the squad of another open bounty persistent, so the flag of that bounty tells what the game set
         "persistent": held["persistent"] if held else bool(result["persistent"]),
     }, deeds.game_minutes(context))
+    state.LAST_BOUNTY = time.monotonic()
+    return notable_id

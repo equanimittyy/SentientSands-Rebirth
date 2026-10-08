@@ -474,7 +474,7 @@ The chat prompt uses the threads (`npc_id`, not names):
 
 The server distils each chat thread into a short memory, which replaces the lines of the thread (`server/chat/memory.py`).
 
-- After the Conversation timeout with no chat (`quiet_seconds`), `memory_loop` writes a memory for each pending thread (a line and no memory), one call at a time, oldest first, then the rumors of the deeds follow (see [Rumors](#rumors)). It also runs after each radiant conversation. A failed thread stays pending.
+- After the Conversation timeout with no chat (`quiet_seconds`), `memory_loop` writes a memory for each pending thread (a line and no memory), one call at a time, oldest first, then the rumors of the deeds follow (see [Rumors](#rumors)). It also runs after each radiant conversation and after each new bounty, so a bounty that the timer or `/bounty` posts while the chat is quiet gets its notice, rumor, and alias without another chat. A failed thread stays pending.
 - Before each call, the server checks that the chat is still quiet, because a local model serves one request at a time. It ends the current thread under `THREAD_LOCK`, so each memory covers a whole thread.
 - The call uses the `memory` task (see [LLM routing](#llm-routing)) and `prompt_thread_memory.txt`. The memory names each speaker and never says "you" outside a quote, so every member reads the same text.
 - The stored text marks each member name with its `npc_id`, and each read puts in the current name (`chat_prompt.mark_names`, `chat_prompt.named`), so a rename changes every memory.

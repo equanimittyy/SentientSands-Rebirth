@@ -132,9 +132,10 @@ def write_auto_rumor(pool, campaign):
     rumors.keep_auto_rumor(reply, pool, campaign)
 
 def memory_loop():
-    """Runs the distillation, then the rumors, once in each quiet period and again after each radiant conversation in it, so
-    a thread or a deed whose call failed waits for the next run. A pass of the auto rumors runs in the same thread, so its
-    call never overlaps a call of the memories or of the deed rumors, because a local model serves one request at a time."""
+    """Runs the distillation, then the rumors, once in each quiet period and again after each radiant conversation or new
+    bounty in it, so a thread or a deed whose call failed waits for the next run. A pass of the auto rumors runs in the same
+    thread, so its call never overlaps a call of the memories or of the deed rumors, because a local model serves one
+    request at a time."""
     distilled = None
     last_pass = time.monotonic()
     while True:
@@ -154,7 +155,7 @@ def memory_loop():
             except Exception as e:
                 logging.error(f"RUMOR: The auto rumor failed: {e}")
         since = state.QUIET_SINCE
-        due = (since, state.LAST_RADIANT)
+        due = (since, state.LAST_RADIANT, state.LAST_BOUNTY)
         if due == distilled or time.monotonic() - since < quiet_seconds():
             continue
         distilled = due

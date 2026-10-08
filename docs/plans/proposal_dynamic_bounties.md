@@ -47,7 +47,7 @@ The headers of KenshiLib and the game data files show these facts. The probe con
 4. The server sends `PLACE_BOUNTY` with the roll.
 5. On the game thread, the plugin finds the target by the serial of its handle, applies the bounty, and posts the result to `/bounty/placed`.
 6. The server stores the target as at a first meeting (`characters.new_profile`), so a generic target gets a rolled name and a provisional profile, and stores the bounty deed without a rumor.
-7. The rumor pass writes the notice, the rumor, and the alias with the bounty prompt in the next quiet period (`write_rumors` in `server/chat/memory.py`).
+7. The rumor pass writes the notice, the rumor, and the alias with the bounty prompt once the chat is quiet (`write_rumors` in `server/chat/memory.py`). Each new bounty starts a pass of its own, so a bounty that the timer or `/bounty` posts while the chat is quiet does not wait for another chat.
 
 - A pass makes no LLM call. Only the rumor of a placed bounty costs one, in the existing rumor pass of the deeds.
 - The timer counts real time from each scan, also from a scan that finds no candidate, so a game in a place without candidates costs one scan in each period.
@@ -222,7 +222,7 @@ A bounty is not a deed of the player's squad, so its Deed column shows the wante
 
 ### Rumor and alias
 
-The rumor pass writes the rumor of a bounty deed in the next quiet period, as for the other deeds (`write_rumors`), but with `prompt_bounty_rumor.txt` (`rumors.bounty_prompt`). The call takes the `synthesis` task, and writes the notice, the rumor, and the alias of the target in one reply.
+The rumor pass writes the rumor of a bounty deed once the chat is quiet, as for the other deeds (`write_rumors`), but with `prompt_bounty_rumor.txt` (`rumors.bounty_prompt`). The call takes the `synthesis` task, and writes the notice, the rumor, and the alias of the target in one reply.
 
 - The prompt holds the amount, the reason with its crime, the place, the target's profile (name, race, sex, faction, personality, and backstory), and the allies and enemies of the target's faction.
 - It asks for a wanted notice as the bounty notices of the game are written: the name and the alias, the crime, a warning to the hunter, and the reward in cats.
