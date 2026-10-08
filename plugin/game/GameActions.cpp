@@ -221,6 +221,27 @@ std::string GetTaskName(TaskType tt) {
   }
 }
 
+static hand g_newestBubble;
+static hand g_previousBubble;
+
+static void KeepTwoBubbles(const hand &speaker) {
+  if (speaker == g_newestBubble)
+    return;
+  Character *dropped =
+      g_previousBubble.isValid() && !(speaker == g_previousBubble)
+          ? g_previousBubble.getCharacter()
+          : nullptr;
+  if (dropped && dropped->dialogue && (uintptr_t)dropped->dialogue > 0x1000 &&
+      dropped->dialogue->speechTextTimer > 0.0f) {
+    // clearSpeechBox is private, so the engine hides the bubble when this
+    // timer runs out on its next update
+    dropped->dialogue->speechTextTimer = 0.001f;
+    dropped->dialogue->speechTextTimer_forced = 0.001f;
+  }
+  g_previousBubble = g_newestBubble;
+  g_newestBubble = speaker;
+}
+
 void ExecuteQueuedActions(GameWorld *thisptr, int &inventoryTimer) {
   std::deque<QueuedAction> localQueue;
   if (TryEnterCriticalSection(&g_uiMutex)) {
@@ -244,6 +265,7 @@ void ExecuteQueuedActions(GameWorld *thisptr, int &inventoryTimer) {
         bool isPC = npc->isPlayerCharacter();
         Log(LOG_DEBUG, "ACTION: SAY [" + npc->getName() + "]: " + act.message +
             (isPC ? " (PC)" : " (NPC)"));
+        KeepTwoBubbles(act.actor);
         try {
           // No endDialogue/setInDialog(false): they clear AI goals, killing the task just queued
           npc->sayALine(act.message, true);
