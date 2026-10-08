@@ -265,6 +265,13 @@ class ThreadTest(CampaignTestCase):
             (self.STICK, "Stick", "speaker", True), (GENERIC_ID, "Jorge", "speaker", False), (self.IZUMI, "Izumi", "overheard", True), (self.RUKA, "Ruka", "overheard", True),
         ]})
 
+    def test_an_overhearer_who_speaks_becomes_a_speaker_and_a_speaker_stays_one(self):
+        thread_id = self.exchange(None, "[Day 3, 14:05]", listeners=[self.IZUMI])
+        self.exchange(thread_id, "[Day 3, 14:06]", listeners=[self.STICK], speaker=self.IZUMI)
+        self.assertEqual(campaign_db.thread_members([thread_id]), {thread_id: [
+            (self.STICK, "Stick", "speaker", True), (GENERIC_ID, "Jorge", "speaker", False), (self.IZUMI, "Izumi", "speaker", True),
+        ]})
+
     def test_a_deleted_thread_is_never_joined_again(self):
         thread_id = self.exchange(None, "[Day 3, 14:05]")
         campaign_db.cull_after(3, 0, 0)

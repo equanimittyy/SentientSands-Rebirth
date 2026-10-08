@@ -319,14 +319,16 @@ def append_dialogue(npc_id, lines, profile, thread_id=None):
 
 def join_thread(thread_id, members, joined_at, location=None):
     """Adds members, (npc_id, role, in_player_faction) triples, to the thread, or to a new thread at location when thread_id
-    is None or names a deleted thread. A member keeps the game time and the faction of its first join, and the thread takes
-    joined_at as the game time of its newest exchange. Returns the thread ID."""
+    is None or names a deleted thread. A member keeps the game time and the faction of its first join, and an overhearer
+    becomes a speaker when it speaks. The thread takes joined_at as the game time of its newest exchange. Returns the
+    thread ID."""
     with _connect(write=True) as conn:
         if thread_id is None or not conn.execute("SELECT 1 FROM thread WHERE id = ?", (thread_id,)).fetchone():
             thread_id = conn.execute("INSERT INTO thread (location) VALUES (?)", (location,)).lastrowid
         conn.execute("UPDATE thread SET game_time = COALESCE(?, game_time) WHERE id = ?", (joined_at, thread_id))
         conn.executemany(
-            "INSERT OR IGNORE INTO thread_member (thread_id, npc_id, role, game_time, in_player_faction) VALUES (?, ?, ?, ?, ?)",
+            "INSERT INTO thread_member (thread_id, npc_id, role, game_time, in_player_faction) VALUES (?, ?, ?, ?, ?)"
+            " ON CONFLICT (thread_id, npc_id) DO UPDATE SET role = excluded.role WHERE excluded.role = 'speaker'",
             [(thread_id, npc_id, role, joined_at, int(in_player_faction)) for npc_id, role, in_player_faction in members],
         )
     return thread_id

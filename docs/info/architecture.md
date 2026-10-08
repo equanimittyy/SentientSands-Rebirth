@@ -459,8 +459,8 @@ The `character` table holds every character of a campaign: canon characters, met
 Each chat exchange belongs to a chat thread, which records who took part.
 
 - `thread` holds the ID (`AUTOINCREMENT`, so an ID is never reused), the game time of the newest exchange, the start place, the memory, and the count of auto rumor passes that did not cite the memory (see [Auto rumors](#auto-rumors)). `dialogue.thread_id` links each row. Each radiant conversation is a thread (see [Radiant conversations](#radiant-conversations)).
-- `thread_member` holds the `npc_id`, the role (`speaker` or `overheard`), the join time, and whether the member was in the player's faction then. A member keeps the values of its first join, so the history text stays stable for the cache.
-- `CURRENT_THREAD` ends at a chat with another NPC or as another squad member, a switch between Whisper, Talk, and Yell, a campaign switch, a cull, a restart, or a real-time pause of the Conversation timeout (`conversation_timeout_minutes`, default 3).
+- `thread_member` holds the `npc_id`, the role (`speaker` or `overheard`), the join time, and whether the member was in the player's faction then. A member keeps the join time and the faction of its first join, so the history text stays stable for the cache. An overhearer that speaks becomes a speaker, so the NPC later knows that it spoke with it (`campaign_db.thread_partners`).
+- `CURRENT_THREAD` ends at a chat with another NPC, a switch between Whisper, Talk, and Yell, a campaign switch, a cull, a restart, or a real-time pause of the Conversation timeout (`conversation_timeout_minutes`, default 3). A chat as another squad member stays in the thread, so one memory covers all the exchanges of the squad with the NPC.
 - A cull or a character delete deletes each thread with no memory and no dialogue row.
 
 The chat prompt uses the threads (`npc_id`, not names):

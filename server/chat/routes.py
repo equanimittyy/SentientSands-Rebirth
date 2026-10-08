@@ -278,7 +278,8 @@ def chat():
     if speaker_id:
         merge_live_context(speaker)
         npc_name(speaker)
-    thread_key = (speaker_id, primary_id, mode)
+    # Not the speaker, so the squad members that take turns with the NPC share one thread and one memory
+    thread_key = (primary_id, mode)
     timeout = quiet_seconds()
     with state.THREAD_LOCK:
         current_thread = state.CURRENT_THREAD.get("id") if state.CURRENT_THREAD.get("key") == thread_key and time.monotonic() - state.CURRENT_THREAD["replied"] < timeout else None
