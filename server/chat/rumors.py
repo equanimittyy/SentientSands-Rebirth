@@ -9,7 +9,7 @@ import re
 from chat.characters import reported_sex
 from chat.chat_prompt import memory_text
 from chat.prompts import fill_prompt
-from core import bounties, deeds, state
+from core import deeds, state
 from core.settings import load_settings
 from store import campaign_db
 
@@ -161,9 +161,8 @@ def bounty_facts(at, deed):
     goes in, because the alias must fit the character."""
     target = deed["target"]
     profile = campaign_db.get_character(target["id"]) or {"Name": target["name"]}
-    issuers = deeds.name_list([deeds.the_faction(name) for name in bounties.ISSUERS.values()])
     lines = [
-        f"The bounty: {issuers} each pay {deed['amount']:,} cats for the wanted character.",
+        f"The bounty: {deed['amount']:,} cats for the wanted character.",
         f"The crime ({CRIME_WORDS.get(deed['crime'], deed['crime'].lower())}): {deed['reason']}",
         f"The wanted character: {profile.get('Name') or target['name']} ({kind_text(profile)}) of {deeds.the_faction(target['faction'])}.",
     ]

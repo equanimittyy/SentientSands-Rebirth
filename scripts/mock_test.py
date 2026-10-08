@@ -176,24 +176,24 @@ def fill():
     kill([izumi, mikse], party(LONGEN, "Longen", "Traders Guild"), at(9, 20, 30))
 
     bounty(SADI, "KIDNAPPING", "They took travellers from the road at night and sold them to slavers.", 5200, "Border Zone", at(9, 21, 0),
-           "WANTED: Sadi of the Starving Bandits, known as the Night Taker, for kidnapping. She takes travellers off the road after dark and"
-           " sells them to the slavers, so do not camp alone. The Holy Nation, the United Cities, and the Shek Kingdom each pay 5,200 cats.",
-           "The Holy Nation, the United Cities, and the Shek Kingdom each pay 5,200 cats for the Night Taker, a Starving Bandit named Sadi who"
-           " sells travellers to the slavers. She was last seen in the Border Zone.", "the Night Taker")
+           "WANTED: Sadi the Snatcher of the Starving Bandits, for kidnapping. She takes travellers off the road after dark and"
+           " sells them to the slavers, so do not camp alone. Reward: 5,200 cats.",
+           "They say the Snatcher walks through a camp without waking a single dog, and the folk she carries off are next seen in a"
+           " slaver's cage. Sadi of the Starving Bandits is worth 5,200 cats now, and she was last seen haunting the Border Zone.", "the Snatcher")
     bounty(TAVI, "TERRORISM", "They set fire to the fields of a farming outpost on the night before the harvest.", 12000, "Border Zone", at(9, 23, 0),
-           "WANTED: Tavi of the Dust Bandits, known as the Harvest Torch, for terrorism. He burned the fields of a farming outpost on the night"
-           " before the harvest, so keep him away from anything that burns. The Holy Nation, the United Cities, and the Shek Kingdom each pay 12,000 cats.",
-           "Three nations each pay 12,000 cats for the Harvest Torch, the Dust Bandit Tavi who burned the fields of an outpost on the night"
-           " before the harvest. Word is that he still roams the Border Zone.", "the Harvest Torch")
+           "WANTED: 'Ashface' Tavi of the Dust Bandits, for terrorism. He burned the fields of a farming outpost on the night"
+           " before the harvest, so keep him away from anything that burns. Reward: 12,000 cats.",
+           "Farmers swear that Ashface can smell a ripe field from a day's walk off, and that the smoke of the last one he burned"
+           " hung over the outpost for a week. Tavi of the Dust Bandits is worth 12,000 cats, and word is that he still roams the Border Zone.", "Ashface")
     bounty(GRENN, "MURDER", "They killed the guards of a caravan in their sleep and drove off its pack animals.", 8400, "Great Desert", at(10, 6, 0),
-           "WANTED: Grenn of the Dust Bandits, known as the Quiet Knife, for murder. He killed the guards of a caravan in their sleep and drove"
-           " off its pack animals, so do not doze near this one. The Holy Nation, the United Cities, and the Shek Kingdom each pay 8,400 cats.",
-           "The Holy Nation, the United Cities, and the Shek Kingdom each pay 8,400 cats for the Quiet Knife, a Dust Bandit named Grenn who"
-           " killed the guards of a caravan in their sleep. He was last seen in the Great Desert.", "the Quiet Knife")
+           "WANTED: 'Slit' Grenn of the Dust Bandits, for murder. He killed the guards of a caravan in their sleep and drove"
+           " off its pack animals, so do not doze near this one. Reward: 8,400 cats.",
+           "The caravan folk say that Slit killed their guards so softly that the last one died still snoring, and that Grenn"
+           " hums while he cleans the blade. The Dust Bandit is worth 8,400 cats to anyone who finds him in the Great Desert.", "Slit")
 
     kill([stick, mikse], party(SADI, NAMES[SADI], "Starving Bandits"), at(10, 16, 0))
     campaign_db.save_rumor(None, deeds.notable_events()[0]["id"],
-                           "They say Stick and Mikse of Nameless cut down the Night Taker in the Border Zone, and the travellers there sleep easier for it.")
+                           "They say Stick and Mikse of Nameless cut down the Snatcher in the Border Zone, and the travellers there sleep easier for it.")
     tavi = party(TAVI, NAMES[TAVI], "Dust Bandits")
     deeds.take([{"kind": "attack", "attacker": izumi, "target": TAVI, **at(11, 9, 0)}, {"kind": "knockout", "id": TAVI, **at(11, 9, 1)},
                 {"kind": "up", "id": TAVI, "carried": True, **at(11, 9, 4)}, {"kind": "imprisonment", "party": tavi, **at(11, 10, 30)}])

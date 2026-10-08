@@ -139,7 +139,7 @@ When the bounty ends, the plugin gives the squad back to the game: it takes the 
 The `notable` row holds the game time of the placement, and as JSON:
 
 ```json
-{"deed": "bounty", "target": {"id": "h:3051296712", "name": "Arleen", "faction": "Dust Bandits"}, "reason": "They killed a camp of miners for the ore in their packs.", "crime": "MURDER", "amount": 3200, "place": "Stack", "expires": 6023760, "squad": "0-2714-11-3051296700-4", "persistent": false, "notice": "WANTED: Arleen, the Ore Butcher, ..."}
+{"deed": "bounty", "target": {"id": "h:3051296712", "name": "Arleen", "faction": "Dust Bandits"}, "reason": "They killed a camp of miners for the ore in their packs.", "crime": "MURDER", "amount": 3200, "place": "Stack", "expires": 6023760, "squad": "0-2714-11-3051296700-4", "persistent": false, "notice": "WANTED: Arleen the Pickaxe, ..."}
 ```
 
 - `reason` and `crime` are the rolled reason and its crime.
@@ -168,10 +168,11 @@ A bounty is not a deed of the player's squad, so its Deed column shows the wante
 
 The rumor pass writes the rumor of a bounty deed in the next quiet period, as for the other deeds (`write_rumors`), but with `prompt_bounty_rumor.txt` (`rumors.bounty_prompt`). The call takes the `synthesis` task, and writes the notice, the rumor, and the alias of the target in one reply.
 
-- The prompt holds the issuers, the amount, the reason with its crime, the place, the target's profile (name, race, sex, faction, personality, and backstory), and the allies and enemies of the target's faction.
-- It asks for a wanted notice as the bounty notices of the game are written: the name and the alias, the crime, a warning to the hunter, and the reward of each issuer.
-- It asks for a rumor as the people of the wasteland tell it from bar to bar: who pays, how much, for what, by which alias the target goes, and where the target was last seen.
-- It asks for an alias of a few words that fits the reason and the profile, such as "the Ore Butcher".
+- The prompt holds the amount, the reason with its crime, the place, the target's profile (name, race, sex, faction, personality, and backstory), and the allies and enemies of the target's faction.
+- It asks for a wanted notice as the bounty notices of the game are written: the name and the alias, the crime, a warning to the hunter, and the reward in cats.
+- It asks for a rumor as a fanciful tale of the bars, not a copy of the notice: hearsay and exaggeration about the target from the crime, the personality, and the backstory, with the alias, the amount, and the place where the target was last seen. The hearsay invents no other crime, victim, or reward.
+- The notice and the rumor name no issuer, because the same three issuers pay each bounty.
+- It asks for an alias of 1 to 3 words that fits the reason and the profile, blunt and crude as the bounty notices of Kenshi name their targets, such as "Four-Teeth" or "the Gutless". The prompt gives such names only as examples, and the alias never reuses one.
 - The reply is JSON with `notice`, `rumor`, and `alias`. `rumors.clean` trims each. A reply without all three stores nothing, so the deed waits for the next pass, as a deed with a failed call does.
 - `campaign_db.add_bounty_rumor` adds the rumor and the notice in one write.
 - NPCs tell the rumor only while the bounty is open (`deeds.told_rumors`), because the kill or the capture of the target has a rumor of its own. The Deeds page keeps it.
@@ -265,7 +266,7 @@ Unit tests, which run with the standard library only (`server/tests/`):
 - The due check: the timer, the count of open bounties, and 0 open bounties.
 - The deed: the notice as its deed, Unknown before it, and each status after its kind, the facts of the rumor, the known figure check of `_store`, the delete, the cull, `character_deeds`, and `END_BOUNTY` when the status leaves Open and at a delete, with the flag clear only for a squad that SSR made persistent, and no `END_BOUNTY` while another open bounty has a target in the same squad.
 - `/bounty/placed`: a failed result stores nothing, and a campaign switch between the scan and the result stores nothing.
-- The bounty prompt: the fill names the issuers, the amount, the reason, the target with its profile, and the place. A reply without the notice, the rumor, or the alias stores nothing. The alias goes into a profile only when its `Alias` field is empty. The routes that save or write a rumor refuse a bounty deed.
+- The bounty prompt: the fill names the amount, the reason, the target with its profile, and the place. A reply without the notice, the rumor, or the alias stores nothing. The alias goes into a profile only when its `Alias` field is empty. The routes that save or write a rumor refuse a bounty deed.
 
 In the game and the web app:
 

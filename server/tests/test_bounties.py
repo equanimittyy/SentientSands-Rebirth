@@ -183,12 +183,12 @@ class BountyDeedTest(unittest.TestCase):
         end_pipe.assert_called_once_with("END_BOUNTY: a|1")
         self.assertEqual(len(deeds.open_bounties()), 1)
 
-    def test_the_rumor_takes_the_issuers_the_reason_the_profile_and_the_place(self, place_pipe, end_pipe):
+    def test_the_rumor_takes_the_amount_the_reason_the_profile_and_the_place(self, place_pipe, end_pipe):
         notable_id = self.place(1)
         campaign_db.upsert_profile("h:1", {"Name": "Arleen", "Race": "Greenlander", "Sex": "Female", "Personality": "Cold.", "Backstory": "Raised by raiders."})
         deed = campaign_db.notable(notable_id)[1]
         self.assertEqual(rumors.bounty_facts(*campaign_db.notable(notable_id)),
-                         f"The bounty: The Holy Nation, the United Cities, and the Shek Kingdom each pay 3,200 cats for the wanted character.\n"
+                         "The bounty: 3,200 cats for the wanted character.\n"
                          f"The crime ({rumors.CRIME_WORDS.get(deed['crime'], deed['crime'].lower())}): {deed['reason']}\n"
                          "The wanted character: Arleen (female Greenlander) of the Dust Bandits.\nPersonality: Cold.\nBackstory: Raised by raiders.\n"
                          "Last seen: Stack.\nTime: Day 0, 01:30.\nThe factions:\n- Dust Bandits. Enemies: United Cities.")
