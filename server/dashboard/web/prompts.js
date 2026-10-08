@@ -9,7 +9,7 @@ const openCards = new Set();
 
 const OTHER = "Other prompts";
 const PROMPT_INFO = {
-  "prompt_system.txt": { group: "Conversations", title: "System prompt", blurb: "The stable frame of every chat and radiant conversation: how to play a character, the world lore, and in a chat the reply rules. It comes first, so a provider can cache it." },
+  "prompt_system.txt": { group: "Conversations", title: "System prompt", blurb: "The stable frame of every chat and radiant conversation: how to play a character, the common speech of Kenshi, the world lore, and in a chat the reply rules. It comes first, so a provider can cache it." },
   "prompt_animal_system.txt": { group: "Conversations", title: "Animal system prompt", blurb: "Takes the place of the system prompt when you talk to an animal, such as a bonedog or a goat. An animal answers only with an action or a sound, never with words." },
   "npc_chat_template.txt": { group: "Conversations", title: "NPC chat template", blurb: "How a chat describes the NPC, from its profile. It stays the same from turn to turn." },
   "response_rules.txt": { group: "Conversations", title: "Reply rules", blurb: "The rules for how an NPC writes a chat reply." },
