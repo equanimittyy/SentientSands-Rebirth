@@ -1,0 +1,10 @@
+CHARACTER: {name}
+{alias}
+RACE: {race}
+SEX: {sex}
+{current_job}
+CURRENT FACTION: {current_faction}
+ORIGIN FACTION: {origin_faction}
+PERSONALITY: {personality}
+BACKSTORY: {backstory}
+SPEECH: {speech_quirks}

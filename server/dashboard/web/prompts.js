@@ -9,14 +9,15 @@ const openCards = new Set();
 
 const OTHER = "Other prompts";
 const PROMPT_INFO = {
-  "prompt_system.txt": { group: "Conversations", title: "System prompt", blurb: "The stable frame of every chat and radiant conversation: the rules and the world lore. It comes first, so a provider can cache it." },
+  "prompt_system.txt": { group: "Conversations", title: "System prompt", blurb: "The stable frame of every chat and radiant conversation: how to play a character, the world lore, and in a chat the reply rules. It comes first, so a provider can cache it." },
   "prompt_animal_system.txt": { group: "Conversations", title: "Animal system prompt", blurb: "Takes the place of the system prompt when you talk to an animal, such as a bonedog or a goat. An animal answers only with an action or a sound, never with words." },
   "npc_chat_template.txt": { group: "Conversations", title: "NPC chat template", blurb: "How a chat describes the NPC, from its profile. It stays the same from turn to turn." },
-  "response_rules.txt": { group: "Conversations", title: "Reply rules", blurb: "The rules for how an NPC writes a reply." },
+  "response_rules.txt": { group: "Conversations", title: "Reply rules", blurb: "The rules for how an NPC writes a chat reply." },
   "prompt_chat_template.txt": { group: "Conversations", title: "Chat request", blurb: "The system message of a chat: the system prompt, the judgment rule, the NPC chat template, the chat scene, then the newest memories of the conversations in which the NPC spoke. It changes only when a conversation starts or such a memory is written, so a provider can cache it." },
   "prompt_chat_scene.txt": { group: "Conversations", title: "Chat scene", blurb: "A snapshot of the place, the latest rumors, the player, and the NPC, written as plain sentences and taken when a conversation starts. A conversation lasts until you talk to another NPC or speak as another squad member." },
   "prompt_chat_turn.txt": { group: "Conversations", title: "Chat turn", blurb: "The last message of a chat request, which changes each turn: the lore entries and the older memories that the player's line finds, the player's line, then a short reminder of whom to reply as." },
   "prompt_radiant.txt": { group: "Conversations", title: "Radiant conversation", blurb: "A talk between 3 to 5 of your characters who stand together, on the radiant chat timer: the characters, the place, and one topic, which is a memory that some of them share, the place, or a rumor." },
+  "npc_radiant_template.txt": { group: "Conversations", title: "NPC radiant template", blurb: "How a radiant conversation describes each of its characters, from their profiles." },
   "prompt_thread_memory.txt": { group: "Conversations", title: "Conversation memory", blurb: "Sums up one conversation in a short memory, when you stop chatting for the Conversation timeout on the Settings page. Each NPC of the conversation then remembers the memory instead of the dialogue." },
   "prompt_profile_generation.txt": { group: "NPC profiles", title: "NPC bio", blurb: "Writes the bio of an NPC, or one part of it: after a few chats with it, or with Generate Bio in the Dialogue Library or in the editor. It builds on the current personality, backstory, and speech, on the dialogue so far, and on your instructions." },
   "prompt_world_synthesis.txt": { group: "Rumors", title: "Deed rumors", blurb: "Turns a deed of your squad into a rumor that NPCs can mention, when you stop chatting or press Generate Rumor." },

@@ -87,12 +87,12 @@ def building_of(ctx):
     building = ctx.get("building_name")
     return building if building and building != "Unknown" else None
 
-def describe_npc(name, profile, npc_id):
+def describe_npc(name, profile, npc_id, template="npc_chat_template.txt"):
     race = profile.get("Race", "Unknown")
     race_entry = find_race(race)
     current_faction = describe_faction(profile.get("Faction"), state.LIVE_CONTEXTS.get(npc_id, {}).get("factionID"))
     return fill_prompt(
-        "npc_chat_template.txt",
+        template,
         name=name,
         alias=alias_line(profile),
         race=describe_record(race_entry) if race_entry else race,
@@ -112,9 +112,10 @@ def language_instruction():
         return f"\nLANGUAGE: You MUST respond ONLY in {language}. Do not switch to English under any circumstances.\n"
     return ""
 
-def build_system_prompt():
+def build_system_prompt(reply_rules=True):
+    """The reply rules come last, so a radiant call, which has none, shares the rest with a chat as a cacheable start."""
     world_lore = campaign_db.overview()
-    rules = load_prompt_component("response_rules.txt")
+    rules = load_prompt_component("response_rules.txt") if reply_rules else ""
     prompt = fill_prompt(
         "prompt_system.txt",
         world_lore=world_lore,

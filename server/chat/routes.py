@@ -64,13 +64,13 @@ def radiant_conversation():
     playing = False
     try:
         descriptions = [
-            f"{describe_npc(f'{names[serial]}|{serial}', profiles[serial], npc['npc_id'])}\nHEALTH: {npc.get('health') or 'Unknown'}\nGEAR: {npc.get('equipment') or 'nothing notable'}"
+            f"{describe_npc(f'{names[serial]}|{serial}', profiles[serial], npc['npc_id'], 'npc_radiant_template.txt')}\nHEALTH: {npc.get('health') or 'Unknown'}\nGEAR: {npc.get('equipment') or 'nothing notable'}"
             for serial, npc in participants.items()
         ]
         known = radiant.acquaintance({npc['npc_id']: names[serial] for serial, npc in participants.items()}, {npc_id: campaign_db.thread_partners(npc_id) for npc_id in npc_ids})
         prompt = fill_prompt("prompt_radiant.txt", place=scene_text.location_text(environment, "They"), participants="\n\n".join(descriptions), acquaintance=known, topic=topic, length=random.choice(radiant.LENGTHS))
         logging.info(f"RADIANT: {', '.join(names.values())} talk. Topic: {topic}")
-        content = call_llm("radiant", [{"role": "system", "content": build_system_prompt()}, {"role": "user", "content": prompt}])
+        content = call_llm("radiant", [{"role": "system", "content": build_system_prompt(reply_rules=False)}, {"role": "user", "content": prompt}])
         lines = radiant.lines(content or "", participants)
         if not lines:
             logging.warning("RADIANT: The reply of the LLM is not a conversation of the participants, so nobody talks.")
