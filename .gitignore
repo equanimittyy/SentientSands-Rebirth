@@ -29,6 +29,9 @@ x64/
 *.pdb
 *.ilk
 
+# Tutorial video screenshots, which render.py reads
+scripts/tutorial_video/captures/
+
 # Claude Code personal settings (may hold API keys)
 .claude/settings.local.json
 

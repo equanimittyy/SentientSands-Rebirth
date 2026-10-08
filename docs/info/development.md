@@ -53,6 +53,29 @@ python scripts/mock_test.py [name]
 
 The script creates a campaign from SSR Vanilla, named `mock` by default, and fills it with a squad, NPCs, chat threads, a radiant conversation of the squad, the memories of all threads but the newest, and the game events of the capture of a known figure, with a rumor, and of the kill of another, which go through the attribution of the server. Dialogue & Memories and Events on Campaign Canon, and the Dialogue Library, then have data without a game. The script refuses a name that a campaign already uses, so a second run cannot add the data twice. It needs no Flask, so it runs in the dev container. Switch to the campaign on the Campaigns page.
 
+## Tutorial videos
+
+The Tutorial tab of the web app shows short videos of the web app. `scripts/tutorial_video/` makes them in two steps:
+
+| Step | Command | Result |
+|---|---|---|
+| Capture | `python scripts/tutorial_video/capture.py [scene ...]` | The screenshots and a `timeline.json` of each scene, in `scripts/tutorial_video/captures/` |
+| Render | `python scripts/tutorial_video/render.py [scene ...]` | `server/dashboard/web/videos/<scene>.mp4` and its poster `<scene>.jpg` |
+
+Without a scene name, each script does all scenes. The steps need Python 3.10 or later. The dev container has the browser and its libraries, so there they need only a virtual environment (`python3 -m venv`) for the packages. Set up a machine once:
+
+```
+python -m pip install -r scripts/tutorial_video/requirements.txt
+python -m playwright install chromium
+```
+
+- `scripts/tutorial_video/scenes.py` holds the browser steps and the bubble notes of each scene. The ID of a scene names its video.
+- Each scene runs on its own copy of the server, which `scripts/mock_test.py` fills. The LLM calls of the page get fixed replies. So a capture needs no API key, and it changes none of your data.
+- The server accepts only the host `127.0.0.1:5000`, so the capture needs port 5000. Close Kenshi, stop the SSR server, and stop a forwarded port 5000 of the dev container first. At start, the server kills each process that listens on port 5000, so the capture stops when the port is in use.
+- When a step fails, the capture saves the page as `failed.png` in the folder of the scene, and goes on with the next scene.
+- `render.py` draws each frame with Pillow and encodes it with the ffmpeg that the `imageio-ffmpeg` package includes. `scripts/tutorial_video/motion.py` holds the timing and the motion, without Pillow.
+- After a change to a page of the web app, capture and render its scenes again.
+
 ## Probes
 
 Some questions of the plans need data from the game. The plugin writes probe lines to `SentientSands_SDK.log` for them, but only at the `DEBUG` log level. Set **Log level** on the Settings page to `DEBUG` before an in-game test. All probe functions are in `plugin/game/Context.cpp`. A probe is removed when the change that needs its answer is built.
