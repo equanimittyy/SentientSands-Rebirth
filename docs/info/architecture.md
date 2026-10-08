@@ -377,7 +377,7 @@ The server, not the LLM, picks one topic kind at random from those with material
 
 ## Line pacing
 
-The server paces the lines of every conversation (`say` in `server/chat/routes.py`). The reply of `/chat` and `/radiant` holds no text. A server thread sends the actions as `NPC_ACTION`, then each line as `NPC_SAY: Name|serial: line`, at least `DialogueSpeed` (5 s) after the line before it.
+The server paces the lines of every conversation (`say` in `server/chat/routes.py`). The reply of `/chat` and `/radiant` holds no text. A server thread sends the actions as `NPC_ACTION`, then each line as `NPC_SAY: Name|serial: line`, at least `DialogueSpeed` (3 s by default) after the line before it.
 
 - One conversation plays at a time, and chat replies queue (`reply_loop`). A radiant conversation holds the stage (`_STAGE`) to its last line.
 - In a radiant conversation, the speaker of each line shows `...` for the last 40% of the delay before the line (`THINK_SHARE`), so the lines seem to come one by one, although one call wrote them all.

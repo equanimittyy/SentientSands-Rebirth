@@ -19,7 +19,7 @@ float g_visionRange = 100.0f;
 int g_radiantIntervalSeconds = 600;
 bool g_enableRadiant = true;
 bool g_triggerRadiant = false;
-float g_speechBubbleLife = 15.0f;
+float g_speechBubbleLife = 10.0f;
 bool g_openWebPanelOnStart = true;
 LogLevel g_logLevel = LOG_INFO;
 

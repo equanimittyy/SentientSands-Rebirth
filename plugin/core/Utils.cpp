@@ -315,7 +315,7 @@ void LoadPluginConfig() {
                                           iniPath.c_str()) != 0;
 
   char bubbleLifeBuf[32];
-  GetPrivateProfileStringA("Settings", "SpeechBubbleLife", "15.0",
+  GetPrivateProfileStringA("Settings", "SpeechBubbleLife", "10.0",
                            bubbleLifeBuf, 32, iniPath.c_str());
   g_speechBubbleLife = (float)atof(bubbleLifeBuf);
 
