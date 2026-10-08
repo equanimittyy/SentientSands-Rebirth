@@ -228,7 +228,7 @@ def chat():
                 return reply("[DEBUG] /bounty [n] posts an SSR bounty of n cats on the target, or of a rolled amount without n, as the bounty timer does.")
             target = context_dict(data.get('context'))
             if target.get("factionID") not in bounties.TARGETS or not str(target.get("npc_id", "")).startswith("h:"):
-                return reply(f"[DEBUG] Only a generic member of a bandit faction that attacks people in general can get a bounty, and {target.get('name') or 'the target'} is not one.",
+                return reply(f"[DEBUG] Only a generic member of a target bandit faction can get a bounty, and {target.get('name') or 'the target'} is not one.",
                              f"[DEBUG] Bandits: {', '.join(sorted(bounties.TARGETS.values()))}")
             environment = target.get("environment") or {}
             candidate = {"npc_id": target["npc_id"], "name": target.get("name", ""), "faction": target.get("faction", ""), "faction_id": target["factionID"],

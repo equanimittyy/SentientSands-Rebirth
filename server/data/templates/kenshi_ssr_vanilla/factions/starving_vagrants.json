@@ -1,0 +1,19 @@
+{
+  "game_id": "5065358-Universal Wasteland Expansion.mod",
+  "name": "Starving Vagrants",
+  "aliases": [],
+  "major": false,
+  "knowledge": "limited",
+  "fields": {
+    "territory": [
+      "The Great Desert",
+      "The Hook",
+      "Heng"
+    ],
+    "allies": [
+      "Vagrants",
+      "Gutters"
+    ]
+  },
+  "description": "Starving wanderers in rags who band together as vagrant bandits, armed with clubs, pipes, and scrap metal, and some of them with a stump for an arm or a cheap robotic limb. They roam in mobs from camps of their own."
+}

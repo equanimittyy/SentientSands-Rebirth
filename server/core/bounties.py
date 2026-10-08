@@ -22,24 +22,34 @@ CRIMES = (
 )
 # The Holy Nation, the United Cities, and the Shek Kingdom by game ID: the law of each of them sets the bounty at one price
 ISSUERS = {"1083-gamedata.base": "The Holy Nation", "defaultEmpireFactionSID": "United Cities", "11624-Dialogue (10).mod": "Shek Kingdom"}
-# The bandit factions that attack people in general, from the Kenshi wiki and the default relations of the game data. Rival
-# gangs that fight only certain factions, such as the Reavers and the Red Sabres, stay out.
+# A fixed list of the bandit factions whose generic members can get a bounty, chosen by hand from the Kenshi wiki and the game data
 TARGETS = {
+    "56595-Dialogue.mod": "Band of Bones",
+    "42257-rebirth.mod": "Berserkers",
     "16860-gamedata.base": "Bloodraiders",
+    "2757468-Swamps Expanded.mod": "Blue Cleavers",
     "2758392-Bandits Expansion.mod": "Desolate Plunderers",
+    "2757432-Dune Rebels.mod": "Dune Renegades",
     "200-gamedata.base": "Dust Bandits",
     "96175-rebirth.mod": "Grass Pirates",
+    "2757458-Swamps Expanded.mod": "Green Katanas",
     "2757329-Hill Bandits.mod": "Hill Marauders",
+    "2757451-Hook Rebels.mod": "Hook Raiders",
+    "51357-rebirth.mod": "Kral's Chosen",
     "54297-rebirth.mod": "Rebel Farmers",
+    "51652-rebirth.mod": "Red Sabres",
     "1085-gamedata.base": "Sand Ninjas",
     "95512-rebirth.mod": "Scavengers",
     "42235-rebirth.mod": "Shrieking Bandits",
     "63028-Dialogue.mod": "Skin Bandits",
     "1305-gamedata.base": "Starving Bandits",
+    "5065358-Universal Wasteland Expansion.mod": "Starving Vagrants",
+    "51638-rebirth.mod": "Swamp Ninjas",
     "2757403-Swamp Bandits.mod": "Swamp Ruffians",
     "1533849-Northern Bandits Expanded.mod": "The Bastards",
     "1533851-Northern Bandits Expanded.mod": "The Deluged",
     "96261-rebirth.mod": "The Gorrillo Bandits",
+    "96156-rebirth.mod": "Vagrants",
     "1532482-__May 18 2.mod": "Yabuta Outlaws",
 }
 with open(os.path.join(DEFAULTS_DIR, "bounty_reasons.json"), encoding="utf-8") as f:

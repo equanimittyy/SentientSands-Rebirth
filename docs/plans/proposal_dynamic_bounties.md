@@ -59,12 +59,14 @@ The headers of KenshiLib and the game data files show these facts. The probe con
 
 ### Factions
 
-The Holy Nation, the United Cities, and the Shek Kingdom issue every bounty (`bounties.ISSUERS`). Each of them that still holds a town sets it with its law, at the same amount and for the same crime. A major faction that holds no town counts as eliminated by the player. The targets are the members of 16 bandit factions that attack people in general (`bounties.TARGETS`), chosen from the bandit factions of the Kenshi wiki and the default relations of the game data. The server finds the faction of a candidate by the game ID that the plugin sends.
+The Holy Nation, the United Cities, and the Shek Kingdom issue every bounty (`bounties.ISSUERS`). Each of them that still holds a town sets it with its law, at the same amount and for the same crime. A major faction that holds no town counts as eliminated by the player. The targets are the members of 27 bandit factions (`bounties.TARGETS`), a fixed list chosen by hand from the bandits, the raiders, the rebels, and the vagrants of the Kenshi wiki and the game data. The server finds the faction of a candidate by the game ID that the plugin sends.
 
 1. The roll keeps each candidate whose faction is a target faction.
 2. It picks the target among them at random.
 
-- Rival gangs that fight only certain factions stay out of the targets, such as the Reavers, the Crab Raiders, the Red Sabres, and the Swamp Ninjas. So do the tribes, the creatures, the armies, and the Skeleton bandits that attack everyone, such as the Cannibals, the Fogmen, the Second Empire, the Skeleton Legion, and the Thrall Masters.
+- The gangs of the Swamp that are bandits are targets: the Red Sabres, the Swamp Ninjas, the Swamp Ruffians, the Blue Cleavers, and the Green Katanas. The five gangs that run the towns of the Swamp, such as the Hounds, are not.
+- The Vagrants are the starving vagrants of a vanilla game, and the Starving Vagrants are those of a UWE game. The Vagrants also hold the bar thugs and some bar patrons, so these can get a bounty too.
+- The Reavers and the Crab Raiders stay out of the targets. So do the tribes, the creatures, the armies, and the Skeleton bandits that attack everyone, such as the Cannibals, the Fogmen, the Second Empire, the Skeleton Legion, and the Thrall Masters.
 
 When no major faction holds a town, the plugin picks a fallback issuer (`NearestLaw` in `plugin/game/Context.cpp`):
 
@@ -76,48 +78,48 @@ The fallback issuers are the 42 factions other than the three major factions tha
 
 | Fallback issuer | Targets |
 |---|---|
-| Anti-Slavers | All 16 except Rebel Farmers (+30) |
-| Bele'coz | All 16 |
-| Blackshifters | All 16 |
-| Cannibal Hunters | All 16 except Rebel Farmers (+60) |
-| Crab Raiders | All 16 |
-| Deadcat | All 16 |
-| The Dominion | All 16 |
-| Dune Renegades | All 16 except Rebel Farmers (+100) |
-| Empire Peasants | All 16 except Rebel Farmers (+100) |
-| Flotsam Ninjas | All 16 |
-| Free Traders | All 16 |
-| Grayflayers | All 16 |
-| Herdsmen | All 16 |
-| Highlanders | All 16 |
-| Holy Nation Outlaws | All 16 except Dust Bandits, Hill Marauders, and Starving Bandits (+30 each) |
-| Hook Raiders | All 16 except Rebel Farmers (+100) |
-| Hounds | All 16 |
-| Inhuman Hunters | All 16 |
-| Kobura Syndicate | All 16 |
-| Mechanical Hive | All 16 |
-| Mercenary Police | All 16 |
-| Midland Hive | All 16 |
-| Narko's Disciples | All 16 |
-| Natives | All 16 |
-| Northern Hive | All 16 except Rebel Farmers and Yabuta Outlaws (+30 each) |
-| Northern Nobles | All 16 |
-| The Order of Chitrin | All 16 |
-| Police | All 16 |
-| Reavers | All 16 |
-| The Reawakened | All 16 |
-| Rebel Farmers | All 16 except Rebel Farmers, its own faction |
-| Republic of Tertius | All 16 |
-| Savage Hive | All 16 |
-| Skeletons | All 16 except The Deluged (+30) |
-| Southern Nobles | All 16 |
-| The Sturmijaz | All 16 |
-| Swampers | All 16 |
-| Tech Hunters | All 16 except Rebel Farmers, Starving Bandits, The Bastards, and The Deluged (+30 each) |
-| Traders Guild | All 16 |
-| Twinblades | All 16 |
-| Western Hive | All 16 |
-| Western Nobles | All 16 |
+| Anti-Slavers | All 27 except Rebel Farmers (+30) |
+| Bele'coz | All 27 |
+| Blackshifters | All 27 |
+| Cannibal Hunters | All 27 except Rebel Farmers (+60) |
+| Crab Raiders | All 27 except Dune Renegades (+30) |
+| Deadcat | All 27 |
+| The Dominion | All 27 |
+| Dune Renegades | All 27 except Dune Renegades, its own faction, Hook Raiders (+100), and Rebel Farmers (+100) |
+| Empire Peasants | All 27 except Dune Renegades (+50), Hook Raiders (+30), and Rebel Farmers (+100) |
+| Flotsam Ninjas | All 27 |
+| Free Traders | All 27 |
+| Grayflayers | All 27 |
+| Herdsmen | All 27 |
+| Highlanders | All 27 except Band of Bones and Berserkers (+30 each) |
+| Holy Nation Outlaws | All 27 except Dust Bandits, Hill Marauders, and Starving Bandits (+30 each) |
+| Hook Raiders | All 27 except Hook Raiders, its own faction, Dune Renegades (+100), and Rebel Farmers (+100) |
+| Hounds | All 27 |
+| Inhuman Hunters | All 27 |
+| Kobura Syndicate | All 27 |
+| Mechanical Hive | All 27 |
+| Mercenary Police | All 27 |
+| Midland Hive | All 27 |
+| Narko's Disciples | All 27 |
+| Natives | All 27 |
+| Northern Hive | All 27 except Dune Renegades, Rebel Farmers, and Yabuta Outlaws (+30 each) |
+| Northern Nobles | All 27 |
+| The Order of Chitrin | All 27 |
+| Police | All 27 |
+| Reavers | All 27 |
+| The Reawakened | All 27 |
+| Rebel Farmers | All 27 except Rebel Farmers, its own faction, Dune Renegades (+100), and Hook Raiders (+100) |
+| Republic of Tertius | All 27 |
+| Savage Hive | All 27 |
+| Skeletons | All 27 except The Deluged (+30) |
+| Southern Nobles | All 27 |
+| The Sturmijaz | All 27 |
+| Swampers | All 27 |
+| Tech Hunters | All 27 except Band of Bones, Berserkers, Rebel Farmers, Starving Bandits, Starving Vagrants, The Bastards, and The Deluged (+30 each) |
+| Traders Guild | All 27 |
+| Twinblades | All 27 |
+| Western Hive | All 27 |
+| Western Nobles | All 27 |
 
 ### Reason, crime, and amount
 
