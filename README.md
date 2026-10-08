@@ -30,7 +30,7 @@ If the original Sentient Sands is also installed, disable it in the mod launcher
 ### Step 3: Launching the Game
 1. In the Kenshi mod launcher, check **Sentient Sands Rebirth**.
 2. Start Kenshi normally. RE_Kenshi loads the plugin, and the plugin starts the AI server.
-3. Your default browser opens the web panel. Set up a provider and a model there before you talk to an NPC (see below).
+3. Your default browser opens the web panel. Set up a provider and a model there before you talk to an NPC (see below). The **Tutorial** page of the web panel shows how.
 
 ---
 

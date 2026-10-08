@@ -123,7 +123,201 @@
       <p class="hint">Edit what NPCs know about the world.</p>
       <div id="editor-page"></div>
     </section>
-    <section id="tutorial" hidden></section>
+    <section id="tutorial" hidden>
+      <p class="hint">Do the Quick Start first. The Advanced Guide explains the other features of Sentient Sands Rebirth (SSR).</p>
+      <fieldset class="quick-start">
+        <legend>Quick Start</legend>
+        <details class="card" name="tutorial">
+          <summary><strong>1. Install SSR</strong></summary>
+          <ol>
+            <li>Install <a href="https://github.com/BFrizzleFoShizzle/RE_Kenshi/releases" target="_blank" rel="noopener">RE_Kenshi</a> v0.3.5 or later. Use the standard zip, not the <code>_loose</code> zip, and run the installer in it.</li>
+            <li>Start Kenshi once. The main menu must show the RE_Kenshi version.</li>
+            <li>Extract the SSR zip into <code>Kenshi\mods\</code>, so that <code>Kenshi\mods\SentientSandsRebirth\SentientSands.dll</code> exists.</li>
+            <li>In the Kenshi mod launcher, select <b>Sentient Sands Rebirth</b>. If the original Sentient Sands is installed, disable it, because only one of the two can run.</li>
+          </ol>
+          <p>SSR includes its own Python, so you do not install anything else.</p>
+        </details>
+        <details class="card" name="tutorial">
+          <summary><strong>2. Start the game</strong></summary>
+          <p>When Kenshi starts, SSR starts its server and opens this web app in your browser.</p>
+          <ul>
+            <li>When your game loads, the welcome popup and the SSR HUB open. Press <b>F8</b> to open the SSR HUB again.</li>
+            <li>If the web app does not open, press <b>Open Web App</b> in the SSR HUB.</li>
+            <li>If this page says that the server is not running, press <b>Restart Server</b> in the SSR HUB.</li>
+          </ul>
+          <p>Connect a model before you talk to an NPC.</p>
+        </details>
+        <details class="card" name="tutorial">
+          <summary><strong>3. Connect a model</strong></summary>
+          <p>SSR needs an AI model to write what NPCs say. Choose a service and set it up first:</p>
+          <ul>
+            <li><b>Player2</b>: an app that gives AI to games. <a href="https://www.youtube.com/watch?v=-qQeEdizkhg" target="_blank" rel="noopener">Set up Player2</a></li>
+            <li><b>OpenRouter</b>: an online service with many models. It needs an API key. <a href="https://www.youtube.com/watch?v=iZM2DcOhaaY" target="_blank" rel="noopener">Get an OpenRouter API key</a></li>
+            <li><b>Ollama</b>: runs a model on your PC. It needs no API key. <a href="https://www.youtube.com/watch?v=UtSSMs6ObqY&amp;t=37s" target="_blank" rel="noopener">Install Ollama</a></li>
+            <li><b>llama.cpp</b>: an alternative to Ollama that also runs a model on your PC. It needs no API key. <a href="https://www.youtube.com/watch?v=UkVDlpv8vcc" target="_blank" rel="noopener">Install llama.cpp</a></li>
+          </ul>
+          <p>Then connect it on the <a href="#llm">Models</a> tab:</p>
+          <ol>
+            <li>Under <b>Providers</b>, open the card of your service, for example <b>openrouter</b>. If it has no card, type a name in <b>New provider name</b>, choose its type, and press <b>Add</b>. Then fill in <b>Base URL</b> from the docs of the service.</li>
+            <li>Fill in <b>API key</b>. For Player2, fill in <b>Game key</b>.</li>
+            <li>Under <b>Profiles (Models)</b>, open a profile, or type a name in <b>New profile name</b> and press <b>Add</b>.</li>
+            <li>Press <b>List models</b>, then choose the <b>Model ID</b>.</li>
+            <li>Press <b>Test</b>. The profile shows <b>OK</b> when the model replies.</li>
+            <li>Under <b>Default LLM Profile</b>, choose the profile.</li>
+            <li>Press <b>Save</b>.</li>
+          </ol>
+          <p class="hint">A new install uses the profile player2-default, so chats fail until Player2 runs or you choose another profile.</p>
+        </details>
+        <details class="card" name="tutorial">
+          <summary><strong>4. Talk to an NPC</strong></summary>
+          <ol>
+            <li>Select an NPC. You can also talk to your squad members, except the first character of your squad.</li>
+            <li>Press the chat key, <b>\</b> by default. You can change it on the <a href="#settings">Settings</a> tab.</li>
+            <li>To speak as another squad member, press the button with the name of the speaker until it shows that member.</li>
+            <li>Choose <b>Whisper</b>, <b>Talk</b>, or <b>Yell</b>. Only the NPC hears a whisper. NPCs within the <b>Talk range</b> or the <b>Yell range</b> hear the other two.</li>
+            <li>Type your line and press <b>Enter</b>. The NPC replies in a speech bubble.</li>
+            <li>To close the chat window, press <b>Enter</b> on an empty line, or press <b>Cancel</b>.</li>
+          </ol>
+          <p>To rename the NPC, type <code>/name</code> and the new name, for example <code>/name Bob</code>.</p>
+        </details>
+        <details class="card" name="tutorial">
+          <summary><strong>5. Campaigns</strong></summary>
+          <p>A campaign holds the memories, rumors, and world events of one playthrough. SSR creates the campaign <b>Default</b> on the first start.</p>
+          <ul>
+            <li>To start a new playthrough, create a campaign on the <a href="#campaigns">Campaigns</a> tab and choose it under <b>Current Campaign</b>.</li>
+            <li>SSR does not link a campaign to a save. Before you load the save of another playthrough, choose its campaign.</li>
+            <li>When you load an older save of the same playthrough, press <b>Cull future data</b>, or <b>Cull Future Data</b> in the SSR HUB. NPCs then forget what happened after the time of the save. The game must run for a cull.</li>
+          </ul>
+        </details>
+        <details class="card" name="tutorial">
+          <summary><strong>6. The SSR HUB</strong></summary>
+          <p>Press <b>F8</b> in the game to open the SSR HUB.</p>
+          <ul>
+            <li><b>Dialogue Library</b>: the NPCs that you talked to, with their profiles and conversation logs.</li>
+            <li><b>Events</b>: the kills, captures, and rumors of the campaign.</li>
+            <li><b>Cull Future Data</b>: makes NPCs forget what happened after the current game time.</li>
+            <li><b>Open Web App</b>: opens this web app in a new browser tab.</li>
+            <li><b>Restart Server</b>: restarts the SSR server, for example when this web app says that the server is not running.</li>
+            <li><b>Welcome Popup</b>: shows the welcome popup again.</li>
+          </ul>
+        </details>
+        <details class="card" name="tutorial">
+          <summary><strong>7. Troubleshooting</strong></summary>
+          <ul>
+            <li><b>The NPC could not respond</b>: on the <a href="#llm">Models</a> tab, press <b>Test</b> on your default profile. If the test fails, check the API key and the Model ID.</li>
+            <li><b>The chat key does nothing</b>: select an NPC first, and close the Dialogue Library. The first character of your squad cannot be a chat target.</li>
+            <li><b>This page says that the server is not running</b>: press <b>Restart Server</b> in the SSR HUB.</li>
+            <li><b>Replies are slow with a local model</b>: see Local models in the Advanced Guide.</li>
+            <li><b>A bug report</b>: attach <code>SentientSands_SDK.log</code> from the Kenshi folder and <code>server\logs\server.log</code> from the SSR folder.</li>
+          </ul>
+        </details>
+      </fieldset>
+      <fieldset class="advanced-guide">
+        <legend>Advanced Guide</legend>
+        <details class="card" name="tutorial">
+          <summary><strong>Tasks and fallbacks</strong></summary>
+          <p>Each task under <b>Tasks (Advanced)</b> on the <a href="#llm">Models</a> tab is one kind of AI call: Chat, Radiant conversations, NPC profile, Rumors, and Conversation memories.</p>
+          <ul>
+            <li>A task tries its profiles in order until one replies. Use <b>Add a fallback…</b> to add a profile, and the arrows to change the order.</li>
+            <li>To use another model for one task, add its profile to that task and move it above the default.</li>
+            <li>The game waits only 60 s for a reply, so keep each <b>Deadline (s)</b> under 60.</li>
+            <li><b>Max tokens</b> limits the length of a reply. <b>Temperature</b> sets how varied the replies are.</li>
+            <li><b>Extra request parameters (JSON)</b> on a profile sends other model settings, for example <code>{"top_p": 0.9}</code>.</li>
+          </ul>
+        </details>
+        <details class="card" name="tutorial">
+          <summary><strong>Local models</strong></summary>
+          <p>A local server, such as Ollama, llama.cpp, or LM Studio, runs the model on your PC. It needs no API key.</p>
+          <ol>
+            <li>Install the server and download a model. <a href="https://www.youtube.com/watch?v=UtSSMs6ObqY&amp;t=37s" target="_blank" rel="noopener">Install Ollama</a> or <a href="https://www.youtube.com/watch?v=UkVDlpv8vcc" target="_blank" rel="noopener">Install llama.cpp</a></li>
+            <li>On the <a href="#llm">Models</a> tab, open the provider <b>ollama</b>. For llama.cpp or LM Studio, add an OpenAI-compatible provider. Its <b>Base URL</b> is the address that the server shows, followed by <code>/v1</code>, for example <code>http://localhost:8080/v1</code> for llama.cpp or <code>http://localhost:1234/v1</code> for LM Studio.</li>
+            <li>Set the <b>Model ID</b> to the name of your model, press <b>Test</b>, and choose the profile under <b>Default LLM Profile</b>.</li>
+          </ol>
+          <p>A local model is slower and reads less text. Lower <b>Retrieval slots</b> on the <a href="#settings">Settings</a> tab, because each slot adds up to about 250 tokens to each line that you say.</p>
+        </details>
+        <details class="card" name="tutorial">
+          <summary><strong>How NPCs remember</strong></summary>
+          <ul>
+            <li>When you stop chatting for the <b>Conversation timeout</b> (3 minutes by default), SSR writes a short summary of each conversation. Each NPC in the conversation remembers the summary.</li>
+            <li>An NPC keeps its 5 newest conversations in mind. It recalls an older one, or one that it overheard, when your line touches it.</li>
+            <li>To change what NPCs remember, edit or delete the <b>Memorised Summary</b> on <a href="#editor">Editor</a> &gt; Campaign Canon &gt; Dialogue &amp; Memories. A delete makes the NPCs forget the conversation.</li>
+            <li><b>Retrieval slots</b>, <b>Memory slots</b>, and <b>Retrieval cooldown</b> on the <a href="#settings">Settings</a> tab set how much an NPC recalls with each line.</li>
+          </ul>
+        </details>
+        <details class="card" name="tutorial">
+          <summary><strong>Rumors and events</strong></summary>
+          <ul>
+            <li>When your squad kills or captures a unique character, such as Tinfist, SSR records an event. It writes a rumor for the event when you stop chatting.</li>
+            <li>NPCs mention the 3 newest rumors, and recall an older one when your line touches it.</li>
+            <li>To add a rumor of your own, type it in <b>Add a custom rumour</b> on <a href="#editor">Editor</a> &gt; Campaign Canon &gt; Events, and press <b>Add</b>.</li>
+            <li>At most once each <b>Radiant rumor timer</b> (30 minutes by default), SSR turns a story that comes back in your conversations into an Auto event.</li>
+            <li>Press <b>Generate Rumor</b> to write a rumor now, with optional instructions. Then edit the text and press <b>Save</b>.</li>
+          </ul>
+          <p>The <b>Events</b> window of the SSR HUB does the same in the game.</p>
+        </details>
+        <details class="card" name="tutorial">
+          <summary><strong>Radiant conversations</strong></summary>
+          <ul>
+            <li>Each <b>Radiant chat timer</b> (10 minutes of unpaused time by default), 3 to 5 of your characters who stand together talk. The topic is a memory that they share, the place, or a rumor.</li>
+            <li>Sometimes NPCs of one squad who relax at a bar talk about a rumor instead. <b>NPC radiant chance</b> sets how often.</li>
+            <li>Characters who fought in the last 3 game hours do not talk.</li>
+            <li>To start a radiant conversation now, press <b>Trigger Radiant</b> in the chat window.</li>
+            <li>To stop them, clear <b>Radiant conversations</b> on the <a href="#settings">Settings</a> tab.</li>
+          </ul>
+        </details>
+        <details class="card" name="tutorial">
+          <summary><strong>NPC profiles and bios</strong></summary>
+          <ul>
+            <li>When you meet an NPC, SSR gives it a provisional profile: a rolled personality, backstory, and way of speech.</li>
+            <li>After <b>Chats before a bio</b> (5 by default), the AI writes the full bio from your chats.</li>
+            <li>To write a bio now, press <b>Generate Bio</b> in the Dialogue Library, or on the character in <a href="#editor">Editor</a> &gt; Campaign Canon &gt; Database. You can add instructions, for example "a former slave who distrusts every noble".</li>
+            <li>Most NPCs get a name, for example Barman Arleen. To rename an NPC, change its <b>Name</b> in the Editor.</li>
+          </ul>
+        </details>
+        <details class="card" name="tutorial">
+          <summary><strong>World canon</strong></summary>
+          <p><a href="#editor">Editor</a> &gt; Campaign Canon &gt; Database holds what the NPCs of the current campaign know about the world. A change applies from the next chat.</p>
+          <ul>
+            <li>Every NPC knows the overview and the factions. An NPC also gets a history entry, a race, a location, or a region when your line names or touches it.</li>
+            <li><b>Knowledge Level</b> sets who knows an entry. Global: every NPC. Limited: NPCs whose faction, race, home, or travels link to it. Secret: only the characters, factions, and races in <b>Known by</b>.</li>
+            <li><b>Show seeded data</b> shows the entries that the campaign copied from its template.</li>
+          </ul>
+        </details>
+        <details class="card" name="tutorial">
+          <summary><strong>World templates</strong></summary>
+          <ul>
+            <li>A new campaign starts as a copy of a world template. A change to a template applies only to the campaigns that you create later.</li>
+            <li>SSR Vanilla is read-only. On <a href="#editor">Editor</a> &gt; Templates, press <b>Duplicate</b> to make a copy that you can edit.</li>
+            <li><b>Export</b> saves a template as one <code>.json</code> file that you can share. <b>Import</b> adds a template from such a file.</li>
+          </ul>
+        </details>
+        <details class="card" name="tutorial">
+          <summary><strong>Prompts</strong></summary>
+          <ul>
+            <li>The <a href="#prompts">Prompts</a> tab holds the instructions that SSR sends to the AI. They apply to every campaign.</li>
+            <li>An edited prompt shows <b>Edited</b>. <b>Use default</b> puts back the text that SSR ships.</li>
+            <li><b>Default changed</b> means that an SSR update changed the default of an edited prompt. Compare your text with the new default.</li>
+            <li>Keep the words in braces, such as <code>{name}</code>. SSR fills them in.</li>
+          </ul>
+        </details>
+        <details class="card" name="tutorial">
+          <summary><strong>Logs and tests</strong></summary>
+          <ul>
+            <li><b>Log level</b> on the <a href="#settings">Settings</a> tab sets how much SSR writes to its logs. DEBUG writes the most, and also shows <b>Test search</b> on the Editor tab.</li>
+            <li><b>Test search</b> shows which lore entries, memories, and rumors an NPC gets with a line that you say.</li>
+            <li><code>SentientSands_SDK.log</code> in the Kenshi folder holds the current game, and <code>SentientSands_SDK.old.log</code> the game before.</li>
+            <li><code>server\logs\server.log</code> in the SSR folder holds the server log. At DEBUG, <code>server\logs\llm.log</code> holds each prompt and reply.</li>
+          </ul>
+        </details>
+        <details class="card" name="tutorial">
+          <summary><strong>Updates and backups</strong></summary>
+          <ul>
+            <li>The SSR zip holds none of your data, so an update keeps your API keys, settings, edited prompts, templates, and campaigns.</li>
+            <li>To back up or share a campaign, copy its folder in <code>server\data\campaigns\</code>.</li>
+          </ul>
+        </details>
+      </fieldset>
+    </section>
   </main>
   <dialog id="confirm">
     <form method="dialog">

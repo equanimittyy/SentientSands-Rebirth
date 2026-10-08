@@ -29,6 +29,8 @@
   --seed-bg: #f8e7a8;
   --info: #2a5b8c;
   --blood: rgb(138 28 18 / 0.75);
+  --quick-start-bg: #f1d3c9;
+  --advanced-guide-bg: #d6e3ef;
   --brush: 4px;
 }
 
@@ -50,6 +52,8 @@
   --seed-bg: #4a3f1c;
   --info: #8ab8e6;
   --blood: #8c1a12;
+  --quick-start-bg: #3b201b;
+  --advanced-guide-bg: #1d2a38;
 }
 
 body {
@@ -814,6 +818,18 @@ label > .hint {
 
 .warning {
   color: var(--error);
+}
+
+#tutorial a {
+  color: var(--accent-strong);
+}
+
+.quick-start {
+  --fill: var(--quick-start-bg);
+}
+
+.advanced-guide {
+  --fill: var(--advanced-guide-bg);
 }
 
 dialog {

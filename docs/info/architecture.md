@@ -149,10 +149,12 @@ The server serves `server/dashboard/web/` at `/` and `/web/<file>`: plain HTML, 
 | Prompts | `/api/prompts` | `server/config/prompts/` |
 | Campaigns | `/api/campaigns`, `/api/campaign/cull` (see [Campaign routes of the web app](#campaign-routes-of-the-web-app)) | `campaign.db` of each campaign |
 | Editor | `/api/campaign/canon`, `/api/campaign/records` (see [Campaign canon](#campaign-canon)); `/api/campaign/search`, `/api/templates/<name>/search` (see [Test search](#test-search)); `/api/campaign`; `/api/templates` (see [World templates](#world-templates)) | `campaign.db` of the active campaign; `server/data/user_templates/` |
+| Tutorial | None: static text in `index.html` | None |
 
 - A GET route must not change state, because a page on another site can send a GET without an `Origin` header. The presence stream is the only exception, because EventSource sends only GET.
 - The web app polls `GET /context` every 3 s (`poll` in `app.js`). Without an answer, it shows a banner and disables Save, so unsaved changes survive a server restart. The reply also holds the active campaign and `writes`, a count of database commits and successful POSTs (`count_write_requests`); a change refreshes each loaded page, unless a request runs, a dialog is open, or the player types.
 - Each tab holds `GET /web_panel/presence` open, so the server can count the open tabs.
+- The Tutorial links to YouTube for the setup of other services, such as Player2 or Ollama, so SSR does not keep their steps up to date.
 - A refresh (`refreshers` in `app.js`) keeps the unsaved parts of a page. An Editor record keeps the version that the page loaded, so its save still fails as stale. Models keeps the whole page, because Save writes the whole configuration.
 
 The Editor:
