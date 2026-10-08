@@ -1067,7 +1067,9 @@ void playerUpdate_hook(PlayerInterface *thisptr) {
   if (playerUpdate_orig)
     playerUpdate_orig(thisptr);
 
-  if (!g_welcomeShown && MyGUI::Gui::getInstancePtr()) {
+  // The main menu runs this hook too, but with no player characters
+  if (!g_welcomeShown && MyGUI::Gui::getInstancePtr() &&
+      thisptr->getAllPlayerCharacters().size() > 0) {
     if (g_enableWelcome) {
       CreateWelcomeUI();
       CreateLauncherUI();
