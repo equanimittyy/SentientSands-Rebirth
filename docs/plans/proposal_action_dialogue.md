@@ -98,26 +98,56 @@ The chat window shows system messages about the action dialogue, in the shape of
 
 ### Outcome
 
-Code steers the outcome of an action dialogue with deterministic nudges from the game state. The nudges are open ([section 6](#6-open-questions)).
+Code sets the hard limits of an action dialogue, and the model decides inside them. Before each call, code reads a lean from the game state and puts it in the prompt as one of three bands: likely to agree, could go either way, or likely to refuse. The lean is a band, not a percentage, because a small model follows a plain band better.
+
+The words of the player can move a close call, but they cannot break a hard limit, because the server checks each offer against the hard limits ([Offer](#offer)). The facts of the lean and the hard limits of each category are open ([section 6](#6-open-questions)).
+
+### Offer
+
+An NPC that agrees to a deal makes an offer. The model ends its reply with an offer tag, which holds the actions of the deal under the names that the plugin already runs, for example `[OFFER: GIVE_CATS: 200]` or `[OFFER: TAKE_CATS: 3000; GIVE_ITEM: Katana]`. Each action that moves cats, items, or characters needs an offer: the handover of THREATEN, each deal of BARTER, RECRUIT, and FOLLOW. Only `ATTACK` and `LEAVE` run at once.
+
+The server checks the offer against the hard limits, and it drops and logs an offer that breaks one. It holds a valid offer and sends it to the plugin after the lines of the reply. The offer goes to the squad member that spoke the line that the offer answers ([section 5](#5-speaker)).
+
+The plugin shows the offer in a popup with the buttons Accept and Decline. The server writes the text of the popup from the checked offer, never from the words of the model, so the popup always shows the real deal. The text is "X offers A for B": X is the NPC, A is what the NPC gives, and B is what the player gives. When the player gives nothing, the text has no "for B".
+
+| Deal | Popup |
+|---|---|
+| THREATEN, the handover | Bandit offers 200 cats and a Katana. |
+| BARTER, the NPC sells | Trader offers a Katana for 3,000 cats. |
+| BARTER, the NPC buys | Trader offers 1,200 cats for your Katana. |
+| BARTER, a release | Guard offers your release for 500 cats. |
+| BARTER, a treatment | Doctor offers treatment for 300 cats. |
+| BARTER, a gift | Trader offers thanks for your Katana. |
+| RECRUIT | Drifter offers to join your squad for 1,500 cats. |
+| RECRUIT, with no fee | Drifter offers to join your squad. |
+
+| Answer | Result |
+|---|---|
+| Accept | The plugin sends the answer to the server, and the server sends the actions of the offer through the pipe, as for any action. The take actions go before the give actions, because the plugin skips a give after a failed take in the same batch (`transactionFailed` in `plugin/game/GameActions.cpp:253`). The action dialogue and the chat thread then end. |
+| Decline | The popup asks the player for a reply, and a blank reply is "No.". The reply goes to the NPC as the next line of the action dialogue, and the action dialogue goes on. |
+
+While an offer waits, the chat waits for the answer. The chat window takes no new line to any NPC, and it shows the status "Answer X's offer first.". No other chat thread or radiant conversation starts, and the chat thread does not time out. The game does not pause.
+
+A save load removes the popup and the offer, and it ends the action dialogue, because the load can undo the world that the offer rests on.
 
 ### End
 
 The action dialogue ends at the first of these events:
 
 - The model sends a close signal in its reply.
+- The player accepts an offer, or a save loads while an offer waits ([Offer](#offer)).
 - The player sends `!e` or `!end`, for example `!end Thanks`.
 - The chat thread ends: `conversation_timeout_minutes` pass without a chat, or the player starts another chat thread, for example with another NPC.
 
-A close signal or `!end` also ends the chat thread.
+A close signal, `!end`, or an accepted offer also ends the chat thread.
 
 The category sets when the action dialogue closes:
 
 | Category | The action dialogue closes |
 |---|---|
-| BARTER, for a release or a treatment | When the release or the treatment is done |
-| BARTER, for a trade of items | When the player confirms the trade |
-| THREATEN | When the NPC complies, or when it attacks the player |
-| RECRUIT | When the NPC refuses and makes no offer, when the player cannot or does not pay the cats that the NPC asks, or when the NPC joins the squad. The server already reads squad membership from the game context (`server/chat/characters.py:72`). |
+| BARTER | When the player accepts an offer |
+| THREATEN | When the player accepts an offer, or when the NPC attacks the player |
+| RECRUIT | When the NPC refuses and makes no offer, or when the player accepts an offer |
 | DISMISS | When the NPC leaves |
 
 ## 5. Speaker
@@ -134,7 +164,7 @@ The squad members that take turns share one chat thread ([section 2](#2-entry)),
 ## 6. Open questions
 
 1. What is the close signal of the model?
-2. Which deterministic nudges does code give the model, and from which facts?
-3. What does the action system prompt hold, and how does a reply send its actions to the plugin?
+2. Which facts make the lean of each category, and which hard limits does code set for each category?
+3. What does the action system prompt hold, and how do an offer, `ATTACK`, and `LEAVE` reach the plugin?
 4. How does the plugin start a hire contract? The plugin only reads one now, and no in-game test covers a contract yet ([development.md](../info/development.md#probes)).
 5. When does the action dialogue close for FOLLOW?
