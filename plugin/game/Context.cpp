@@ -790,6 +790,30 @@ void GetRadiantParticipants(Character *selected,
     participants.push_back(nearby[i].second);
 }
 
+// Every candidate, because the server picks the squad: only its job table
+// tells a bar visit from the side task of a guard
+void GetRadiantNpcs(Character *center, std::vector<Character *> &npcs) {
+  GameWorld *world = ppWorld ? *ppWorld : NULL;
+  if (!world || !center)
+    return;
+  std::vector<std::pair<float, Character *> > nearby;
+  const auto &chars = world->getCharacterUpdateList();
+  for (auto it = chars.begin(); it != chars.end(); ++it) {
+    Character *c = *it;
+    if (!CanTalk(c) || !c->getPlatoon())
+      continue;
+    Faction *faction = c->getFaction() ? c->getFaction() : c->owner;
+    if (faction && faction->isThePlayer())
+      continue;
+    float dist = center->getPosition().distance(c->getPosition());
+    if (dist < g_yellRadius)
+      nearby.push_back(std::make_pair(dist, c));
+  }
+  std::sort(nearby.begin(), nearby.end());
+  for (size_t i = 0; i < nearby.size(); ++i)
+    npcs.push_back(nearby[i].second);
+}
+
 std::string GetIdentityFaction(Character *npc) {
   if (!npc || (uintptr_t)npc < 0x1000)
     return "Neutral";

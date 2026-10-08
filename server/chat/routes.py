@@ -36,7 +36,13 @@ def radiant_conversation():
     if not data: return jsonify({"status": "error"}), 400
     center = context_dict(data.get('player_context'))
     take_report(center, data.get('events'), data.get('changed_towns'))
-    participants = {str(npc['id']): npc for npc in data.get('participants', [])}
+    rumor_texts = [rumor["text"] for rumor in world_events.told_rumors()[-PROMPT_RUMORS:]]
+    npcs = radiant.npc_group(data.get('npcs') or [], campaign_db.character_exists)
+    npc_talk = radiant.npc_talk(npcs, rumor_texts, load_settings()["npc_radiant_chance"])
+    participants = {str(npc['id']): npc for npc in (npcs if npc_talk else data.get('participants') or [])}
+    if not participants:
+        logging.info("RADIANT: Too few of the player's characters stand together, so nobody talks.")
+        return jsonify({"status": "ignore"})
     npc_ids = [npc['npc_id'] for npc in participants.values()]
 
     if world_events.fought_recently(npc_ids, center):
@@ -50,10 +56,12 @@ def radiant_conversation():
         names[serial] = npc_name(npc)
         profiles[serial] = get_character_data(names[serial], context=json.dumps(npc))
 
-    rumor_texts = [rumor["text"] for rumor in world_events.told_rumors()[-PROMPT_RUMORS:]]
     environment = center.get("environment") or {}
-    location = find_location(environment["town_name"]) if environment.get("town_name") else None
-    topic = radiant.topic(campaign_db.shared_memories(npc_ids), environment, rumor_texts, location=location)
+    if npc_talk:
+        topic = random.choice(rumor_texts)
+    else:
+        location = find_location(environment["town_name"]) if environment.get("town_name") else None
+        topic = radiant.topic(campaign_db.shared_memories(npc_ids), environment, rumor_texts, location=location)
     if not topic:
         logging.info("RADIANT: No topic, so nobody talks.")
         return jsonify({"status": "ignore"})
@@ -67,9 +75,13 @@ def radiant_conversation():
             f"{describe_npc(f'{names[serial]}|{serial}', profiles[serial], npc['npc_id'])}\nHEALTH: {npc.get('health') or 'Unknown'}\nGEAR: {npc.get('equipment') or 'nothing notable'}"
             for serial, npc in participants.items()
         ]
-        known = radiant.acquaintance({npc['npc_id']: names[serial] for serial, npc in participants.items()}, {npc_id: campaign_db.thread_partners(npc_id) for npc_id in npc_ids})
-        prompt = fill_prompt("prompt_radiant.txt", place=scene_text.location_text(environment, "They"), participants="\n\n".join(descriptions), acquaintance=known, topic=topic, length=random.choice(radiant.LENGTHS))
-        logging.info(f"RADIANT: {', '.join(names.values())} talk. Topic: {topic}")
+        values = {"place": scene_text.location_text(environment, "They"), "participants": "\n\n".join(descriptions), "length": random.choice(radiant.LENGTHS)}
+        if npc_talk:
+            prompt = fill_prompt("prompt_radiant_npc.txt", rumor=topic, **values)
+        else:
+            known = radiant.acquaintance({npc['npc_id']: names[serial] for serial, npc in participants.items()}, {npc_id: campaign_db.thread_partners(npc_id) for npc_id in npc_ids})
+            prompt = fill_prompt("prompt_radiant.txt", acquaintance=known, topic=topic, **values)
+        logging.info(f"RADIANT: {', '.join(names.values())} talk{' among the NPCs' if npc_talk else ''}. Topic: {topic}")
         content = call_llm("radiant", [{"role": "system", "content": build_system_prompt(reply_rules=False)}, {"role": "user", "content": prompt}])
         lines = radiant.lines(content or "", participants)
         if not lines:
@@ -78,7 +90,7 @@ def radiant_conversation():
 
         time_prefix = get_current_time_prefix()
         spoke = {serial for serial, _ in lines}
-        members = [(npc['npc_id'], "speaker" if serial in spoke else "overheard", True) for serial, npc in participants.items()]
+        members = [(npc['npc_id'], "speaker" if serial in spoke else "overheard", not npc_talk) for serial, npc in participants.items()]
         thread_id = campaign_db.join_thread(None, members, campaign_db.game_time(time_prefix), scene_text.location_name(center))
         stored = [(f"{time_prefix}{names[serial]}: {text}", participants[serial]['npc_id']) for serial, text in lines]
         for serial, npc in participants.items():

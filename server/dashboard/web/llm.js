@@ -9,7 +9,7 @@ const TASK_LABELS = {
 };
 const TASK_HINTS = {
   chat: "The reply of an NPC when you talk to it.",
-  radiant: "A conversation between your characters who stand together, on the radiant chat timer.",
+  radiant: "A conversation between your characters who stand together, or between nearby NPCs about a rumor, on the radiant chat timer.",
   profile: "The bio of an NPC, or one part of it, written after a few chats with it, or when you ask for it.",
   synthesis: "A rumor about an event, when you stop chatting or press Generate Rumor, and a rumor about a story that comes back in your conversations, on the radiant rumor timer.",
   memory: "A short summary of each conversation, written when you stop chatting for the Conversation timeout on the Settings page.",

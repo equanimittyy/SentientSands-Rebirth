@@ -12,6 +12,7 @@ std::string GetNpcId(Character *npc);
 void GetCurrentSquad(std::vector<Character *> &members);
 void GetRadiantParticipants(Character *selected,
                             std::vector<Character *> &participants);
+void GetRadiantNpcs(Character *center, std::vector<Character *> &npcs);
 void LogFactionList();
 void LogNpcRole(Character *npc);
 void ScanBounties();

@@ -1,9 +1,10 @@
-"""The topic and the reply of a radiant conversation, a talk between the player's characters that one LLM call writes."""
+"""The topic and the reply of a radiant conversation, a talk between the player's characters, or between NPCs near them,
+that one LLM call writes."""
 
 import random
 import re
 
-from chat import chat_prompt, retrieval
+from chat import chat_prompt, current_job, retrieval
 from chat.prompts import describe_record
 
 _LINE = re.compile(r"^([^:|\n]{1,63})\|(\d+)\s*:\s*(.*)$")
@@ -30,6 +31,29 @@ def topic(memories, environment, rumors, choice=random.choice, location=None):
     if rumors:
         kinds.append(lambda: f"A rumour that they heard: {choice(rumors)}")
     return choice(kinds)() if kinds else None
+
+
+def npc_group(npcs, has_profile):
+    """The NPCs of an NPC radiant conversation: 2 to 5 members of one squad at a bar, or none. npcs come nearest first.
+    Each NPC without a profile gets a new one, so the squad that needs the fewest wins, then the nearest. Its members
+    with a profile all talk, and the others only fill the places up to 2."""
+    squads = {}
+    for npc in npcs:
+        if current_job.current_job(npc, False, "") == current_job.AT_A_BAR:
+            squads.setdefault(npc["squad"], []).append(npc)
+    groups = []
+    for members in squads.values():
+        known = [npc for npc in members if has_profile(npc["npc_id"])][:5]
+        new = [npc for npc in members if npc not in known][:max(0, 2 - len(known))]
+        if len(known) + len(new) >= 2:
+            groups.append((len(new), known + new))
+    return min(groups, key=lambda group: group[0])[1] if groups else []
+
+
+def npc_talk(npcs, rumors, chance, roll=random.random):
+    """Whether the NPCs near the center talk in place of the squad. They talk only about a rumour, so never without one.
+    chance is a percent."""
+    return bool(npcs and rumors) and roll() * 100 < chance
 
 
 def place_topic(location):

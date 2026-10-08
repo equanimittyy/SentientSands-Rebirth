@@ -32,6 +32,57 @@ class TopicTest(unittest.TestCase):
         self.assertIsNone(radiant.topic([], {}, [], first))
 
 
+def drinker(serial, squad, jobs=("RELAX_IN_TOWN_PACKAGE",)):
+    return {"id": serial, "npc_id": f"h:{serial}", "squad": squad, "squad_jobs": list(jobs)}
+
+
+def ids(group):
+    return [npc["id"] for npc in group]
+
+
+class NpcGroupTest(unittest.TestCase):
+    def test_only_the_npcs_at_a_bar_count(self):
+        guards = [drinker(1, "a", ("STAND_AT_GUARD_NODE_HOMEBUILDING_IN_OUT", "GO_TO_THE_BAR_AND_DRINK")), drinker(2, "a")]
+        hired = [{**drinker(3, "b"), "temporary_follower": True}, drinker(4, "b")]
+        self.assertEqual(radiant.npc_group(guards + hired, lambda npc_id: True), [])
+
+    def test_the_npcs_come_from_one_squad(self):
+        npcs = [drinker(1, "a"), drinker(2, "b"), drinker(3, "b"), drinker(4, "a")]
+        self.assertEqual(ids(radiant.npc_group(npcs, lambda npc_id: True)), [1, 4])
+        self.assertEqual(radiant.npc_group([drinker(1, "a"), drinker(2, "b")], lambda npc_id: True), [])
+
+    def test_up_to_5_npcs_with_a_profile_talk(self):
+        npcs = [drinker(serial, "a") for serial in range(1, 8)]
+        self.assertEqual(ids(radiant.npc_group(npcs, lambda npc_id: True)), [1, 2, 3, 4, 5])
+
+    def test_npcs_without_a_profile_only_fill_the_places_up_to_2(self):
+        npcs = [drinker(1, "a"), drinker(2, "a"), drinker(3, "a"), drinker(4, "a")]
+        self.assertEqual(ids(radiant.npc_group(npcs, lambda npc_id: npc_id == "h:3")), [3, 1])
+        self.assertEqual(ids(radiant.npc_group(npcs, lambda npc_id: False)), [1, 2])
+
+    def test_the_squad_that_needs_the_fewest_new_profiles_wins_then_the_nearest(self):
+        npcs = [drinker(1, "a"), drinker(2, "a"), drinker(3, "b"), drinker(4, "b"), drinker(5, "c"), drinker(6, "c")]
+        self.assertEqual(ids(radiant.npc_group(npcs, lambda npc_id: npc_id in ("h:4", "h:5", "h:6"))), [5, 6])
+        self.assertEqual(ids(radiant.npc_group(npcs, lambda npc_id: npc_id in ("h:4", "h:6"))), [4, 3])
+
+
+class NpcTalkTest(unittest.TestCase):
+    NPCS = [{"id": 30, "npc_id": "h:30"}, {"id": 31, "npc_id": "h:31"}]
+
+    def test_the_npcs_talk_when_the_roll_is_under_the_chance(self):
+        self.assertTrue(radiant.npc_talk(self.NPCS, ["Beep freed the slaves."], 50, lambda: 0.49))
+        self.assertFalse(radiant.npc_talk(self.NPCS, ["Beep freed the slaves."], 50, lambda: 0.5))
+
+    def test_a_chance_of_0_never_lets_the_npcs_talk_and_100_always_does(self):
+        self.assertFalse(radiant.npc_talk(self.NPCS, ["Beep freed the slaves."], 0, lambda: 0.0))
+        self.assertTrue(radiant.npc_talk(self.NPCS, ["Beep freed the slaves."], 100, lambda: 0.999))
+
+    def test_the_npcs_need_a_rumour_and_each_other(self):
+        self.assertFalse(radiant.npc_talk(self.NPCS, [], 100, lambda: 0.0))
+        self.assertFalse(radiant.npc_talk([], ["Beep freed the slaves."], 100, lambda: 0.0))
+        self.assertFalse(radiant.npc_talk(None, ["Beep freed the slaves."], 100, lambda: 0.0))
+
+
 class AcquaintanceTest(unittest.TestCase):
     def test_each_pair_gets_the_count_of_its_earlier_talks(self):
         names = {"h:10": "Stick", "h:14": "Jorge", "h:20": "Ruka"}

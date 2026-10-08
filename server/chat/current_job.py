@@ -5,6 +5,7 @@ plugin/game/Context.cpp). Mods rename AI packages, squads, and templates freely,
 so the same squad job gives the same phrase in every mod list.
 """
 
+AT_A_BAR = "Hanging out at a bar"
 # In order: the first entry that the squad jobs hold wins. A squad job such as a turret or a bar visit is a side task of
 # many guard and town packages, so it comes after the jobs that it would otherwise hide.
 TABLE = [
@@ -22,7 +23,7 @@ TABLE = [
       "PRETEND_TO_OPERATE_MACHINERY"}, "Labouring"),
     ({"RAID_TOWN", "ATTACK_TOWN", "ASSAULT_FORTIFICATIONS_PREFER_GATES"}, "Raiding"),
     ({"BODYGUARD"}, "Working as a bodyguard"),
-    ({"RELAX_IN_TOWN_PACKAGE", "GO_TO_THE_BAR_AND_DRINK"}, "Hanging out at a bar"),
+    ({"RELAX_IN_TOWN_PACKAGE", "GO_TO_THE_BAR_AND_DRINK"}, AT_A_BAR),
     ({"PATROL_TOWN"}, "Patrolling the town"),
     ({"PATROL"}, "Patrolling the area"),
     ({"MAN_A_TURRET", "MAN_A_TURRET_ON_BUILDING", "USE_TURRET"}, "Manning a turret"),

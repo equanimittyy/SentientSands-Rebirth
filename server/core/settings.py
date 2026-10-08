@@ -15,6 +15,7 @@ INI_KEY_MAP = {
     "current_campaign": "ActiveCampaign",
     "enable_radiant": "EnableRadiantConversations",
     "radiant_chat_minutes": "RadiantChatMinutes",
+    "npc_radiant_chance": "NpcRadiantChance",
     "radiant_rumor_minutes": "RadiantRumorMinutes",
     "radiant_bounty_minutes": "RadiantBountyMinutes",
     "max_open_bounties": "MaxOpenBounties",
@@ -62,6 +63,7 @@ SETTINGS_DEFAULTS = {
     "current_campaign": "Default",
     "enable_radiant": True,
     "radiant_chat_minutes": 10,
+    "npc_radiant_chance": 50,
     "radiant_rumor_minutes": 30,
     "radiant_bounty_minutes": 60,
     "max_open_bounties": 3,
@@ -126,6 +128,7 @@ def settings_page_values(settings):
     return {
         "enable_radiant": settings["enable_radiant"],
         "radiant_chat_minutes": settings["radiant_chat_minutes"],
+        "npc_radiant_chance": settings["npc_radiant_chance"],
         "radiant_rumor_minutes": settings["radiant_rumor_minutes"],
         "radiant_bounty_minutes": settings["radiant_bounty_minutes"],
         "max_open_bounties": settings["max_open_bounties"],

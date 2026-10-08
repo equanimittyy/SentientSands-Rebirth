@@ -191,6 +191,13 @@ def settings_endpoint():
         send_to_pipe(f"SET_CONFIG: g_radiantIntervalSeconds: {val * 60}")
         logging.info(f"SETTINGS: Radiant chat timer set to {val} minutes")
 
+    npc_chance = data.get("npc_radiant_chance")
+    if npc_chance is not None:
+        try:
+            changes["npc_radiant_chance"] = min(100, max(0, int(npc_chance)))
+            logging.info(f"SETTINGS: NPC radiant chance set to {changes['npc_radiant_chance']}%")
+        except: pass
+
     radiant_rumor = data.get("radiant_rumor_minutes")
     if radiant_rumor is not None:
         try:

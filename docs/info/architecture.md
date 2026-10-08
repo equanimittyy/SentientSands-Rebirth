@@ -58,7 +58,7 @@ The plugin reads the game state only when a request needs it. Do not post it on 
 | Request | Game state that it carries |
 |---|---|
 | `/chat` | The contexts of the target and of the squad member who speaks, the game events, and the changed towns |
-| `/radiant` | The participants, the context of the center, the game events, and the changed towns |
+| `/radiant` | The participants, the NPCs near the center, the context of the center, the game events, and the changed towns |
 | `/cull`, `/report` | A report: the player's context, the game events, and the changed towns (`GameReport`). `/report` goes when 50 events wait, when the oldest event waited 60 s, or on `REPORT` from the pipe. |
 | `/squad_rename` | The context of a renamed member of the player's faction (see [Names](#names)) |
 | `/bounty/candidates`, `/bounty/target`, `/bounty/placed` | The candidates of a bounty, the context of its target before the placement, and the result of the placement with the context of the target (see [Bounties](#bounties)) |
@@ -108,7 +108,7 @@ The server writes the rumor of each event in the quiet period of the memories, a
 - The player can generate a rumor with an instruction (`POST /api/campaign/rumors/generate`, the `synthesis` task), which stores nothing until Save. The instruction wins over the rumor so far.
 - The LLM gets only plain facts (`server/chat/rumors.py`), so it invents no other event: the player's faction, the event, the time, the profiles of its characters, and the allies and enemies of the victim's faction. A custom or an auto event gives no characters and no factions, because its rumor is the only account.
 
-The `rumor` table holds the text, the game time of its event, the instruction, and the event. An event has at most one rumor. The chat scene gives each NPC the 3 newest rumors with their age (`PROMPT_RUMORS`), and a radiant conversation can take one of them as its topic. The search of a chat line finds an older rumor (see [Rumor search](#rumor-search)). These leave out the rumor of a bounty that is no longer open (`world_events.told_rumors`), because the kill or the capture of its target has a rumor of its own.
+The `rumor` table holds the text, the game time of its event, the instruction, and the event. An event has at most one rumor. The chat scene gives each NPC the 3 newest rumors with their age (`PROMPT_RUMORS`), and a radiant conversation can take one of them as its topic. An NPC radiant conversation always takes one (see [NPC radiant conversations](#npc-radiant-conversations)). The search of a chat line finds an older rumor (see [Rumor search](#rumor-search)). These leave out the rumor of a bounty that is no longer open (`world_events.told_rumors`), because the kill or the capture of its target has a rumor of its own.
 
 ### Auto rumors
 
@@ -365,13 +365,15 @@ The Test search box of Campaign Canon and Templates shows what a line finds and 
 
 ## Radiant conversations
 
-A radiant conversation is a talk between 3 to 5 of the player's characters, which one LLM call writes. The plugin asks for one each `RadiantChatMinutes` (10 by default) of unpaused real time, and on Trigger Radiant.
+A radiant conversation is a talk between 3 to 5 of the player's characters, or between 2 to 5 NPCs near them (see [NPC radiant conversations](#npc-radiant-conversations)), which one LLM call writes. The plugin asks for one each `RadiantChatMinutes` (10 by default) of unpaused real time, and on Trigger Radiant.
 
 1. The plugin picks the center: the selected character if it can talk, or else the first squad member that can (`GetRadiantParticipants` in `plugin/game/Context.cpp`).
-2. The participants are the center and the nearest of the player's characters within `TalkRadius`, up to 5. With fewer than 3, the plugin sends nothing.
-3. The plugin posts them, the center's context as `player_context`, and the game events to `/radiant`.
-4. The server makes no call when a participant fought within 3 game hours (`world_events.fought_recently`), when no topic has material, or when a conversation plays.
-5. Otherwise it makes one `radiant` call, stores the lines as a new thread, and paces them (see [Line pacing](#line-pacing)). The participants that speak join the thread as speakers, and the others as overhearers. Nothing shows during the call, because the player does not wait for a radiant conversation.
+2. The participants are the center and the nearest of the player's characters within `TalkRadius`, up to 5. With fewer than 3, the plugin sends no participants.
+3. The NPCs are the characters outside the player's faction that can talk and stand within `YellRadius` of the center, nearest first, each with the handle of its squad (`GetRadiantNpcs`).
+4. The plugin posts the participants, the NPCs, the center's context as `player_context`, and the game events to `/radiant`. It sends nothing when both lists are empty.
+5. The server picks 2 to 5 NPCs of one squad (`radiant.npc_group`, see [NPC radiant conversations](#npc-radiant-conversations)). It lets them talk when a rumor exists and a roll is under the NPC radiant chance (`npc_radiant_chance`, default 50 %, `radiant.npc_talk`). Else it picks the participants.
+6. The server makes no call when the picked list is empty, when one of the picked characters fought within 3 game hours (`world_events.fought_recently`), when no topic has material, or when a conversation plays.
+7. Otherwise it makes one `radiant` call, stores the lines as a new thread, and paces them (see [Line pacing](#line-pacing)). The participants that speak join the thread as speakers, and the others as overhearers. Nothing shows during the call, because the player does not wait for a radiant conversation.
 
 The server, not the LLM, picks one topic kind at random from those with material (`radiant.topic`):
 
@@ -386,6 +388,17 @@ The server, not the LLM, picks one topic kind at random from those with material
 - The prompt tells how well each pair of participants knows each other (`radiant.acquaintance`), so strangers ask about each other and old companions skip the introductions. The phrase comes from the count of the earlier threads in which both were speakers (`campaign_db.thread_partners`): 0 is "have never talked", 1 to 2 is "have talked a little", 3 to 9 is "know each other", and 10 or more is "know each other well".
 - The reply holds `Name|serial: line` lines (`radiant.lines`). A line of a non-participant, or a failed call, leaves everyone silent.
 - A radiant conversation does not change `CURRENT_THREAD` or the quiet clock. The memory loop runs after each one (`state.LAST_RADIANT`).
+
+### NPC radiant conversations
+
+An NPC radiant conversation takes the place of a talk of the player's characters. Its only topic is one of the 3 newest rumors, so without a rumor the player's characters talk instead.
+
+- The NPCs belong to one squad, because NPCs that stand near each other only by chance have no reason to talk. So the prompt (`prompt_radiant_npc.txt`) says that they know each other, and it has no lines on how well each pair knows each other.
+- Only an NPC whose Current Job is Hanging out at a bar talks (see [Current Job](#current-job)). The server picks the squad, because the job table also decides when a bar visit is only the side task of a guard.
+- Each NPC without a profile gets one as at a first meeting, so the squad that needs the fewest new profiles wins, then the nearest squad. All its members with a profile talk, up to 5, and members without one only fill the places up to 2. So the same NPCs come back, and the canon grows by at most 2 characters for each conversation.
+- A player with fewer than 3 characters together gets an NPC radiant conversation at the NPC radiant chance, and no radiant conversation otherwise.
+- For an NPC, only a knockout counts as a fight, because the game events hold only the attacks of the player's faction (see [Game events](#game-events)).
+- The name of an NPC comes from `npc_name`, as in a chat, and the thread stores each NPC as a member outside the player's faction.
 
 ## Line pacing
 
