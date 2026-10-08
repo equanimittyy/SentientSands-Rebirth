@@ -408,7 +408,7 @@ void CreateChatUI(const std::string &npcName, const std::string &handleStr) {
 
   if (!g_chatSpeakers.empty()) {
     g_chatSpeakerBtn = client->createWidgetReal<MyGUI::Button>(
-        "Kenshi_Button1", 0.05f, 0.05f, 0.33f, 0.22f,
+        "Kenshi_Button1", 0.05f, 0.05f, 0.165f, 0.22f,
         MyGUI::Align::Top | MyGUI::Align::Left, "SentientSands_ChatSpeakerBtn");
     g_chatSpeakerBtn->eventMouseButtonClick +=
         MyGUI::newDelegate(OnChatSpeakerClick);
