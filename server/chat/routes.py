@@ -330,7 +330,9 @@ def chat():
     rows = campaign_db.dialogue(primary_id)
     spoken = chat_prompt.spoken_with(rows, campaign_db.thread_partners(primary_id), primary_id)
     met = speaker_id in spoken
-    conversation = (speaker.get("npc_id"), primary_id or primary_npc, primary_npc, live.get("faction"), met)
+    current_members = campaign_db.thread_members([current_thread]).get(current_thread, []) if current_thread else []
+    partners = tuple(npc_id for npc_id, _, role, _ in current_members if role == "speaker" and npc_id not in (primary_id, speaker_id))
+    conversation = (speaker.get("npc_id"), primary_id or primary_npc, primary_npc, live.get("faction"), met, partners)
     scene = state.CONVERSATION_SCENE.get(conversation)
     if scene is None:
         others = [npc_id for npc_id in spoken if npc_id != speaker_id]
@@ -340,7 +342,8 @@ def chat():
         scene = fill_prompt(
             "prompt_chat_scene.txt",
             **scene_values(player, player_name),
-            npc=npc_scene(ctx_dict or primary_data, primary_data, player_name, met, [names[i] for i in others if names.get(i) in squad], player.get("stats") or {}),
+            npc=npc_scene(ctx_dict or primary_data, primary_data, player_name, met, [names[i] for i in others if i not in partners and names.get(i) in squad],
+                          [names[i] for i in partners if names.get(i) in squad], player.get("stats") or {}),
         )
         state.CONVERSATION_SCENE.clear()
         state.CONVERSATION_SCENE[conversation] = scene

@@ -125,13 +125,16 @@ def person(race, sex):
     return _a(f"{race}{sex_word}")
 
 
-def relation_text(name, group, relation, met, companions=()):
-    """name is the squad member who speaks, and group the player's faction. The NPC keeps one relation, which the chats of
-    every squad member change, so the sentence gives it as a feeling towards the group."""
+def relation_text(name, group, relation, met, companions=(), partners=()):
+    """name is the squad member who speaks, and group the player's faction. companions are the other squad members that the
+    NPC spoke with in earlier conversations, and partners those that spoke in this one, so a squad member who takes over
+    the talk continues it. The NPC keeps one relation, which the chats of every squad member change, so the sentence gives
+    it as a feeling towards the group."""
     first = "" if met else f"You have never spoken with {name} before."
     earlier = f"Earlier you spoke with {_join(companions)}, who {'travels' if len(companions) == 1 else 'travel'} with {name}." if companions else ""
+    now = f"In this conversation, you also talk with {_join(partners)}, who {'travels' if len(partners) == 1 else 'travel'} with {name}." if partners else ""
     feeling = _scale(_number(relation), RELATION).format(name=f"{group}, the group {name} travels with")
-    return " ".join(s for s in (first, earlier, feeling) if s)
+    return " ".join(s for s in (first, earlier, now, feeling) if s)
 
 
 def overheard_note(listeners, partners):
@@ -305,9 +308,9 @@ def player_text(name, race, sex, race_description, medical, feels_hunger, factio
     ])
 
 
-def npc_text(context, profile, player_name, player_faction, *, met, major, in_player_faction, feels_hunger, faction_description="", companions=(), player_stats=None):
-    """context is the live context of the NPC, or its profile when the game has sent none. companions are the names of the
-    other squad members that the NPC spoke with, and player_stats the stats of the squad member who talks."""
+def npc_text(context, profile, player_name, player_faction, *, met, major, in_player_faction, feels_hunger, faction_description="", companions=(), partners=(), player_stats=None):
+    """context is the live context of the NPC, or its profile when the game has sent none. companions and partners are the
+    names of relation_text, and player_stats the stats of the squad member who talks."""
     faction = context.get("faction") or context.get("Faction") or ""
     old_faction = profile.get("Faction")
     task = context.get("job") or ""
@@ -316,7 +319,7 @@ def npc_text(context, profile, player_name, player_faction, *, met, major, in_pl
     memories = context.get("memories") or {}
     state = context.get("character_state", "normal")
     sentences = [
-        relation_text(player_name, player_faction, profile.get("Relation", 0), met, companions),
+        relation_text(player_name, player_faction, profile.get("Relation", 0), met, companions, partners),
         state_text("You", state),
     ]
     if _known(faction) and faction != old_faction:

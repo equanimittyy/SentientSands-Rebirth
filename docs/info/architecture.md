@@ -213,7 +213,7 @@ A chat request is ordered for the provider's prompt cache, which reuses only an 
 | History | The NPC's thread lines without a memory, as user and assistant turns (see [Chat threads](#chat-threads)) | One exchange more each turn |
 | Last user message | `prompt_chat_turn.txt`: the found memories, rumors, and lore (see [Lore retrieval](#lore-retrieval)), the player's line, a short reminder | Every turn |
 
-- The scene is a snapshot for the whole conversation (`CONVERSATION_SCENE`). A conversation ends when the player chats with another NPC, speaks as another squad member, switches the campaign, or when the NPC's name or faction changes.
+- The scene is a snapshot for the whole conversation (`CONVERSATION_SCENE`). A conversation ends when the player chats with another NPC, speaks as another squad member, switches the campaign, when the NPC's name or faction changes, or when the other speakers of the current chat thread change.
 - `server/chat/scene_text.py` writes the scene as second-person prose, because a model reads a sentence more reliably than a number. The relation bounds match the game's relation bar.
 - The history is a block window (`chat_prompt.history_window`) that moves by 20 lines, so its start stays cacheable. `history_turns` makes only the NPC's own lines assistant turns.
 - An overheard line is stored as `(Overheard) Speaker to Target: ...`, because without the target a listener took "you" as itself. An animal never overhears.
@@ -479,6 +479,7 @@ The chat prompt uses the threads (`npc_id`, not names):
 
 - **First meeting:** the NPC and the speaker were both speakers of a thread (`campaign_db.thread_partners`), or the NPC's history holds a line of the speaker without `(Overheard)` (`chat_prompt.spoken_with`).
 - **Companions:** the scene names the others that the NPC spoke with and that are in the player's faction now.
+- **Partners:** the scene names the companions that spoke in the current chat thread as a part of this conversation, not as earlier talk. Without this, a squad member who took over the talk got a scene that put the lines of the last speaker in the past.
 - **Relation:** one `Relation` for the whole squad, so the sentence names the player's faction.
 - **Overheard notes:** after the last line of each thread, one user line names the overhearers from the player's faction and every other speaker of the thread (`chat_prompt.overheard_notes`).
 

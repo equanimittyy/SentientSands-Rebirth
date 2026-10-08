@@ -49,7 +49,7 @@ def describe_race(race):
     entry = find_race(race)
     return describe_record(entry) if entry else f"{race}: The campaign has no entry for this race."
 
-def npc_scene(context, profile, player_name, met, companions, player_stats):
+def npc_scene(context, profile, player_name, met, companions, partners, player_stats):
     faction = context.get("faction") or context.get("Faction", "Unknown")
     player_faction = state.PLAYER_CONTEXT.get("faction", "Nameless")
     in_player_faction = is_player_faction(faction, context.get("factionID"))
@@ -59,7 +59,7 @@ def npc_scene(context, profile, player_name, met, companions, player_stats):
     faction_description = "" if in_player_faction else record.get("description", "")
     return scene_text.npc_text(context, profile, player_name, player_faction, met=met,
                                major=major, in_player_faction=in_player_faction, feels_hunger=not is_skeleton(profile.get("Race", "")),
-                               faction_description=faction_description, companions=companions, player_stats=player_stats)
+                               faction_description=faction_description, companions=companions, partners=partners, player_stats=player_stats)
 
 def load_prompt_component(filename):
     text = prompt_store.load(filename, PROMPTS_DIR, USER_PROMPTS_DIR)
