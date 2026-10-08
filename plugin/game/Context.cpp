@@ -578,6 +578,33 @@ static Faction *NearestLaw(GameWorld *world, Character *npc) {
   return nearest;
 }
 
+static Character *FindLiveCharacter(GameWorld *world,
+                                    const std::string &serialText) {
+  unsigned int serial = (unsigned int)strtoul(serialText.c_str(), NULL, 10);
+  const ogre_unordered_set<Character *>::type &chars =
+      world->getCharacterUpdateList();
+  for (auto it = chars.begin(); it != chars.end(); ++it) {
+    Character *c = *it;
+    if (c && (uintptr_t)c > 0x1000 && c->getHandle().serial == serial &&
+        !c->isDead())
+      return c;
+  }
+  return NULL;
+}
+
+void PostBountyTarget(const std::string &serial) {
+  GameWorld *world = ppWorld ? *ppWorld : NULL;
+  if (!world)
+    return;
+  Character *npc = FindLiveCharacter(world, serial);
+  if (!npc) {
+    PostPlacementFailure("the target is dead or no longer loaded");
+    return;
+  }
+  AsyncPostToPython(L"/bounty/target",
+                    "{\"context\": " + GetDetailedContext(npc) + "}");
+}
+
 // The payload "serial|crime|amount|issuer,...|stat:bonus,..." places the same
 // bounty with the law of each issuer
 void PlaceBounty(const std::string &payload) {
@@ -585,16 +612,7 @@ void PlaceBounty(const std::string &payload) {
   std::vector<std::string> parts = SplitText(payload, '|');
   if (!world || !world->factionMgr || parts.size() != 5)
     return;
-  unsigned int serial = (unsigned int)strtoul(parts[0].c_str(), NULL, 10);
-  Character *npc = NULL;
-  const ogre_unordered_set<Character *>::type &chars =
-      world->getCharacterUpdateList();
-  for (auto it = chars.begin(); it != chars.end() && !npc; ++it) {
-    Character *c = *it;
-    if (c && (uintptr_t)c > 0x1000 && c->getHandle().serial == serial &&
-        !c->isDead())
-      npc = c;
-  }
+  Character *npc = FindLiveCharacter(world, parts[0]);
   if (!npc) {
     PostPlacementFailure("the target is dead or no longer loaded");
     return;

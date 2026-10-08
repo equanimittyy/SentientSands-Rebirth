@@ -91,10 +91,24 @@ def bounty_candidates():
     bounties.place(data.get("candidates") or [])
     return jsonify({"status": "ok"})
 
+@bp.route('/bounty/target', methods=['POST'])
+def bounty_target():
+    """The plugin posts the context of the target of BOUNTY_TARGET. The target gets its profile as at a first meeting, so a
+    generic target gets a rolled name, and then the bounty goes on it."""
+    context = (request.get_json(silent=True) or {}).get("context") or {}
+    bounty = bounties.pending(context.get("npc_id"))
+    if not bounty:
+        logging.info("BOUNTY: The game placed no bounty (the campaign changed, or another bounty came first).")
+        return jsonify({"status": "ok"})
+    try:
+        bounties.send_placement(bounty, npc_name(context))
+    except campaign_db.CampaignUnavailable as e:
+        return jsonify({"status": "error", "message": str(e)}), 409
+    return jsonify({"status": "ok"})
+
 @bp.route('/bounty/placed', methods=['POST'])
 def bounty_placed():
-    """The plugin posts the result of PLACE_BOUNTY. The target gets its profile as at a first meeting, so a generic target
-    gets a rolled name."""
+    """The plugin posts the result of PLACE_BOUNTY, or the failure of a BOUNTY_TARGET that found no target."""
     data = request.get_json(silent=True) or {}
     context = data.get("context") or {}
     bounty = bounties.take_pending(context.get("npc_id"))
@@ -102,11 +116,10 @@ def bounty_placed():
         logging.info(f"BOUNTY: The game placed no bounty ({data.get('reason') or 'the campaign changed, or the result came twice'}).")
         return jsonify({"status": "ok"})
     try:
-        name = npc_name(context)
-        notable_id = bounties.store(bounty, name, data)
+        notable_id = bounties.store(bounty, data)
     except campaign_db.CampaignUnavailable as e:
         return jsonify({"status": "error", "message": str(e)}), 409
-    logging.info(f"BOUNTY: Stored the bounty {notable_id} on {name} ({context['npc_id']}).")
+    logging.info(f"BOUNTY: Stored the bounty {notable_id} on {bounty['name']} ({context['npc_id']}).")
     return jsonify({"status": "ok"})
 
 @bp.route('/report', methods=['POST'])

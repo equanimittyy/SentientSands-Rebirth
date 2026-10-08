@@ -175,6 +175,9 @@ void ProcessMessageQueue(GameWorld *thisptr) {
             AsyncPostToPython(L"/report", GameReport());
           } else if (command == "BOUNTY_SCAN") {
             ScanBounties();
+          } else if (command == "BOUNTY_TARGET") {
+            trim(data);
+            PostBountyTarget(data);
           } else if (command == "PLACE_BOUNTY") {
             trim(data);
             PlaceBounty(data);

@@ -120,34 +120,46 @@ def place(candidates):
 
 
 def send(bounty):
-    """PLACE_BOUNTY carries serial|crime|amount|issuers|bonuses, and the plugin finds the target by the serial of its handle."""
+    """Asks the plugin for the context of the target, so that the server names the target before the bounty goes on it. The
+    game bounty vanished when the rename came after it."""
     global _pending
     _pending = (state.ACTIVE_CAMPAIGN, bounty)
     target = bounty["target"]
     logging.info(f"BOUNTY: Placing {bounty['amount']} cats on {target['name']} ({target['npc_id']}) of the {target['faction']} for {bounty['crime']}.")
+    send_to_pipe("BOUNTY_TARGET: " + target["npc_id"].removeprefix("h:"))
+
+
+def send_placement(bounty, name):
+    """PLACE_BOUNTY carries serial|crime|amount|issuers|bonuses, and the plugin finds the target by the serial of its handle.
+    name is the stored name of the target."""
+    bounty["name"] = name
     send_to_pipe("PLACE_BOUNTY: " + "|".join([
-        target["npc_id"].removeprefix("h:"), str(CRIMES.index(bounty["crime"]) + 1), str(bounty["amount"]), ",".join(ISSUERS),
+        bounty["target"]["npc_id"].removeprefix("h:"), str(CRIMES.index(bounty["crime"]) + 1), str(bounty["amount"]), ",".join(ISSUERS),
         ",".join(f"{stat}:{bonus}" for stat, bonus in bounty["bonuses"].items()),
     ]))
 
 
-def take_pending(npc_id):
-    """The roll that the last PLACE_BOUNTY sent for the npc_id, or None, also after a campaign switch. The result of a
-    placement takes it, so a second result stores nothing."""
-    global _pending
-    pending, _pending = _pending, None
-    if not pending or pending[0] != state.ACTIVE_CAMPAIGN or pending[1]["target"]["npc_id"] != npc_id:
+def pending(npc_id):
+    """The roll that the last BOUNTY_TARGET sent for the npc_id, or None, also after a campaign switch."""
+    if not _pending or _pending[0] != state.ACTIVE_CAMPAIGN or _pending[1]["target"]["npc_id"] != npc_id:
         return None
-    return pending[1]
+    return _pending[1]
 
 
-def store(bounty, name, result):
-    """Stores the deed of a bounty that the plugin placed, with the result of the plugin and the stored name of the target.
-    Returns its notable event ID."""
+def take_pending(npc_id):
+    """The pending roll for the npc_id, or None. The result of a placement takes it, so a second result stores nothing."""
+    global _pending
+    bounty = pending(npc_id)
+    _pending = None
+    return bounty
+
+
+def store(bounty, result):
+    """Stores the deed of a bounty that the plugin placed, with the result of the plugin. Returns its notable event ID."""
     target, context = bounty["target"], result["context"]
     held = next((deed for _, deed in deeds.open_bounties() if deed["squad"] == result["squad"]), None)
     notable_id = campaign_db.add_bounty_deed({
-        "target": {"id": target["npc_id"], "name": name, "faction": target["faction"]},
+        "target": {"id": target["npc_id"], "name": bounty["name"], "faction": target["faction"]},
         "reason": bounty["reason"],
         "crime": bounty["crime"],
         "amount": bounty["amount"],

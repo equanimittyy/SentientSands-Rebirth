@@ -104,9 +104,10 @@ class BountyDeedTest(unittest.TestCase):
     def place(self, serial, squad="0-5-6-7-8", persistent=False, expires=100000, amount=3200, issuers=tuple(bounties.ISSUERS.values())):
         bounty = bounties.roll([candidate(serial)], set(), amount, random.Random(serial))
         bounties.send(bounty)
+        bounties.send_placement(bounties.pending(f"h:{serial}"), f"Arleen {serial}")
         taken = bounties.take_pending(f"h:{serial}")
-        return bounties.store(taken, f"Arleen {serial}", {"context": {"npc_id": f"h:{serial}", **when(90)}, "squad": squad, "persistent": persistent, "expires": expires,
-                                                          "issuers": list(issuers)})
+        return bounties.store(taken, {"context": {"npc_id": f"h:{serial}", **when(90)}, "squad": squad, "persistent": persistent, "expires": expires,
+                                      "issuers": list(issuers)})
 
     def statuses(self):
         return [(event["line"], event["status"]) for event in deeds.notable_events() if event["kind"] == "bounty"]
@@ -115,19 +116,25 @@ class BountyDeedTest(unittest.TestCase):
         victim = {"id": f"h:{serial}", "template_id": "", "name": "Arleen", "faction": "Dust Bandits", "player": False}
         deeds.take([{"kind": "attack", "attacker": BEEP, "target": victim["id"], **when(minutes)}, {"kind": "death", "party": victim, **when(minutes)}])
 
-    def test_place_bounty_carries_the_serial_the_crime_the_amount_the_issuers_and_the_bonuses(self, place_pipe, end_pipe):
+    def test_a_roll_asks_for_the_target_first_and_place_bounty_comes_only_with_its_name(self, place_pipe, end_pipe):
         bounty = bounties.roll([candidate(77)], set(), 3200, random.Random(1))
         bounties.send(bounty)
+        place_pipe.assert_called_once_with("BOUNTY_TARGET: 77")
+        bounties.send_placement(bounties.pending("h:77"), "Arleen")
+        self.assertEqual(bounties.take_pending("h:77")["name"], "Arleen")
         serial, crime, amount, issuers, bonuses = place_pipe.call_args[0][0].removeprefix("PLACE_BOUNTY: ").split("|")
         self.assertEqual((serial, bounties.CRIMES[int(crime) - 1], amount, issuers.split(",")), ("77", bounty["crime"], "3200", list(bounties.ISSUERS)))
         self.assertEqual(dict(map(int, pair.split(":")) for pair in bonuses.split(",")), bounty["bonuses"])
 
     def test_the_result_of_a_placement_counts_once_and_not_after_a_campaign_switch(self, place_pipe, end_pipe):
         bounties.send(bounties.roll([candidate(1)], set()))
+        self.assertIsNone(bounties.pending("h:2"))
+        self.assertIsNotNone(bounties.pending("h:1"))
         self.assertIsNone(bounties.take_pending("h:2"))
         self.assertIsNone(bounties.take_pending("h:1"))
         bounties.send(bounties.roll([candidate(1)], set()))
         state.ACTIVE_CAMPAIGN = "Other"
+        self.assertIsNone(bounties.pending("h:1"))
         self.assertIsNone(bounties.take_pending("h:1"))
 
     def test_a_bounty_has_no_deed_line_and_is_open_until_it_expires(self, place_pipe, end_pipe):
