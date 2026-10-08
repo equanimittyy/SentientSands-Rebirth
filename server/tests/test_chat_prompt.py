@@ -122,6 +122,10 @@ class OverheardNotesTest(unittest.TestCase):
     def test_the_squad_member_reads_the_note_of_its_own_thread(self):
         self.assertEqual(chat_prompt.overheard_notes(self.MEMBERS, "h:11"), {2: "Stick heard your conversation with Jorge."})
 
+    def test_the_note_names_every_other_speaker(self):
+        members = {5: [("h:10", "Stick", "speaker", True), (BEEP, "Beep", "speaker", False), ("h:11", "Izumi", "speaker", True), ("h:13", "Mikse", "overheard", True)]}
+        self.assertEqual(chat_prompt.overheard_notes(members, BEEP), {5: "Mikse heard your conversation with Stick and Izumi."})
+
     def test_each_note_follows_the_last_line_of_its_thread(self):
         entries = [
             ("[Day 3, 14:01] Stick: hi", "h:10", 1),

@@ -134,9 +134,9 @@ def relation_text(name, group, relation, met, companions=()):
     return " ".join(s for s in (first, earlier, feeling) if s)
 
 
-def overheard_note(listeners, partner):
+def overheard_note(listeners, partners):
     heard = f"{_join(listeners)} heard your conversation"
-    return f"{heard} with {partner}." if partner else f"{heard}."
+    return f"{heard} with {_join(partners)}." if partners else f"{heard}."
 
 
 def memory_header(partners, listeners, overheard):

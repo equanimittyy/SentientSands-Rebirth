@@ -65,9 +65,9 @@ def overheard_notes(members, npc_id):
         if not any(member_id == npc_id and role == "speaker" for member_id, _, role, _ in group):
             continue
         listeners = [name for _, name, role, in_faction in group if role == "overheard" and in_faction and name]
-        partner = next((name for member_id, name, role, _ in group if role == "speaker" and member_id != npc_id and name), None)
+        partners = [name for member_id, name, role, _ in group if role == "speaker" and member_id != npc_id and name]
         if listeners:
-            notes[thread_id] = scene_text.overheard_note(listeners, partner)
+            notes[thread_id] = scene_text.overheard_note(listeners, partners)
     return notes
 
 

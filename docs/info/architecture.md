@@ -468,7 +468,7 @@ The chat prompt uses the threads (`npc_id`, not names):
 - **First meeting:** the NPC and the speaker were both speakers of a thread (`campaign_db.thread_partners`), or the NPC's history holds a line of the speaker without `(Overheard)` (`chat_prompt.spoken_with`).
 - **Companions:** the scene names the others that the NPC spoke with and that are in the player's faction now.
 - **Relation:** one `Relation` for the whole squad, so the sentence names the player's faction.
-- **Overheard notes:** after the last line of each thread, one user line names the overhearers from the player's faction (`chat_prompt.overheard_notes`).
+- **Overheard notes:** after the last line of each thread, one user line names the overhearers from the player's faction and every other speaker of the thread (`chat_prompt.overheard_notes`).
 
 ### Conversation memories
 

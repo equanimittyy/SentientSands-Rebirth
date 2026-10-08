@@ -32,9 +32,10 @@ class ScaleTest(unittest.TestCase):
         self.assertEqual(scene_text.relation_text("Izumi", "Nameless", 0, met=True, companions=["Stick", "Mikse"]),
                          "Earlier you spoke with Stick and Mikse, who travel with Izumi. You feel neutral towards Nameless, the group Izumi travels with.")
 
-    def test_the_overheard_note_names_the_listeners_and_the_other_speaker(self):
-        self.assertEqual(scene_text.overheard_note(["Stick", "Mikse", "Ruka"], "Izumi"), "Stick, Mikse, and Ruka heard your conversation with Izumi.")
-        self.assertEqual(scene_text.overheard_note(["Stick"], None), "Stick heard your conversation.")
+    def test_the_overheard_note_names_the_listeners_and_the_other_speakers(self):
+        self.assertEqual(scene_text.overheard_note(["Stick", "Mikse", "Ruka"], ["Izumi"]), "Stick, Mikse, and Ruka heard your conversation with Izumi.")
+        self.assertEqual(scene_text.overheard_note(["Stick"], ["Izumi", "Ruka"]), "Stick heard your conversation with Izumi and Ruka.")
+        self.assertEqual(scene_text.overheard_note(["Stick"], []), "Stick heard your conversation.")
 
     def test_the_memory_header_names_the_other_speakers_and_the_listeners(self):
         self.assertEqual(scene_text.memory_header(["Stick"], ["Izumi", "Mikse"], False), "You spoke with Stick. Izumi and Mikse heard it.")
