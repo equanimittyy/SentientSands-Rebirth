@@ -6,7 +6,7 @@ Sentient Sands Rebirth is a Kenshi mod that uses LLMs to drive NPC dialogue, cha
 
 [docs/info/architecture.md](docs/info/architecture.md) holds the layout, the path and transport contracts between the plugin and the server, and the threading rule. Read it before you change how the two sides find or talk to each other. [docs/info/development.md](docs/info/development.md) covers building, running, and releasing. Kenshi's internals are undocumented, so read the sister pages [docs/info/kenshi_internals.md](docs/info/kenshi_internals.md) (what works in the game) and [docs/info/kenshi_gotchas.md](docs/info/kenshi_gotchas.md) (what broke the plugin) before you change plugin code that calls the game, and add what you learn to them.
 
-The C++ plugin builds only on Windows with the Visual C++ 2010 toolset (`plugin/SentientSands.vcxproj`), so you cannot build it in the dev container. The container has `python3` but no `pip`, and its firewall blocks PyPI, so the server's dependencies (`flask`, `requests`) are not installed there either.
+The C++ plugin builds only on Windows with the Visual C++ 2010 toolset (`plugin/SentientSands.vcxproj`), so you cannot build it in the dev container. The container's `python3` has no `pip` and no packages. Install Python packages in a virtual environment (`python3 -m venv`), whose `pip` reaches PyPI through the firewall.
 
 ## Working method
 

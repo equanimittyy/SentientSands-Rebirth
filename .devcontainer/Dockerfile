@@ -24,7 +24,13 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
   jq \
   nano \
   vim \
+  python3-venv \
   && apt-get clean && rm -rf /var/lib/apt/lists/*
+
+# The libraries of the browser that captures the tutorial videos. Keep the version equal to the playwright pin in
+# scripts/tutorial_video/requirements.txt, so the browser below matches the Python package.
+ARG PLAYWRIGHT_VERSION=1.63.0
+RUN npx -y playwright@${PLAYWRIGHT_VERSION} install-deps chromium && rm -rf /var/lib/apt/lists/*
 
 ARG USERNAME=node
 
@@ -49,6 +55,8 @@ RUN ARCH=$(dpkg --print-architecture) && \
 USER node
 
 ENV PATH=$PATH:/home/node/.local/bin
+
+RUN npx -y playwright@${PLAYWRIGHT_VERSION} install chromium
 
 ENV SHELL=/bin/zsh
 

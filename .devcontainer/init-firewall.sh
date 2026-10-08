@@ -72,6 +72,8 @@ REQUIRED_DOMAINS=(
 )
 OPTIONAL_DOMAINS=(
     "downloads.claude.ai"
+    "pypi.org"
+    "files.pythonhosted.org"
     "kenshi.fandom.com"
     "kenshi.wiki"
     "steamcommunity.com"

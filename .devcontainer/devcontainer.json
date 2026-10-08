@@ -6,6 +6,7 @@
       "TZ": "Australia/Melbourne",
       "CLAUDE_CODE_VERSION": "latest",
       "GIT_DELTA_VERSION": "0.18.2",
+      "PLAYWRIGHT_VERSION": "1.63.0",
       "ZSH_IN_DOCKER_VERSION": "1.2.0"
     }
   },
