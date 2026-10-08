@@ -1,7 +1,7 @@
 """The bounties that SSR puts on NPCs through the bounty system of the game.
 
 The server rolls each bounty and the plugin only applies it, so the roll runs in the unit tests of the dev container. A
-placed bounty is a deed of the kind "bounty" (core/deeds.py).
+placed bounty is an event of the kind "bounty" (core/world_events.py).
 """
 import json
 import logging
@@ -9,7 +9,7 @@ import os
 import random
 import time
 
-from core import deeds, state
+from core import state, world_events
 from core.paths import DEFAULTS_DIR
 from core.pipe import send_to_pipe
 from core.settings import load_settings
@@ -96,8 +96,8 @@ def tick():
     global _last_scan
     settings = load_settings()
     try:
-        deeds.end_expired_bounties()
-        open_count = len(deeds.open_bounties())
+        world_events.end_expired_bounties()
+        open_count = len(world_events.open_bounties())
     except campaign_db.CampaignUnavailable:
         return
     if due(time.monotonic() - _last_scan, settings["radiant_bounty_minutes"], open_count, settings["max_open_bounties"]):
@@ -109,7 +109,7 @@ def tick():
 def place(candidates):
     """Rolls a bounty on one of the candidates of a scan, and sends it to the plugin."""
     try:
-        taken = {deed["target"]["id"] for _, deed in deeds.open_bounties()}
+        taken = {event["target"]["id"] for _, event in world_events.open_bounties()}
     except campaign_db.CampaignUnavailable:
         return
     bounty = roll(candidates, taken)
@@ -155,10 +155,10 @@ def take_pending(npc_id):
 
 
 def store(bounty, result):
-    """Stores the deed of a bounty that the plugin placed, with the result of the plugin. Returns its notable event ID."""
+    """Stores the event of a bounty that the plugin placed, with the result of the plugin. Returns its notable event ID."""
     target, context = bounty["target"], result["context"]
-    held = next((deed for _, deed in deeds.open_bounties() if deed["squad"] == result["squad"]), None)
-    notable_id = campaign_db.add_bounty_deed({
+    held = next((event for _, event in world_events.open_bounties() if event["squad"] == result["squad"]), None)
+    notable_id = campaign_db.add_bounty_event({
         "target": {"id": target["npc_id"], "name": bounty["name"], "faction": target["faction"]},
         "reason": bounty["reason"],
         "crime": bounty["crime"],
@@ -169,6 +169,6 @@ def store(bounty, result):
         "squad": result["squad"],
         # SSR made the squad of another open bounty persistent, so the flag of that bounty tells what the game set
         "persistent": held["persistent"] if held else bool(result["persistent"]),
-    }, deeds.game_minutes(context))
+    }, world_events.game_minutes(context))
     state.LAST_BOUNTY = time.monotonic()
     return notable_id

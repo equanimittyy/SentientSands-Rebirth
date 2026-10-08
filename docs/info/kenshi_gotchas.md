@@ -21,4 +21,4 @@ Add a gotcha when a call or a pattern crashes the game, gives wrong data, or bre
 
 ## MyGUI
 
-- On the `Popup` layer, a click raises a window over its open drop-down list, so the list shows under the window. The chat window is on the `Window` layer because of its speaker list (`CreateChatUI` in `plugin/ui/ChatWindow.cpp`). The Deeds window stays on the `Popup` layer and uses a button that goes to the next kind on each click.
+- On the `Popup` layer, a click raises a window over its open drop-down list, so the list shows under the window. The chat window is on the `Window` layer because of its speaker list (`CreateChatUI` in `plugin/ui/ChatWindow.cpp`). The Events window stays on the `Popup` layer and uses a button that goes to the next kind on each click.

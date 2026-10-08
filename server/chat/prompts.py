@@ -2,7 +2,7 @@ import logging
 
 from chat import prompt_store, scene_text, towns
 from chat.characters import is_skeleton, reported_sex
-from core import deeds, state
+from core import state, world_events
 from core.game import is_player_faction
 from core.paths import PROMPTS_DIR, USER_PROMPTS_DIR
 from core.settings import load_settings
@@ -125,7 +125,7 @@ def build_system_prompt(reply_rules=True):
     return prompt.strip()
 
 def scene_values(player, player_name):
-    rumors = [(rumor["game_time"], rumor["text"]) for rumor in deeds.told_rumors()[-PROMPT_RUMORS:]]
+    rumors = [(rumor["game_time"], rumor["text"]) for rumor in world_events.told_rumors()[-PROMPT_RUMORS:]]
     race = player.get("race", "Unknown")
     race_entry = find_race(race)
     player_faction = campaign_db.player_faction()

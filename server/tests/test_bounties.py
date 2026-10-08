@@ -10,7 +10,7 @@ from unittest import mock
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
 
 from chat import rumors
-from core import bounties, deeds, state
+from core import bounties, state, world_events
 from core.paths import WORLD_TEMPLATES_DIR
 from store import campaign_db
 
@@ -86,9 +86,9 @@ class RollTest(unittest.TestCase):
         self.assertFalse(bounties.due(7200, 120, 0, 0))
 
 
-@mock.patch.object(deeds, "send_to_pipe")
+@mock.patch.object(world_events, "send_to_pipe")
 @mock.patch.object(bounties, "send_to_pipe")
-class BountyDeedTest(unittest.TestCase):
+class BountyEventTest(unittest.TestCase):
     def setUp(self):
         self._tmp = tempfile.TemporaryDirectory()
         campaign_db.open_campaign(self._tmp.name, lambda: SEED)
@@ -110,11 +110,11 @@ class BountyDeedTest(unittest.TestCase):
                                       "issuers": list(issuers)})
 
     def statuses(self):
-        return [(event["line"], event["status"]) for event in deeds.notable_events() if event["kind"] == "bounty"]
+        return [(event["line"], event["status"]) for event in world_events.notable_events() if event["kind"] == "bounty"]
 
     def kill(self, serial, minutes):
         victim = {"id": f"h:{serial}", "template_id": "", "name": "Arleen", "faction": "Dust Bandits", "player": False}
-        deeds.take([{"kind": "attack", "attacker": BEEP, "target": victim["id"], **when(minutes)}, {"kind": "death", "party": victim, **when(minutes)}])
+        world_events.take([{"kind": "attack", "attacker": BEEP, "target": victim["id"], **when(minutes)}, {"kind": "death", "party": victim, **when(minutes)}])
 
     def test_a_roll_asks_for_the_target_first_and_place_bounty_comes_only_with_its_name(self, place_pipe, end_pipe):
         bounty = bounties.roll([candidate(77)], set(), 3200, random.Random(1))
@@ -137,17 +137,17 @@ class BountyDeedTest(unittest.TestCase):
         self.assertIsNone(bounties.pending("h:1"))
         self.assertIsNone(bounties.take_pending("h:1"))
 
-    def test_a_bounty_has_no_deed_line_and_is_open_until_it_expires(self, place_pipe, end_pipe):
+    def test_a_bounty_has_no_event_line_and_is_open_until_it_expires(self, place_pipe, end_pipe):
         notable_id = self.place(1, expires=200)
-        deed = campaign_db.notable(notable_id)
-        self.assertEqual(deed[0], 90)
-        self.assertEqual({key: deed[1][key] for key in ("target", "amount", "issuers", "place", "squad", "persistent")},
+        event = campaign_db.notable(notable_id)
+        self.assertEqual(event[0], 90)
+        self.assertEqual({key: event[1][key] for key in ("target", "amount", "issuers", "place", "squad", "persistent")},
                          {"target": {"id": "h:1", "name": "Arleen 1", "faction": "Dust Bandits"}, "amount": 3200, "issuers": list(bounties.ISSUERS.values()),
                           "place": "Stack", "squad": "0-5-6-7-8", "persistent": False})
         self.assertEqual(self.statuses(), [("Unknown", "Open")])
         state.PLAYER_CONTEXT = when(201)
         self.assertEqual(self.statuses(), [("Unknown", "Expired")])
-        self.assertEqual(deeds.open_bounties(), [])
+        self.assertEqual(world_events.open_bounties(), [])
 
     def test_each_stored_bounty_makes_a_rumor_pass_due_without_a_chat(self, place_pipe, end_pipe):
         self.place(1)
@@ -160,16 +160,16 @@ class BountyDeedTest(unittest.TestCase):
         self.place(1)
         self.kill(1, 150)
         self.assertEqual(self.statuses(), [("Unknown", "Killed")])
-        self.assertEqual([event["kind"] for event in deeds.notable_events()], ["kill", "bounty"])
+        self.assertEqual([event["kind"] for event in world_events.notable_events()], ["kill", "bounty"])
         end_pipe.assert_called_once_with("END_BOUNTY: 0-5-6-7-8|1")
-        self.assertEqual(deeds.character_deeds(), {"h:100": ["Killed Arleen"]})
+        self.assertEqual(world_events.character_events(), {"h:100": ["Killed Arleen"]})
 
     def test_npcs_tell_the_rumor_of_a_bounty_only_while_it_is_open(self, place_pipe, end_pipe):
         campaign_db.add_bounty_rumor(self.place(1), "WANTED: Arleen.", "They say Arleen is wanted.")
-        self.assertEqual([rumor["text"] for rumor in deeds.told_rumors()], ["They say Arleen is wanted."])
+        self.assertEqual([rumor["text"] for rumor in world_events.told_rumors()], ["They say Arleen is wanted."])
         self.kill(1, 150)
-        campaign_db.save_rumor(None, deeds.notable_events()[0]["id"], "Beep killed Arleen.")
-        self.assertEqual([rumor["text"] for rumor in deeds.told_rumors()], ["Beep killed Arleen."])
+        campaign_db.save_rumor(None, world_events.notable_events()[0]["id"], "Beep killed Arleen.")
+        self.assertEqual([rumor["text"] for rumor in world_events.told_rumors()], ["Beep killed Arleen."])
 
     def test_a_cull_of_the_kill_opens_the_bounty_again(self, place_pipe, end_pipe):
         self.place(1)
@@ -191,26 +191,26 @@ class BountyDeedTest(unittest.TestCase):
         self.kill(1, 150)
         end_pipe.assert_called_once_with("END_BOUNTY: 0-5-6-7-8|0")
 
-    def test_a_bounty_deed_can_be_deleted(self, place_pipe, end_pipe):
-        self.assertTrue(campaign_db.delete_custom_deed(self.place(1)))
-        self.assertEqual(deeds.notable_events(), [])
+    def test_a_bounty_event_can_be_deleted(self, place_pipe, end_pipe):
+        self.assertTrue(campaign_db.delete_custom_event(self.place(1)))
+        self.assertEqual(world_events.notable_events(), [])
 
     def test_an_expired_bounty_ends_once(self, place_pipe, end_pipe):
         self.place(1, squad="a", expires=200)
         self.place(2, squad="b")
         state.PLAYER_CONTEXT = when(201)
-        deeds.end_expired_bounties()
-        deeds.end_expired_bounties()
+        world_events.end_expired_bounties()
+        world_events.end_expired_bounties()
         end_pipe.assert_called_once_with("END_BOUNTY: a|1")
-        self.assertEqual(len(deeds.open_bounties()), 1)
+        self.assertEqual(len(world_events.open_bounties()), 1)
 
     def test_the_rumor_takes_the_amount_the_reason_the_profile_and_the_place(self, place_pipe, end_pipe):
         notable_id = self.place(1)
         campaign_db.upsert_profile("h:1", {"Name": "Arleen", "Race": "Greenlander", "Sex": "Female", "Personality": "Cold.", "Backstory": "Raised by raiders."})
-        deed = campaign_db.notable(notable_id)[1]
+        event = campaign_db.notable(notable_id)[1]
         self.assertEqual(rumors.bounty_facts(*campaign_db.notable(notable_id)),
                          "The bounty: 3,200 cats for the wanted character.\n"
-                         f"The crime ({rumors.CRIME_WORDS.get(deed['crime'], deed['crime'].lower())}): {deed['reason']}\n"
+                         f"The crime ({rumors.CRIME_WORDS.get(event['crime'], event['crime'].lower())}): {event['reason']}\n"
                          "The wanted character: Arleen (female Greenlander) of the Dust Bandits.\nPersonality: Cold.\nBackstory: Raised by raiders.\n"
                          "Last seen: Stack.\nTime: Day 0, 01:30.\nThe factions:\n- Dust Bandits. Enemies: United Cities.")
 

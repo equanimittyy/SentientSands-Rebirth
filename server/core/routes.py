@@ -5,7 +5,7 @@ from flask import Blueprint, jsonify, request
 
 from chat.bio import recorded_history
 from chat.characters import get_character_data, npc_name, reported_sex, sync_name
-from core import bounties, deeds, log_setup, state
+from core import bounties, log_setup, state, world_events
 from core.game import context_dict, generate_relation_bar, take_report
 from core.pipe import send_to_pipe
 from core.settings import CHAT_HOTKEYS, SETTINGS_DEFAULTS, load_configs, load_settings, save_settings, settings_page_values
@@ -49,15 +49,15 @@ def rename_character():
 
 @bp.route('/events', methods=['GET', 'POST'])
 def list_events():
-    """The deeds for the Deeds window, newest first. The plugin finds the keys of each deed after its "id", so each key must
-    sort after "id", as Flask sorts them. The window sends the campaign back with Add Deed and Delete, because the same ID
-    can name another deed in another campaign."""
+    """The events for the Events window, newest first. The plugin finds the keys of each event after its "id", so each key must
+    sort after "id", as Flask sorts them. The window sends the campaign back with Add Event and Delete, because the same ID
+    can name another event in another campaign."""
     events = []
     rumors = {rumor["id"]: rumor for rumor in campaign_db.rumors()}
-    for event in deeds.notable_events():
+    for event in world_events.notable_events():
         rumor = rumors.get(event["rumor"])
-        own = event["kind"] in deeds.RUMOR_ONLY
-        # The line of a custom or an auto deed tells nothing of the deed, so its rumor tells it apart in the list
+        own = event["kind"] in world_events.RUMOR_ONLY
+        # The line of a custom or an auto event tells nothing of the event, so its rumor tells it apart in the list
         line = f"{kind_label(event)}: {event['line']}" if "status" in event else event["line"]
         words = (f"{event['kind'].capitalize()}: {rumor['text']}" if own and rumor else line).split()
         mark = " (rumor)" if rumor and not own else ""
@@ -75,12 +75,12 @@ def events_content():
     """The plugin's SetEventsText renders each newline-separated line as a row."""
     import textwrap
     data = request.json or {}
-    event = next((event for event in deeds.notable_events() if str(event["id"]) == str(data.get("id"))), None)
+    event = next((event for event in world_events.notable_events() if str(event["id"]) == str(data.get("id"))), None)
     if not event:
-        return jsonify({"status": "error", "text": "The deed is gone."}), 404
+        return jsonify({"status": "error", "text": "The event is gone."}), 404
     rumor = next((rumor for rumor in campaign_db.rumors() if rumor["id"] == event["rumor"]), None)
     none_yet = "None yet. SSR writes it when you stop chatting." if event["kind"] == "bounty" else "None yet. Press Generate Rumor to write one."
-    lines = (["=" * 38, "  DEED", "=" * 38, ""] + textwrap.wrap(event["line"], width=76) + ["", f"Kind: {kind_label(event)}", f"Time: {event['time']}", "", "RUMOR:"]
+    lines = (["=" * 38, "  EVENT", "=" * 38, ""] + textwrap.wrap(event["line"], width=76) + ["", f"Kind: {kind_label(event)}", f"Time: {event['time']}", "", "RUMOR:"]
              + (textwrap.wrap(rumor["text"], width=76) if rumor else [none_yet]))
     return jsonify({"status": "ok", "text": "\n".join(lines)})
 

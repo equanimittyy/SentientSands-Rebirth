@@ -35,7 +35,7 @@ const KNOWN_BY_HELP = "The characters, factions, and races that know this entry.
 const KNOWER_KINDS = { character: "character", faction: "faction", races: "race" };
 const TEMPLATE_PARTS = ["manifest", "overview", "history"];
 const SOURCES = [["campaign", "Campaign Canon"], ["template", "Templates", "(Advanced)"]];
-const CANON_VIEWS = [["database", "Database"], ["dialogue", "Dialogue & Memories"], ["events", "Deeds"]];
+const CANON_VIEWS = [["database", "Database"], ["dialogue", "Dialogue & Memories"], ["events", "Events"]];
 const ORIGIN_LABELS = { seed: "Seeded", game: "Met in game", campaign: "Added in this campaign" };
 // Mirrors campaign_db.PROVISIONAL: the chat count of a provisional profile is also its mark.
 const PROVISIONAL = "Interactions";
@@ -56,7 +56,7 @@ let log = null;
 let rumorDrafts = {};
 let rumorInstructions = {};
 let memoryDrafts = {};
-const newDeed = { rumor: "" };
+const newEvent = { rumor: "" };
 const eventView = { query: "", type: "all", page: 1 };
 let logView = "dialogue";
 const threadView = { query: "", selected: null };
@@ -237,7 +237,7 @@ function kindLabel(record) {
 
 const isCanon = (record) => record.kind !== "character" || source === "template" || record.origin !== "game";
 const isProvisional = (record) => source === "campaign" && record.kind === "character" && PROVISIONAL in (record.data?.profile ?? {});
-// Mirrors GetNpcId in plugin/game/Context.cpp: the game's unique flag gives the u: prefix, as the deeds read it.
+// Mirrors GetNpcId in plugin/game/Context.cpp: the game's unique flag gives the u: prefix, as the events read it.
 const isUnique = (record) => record.kind === "character" && Boolean(record.id?.startsWith("u:"));
 
 function inPlayerFaction(record) {
@@ -442,7 +442,7 @@ function characterForm(form, path, record) {
       source === "campaign" ? field("Current Job", el("span", {}, form.details.CurrentJob || "Unknown"), null, "What the character does in the game, for example Guarding a building. It updates each time the character chats or takes part in a radiant conversation.") : null,
       source === "campaign" ? field("Current Location", el("span", {}, form.details.CurrentLocation || "Unknown"), null, "Where the character was when you last talked to it, for example Bar, The Hub, or Wilderness, Vain.") : null,
       source === "campaign" ? field("Visited", el("span", { title: record.visited?.join(", ") ?? "" }, visitedText(record.visited ?? [])), null, "The towns and regions where the character talked or heard a chat, newest first, except the lands of its original faction. The character knows the local lore of these places from its travels.") : null,
-      source === "campaign" ? field("Deeds", el("span", {}, record.deeds?.join(", ") || "Unknown"), null, "The unique characters that the character killed or captured as a member of your squad.") : null),
+      source === "campaign" ? field("Events", el("span", {}, record.events?.join(", ") || "Unknown"), null, "The unique characters that the character killed or captured as a member of your squad.") : null),
   ];
 }
 
@@ -996,7 +996,7 @@ function askRumor(event, instruction) {
   return new Promise((resolve) => dialog.addEventListener("close", () => resolve(dialog.returnValue === "ok" ? form.elements.instructions.value : null), { once: true }));
 }
 
-// The text goes into the row of its deed and not into the campaign, so the player reads it before a save keeps it.
+// The text goes into the row of its event and not into the campaign, so the player reads it before a save keeps it.
 async function writeRumor(event) {
   const key = event.rumor === null ? `new:${event.id}` : String(event.rumor);
   const stored = log.rumors.find((rumor) => rumor.id === event.rumor);
@@ -1010,7 +1010,7 @@ async function writeRumor(event) {
     rumorInstructions[key] = instruction;
     updateUnsaved();
     render();
-    showMessage(message, "The LLM wrote the rumor into the row of its deed. Save to keep it.");
+    showMessage(message, "The LLM wrote the rumor into the row of its event. Save to keep it.");
   } catch (error) {
     steps.close();
     showMessage(message, `Write failed: ${error.message}`, true);
@@ -1021,7 +1021,7 @@ function rumorCell(event) {
   // SSR writes the rumor of a bounty from the bounty in the game, so the player cannot edit it
   if (event.kind === "bounty") {
     const text = log.rumors.find((rumor) => rumor.id === event.rumor)?.text ?? "Unknown";
-    return el("div", { className: "inline row" }, el("span", {}, text), deleteButton("Delete the bounty deed", () => deleteDeed(event)));
+    return el("div", { className: "inline row" }, el("span", {}, text), deleteButton("Delete the bounty event", () => deleteEvent(event)));
   }
   const key = event.rumor === null ? `new:${event.id}` : String(event.rumor);
   if (!(key in rumorDrafts)) return el("button", { type: "button", onclick: () => writeRumor(event) }, icon("bot"), " Generate Rumor");
@@ -1029,24 +1029,24 @@ function rumorCell(event) {
   const input = control("textarea", rumorDrafts, key, ["rumors", key], { rows: 3, label: "Rumor" });
   if (note?.field) setFieldError(input, note.text);
   const again = iconButton("bot", "Generate the rumor again", () => writeRumor(event));
-  const remove = event.kind === "custom" || event.kind === "auto" ? deleteButton(`Delete the ${event.kind} deed`, () => deleteDeed(event))
+  const remove = event.kind === "custom" || event.kind === "auto" ? deleteButton(`Delete the ${event.kind} event`, () => deleteEvent(event))
     : event.rumor === null ? deleteButton("Discard the new rumor", () => discardRumor(key)) : deleteButton("Delete the rumor", () => deleteRumor(event.rumor));
   return el("div", {},
     el("div", { className: "inline row" }, input, again, remove),
     note ? el("p", { className: `hint${note.error ? " error" : ""}` }, note.text) : null);
 }
 
-function newDeedForm() {
-  const text = el("input", { value: newDeed.rumor, placeholder: "Add a custom rumour", required: true, oninput: (event) => { newDeed.rumor = event.target.value; } });
-  text.setAttribute("aria-label", "The rumor of the new custom deed");
-  return el("form", { className: "inline row", onsubmit: addDeed }, text, el("button", { type: "submit" }, "Add"));
+function newEventForm() {
+  const text = el("input", { value: newEvent.rumor, placeholder: "Add a custom rumour", required: true, oninput: (event) => { newEvent.rumor = event.target.value; } });
+  text.setAttribute("aria-label", "The rumor of the new custom event");
+  return el("form", { className: "inline row", onsubmit: addEvent }, text, el("button", { type: "submit" }, "Add"));
 }
 
-async function addDeed(event) {
+async function addEvent(event) {
   event.preventDefault();
   try {
-    await sendJson("POST", "/api/campaign/deeds/add", { campaign: log.name, rumor: newDeed.rumor });
-    newDeed.rumor = "";
+    await sendJson("POST", "/api/campaign/events/add", { campaign: log.name, rumor: newEvent.rumor });
+    newEvent.rumor = "";
     eventView.query = "";
     eventView.type = "all";
     eventView.page = 1;
@@ -1056,11 +1056,11 @@ async function addDeed(event) {
   }
 }
 
-async function deleteDeed(event) {
+async function deleteEvent(event) {
   const bounty = event.kind === "bounty" ? "The bounty in the game stays, and the world map stops showing the target. " : "";
-  if (!(await ask(`Delete the ${event.kind} deed`, "Delete", `This deletes the ${event.kind} deed and its rumor, so NPCs stop mentioning it. ${bounty}`, "\n\n", el("b", { className: "warning" }, "The delete takes effect immediately and is irreversible.")))) return;
+  if (!(await ask(`Delete the ${event.kind} event`, "Delete", `This deletes the ${event.kind} event and its rumor, so NPCs stop mentioning it. ${bounty}`, "\n\n", el("b", { className: "warning" }, "The delete takes effect immediately and is irreversible.")))) return;
   try {
-    await sendJson("POST", "/api/campaign/deeds/delete", { campaign: log.name, id: event.id });
+    await sendJson("POST", "/api/campaign/events/delete", { campaign: log.name, id: event.id });
     await fetchLog(keptLog());
   } catch (error) {
     showMessage(message, `Delete failed: ${error.message}`, true);
@@ -1068,21 +1068,21 @@ async function deleteDeed(event) {
 }
 
 function renderEvents() {
-  const deeds = log.notables;
+  const events = log.notables;
   const counts = new Map();
   for (const event of log.notables) counts.set(event.kind, (counts.get(event.kind) ?? 0) + 1);
   if (!counts.has(eventView.type)) eventView.type = "all";
   const search = el("input", {
     type: "search",
     value: eventView.query,
-    placeholder: "Search the deeds",
+    placeholder: "Search the events",
     oninput: (event) => {
       eventView.query = event.target.value;
       eventView.page = 1;
       renderEventPage();
     },
   });
-  search.setAttribute("aria-label", "Search the deeds");
+  search.setAttribute("aria-label", "Search the events");
   const options = [...counts].map(([kind, count]) => [kind, `${NOTABLE_KINDS[kind] ?? kind} (${count})`]).sort((a, b) => a[1].localeCompare(b[1]));
   const select = el("select", {
     onchange: (event) => {
@@ -1090,15 +1090,15 @@ function renderEvents() {
       eventView.page = 1;
       renderEventPage();
     },
-  }, ...[["all", `All kinds (${deeds.length})`], ...options].map(([value, text]) => new Option(text, value, false, value === eventView.type)));
+  }, ...[["all", `All kinds (${events.length})`], ...options].map(([value, text]) => new Option(text, value, false, value === eventView.type)));
   select.setAttribute("aria-label", "Show only");
   return el("fieldset", {},
-    el("legend", {}, `Deeds (${deeds.length})`),
+    el("legend", {}, `Events (${events.length})`),
     el("p", { className: "hint" },
       "Kills and captures of known figures, bounties that SSR posts on bandits, and rumors that you write or that SSR makes from your conversations, for NPCs to gossip about."),
-    deeds.length > 0 ? el("div", { className: "inline row" }, search, select) : null,
-    newDeedForm(),
-    deeds.length > 0 ? el("div", { id: "event-page" }) : el("p", { className: "hint" }, "No deeds yet."));
+    events.length > 0 ? el("div", { className: "inline row" }, search, select) : null,
+    newEventForm(),
+    events.length > 0 ? el("div", { id: "event-page" }) : el("p", { className: "hint" }, "No events yet."));
 }
 
 function pager(shown, pages, start) {
@@ -1133,7 +1133,7 @@ function renderEventPage() {
     el("td", {}, el("span", { className: "badge" }, NOTABLE_KINDS[event.kind] ?? event.kind), event.status ? ` (${event.status})` : null),
     el("td", {}, event.line),
     el("td", {}, rumorCell(event))));
-  const head = el("tr", {}, el("th", {}, "Time"), el("th", {}, "Kind"), el("th", {}, "Deed"), el("th", {}, "Rumor"));
+  const head = el("tr", {}, el("th", {}, "Time"), el("th", {}, "Kind"), el("th", {}, "Event"), el("th", {}, "Rumor"));
   const table = el("table", { className: "event-table" }, el("thead", {}, head), el("tbody", {}, ...rows));
   holder.replaceChildren(...(pages > 1 ? [pager(shown.length, pages, start), table, pager(shown.length, pages, start)] : [table]));
 }
@@ -1252,7 +1252,7 @@ const renderCanonViews = () => renderSubtabs(CANON_VIEWS, source === "campaign" 
 
 function renderLog() {
   if (log) return logView === "events" ? [renderEvents()] : renderThreads();
-  const hint = el("p", { className: "hint" }, "Open a campaign to read its dialogue and deeds, and to edit its rumors.");
+  const hint = el("p", { className: "hint" }, "Open a campaign to read its dialogue and events, and to edit its rumors.");
   return refusal ? [el("p", { className: "hint error" }, refusal), hint] : [hint];
 }
 

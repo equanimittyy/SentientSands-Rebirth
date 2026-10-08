@@ -79,7 +79,7 @@
           <div class="columns">
             <label><span class="label-text">Talk range<span class="help" tabindex="0">?<span class="tip">NPCs within this distance hear what you say in talk mode. A radiant conversation takes your characters within this distance of the selected one.</span></span></span> <input type="number" name="radii.talk" min="1" required></label>
             <label><span class="label-text">Yell range<span class="help" tabindex="0">?<span class="tip">NPCs within this distance hear what you say in yell mode.</span></span></span> <input type="number" name="radii.yell" min="1" required></label>
-            <label><span class="label-text">Conversation timeout (min)<span class="help" tabindex="0">?<span class="tip">A conversation ends after this long without a chat. SSR then compacts dialogue into memories and rumors from deeds.</span></span></span> <input type="number" name="conversation_timeout_minutes" min="1" required></label>
+            <label><span class="label-text">Conversation timeout (min)<span class="help" tabindex="0">?<span class="tip">A conversation ends after this long without a chat. SSR then compacts dialogue into memories and rumors from events.</span></span></span> <input type="number" name="conversation_timeout_minutes" min="1" required></label>
             <label><span class="label-text">Radiant chat timer (min)<span class="help" tabindex="0">?<span class="tip">The time between two radiant conversations. Paused time does not count.</span></span></span> <input type="number" name="radiant_chat_minutes" min="1" required></label>
             <label><span class="label-text">Radiant rumor timer (min)<span class="help" tabindex="0">?<span class="tip">The shortest time between two rumors that SSR makes from your conversations. Paused time counts.</span></span></span> <input type="number" name="radiant_rumor_minutes" min="1" required></label>
             <label><span class="label-text">Dialogue delay (s)<span class="help" tabindex="0">?<span class="tip">The time between two lines of a conversation.</span></span></span> <input type="number" name="dialogue_speed" min="1" required></label>
@@ -175,7 +175,7 @@
         <legend>Instructions (optional)</legend>
         <textarea name="instructions" aria-label="Instructions" placeholder="For example: Beep is known as the Stickman of the Dust."></textarea>
       </fieldset>
-      <p class="hint">The LLM also reads the deed, the sex, race, and backstory of each known character in it, the allies and enemies of the faction that lost, and the rumor in the row, which it keeps where the instructions do not change it.</p>
+      <p class="hint">The LLM also reads the event, the sex, race, and backstory of each known character in it, the allies and enemies of the faction that lost, and the rumor in the row, which it keeps where the instructions do not change it.</p>
       <div class="actions">
         <button value="cancel">Cancel</button>
         <button value="ok" class="save">Write</button>

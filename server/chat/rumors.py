@@ -1,6 +1,6 @@
-"""The facts of a notable event, which the LLM turns into a rumor. The server writes the rumor of each deed in a quiet
+"""The facts of a notable event, which the LLM turns into a rumor. The server writes the rumor of each event in a quiet
 period of the chat (write_rumors in chat/memory.py), and Generate Rumor writes it again with the player's instruction. An
-auto deed is a rumor that the LLM spins from the conversation memories (auto_prompt), so its rumor is its only account. The
+auto event is a rumor that the LLM spins from the conversation memories (auto_prompt), so its rumor is its only account. The
 notice and the rumor of a bounty tell the facts of the game bounty, so only the rumor pass writes them, with the alias of its
 target."""
 import logging
@@ -9,7 +9,7 @@ import re
 from chat.characters import reported_sex
 from chat.chat_prompt import memory_text
 from chat.prompts import fill_prompt
-from core import deeds, state
+from core import state, world_events
 from core.settings import load_settings
 from store import campaign_db
 
@@ -21,21 +21,21 @@ ALIAS_WORDS = 6
 CRIME_WORDS = {"ASSAULT_VIP": "assault of a VIP"}
 
 
-def prompt(at, deed, instruction, rumor_so_far):
+def prompt(at, event, instruction, rumor_so_far):
     return in_language(fill_prompt(
         "prompt_world_synthesis.txt",
         instruction=instruction.strip() or "None.",
-        facts=facts(at, deed),
+        facts=facts(at, event),
         rumor=rumor_so_far.strip() or "None.",
     ))
 
 
 def auto_pool():
     """The memories that a pass of the auto rumors reads, or None when the pass waits: for the memories and the rumors of the
-    deeds, which come first, or for a memory that no pass read, so a pool without a new memory costs no LLM call."""
+    events, which come first, or for a memory that no pass read, so a pool without a new memory costs no LLM call."""
     try:
         pool = campaign_db.rumor_pool(AUTO_POOL)
-        if not any(memory["passes"] == 0 for memory in pool) or campaign_db.pending_threads() or any(event["rumor"] is None for event in deeds.notable_events()):
+        if not any(memory["passes"] == 0 for memory in pool) or campaign_db.pending_threads() or any(event["rumor"] is None for event in world_events.notable_events()):
             return None
     except campaign_db.CampaignUnavailable:
         return None
@@ -61,7 +61,7 @@ def memory_line(memory):
 
 
 def keep_auto_rumor(reply, memories, campaign):
-    """Stores the auto deed of reply, the parsed JSON of the LLM, and counts the pass that read the memories. A reply that is
+    """Stores the auto event of reply, the parsed JSON of the LLM, and counts the pass that read the memories. A reply that is
     not valid changes nothing, because the LLM judged no memory."""
     parsed = auto_reply(reply, memories)
     if parsed is None:
@@ -73,11 +73,11 @@ def keep_auto_rumor(reply, memories, campaign):
         return
     text, cited = parsed
     if text:
-        notable_id = campaign_db.add_auto_deed(text, cited)
+        notable_id = campaign_db.add_auto_event(text, cited)
         if notable_id is None:
             logging.info("RUMOR: Dropped the auto rumor, because a delete or a cull changed its memories while the LLM wrote it.")
             return
-        logging.info(f"RUMOR: Stored the auto deed {notable_id} from the memories of the chat threads {', '.join(map(str, cited))}.")
+        logging.info(f"RUMOR: Stored the auto event {notable_id} from the memories of the chat threads {', '.join(map(str, cited))}.")
     else:
         logging.info("RUMOR: The LLM found no story in the memories.")
     campaign_db.count_rumor_pass(memory["id"] for memory in memories)
@@ -112,32 +112,32 @@ def player_line():
     return faction, f"The player's faction: {faction}." + (f" {description}" if description else "")
 
 
-def facts(at, deed):
+def facts(at, event):
     """Plain sentences, because the LLM gets only these facts and must invent no other event."""
-    ids = deeds.character_ids(deed)
+    ids = world_events.character_ids(event)
     names = campaign_db.names_of(ids)
     faction, faction_sentence = player_line()
-    lines = [faction_sentence, f"The deed: {deed_sentence(deed, names, faction)}"]
+    lines = [faction_sentence, f"The event: {event_sentence(event, names, faction)}"]
     if at is not None:
         lines.append(f"Time: {campaign_db.game_time_text(at)}.")
     # The victim first, because a known figure is the news
     people = [person_line(profile) for profile in (campaign_db.get_character(npc_id) for npc_id in [*ids[-1:], *ids[:-1]]) if profile]
     if people:
         lines += ["Who they are:", *people]
-    stance = faction_line(deed["victim"]["faction"]) if deed["deed"] not in deeds.RUMOR_ONLY else None
+    stance = faction_line(event["victim"]["faction"]) if event["kind"] not in world_events.RUMOR_ONLY else None
     if stance:
         lines += ["The factions:", stance]
     return "\n".join(lines)
 
 
-def deed_sentence(deed, names, player_faction):
-    if deed["deed"] in deeds.RUMOR_ONLY:
+def event_sentence(event, names, player_faction):
+    if event["kind"] in world_events.RUMOR_ONLY:
         return "The one that the rumor so far tells."
-    doers = deeds.name_list([names.get(doer["id"], doer["name"]) for doer in deed["doers"]])
-    victim = names.get(deed["victim"]["id"], deed["victim"]["name"])
-    faction = deed["victim"]["faction"]
-    of = f" of {deeds.the_faction(faction)}" if faction and faction != "Neutral" else ""
-    return f"{doers} of {player_faction} {'killed' if deed['deed'] == 'kill' else 'captured'} {victim}{of}."
+    doers = world_events.name_list([names.get(doer["id"], doer["name"]) for doer in event["doers"]])
+    victim = names.get(event["victim"]["id"], event["victim"]["name"])
+    faction = event["victim"]["faction"]
+    of = f" of {world_events.the_faction(faction)}" if faction and faction != "Neutral" else ""
+    return f"{doers} of {player_faction} {'killed' if event['kind'] == 'kill' else 'captured'} {victim}{of}."
 
 
 def person_line(profile):
@@ -152,25 +152,25 @@ def kind_text(profile):
     return f"{sex.lower()} {race}" if sex.lower() in ("male", "female") else f"{race}, no sex" if sex == "Other" else race
 
 
-def bounty_prompt(at, deed):
-    return in_language(fill_prompt("prompt_bounty_rumor.txt", facts=bounty_facts(at, deed)))
+def bounty_prompt(at, event):
+    return in_language(fill_prompt("prompt_bounty_rumor.txt", facts=bounty_facts(at, event)))
 
 
-def bounty_facts(at, deed):
+def bounty_facts(at, event):
     """Plain sentences, because the LLM gets only these facts and must invent no other crime. The whole profile of the target
     goes in, because the alias must fit the character."""
-    target = deed["target"]
+    target = event["target"]
     profile = campaign_db.get_character(target["id"]) or {"Name": target["name"]}
     # A lone payer is news, while the major factions are the usual payers and naming them adds only noise
-    payer = f", paid by {deeds.the_faction(deed['issuers'][0])}" if len(deed["issuers"]) == 1 else ""
+    payer = f", paid by {world_events.the_faction(event['issuers'][0])}" if len(event["issuers"]) == 1 else ""
     lines = [
-        f"The bounty: {deed['amount']:,} cats for the wanted character{payer}.",
-        f"The crime ({CRIME_WORDS.get(deed['crime'], deed['crime'].lower())}): {deed['reason']}",
-        f"The wanted character: {profile.get('Name') or target['name']} ({kind_text(profile)}) of {deeds.the_faction(target['faction'])}.",
+        f"The bounty: {event['amount']:,} cats for the wanted character{payer}.",
+        f"The crime ({CRIME_WORDS.get(event['crime'], event['crime'].lower())}): {event['reason']}",
+        f"The wanted character: {profile.get('Name') or target['name']} ({kind_text(profile)}) of {world_events.the_faction(target['faction'])}.",
     ]
     lines += [f"{key}: {profile[key]}" for key in ("Personality", "Backstory") if profile.get(key)]
-    if deed["place"]:
-        lines.append(f"Last seen: {deed['place']}.")
+    if event["place"]:
+        lines.append(f"Last seen: {event['place']}.")
     if at is not None:
         lines.append(f"Time: {campaign_db.game_time_text(at)}.")
     stance = faction_line(target["faction"])

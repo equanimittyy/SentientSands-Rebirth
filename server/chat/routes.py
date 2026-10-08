@@ -14,7 +14,7 @@ from chat.characters import get_character_data, npc_name, should_save_profile
 from chat.llm import call_llm
 from chat.memory import quiet_seconds
 from chat.prompts import PROMPT_RUMORS, build_system_prompt, describe_faction, describe_npc, describe_race, fill_prompt, find_location, language_instruction, npc_scene, scene_values
-from core import bounties, deeds, state
+from core import bounties, state, world_events
 from core.game import context_dict, get_current_time_prefix, is_player_faction, note_faction, take_report
 from core.pipe import send_to_pipe
 from core.routes import campaign_write
@@ -39,8 +39,8 @@ def radiant_conversation():
     participants = {str(npc['id']): npc for npc in data.get('participants', [])}
     npc_ids = [npc['npc_id'] for npc in participants.values()]
 
-    if deeds.fought_recently(npc_ids, center):
-        logging.info(f"RADIANT: A participant fought within the last {deeds.FIGHT_QUIET_MINUTES // 60} game hours, so nobody talks.")
+    if world_events.fought_recently(npc_ids, center):
+        logging.info(f"RADIANT: A participant fought within the last {world_events.FIGHT_QUIET_MINUTES // 60} game hours, so nobody talks.")
         return jsonify({"status": "ignore"})
 
     names, profiles = {}, {}
@@ -50,7 +50,7 @@ def radiant_conversation():
         names[serial] = npc_name(npc)
         profiles[serial] = get_character_data(names[serial], context=json.dumps(npc))
 
-    rumor_texts = [rumor["text"] for rumor in deeds.told_rumors()[-PROMPT_RUMORS:]]
+    rumor_texts = [rumor["text"] for rumor in world_events.told_rumors()[-PROMPT_RUMORS:]]
     environment = center.get("environment") or {}
     location = find_location(environment["town_name"]) if environment.get("town_name") else None
     topic = radiant.topic(campaign_db.shared_memories(npc_ids), environment, rumor_texts, location=location)
@@ -243,7 +243,7 @@ def chat():
             environment = target.get("environment") or {}
             candidate = {"npc_id": target["npc_id"], "name": target.get("name", ""), "faction": target.get("faction", ""), "faction_id": target["factionID"],
                          "place": environment.get("town_name") or environment.get("zone_name") or ""}
-            bounty = bounties.roll([candidate], {deed["target"]["id"] for _, deed in deeds.open_bounties()}, int(args) if args else None)
+            bounty = bounties.roll([candidate], {event["target"]["id"] for _, event in world_events.open_bounties()}, int(args) if args else None)
             if not bounty:
                 return reply(f"[DEBUG] {candidate['name']} already has an open bounty.")
             bounties.send(bounty)
@@ -490,7 +490,7 @@ def bio_reply(data, history, race_lore, faction, **reply):
     return jsonify({"status": "ok", "bio": bio, **reply})
 
 def rumor_reply(notable_id, instruction, so_far=None, **reply):
-    """The web app puts the text into the row of the deed, so the player reads it before a save keeps it. so_far None takes
+    """The web app puts the text into the row of the event, so the player reads it before a save keeps it. so_far None takes
     the stored rumor. Stores nothing."""
     try:
         notable_id = int(notable_id)
@@ -499,7 +499,7 @@ def rumor_reply(notable_id, instruction, so_far=None, **reply):
     notable = campaign_db.notable(notable_id)
     if not notable:
         return jsonify({"status": "error", "message": "The notable event is gone. Load the events again."}), 404
-    if notable[1]["deed"] == "bounty":
+    if notable[1]["kind"] == "bounty":
         return bounty_refusal()
     if so_far is None:
         so_far = next((rumor["text"] for rumor in campaign_db.rumors() if rumor["notable_id"] == notable_id), "")
@@ -517,7 +517,7 @@ def keep_rumor_reply(data):
         key = str(data["id"]) if data.get("id") else f"new:{data.get('notable')}"
         return jsonify({"status": "error", "errors": [{"field": ["rumors", key], "message": "A rumor needs text. Delete it instead."}]}), 400
     notable = campaign_db.notable(data.get("notable") or next((rumor["notable_id"] for rumor in campaign_db.rumors() if str(rumor["id"]) == str(data.get("id"))), None))
-    if notable and notable[1]["deed"] == "bounty":
+    if notable and notable[1]["kind"] == "bounty":
         return bounty_refusal()
     instruction = data.get("instruction")
     if not campaign_db.save_rumor(data.get("id"), data.get("notable"), text, None if instruction is None else str(instruction).strip()):
@@ -530,42 +530,42 @@ def delete_rumor_reply(data):
     campaign_db.delete_rumor(data.get("id"))
     return jsonify({"status": "ok"})
 
-def add_deed_reply(data, source):
-    """The Deeds window selects the new deed by its id."""
+def add_event_reply(data, source):
+    """The Events window selects the new event by its id."""
     refused = campaign_write(data)
     if refused: return refused
     rumor = str(data.get("rumor") or "").strip()
     if not rumor:
-        return jsonify({"status": "error", "message": "Write the rumor of the deed."}), 400
-    notable_id = campaign_db.add_custom_deed(rumor)
-    logging.info(f"DEEDS: Added the custom deed {notable_id} from {source}")
+        return jsonify({"status": "error", "message": "Write the rumor of the event."}), 400
+    notable_id = campaign_db.add_custom_event(rumor)
+    logging.info(f"EVENTS: Added the custom event {notable_id} from {source}")
     return jsonify({"status": "ok", "id": notable_id})
 
 def bounty_refusal():
     return jsonify({"status": "error", "message": "SSR writes the notice and the rumor of a bounty from the bounty in the game, so they cannot be written or edited."}), 400
 
-def delete_deed_reply(data):
+def delete_event_reply(data):
     """The game bounty of a deleted bounty stays, because the plugin can reach the target only while it is loaded."""
     refused = campaign_write(data)
     if refused: return refused
     notable = campaign_db.notable(data.get("id"))
-    if campaign_db.delete_custom_deed(data.get("id")) and notable[1]["deed"] == "bounty":
-        deeds.end_bounty(notable[1])
+    if campaign_db.delete_custom_event(data.get("id")) and notable[1]["kind"] == "bounty":
+        world_events.end_bounty(notable[1])
     return jsonify({"status": "ok"})
 
 @bp.route('/write_rumor', methods=['POST'])
 def write_events_rumor():
     data = request.get_json(silent=True) or {}
-    # The Deeds window sends the campaign back with Keep, because the same notable event ID can name another deed in another campaign
+    # The Events window sends the campaign back with Keep, because the same notable event ID can name another event in another campaign
     return rumor_reply(data.get("notable"), str(data.get("instruction") or ""), campaign=state.ACTIVE_CAMPAIGN)
 
 @bp.route('/read_rumor', methods=['POST'])
 def read_events_rumor():
-    """Answers in the shape of /write_rumor, so Edit Rumor in the Deeds window opens the same editor as Generate Rumor."""
+    """Answers in the shape of /write_rumor, so Edit Rumor in the Events window opens the same editor as Generate Rumor."""
     data = request.get_json(silent=True) or {}
     rumor = next((rumor for rumor in campaign_db.rumors() if str(rumor["notable_id"]) == str(data.get("notable"))), None)
     if not rumor:
-        return jsonify({"status": "error", "message": "The deed has no rumor yet."}), 404
+        return jsonify({"status": "error", "message": "The event has no rumor yet."}), 404
     return jsonify({"status": "ok", "text": rumor["text"], "campaign": state.ACTIVE_CAMPAIGN})
 
 @bp.route('/keep_rumor', methods=['POST'])
@@ -576,13 +576,13 @@ def keep_events_rumor():
 def delete_events_rumor():
     return delete_rumor_reply(request.get_json(silent=True) or {})
 
-@bp.route('/add_deed', methods=['POST'])
-def add_events_deed():
-    return add_deed_reply(request.get_json(silent=True) or {}, "the game")
+@bp.route('/add_event', methods=['POST'])
+def add_events_event():
+    return add_event_reply(request.get_json(silent=True) or {}, "the game")
 
-@bp.route('/delete_deed', methods=['POST'])
-def delete_events_deed():
-    return delete_deed_reply(request.get_json(silent=True) or {})
+@bp.route('/delete_event', methods=['POST'])
+def delete_events_event():
+    return delete_event_reply(request.get_json(silent=True) or {})
 
 @bp.route('/write_bio', methods=['POST'])
 def write_library_bio():

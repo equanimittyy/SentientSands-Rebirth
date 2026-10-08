@@ -15,7 +15,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 DB_NAME = "campaign.db"
-SCHEMA_VERSION = 14
+SCHEMA_VERSION = 15
 DIALOGUE_BLOCK = 20
 # A memory that this many passes read and did not cite leaves the auto rumor pool, so dull memories do not fill each prompt
 RUMOR_PASSES = 6
@@ -67,7 +67,7 @@ CREATE INDEX dialogue_by_thread ON dialogue (thread_id);
 CREATE TABLE notable (
   id        INTEGER PRIMARY KEY,
   game_time INTEGER,
-  deed      TEXT NOT NULL
+  event      TEXT NOT NULL
 );
 CREATE TABLE rumor (
   id          INTEGER PRIMARY KEY,
@@ -528,33 +528,33 @@ def toggle_favorite(npc_id):
         return not row[1]
 
 
-def add_deed(kind, doers, victim, game_time):
+def add_event(kind, doers, victim, game_time):
     """Stores the notable event of a known figure that the doers, (npc_id, name) pairs, killed or captured. kind is "kill"
     or "capture", and victim holds the npc_id, name, and faction. A doer that already captured the victim gets no second
-    capture, because the game imprisons each prisoner again when a save loads. Returns the doers of the deed."""
+    capture, because the game imprisons each prisoner again when a save loads. Returns the doers of the event."""
     with _connect(write=True) as conn:
         if kind == "capture":
-            captors = {doer["id"] for (deed,) in conn.execute(
-                "SELECT deed FROM notable WHERE json_extract(deed, '$.deed') = 'capture' AND json_extract(deed, '$.victim.id') = ?", (victim["npc_id"],)
-            ) for doer in json.loads(deed)["doers"]}
+            captors = {doer["id"] for (event,) in conn.execute(
+                "SELECT event FROM notable WHERE json_extract(event, '$.kind') = 'capture' AND json_extract(event, '$.victim.id') = ?", (victim["npc_id"],)
+            ) for doer in json.loads(event)["doers"]}
             doers = [doer for doer in doers if doer[0] not in captors]
         if doers:
-            deed = {"deed": kind, "doers": [{"id": npc_id, "name": name} for npc_id, name in doers], "victim": {"id": victim["npc_id"], "name": victim["name"], "faction": victim["faction"]}}
-            conn.execute("INSERT INTO notable (game_time, deed) VALUES (?, ?)", (game_time, json.dumps(deed)))
+            event = {"kind": kind, "doers": [{"id": npc_id, "name": name} for npc_id, name in doers], "victim": {"id": victim["npc_id"], "name": victim["name"], "faction": victim["faction"]}}
+            conn.execute("INSERT INTO notable (game_time, event) VALUES (?, ?)", (game_time, json.dumps(event)))
     return doers
 
 
-def add_custom_deed(rumor):
-    """Stores a custom deed, for an act that the game does not track, with the rumor that the player wrote and no game
+def add_custom_event(rumor):
+    """Stores a custom event, for an act that the game does not track, with the rumor that the player wrote and no game
     time. Returns its notable event ID."""
     with _connect(write=True) as conn:
-        notable_id = conn.execute("INSERT INTO notable (deed) VALUES (?)", (json.dumps({"deed": "custom"}),)).lastrowid
+        notable_id = conn.execute("INSERT INTO notable (event) VALUES (?)", (json.dumps({"kind": "custom"}),)).lastrowid
         conn.execute("INSERT INTO rumor (notable_id, text) VALUES (?, ?)", (notable_id, rumor))
         return notable_id
 
 
-def add_auto_deed(rumor, thread_ids):
-    """Stores an auto deed, with the rumor that the LLM spun from the memories of the threads, each once. The deed takes the
+def add_auto_event(rumor, thread_ids):
+    """Stores an auto event, with the rumor that the LLM spun from the memories of the threads, each once. The event takes the
     newest game time of the threads, so the cull deletes it with its memories. The threads leave the pool of the auto rumors.
     Returns its notable event ID, or None, with no write, when a thread is gone or out of the pool, because a delete or a
     cull changed the pool during the call."""
@@ -565,16 +565,16 @@ def add_auto_deed(rumor, thread_ids):
         if len(times) != len(thread_ids):
             return None
         at = max((at for at in times if at is not None), default=None)
-        notable_id = conn.execute("INSERT INTO notable (game_time, deed) VALUES (?, ?)", (at, json.dumps({"deed": "auto", "threads": thread_ids}))).lastrowid
+        notable_id = conn.execute("INSERT INTO notable (game_time, event) VALUES (?, ?)", (at, json.dumps({"kind": "auto", "threads": thread_ids}))).lastrowid
         conn.execute("INSERT INTO rumor (notable_id, game_time, text) VALUES (?, ?, ?)", (notable_id, at, rumor))
         conn.execute(f"UPDATE thread SET rumor_passes = ? WHERE id IN ({marks})", (RUMOR_PASSES, *thread_ids))
         return notable_id
 
 
-def add_bounty_deed(deed, game_time):
+def add_bounty_event(event, game_time):
     """Stores a bounty that the plugin placed, with no rumor yet. Returns its notable event ID."""
     with _connect(write=True) as conn:
-        return conn.execute("INSERT INTO notable (game_time, deed) VALUES (?, ?)", (game_time, json.dumps({"deed": "bounty", **deed}))).lastrowid
+        return conn.execute("INSERT INTO notable (game_time, event) VALUES (?, ?)", (game_time, json.dumps({"kind": "bounty", **event}))).lastrowid
 
 
 def add_bounty_rumor(notable_id, notice, rumor):
@@ -583,26 +583,26 @@ def add_bounty_rumor(notable_id, notice, rumor):
     with _connect(write=True) as conn:
         if conn.execute("INSERT OR IGNORE INTO rumor (notable_id, game_time, text) SELECT id, game_time, ? FROM notable WHERE id = ?", (rumor, notable_id)).rowcount == 0:
             return False
-        conn.execute("UPDATE notable SET deed = json_set(deed, '$.notice', ?) WHERE id = ?", (notice, notable_id))
+        conn.execute("UPDATE notable SET event = json_set(event, '$.notice', ?) WHERE id = ?", (notice, notable_id))
         return True
 
 
-def delete_custom_deed(notable_id):
-    """Deletes a custom, an auto, or a bounty deed with its rumor. The memories of an auto deed stay out of the pool, so the
+def delete_custom_event(notable_id):
+    """Deletes a custom, an auto, or a bounty event with its rumor. The memories of an auto event stay out of the pool, so the
     next pass does not spin the same rumor again."""
     with _connect(write=True) as conn:
-        return conn.execute("DELETE FROM notable WHERE id = ? AND json_extract(deed, '$.deed') IN ('custom', 'auto', 'bounty')", (notable_id,)).rowcount > 0
+        return conn.execute("DELETE FROM notable WHERE id = ? AND json_extract(event, '$.kind') IN ('custom', 'auto', 'bounty')", (notable_id,)).rowcount > 0
 
 
 def notables():
-    """Every notable event as (id, game_time, deed), newest first. A custom deed has no game time and counts as the newest."""
+    """Every notable event as (id, game_time, event), newest first. A custom event has no game time and counts as the newest."""
     with _connect() as conn:
-        rows = conn.execute("SELECT id, game_time, deed FROM notable ORDER BY game_time DESC NULLS FIRST, id DESC").fetchall()
-    return [(notable_id, at, json.loads(deed)) for notable_id, at, deed in rows]
+        rows = conn.execute("SELECT id, game_time, event FROM notable ORDER BY game_time DESC NULLS FIRST, id DESC").fetchall()
+    return [(notable_id, at, json.loads(event)) for notable_id, at, event in rows]
 
 
 def rumors():
-    """Every rumor as a dict, oldest first by game time. The rumor of a custom deed has no game time and counts as the newest."""
+    """Every rumor as a dict, oldest first by game time. The rumor of a custom event has no game time and counts as the newest."""
     with _connect() as conn:
         rows = conn.execute("SELECT id, notable_id, game_time, text, instruction FROM rumor ORDER BY game_time NULLS LAST, id").fetchall()
     return [{"id": rumor_id, "notable_id": notable_id, "game_time": at, "text": text, "instruction": instruction}
@@ -610,9 +610,9 @@ def rumors():
 
 
 def notable(notable_id):
-    """The notable event as (game_time, deed), or None."""
+    """The notable event as (game_time, event), or None."""
     with _connect() as conn:
-        row = conn.execute("SELECT game_time, deed FROM notable WHERE id = ?", (notable_id,)).fetchone()
+        row = conn.execute("SELECT game_time, event FROM notable WHERE id = ?", (notable_id,)).fetchone()
     return (row[0], json.loads(row[1])) if row else None
 
 

@@ -14,7 +14,7 @@ void CloseEventsUI();
 void PopulateEventsUI(const std::string &data);
 void SetEventsText(const std::string &data);
 void OpenRumorEditor(const std::string &data, const std::string &failureKey);
-void FinishDeedChange(const std::string &data, const std::string &failureKey);
+void FinishEventChange(const std::string &data, const std::string &failureKey);
 
 void OnEventsSelect(MyGUI::ListBox *sender, size_t index);
 void OnEventsWindowClose(MyGUI::Window *sender, const std::string &name);

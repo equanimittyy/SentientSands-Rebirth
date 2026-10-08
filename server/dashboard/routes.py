@@ -10,8 +10,8 @@ from chat.bio import recorded_history
 from chat.characters import send_rename
 from chat.llm import default_llm_config, send_completion
 from chat.prompts import describe_faction, describe_race, describe_record, faction_text, find_named
-from chat.routes import add_deed_reply, bio_refusal, bio_reply, delete_deed_reply, delete_rumor_reply, keep_rumor_reply, rumor_reply
-from core import deeds, state
+from chat.routes import add_event_reply, bio_refusal, bio_reply, delete_event_reply, delete_rumor_reply, keep_rumor_reply, rumor_reply
+from core import state, world_events
 from core.game import report_from_game
 from core.paths import (CAMPAIGNS_DIR, DEFAULT_TEMPLATE, LLM_CONFIG_PATH, PROMPTS_DIR, USER_PROMPTS_DIR, USER_TEMPLATES_DIR,
                         WORLD_TEMPLATES_DIR)
@@ -173,7 +173,7 @@ def get_active_campaign():
         return jsonify({
             "status": "ok",
             "name": state.ACTIVE_CAMPAIGN,
-            "notables": deeds.notable_events(),
+            "notables": world_events.notable_events(),
             "rumors": [
                 {"id": rumor["id"], "notable": rumor["notable_id"], "text": rumor["text"], "instruction": rumor["instruction"], "time": campaign_db.game_time_text(rumor["game_time"]) if rumor["game_time"] is not None else "-"}
                 for rumor in reversed(campaign_db.rumors())
@@ -196,7 +196,7 @@ def get_active_campaign():
 @bp.route('/api/campaign/canon', methods=['GET'])
 def get_campaign_canon():
     try:
-        squad_deeds = deeds.character_deeds()
+        squad_events = world_events.character_events()
         known = campaign_db.character_knowledge()
         characters = campaign_db.list_records("character")
         visited = background.travels(background.campaign_lore(), {npc_id: profile for (npc_id,), profile, *_ in characters})
@@ -213,7 +213,7 @@ def get_campaign_canon():
             ],
             "characters": [
                 {"id": npc_id, "data": {"game_id": npc_id.removeprefix("u:"), "profile": profile, **known[npc_id]}, "origin": origin, "updated_at": updated_at, "current_faction": state.LIVE_CONTEXTS.get(npc_id, {}).get("faction"), "status": state.LIVE_CONTEXTS.get(npc_id, {}).get("health"),
-                 "visited": visited.get(npc_id, []), **({"deeds": squad_deeds[npc_id]} if npc_id in squad_deeds else {})}
+                 "visited": visited.get(npc_id, []), **({"events": squad_events[npc_id]} if npc_id in squad_events else {})}
                 for (npc_id,), profile, origin, updated_at in characters
             ],
             "entities": [
@@ -412,13 +412,13 @@ def save_campaign_rumor():
 def delete_campaign_rumor():
     return delete_rumor_reply(request.get_json(silent=True) or {})
 
-@bp.route('/api/campaign/deeds/add', methods=['POST'])
-def add_campaign_deed():
-    return add_deed_reply(request.get_json(silent=True) or {}, "the web app")
+@bp.route('/api/campaign/events/add', methods=['POST'])
+def add_campaign_event():
+    return add_event_reply(request.get_json(silent=True) or {}, "the web app")
 
-@bp.route('/api/campaign/deeds/delete', methods=['POST'])
-def delete_campaign_deed():
-    return delete_deed_reply(request.get_json(silent=True) or {})
+@bp.route('/api/campaign/events/delete', methods=['POST'])
+def delete_campaign_event():
+    return delete_event_reply(request.get_json(silent=True) or {})
 
 @bp.route('/api/campaign/memories', methods=['POST'])
 def save_campaign_memory():

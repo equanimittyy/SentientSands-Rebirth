@@ -1,8 +1,8 @@
 """Create a campaign filled with mock play data, so the web app and the Dialogue Library have data without a game.
 
 The data goes in through the campaign_db calls that the chat route makes: chat threads with speakers and overhearers,
-a whisper and a yell, a radiant conversation of the squad, and the memories of all threads but the newest. The deeds go in as the events of
-the game, through the attribution of the server: a known figure captured, with a rumor, and one killed. Three bounties go
+a whisper and a yell, a radiant conversation of the squad, and the memories of all threads but the newest. The events go in as game events,
+through the attribution of the server: a known figure captured, with a rumor, and one killed. Three bounties go
 in as the bounty route stores them, with the notice, the rumor, and the alias that the LLM writes, and the squad then kills
 one target and captures another. The script refuses a campaign name that is taken, so a second run cannot add the data
 twice. It needs no Flask, so it runs in the dev container.
@@ -17,7 +17,7 @@ SERVER = REPO / "server"
 sys.path.insert(0, str(SERVER))
 
 from chat import chat_prompt, provisional_profile
-from core import bounties, deeds
+from core import bounties, world_events
 from store import campaign_db, world_template
 
 SQUAD, SQUAD_ID = "Nameless", "204-gamedata.base"
@@ -62,7 +62,7 @@ def at(day, hour, minute):
 
 
 def kill(killers, victim, when):
-    deeds.take([{"kind": "attack", "attacker": killer, "target": victim["id"], **when} for killer in killers] + [{"kind": "death", "party": victim, **when}])
+    world_events.take([{"kind": "attack", "attacker": killer, "target": victim["id"], **when} for killer in killers] + [{"kind": "death", "party": victim, **when}])
 
 
 def bounty(npc_id, crime, reason, amount, place, when, notice, rumor, alias):
@@ -71,7 +71,7 @@ def bounty(npc_id, crime, reason, amount, place, when, notice, rumor, alias):
     campaign_db.upsert_profile(npc_id, {**profile, **provisional_profile.roll(npc_id, "person", profile["Race"]), campaign_db.PROVISIONAL: 0})
     target = {"npc_id": npc_id, "name": profile["Name"], "faction": profile["Faction"], "place": place}
     # The plugin moves the start of the bounty 100,000 game hours ahead, so the bounty does not end
-    expires = deeds.game_minutes(when) + 100_000 * 60
+    expires = world_events.game_minutes(when) + 100_000 * 60
     notable_id = bounties.store({"target": target, "reason": reason, "crime": crime, "amount": amount}, profile["Name"],
                                 {"context": when, "squad": f"squad of {profile['Name']}", "persistent": False, "expires": expires,
                                  "issuers": list(bounties.ISSUERS.values())})
@@ -167,11 +167,11 @@ def fill():
 
     stick, izumi, mikse = (party(npc_id, NAMES[npc_id], SQUAD) for npc_id in (STICK, IZUMI, MIKSE))
     king = party(DUST_KING, "Dust King", "Dust Bandits")
-    deeds.take([{"kind": "attack", "attacker": member, "target": DUST_KING, **at(8, 12, 0)} for member in (stick, izumi, mikse)]
+    world_events.take([{"kind": "attack", "attacker": member, "target": DUST_KING, **at(8, 12, 0)} for member in (stick, izumi, mikse)]
                + [{"kind": "knockout", "id": DUST_KING, **at(8, 12, 1)}, {"kind": "up", "id": DUST_KING, "carried": True, **at(8, 12, 5)},
                   {"kind": "imprisonment", "party": king, **at(8, 14, 0)}])
 
-    (capture,) = deeds.notable_events()
+    (capture,) = world_events.notable_events()
     campaign_db.save_rumor(None, capture["id"], "Word in the bars is that the Cage Crew of Nameless dragged the Dust King to a cage, and the Dust Bandits want them dead.",
                            "Call the squad the Cage Crew.")
     kill([izumi, mikse], party(LONGEN, "Longen", "Traders Guild"), at(9, 20, 30))
@@ -193,10 +193,10 @@ def fill():
            " hums while he cleans the blade. The Dust Bandit is worth 8,400 cats to anyone who finds him in the Great Desert.", "Slit")
 
     kill([stick, mikse], party(SADI, NAMES[SADI], "Starving Bandits"), at(10, 16, 0))
-    campaign_db.save_rumor(None, deeds.notable_events()[0]["id"],
+    campaign_db.save_rumor(None, world_events.notable_events()[0]["id"],
                            "They say Stick and Mikse of Nameless cut down the Snatcher in the Border Zone, and the travellers there sleep easier for it.")
     tavi = party(TAVI, NAMES[TAVI], "Dust Bandits")
-    deeds.take([{"kind": "attack", "attacker": izumi, "target": TAVI, **at(11, 9, 0)}, {"kind": "knockout", "id": TAVI, **at(11, 9, 1)},
+    world_events.take([{"kind": "attack", "attacker": izumi, "target": TAVI, **at(11, 9, 0)}, {"kind": "knockout", "id": TAVI, **at(11, 9, 1)},
                 {"kind": "up", "id": TAVI, "carried": True, **at(11, 9, 4)}, {"kind": "imprisonment", "party": tavi, **at(11, 10, 30)}])
 
 
@@ -215,7 +215,7 @@ def main():
     campaign_db.open_campaign(str(folder), lambda: seed)
     campaign_db.note_faction(SQUAD_ID, SQUAD, is_player=True)
     # No game listens to END_BOUNTY, and outside Windows the pipe path is a plain file in the working directory
-    deeds.send_to_pipe = lambda cmd: None
+    world_events.send_to_pipe = lambda cmd: None
     fill()
     threads = campaign_db.threads()
     print(f"Created the campaign {name} with {len(threads)} chat threads, {sum(thread['memory'] is not None for thread in threads)} of them with a memory, {len(campaign_db.notables())} notable events, and {len(campaign_db.rumors())} rumors.")

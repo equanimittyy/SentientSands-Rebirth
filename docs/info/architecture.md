@@ -68,7 +68,7 @@ The plugin reads the game state only when a request needs it. Do not post it on 
 
 ### Game events
 
-The hooks in `plugin/main.cpp` buffer the game events (`QueueGameEvent`). The server decides who did what (see [Deeds](#deeds)).
+The hooks in `plugin/main.cpp` buffer the game events (`QueueGameEvent`). The server decides who did what (see [Events](#events)).
 
 | Kind | Hook | Added when |
 |---|---|---|
@@ -84,43 +84,43 @@ The hooks in `plugin/main.cpp` buffer the game events (`QueueGameEvent`). The se
 - A request takes the events out of the buffer (`TakeGameEvents`), so each event goes once, and a failed request loses them. The buffer holds 100 events.
 - Without a game world, an event has no game time, so the plugin drops it.
 
-### Deeds
+### Events
 
-`server/core/deeds.py` decides which squad members killed or captured a known figure. It keeps the events of each `npc_id` in memory for the active campaign. A `death` or an `imprisonment` takes the attackers since the last one:
+`server/core/world_events.py` decides which squad members killed or captured a known figure. It keeps the game events of each `npc_id` in memory for the active campaign. A `death` or an `imprisonment` takes the attackers since the last one:
 
 - While a `knockout` mark is set, all attackers count, because a capture in Kenshi is a knockout, a carry, and a cell ([kenshi_internals.md](kenshi_internals.md#deaths-and-captures)). An `up` that is not carried clears the mark. A carried `up` changes nothing.
 - Else each attacker whose last attack is in the 3 game hours before counts. Kenshi gives no last hit.
 - An event with a game time before the newest event is a load, and drops the kept events after that time. The server skips events at Day 0, 00:00, because the clock reads that until it holds a real time.
 
-The `notable` table holds one row for each deed, with the game time and, as JSON, the kind (`kill`, `capture`, `custom`, `auto`, or `bounty`) and its facts.
+The `notable` table holds one row for each event, with the game time and, as JSON, the kind (`kill`, `capture`, `custom`, `auto`, or `bounty`) and its facts.
 
-- Only a known figure outside the player's faction makes a deed: a unique character (`npc_id` starts with `u:`), a generic character that took a canon `npc_id` (`adopt_canon`, see [Characters](#characters)), or the target of an open bounty (see [Bounties](#bounties)).
+- Only a known figure outside the player's faction makes an event: a unique character (`npc_id` starts with `u:`), a generic character that took a canon `npc_id` (`adopt_canon`, see [Characters](#characters)), or the target of an open bounty (see [Bounties](#bounties)).
 - A capture counts once for each captor and figure, because `setPrisonMode` runs again for each prisoner when a save loads.
-- A custom deed is a rumor that the player writes (`POST /api/campaign/deeds/add`). It has no game time, so it counts as the newest and the cull keeps it.
-- The server deletes only a custom, an auto, or a bounty deed, always with its rumor. The cull deletes the rows after its game time (see [Campaign routes of the web app](#campaign-routes-of-the-web-app)).
+- A custom event is a rumor that the player writes (`POST /api/campaign/events/add`). It has no game time, so it counts as the newest and the cull keeps it.
+- The server deletes only a custom, an auto, or a bounty event, always with its rumor. The cull deletes the rows after its game time (see [Campaign routes of the web app](#campaign-routes-of-the-web-app)).
 
 ### Rumors
 
-The server writes the rumor of each deed in the quiet period of the memories, after them, one call at a time (`write_rumors` in `server/chat/memory.py`, see [Conversation memories](#conversation-memories)).
+The server writes the rumor of each event in the quiet period of the memories, after them, one call at a time (`write_rumors` in `server/chat/memory.py`, see [Conversation memories](#conversation-memories)).
 
 - A failed call leaves no rumor, and the next run tries again.
-- The server stores the text only when the deed still has no rumor, and drops it when the active campaign changed during the call.
+- The server stores the text only when the event still has no rumor, and drops it when the active campaign changed during the call.
 - The player can generate a rumor with an instruction (`POST /api/campaign/rumors/generate`, the `synthesis` task), which stores nothing until Save. The instruction wins over the rumor so far.
-- The LLM gets only plain facts (`server/chat/rumors.py`), so it invents no other event: the player's faction, the deed, the time, the profiles of its characters, and the allies and enemies of the victim's faction. A custom or an auto deed gives no characters and no factions, because its rumor is the only account.
+- The LLM gets only plain facts (`server/chat/rumors.py`), so it invents no other event: the player's faction, the event, the time, the profiles of its characters, and the allies and enemies of the victim's faction. A custom or an auto event gives no characters and no factions, because its rumor is the only account.
 
-The `rumor` table holds the text, the game time of its deed, the instruction, and the deed. A deed has at most one rumor. The chat scene gives each NPC the 5 newest rumors with their age (`PROMPT_RUMORS`), and a radiant conversation can take one of them as its topic. Both leave out the rumor of a bounty that is no longer open (`deeds.told_rumors`), because the kill or the capture of its target has a rumor of its own.
+The `rumor` table holds the text, the game time of its event, the instruction, and the event. An event has at most one rumor. The chat scene gives each NPC the 5 newest rumors with their age (`PROMPT_RUMORS`), and a radiant conversation can take one of them as its topic. Both leave out the rumor of a bounty that is no longer open (`world_events.told_rumors`), because the kill or the capture of its target has a rumor of its own.
 
 ### Auto rumors
 
-At most once in each period of the Radiant rumor timer (`radiant_rumor_minutes`, default 30 real minutes), the LLM can spin one rumor from the memories that no rumor used. The rumor is an auto deed (see [Deeds](#deeds)).
+At most once in each period of the Radiant rumor timer (`radiant_rumor_minutes`, default 30 real minutes), the LLM can spin one rumor from the memories that no rumor used. The rumor is an auto event (see [Events](#events)).
 
-`memory_loop` runs a pass when the timer passed, the chat is quiet, no memory or deed rumor waits, and the pool holds a memory that no pass read. The pass runs in the thread of the memories, so its call overlaps no other call.
+`memory_loop` runs a pass when the timer passed, the chat is quiet, no memory or event rumor waits, and the pool holds a memory that no pass read. The pass runs in the thread of the memories, so its call overlaps no other call.
 
 - The pool holds each memory whose `thread.rumor_passes` is less than 6 (`RUMOR_PASSES`). A pass reads the newest 40 (`campaign_db.rumor_pool`).
 - After a valid reply, a cited memory goes to 6, a memory that was read and not cited gets +1, and an older memory in the pool goes to 6 (`count_rumor_pass`). So dull memories leave, and a theme can build over several passes.
 - The prompt (`prompt_auto_rumor.txt`) holds the player's faction, the memories with labels 1 to N, and the newest 30 rumors. The reply is `{"rumor": "...", "memories": [1, 2]}`. The empty rumor is the default.
-- `campaign_db.add_auto_deed` stores the deed and its rumor, and sets the cited threads to 6, in one transaction. Nothing is written when the active campaign changed or a cited thread left the pool during the call.
-- The deed takes the newest game time of its threads, so the cull deletes it, and the auto rumors do not hold the 5 newest places for good.
+- `campaign_db.add_auto_event` stores the event and its rumor, and sets the cited threads to 6, in one transaction. Nothing is written when the active campaign changed or a cited thread left the pool during the call.
+- The event takes the newest game time of its threads, so the cull deletes it, and the auto rumors do not hold the 5 newest places for good.
 
 ### Bounties
 
@@ -131,22 +131,22 @@ SSR posts bounties of its own through the bounty system of the game. The server 
 3. The server keeps the members of the 27 target factions (`bounties.TARGETS`) that have no open bounty. It rolls the target, a reason with its crime (`server/data/defaults/bounty_reasons.json`), an amount from 2,000 to 15,000 cats, mostly near the low end (`bounties.AMOUNT_WEIGHTS`), and a bonus for each of the 16 combat skills, and sends `BOUNTY_TARGET: serial`.
 4. The plugin finds the target by the serial of its handle and posts its context to `/bounty/target`. The server stores the target as at a first meeting (`npc_name`), so a generic target gets a rolled name, and sends `NPC_RENAME` before `PLACE_BOUNTY: serial|crime|amount|issuers|stat:bonus,...`. The rename comes first, because the game bounty vanished when the rename came after it.
 5. The plugin finds the target again. For each of the Holy Nation, the United Cities, and the Shek Kingdom that still holds a town (`FactionWarMgr::myTowns`), it adds the amount to the bounty of its law enforcement faction, adds the crime, and moves the start time of the bounty 100,000 game hours ahead, so that a bounty under 10,000 cats does not end. It marks the target's squad persistent, puts the squad on the world map, raises the skills, and posts the result to `/bounty/placed` with the names of the factions that posted the bounty. When none of the three holds a town, the faction that is its own law enforcement faction and holds the town closest to the target posts the bounty (`NearestLaw`). It is never the player's faction or the target's faction, and never a friend of the target's faction: a relation above 0 either way.
-6. The server stores the bounty deed with the stored name of the target. A result after a campaign switch, or a second result, stores nothing (`take_pending`). A target that is dead or no longer loaded at step 4 or 5 gets no bounty, and the plugin posts the failure to `/bounty/placed`.
-7. The rumor pass writes the wanted notice, the rumor, and the alias of the target in one call (`prompt_bounty_rumor.txt`, the `synthesis` task). The notice goes into the deed, the rumor into the `rumor` table, and the alias into the `Alias` of the target's profile when that is empty. A reply without all three stores nothing, and the next run tries again.
+6. The server stores the bounty event with the stored name of the target. A result after a campaign switch, or a second result, stores nothing (`take_pending`). A target that is dead or no longer loaded at step 4 or 5 gets no bounty, and the plugin posts the failure to `/bounty/placed`.
+7. The rumor pass writes the wanted notice, the rumor, and the alias of the target in one call (`prompt_bounty_rumor.txt`, the `synthesis` task). The notice goes into the event, the rumor into the `rumor` table, and the alias into the `Alias` of the target's profile when that is empty. A reply without all three stores nothing, and the next run tries again.
 
-- The deed holds the target, the reason, the crime, the amount, the factions that posted the bounty, the place, `expires` in game minutes, the handle of the target's squad, and `persistent`, the flag of the squad before the placement. A squad that another open bounty holds takes the `persistent` of that bounty, because SSR set the flag.
-- The status comes from the other deeds and the game time (`deeds.bounty_statuses`): Captured or Killed after a capture or a kill of the target by the squad, Expired after `expires`, else Open. A cull of the kill opens the bounty again.
+- The event holds the target, the reason, the crime, the amount, the factions that posted the bounty, the place, `expires` in game minutes, the handle of the target's squad, and `persistent`, the flag of the squad before the placement. A squad that another open bounty holds takes the `persistent` of that bounty, because SSR set the flag.
+- The status comes from the other events and the game time (`world_events.bounty_statuses`): Captured or Killed after a capture or a kill of the target by the squad, Expired after `expires`, else Open. A cull of the kill opens the bounty again.
 - When a bounty stops being Open, or the player deletes it, the server sends `END_BOUNTY: squad|clear`, unless another open bounty holds the same squad. The plugin finds the squad by its handle among the active and the unloaded squads, takes it off the map, and clears the persistent flag when `clear` is 1. The skill bonus and the game bounty of a living target stay.
 - The facts of the rumor pass name the paying faction only when one faction posted the bounty, so the notice names it. The usual payers, the three major factions, stay unnamed. The notice rule asks for the reward as the fact gives it and never names a payer, because a rule that named one, even to forbid it, made the LLM write the target's faction into the notice as the payer.
-- The notice and the rumor tell the facts of the game bounty, so the routes that write or save a rumor refuse a bounty. The Deeds page shows the notice in the Deed column, the rumor in the Rumor column, and the status after the kind.
+- The notice and the rumor tell the facts of the game bounty, so the routes that write or save a rumor refuse a bounty. The Events page shows the notice in the Event column, the rumor in the Rumor column, and the status after the kind.
 - The character prompt holds the `Alias` (`alias_line`), so the target knows the name that the notices give it.
 - `/bounty [n]` in the chat posts a bounty of n cats, or of a rolled amount, on the chat target through steps 4 to 7, for tests.
 
-### Deeds window
+### Events window
 
-The Deeds window of the SSR HUB mirrors Campaign Canon > Deeds through `/events`, `/events/content`, `/write_rumor`, `/read_rumor`, `/keep_rumor`, `/add_deed`, `/delete_deed`, and `/delete_rumor`. These share the code of the web app routes in `server/chat/routes.py`.
+The Events window of the SSR HUB mirrors Campaign Canon > Events through `/events`, `/events/content`, `/write_rumor`, `/read_rumor`, `/keep_rumor`, `/add_event`, `/delete_event`, and `/delete_rumor`. These share the code of the web app routes in `server/chat/routes.py`.
 
-- The reads return the active campaign, and each write sends it back. A write is refused when that campaign is no longer active, because the same ID can name another deed.
+- The reads return the active campaign, and each write sends it back. A write is refused when that campaign is no longer active, because the same ID can name another event.
 - Each close of a popup makes the pending reply stale (`CloseRumorUI`).
 - Generate Rumor and Edit Rumor refuse a bounty in the window, before any request.
 
@@ -179,7 +179,7 @@ The server serves `server/dashboard/web/` at `/` and `/web/<file>`: plain HTML, 
 
 The Editor:
 
-- **Campaign Canon** shows the active campaign in Database, Dialogue & Memories, and Deeds (see [Deeds](#deeds)). **Templates** edits the world templates; a shipped template is read-only.
+- **Campaign Canon** shows the active campaign in Database, Dialogue & Memories, and Events (see [Events](#events)). **Templates** edits the world templates; a shipped template is read-only.
 - Save sends one request per changed record. A rejected record keeps its draft.
 - Dialogue & Memories shows the threads (see [Chat threads](#chat-threads)). A thread with a memory shows only the memory, which is editable.
 - Facts offer only the categories of the kind (`FACTS` in `server/store/world_template.py`, copied in `editor.js`). The `neighbours` of a region have a direction menu per name that starts at Unknown, which the validator refuses.
@@ -361,7 +361,7 @@ A radiant conversation is a talk between 3 to 5 of the player's characters, whic
 1. The plugin picks the center: the selected character if it can talk, or else the first squad member that can (`GetRadiantParticipants` in `plugin/game/Context.cpp`).
 2. The participants are the center and the nearest of the player's characters within `TalkRadius`, up to 5. With fewer than 3, the plugin sends nothing.
 3. The plugin posts them, the center's context as `player_context`, and the game events to `/radiant`.
-4. The server makes no call when a participant fought within 3 game hours (`deeds.fought_recently`), when no topic has material, or when a conversation plays.
+4. The server makes no call when a participant fought within 3 game hours (`world_events.fought_recently`), when no topic has material, or when a conversation plays.
 5. Otherwise it makes one `radiant` call, stores the lines as a new thread, and paces them (see [Line pacing](#line-pacing)). The participants that speak join the thread as speakers, and the others as overhearers. Nothing shows during the call, because the player does not wait for a radiant conversation.
 
 The server, not the LLM, picks one topic kind at random from those with material (`radiant.topic`):
@@ -410,7 +410,7 @@ Each LLM call names a task: `chat`, `radiant`, `profile`, `synthesis`, or `memor
 
 - Each write is one `BEGIN IMMEDIATE` transaction, and a profile write merges only the keys it passes, so a route that waits for the LLM cannot undo another request's change.
 - Each operation opens and closes its own connection (5 s busy timeout). The database uses the rollback journal, not WAL, so an idle campaign folder is safe to copy.
-- No dialogue line and no deed is trimmed.
+- No dialogue line and no event is trimmed.
 - Rejected: one database for all campaigns, because a query that missed the `campaign_id` filter would leak data.
 
 A new campaign is a copy of a world template (see [World templates](#world-templates)) and does not depend on it afterwards. Only the Campaigns page creates and switches campaigns.
@@ -477,7 +477,7 @@ The chat prompt uses the threads (`npc_id`, not names):
 
 The server distils each chat thread into a short memory, which replaces the lines of the thread (`server/chat/memory.py`).
 
-- After the Conversation timeout with no chat (`quiet_seconds`), `memory_loop` writes a memory for each pending thread (a line and no memory), one call at a time, oldest first, then the rumors of the deeds follow (see [Rumors](#rumors)). It also runs after each radiant conversation and after each new bounty, so a bounty that the timer or `/bounty` posts while the chat is quiet gets its notice, rumor, and alias without another chat. A failed thread stays pending.
+- After the Conversation timeout with no chat (`quiet_seconds`), `memory_loop` writes a memory for each pending thread (a line and no memory), one call at a time, oldest first, then the rumors of the events follow (see [Rumors](#rumors)). It also runs after each radiant conversation and after each new bounty, so a bounty that the timer or `/bounty` posts while the chat is quiet gets its notice, rumor, and alias without another chat. A failed thread stays pending.
 - Before each call, the server checks that the chat is still quiet, because a local model serves one request at a time. It ends the current thread under `THREAD_LOCK`, so each memory covers a whole thread.
 - The call uses the `memory` task (see [LLM routing](#llm-routing)) and `prompt_thread_memory.txt`. The memory names each speaker and never says "you" outside a quote, so every member reads the same text.
 - The stored text marks each member name with its `npc_id`, and each read puts in the current name (`chat_prompt.mark_names`, `chat_prompt.named`), so a rename changes every memory.
@@ -547,16 +547,16 @@ A profile is provisional while it holds `Interactions` (`campaign_db.PROVISIONAL
 | `GET /api/campaigns` | The campaigns, the templates, and why the current campaign cannot open |
 | `POST /api/campaigns` | Create a campaign from a template |
 | `POST /api/campaigns/switch`, `.../delete` | Switch to or delete a campaign. The name must be a listed folder, so it cannot point outside `server/data/campaigns/`. |
-| `GET /api/campaign` | Notable events (see [Deeds](#deeds)), rumors, and chat threads with members, lines, and memories |
+| `GET /api/campaign` | Notable events (see [Events](#events)), rumors, and chat threads with members, lines, and memories |
 | `GET /api/campaign/search` | Test search hits (see [Test search](#test-search)) |
 | `GET /api/campaign/canon` | Canon records with `origin`, `updated_at`, and live `current_faction` and `status` |
 | `POST /api/campaign/records`, `.../records/delete` | Save or delete a canon record |
 | `POST /api/campaign/characters/bio` | LLM bio text, not stored (see [Provisional profiles](#provisional-profiles)) |
 | `POST /api/campaign/rumors/generate` | LLM rumor text, not stored (see [Rumors](#rumors)) |
 | `POST /api/campaign/rumors`, `.../rumors/delete` | Save or delete a rumor |
-| `POST /api/campaign/deeds/add`, `.../deeds/delete` | Add a custom deed, or delete a deed |
+| `POST /api/campaign/events/add`, `.../events/delete` | Add a custom event, or delete an event |
 | `POST /api/campaign/memories`, `.../memories/delete` | Edit or delete a memory (see [Conversation memories](#conversation-memories)) |
-| `POST /api/campaign/cull` | Delete the dialogue, notable events, deeds, rumors, thread members, and memories dated after the current game time, except custom deeds and their rumors. It refuses without a game report (see [Game state](#game-state)). |
+| `POST /api/campaign/cull` | Delete the dialogue, events, rumors, thread members, and memories dated after the current game time, except custom events and their rumors. It refuses without a game report (see [Game state](#game-state)). |
 
 - A refused campaign gives status 409. Each edit names the campaign that the page loaded, and the server refuses it for another campaign.
 - A record edit carries the `updated_at` that the page loaded, and the server refuses it when the row changed after that.
