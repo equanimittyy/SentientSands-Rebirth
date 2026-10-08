@@ -161,8 +161,10 @@ def bounty_facts(at, deed):
     goes in, because the alias must fit the character."""
     target = deed["target"]
     profile = campaign_db.get_character(target["id"]) or {"Name": target["name"]}
+    # A lone payer is news, while the major factions are the usual payers and naming them adds only noise
+    payer = f", paid by {deeds.the_faction(deed['issuers'][0])}" if len(deed["issuers"]) == 1 else ""
     lines = [
-        f"The bounty: {deed['amount']:,} cats for the wanted character.",
+        f"The bounty: {deed['amount']:,} cats for the wanted character{payer}.",
         f"The crime ({CRIME_WORDS.get(deed['crime'], deed['crime'].lower())}): {deed['reason']}",
         f"The wanted character: {profile.get('Name') or target['name']} ({kind_text(profile)}) of {deeds.the_faction(target['faction'])}.",
     ]

@@ -20,7 +20,7 @@ CRIMES = (
     "ENSLAVING", "LOCKPICKING", "STEALING", "MURDER", "ASSAULT", "ASSAULT_VIP", "SLAVE_FREEING", "SMUGGLING",
     "TERRORISM", "LOOTING", "TRESPASSING", "ESCAPE_PRISON", "FENCING", "FARM_EATING", "KIDNAPPING", "UNIFORM_THEFT",
 )
-# The Holy Nation, the United Cities, and the Shek Kingdom by game ID: the law of each of them sets every bounty at one price
+# The Holy Nation, the United Cities, and the Shek Kingdom by game ID: the law of each of them sets the bounty at one price
 ISSUERS = {"1083-gamedata.base": "The Holy Nation", "defaultEmpireFactionSID": "United Cities", "11624-Dialogue (10).mod": "Shek Kingdom"}
 # The bandit factions that attack people in general, from the Kenshi wiki and the default relations of the game data. Rival
 # gangs that fight only certain factions, such as the Reavers and the Red Sabres, stay out.
@@ -138,6 +138,7 @@ def store(bounty, name, result):
         "reason": bounty["reason"],
         "crime": bounty["crime"],
         "amount": bounty["amount"],
+        "issuers": result["issuers"],
         "place": target["place"],
         "expires": int(result["expires"]),
         "squad": result["squad"],

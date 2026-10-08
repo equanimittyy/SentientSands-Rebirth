@@ -7,6 +7,7 @@
 #include <kenshi/Character.h>
 #include <kenshi/Faction.h>
 #include <kenshi/FactionRelations.h>
+#include <kenshi/FactionWarMgr.h>
 #include <kenshi/GameData.h>
 #include <kenshi/GameWorld.h>
 #include <kenshi/InstanceID.h>
@@ -529,6 +530,54 @@ void ScanBounties() {
   AsyncPostToPython(L"/bounty/candidates", "{\"candidates\": [" + json + "]}");
 }
 
+// The game hour at which the bounty of the law ends, or -1 when the game set no
+// bounty
+static double AddBounty(Character *npc, Faction *law, int crime, int amount) {
+  npc->crimes.unfairAddToBounty(law, amount);
+  ogre_unordered_map<Faction *, Bounty>::type::iterator bounty =
+      npc->crimes.bounties.find(law);
+  if (bounty == npc->crimes.bounties.end())
+    return -1.0;
+  bounty->second.addCrime((CrimeEnum)crime);
+  bounty->second.bountyAssignmentStartedTime.addHours(
+      BOUNTY_START_SHIFT_HOURS);
+  return bounty->second.bountyAssignmentStartedTime.getTotalHours() +
+         BountyManager::getBountyExpirationTime(bounty->second.amount);
+}
+
+// The issuer once no major faction stands: the faction that is its own law
+// and holds the town closest to the target. A friend of the target's faction
+// would not post a bounty on it.
+static Faction *NearestLaw(GameWorld *world, Character *npc) {
+  Faction *own = CharacterFaction(npc);
+  Ogre::Vector3 at = npc->getPosition();
+  Faction *nearest = NULL;
+  float nearestDist = 0.0f;
+  const lektor<Faction *> *all = world->factionMgr->getAllFactions();
+  for (uint32_t i = 0; all && i < all->count; ++i) {
+    Faction *faction = all->stuff[i];
+    if (!faction || faction == own || faction->isThePlayer() ||
+        faction->getLawEnforcementFaction() != faction || !faction->warMgr)
+      continue;
+    if (own && own->relations && faction->relations &&
+        (own->relations->getFactionRelation(faction) > 0.0f ||
+         faction->relations->getFactionRelation(own) > 0.0f))
+      continue;
+    const lektor<TownBase *> &towns = faction->warMgr->myTowns;
+    for (uint32_t t = 0; t < towns.count; ++t) {
+      TownBase *town = towns.stuff[t];
+      if (!town)
+        continue;
+      float dist = at.distance(town->getPosition());
+      if (!nearest || dist < nearestDist) {
+        nearest = faction;
+        nearestDist = dist;
+      }
+    }
+  }
+  return nearest;
+}
+
 // The payload "serial|crime|amount|issuer,...|stat:bonus,..." places the same
 // bounty with the law of each issuer
 void PlaceBounty(const std::string &payload) {
@@ -552,29 +601,44 @@ void PlaceBounty(const std::string &payload) {
   }
   int crime = atoi(parts[1].c_str());
   int amount = atoi(parts[2].c_str());
-  double expires = -1.0;
-  std::vector<std::string> issuers = SplitText(parts[3], ',');
-  for (size_t i = 0; i < issuers.size(); ++i) {
-    Faction *issuer = world->factionMgr->getFactionByStringID(issuers[i]);
-    Faction *law = issuer ? issuer->getLawEnforcementFaction() : NULL;
-    if (!law) {
-      Log(LOG_WARN, "BOUNTY: '" + issuers[i] +
+  std::vector<Faction *> issuers;
+  std::vector<std::string> ids = SplitText(parts[3], ',');
+  for (size_t i = 0; i < ids.size(); ++i) {
+    Faction *issuer = world->factionMgr->getFactionByStringID(ids[i]);
+    if (!issuer || !issuer->getLawEnforcementFaction()) {
+      Log(LOG_WARN, "BOUNTY: '" + ids[i] +
                         "' is no faction, or has no law enforcement faction");
       continue;
     }
-    npc->crimes.unfairAddToBounty(law, amount);
-    ogre_unordered_map<Faction *, Bounty>::type::iterator bounty =
-        npc->crimes.bounties.find(law);
-    if (bounty == npc->crimes.bounties.end())
+    // A major faction that holds no town counts as eliminated
+    if (issuer->warMgr && issuer->warMgr->myTowns.count > 0)
+      issuers.push_back(issuer);
+    else
+      Log(LOG_INFO, "BOUNTY: " + FactionName(issuer) +
+                        " holds no town, so it posts no bounty");
+  }
+  if (issuers.empty()) {
+    Faction *fallback = NearestLaw(world, npc);
+    if (fallback) {
+      Log(LOG_INFO, "BOUNTY: No major faction stands, so " +
+                        FactionName(fallback) + " posts the bounty");
+      issuers.push_back(fallback);
+    }
+  }
+  double expires = -1.0;
+  std::string payers;
+  for (size_t i = 0; i < issuers.size(); ++i) {
+    double end = AddBounty(npc, issuers[i]->getLawEnforcementFaction(), crime,
+                           amount);
+    if (end < 0.0)
       continue;
-    bounty->second.addCrime((CrimeEnum)crime);
-    bounty->second.bountyAssignmentStartedTime.addHours(
-        BOUNTY_START_SHIFT_HOURS);
-    expires = bounty->second.bountyAssignmentStartedTime.getTotalHours() +
-              BountyManager::getBountyExpirationTime(bounty->second.amount);
+    expires = end;
+    payers += std::string(payers.empty() ? "" : ",") + "\"" +
+              EscapeJSON(FactionName(issuers[i])) + "\"";
   }
   if (expires < 0.0) {
-    PostPlacementFailure("no issuer has a law enforcement faction");
+    PostPlacementFailure("no major faction stands, and no faction with its "
+                         "own law can post the bounty");
     return;
   }
   ActivePlatoon *active = npc->getPlatoon();
@@ -606,6 +670,7 @@ void PlaceBounty(const std::string &payload) {
           EscapeJSON(squad ? squad->getHandle().toString() : std::string()) +
           "\", \"persistent\": " + (wasPersistent ? "true" : "false") +
           ", \"expires\": " + ToString((int)(expires * 60.0)) +
+          ", \"issuers\": [" + payers + "]" +
           ", \"context\": " + GetDetailedContext(npc) + "}");
 }
 

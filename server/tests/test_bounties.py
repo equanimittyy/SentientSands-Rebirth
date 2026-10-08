@@ -96,11 +96,12 @@ class BountyDeedTest(unittest.TestCase):
         campaign_db.close_campaign()
         self._tmp.cleanup()
 
-    def place(self, serial, squad="0-5-6-7-8", persistent=False, expires=100000, amount=3200):
+    def place(self, serial, squad="0-5-6-7-8", persistent=False, expires=100000, amount=3200, issuers=tuple(bounties.ISSUERS.values())):
         bounty = bounties.roll([candidate(serial)], set(), amount, random.Random(serial))
         bounties.send(bounty)
         taken = bounties.take_pending(f"h:{serial}")
-        return bounties.store(taken, f"Arleen {serial}", {"context": {"npc_id": f"h:{serial}", **when(90)}, "squad": squad, "persistent": persistent, "expires": expires})
+        return bounties.store(taken, f"Arleen {serial}", {"context": {"npc_id": f"h:{serial}", **when(90)}, "squad": squad, "persistent": persistent, "expires": expires,
+                                                          "issuers": list(issuers)})
 
     def statuses(self):
         return [(event["line"], event["status"]) for event in deeds.notable_events() if event["kind"] == "bounty"]
@@ -128,8 +129,9 @@ class BountyDeedTest(unittest.TestCase):
         notable_id = self.place(1, expires=200)
         deed = campaign_db.notable(notable_id)
         self.assertEqual(deed[0], 90)
-        self.assertEqual({key: deed[1][key] for key in ("target", "amount", "place", "squad", "persistent")},
-                         {"target": {"id": "h:1", "name": "Arleen 1", "faction": "Dust Bandits"}, "amount": 3200, "place": "Stack", "squad": "0-5-6-7-8", "persistent": False})
+        self.assertEqual({key: deed[1][key] for key in ("target", "amount", "issuers", "place", "squad", "persistent")},
+                         {"target": {"id": "h:1", "name": "Arleen 1", "faction": "Dust Bandits"}, "amount": 3200, "issuers": list(bounties.ISSUERS.values()),
+                          "place": "Stack", "squad": "0-5-6-7-8", "persistent": False})
         self.assertEqual(self.statuses(), [("Unknown", "Open")])
         state.PLAYER_CONTEXT = when(201)
         self.assertEqual(self.statuses(), [("Unknown", "Expired")])
@@ -192,6 +194,11 @@ class BountyDeedTest(unittest.TestCase):
                          f"The crime ({rumors.CRIME_WORDS.get(deed['crime'], deed['crime'].lower())}): {deed['reason']}\n"
                          "The wanted character: Arleen (female Greenlander) of the Dust Bandits.\nPersonality: Cold.\nBackstory: Raised by raiders.\n"
                          "Last seen: Stack.\nTime: Day 0, 01:30.\nThe factions:\n- Dust Bandits. Enemies: United Cities.")
+
+    def test_the_rumor_names_the_payer_only_when_one_faction_pays(self, place_pipe, end_pipe):
+        for serial, issuers, line in ((1, ["Tech Hunters"], "The bounty: 3,200 cats for the wanted character, paid by the Tech Hunters."),
+                                      (2, ["The Holy Nation", "Shek Kingdom"], "The bounty: 3,200 cats for the wanted character.")):
+            self.assertEqual(rumors.bounty_facts(*campaign_db.notable(self.place(serial, issuers=issuers))).splitlines()[0], line)
 
     def test_a_reply_needs_a_notice_a_rumor_and_a_short_alias(self, place_pipe, end_pipe):
         reply = {"notice": "WANTED: Arleen.", "rumor": '"They say Arleen is wanted."', "alias": "the Ore Butcher"}

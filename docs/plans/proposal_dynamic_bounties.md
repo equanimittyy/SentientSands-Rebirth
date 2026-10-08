@@ -8,7 +8,7 @@ Kenshi has its own bounties. Police see a wanted character, bounty hunters hunt 
 
 This plan lets SSR post bounties of its own:
 
-1. Code rolls the bounty without an LLM call: a target from the loaded members of a fixed list of bandit factions, a reason from a pool with its crime, an amount, and a bonus for each skill. The Holy Nation, the United Cities, and the Shek Kingdom each set the bounty at the same amount ([section 4](#4-roll)).
+1. Code rolls the bounty without an LLM call: a target from the loaded members of a fixed list of bandit factions, a reason from a pool with its crime, an amount, and a bonus for each skill. The Holy Nation, the United Cities, and the Shek Kingdom each set the bounty at the same amount, or the nearest faction with its own law when none of them stands ([section 4](#4-roll)).
 2. The plugin puts the bounty on the target through the bounty system of the game, raises the target's skills, keeps the target's squad in the save, and marks that squad on the world map ([section 5](#5-target-and-persistence)).
 3. The bounty becomes a deed of the new kind `bounty`. The target gets a rolled name and a provisional profile, as at a first meeting. The LLM then writes a wanted notice, which the Deeds page shows as the deed, a rumor, which NPCs gossip about, and an alias for the target, which goes into the target's profile. The player can delete the deed, but cannot edit its notice or its rumor ([section 6](#6-bounty-deeds)).
 4. The game pays the reward, as for any vanilla bounty. SSR pays nothing.
@@ -59,10 +59,16 @@ The headers of KenshiLib and the game data files show these facts. The probe con
 
 ### Factions
 
-The Holy Nation, the United Cities, and the Shek Kingdom issue every bounty (`bounties.ISSUERS`). Each of them sets it with its law, at the same amount and for the same crime. The targets are the members of 16 bandit factions that attack people in general (`bounties.TARGETS`), chosen from the bandit factions of the Kenshi wiki and the default relations of the game data. The server finds the faction of a candidate by the game ID that the plugin sends.
+The Holy Nation, the United Cities, and the Shek Kingdom issue every bounty (`bounties.ISSUERS`). Each of them that still holds a town sets it with its law, at the same amount and for the same crime. A major faction that holds no town counts as eliminated by the player. The targets are the members of 16 bandit factions that attack people in general (`bounties.TARGETS`), chosen from the bandit factions of the Kenshi wiki and the default relations of the game data. The server finds the faction of a candidate by the game ID that the plugin sends.
 
 1. The roll keeps each candidate whose faction is a target faction.
 2. It picks the target among them at random.
+
+When no major faction holds a town, the plugin picks a fallback issuer (`NearestLaw` in `plugin/game/Context.cpp`):
+
+1. It keeps each faction that is its own law enforcement faction, and is neither the player's faction nor the target's faction.
+2. It drops each faction that is a friend of the target's faction, with a relation above 0 either way.
+3. It picks the faction that holds the town closest to the target.
 
 - Rival gangs that fight only certain factions stay out, such as the Reavers, the Crab Raiders, the Red Sabres, and the Swamp Ninjas. So do the tribes, the creatures, the armies, and the Skeleton bandits that attack everyone, such as the Cannibals, the Fogmen, the Second Empire, the Skeleton Legion, and the Thrall Masters.
 
@@ -139,11 +145,12 @@ When the bounty ends, the plugin gives the squad back to the game: it takes the 
 The `notable` row holds the game time of the placement, and as JSON:
 
 ```json
-{"deed": "bounty", "target": {"id": "h:3051296712", "name": "Arleen", "faction": "Dust Bandits"}, "reason": "They killed a camp of miners for the ore in their packs.", "crime": "MURDER", "amount": 3200, "place": "Stack", "expires": 6023760, "squad": "0-2714-11-3051296700-4", "persistent": false, "notice": "WANTED: Arleen the Pickaxe, ..."}
+{"deed": "bounty", "target": {"id": "h:3051296712", "name": "Arleen", "faction": "Dust Bandits"}, "reason": "They killed a camp of miners for the ore in their packs.", "crime": "MURDER", "amount": 3200, "issuers": ["The Holy Nation", "United Cities", "Shek Kingdom"], "place": "Stack", "expires": 6023760, "squad": "0-2714-11-3051296700-4", "persistent": false, "notice": "WANTED: Arleen the Pickaxe, ..."}
 ```
 
 - `reason` and `crime` are the rolled reason and its crime.
 - `expires` is the game time at which the game bounty ends, from the moved start time and `getBountyExpirationTime` at the placement.
+- `issuers` are the names of the factions that posted the bounty in the game.
 - `notice` is the wanted notice, which the rumor pass adds with the rumor.
 - `place` is the town of the target, or its zone outside a town.
 - `squad` is the handle of the target's squad (`hand::toString`), which finds the squad when the bounty ends. `persistent` tells whether the squad was persistent before the placement.
@@ -171,7 +178,7 @@ The rumor pass writes the rumor of a bounty deed in the next quiet period, as fo
 - The prompt holds the amount, the reason with its crime, the place, the target's profile (name, race, sex, faction, personality, and backstory), and the allies and enemies of the target's faction.
 - It asks for a wanted notice as the bounty notices of the game are written: the name and the alias, the crime, a warning to the hunter, and the reward in cats.
 - It asks for a rumor as a fanciful tale of the bars, not a copy of the notice: hearsay and exaggeration about the target from the crime, the personality, and the backstory, with the alias, the amount, and the place where the target was last seen. The hearsay invents no other crime, victim, or reward.
-- The notice and the rumor name no issuer, because the same three issuers pay each bounty.
+- The notice names the issuer only when one faction posted the bounty. The three major factions are the usual payers, so naming them adds nothing.
 - It asks for an alias of 1 to 3 words that fits the reason and the profile, blunt and crude as the bounty notices of Kenshi name their targets, such as "Four-Teeth" or "the Gutless". The prompt gives such names only as examples, and the alias never reuses one.
 - The reply is JSON with `notice`, `rumor`, and `alias`. `rumors.clean` trims each. A reply without all three stores nothing, so the deed waits for the next pass, as a deed with a failed call does.
 - `campaign_db.add_bounty_rumor` adds the rumor and the notice in one write.
@@ -212,16 +219,17 @@ The character profile gets the field `Alias`: the name by which the bounty notic
 | `BOUNTY_SCAN:` | Pipe, server to plugin | None |
 | `/bounty/candidates` | HTTP, plugin to server | For each candidate: `npc_id`, name, faction, faction game ID, and place |
 | `PLACE_BOUNTY: serial\|crime\|amount\|issuers\|bonuses` | Pipe, server to plugin | The serial of the target, the crime as its `CrimeEnum` value, the amount, the game IDs of the issuers separated by commas, and `stat:bonus` for each of the 16 skills with its `StatsEnumerated` value |
-| `/bounty/placed` | HTTP, plugin to server | `placed`, the handle of the target's squad, whether that squad was persistent before, `expires` in game minutes, and the detailed context of the target (`GetDetailedContext`), or `placed` false with a reason |
+| `/bounty/placed` | HTTP, plugin to server | `placed`, the handle of the target's squad, whether that squad was persistent before, `expires` in game minutes, the names of the factions that posted the bounty, and the detailed context of the target (`GetDetailedContext`), or `placed` false with a reason |
 | `END_BOUNTY: squad\|clear` | Pipe, server to plugin | The handle of the target's squad, and 1 to clear its persistent flag |
 
 `PLACE_BOUNTY` does these steps on the game thread (`ProcessMessageQueue` calls `PlaceBounty` in `plugin/game/Context.cpp`):
 
 1. It finds the target in `getCharacterUpdateList` by the serial of its handle.
-2. For each issuer, it calls `unfairAddToBounty` with the law enforcement faction of the issuer and the same amount, adds the crime to that bounty, and moves the start time of that bounty 100,000 game hours ahead.
-3. It notes whether the target's squad is persistent, and marks it persistent.
-4. It adds the target's squad to the world map (`MapScreen::addSquad`).
-5. It adds the bonus of each skill to its level (`CharStats::getStatRef`).
+2. It keeps each issuer that holds a town, or the fallback issuer when none does ([section 4](#factions)).
+3. For each issuer, it calls `unfairAddToBounty` with the law enforcement faction of the issuer and the same amount, adds the crime to that bounty, and moves the start time of that bounty 100,000 game hours ahead.
+4. It notes whether the target's squad is persistent, and marks it persistent.
+5. It adds the target's squad to the world map (`MapScreen::addSquad`).
+6. It adds the bonus of each skill to its level (`CharStats::getStatRef`).
 
 `END_BOUNTY` finds the squad by its handle, takes it off the map (`MapScreen::removeSquad`), and clears its persistent flag when the message says so. A squad that the game deleted is not found, and needs nothing.
 
@@ -247,7 +255,7 @@ The bounty probe answered the questions of the game, and the build removed it. [
 | Alternative | Reason |
 |---|---|
 | SSR pays the reward on a kill or a capture | The cats would come from nowhere, and the game already pays a bounty. |
-| Any enemy faction with a police faction as the issuer | Three fixed powers are easy to follow, and need no scan of the police factions. |
+| Any enemy faction with a police faction as the issuer while a major faction stands | Three fixed powers are easy to follow. The scan of the police factions runs only when no major faction stands. |
 | The enemies of the template factions as the targets | The game data gives some of the most common bandits, such as the Starving Bandits, no hostile relation with the three issuers. |
 | An LLM picks the target, the reason, the crime, or the amount | A weak model picks badly, and code makes the same picks without a call. |
 | The plugin rolls the bounty | A roll in Python runs in the unit tests of the dev container. |
@@ -266,7 +274,7 @@ Unit tests, which run with the standard library only (`server/tests/`):
 - The due check: the timer, the count of open bounties, and 0 open bounties.
 - The deed: the notice as its deed, Unknown before it, and each status after its kind, the facts of the rumor, the known figure check of `_store`, the delete, the cull, `character_deeds`, and `END_BOUNTY` when the status leaves Open and at a delete, with the flag clear only for a squad that SSR made persistent, and no `END_BOUNTY` while another open bounty has a target in the same squad.
 - `/bounty/placed`: a failed result stores nothing, and a campaign switch between the scan and the result stores nothing.
-- The bounty prompt: the fill names the amount, the reason, the target with its profile, and the place. A reply without the notice, the rumor, or the alias stores nothing. The alias goes into a profile only when its `Alias` field is empty. The routes that save or write a rumor refuse a bounty deed.
+- The bounty prompt: the fill names the amount, the issuer only when one faction posted the bounty, the reason, the target with its profile, and the place. A reply without the notice, the rumor, or the alias stores nothing. The alias goes into a profile only when its `Alias` field is empty. The routes that save or write a rumor refuse a bounty deed.
 
 In the game and the web app:
 
@@ -278,3 +286,5 @@ In the game and the web app:
 6. In the in-game Deeds window, the kind button shows Bounty, Generate Rumor and Edit Rumor refuse the bounty, and Delete removes the bounty deed.
 7. Post `/bounty 2000` on a bandit, and leave the bounty open for 100 game hours, longer than the 80 hours that the game would give it without the moved start time. Save and load. The bounty stays, and the law pays for the captive.
 8. Swap the target's weapon and armour. The raised skills stay.
+9. In a game where the three major factions stand, the log shows no `holds no town` line at a placement, and the deed holds all three issuers.
+10. In a save where none of the three holds a town, the log names the fallback issuer, the game bounty is of that faction, and the notice names it.

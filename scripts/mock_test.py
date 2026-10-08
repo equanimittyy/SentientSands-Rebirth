@@ -73,7 +73,8 @@ def bounty(npc_id, crime, reason, amount, place, when, notice, rumor, alias):
     # The plugin moves the start of the bounty 100,000 game hours ahead, so the bounty does not end
     expires = deeds.game_minutes(when) + 100_000 * 60
     notable_id = bounties.store({"target": target, "reason": reason, "crime": crime, "amount": amount}, profile["Name"],
-                                {"context": when, "squad": f"squad of {profile['Name']}", "persistent": False, "expires": expires})
+                                {"context": when, "squad": f"squad of {profile['Name']}", "persistent": False, "expires": expires,
+                                 "issuers": list(bounties.ISSUERS.values())})
     campaign_db.add_bounty_rumor(notable_id, notice, rumor)
     campaign_db.add_alias(npc_id, alias)
 
