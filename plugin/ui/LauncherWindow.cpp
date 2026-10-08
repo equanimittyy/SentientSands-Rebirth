@@ -183,7 +183,7 @@ void CreateLauncherUI() {
       "Kenshi_Button1", 0.05f, yPos, 0.9f, bH,
       MyGUI::Align::Top | MyGUI::Align::HStretch,
       "SentientSands_LauncherWebBtn");
-  webBtn->setCaption(Utf8ToWide(T("Open Web Panel")).c_str());
+  webBtn->setCaption(Utf8ToWide(T("Open Web App")).c_str());
   webBtn->eventMouseButtonClick += MyGUI::newDelegate(OnLauncherWebPanelClick);
   yPos += yDelta;
 
@@ -218,7 +218,7 @@ void RefreshLauncherUI() {
   };
   RefreshMap items[] = {{"SentientSands_LauncherLibBtn", "Dialogue Library"},
                         {"SentientSands_LauncherEvtBtn", "Events"},
-                        {"SentientSands_LauncherWebBtn", "Open Web Panel"},
+                        {"SentientSands_LauncherWebBtn", "Open Web App"},
                         {"SentientSands_LauncherRestartBtn", "Restart Server"},
                         {"SentientSands_LauncherWelBtn", "Welcome Popup"},
                         {"SentientSands_LauncherCullBtn", "Cull Future Data"}};

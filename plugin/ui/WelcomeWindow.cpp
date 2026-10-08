@@ -112,7 +112,17 @@ void CreateWelcomeUI() {
   l5->setCaption(Utf8ToWide(T("See the Web app for a tutorial on SSR!"))
                      .c_str());
   l5->setTextAlign(MyGUI::Align::Center);
-  l5->setTextColour(MyGUI::Colour(0.85f, 0.85f, 0.85f));
+  l5->setTextColour(MyGUI::Colour(1.0f, 0.6f, 0.6f));
+  yProg += yDelta;
+
+  MyGUI::TextBox *l6 = client->createWidgetReal<MyGUI::TextBox>(
+      "Kenshi_TextboxStandardText", 0.05f, yProg, 0.9f, 0.06f,
+      MyGUI::Align::Top | MyGUI::Align::HStretch, "SentientSands_WelcomeL6");
+  l6->setCaption(Utf8ToWide(T("It opens on start: Alt-Tab to it, or click Open "
+                              "Web App (F8)"))
+                     .c_str());
+  l6->setTextAlign(MyGUI::Align::Center);
+  l6->setTextColour(MyGUI::Colour(1.0f, 0.6f, 0.6f));
 
   MyGUI::TextBox *instructions = client->createWidgetReal<MyGUI::TextBox>(
       "Kenshi_TextboxStandardText", 0.05f, 0.47f, 0.9f, 0.1f,
