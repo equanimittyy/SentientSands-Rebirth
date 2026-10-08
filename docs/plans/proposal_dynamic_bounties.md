@@ -64,13 +64,60 @@ The Holy Nation, the United Cities, and the Shek Kingdom issue every bounty (`bo
 1. The roll keeps each candidate whose faction is a target faction.
 2. It picks the target among them at random.
 
+- Rival gangs that fight only certain factions stay out of the targets, such as the Reavers, the Crab Raiders, the Red Sabres, and the Swamp Ninjas. So do the tribes, the creatures, the armies, and the Skeleton bandits that attack everyone, such as the Cannibals, the Fogmen, the Second Empire, the Skeleton Legion, and the Thrall Masters.
+
 When no major faction holds a town, the plugin picks a fallback issuer (`NearestLaw` in `plugin/game/Context.cpp`):
 
 1. It keeps each faction that is its own law enforcement faction, and is neither the player's faction nor the target's faction.
 2. It drops each faction that is a friend of the target's faction, with a relation above 0 either way.
 3. It picks the faction that holds the town closest to the target.
 
-- Rival gangs that fight only certain factions stay out, such as the Reavers, the Crab Raiders, the Red Sabres, and the Swamp Ninjas. So do the tribes, the creatures, the armies, and the Skeleton bandits that attack everyone, such as the Cannibals, the Fogmen, the Second Empire, the Skeleton Legion, and the Thrall Masters.
+The fallback issuers are the 42 factions other than the three major factions that are their own law enforcement faction in the faction probe of one UWE game. This table gives the targets that each of them can post a bounty on, from the starting relations of the vanilla and UWE game data. A target drops out when its relation with the issuer is above 0 either way, and the number is the higher relation. The plugin reads the relation in the game at the placement, so a relation that changes in play changes the table. A faction that holds no town is never picked.
+
+| Fallback issuer | Targets |
+|---|---|
+| Anti-Slavers | All 16 except Rebel Farmers (+30) |
+| Bele'coz | All 16 |
+| Blackshifters | All 16 |
+| Cannibal Hunters | All 16 except Rebel Farmers (+60) |
+| Crab Raiders | All 16 |
+| Deadcat | All 16 |
+| The Dominion | All 16 |
+| Dune Renegades | All 16 except Rebel Farmers (+100) |
+| Empire Peasants | All 16 except Rebel Farmers (+100) |
+| Flotsam Ninjas | All 16 |
+| Free Traders | All 16 |
+| Grayflayers | All 16 |
+| Herdsmen | All 16 |
+| Highlanders | All 16 |
+| Holy Nation Outlaws | All 16 except Dust Bandits, Hill Marauders, and Starving Bandits (+30 each) |
+| Hook Raiders | All 16 except Rebel Farmers (+100) |
+| Hounds | All 16 |
+| Inhuman Hunters | All 16 |
+| Kobura Syndicate | All 16 |
+| Mechanical Hive | All 16 |
+| Mercenary Police | All 16 |
+| Midland Hive | All 16 |
+| Narko's Disciples | All 16 |
+| Natives | All 16 |
+| Northern Hive | All 16 except Rebel Farmers and Yabuta Outlaws (+30 each) |
+| Northern Nobles | All 16 |
+| The Order of Chitrin | All 16 |
+| Police | All 16 |
+| Reavers | All 16 |
+| The Reawakened | All 16 |
+| Rebel Farmers | All 16 except Rebel Farmers, its own faction |
+| Republic of Tertius | All 16 |
+| Savage Hive | All 16 |
+| Skeletons | All 16 except The Deluged (+30) |
+| Southern Nobles | All 16 |
+| The Sturmijaz | All 16 |
+| Swampers | All 16 |
+| Tech Hunters | All 16 except Rebel Farmers, Starving Bandits, The Bastards, and The Deluged (+30 each) |
+| Traders Guild | All 16 |
+| Twinblades | All 16 |
+| Western Hive | All 16 |
+| Western Nobles | All 16 |
 
 ### Reason, crime, and amount
 
