@@ -164,7 +164,7 @@ def bounty_facts(at, event):
     # A lone payer is news, while the major factions are the usual payers and naming them adds only noise
     payer = f", paid by {world_events.the_faction(event['issuers'][0])}" if len(event["issuers"]) == 1 else ""
     lines = [
-        f"The bounty: {event['amount']:,} cats for the wanted character{payer}.",
+        f"The bounty: {event['amount']:,} cats (the money of Kenshi) for the wanted character{payer}.",
         f"The crime ({CRIME_WORDS.get(event['crime'], event['crime'].lower())}): {event['reason']}",
         f"The wanted character: {profile.get('Name') or target['name']} ({kind_text(profile)}) of {world_events.the_faction(target['faction'])}.",
     ]

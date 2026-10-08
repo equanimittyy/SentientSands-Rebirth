@@ -209,14 +209,14 @@ class BountyEventTest(unittest.TestCase):
         campaign_db.upsert_profile("h:1", {"Name": "Arleen", "Race": "Greenlander", "Sex": "Female", "Personality": "Cold.", "Backstory": "Raised by raiders."})
         event = campaign_db.event(event_id)[1]
         self.assertEqual(rumors.bounty_facts(*campaign_db.event(event_id)),
-                         "The bounty: 3,200 cats for the wanted character.\n"
+                         "The bounty: 3,200 cats (the money of Kenshi) for the wanted character.\n"
                          f"The crime ({rumors.CRIME_WORDS.get(event['crime'], event['crime'].lower())}): {event['reason']}\n"
                          "The wanted character: Arleen (female Greenlander) of the Dust Bandits.\nPersonality: Cold.\nBackstory: Raised by raiders.\n"
                          "Last seen: Stack.\nTime: Day 0, 01:30.\nThe factions:\n- Dust Bandits. Enemies: United Cities.")
 
     def test_the_rumor_names_the_payer_only_when_one_faction_pays(self, place_pipe, end_pipe):
-        for serial, issuers, line in ((1, ["Tech Hunters"], "The bounty: 3,200 cats for the wanted character, paid by the Tech Hunters."),
-                                      (2, ["The Holy Nation", "Shek Kingdom"], "The bounty: 3,200 cats for the wanted character.")):
+        for serial, issuers, line in ((1, ["Tech Hunters"], "The bounty: 3,200 cats (the money of Kenshi) for the wanted character, paid by the Tech Hunters."),
+                                      (2, ["The Holy Nation", "Shek Kingdom"], "The bounty: 3,200 cats (the money of Kenshi) for the wanted character.")):
             self.assertEqual(rumors.bounty_facts(*campaign_db.event(self.place(serial, issuers=issuers))).splitlines()[0], line)
 
     def test_a_reply_needs_a_notice_a_rumor_and_a_short_alias(self, place_pipe, end_pipe):
