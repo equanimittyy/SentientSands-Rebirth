@@ -130,7 +130,7 @@ The roll picks a reason from `server/data/defaults/bounty_reasons.json`, with th
 - No reason names a faction, a town, or a person, because all three issuers post each bounty. The LLM adds the place.
 - Each reason uses "they", as the texts of the provisional profile do, so no reason needs a gendered pronoun.
 
-The amount is 2,000 to 15,000 cats, with the same chance for each, rounded to 100 cats.
+The amount is 2,000 to 15,000 cats, rounded to 100 cats. The chance of an amount halves with each 1,200 cats above 2,000 (`bounties.AMOUNT_WEIGHTS`), so about 82% of the bounties are below 5,000 cats, the median is 3,100 cats, and about 1 in 100 reaches 10,000 cats.
 
 - Every amount is at least 2,000 cats, above most vanilla bounties of generic characters, so each SSR bounty is worth a hunt.
 - From 10,000 cats, the game never lets a bounty expire.
@@ -317,7 +317,7 @@ The bounty probe answered the questions of the game, and the build removed it. [
 
 Unit tests, which run with the standard library only (`server/tests/`):
 
-- The roll: only a member of a target faction as the target, a reason of the pool with its crime, an amount from 2,000 to 15,000 and rounded to 100, 16 bonuses within 2 levels of L and not below 0, L at most 20, and no roll without a candidate.
+- The roll: only a member of a target faction as the target, a reason of the pool with its crime, an amount from 2,000 to 15,000 and rounded to 100, most of them below 5,000 and few from 10,000, 16 bonuses within 2 levels of L and not below 0, L at most 20, and no roll without a candidate.
 - The pool: each reason names a crime of `CrimeEnum`, and no two reasons share a text (`test_bounties.py`).
 - The filter of the candidates: a unique, an animal, a member of the player's faction, and the target of an open bounty drop out.
 - The due check: the timer, the count of open bounties, and 0 open bounties.

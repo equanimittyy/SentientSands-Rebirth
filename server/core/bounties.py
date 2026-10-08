@@ -55,6 +55,9 @@ TARGETS = {
 with open(os.path.join(DEFAULTS_DIR, "bounty_reasons.json"), encoding="utf-8") as f:
     REASONS = json.load(f)
 AMOUNTS = range(2000, 15001, 100)
+# The chance of an amount halves with each 1,200 cats above the lowest, so most bounties are small and about 1 in 100
+# reaches 10,000 cats, where the game never lets it expire and the skill bonus is at its highest
+AMOUNT_WEIGHTS = [0.5 ** ((amount - AMOUNTS[0]) / 1200) for amount in AMOUNTS]
 # StatsEnumerated values of the 16 combat skills from the probe; 36 is precision shooting (STAT_FRIENDLY_FIRE)
 COMBAT_STATS = (1, 18, 21, 24, 2, 19, 32, 30, 25, 26, 27, 28, 29, 34, 35, 36)
 CATS_PER_LEVEL = 500
@@ -72,7 +75,7 @@ def roll(candidates, taken, amount=None, rng=random):
     if not pool:
         return None
     reason = rng.choice(REASONS)
-    amount = amount or rng.choice(AMOUNTS)
+    amount = amount or rng.choices(AMOUNTS, AMOUNT_WEIGHTS)[0]
     return {"target": rng.choice(pool), "reason": reason["text"], "crime": reason["crime"], "amount": amount, "bonuses": skill_bonuses(amount, rng)}
 
 

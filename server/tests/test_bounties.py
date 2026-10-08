@@ -66,6 +66,11 @@ class RollTest(unittest.TestCase):
             self.assertTrue(2000 <= bounty["amount"] <= 15000 and bounty["amount"] % 100 == 0)
         self.assertEqual(bounties.roll([candidate(1)], set(), 4300)["amount"], 4300)
 
+    def test_most_amounts_are_low_and_an_amount_from_10000_is_rare(self):
+        amounts = [bounties.roll([candidate(1)], set(), rng=random.Random(seed))["amount"] for seed in range(1000)]
+        self.assertGreater(sum(amount < 5000 for amount in amounts), 750)
+        self.assertLess(sum(amount >= 10000 for amount in amounts), 25)
+
     def test_each_combat_skill_gets_a_bonus_within_2_levels_of_the_level_of_the_amount(self):
         for amount, level in ((2000, 4), (6000, 12), (10000, 20), (15000, 20)):
             for seed in range(20):
