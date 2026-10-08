@@ -132,13 +132,13 @@ def memory_heading(memory, npc_id):
     return _dated(memory, scene_text.memory_header(*_members_seen_by(memory["members"], npc_id)))
 
 
-def background_block(memories, entries, npc_id, speaker, travels=()):
-    """The memories of memories_of and the lore records of retrieval.lore_records that the player's message found, for the
-    last user message. travels holds the found records that the NPC knows only from its travels (knowledge.known). The
-    block is a part of the user message, so its mark keeps a model from taking it for words of the player. Empty without
-    a memory or a record, so the block stays out."""
+def background_block(memories, rumors, entries, npc_id, speaker, travels=(), today=None):
+    """The memories of memories_of, the rumors of campaign_db.rumors, and the lore records of retrieval.lore_records that
+    the player's message found, for the last user message. travels holds the found records that the NPC knows only from
+    its travels (knowledge.known). The block is a part of the user message, so its mark keeps a model from taking it for
+    words of the player. Empty without a memory, a rumor, or a record, so the block stays out."""
     lore = [*entries, *travels]
-    if not memories and not lore:
+    if not memories and not rumors and not lore:
         return ""
     parts = []
     if memories:
@@ -146,17 +146,21 @@ def background_block(memories, entries, npc_id, speaker, travels=()):
         for memory in memories:
             parts.append(memory_heading(memory, npc_id))
             parts.append(retrieval.clipped(memory_text(memory)))
+    if rumors:
+        parts.append(f"Rumours that {speaker}'s words may touch on:")
+        parts += [f"- {scene_text.rumor_sentence(rumor['game_time'], retrieval.clipped(rumor['text']), today)}" for rumor in rumors]
     for heading, records in ((f"Lore that {speaker}'s words may touch on:", entries), ("You learned the following in your travels:", travels)):
         if records:
             parts.append(heading)
             parts += [f"- {describe_record({**entry, 'description': retrieval.clipped(entry['description'])}, entry['kind'])}" for entry in records]
     # A search finds words, not meaning, and a model tends to use all the text that it gets
-    if memories and lore:
-        parts.append(f"These memories and this lore may have nothing to do with what {speaker} means, and you may know less than the lore says. Use them only where they fit your reply, and never recite them or turn the talk towards them.")
-    elif memories:
-        parts.append(f"These memories may have nothing to do with what {speaker} means. Use them only where they fit your reply, and never recite them or turn the talk towards them.")
-    else:
+    found = [kind for kind, hits in (("these memories", memories), ("these rumours", rumors), ("this lore", lore)) if hits]
+    if found == ["this lore"]:
         parts.append(f"This lore may have nothing to do with what {speaker} means, and you may know less than it says. Use it only where it fits your reply, and never recite it or turn the talk towards it.")
+    else:
+        kinds = " and ".join(found) if len(found) < 3 else f"{found[0]}, {found[1]}, and {found[2]}"
+        less = ", and you may know less than the lore says" if lore else ""
+        parts.append(f"{kinds.capitalize()} may have nothing to do with what {speaker} means{less}. Use them only where they fit your reply, and never recite them or turn the talk towards them.")
     return "(Background, not said aloud. " + "\n".join(parts) + ")"
 
 

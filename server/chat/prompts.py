@@ -8,7 +8,7 @@ from core.paths import PROMPTS_DIR, USER_PROMPTS_DIR
 from core.settings import load_settings
 from store import campaign_db
 
-PROMPT_RUMORS = 5
+PROMPT_RUMORS = 3
 
 def describe_faction(name, faction_id=None):
     return faction_text(name, campaign_db.find_faction(faction_id, name) if name and name != "Unknown" else None)

@@ -224,7 +224,7 @@ def get_campaign_canon():
     except campaign_db.CampaignUnavailable as e:
         return jsonify({"status": "error", "name": state.ACTIVE_CAMPAIGN, "message": str(e)}), 409
 
-def search_reply(memories, entries, skipped, npc_id=None, dropped=()):
+def search_reply(memories, rumors, entries, skipped, npc_id=None, dropped=()):
     """The hits of a test search in prompt order, each with how it was found: by a name or by the words of the line, and
     with its tier, and an entry with whether the NPC knows it only from its travels. dropped holds the records that the
     line names and that the NPC cannot know."""
@@ -237,6 +237,7 @@ def search_reply(memories, entries, skipped, npc_id=None, dropped=()):
         "slots": settings["retrieval_slots"],
         "memory_slots": settings["memory_slots"],
         "memories": [{"heading": chat_prompt.memory_heading(hit["record"]["memory"], npc_id), "text": retrieval.clipped(hit["record"]["text"]), **found(hit)} for hit in memories],
+        "rumors": [{"text": retrieval.clipped(hit["record"]["text"]), **found(hit)} for hit in rumors],
         "entries": [{"name": hit["record"]["name"], "kind": hit["record"]["kind"], "tier": knowledge.tier(hit["record"]), "travels": hit["travels"], **found(hit)} for hit in entries],
         "dropped": [{"name": record["name"], "kind": record["kind"], "tier": knowledge.tier(record)} for record in dropped],
         "skipped": [{"word": word, "reason": reason} for word, reason in skipped],
@@ -252,7 +253,7 @@ def search_campaign():
         speaker = (campaign_db.get_character(speaker_id) or {}) if speaker_id else {}
         town, zone = background.place_of(profile.get("CurrentLocation", ""), lore)
         message, faction_id = request.args.get("message", ""), state.LIVE_CONTEXTS.get(npc_id, {}).get("factionID")
-        memories, entries, skipped = background.search(message, lore, npc_id, profile, faction_id, speaker.get("Race"), town, zone)
+        memories, rumors, entries, skipped = background.search(message, lore, npc_id, profile, faction_id, speaker.get("Race"), town, zone)
         dropped = []
         if npc_id:
             known = background.known_keys(lore, npc_id, profile, faction_id, town, zone)
@@ -260,7 +261,7 @@ def search_campaign():
             dropped = list({record["key"]: record for _, record in named if record["key"] not in known}.values())
     except campaign_db.CampaignUnavailable as e:
         return jsonify({"status": "error", "name": state.ACTIVE_CAMPAIGN, "message": str(e)}), 409
-    return search_reply(memories, entries, skipped, npc_id, dropped)
+    return search_reply(memories, rumors, entries, skipped, npc_id, dropped)
 
 def record_refusal(errors):
     return jsonify({"status": "error", "errors": errors}), 400

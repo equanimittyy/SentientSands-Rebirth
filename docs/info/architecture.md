@@ -108,7 +108,7 @@ The server writes the rumor of each event in the quiet period of the memories, a
 - The player can generate a rumor with an instruction (`POST /api/campaign/rumors/generate`, the `synthesis` task), which stores nothing until Save. The instruction wins over the rumor so far.
 - The LLM gets only plain facts (`server/chat/rumors.py`), so it invents no other event: the player's faction, the event, the time, the profiles of its characters, and the allies and enemies of the victim's faction. A custom or an auto event gives no characters and no factions, because its rumor is the only account.
 
-The `rumor` table holds the text, the game time of its event, the instruction, and the event. An event has at most one rumor. The chat scene gives each NPC the 5 newest rumors with their age (`PROMPT_RUMORS`), and a radiant conversation can take one of them as its topic. Both leave out the rumor of a bounty that is no longer open (`world_events.told_rumors`), because the kill or the capture of its target has a rumor of its own.
+The `rumor` table holds the text, the game time of its event, the instruction, and the event. An event has at most one rumor. The chat scene gives each NPC the 3 newest rumors with their age (`PROMPT_RUMORS`), and a radiant conversation can take one of them as its topic. The search of a chat line finds an older rumor (see [Rumor search](#rumor-search)). These leave out the rumor of a bounty that is no longer open (`world_events.told_rumors`), because the kill or the capture of its target has a rumor of its own.
 
 ### Auto rumors
 
@@ -120,7 +120,7 @@ At most once in each period of the Radiant rumor timer (`radiant_rumor_minutes`,
 - After a valid reply, a cited memory goes to 6, a memory that was read and not cited gets +1, and an older memory in the pool goes to 6 (`count_rumor_pass`). So dull memories leave, and a theme can build over several passes.
 - The prompt (`prompt_auto_rumor.txt`) holds the player's faction, the memories with labels 1 to N, and the newest 30 rumors. The reply is `{"rumor": "...", "memories": [1, 2]}`. The empty rumor is the default.
 - `campaign_db.add_auto_event` stores the event and its rumor, and sets the cited threads to 6, in one transaction. Nothing is written when the active campaign changed or a cited thread left the pool during the call.
-- The event takes the newest game time of its threads, so the cull deletes it, and the auto rumors do not hold the 5 newest places for good.
+- The event takes the newest game time of its threads, so the cull deletes it, and the auto rumors do not hold the 3 newest places for good.
 
 ### Bounties
 
@@ -209,7 +209,7 @@ A chat request is ordered for the provider's prompt cache, which reuses only an 
 |---|---|---|
 | System message | `prompt_chat_template.txt`: `prompt_system.txt` (`prompt_animal_system.txt` for an animal), the judgment rule, `npc_template.txt`, `prompt_chat_scene.txt`, then the newest memories of the NPC's threads (see [Conversation memories](#conversation-memories)) | When a conversation starts or such a memory is written |
 | History | The NPC's thread lines without a memory, as user and assistant turns (see [Chat threads](#chat-threads)) | One exchange more each turn |
-| Last user message | `prompt_chat_turn.txt`: the found memories and lore (see [Lore retrieval](#lore-retrieval)), the player's line, a short reminder | Every turn |
+| Last user message | `prompt_chat_turn.txt`: the found memories, rumors, and lore (see [Lore retrieval](#lore-retrieval)), the player's line, a short reminder | Every turn |
 
 - The scene is a snapshot for the whole conversation (`CONVERSATION_SCENE`). A conversation ends when the player chats with another NPC, speaks as another squad member, switches the campaign, or when the NPC's name or faction changes.
 - `server/chat/scene_text.py` writes the scene as second-person prose, because a model reads a sentence more reliably than a number. The relation bounds match the game's relation bar.
@@ -221,10 +221,10 @@ A chat request is ordered for the provider's prompt cache, which reuses only an 
 
 ## Lore retrieval
 
-The last user message holds the lore entries and memories that the player's line is about (`server/chat/retrieval.py`). Name matching finds the entries that the line names; content search finds the entries that hold its lore words. `retrieval.py` uses plain values and the standard library; `server/chat/background.py` reads the records, for chats and the test search alike.
+The last user message holds the lore entries, memories, and rumors that the player's line is about (`server/chat/retrieval.py`). Name matching finds the entries that the line names; content search finds the entries that hold its lore words. `retrieval.py` uses plain values and the standard library; `server/chat/background.py` reads the records, for chats and the test search alike.
 
 - A search finds words, not meaning, so the slots, the score cut, the cooldown, and the note of the block keep a wrong hit cheap. No embeddings.
-- An NPC finds only the records that it can know (see [Knowledge](#knowledge)) and the memories of its own threads.
+- An NPC finds only the records that it can know (see [Knowledge](#knowledge)), the memories of its own threads, and the rumors that its chat scene does not hold.
 
 ### Lore records
 
@@ -325,14 +325,21 @@ The own records of an NPC are the start of its links (`knowledge.known`, with th
 Each memory of a thread with the NPC as a member is a record, except the memories that the system message holds (see [Conversation memories](#conversation-memories)).
 
 - A memory matches by name when the line names one of its members, or a lore name in its text.
-- Content search uses an FTS5 table of the memory texts. A content hit needs at least 2 different words of the line (`MEMORY_WORDS`), and the score cut of the lore applies.
+- Content search uses an FTS5 table of the memory texts. A content hit needs at least 2 different words of the line (`TEXT_WORDS`), and the score cut of the lore applies.
+
+### Rumor search
+
+Each rumor that NPCs tell (`world_events.told_rumors`) is a record, except the 3 newest, which the chat scene holds (`background.rumor_records`). Each NPC can find each rumor, because each NPC hears the newest rumors in its scene.
+
+- A rumor matches by name when the line names a character of its event, or a lore name in its text. The NPC itself does not count, because the player names the NPC to address it.
+- Content search works as for the memories (`retrieval.find_texts`).
 
 ### Slots and cooldown
 
 | Setting | INI key | Default | Effect |
 |---|---|---|---|
 | Retrieval slots | `RetrievalSlots` | 3 | The hits of a turn. 0 turns the search off. |
-| Memory slots | `MemorySlots` | 3 | The slots that memories can take, first and newest first (`retrieval.chosen`). |
+| Memory slots | `MemorySlots` | 3 | The slots that memories and rumors can take together. The memories come first, then the rumors, each newest first (`retrieval.chosen`). |
 | Retrieval cooldown | `RetrievalCooldownTurns` | 1 | The turns for which a content-only hit stays out. A name match always passes. |
 
 - The server keeps the recent hit keys per pair of speaker and NPC (`RECENT_HITS`). Another pair, or a campaign switch, drops them.
@@ -342,7 +349,7 @@ Each memory of a thread with the NPC as a member is a record, except the memorie
 
 The hits go into `{background}` of `prompt_chat_turn.txt`, before the player's line (`chat_prompt.background_block`), so they stay out of the cached system message and the stored dialogue.
 
-- The block opens with "Background, not said aloud", lists memories, then lore (`describe_record`), then travel lore, and ends with a note that the lists may not fit. An empty list leaves no heading, and no hit leaves no block.
+- The block opens with "Background, not said aloud", lists memories, then rumors with their age, then lore (`describe_record`), then travel lore, and ends with a note that the lists may not fit. An empty list leaves no heading, and no hit leaves no block.
 - It cannot be a system message of its own, because some chat templates accept a system message only at the start.
 - An animal and a radiant conversation get no search.
 
@@ -370,7 +377,7 @@ The server, not the LLM, picks one topic kind at random from those with material
 |---|---|
 | Shared memory | A memory of a thread with at least 2 participants (`campaign_db.shared_memories`) |
 | Surroundings | The center's place and the lore entry of its town (`radiant.place_topic`) |
-| Rumor | One of the 5 newest rumors |
+| Rumor | One of the 3 newest rumors |
 
 - The prompt is `prompt_system.txt` without the chat reply rules (`response_rules.txt`), which are written for one NPC who answers the player, plus `prompt_radiant.txt`. Each participant is described with `npc_template.txt`, as the NPC of a chat is. The radiant rules give the conversation an opening, an exchange, and a closing line, and make each participant keep its own voice, follow from the lines before it, and give its opinion, in an order that follows the talk. A participant speaks only when it has something to say. Without these rules, one call writes one same-voiced remark on the topic for each participant, in a fixed round, and stops mid-thread.
 - The server picks the line count at random from 2 to 4, 5 to 7, or 8 to 12 (`radiant.LENGTHS`), because the model, left to choose, writes a long conversation every time.

@@ -1,4 +1,5 @@
-"""Finds the lore entries and the memories that a player's message is about, for the last user message of a chat.
+"""Finds the lore entries, the memories, and the rumors that a player's message is about, for the last user message of
+a chat.
 
 It takes the message and the records as plain values and uses the standard library only, so it never touches the
 campaign. A search finds words, not meaning, so some hits are wrong: the slots, the score cut, and the cooldown keep a
@@ -24,7 +25,7 @@ TEXT_LIMIT = 700
 WEIGHTS = (10.0, 10.0, 3.0, 1.0)
 SCORE_RATIO = 0.6
 COMMON_SHARE = 0.1
-MEMORY_WORDS = 2
+TEXT_WORDS = 2
 KINDS = {"races": "race", "locations": "location", "regions": "region"}
 
 
@@ -171,26 +172,27 @@ def place_order(content, records, town, zone):
     return sorted(content, key=lambda hit: group(records[hit[0]]))
 
 
-def find_memories(message, memories, npc_name, lore_names):
-    """memories are dicts with a "text" and the "names" of their members except the NPC, oldest first. lore_names are the
-    names of the lore records that the message names. Returns the hits newest first, in the form of find_lore."""
+def find_texts(message, records, npc_name, lore_names):
+    """records are memories or rumors: dicts with a "text" and the "names" of their characters except the NPC, oldest
+    first. lore_names are the names of the lore records that the message names. Returns the hits newest first, in the
+    form of find_lore."""
     named = {}
-    for name, i in name_matches(message, [(name, i) for i, memory in enumerate(memories) for name in memory["names"]]):
+    for name, i in name_matches(message, [(name, i) for i, record in enumerate(records) for name in record["names"]]):
         named.setdefault(i, name)
-    for i, memory in enumerate(memories):
-        text = words(memory["text"])
+    for i, record in enumerate(records):
+        text = words(record["text"])
         told = [name for name in lore_names if _starts(text, name_words(name))]
         if told:
             named.setdefault(i, told[0])
-    db = _index(("text",), [(memory["text"],) for memory in memories])
-    # Every memory of the NPC holds its name, so a word of the name would find them all
+    db = _index(("text",), [(record["text"],) for record in records])
+    # Every memory of the NPC holds its name, and a player names the NPC to address it, so a word of the name would find them all
     own = set(_WORD.findall(npc_name.casefold()))
     searched = {}
     for word, term in _terms(db, list(dict.fromkeys(_WORD.findall(message.casefold())))):
         if term and word not in STOP_WORDS and word not in own:
             searched.setdefault(term, word)
-    found = dict(_ranked(db, list(searched.values()), MEMORY_WORDS, "bm25(entry)"))
-    return [{"record": memories[i], "name": named[i]} if i in named else {"record": memories[i], "words": found[i]} for i in sorted({*named, *found}, reverse=True)]
+    found = dict(_ranked(db, list(searched.values()), TEXT_WORDS, "bm25(entry)"))
+    return [{"record": records[i], "name": named[i]} if i in named else {"record": records[i], "words": found[i]} for i in sorted({*named, *found}, reverse=True)]
 
 
 def _index(columns, rows):
@@ -228,17 +230,18 @@ def _quoted(word):
     return f'"{word}"'
 
 
-def chosen(memory_hits, lore_hits, skip, recent, slots, memory_slots):
-    """The memories and the lore entries of a turn. A content hit whose key is in recent was a hit of a recent turn: its
-    shared words would bring it back on each turn, and a model tends to talk about the text that it gets. A name match
-    always passes, because the player asked about it. The lore records whose key is in skip are already in the system
-    message."""
+def chosen(memory_hits, rumor_hits, lore_hits, skip, recent, slots, memory_slots):
+    """The memories, the rumors, and the lore entries of a turn. The memories and the rumors share the memory slots, so a
+    lower count keeps slots for the lore. A content hit whose key is in recent was a hit of a recent turn: its shared
+    words would bring it back on each turn, and a model tends to talk about the text that it gets. A name match always
+    passes, because the player asked about it. The lore records whose key is in skip are already in the system message."""
     def passes(hit):
         return "name" in hit or hit["record"]["key"] not in recent
 
     memories = [hit for hit in memory_hits if passes(hit)][:min(memory_slots, slots)]
-    entries = [hit for hit in lore_hits if hit["record"]["key"] not in skip and passes(hit)][:slots - len(memories)]
-    return memories, entries
+    rumors = [hit for hit in rumor_hits if passes(hit)][:min(memory_slots, slots) - len(memories)]
+    entries = [hit for hit in lore_hits if hit["record"]["key"] not in skip and passes(hit)][:slots - len(memories) - len(rumors)]
+    return memories, rumors, entries
 
 
 def clipped(text):

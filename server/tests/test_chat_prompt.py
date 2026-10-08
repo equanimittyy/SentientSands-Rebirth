@@ -200,19 +200,20 @@ class BackgroundBlockTest(unittest.TestCase):
     STICK, JORGE, ABEL = "h:10", "h:14", "h:15"
     ADMAG = {"kind": "location", "name": "Admag", "aliases": [], "fields": {"type": "town", "zone": ["Stenn Desert"]}, "description": "The Shek capital."}
     MEMORY = {"id": 1, "game_time": 3 * 1440 + 14 * 60 + 5, "memory": "{h:10} asked {h:14} for work.", "members": [(STICK, "Stick", "speaker", True), (JORGE, "Jorge", "speaker", False), (ABEL, "Paladin Abel", "overheard", False)]}
+    RUMOR = {"id": 1, "event_id": 1, "game_time": 1440 + 9 * 60, "text": "A caravan never arrived.", "instruction": None}
 
     def test_nothing_found_gives_no_block(self):
-        self.assertEqual(chat_prompt.background_block([], [], self.ABEL, "Izumi"), "")
+        self.assertEqual(chat_prompt.background_block([], [], [], self.ABEL, "Izumi"), "")
 
     def test_an_entry_gives_its_name_kind_fields_and_text(self):
-        self.assertEqual(chat_prompt.background_block([], [self.ADMAG], self.ABEL, "Izumi"), "\n".join([
+        self.assertEqual(chat_prompt.background_block([], [], [self.ADMAG], self.ABEL, "Izumi"), "\n".join([
             "(Background, not said aloud. Lore that Izumi's words may touch on:",
             "- Admag (location; type: town; zone: Stenn Desert): The Shek capital.",
             "This lore may have nothing to do with what Izumi means, and you may know less than it says. Use it only where it fits your reply, and never recite it or turn the talk towards it.)",
         ]))
 
     def test_a_memory_gives_its_header_from_the_view_of_the_npc(self):
-        self.assertEqual(chat_prompt.background_block([self.MEMORY], [], self.ABEL, "Izumi"), "\n".join([
+        self.assertEqual(chat_prompt.background_block([self.MEMORY], [], [], self.ABEL, "Izumi"), "\n".join([
             "(Background, not said aloud. Memories that Izumi's words may touch on:",
             "[Day 3, 14:05] You overheard Stick and Jorge.",
             "Stick asked Jorge for work.",
@@ -220,23 +221,35 @@ class BackgroundBlockTest(unittest.TestCase):
         ]))
 
     def test_the_memories_come_before_the_lore(self):
-        lines = chat_prompt.background_block([self.MEMORY], [self.ADMAG], self.ABEL, "Izumi").splitlines()
+        lines = chat_prompt.background_block([self.MEMORY], [], [self.ADMAG], self.ABEL, "Izumi").splitlines()
         self.assertEqual([lines[0], lines[3]], ["(Background, not said aloud. Memories that Izumi's words may touch on:", "Lore that Izumi's words may touch on:"])
         self.assertTrue(lines[-1].startswith("These memories and this lore may have nothing to do with what Izumi means, and you may know less than the lore says."))
 
+    def test_a_rumor_gives_its_age(self):
+        self.assertEqual(chat_prompt.background_block([], [self.RUMOR], [], self.ABEL, "Izumi", today=5), "\n".join([
+            "(Background, not said aloud. Rumours that Izumi's words may touch on:",
+            "- A few days ago you heard a rumour: A caravan never arrived.",
+            "These rumours may have nothing to do with what Izumi means. Use them only where they fit your reply, and never recite them or turn the talk towards them.)",
+        ]))
+
+    def test_the_rumors_come_between_the_memories_and_the_lore(self):
+        lines = chat_prompt.background_block([self.MEMORY], [self.RUMOR], [self.ADMAG], self.ABEL, "Izumi").splitlines()
+        self.assertEqual([lines[3], lines[5]], ["Rumours that Izumi's words may touch on:", "Lore that Izumi's words may touch on:"])
+        self.assertTrue(lines[-1].startswith("These memories, these rumours, and this lore may have nothing to do with what Izumi means, and you may know less than the lore says."))
+
     def test_the_lore_from_travels_follows_under_its_own_heading(self):
         vain = {"kind": "region", "name": "Vain", "aliases": [], "fields": {}, "description": "Cliffs."}
-        self.assertEqual(chat_prompt.background_block([], [self.ADMAG], self.ABEL, "Izumi", [vain]).splitlines()[:4], [
+        self.assertEqual(chat_prompt.background_block([], [], [self.ADMAG], self.ABEL, "Izumi", [vain]).splitlines()[:4], [
             "(Background, not said aloud. Lore that Izumi's words may touch on:",
             "- Admag (location; type: town; zone: Stenn Desert): The Shek capital.",
             "You learned the following in your travels:",
             "- Vain (region): Cliffs.",
         ])
-        self.assertEqual(chat_prompt.background_block([], [], self.ABEL, "Izumi", [vain]).splitlines()[0], "(Background, not said aloud. You learned the following in your travels:")
+        self.assertEqual(chat_prompt.background_block([], [], [], self.ABEL, "Izumi", [vain]).splitlines()[0], "(Background, not said aloud. You learned the following in your travels:")
 
     def test_a_long_text_is_cut_and_the_fields_stay(self):
         entry = {**self.ADMAG, "description": "Walls. " * 200}
-        line = chat_prompt.background_block([], [entry], self.ABEL, "Izumi").splitlines()[1]
+        line = chat_prompt.background_block([], [], [entry], self.ABEL, "Izumi").splitlines()[1]
         self.assertTrue(line.startswith("- Admag (location; type: town; zone: Stenn Desert): Walls."))
         self.assertLessEqual(len(line), len("- Admag (location; type: town; zone: Stenn Desert): ") + 700)
 

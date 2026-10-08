@@ -59,8 +59,15 @@ class SearchTest(unittest.TestCase):
 
     def search(self, message, npc_id=ABEL, profile=None, speaker_race="Greenlander"):
         profile = profile or (self.ABEL_PROFILE if npc_id == ABEL else self.JORGE_PROFILE)
-        memories, entries, _ = background.search(message, background.campaign_lore(), npc_id, profile, None, speaker_race)
+        memories, _, entries, _ = background.search(message, background.campaign_lore(), npc_id, profile, None, speaker_race)
         return [hit["record"]["memory"]["id"] for hit in memories], [hit["record"]["name"] for hit in entries]
+
+    def rumors(self, message, npc_id=ABEL):
+        return [hit["record"]["text"] for hit in background.search(message, background.campaign_lore(), npc_id, self.ABEL_PROFILE, None, "Greenlander")[1]]
+
+    def add_newest_rumors(self):
+        for text in ("A caravan never arrived.", "The well of Stack ran dry.", "Hounds howl near the Hub."):
+            campaign_db.add_custom_event(text)
 
     def test_an_overhearer_finds_the_memory_by_two_shared_words(self):
         self.assertEqual(self.search("Who keeps the trouble out of here at night?"), ([self.guard], []))
@@ -97,9 +104,30 @@ class SearchTest(unittest.TestCase):
         self.assertEqual(self.search("The Holy Nation, the Nameless, and the Shek walk into a bar.", profile=dict(self.ABEL_PROFILE, Race="Shek"))[1], [])
 
     def test_a_lore_search_alone_skips_nothing(self):
-        memories, entries, skipped = background.search("I hate the Holy Nation.", background.campaign_lore())
-        self.assertEqual((memories, [hit["record"]["name"] for hit in entries]), ([], ["The Holy Nation"]))
+        memories, rumors, entries, skipped = background.search("I hate the Holy Nation.", background.campaign_lore())
+        self.assertEqual((memories, rumors, [hit["record"]["name"] for hit in entries]), ([], [], ["The Holy Nation"]))
         self.assertIn(("hate", "not lore"), skipped)
+
+    def test_a_character_of_its_event_finds_an_older_rumor(self):
+        campaign_db.add_event("kill", [(STICK, "Stick")], {"npc_id": "u:grig", "name": "Grig", "faction": "Dust Bandits"}, campaign_db.game_time("[Day 2, 10:00]"))
+        campaign_db.save_rumor(None, campaign_db.events()[0][0], "A wanderer cut down the bandit Grig.")
+        self.assertEqual(self.rumors("Is Grig really dead?"), [])
+        self.add_newest_rumors()
+        self.assertEqual(self.rumors("Is Grig really dead?"), ["A wanderer cut down the bandit Grig."])
+        self.assertEqual(self.rumors("Did you hear what Stick did?"), ["A wanderer cut down the bandit Grig."])
+
+    def test_two_shared_words_find_an_older_rumor(self):
+        campaign_db.add_custom_event("Slavers burned a farm east of Stack.")
+        self.add_newest_rumors()
+        self.assertEqual(self.rumors("Who burned that farm?"), ["Slavers burned a farm east of Stack."])
+        self.assertEqual(self.rumors("Any farm work?"), [])
+
+    def test_the_npc_does_not_find_a_rumor_by_its_own_name(self):
+        campaign_db.add_event("capture", [(STICK, "Stick")], {"npc_id": ABEL, "name": "Paladin Abel", "faction": "The Holy Nation"}, campaign_db.game_time("[Day 2, 10:00]"))
+        campaign_db.save_rumor(None, campaign_db.events()[0][0], "Wanderers took a paladin in chains.")
+        self.add_newest_rumors()
+        self.assertEqual(self.rumors("Paladin Abel, how are you?"), [])
+        self.assertEqual(self.rumors("Paladin Abel, how are you?", npc_id=JORGE), ["Wanderers took a paladin in chains."])
 
 
 KNOWLEDGE_SEED = dict(
@@ -129,10 +157,10 @@ class KnowledgeTest(unittest.TestCase):
         self._tmp.cleanup()
 
     def search(self, message, npc_id=None, profile=None):
-        return [hit["record"]["name"] for hit in background.search(message, background.campaign_lore(), npc_id, profile or self.HOLY)[1]]
+        return [hit["record"]["name"] for hit in background.search(message, background.campaign_lore(), npc_id, profile or self.HOLY)[2]]
 
     def travels(self, message, npc_id, profile=None):
-        return [(hit["record"]["name"], hit["travels"]) for hit in background.search(message, background.campaign_lore(), npc_id, profile or self.HOLY)[1]]
+        return [(hit["record"]["name"], hit["travels"]) for hit in background.search(message, background.campaign_lore(), npc_id, profile or self.HOLY)[2]]
 
     def test_a_record_that_the_npc_cannot_know_cuts_no_hit_that_it_can_know(self):
         self.assertEqual(self.search("Any bonedogs?"), ["Bonedog Plains"])

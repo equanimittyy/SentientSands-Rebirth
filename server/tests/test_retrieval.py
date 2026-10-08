@@ -164,7 +164,7 @@ MEMORIES = [GUARD, SAND, DRINK]
 
 
 def memories(message, lore_names=()):
-    return retrieval.find_memories(message, MEMORIES, "Paladin Abel", list(lore_names))
+    return retrieval.find_texts(message, MEMORIES, "Paladin Abel", list(lore_names))
 
 
 class MemorySearchTest(unittest.TestCase):
@@ -200,7 +200,7 @@ class MemorySearchTest(unittest.TestCase):
     def test_a_hit_below_the_score_cut_is_dropped(self):
         strong = memory(1, "Trouble at night. Trouble at night again.")
         weak = memory(2, "The caravan came at noon with salt, rice, and wheat. A guard told of old trouble in the hills, of rain, of dust, and of a long walk under a cold night sky past the ruins of the south.")
-        hits = retrieval.find_memories("Any trouble tonight or last night?", [strong, weak], "Abel", [])
+        hits = retrieval.find_texts("Any trouble tonight or last night?", [strong, weak], "Abel", [])
         self.assertEqual([hit["record"] for hit in hits], [strong])
 
 
@@ -210,37 +210,45 @@ def hit(key, name=None):
 
 class ChosenTest(unittest.TestCase):
     MEMORY_HITS = [hit("m3"), hit("m2"), hit("m1")]
+    RUMOR_HITS = [hit("r2"), hit("r1")]
     LORE_HITS = [hit("l1", "Admag"), hit("l2"), hit("l3")]
 
     def keys(self, chosen):
         return [[hit["record"]["key"] for hit in hits] for hits in chosen]
 
     def test_the_lore_fills_the_slots_that_the_memories_leave(self):
-        self.assertEqual(self.keys(retrieval.chosen(self.MEMORY_HITS[:1], self.LORE_HITS, set(), set(), 3, 3)), [["m3"], ["l1", "l2"]])
+        self.assertEqual(self.keys(retrieval.chosen(self.MEMORY_HITS[:1], [], self.LORE_HITS, set(), set(), 3, 3)), [["m3"], [], ["l1", "l2"]])
 
     def test_the_memory_slots_cap_the_memories(self):
-        self.assertEqual(self.keys(retrieval.chosen(self.MEMORY_HITS, self.LORE_HITS, set(), set(), 3, 1)), [["m3"], ["l1", "l2"]])
+        self.assertEqual(self.keys(retrieval.chosen(self.MEMORY_HITS, [], self.LORE_HITS, set(), set(), 3, 1)), [["m3"], [], ["l1", "l2"]])
 
     def test_as_many_memories_as_slots_leave_no_lore(self):
-        self.assertEqual(self.keys(retrieval.chosen(self.MEMORY_HITS, self.LORE_HITS, set(), set(), 3, 3)), [["m3", "m2", "m1"], []])
+        self.assertEqual(self.keys(retrieval.chosen(self.MEMORY_HITS, [], self.LORE_HITS, set(), set(), 3, 3)), [["m3", "m2", "m1"], [], []])
+
+    def test_the_rumors_follow_the_memories_and_come_before_the_lore(self):
+        self.assertEqual(self.keys(retrieval.chosen(self.MEMORY_HITS[:1], self.RUMOR_HITS[:1], self.LORE_HITS, set(), set(), 3, 3)), [["m3"], ["r2"], ["l1"]])
+
+    def test_the_memories_and_the_rumors_share_the_memory_slots(self):
+        self.assertEqual(self.keys(retrieval.chosen(self.MEMORY_HITS[:1], self.RUMOR_HITS, self.LORE_HITS, set(), set(), 3, 2)), [["m3"], ["r2"], ["l1"]])
+        self.assertEqual(self.keys(retrieval.chosen([], self.RUMOR_HITS, self.LORE_HITS, set(), set(), 3, 1)), [[], ["r2"], ["l1", "l2"]])
 
     def test_zero_slots_turn_the_search_off(self):
-        self.assertEqual(self.keys(retrieval.chosen(self.MEMORY_HITS, self.LORE_HITS, set(), set(), 0, 3)), [[], []])
+        self.assertEqual(self.keys(retrieval.chosen(self.MEMORY_HITS, self.RUMOR_HITS, self.LORE_HITS, set(), set(), 0, 3)), [[], [], []])
 
     def test_zero_memory_slots_give_every_slot_to_the_lore(self):
-        self.assertEqual(self.keys(retrieval.chosen(self.MEMORY_HITS, self.LORE_HITS, set(), set(), 3, 0)), [[], ["l1", "l2", "l3"]])
+        self.assertEqual(self.keys(retrieval.chosen(self.MEMORY_HITS, self.RUMOR_HITS, self.LORE_HITS, set(), set(), 3, 0)), [[], [], ["l1", "l2", "l3"]])
 
     def test_memory_slots_above_the_slots_count_as_the_slots(self):
-        self.assertEqual(self.keys(retrieval.chosen(self.MEMORY_HITS, self.LORE_HITS, set(), set(), 2, 5)), [["m3", "m2"], []])
+        self.assertEqual(self.keys(retrieval.chosen(self.MEMORY_HITS, [], self.LORE_HITS, set(), set(), 2, 5)), [["m3", "m2"], [], []])
 
     def test_a_record_that_the_system_message_holds_is_skipped(self):
-        self.assertEqual(self.keys(retrieval.chosen([], self.LORE_HITS, {"l1"}, set(), 3, 3)), [[], ["l2", "l3"]])
+        self.assertEqual(self.keys(retrieval.chosen([], [], self.LORE_HITS, {"l1"}, set(), 3, 3)), [[], [], ["l2", "l3"]])
 
     def test_a_recent_content_hit_leaves_its_slot_to_the_next(self):
-        self.assertEqual(self.keys(retrieval.chosen(self.MEMORY_HITS[:2], self.LORE_HITS, set(), {"m3", "l2"}, 3, 3)), [["m2"], ["l1", "l3"]])
+        self.assertEqual(self.keys(retrieval.chosen(self.MEMORY_HITS[:2], self.RUMOR_HITS, self.LORE_HITS, set(), {"m3", "r2", "l2"}, 3, 3)), [["m2"], ["r1"], ["l1"]])
 
     def test_a_recent_name_match_passes(self):
-        self.assertEqual(self.keys(retrieval.chosen([], self.LORE_HITS, set(), {"l1"}, 1, 3)), [[], ["l1"]])
+        self.assertEqual(self.keys(retrieval.chosen([], [], self.LORE_HITS, set(), {"l1"}, 1, 3)), [[], [], ["l1"]])
 
 
 class CooldownTest(unittest.TestCase):

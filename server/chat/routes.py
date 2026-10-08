@@ -350,17 +350,17 @@ def chat():
     pair = (speaker_id, primary_id)
     cooldown = load_settings()["retrieval_cooldown_turns"]
     recent_turns = state.RECENT_HITS.get(pair, [])
-    found_memories, found_entries = [], []
+    found_memories, found_rumors, found_entries = [], [], []
     # An animal replies only in actions
     if not animal:
         environment = ctx_dict.get("environment") or {}
-        found_memories, found_entries, _ = background.search(
+        found_memories, found_rumors, found_entries, _ = background.search(
             player_message, background.campaign_lore(), primary_id, primary_data, live.get("factionID"), (speaker or state.PLAYER_CONTEXT).get("race"),
             environment.get("town_name"), environment.get("zone_name"), retrieval.held(recent_turns, cooldown),
         )
     background_block = chat_prompt.background_block(
-        [hit["record"]["memory"] for hit in found_memories], [hit["record"] for hit in found_entries if not hit["travels"]], primary_id, player_name,
-        [hit["record"] for hit in found_entries if hit["travels"]],
+        [hit["record"]["memory"] for hit in found_memories], [hit["record"]["rumor"] for hit in found_rumors], [hit["record"] for hit in found_entries if not hit["travels"]], primary_id, player_name,
+        [hit["record"] for hit in found_entries if hit["travels"]], state.PLAYER_CONTEXT.get("day"),
     )
     turn = fill_prompt("prompt_chat_turn.txt", background=background_block, player_line=full_player_entry, final_instruction=final_instruction).strip()
     history = chat_prompt.history_window(chat_prompt.chat_lines(rows), campaign_db.DIALOGUE_BLOCK)
@@ -462,7 +462,7 @@ def chat():
                 logging.info(f"RELATION: {name} personal relation is now {new_rel} (judgment={judgment_value})")
 
         state.RECENT_HITS.clear()
-        state.RECENT_HITS[pair] = retrieval.next_turns(recent_turns, [hit["record"]["key"] for hit in found_memories + found_entries], cooldown)
+        state.RECENT_HITS[pair] = retrieval.next_turns(recent_turns, [hit["record"]["key"] for hit in found_memories + found_rumors + found_entries], cooldown)
 
         interactions = campaign_db.count_interaction(primary_id) if primary_id else None
         threshold = load_settings()["bio_interactions"]

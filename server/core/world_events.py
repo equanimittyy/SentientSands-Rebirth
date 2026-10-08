@@ -236,12 +236,16 @@ def character_events():
     return summary
 
 
-def character_ids(event):
+def characters(event):
     if event["kind"] in RUMOR_ONLY:
         return []
     if event["kind"] == "bounty":
-        return [event["target"]["id"]]
-    return [doer["id"] for doer in event["doers"]] + [event["victim"]["id"]]
+        return [(event["target"]["id"], event["target"]["name"])]
+    return [(party["id"], party["name"]) for party in [*event["doers"], event["victim"]]]
+
+
+def character_ids(event):
+    return [npc_id for npc_id, _ in characters(event)]
 
 
 def event_line(event, names, player_faction):

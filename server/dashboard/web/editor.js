@@ -922,11 +922,11 @@ function renderTestSearch() {
   const characters = records.filter((record) => record.kind === "character" && !record.isNew);
   const details = el("details", { className: "card debug-only", open: testSearch.open, ontoggle: () => { testSearch.open = details.open; } },
     el("summary", {}, el("strong", {}, "Test search"),
-      el("span", { className: "blurb" }, "Shows which lore entries and memories an NPC gets with a line that you say, in the order of the chat prompt. The search reads the saved entries.")),
+      el("span", { className: "blurb" }, "Shows which lore entries, memories, and rumors an NPC gets with a line that you say, in the order of the chat prompt. The search reads the saved entries.")),
     el("form", { className: "add", onsubmit: runTestSearch },
       field("Line", line),
       ...(source === "campaign" ? [
-        field("Talk to", characterPicker("npc", characters, "Nobody (lore only)", "Character to talk to"), null, "The character that hears the line. The search then also finds its memories, finds only the entries that it can know, marks the entries that it learned only on its travels away from its home, and skips the entries of its factions, which it knows from its chat prompt. Without one, the search finds only lore, in every entry."),
+        field("Talk to", characterPicker("npc", characters, "Nobody (lore only)", "Character to talk to"), null, "The character that hears the line. The search then also finds its memories and the older rumors, finds only the entries that it can know, marks the entries that it learned only on its travels away from its home, and skips the entries of its factions, which it knows from its chat prompt. Without one, the search finds only lore, in every entry."),
         field("Speak as", characterPicker("speaker", characters.filter(inPlayerFaction), "Nobody", "Squad member who speaks"), null, "The squad member who says the line. The search skips the entry of its race, which the NPC sees already."),
       ] : []),
       el("button", { type: "submit" }, "Search")),
@@ -940,6 +940,7 @@ function testSearchResult() {
   const how = (hit) => el("span", { className: "detail" }, hit.name ? `found by the name ${hit.name}` : `found by ${hit.words.join(", ")}`);
   const hits = [
     ...result.memories.map((hit) => el("li", {}, el("strong", {}, "Memory: "), hit.heading, " ", how(hit), el("p", { className: "hint" }, hit.text))),
+    ...result.rumors.map((hit) => el("li", {}, el("strong", {}, "Rumor "), how(hit), el("p", { className: "hint" }, hit.text))),
     ...result.entries.map((hit) => el("li", {}, el("strong", {}, hit.name), ` (${hit.kind}, ${TIERS[hit.tier]}${hit.travels ? ", learned in travels" : ""}) `, how(hit))),
   ];
   return [
