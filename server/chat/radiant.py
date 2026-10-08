@@ -17,6 +17,7 @@ LENGTHS = (
     ((8, 12), "The talk catches, and it goes somewhere new before it ends."),
 )
 REPLY_SHARE = 0.5
+SPEAKERS = (2, 5)
 _BONDS = ((10, "know each other well"), (3, "know each other"), (1, "have talked a little"), (0, "have never talked"))
 
 
@@ -59,21 +60,20 @@ def script(names, rng=random):
     return "\n".join([f"{len(order)} lines. {feel}", *rows])
 
 
-def npc_group(npcs, has_profile):
-    """The NPCs of an NPC radiant conversation: 2 to 5 members of one squad at a bar, or none. npcs come nearest first.
-    Each NPC without a profile gets a new one, so the squad that needs the fewest wins, then the nearest. Its members
-    with a profile all talk, and the others only fill the places up to 2."""
+def npc_group(npcs, has_profile, rng=random):
+    """The NPCs of an NPC radiant conversation: a rolled count of 2 to 5 members of one squad at a bar, or none. npcs come
+    nearest first. The nearest squad in which an NPC has a profile wins, else the nearest squad. Its members with a profile
+    talk first, and the others fill the rolled places, so each of them gets a new profile."""
     squads = {}
     for npc in npcs:
         if current_job.current_job(npc, False, "") == current_job.AT_A_BAR:
             squads.setdefault(npc["squad"], []).append(npc)
-    groups = []
-    for members in squads.values():
-        known = [npc for npc in members if has_profile(npc["npc_id"])][:5]
-        new = [npc for npc in members if npc not in known][:max(0, 2 - len(known))]
-        if len(known) + len(new) >= 2:
-            groups.append((len(new), known + new))
-    return min(groups, key=lambda group: group[0])[1] if groups else []
+    groups = [members for members in squads.values() if len(members) >= 2]
+    if not groups:
+        return []
+    known = {npc["npc_id"] for members in groups for npc in members if has_profile(npc["npc_id"])}
+    members = next((members for members in groups if any(npc["npc_id"] in known for npc in members)), groups[0])
+    return sorted(members, key=lambda npc: npc["npc_id"] not in known)[:rng.randint(*SPEAKERS)]
 
 
 def npc_talk(npcs, rumors, chance, roll=random.random):

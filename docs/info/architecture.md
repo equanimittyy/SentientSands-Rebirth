@@ -372,7 +372,7 @@ An NPC radiant conversation takes the place of a talk of the player's characters
 
 - The NPCs belong to one squad, because NPCs that stand near each other only by chance have no reason to talk. So the prompt (`prompt_radiant_npc.txt`) says that they know each other, and it has no lines on how well each pair knows each other.
 - Only an NPC whose Current Job is Hanging out at a bar talks (see [Current Job](#current-job)). The server picks the squad, because the job table also decides when a bar visit is only the side task of a guard.
-- Each NPC without a profile gets one as at a first meeting, so the squad that needs the fewest new profiles wins, then the nearest squad. All its members with a profile talk, up to 5, and members without one only fill the places up to 2. So the same NPCs come back, and the canon grows by at most 2 characters for each conversation.
+- The server rolls the count of NPCs, from 2 to 5 (`radiant.SPEAKERS`). The nearest squad that has a member with a profile wins, else the nearest squad. Its members with a profile talk first, nearest first, and members without one fill the rest of the count. Each NPC without a profile gets one as at a first meeting. A squad with fewer members than the count talks with all of them.
 - A player with fewer than 3 characters together gets an NPC radiant conversation at the NPC radiant chance, and no radiant conversation otherwise.
 - For an NPC, only a knockout counts as a fight, because the game events hold only the attacks of the player's faction (see [Game events](#game-events)).
 - The name of an NPC comes from `npc_name`, as in a chat, and the thread stores each NPC as a member outside the player's faction.

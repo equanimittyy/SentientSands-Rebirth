@@ -41,30 +41,43 @@ def ids(group):
     return [npc["id"] for npc in group]
 
 
+class Roll:
+    def __init__(self, count):
+        self.count, self.ranges = count, []
+
+    def randint(self, low, high):
+        self.ranges.append((low, high))
+        return self.count
+
+
 class NpcGroupTest(unittest.TestCase):
     def test_only_the_npcs_at_a_bar_count(self):
         guards = [drinker(1, "a", ("STAND_AT_GUARD_NODE_HOMEBUILDING_IN_OUT", "GO_TO_THE_BAR_AND_DRINK")), drinker(2, "a")]
         hired = [{**drinker(3, "b"), "temporary_follower": True}, drinker(4, "b")]
-        self.assertEqual(radiant.npc_group(guards + hired, lambda npc_id: True), [])
+        self.assertEqual(radiant.npc_group(guards + hired, lambda npc_id: True, Roll(5)), [])
 
     def test_the_npcs_come_from_one_squad(self):
         npcs = [drinker(1, "a"), drinker(2, "b"), drinker(3, "b"), drinker(4, "a")]
-        self.assertEqual(ids(radiant.npc_group(npcs, lambda npc_id: True)), [1, 4])
-        self.assertEqual(radiant.npc_group([drinker(1, "a"), drinker(2, "b")], lambda npc_id: True), [])
+        self.assertEqual(ids(radiant.npc_group(npcs, lambda npc_id: True, Roll(5))), [1, 4])
+        self.assertEqual(radiant.npc_group([drinker(1, "a"), drinker(2, "b")], lambda npc_id: True, Roll(5)), [])
 
-    def test_up_to_5_npcs_with_a_profile_talk(self):
+    def test_the_count_is_rolled_from_2_to_5(self):
         npcs = [drinker(serial, "a") for serial in range(1, 8)]
-        self.assertEqual(ids(radiant.npc_group(npcs, lambda npc_id: True)), [1, 2, 3, 4, 5])
+        roll = Roll(3)
+        self.assertEqual(ids(radiant.npc_group(npcs, lambda npc_id: True, roll)), [1, 2, 3])
+        self.assertEqual(roll.ranges, [(2, 5)])
+        self.assertEqual(ids(radiant.npc_group(npcs, lambda npc_id: True, Roll(5))), [1, 2, 3, 4, 5])
 
-    def test_npcs_without_a_profile_only_fill_the_places_up_to_2(self):
+    def test_npcs_with_a_profile_talk_first_and_new_npcs_fill_the_roll(self):
         npcs = [drinker(1, "a"), drinker(2, "a"), drinker(3, "a"), drinker(4, "a")]
-        self.assertEqual(ids(radiant.npc_group(npcs, lambda npc_id: npc_id == "h:3")), [3, 1])
-        self.assertEqual(ids(radiant.npc_group(npcs, lambda npc_id: False)), [1, 2])
+        self.assertEqual(ids(radiant.npc_group(npcs, lambda npc_id: npc_id == "h:3", Roll(3))), [3, 1, 2])
+        self.assertEqual(ids(radiant.npc_group(npcs, lambda npc_id: False, Roll(4))), [1, 2, 3, 4])
 
-    def test_the_squad_that_needs_the_fewest_new_profiles_wins_then_the_nearest(self):
+    def test_the_nearest_squad_with_a_profile_wins_else_the_nearest(self):
         npcs = [drinker(1, "a"), drinker(2, "a"), drinker(3, "b"), drinker(4, "b"), drinker(5, "c"), drinker(6, "c")]
-        self.assertEqual(ids(radiant.npc_group(npcs, lambda npc_id: npc_id in ("h:4", "h:5", "h:6"))), [5, 6])
-        self.assertEqual(ids(radiant.npc_group(npcs, lambda npc_id: npc_id in ("h:4", "h:6"))), [4, 3])
+        self.assertEqual(ids(radiant.npc_group(npcs, lambda npc_id: npc_id in ("h:5", "h:6"), Roll(2))), [5, 6])
+        self.assertEqual(ids(radiant.npc_group(npcs, lambda npc_id: npc_id in ("h:4", "h:6"), Roll(2))), [4, 3])
+        self.assertEqual(ids(radiant.npc_group(npcs, lambda npc_id: False, Roll(2))), [1, 2])
 
 
 class NpcTalkTest(unittest.TestCase):
