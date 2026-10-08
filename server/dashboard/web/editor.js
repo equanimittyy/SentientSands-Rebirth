@@ -41,7 +41,7 @@ const ORIGIN_LABELS = { seed: "Seeded", game: "Met in game", campaign: "Added in
 const PROVISIONAL = "Interactions";
 const IMPORT_PROBLEMS_SHOWN = 10;
 const EVENTS_PER_PAGE = 50;
-const NOTABLE_KINDS = { kill: "Kill", capture: "Capture", custom: "Custom", auto: "Auto", bounty: "Bounty" };
+const EVENT_KINDS = { kill: "Kill", capture: "Capture", custom: "Custom", auto: "Auto", bounty: "Bounty" };
 
 let source = "campaign";
 let canon = null;
@@ -52,7 +52,7 @@ let template = null;
 let records = [];
 const drafts = new Map();
 let log = null;
-// A rumor that only Generate Rumor wrote has no ID yet, so its key is new: and the ID of its notable event
+// A rumor that only Generate Rumor wrote has no ID yet, so its key is new: and the ID of its event
 let rumorDrafts = {};
 let rumorInstructions = {};
 let memoryDrafts = {};
@@ -1004,7 +1004,7 @@ async function writeRumor(event) {
   if (instruction === null) return;
   const steps = progress("Writing a rumor", "Asking the LLM");
   try {
-    const { text } = await sendJson("POST", "/api/campaign/rumors/generate", { campaign: log.name, notable: event.id, instruction, rumor: rumorDrafts[key] ?? "" });
+    const { text } = await sendJson("POST", "/api/campaign/rumors/generate", { campaign: log.name, event: event.id, instruction, rumor: rumorDrafts[key] ?? "" });
     steps.close();
     rumorDrafts[key] = text;
     rumorInstructions[key] = instruction;
@@ -1068,9 +1068,9 @@ async function deleteEvent(event) {
 }
 
 function renderEvents() {
-  const events = log.notables;
+  const events = log.events;
   const counts = new Map();
-  for (const event of log.notables) counts.set(event.kind, (counts.get(event.kind) ?? 0) + 1);
+  for (const event of log.events) counts.set(event.kind, (counts.get(event.kind) ?? 0) + 1);
   if (!counts.has(eventView.type)) eventView.type = "all";
   const search = el("input", {
     type: "search",
@@ -1083,7 +1083,7 @@ function renderEvents() {
     },
   });
   search.setAttribute("aria-label", "Search the events");
-  const options = [...counts].map(([kind, count]) => [kind, `${NOTABLE_KINDS[kind] ?? kind} (${count})`]).sort((a, b) => a[1].localeCompare(b[1]));
+  const options = [...counts].map(([kind, count]) => [kind, `${EVENT_KINDS[kind] ?? kind} (${count})`]).sort((a, b) => a[1].localeCompare(b[1]));
   const select = el("select", {
     onchange: (event) => {
       eventView.type = event.target.value;
@@ -1120,7 +1120,7 @@ function renderEventPage() {
   const holder = page.querySelector("#event-page");
   if (!holder) return;
   const needle = eventView.query.trim().toLowerCase();
-  const shown = log.notables.filter((event) => (eventView.type === "all" || event.kind === eventView.type) && (!needle || event.line.toLowerCase().includes(needle)));
+  const shown = log.events.filter((event) => (eventView.type === "all" || event.kind === eventView.type) && (!needle || event.line.toLowerCase().includes(needle)));
   if (shown.length === 0) {
     holder.replaceChildren(el("p", { className: "hint" }, "No results."));
     return;
@@ -1130,7 +1130,7 @@ function renderEventPage() {
   const start = (eventView.page - 1) * EVENTS_PER_PAGE;
   const rows = shown.slice(start, start + EVENTS_PER_PAGE).map((event) => el("tr", {},
     el("td", {}, event.time),
-    el("td", {}, el("span", { className: "badge" }, NOTABLE_KINDS[event.kind] ?? event.kind), event.status ? ` (${event.status})` : null),
+    el("td", {}, el("span", { className: "badge" }, EVENT_KINDS[event.kind] ?? event.kind), event.status ? ` (${event.status})` : null),
     el("td", {}, event.line),
     el("td", {}, rumorCell(event))));
   const head = el("tr", {}, el("th", {}, "Time"), el("th", {}, "Kind"), el("th", {}, "Event"), el("th", {}, "Rumor"));
@@ -1368,7 +1368,7 @@ async function getCampaign(url) {
 
 const rumorBody = (key) => ({
   campaign: log.name,
-  ...(key.startsWith("new:") ? { notable: Number(key.slice(4)) } : { id: Number(key) }),
+  ...(key.startsWith("new:") ? { event: Number(key.slice(4)) } : { id: Number(key) }),
   text: rumorDrafts[key],
   ...(key in rumorInstructions ? { instruction: rumorInstructions[key] } : {}),
 });
@@ -1380,7 +1380,7 @@ const keptLog = () => ({
 });
 
 function showLog({ rumors = {}, instructions = {}, memories = {} }) {
-  const events = new Map((log?.notables ?? []).map((event) => [`new:${event.id}`, event]));
+  const events = new Map((log?.events ?? []).map((event) => [`new:${event.id}`, event]));
   // A new rumor whose event got a rumor in the meantime, for example in another tab, becomes a draft of that rumor
   const keyOf = (key) => (events.get(key)?.rumor ?? key).toString();
   const kept = Object.fromEntries(Object.entries(rumors).map(([key, text]) => [keyOf(key), text]));

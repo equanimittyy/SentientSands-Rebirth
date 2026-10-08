@@ -430,7 +430,7 @@ class CullAndRumorTest(CampaignTestCase):
 
     def figure(self, at):
         campaign_db.add_event("kill", [(BEEP_ID, "Beep")], TINFIST, at)
-        return next(notable_id for notable_id, time, _ in campaign_db.notables() if time == at)
+        return next(event_id for event_id, time, _ in campaign_db.events() if time == at)
 
     def test_cull_deletes_only_later_rows(self):
         campaign_db.append_dialogue(GENERIC_ID, spoken(None, "[Day 2, 09:59] early", "[Day 2, 10:01] late", "untimed"), BEEP)
@@ -438,47 +438,47 @@ class CullAndRumorTest(CampaignTestCase):
         campaign_db.save_rumor(None, kept, "old")
         campaign_db.save_rumor(None, culled, "new")
 
-        self.assertEqual(campaign_db.cull_after(2, 10, 0), {"dialogue": 1, "rumor": 1, "notable": 1})
+        self.assertEqual(campaign_db.cull_after(2, 10, 0), {"dialogue": 1, "rumor": 1, "event": 1})
         self.assertEqual(campaign_db.get_character(GENERIC_ID)["ConversationHistory"], ["[Day 2, 09:59] early", "untimed"])
-        self.assertEqual([at for _, at, _ in campaign_db.notables()], [2 * 1440 + 600])
+        self.assertEqual([at for _, at, _ in campaign_db.events()], [2 * 1440 + 600])
         self.assertEqual([rumor["text"] for rumor in campaign_db.rumors()], ["old"])
 
-    def test_a_notable_event_has_one_rumor_with_its_game_time(self):
-        notable_id = self.figure(1440)
-        self.assertTrue(campaign_db.save_rumor(None, notable_id, "one", "Tell it grimly."))
-        self.assertTrue(campaign_db.save_rumor(None, notable_id, "two"))
+    def test_an_event_has_one_rumor_with_its_game_time(self):
+        event_id = self.figure(1440)
+        self.assertTrue(campaign_db.save_rumor(None, event_id, "one", "Tell it grimly."))
+        self.assertTrue(campaign_db.save_rumor(None, event_id, "two"))
         (rumor,) = campaign_db.rumors()
-        self.assertEqual((rumor["notable_id"], rumor["game_time"], rumor["text"], rumor["instruction"]), (notable_id, 1440, "two", "Tell it grimly."))
-        self.assertFalse(campaign_db.save_rumor(None, notable_id + 1, "none"))
+        self.assertEqual((rumor["event_id"], rumor["game_time"], rumor["text"], rumor["instruction"]), (event_id, 1440, "two", "Tell it grimly."))
+        self.assertFalse(campaign_db.save_rumor(None, event_id + 1, "none"))
         self.assertFalse(campaign_db.save_rumor(rumor["id"] + 1, None, "none"))
 
     def test_an_added_rumor_never_replaces_a_rumor(self):
-        notable_id = self.figure(1440)
-        self.assertTrue(campaign_db.add_rumor(notable_id, "auto"))
-        self.assertFalse(campaign_db.add_rumor(notable_id, "again"))
-        self.assertFalse(campaign_db.add_rumor(notable_id + 1, "gone"))
-        self.assertEqual([(rumor["notable_id"], rumor["game_time"], rumor["text"], rumor["instruction"]) for rumor in campaign_db.rumors()], [(notable_id, 1440, "auto", "")])
+        event_id = self.figure(1440)
+        self.assertTrue(campaign_db.add_rumor(event_id, "auto"))
+        self.assertFalse(campaign_db.add_rumor(event_id, "again"))
+        self.assertFalse(campaign_db.add_rumor(event_id + 1, "gone"))
+        self.assertEqual([(rumor["event_id"], rumor["game_time"], rumor["text"], rumor["instruction"]) for rumor in campaign_db.rumors()], [(event_id, 1440, "auto", "")])
 
     def test_a_custom_event_holds_the_rumor_of_the_player_and_only_a_custom_event_can_be_deleted(self):
         kill = self.figure(1440)
         custom = campaign_db.add_custom_event("They say Beep freed the slaves of Rebirth.")
-        self.assertEqual(campaign_db.notable(custom), (None, {"kind": "custom"}))
-        self.assertEqual([(rumor["notable_id"], rumor["game_time"], rumor["text"]) for rumor in campaign_db.rumors()], [(custom, None, "They say Beep freed the slaves of Rebirth.")])
-        self.assertFalse(campaign_db.delete_custom_event(kill))
-        self.assertTrue(campaign_db.delete_custom_event(custom))
-        self.assertEqual([notable_id for notable_id, _, _ in campaign_db.notables()], [kill])
+        self.assertEqual(campaign_db.event(custom), (None, {"kind": "custom"}))
+        self.assertEqual([(rumor["event_id"], rumor["game_time"], rumor["text"]) for rumor in campaign_db.rumors()], [(custom, None, "They say Beep freed the slaves of Rebirth.")])
+        self.assertFalse(campaign_db.delete_event(kill))
+        self.assertTrue(campaign_db.delete_event(custom))
+        self.assertEqual([event_id for event_id, _, _ in campaign_db.events()], [kill])
         self.assertEqual(campaign_db.rumors(), [])
 
     def test_a_custom_event_and_its_rumor_count_as_the_newest_and_the_cull_keeps_them(self):
         custom = campaign_db.add_custom_event("They say Beep freed the slaves.")
         later = self.figure(3 * 1440)
         earlier = self.figure(1440)
-        for notable_id in (later, earlier):
-            campaign_db.save_rumor(None, notable_id, str(notable_id))
-        self.assertEqual([notable_id for notable_id, _, _ in campaign_db.notables()], [custom, later, earlier])
-        self.assertEqual([rumor["notable_id"] for rumor in campaign_db.rumors()], [earlier, later, custom])
-        self.assertEqual(campaign_db.cull_after(2, 0, 0), {"dialogue": 0, "rumor": 1, "notable": 1})
-        self.assertEqual([notable_id for notable_id, _, _ in campaign_db.notables()], [custom, earlier])
+        for event_id in (later, earlier):
+            campaign_db.save_rumor(None, event_id, str(event_id))
+        self.assertEqual([event_id for event_id, _, _ in campaign_db.events()], [custom, later, earlier])
+        self.assertEqual([rumor["event_id"] for rumor in campaign_db.rumors()], [earlier, later, custom])
+        self.assertEqual(campaign_db.cull_after(2, 0, 0), {"dialogue": 0, "rumor": 1, "event": 1})
+        self.assertEqual([event_id for event_id, _, _ in campaign_db.events()], [custom, earlier])
         self.assertEqual([rumor["game_time"] for rumor in campaign_db.rumors()], [1440, None])
 
     def test_delete_rumor(self):
@@ -511,9 +511,9 @@ class AutoRumorTest(CampaignTestCase):
 
     def test_an_auto_event_takes_the_newest_game_time_of_its_memories_which_leave_the_pool(self):
         first, second, third = self.memory(1), self.memory(3), self.memory(2)
-        notable_id = campaign_db.add_auto_event("Word in Squin is that Jorge grunts.", [first, second])
-        self.assertEqual(campaign_db.notable(notable_id), (3 * 1440, {"kind": "auto", "threads": [first, second]}))
-        self.assertEqual([(rumor["notable_id"], rumor["game_time"], rumor["text"]) for rumor in campaign_db.rumors()], [(notable_id, 3 * 1440, "Word in Squin is that Jorge grunts.")])
+        event_id = campaign_db.add_auto_event("Word in Squin is that Jorge grunts.", [first, second])
+        self.assertEqual(campaign_db.event(event_id), (3 * 1440, {"kind": "auto", "threads": [first, second]}))
+        self.assertEqual([(rumor["event_id"], rumor["game_time"], rumor["text"]) for rumor in campaign_db.rumors()], [(event_id, 3 * 1440, "Word in Squin is that Jorge grunts.")])
         self.assertEqual(self.pool(), [(third, 0)])
 
     def test_an_auto_event_writes_nothing_when_a_memory_is_gone_or_out_of_the_pool(self):
@@ -522,7 +522,7 @@ class AutoRumorTest(CampaignTestCase):
         campaign_db.delete_memory(deleted)
         self.assertIsNone(campaign_db.add_auto_event("Again.", [fresh, used]))
         self.assertIsNone(campaign_db.add_auto_event("Gone.", [fresh, deleted]))
-        self.assertEqual(len(campaign_db.notables()), 1)
+        self.assertEqual(len(campaign_db.events()), 1)
         self.assertEqual(self.pool(), [(fresh, 0)])
 
     def test_a_pass_counts_the_memories_that_it_read_and_drops_the_older_ones(self):
@@ -540,15 +540,15 @@ class AutoRumorTest(CampaignTestCase):
         self.assertEqual(self.pool(), [])
 
     def test_the_delete_of_an_auto_event_keeps_its_memories_out_of_the_pool(self):
-        notable_id = campaign_db.add_auto_event("One.", [self.memory(1)])
-        self.assertTrue(campaign_db.delete_custom_event(notable_id))
-        self.assertEqual((campaign_db.notables(), campaign_db.rumors(), self.pool()), ([], [], []))
+        event_id = campaign_db.add_auto_event("One.", [self.memory(1)])
+        self.assertTrue(campaign_db.delete_event(event_id))
+        self.assertEqual((campaign_db.events(), campaign_db.rumors(), self.pool()), ([], [], []))
 
     def test_the_cull_deletes_an_auto_event_with_its_newest_memory(self):
         kept = self.memory(1)
         campaign_db.add_auto_event("One.", [kept, self.memory(3)])
-        self.assertEqual(campaign_db.cull_after(2, 0, 0), {"dialogue": 0, "rumor": 1, "notable": 1})
-        self.assertEqual(campaign_db.notables(), [])
+        self.assertEqual(campaign_db.cull_after(2, 0, 0), {"dialogue": 0, "rumor": 1, "event": 1})
+        self.assertEqual(campaign_db.events(), [])
         self.assertEqual([memory["id"] for memory in campaign_db.memories_of(GENERIC_ID)], [kept])
 
 

@@ -1,4 +1,4 @@
-"""The facts of a notable event, which the LLM turns into a rumor. The server writes the rumor of each event in a quiet
+"""The facts of an event, which the LLM turns into a rumor. The server writes the rumor of each event in a quiet
 period of the chat (write_rumors in chat/memory.py), and Generate Rumor writes it again with the player's instruction. An
 auto event is a rumor that the LLM spins from the conversation memories (auto_prompt), so its rumor is its only account. The
 notice and the rumor of a bounty tell the facts of the game bounty, so only the rumor pass writes them, with the alias of its
@@ -35,7 +35,7 @@ def auto_pool():
     events, which come first, or for a memory that no pass read, so a pool without a new memory costs no LLM call."""
     try:
         pool = campaign_db.rumor_pool(AUTO_POOL)
-        if not any(memory["passes"] == 0 for memory in pool) or campaign_db.pending_threads() or any(event["rumor"] is None for event in world_events.notable_events()):
+        if not any(memory["passes"] == 0 for memory in pool) or campaign_db.pending_threads() or any(event["rumor"] is None for event in world_events.events()):
             return None
     except campaign_db.CampaignUnavailable:
         return None
@@ -73,11 +73,11 @@ def keep_auto_rumor(reply, memories, campaign):
         return
     text, cited = parsed
     if text:
-        notable_id = campaign_db.add_auto_event(text, cited)
-        if notable_id is None:
+        event_id = campaign_db.add_auto_event(text, cited)
+        if event_id is None:
             logging.info("RUMOR: Dropped the auto rumor, because a delete or a cull changed its memories while the LLM wrote it.")
             return
-        logging.info(f"RUMOR: Stored the auto event {notable_id} from the memories of the chat threads {', '.join(map(str, cited))}.")
+        logging.info(f"RUMOR: Stored the auto event {event_id} from the memories of the chat threads {', '.join(map(str, cited))}.")
     else:
         logging.info("RUMOR: The LLM found no story in the memories.")
     campaign_db.count_rumor_pass(memory["id"] for memory in memories)

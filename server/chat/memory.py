@@ -39,47 +39,47 @@ def write_memory(thread, members, campaign):
     else:
         logging.info(f"MEMORY: Dropped the memory of the chat thread {thread['id']}, because a cull or a delete changed the thread while the LLM wrote it.")
 
-def write_rumor(notable_id, campaign):
+def write_rumor(event_id, campaign):
     """Has the LLM write the rumor of an event that has none and stores it. A failed call leaves the event without one."""
-    notable = campaign_db.notable(notable_id)
-    if not notable:
+    event = campaign_db.event(event_id)
+    if not event:
         return
-    if notable[1]["kind"] == "bounty":
-        write_bounty_rumor(notable_id, notable, campaign)
+    if event[1]["kind"] == "bounty":
+        write_bounty_rumor(event_id, event, campaign)
         return
-    text = rumors.clean(call_llm("synthesis", [{"role": "user", "content": rumors.prompt(*notable, "", "")}]))
+    text = rumors.clean(call_llm("synthesis", [{"role": "user", "content": rumors.prompt(*event, "", "")}]))
     if not text:
-        logging.warning(f"RUMOR: The LLM gave no rumor for the event {notable_id}, so it waits for the next quiet period.")
+        logging.warning(f"RUMOR: The LLM gave no rumor for the event {event_id}, so it waits for the next quiet period.")
         return
     # The same event ID can name another event in another campaign
     if state.ACTIVE_CAMPAIGN != campaign:
-        logging.info(f"RUMOR: Dropped the rumor of the event {notable_id}, because the active campaign changed while the LLM wrote it.")
+        logging.info(f"RUMOR: Dropped the rumor of the event {event_id}, because the active campaign changed while the LLM wrote it.")
         return
-    if campaign_db.add_rumor(notable_id, text):
-        logging.info(f"RUMOR: Stored the rumor of the event {notable_id}.")
+    if campaign_db.add_rumor(event_id, text):
+        logging.info(f"RUMOR: Stored the rumor of the event {event_id}.")
     else:
-        logging.info(f"RUMOR: Dropped the rumor of the event {notable_id}, because the player saved one or a cull deleted the event while the LLM wrote it.")
+        logging.info(f"RUMOR: Dropped the rumor of the event {event_id}, because the player saved one or a cull deleted the event while the LLM wrote it.")
 
-def write_bounty_rumor(notable_id, notable, campaign):
+def write_bounty_rumor(event_id, event, campaign):
     """Has the LLM write the wanted notice and the rumor of a bounty and the alias of its target in one reply, and stores
     them. A reply without all three leaves the bounty without a rumor."""
     try:
-        parsed = rumors.bounty_reply(robust_json_parse(call_llm("synthesis", [{"role": "user", "content": rumors.bounty_prompt(*notable)}])))
+        parsed = rumors.bounty_reply(robust_json_parse(call_llm("synthesis", [{"role": "user", "content": rumors.bounty_prompt(*event)}])))
     except ValueError:
         parsed = None
     if not parsed:
-        logging.warning(f"RUMOR: The LLM gave no notice, rumor, and alias for the bounty {notable_id}, so it waits for the next quiet period.")
+        logging.warning(f"RUMOR: The LLM gave no notice, rumor, and alias for the bounty {event_id}, so it waits for the next quiet period.")
         return
     if state.ACTIVE_CAMPAIGN != campaign:
-        logging.info(f"RUMOR: Dropped the rumor of the bounty {notable_id}, because the active campaign changed while the LLM wrote it.")
+        logging.info(f"RUMOR: Dropped the rumor of the bounty {event_id}, because the active campaign changed while the LLM wrote it.")
         return
     notice, text, alias = parsed
-    if not campaign_db.add_bounty_rumor(notable_id, notice, text):
-        logging.info(f"RUMOR: Dropped the rumor of the bounty {notable_id}, because a delete or a cull removed the bounty while the LLM wrote it.")
+    if not campaign_db.add_bounty_rumor(event_id, notice, text):
+        logging.info(f"RUMOR: Dropped the rumor of the bounty {event_id}, because a delete or a cull removed the bounty while the LLM wrote it.")
         return
-    target = notable[1]["target"]
+    target = event[1]["target"]
     named = campaign_db.add_alias(target["id"], alias)
-    logging.info(f"RUMOR: Stored the notice and the rumor of the bounty {notable_id}" + (f", and {target['name']} is now known as {alias}." if named else "."))
+    logging.info(f"RUMOR: Stored the notice and the rumor of the bounty {event_id}" + (f", and {target['name']} is now known as {alias}." if named else "."))
 
 def distill_threads():
     """Writes the memory of each pending chat thread of the active campaign, the oldest first, while the chat stays quiet."""
@@ -109,17 +109,17 @@ def write_rumors():
     try:
         if campaign_db.pending_threads():
             return
-        waiting = [event["id"] for event in reversed(world_events.notable_events()) if event["rumor"] is None]
+        waiting = [event["id"] for event in reversed(world_events.events()) if event["rumor"] is None]
     except campaign_db.CampaignUnavailable:
         return
     if not waiting:
         return
     logging.info(f"RUMOR: Writing the rumors of the events without one ({len(waiting)})...")
-    for notable_id in waiting:
+    for event_id in waiting:
         if not chat_is_quiet():
             logging.info("RUMOR: A chat started, so the other events wait for the next quiet period.")
             return
-        write_rumor(notable_id, campaign)
+        write_rumor(event_id, campaign)
 
 def write_auto_rumor(pool, campaign):
     """Has the LLM spin at most one rumor from the memories of the pool (rumors.auto_pool)."""

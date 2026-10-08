@@ -92,7 +92,7 @@ The hooks in `plugin/main.cpp` buffer the game events (`QueueGameEvent`). The se
 - Else each attacker whose last attack is in the 3 game hours before counts. Kenshi gives no last hit.
 - An event with a game time before the newest event is a load, and drops the kept events after that time. The server skips events at Day 0, 00:00, because the clock reads that until it holds a real time.
 
-The `notable` table holds one row for each event, with the game time and, as JSON, the kind (`kill`, `capture`, `custom`, `auto`, or `bounty`) and its facts.
+The `event` table holds one row for each event, with the game time and, as JSON in `data`, the kind (`kill`, `capture`, `custom`, `auto`, or `bounty`) and its facts.
 
 - Only a known figure outside the player's faction makes an event: a unique character (`npc_id` starts with `u:`), a generic character that took a canon `npc_id` (`adopt_canon`, see [Characters](#characters)), or the target of an open bounty (see [Bounties](#bounties)).
 - A capture counts once for each captor and figure, because `setPrisonMode` runs again for each prisoner when a save loads.
@@ -547,7 +547,7 @@ A profile is provisional while it holds `Interactions` (`campaign_db.PROVISIONAL
 | `GET /api/campaigns` | The campaigns, the templates, and why the current campaign cannot open |
 | `POST /api/campaigns` | Create a campaign from a template |
 | `POST /api/campaigns/switch`, `.../delete` | Switch to or delete a campaign. The name must be a listed folder, so it cannot point outside `server/data/campaigns/`. |
-| `GET /api/campaign` | Notable events (see [Events](#events)), rumors, and chat threads with members, lines, and memories |
+| `GET /api/campaign` | Events (see [Events](#events)), rumors, and chat threads with members, lines, and memories |
 | `GET /api/campaign/search` | Test search hits (see [Test search](#test-search)) |
 | `GET /api/campaign/canon` | Canon records with `origin`, `updated_at`, and live `current_faction` and `status` |
 | `POST /api/campaign/records`, `.../records/delete` | Save or delete a canon record |

@@ -13,7 +13,7 @@ This plan lets SSR post bounties of its own:
 3. The bounty becomes an event of the new kind `bounty`. The target gets a rolled name and a provisional profile, as at a first meeting. The LLM then writes a wanted notice, which the Events page shows in the Event column, a rumor, which NPCs gossip about, and an alias for the target, which goes into the target's profile. The player can delete the event, but cannot edit its notice or its rumor ([section 6](#6-bounty-events)).
 4. The game pays the reward, as for any vanilla bounty. SSR pays nothing.
 
-The event lives in the JSON of its `notable` row, so the campaign schema does not change.
+The event lives in the JSON of its `event` row, so the campaign schema does not change.
 
 Non-goals:
 
@@ -191,7 +191,7 @@ When the bounty ends, the plugin gives the squad back to the game: it takes the 
 
 ### Storage
 
-The `notable` row holds the game time of the placement, and as JSON:
+The `event` row holds the game time of the placement, and as JSON:
 
 ```json
 {"kind": "bounty", "target": {"id": "h:3051296712", "name": "Arleen", "faction": "Dust Bandits"}, "reason": "They killed a camp of miners for the ore in their packs.", "crime": "MURDER", "amount": 3200, "issuers": ["The Holy Nation", "United Cities", "Shek Kingdom"], "place": "Stack", "expires": 6023760, "squad": "0-2714-11-3051296700-4", "persistent": false, "notice": "WANTED: Arleen the Pickaxe, ..."}
@@ -247,7 +247,7 @@ The character profile gets the field `Alias`: the name by which the bounty notic
 
 - The notice and the rumor of a bounty cannot be edited. The row shows the rumor as text, with no Save, no robot, and no Generate Rumor, and shows Unknown until the rumor exists. Both tell the facts of the game bounty, so an edit could give them another price, crime, or faction than the game.
 - The routes that save or write a rumor refuse a bounty event, because both the web app and the in-game Events window call them.
-- Delete removes the event and its rumor after a confirmation, as for a custom or an auto event (`delete_custom_event`). The game bounty stays, because the plugin can clear it only while the target is loaded. The server sends `END_BOUNTY`, as when the status leaves Open. The alias stays in the profile, where the player can edit it.
+- Delete removes the event and its rumor after a confirmation, as for a custom or an auto event (`delete_event`). The game bounty stays, because the plugin can clear it only while the target is loaded. The server sends `END_BOUNTY`, as when the status leaves Open. The alias stays in the profile, where the player can edit it.
 - The cull deletes a bounty event placed after the game time. The game bounty stays in a save that the player keeps.
 - Campaign Canon lists no bounty under the Events of a squad member, because a bounty has no doers (`world_events.character_events`).
 

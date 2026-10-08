@@ -1,4 +1,4 @@
-"""The campaign's characters, dialogue, canon, notable events, and rumors, in one SQLite file per campaign folder.
+"""The campaign's characters, dialogue, canon, events, and rumors, in one SQLite file per campaign folder.
 
 Every write runs in one BEGIN IMMEDIATE transaction, and a profile write merges only the keys that the
 caller passes. Two requests that change one NPC during an LLM call therefore keep both changes.
@@ -15,7 +15,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 DB_NAME = "campaign.db"
-SCHEMA_VERSION = 15
+SCHEMA_VERSION = 16
 DIALOGUE_BLOCK = 20
 # A memory that this many passes read and did not cite leaves the auto rumor pool, so dull memories do not fill each prompt
 RUMOR_PASSES = 6
@@ -64,14 +64,14 @@ CREATE TABLE dialogue (
 );
 CREATE INDEX dialogue_by_character ON dialogue (character_id, id);
 CREATE INDEX dialogue_by_thread ON dialogue (thread_id);
-CREATE TABLE notable (
+CREATE TABLE event (
   id        INTEGER PRIMARY KEY,
   game_time INTEGER,
-  event      TEXT NOT NULL
+  data      TEXT NOT NULL
 );
 CREATE TABLE rumor (
   id          INTEGER PRIMARY KEY,
-  notable_id  INTEGER NOT NULL UNIQUE REFERENCES notable(id) ON DELETE CASCADE,
+  event_id    INTEGER NOT NULL UNIQUE REFERENCES event(id) ON DELETE CASCADE,
   game_time   INTEGER,
   text        TEXT NOT NULL,
   instruction TEXT NOT NULL DEFAULT ''
@@ -529,34 +529,34 @@ def toggle_favorite(npc_id):
 
 
 def add_event(kind, doers, victim, game_time):
-    """Stores the notable event of a known figure that the doers, (npc_id, name) pairs, killed or captured. kind is "kill"
+    """Stores the event of a known figure that the doers, (npc_id, name) pairs, killed or captured. kind is "kill"
     or "capture", and victim holds the npc_id, name, and faction. A doer that already captured the victim gets no second
     capture, because the game imprisons each prisoner again when a save loads. Returns the doers of the event."""
     with _connect(write=True) as conn:
         if kind == "capture":
             captors = {doer["id"] for (event,) in conn.execute(
-                "SELECT event FROM notable WHERE json_extract(event, '$.kind') = 'capture' AND json_extract(event, '$.victim.id') = ?", (victim["npc_id"],)
+                "SELECT data FROM event WHERE json_extract(data, '$.kind') = 'capture' AND json_extract(data, '$.victim.id') = ?", (victim["npc_id"],)
             ) for doer in json.loads(event)["doers"]}
             doers = [doer for doer in doers if doer[0] not in captors]
         if doers:
             event = {"kind": kind, "doers": [{"id": npc_id, "name": name} for npc_id, name in doers], "victim": {"id": victim["npc_id"], "name": victim["name"], "faction": victim["faction"]}}
-            conn.execute("INSERT INTO notable (game_time, event) VALUES (?, ?)", (game_time, json.dumps(event)))
+            conn.execute("INSERT INTO event (game_time, data) VALUES (?, ?)", (game_time, json.dumps(event)))
     return doers
 
 
 def add_custom_event(rumor):
     """Stores a custom event, for an act that the game does not track, with the rumor that the player wrote and no game
-    time. Returns its notable event ID."""
+    time. Returns its event ID."""
     with _connect(write=True) as conn:
-        notable_id = conn.execute("INSERT INTO notable (event) VALUES (?)", (json.dumps({"kind": "custom"}),)).lastrowid
-        conn.execute("INSERT INTO rumor (notable_id, text) VALUES (?, ?)", (notable_id, rumor))
-        return notable_id
+        event_id = conn.execute("INSERT INTO event (data) VALUES (?)", (json.dumps({"kind": "custom"}),)).lastrowid
+        conn.execute("INSERT INTO rumor (event_id, text) VALUES (?, ?)", (event_id, rumor))
+        return event_id
 
 
 def add_auto_event(rumor, thread_ids):
     """Stores an auto event, with the rumor that the LLM spun from the memories of the threads, each once. The event takes the
     newest game time of the threads, so the cull deletes it with its memories. The threads leave the pool of the auto rumors.
-    Returns its notable event ID, or None, with no write, when a thread is gone or out of the pool, because a delete or a
+    Returns its event ID, or None, with no write, when a thread is gone or out of the pool, because a delete or a
     cull changed the pool during the call."""
     thread_ids = list(thread_ids)
     marks = ", ".join("?" * len(thread_ids))
@@ -565,88 +565,88 @@ def add_auto_event(rumor, thread_ids):
         if len(times) != len(thread_ids):
             return None
         at = max((at for at in times if at is not None), default=None)
-        notable_id = conn.execute("INSERT INTO notable (game_time, event) VALUES (?, ?)", (at, json.dumps({"kind": "auto", "threads": thread_ids}))).lastrowid
-        conn.execute("INSERT INTO rumor (notable_id, game_time, text) VALUES (?, ?, ?)", (notable_id, at, rumor))
+        event_id = conn.execute("INSERT INTO event (game_time, data) VALUES (?, ?)", (at, json.dumps({"kind": "auto", "threads": thread_ids}))).lastrowid
+        conn.execute("INSERT INTO rumor (event_id, game_time, text) VALUES (?, ?, ?)", (event_id, at, rumor))
         conn.execute(f"UPDATE thread SET rumor_passes = ? WHERE id IN ({marks})", (RUMOR_PASSES, *thread_ids))
-        return notable_id
+        return event_id
 
 
 def add_bounty_event(event, game_time):
-    """Stores a bounty that the plugin placed, with no rumor yet. Returns its notable event ID."""
+    """Stores a bounty that the plugin placed, with no rumor yet. Returns its event ID."""
     with _connect(write=True) as conn:
-        return conn.execute("INSERT INTO notable (game_time, event) VALUES (?, ?)", (game_time, json.dumps({"kind": "bounty", **event}))).lastrowid
+        return conn.execute("INSERT INTO event (game_time, data) VALUES (?, ?)", (game_time, json.dumps({"kind": "bounty", **event}))).lastrowid
 
 
-def add_bounty_rumor(notable_id, notice, rumor):
+def add_bounty_rumor(event_id, notice, rumor):
     """Adds the wanted notice and the rumor of a bounty, unless the bounty is gone or already has a rumor. Returns whether it
     added them."""
     with _connect(write=True) as conn:
-        if conn.execute("INSERT OR IGNORE INTO rumor (notable_id, game_time, text) SELECT id, game_time, ? FROM notable WHERE id = ?", (rumor, notable_id)).rowcount == 0:
+        if conn.execute("INSERT OR IGNORE INTO rumor (event_id, game_time, text) SELECT id, game_time, ? FROM event WHERE id = ?", (rumor, event_id)).rowcount == 0:
             return False
-        conn.execute("UPDATE notable SET event = json_set(event, '$.notice', ?) WHERE id = ?", (notice, notable_id))
+        conn.execute("UPDATE event SET data = json_set(data, '$.notice', ?) WHERE id = ?", (notice, event_id))
         return True
 
 
-def delete_custom_event(notable_id):
+def delete_event(event_id):
     """Deletes a custom, an auto, or a bounty event with its rumor. The memories of an auto event stay out of the pool, so the
     next pass does not spin the same rumor again."""
     with _connect(write=True) as conn:
-        return conn.execute("DELETE FROM notable WHERE id = ? AND json_extract(event, '$.kind') IN ('custom', 'auto', 'bounty')", (notable_id,)).rowcount > 0
+        return conn.execute("DELETE FROM event WHERE id = ? AND json_extract(data, '$.kind') IN ('custom', 'auto', 'bounty')", (event_id,)).rowcount > 0
 
 
-def notables():
-    """Every notable event as (id, game_time, event), newest first. A custom event has no game time and counts as the newest."""
+def events():
+    """Every event as (id, game_time, event), newest first. A custom event has no game time and counts as the newest."""
     with _connect() as conn:
-        rows = conn.execute("SELECT id, game_time, event FROM notable ORDER BY game_time DESC NULLS FIRST, id DESC").fetchall()
-    return [(notable_id, at, json.loads(event)) for notable_id, at, event in rows]
+        rows = conn.execute("SELECT id, game_time, data FROM event ORDER BY game_time DESC NULLS FIRST, id DESC").fetchall()
+    return [(event_id, at, json.loads(event)) for event_id, at, event in rows]
 
 
 def rumors():
     """Every rumor as a dict, oldest first by game time. The rumor of a custom event has no game time and counts as the newest."""
     with _connect() as conn:
-        rows = conn.execute("SELECT id, notable_id, game_time, text, instruction FROM rumor ORDER BY game_time NULLS LAST, id").fetchall()
-    return [{"id": rumor_id, "notable_id": notable_id, "game_time": at, "text": text, "instruction": instruction}
-            for rumor_id, notable_id, at, text, instruction in rows]
+        rows = conn.execute("SELECT id, event_id, game_time, text, instruction FROM rumor ORDER BY game_time NULLS LAST, id").fetchall()
+    return [{"id": rumor_id, "event_id": event_id, "game_time": at, "text": text, "instruction": instruction}
+            for rumor_id, event_id, at, text, instruction in rows]
 
 
-def notable(notable_id):
-    """The notable event as (game_time, event), or None."""
+def event(event_id):
+    """The event as (game_time, event), or None."""
     with _connect() as conn:
-        row = conn.execute("SELECT game_time, event FROM notable WHERE id = ?", (notable_id,)).fetchone()
+        row = conn.execute("SELECT game_time, data FROM event WHERE id = ?", (event_id,)).fetchone()
     return (row[0], json.loads(row[1])) if row else None
 
 
-def save_rumor(rumor_id, notable_id, text, instruction=None):
-    """Saves the text of the rumor, or of the rumor of the notable event when rumor_id is None, and adds that rumor with the
-    game time of its notable event when it has none. instruction None keeps the stored one. Returns False when the rumor or
-    the notable event is gone."""
+def save_rumor(rumor_id, event_id, text, instruction=None):
+    """Saves the text of the rumor, or of the rumor of the event when rumor_id is None, and adds that rumor with the
+    game time of its event when it has none. instruction None keeps the stored one. Returns False when the rumor or
+    the event is gone."""
     with _connect(write=True) as conn:
         if rumor_id is None:
-            row = conn.execute("SELECT id FROM rumor WHERE notable_id = ?", (notable_id,)).fetchone()
+            row = conn.execute("SELECT id FROM rumor WHERE event_id = ?", (event_id,)).fetchone()
             if row is None:
-                event = conn.execute("SELECT game_time FROM notable WHERE id = ?", (notable_id,)).fetchone()
+                event = conn.execute("SELECT game_time FROM event WHERE id = ?", (event_id,)).fetchone()
                 if event is None:
                     return False
-                rumor_id = conn.execute("INSERT INTO rumor (notable_id, game_time, text) VALUES (?, ?, '')", (notable_id, event[0])).lastrowid
+                rumor_id = conn.execute("INSERT INTO rumor (event_id, game_time, text) VALUES (?, ?, '')", (event_id, event[0])).lastrowid
             else:
                 rumor_id = row[0]
         return conn.execute("UPDATE rumor SET text = ?, instruction = COALESCE(?, instruction) WHERE id = ?", (text, instruction, rumor_id)).rowcount > 0
 
 
-def add_rumor(notable_id, text):
-    """Adds the rumor of the notable event with its game time, unless the event is gone or already has a rumor, which the
+def add_rumor(event_id, text):
+    """Adds the rumor of the event with its game time, unless the event is gone or already has a rumor, which the
     player may have saved while the LLM wrote this one. Returns whether it added the rumor."""
     with _connect(write=True) as conn:
-        return conn.execute("INSERT OR IGNORE INTO rumor (notable_id, game_time, text) SELECT id, game_time, ? FROM notable WHERE id = ?", (text, notable_id)).rowcount > 0
+        return conn.execute("INSERT OR IGNORE INTO rumor (event_id, game_time, text) SELECT id, game_time, ? FROM event WHERE id = ?", (text, event_id)).rowcount > 0
 
 
 def cull_after(day, hour, minute):
-    """Deletes the dialogue, notable events, rumors, thread members, and memories dated after the given game time. Returns
-    the count per table of the dialogue, the notable events, and the rumors."""
+    """Deletes the dialogue, events, rumors, thread members, and memories dated after the given game time. Returns
+    the count per table of the dialogue, the events, and the rumors."""
     now = day * 1440 + hour * 60 + minute
     with _connect(write=True) as conn:
         touched = {thread_id for (thread_id,) in conn.execute("SELECT id FROM thread WHERE game_time > ?", (now,))}
-        culled = {table: conn.execute(f"DELETE FROM {table} WHERE game_time > ?", (now,)).rowcount for table in ("dialogue", "rumor", "notable")}
+        culled = {table: conn.execute(f"DELETE FROM {table} WHERE game_time > ?", (now,)).rowcount for table in ("dialogue", "rumor", "event")}
         conn.execute("DELETE FROM thread_member WHERE game_time > ?", (now,))
         # The memory told of culled exchanges, and it replaced every line, so nothing from before the cut is left to keep
         conn.execute("DELETE FROM thread WHERE memory IS NOT NULL AND game_time > ?", (now,))

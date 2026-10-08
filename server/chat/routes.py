@@ -489,38 +489,38 @@ def bio_reply(data, history, race_lore, faction, **reply):
         return jsonify({"status": "error", "message": "The LLM gave no usable text. Try again."}), 500
     return jsonify({"status": "ok", "bio": bio, **reply})
 
-def rumor_reply(notable_id, instruction, so_far=None, **reply):
+def rumor_reply(event_id, instruction, so_far=None, **reply):
     """The web app puts the text into the row of the event, so the player reads it before a save keeps it. so_far None takes
     the stored rumor. Stores nothing."""
     try:
-        notable_id = int(notable_id)
+        event_id = int(event_id)
     except (TypeError, ValueError):
-        return jsonify({"status": "error", "message": "Name the notable event of the rumor."}), 400
-    notable = campaign_db.notable(notable_id)
-    if not notable:
-        return jsonify({"status": "error", "message": "The notable event is gone. Load the events again."}), 404
-    if notable[1]["kind"] == "bounty":
+        return jsonify({"status": "error", "message": "Name the event of the rumor."}), 400
+    event = campaign_db.event(event_id)
+    if not event:
+        return jsonify({"status": "error", "message": "The event is gone. Load the events again."}), 404
+    if event[1]["kind"] == "bounty":
         return bounty_refusal()
     if so_far is None:
-        so_far = next((rumor["text"] for rumor in campaign_db.rumors() if rumor["notable_id"] == notable_id), "")
-    text = rumors.clean(call_llm("synthesis", [{"role": "user", "content": rumors.prompt(*notable, instruction, so_far)}]))
+        so_far = next((rumor["text"] for rumor in campaign_db.rumors() if rumor["event_id"] == event_id), "")
+    text = rumors.clean(call_llm("synthesis", [{"role": "user", "content": rumors.prompt(*event, instruction, so_far)}]))
     if not text:
         return jsonify({"status": "error", "message": "The LLM gave no usable text. Try again."}), 500
     return jsonify({"status": "ok", "text": text, **reply})
 
 def keep_rumor_reply(data):
-    """Saves the text of a rumor by its id, or the rumor of a notable event, which a new rumor has no id for yet."""
+    """Saves the text of a rumor by its id, or the rumor of an event, which a new rumor has no id for yet."""
     refused = campaign_write(data)
     if refused: return refused
     text = str(data.get("text") or "").strip()
     if not text:
-        key = str(data["id"]) if data.get("id") else f"new:{data.get('notable')}"
+        key = str(data["id"]) if data.get("id") else f"new:{data.get('event')}"
         return jsonify({"status": "error", "errors": [{"field": ["rumors", key], "message": "A rumor needs text. Delete it instead."}]}), 400
-    notable = campaign_db.notable(data.get("notable") or next((rumor["notable_id"] for rumor in campaign_db.rumors() if str(rumor["id"]) == str(data.get("id"))), None))
-    if notable and notable[1]["kind"] == "bounty":
+    event = campaign_db.event(data.get("event") or next((rumor["event_id"] for rumor in campaign_db.rumors() if str(rumor["id"]) == str(data.get("id"))), None))
+    if event and event[1]["kind"] == "bounty":
         return bounty_refusal()
     instruction = data.get("instruction")
-    if not campaign_db.save_rumor(data.get("id"), data.get("notable"), text, None if instruction is None else str(instruction).strip()):
+    if not campaign_db.save_rumor(data.get("id"), data.get("event"), text, None if instruction is None else str(instruction).strip()):
         return jsonify({"status": "error", "message": "The rumor or its event is gone. Load the events again."}), 404
     return jsonify({"status": "ok"})
 
@@ -537,9 +537,9 @@ def add_event_reply(data, source):
     rumor = str(data.get("rumor") or "").strip()
     if not rumor:
         return jsonify({"status": "error", "message": "Write the rumor of the event."}), 400
-    notable_id = campaign_db.add_custom_event(rumor)
-    logging.info(f"EVENTS: Added the custom event {notable_id} from {source}")
-    return jsonify({"status": "ok", "id": notable_id})
+    event_id = campaign_db.add_custom_event(rumor)
+    logging.info(f"EVENTS: Added the custom event {event_id} from {source}")
+    return jsonify({"status": "ok", "id": event_id})
 
 def bounty_refusal():
     return jsonify({"status": "error", "message": "SSR writes the notice and the rumor of a bounty from the bounty in the game, so they cannot be written or edited."}), 400
@@ -548,22 +548,22 @@ def delete_event_reply(data):
     """The game bounty of a deleted bounty stays, because the plugin can reach the target only while it is loaded."""
     refused = campaign_write(data)
     if refused: return refused
-    notable = campaign_db.notable(data.get("id"))
-    if campaign_db.delete_custom_event(data.get("id")) and notable[1]["kind"] == "bounty":
-        world_events.end_bounty(notable[1])
+    event = campaign_db.event(data.get("id"))
+    if campaign_db.delete_event(data.get("id")) and event[1]["kind"] == "bounty":
+        world_events.end_bounty(event[1])
     return jsonify({"status": "ok"})
 
 @bp.route('/write_rumor', methods=['POST'])
 def write_events_rumor():
     data = request.get_json(silent=True) or {}
-    # The Events window sends the campaign back with Keep, because the same notable event ID can name another event in another campaign
-    return rumor_reply(data.get("notable"), str(data.get("instruction") or ""), campaign=state.ACTIVE_CAMPAIGN)
+    # The Events window sends the campaign back with Keep, because the same event ID can name another event in another campaign
+    return rumor_reply(data.get("event"), str(data.get("instruction") or ""), campaign=state.ACTIVE_CAMPAIGN)
 
 @bp.route('/read_rumor', methods=['POST'])
 def read_events_rumor():
     """Answers in the shape of /write_rumor, so Edit Rumor in the Events window opens the same editor as Generate Rumor."""
     data = request.get_json(silent=True) or {}
-    rumor = next((rumor for rumor in campaign_db.rumors() if str(rumor["notable_id"]) == str(data.get("notable"))), None)
+    rumor = next((rumor for rumor in campaign_db.rumors() if str(rumor["event_id"]) == str(data.get("event"))), None)
     if not rumor:
         return jsonify({"status": "error", "message": "The event has no rumor yet."}), 404
     return jsonify({"status": "ok", "text": rumor["text"], "campaign": state.ACTIVE_CAMPAIGN})

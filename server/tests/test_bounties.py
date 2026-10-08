@@ -110,7 +110,7 @@ class BountyEventTest(unittest.TestCase):
                                       "issuers": list(issuers)})
 
     def statuses(self):
-        return [(event["line"], event["status"]) for event in world_events.notable_events() if event["kind"] == "bounty"]
+        return [(event["line"], event["status"]) for event in world_events.events() if event["kind"] == "bounty"]
 
     def kill(self, serial, minutes):
         victim = {"id": f"h:{serial}", "template_id": "", "name": "Arleen", "faction": "Dust Bandits", "player": False}
@@ -138,8 +138,8 @@ class BountyEventTest(unittest.TestCase):
         self.assertIsNone(bounties.take_pending("h:1"))
 
     def test_a_bounty_has_no_event_line_and_is_open_until_it_expires(self, place_pipe, end_pipe):
-        notable_id = self.place(1, expires=200)
-        event = campaign_db.notable(notable_id)
+        event_id = self.place(1, expires=200)
+        event = campaign_db.event(event_id)
         self.assertEqual(event[0], 90)
         self.assertEqual({key: event[1][key] for key in ("target", "amount", "issuers", "place", "squad", "persistent")},
                          {"target": {"id": "h:1", "name": "Arleen 1", "faction": "Dust Bandits"}, "amount": 3200, "issuers": list(bounties.ISSUERS.values()),
@@ -160,7 +160,7 @@ class BountyEventTest(unittest.TestCase):
         self.place(1)
         self.kill(1, 150)
         self.assertEqual(self.statuses(), [("Unknown", "Killed")])
-        self.assertEqual([event["kind"] for event in world_events.notable_events()], ["kill", "bounty"])
+        self.assertEqual([event["kind"] for event in world_events.events()], ["kill", "bounty"])
         end_pipe.assert_called_once_with("END_BOUNTY: 0-5-6-7-8|1")
         self.assertEqual(world_events.character_events(), {"h:100": ["Killed Arleen"]})
 
@@ -168,7 +168,7 @@ class BountyEventTest(unittest.TestCase):
         campaign_db.add_bounty_rumor(self.place(1), "WANTED: Arleen.", "They say Arleen is wanted.")
         self.assertEqual([rumor["text"] for rumor in world_events.told_rumors()], ["They say Arleen is wanted."])
         self.kill(1, 150)
-        campaign_db.save_rumor(None, world_events.notable_events()[0]["id"], "Beep killed Arleen.")
+        campaign_db.save_rumor(None, world_events.events()[0]["id"], "Beep killed Arleen.")
         self.assertEqual([rumor["text"] for rumor in world_events.told_rumors()], ["Beep killed Arleen."])
 
     def test_a_cull_of_the_kill_opens_the_bounty_again(self, place_pipe, end_pipe):
@@ -180,7 +180,7 @@ class BountyEventTest(unittest.TestCase):
     def test_a_squad_that_another_open_bounty_holds_stays_and_keeps_the_flag_of_the_first_bounty(self, place_pipe, end_pipe):
         self.place(1, persistent=False)
         second = self.place(2, persistent=True)
-        self.assertFalse(campaign_db.notable(second)[1]["persistent"])
+        self.assertFalse(campaign_db.event(second)[1]["persistent"])
         self.kill(1, 150)
         end_pipe.assert_not_called()
         self.kill(2, 160)
@@ -192,8 +192,8 @@ class BountyEventTest(unittest.TestCase):
         end_pipe.assert_called_once_with("END_BOUNTY: 0-5-6-7-8|0")
 
     def test_a_bounty_event_can_be_deleted(self, place_pipe, end_pipe):
-        self.assertTrue(campaign_db.delete_custom_event(self.place(1)))
-        self.assertEqual(world_events.notable_events(), [])
+        self.assertTrue(campaign_db.delete_event(self.place(1)))
+        self.assertEqual(world_events.events(), [])
 
     def test_an_expired_bounty_ends_once(self, place_pipe, end_pipe):
         self.place(1, squad="a", expires=200)
@@ -205,10 +205,10 @@ class BountyEventTest(unittest.TestCase):
         self.assertEqual(len(world_events.open_bounties()), 1)
 
     def test_the_rumor_takes_the_amount_the_reason_the_profile_and_the_place(self, place_pipe, end_pipe):
-        notable_id = self.place(1)
+        event_id = self.place(1)
         campaign_db.upsert_profile("h:1", {"Name": "Arleen", "Race": "Greenlander", "Sex": "Female", "Personality": "Cold.", "Backstory": "Raised by raiders."})
-        event = campaign_db.notable(notable_id)[1]
-        self.assertEqual(rumors.bounty_facts(*campaign_db.notable(notable_id)),
+        event = campaign_db.event(event_id)[1]
+        self.assertEqual(rumors.bounty_facts(*campaign_db.event(event_id)),
                          "The bounty: 3,200 cats for the wanted character.\n"
                          f"The crime ({rumors.CRIME_WORDS.get(event['crime'], event['crime'].lower())}): {event['reason']}\n"
                          "The wanted character: Arleen (female Greenlander) of the Dust Bandits.\nPersonality: Cold.\nBackstory: Raised by raiders.\n"
@@ -217,7 +217,7 @@ class BountyEventTest(unittest.TestCase):
     def test_the_rumor_names_the_payer_only_when_one_faction_pays(self, place_pipe, end_pipe):
         for serial, issuers, line in ((1, ["Tech Hunters"], "The bounty: 3,200 cats for the wanted character, paid by the Tech Hunters."),
                                       (2, ["The Holy Nation", "Shek Kingdom"], "The bounty: 3,200 cats for the wanted character.")):
-            self.assertEqual(rumors.bounty_facts(*campaign_db.notable(self.place(serial, issuers=issuers))).splitlines()[0], line)
+            self.assertEqual(rumors.bounty_facts(*campaign_db.event(self.place(serial, issuers=issuers))).splitlines()[0], line)
 
     def test_a_reply_needs_a_notice_a_rumor_and_a_short_alias(self, place_pipe, end_pipe):
         reply = {"notice": "WANTED: Arleen.", "rumor": '"They say Arleen is wanted."', "alias": "the Ore Butcher"}
@@ -227,9 +227,9 @@ class BountyEventTest(unittest.TestCase):
         self.assertIsNone(rumors.bounty_reply(None))
 
     def test_the_notice_is_the_line_of_the_bounty_and_comes_with_its_rumor(self, place_pipe, end_pipe):
-        notable_id = self.place(1)
-        self.assertTrue(campaign_db.add_bounty_rumor(notable_id, "WANTED: Arleen.", "They say Arleen is wanted."))
-        self.assertFalse(campaign_db.add_bounty_rumor(notable_id, "WANTED again.", "Again."))
+        event_id = self.place(1)
+        self.assertTrue(campaign_db.add_bounty_rumor(event_id, "WANTED: Arleen.", "They say Arleen is wanted."))
+        self.assertFalse(campaign_db.add_bounty_rumor(event_id, "WANTED again.", "Again."))
         self.assertEqual(self.statuses(), [("WANTED: Arleen.", "Open")])
         self.assertEqual([rumor["text"] for rumor in campaign_db.rumors()], ["They say Arleen is wanted."])
 

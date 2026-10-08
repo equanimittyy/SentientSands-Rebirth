@@ -126,8 +126,8 @@ async function cull() {
     "\n\n", el("b", { className: "warning" }, "The cull takes effect immediately and is irreversible!")))) return;
   try {
     const reply = await sendJson("POST", "/api/campaign/cull", { campaign: currentName() });
-    const { dialogue, notable, rumor } = reply.culled;
-    flashMessage(message, `Culled after ${reply.time}: ${count(dialogue, "dialogue line")}, ${count(notable, "event")}, and ${count(rumor, "rumor")}.`);
+    const { dialogue, event, rumor } = reply.culled;
+    flashMessage(message, `Culled after ${reply.time}: ${count(dialogue, "dialogue line")}, ${count(event, "event")}, and ${count(rumor, "rumor")}.`);
   } catch (error) {
     showMessage(message, `Cull failed: ${error.message}`, true);
   }

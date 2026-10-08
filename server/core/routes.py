@@ -54,7 +54,7 @@ def list_events():
     can name another event in another campaign."""
     events = []
     rumors = {rumor["id"]: rumor for rumor in campaign_db.rumors()}
-    for event in world_events.notable_events():
+    for event in world_events.events():
         rumor = rumors.get(event["rumor"])
         own = event["kind"] in world_events.RUMOR_ONLY
         # The line of a custom or an auto event tells nothing of the event, so its rumor tells it apart in the list
@@ -75,7 +75,7 @@ def events_content():
     """The plugin's SetEventsText renders each newline-separated line as a row."""
     import textwrap
     data = request.json or {}
-    event = next((event for event in world_events.notable_events() if str(event["id"]) == str(data.get("id"))), None)
+    event = next((event for event in world_events.events() if str(event["id"]) == str(data.get("id"))), None)
     if not event:
         return jsonify({"status": "error", "text": "The event is gone."}), 404
     rumor = next((rumor for rumor in campaign_db.rumors() if rumor["id"] == event["rumor"]), None)
@@ -116,10 +116,10 @@ def bounty_placed():
         logging.info(f"BOUNTY: The game placed no bounty ({data.get('reason') or 'the campaign changed, or the result came twice'}).")
         return jsonify({"status": "ok"})
     try:
-        notable_id = bounties.store(bounty, data)
+        event_id = bounties.store(bounty, data)
     except campaign_db.CampaignUnavailable as e:
         return jsonify({"status": "error", "message": str(e)}), 409
-    logging.info(f"BOUNTY: Stored the bounty {notable_id} on {bounty['name']} ({context['npc_id']}).")
+    logging.info(f"BOUNTY: Stored the bounty {event_id} on {bounty['name']} ({context['npc_id']}).")
     return jsonify({"status": "ok"})
 
 @bp.route('/report', methods=['POST'])
@@ -318,7 +318,7 @@ def cull_future_data():
     # The player loaded an earlier save, so the next chat starts a conversation of its own
     state.CURRENT_THREAD.clear()
     state.restart_quiet_clock()
-    logging.info(f"CAMPAIGN: Culled {culled['dialogue']} dialogue lines, {culled['notable']} notable events, and {culled['rumor']} rumors after [Day {day}, {hour:02d}:{minute:02d}] in '{state.ACTIVE_CAMPAIGN}'")
+    logging.info(f"CAMPAIGN: Culled {culled['dialogue']} dialogue lines, {culled['event']} events, and {culled['rumor']} rumors after [Day {day}, {hour:02d}:{minute:02d}] in '{state.ACTIVE_CAMPAIGN}'")
     return jsonify({"status": "ok", "time": f"Day {day}, {hour:02d}:{minute:02d}", "culled": culled})
 
 @bp.route('/history', methods=['POST'])

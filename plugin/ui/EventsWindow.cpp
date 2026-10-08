@@ -40,7 +40,7 @@ MyGUI::Button *g_rumorConfirmBtn = nullptr;
 MyGUI::TextBox *g_rumorStatus = nullptr;
 int g_rumorRequest = 0;
 bool g_rumorWritten = false;
-std::string g_rumorNotable;
+std::string g_rumorEvent;
 std::string g_rumorLine;
 std::string g_rumorInstruction;
 std::string g_rumorCampaign;
@@ -330,7 +330,7 @@ void OnRumorWriteClick(MyGUI::Widget *sender) {
   g_rumorWritten = true;
   SetRumorStatus(T("This may take a moment..."));
   StartRumorRequest(L"/write_rumor",
-                    "{\"notable\":\"" + EscapeJSON(g_rumorNotable) +
+                    "{\"event\":\"" + EscapeJSON(g_rumorEvent) +
                         "\",\"instruction\":\"" +
                         EscapeJSON(g_rumorInstruction) + "\"}",
                     "RUMOR_WRITTEN");
@@ -344,7 +344,7 @@ void OnRumorKeepClick(MyGUI::Widget *sender) {
           : "";
   SetRumorStatus("");
   StartRumorRequest(L"/keep_rumor",
-                    "{\"notable\":\"" + EscapeJSON(g_rumorNotable) +
+                    "{\"event\":\"" + EscapeJSON(g_rumorEvent) +
                         "\",\"campaign\":\"" + EscapeJSON(g_rumorCampaign) +
                         "\",\"text\":\"" +
                         EscapeJSON(g_rumorBox->getOnlyText().asUTF8()) + "\"" +
@@ -414,7 +414,7 @@ void OnEventDeleteClick(MyGUI::Widget *sender) {
   StartRumorRequest(whole ? L"/delete_event" : L"/delete_rumor",
                     "{\"campaign\":\"" + EscapeJSON(g_eventsCampaign) +
                         "\",\"id\":\"" +
-                        EscapeJSON(whole ? g_rumorNotable : g_rumorId) +
+                        EscapeJSON(whole ? g_rumorEvent : g_rumorId) +
                         "\"}",
                     "EVENT_DELETED");
 }
@@ -473,24 +473,24 @@ void FinishEventChange(const std::string &data, const std::string &failureKey) {
   std::string added = GetJsonValue(reply, "id");
   // The search or the kind filter could hide the new event
   if (!added.empty()) {
-    g_rumorNotable = added;
+    g_rumorEvent = added;
     g_eventsSearch->setCaption("");
     g_eventsKind = 0;
   }
-  g_eventsSelectId = g_rumorNotable;
+  g_eventsSelectId = g_rumorEvent;
   CreateThread(NULL, 0, EventsResponseThread, NULL, 0, NULL);
-  ShowEventContent(g_rumorNotable);
+  ShowEventContent(g_rumorEvent);
 }
 
 bool SelectRumorEvent() {
   size_t index = g_eventsList->getIndexSelected();
   if (index == MyGUI::ITEM_NONE || index >= g_eventsStorageIds.size())
     return false;
-  g_rumorNotable = g_eventsStorageIds[index];
+  g_rumorEvent = g_eventsStorageIds[index];
   g_rumorLine = g_eventsList->getItemNameAt(index).asUTF8();
   g_rumorInstruction = "";
   for (size_t i = 0; i < g_eventsAllIds.size(); i++)
-    if (g_eventsAllIds[i] == g_rumorNotable) {
+    if (g_eventsAllIds[i] == g_rumorEvent) {
       g_rumorInstruction = g_eventsAllInstructions[i];
       g_rumorKind = g_eventsAllKinds[i];
       g_rumorId = g_eventsAllRumors[i];
@@ -517,7 +517,7 @@ void OnEventsEditClick(MyGUI::Widget *sender) {
   CloseRumorUI();
   g_rumorWritten = false;
   StartRumorRequest(L"/read_rumor",
-                    "{\"notable\":\"" + EscapeJSON(g_rumorNotable) + "\"}",
+                    "{\"event\":\"" + EscapeJSON(g_rumorEvent) + "\"}",
                     "RUMOR_READ");
 }
 

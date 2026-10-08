@@ -83,10 +83,10 @@ class WorldEventsTestCase(unittest.TestCase):
         self._tmp.cleanup()
 
     def events(self):
-        return [(event["kind"], doer["id"], event["victim"]["id"]) for _, _, event in reversed(campaign_db.notables()) for doer in event["doers"]]
+        return [(event["kind"], doer["id"], event["victim"]["id"]) for _, _, event in reversed(campaign_db.events()) for doer in event["doers"]]
 
     def lines(self):
-        return [event["line"] for event in world_events.notable_events()]
+        return [event["line"] for event in world_events.events()]
 
     def kill(self, doers, victim, minutes):
         world_events.take([attack(doer, victim, minutes) for doer in doers] + [death(victim, minutes)])
@@ -203,8 +203,8 @@ class EventTest(WorldEventsTestCase):
     def test_a_cull_deletes_the_later_events_and_their_rumors(self):
         self.kill([BEEP], KING, at(1))
         self.kill([BEEP], TINFIST, at(3))
-        campaign_db.save_rumor(None, world_events.notable_events()[0]["id"], "Beep killed Tinfist.")
-        self.assertEqual(campaign_db.cull_after(2, 0, 0), {"dialogue": 0, "rumor": 1, "notable": 1})
+        campaign_db.save_rumor(None, world_events.events()[0]["id"], "Beep killed Tinfist.")
+        self.assertEqual(campaign_db.cull_after(2, 0, 0), {"dialogue": 0, "rumor": 1, "event": 1})
         self.assertEqual(self.lines(), ["Beep of Nameless killed Dust King."])
         self.assertEqual(campaign_db.rumors(), [])
 
@@ -213,30 +213,30 @@ class CustomEventTest(WorldEventsTestCase):
     def test_a_custom_event_shows_as_custom_and_lists_for_no_squad_member(self):
         self.kill([BEEP], TINFIST, at(1))
         campaign_db.add_custom_event("They say Beep freed the slaves of Rebirth.")
-        self.assertEqual([(event["time"], event["line"], event["rumor"] is not None) for event in world_events.notable_events()],
+        self.assertEqual([(event["time"], event["line"], event["rumor"] is not None) for event in world_events.events()],
                          [("-", "Written by you", True), ("Day 1, 00:00", "Beep of Nameless killed Tinfist.", False)])
         self.assertEqual(world_events.character_events(), {"h:1": ["Killed Tinfist"]})
 
     def test_the_facts_of_a_custom_event_leave_the_event_to_the_rumor_so_far(self):
-        notable_id = campaign_db.add_custom_event("They say Beep freed the slaves of Rebirth.")
-        self.assertEqual(rumors.facts(*campaign_db.notable(notable_id)), "The player's faction: Nameless.\nThe event: The one that the rumor so far tells.")
+        event_id = campaign_db.add_custom_event("They say Beep freed the slaves of Rebirth.")
+        self.assertEqual(rumors.facts(*campaign_db.event(event_id)), "The player's faction: Nameless.\nThe event: The one that the rumor so far tells.")
 
 
 class RumorTest(WorldEventsTestCase):
-    def notable(self):
-        return campaign_db.notable(world_events.notable_events()[0]["id"])
+    def event(self):
+        return campaign_db.event(world_events.events()[0]["id"])
 
     def test_the_facts_of_a_known_figure_tell_who_it_is_and_who_fears_the_news(self):
         self.kill([BEEP, IZUMI], TINFIST, at(40, 3, 10))
         campaign_db.upsert_profile("h:1", {"Name": "Beep", "Race": "Hive Worker Drone", "Sex": "Male", "Backstory": "Worked in a mine. Then fled."})
-        self.assertEqual(rumors.facts(*self.notable()),
+        self.assertEqual(rumors.facts(*self.event()),
                          "The player's faction: Nameless.\nThe event: Beep and Izumi of Nameless killed Tinfist of the Anti-Slavers.\nTime: Day 40, 03:10.\n"
                          "Who they are:\n- Tinfist (Skeleton, no sex): Leader of the Anti-Slavers.\n- Beep (male Hive Worker Drone): Worked in a mine.\nThe factions:\n- Anti-Slavers. Enemies: The Holy Nation, Slave Traders.")
 
     def test_the_prompt_holds_the_instruction_the_facts_and_the_rumor_so_far(self):
         self.kill([BEEP], TINFIST, at(1))
         with tempfile.TemporaryDirectory() as empty, mock.patch.object(prompts, "USER_PROMPTS_DIR", empty), mock.patch.object(rumors, "load_settings", return_value={"language": "English"}):
-            text = rumors.prompt(*self.notable(), "Beep is the Stickman of the Dust.", "Beep killed Tinfist.")
+            text = rumors.prompt(*self.event(), "Beep is the Stickman of the Dust.", "Beep killed Tinfist.")
         self.assertIn("PLAYER INSTRUCTIONS: Beep is the Stickman of the Dust.", text)
         self.assertIn("The event: Beep of Nameless killed Tinfist of the Anti-Slavers.", text)
         self.assertIn("RUMOR SO FAR:\nBeep killed Tinfist.", text)
@@ -266,7 +266,7 @@ class AutoRumorTest(WorldEventsTestCase):
         campaign_db.set_memory(pending, "Longen sold more water.", at(2))
         self.kill([BEEP], TINFIST, at(3))
         self.assertIsNone(rumors.auto_pool())
-        campaign_db.save_rumor(None, world_events.notable_events()[0]["id"], "Beep killed Tinfist.")
+        campaign_db.save_rumor(None, world_events.events()[0]["id"], "Beep killed Tinfist.")
         self.assertEqual([memory["id"] for memory in rumors.auto_pool()], [first, pending])
         campaign_db.count_rumor_pass([first, pending])
         self.assertIsNone(rumors.auto_pool())
@@ -294,13 +294,13 @@ class AutoRumorTest(WorldEventsTestCase):
         _, read, cited = self.memory(1), self.memory(2), self.memory(3)
         pool = campaign_db.rumor_pool(2)
         rumors.keep_auto_rumor({"rumor": "Word in Squin is that Longen sells water.", "memories": [2]}, pool, state.ACTIVE_CAMPAIGN)
-        self.assertEqual([(event["kind"], event["time"], event["line"], event["rumor"] is not None) for event in world_events.notable_events()], [("auto", "Day 3, 00:00", "From 1 conversation", True)])
+        self.assertEqual([(event["kind"], event["time"], event["line"], event["rumor"] is not None) for event in world_events.events()], [("auto", "Day 3, 00:00", "From 1 conversation", True)])
         self.assertEqual(self.pool(), [(read, 1)])
 
     def test_an_empty_rumor_counts_each_memory_that_the_pass_read(self):
         first = self.memory(1)
         rumors.keep_auto_rumor({"rumor": "", "memories": []}, campaign_db.rumor_pool(rumors.AUTO_POOL), state.ACTIVE_CAMPAIGN)
-        self.assertEqual((campaign_db.notables(), self.pool()), ([], [(first, 1)]))
+        self.assertEqual((campaign_db.events(), self.pool()), ([], [(first, 1)]))
 
     def test_a_reply_that_is_not_valid_or_a_campaign_switch_changes_nothing(self):
         first = self.memory(1)
@@ -308,14 +308,14 @@ class AutoRumorTest(WorldEventsTestCase):
         with self.assertLogs(level="WARNING"):
             rumors.keep_auto_rumor({"rumor": "Word is that Longen sells water.", "memories": []}, pool, state.ACTIVE_CAMPAIGN)
         rumors.keep_auto_rumor({"rumor": "Word is that Longen sells water.", "memories": [1]}, pool, "another campaign")
-        self.assertEqual((campaign_db.notables(), self.pool()), ([], [(first, 0)]))
+        self.assertEqual((campaign_db.events(), self.pool()), ([], [(first, 0)]))
 
     def test_an_auto_event_lists_for_no_squad_member_and_its_rumor_is_its_event(self):
         self.kill([BEEP], TINFIST, at(1))
-        notable_id = campaign_db.add_auto_event("Word in Squin is that Longen sells water.", [self.memory(2), self.memory(3)])
-        self.assertEqual(world_events.notable_events()[0]["line"], "From 2 conversations")
+        event_id = campaign_db.add_auto_event("Word in Squin is that Longen sells water.", [self.memory(2), self.memory(3)])
+        self.assertEqual(world_events.events()[0]["line"], "From 2 conversations")
         self.assertEqual(world_events.character_events(), {"h:1": ["Killed Tinfist"]})
-        self.assertEqual(rumors.facts(*campaign_db.notable(notable_id)), "The player's faction: Nameless.\nThe event: The one that the rumor so far tells.\nTime: Day 3, 00:00.")
+        self.assertEqual(rumors.facts(*campaign_db.event(event_id)), "The player's faction: Nameless.\nThe event: The one that the rumor so far tells.\nTime: Day 3, 00:00.")
 
 
 class LineTest(unittest.TestCase):

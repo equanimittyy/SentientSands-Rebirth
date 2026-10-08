@@ -173,9 +173,9 @@ def get_active_campaign():
         return jsonify({
             "status": "ok",
             "name": state.ACTIVE_CAMPAIGN,
-            "notables": world_events.notable_events(),
+            "events": world_events.events(),
             "rumors": [
-                {"id": rumor["id"], "notable": rumor["notable_id"], "text": rumor["text"], "instruction": rumor["instruction"], "time": campaign_db.game_time_text(rumor["game_time"]) if rumor["game_time"] is not None else "-"}
+                {"id": rumor["id"], "event": rumor["event_id"], "text": rumor["text"], "instruction": rumor["instruction"], "time": campaign_db.game_time_text(rumor["game_time"]) if rumor["game_time"] is not None else "-"}
                 for rumor in reversed(campaign_db.rumors())
             ],
             "threads": [
@@ -402,7 +402,7 @@ def generate_campaign_rumor():
     data = request.get_json(silent=True) or {}
     refused = campaign_write(data)
     if refused: return refused
-    return rumor_reply(data.get("notable"), str(data.get("instruction") or ""), str(data.get("rumor") or ""))
+    return rumor_reply(data.get("event"), str(data.get("instruction") or ""), str(data.get("rumor") or ""))
 
 @bp.route('/api/campaign/rumors', methods=['POST'])
 def save_campaign_rumor():

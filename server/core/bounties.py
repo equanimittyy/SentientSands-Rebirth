@@ -155,10 +155,10 @@ def take_pending(npc_id):
 
 
 def store(bounty, result):
-    """Stores the event of a bounty that the plugin placed, with the result of the plugin. Returns its notable event ID."""
+    """Stores the event of a bounty that the plugin placed, with the result of the plugin. Returns its event ID."""
     target, context = bounty["target"], result["context"]
     held = next((event for _, event in world_events.open_bounties() if event["squad"] == result["squad"]), None)
-    notable_id = campaign_db.add_bounty_event({
+    event_id = campaign_db.add_bounty_event({
         "target": {"id": target["npc_id"], "name": bounty["name"], "faction": target["faction"]},
         "reason": bounty["reason"],
         "crime": bounty["crime"],
@@ -171,4 +171,4 @@ def store(bounty, result):
         "persistent": held["persistent"] if held else bool(result["persistent"]),
     }, world_events.game_minutes(context))
     state.LAST_BOUNTY = time.monotonic()
-    return notable_id
+    return event_id
