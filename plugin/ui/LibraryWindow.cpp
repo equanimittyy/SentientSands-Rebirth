@@ -30,6 +30,7 @@ std::vector<std::string> g_libraryAllNames;
 std::vector<std::string> g_libraryAllSids;
 std::string g_librarySortMode = "alphabetical";
 std::vector<std::string> g_libraryFavorites;
+int g_libraryRequest = 0;
 
 static const int LIBRARY_FACT_COUNT = 9;
 static const char *LIBRARY_FACT_KEYS[] = {"race",     "faction", "sex",
@@ -41,6 +42,7 @@ static const char *LIBRARY_FACT_LABELS[] = {"Race",     "Faction", "Sex",
 MyGUI::TextBox *g_libraryFacts[LIBRARY_FACT_COUNT] = {nullptr};
 
 void CloseLibraryUI() {
+  g_libraryRequest++;
   if (g_libraryWindow) {
     if (MyGUI::Gui::getInstancePtr())
       MyGUI::Gui::getInstancePtr()->destroyWidget(g_libraryWindow);
@@ -549,7 +551,7 @@ void SetLibraryText(const std::string &text) {
   g_libraryText->setVScrollPosition(0);
 }
 
-void SetLibraryProfile(const std::string &json) {
+void ShowLibraryProfile(const std::string &json) {
   if (!g_libraryName)
     return;
   g_libraryName->setCaption(Utf8ToWide(GetJsonValue(json, "name")).c_str());
@@ -557,6 +559,23 @@ void SetLibraryProfile(const std::string &json) {
     g_libraryFacts[i]->setCaption(
         Utf8ToWide(GetJsonValue(json, LIBRARY_FACT_KEYS[i])).c_str());
   SetLibraryText(GetJsonValue(json, "text"));
+}
+
+// The player can pick another NPC, or close the window, while a request runs,
+// and the replies can come back out of order
+void SetLibraryProfile(const std::string &data) {
+  size_t sep = data.find('|');
+  if (sep == std::string::npos || atoi(data.c_str()) != g_libraryRequest)
+    return;
+  ShowLibraryProfile(data.substr(sep + 1));
+}
+
+void StartLibraryHistory(const std::string &npcName, const std::string &sid) {
+  LibraryTask *t = new LibraryTask();
+  t->npcName = npcName;
+  t->json = "{\"npc\":\"" + EscapeJSON(sid) + "\"}";
+  t->request = ++g_libraryRequest;
+  CreateThread(NULL, 0, LibraryHistoryThread, t, 0, NULL);
 }
 
 void OnLibraryNPCSelect(MyGUI::ListBox *sender, size_t index) {
@@ -582,13 +601,9 @@ void OnLibraryNPCSelect(MyGUI::ListBox *sender, size_t index) {
         Utf8ToWide(isFav ? T("Fav: [YES]") : T("Fav: [NO]")).c_str());
   }
 
-  SetLibraryProfile("");
+  ShowLibraryProfile("");
   SetLibraryText(T("Loading profile for ") + displayName + "...");
-
-  LibraryTask *t = new LibraryTask();
-  t->npcName = displayName;
-  t->json = "{\"npc\":\"" + EscapeJSON(storageId) + "\"}";
-  CreateThread(NULL, 0, LibraryHistoryThread, t, 0, NULL);
+  StartLibraryHistory(displayName, storageId);
 }
 
 void OnLibraryWindowButtonPressed(MyGUI::Window *sender,
@@ -626,7 +641,8 @@ DWORD WINAPI LibraryHistoryThread(LPVOID lpParam) {
       "LIBRARY: Received " + ToString((int)response.length()) + " bytes");
   if (!GetJsonValue(response, "text").empty()) {
     EnterCriticalSection(&g_msgMutex);
-    g_messageQueue.push_back("CMD: SET_LIBRARY_PROFILE: " + response);
+    g_messageQueue.push_back("CMD: SET_LIBRARY_PROFILE: " +
+                             ToString(t->request) + "|" + response);
     LeaveCriticalSection(&g_msgMutex);
   }
   delete t;
@@ -640,10 +656,8 @@ void RefreshLibraryUI() {
   size_t index = g_libraryList->getIndexSelected();
   if (index >= g_libraryStorageIds.size())
     return;
-  LibraryTask *t = new LibraryTask();
-  t->npcName = g_libraryList->getItemNameAt(index).asUTF8();
-  t->json = "{\"npc\":\"" + EscapeJSON(g_libraryStorageIds[index]) + "\"}";
-  CreateThread(NULL, 0, LibraryHistoryThread, t, 0, NULL);
+  StartLibraryHistory(g_libraryList->getItemNameAt(index).asUTF8(),
+                      g_libraryStorageIds[index]);
 }
 
 void AddLibraryFact(MyGUI::Widget *client, int i) {

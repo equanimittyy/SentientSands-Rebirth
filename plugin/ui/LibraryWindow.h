@@ -14,7 +14,7 @@ void CloseLibraryUI();
 void RefreshLibraryUI();
 void PopulateLibraryUI(const std::string &data);
 void SetLibraryText(const std::string &text);
-void SetLibraryProfile(const std::string &json);
+void SetLibraryProfile(const std::string &data);
 void OpenBioEditor(const std::string &data, const std::string &failureKey);
 void FinishKeptBio(const std::string &data);
 MyGUI::TextBox *AddBioLine(MyGUI::Widget *client, const std::string &text,
