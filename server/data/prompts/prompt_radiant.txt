@@ -19,7 +19,7 @@ RULES:
 - The order follows the talk, not a fixed round: the one asked or teased speaks next, two characters can trade lines while the others listen, and no character speaks twice in a row. A character speaks only when it has something to say, so not every character speaks, above all in a short conversation.
 - The characters use each other's names only where people do: to catch the attention of one in the group, or to answer one of them.
 - Characters that know each other little are curious about each other, when their personality allows it. Characters that talked often skip the introductions and bring up what they know of each other.
-- Each character takes the topic in its own way, from its personality, its own concerns, and its past where the talk touches it, and says what it thinks, so the characters do not have to agree.
-- Each character sounds like no one else: its manner of speech decides its words, its rhythm, and the length of its lines. A habit of a certain word, phrase, sound, or gesture in its SPEECH comes out only once in a while, and most of its lines show none of it. Two characters never share a turn of phrase or a kind of image.
+- Each character takes the topic in its own way, from its personality, its own concerns, and its past, and says what it thinks, so the characters do not have to agree.
+- Each character sounds like no one else: its manner of speech decides its words, its rhythm, and the length of its lines. Two characters never share a turn of phrase.
 
 Output ONLY the lines.

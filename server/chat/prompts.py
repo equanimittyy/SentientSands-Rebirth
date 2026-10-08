@@ -87,12 +87,12 @@ def building_of(ctx):
     building = ctx.get("building_name")
     return building if building and building != "Unknown" else None
 
-def describe_npc(name, profile, npc_id, template="npc_chat_template.txt"):
+def describe_npc(name, profile, npc_id):
     race = profile.get("Race", "Unknown")
     race_entry = find_race(race)
     current_faction = describe_faction(profile.get("Faction"), state.LIVE_CONTEXTS.get(npc_id, {}).get("factionID"))
     return fill_prompt(
-        template,
+        "npc_template.txt",
         name=name,
         alias=alias_line(profile),
         race=describe_record(race_entry) if race_entry else race,

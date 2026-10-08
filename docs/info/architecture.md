@@ -207,7 +207,7 @@ A chat request is ordered for the provider's prompt cache, which reuses only an 
 
 | Part | Content | Changes |
 |---|---|---|
-| System message | `prompt_chat_template.txt`: `prompt_system.txt` (`prompt_animal_system.txt` for an animal), the judgment rule, `npc_chat_template.txt`, `prompt_chat_scene.txt`, then the newest memories of the NPC's threads (see [Conversation memories](#conversation-memories)) | When a conversation starts or such a memory is written |
+| System message | `prompt_chat_template.txt`: `prompt_system.txt` (`prompt_animal_system.txt` for an animal), the judgment rule, `npc_template.txt`, `prompt_chat_scene.txt`, then the newest memories of the NPC's threads (see [Conversation memories](#conversation-memories)) | When a conversation starts or such a memory is written |
 | History | The NPC's thread lines without a memory, as user and assistant turns (see [Chat threads](#chat-threads)) | One exchange more each turn |
 | Last user message | `prompt_chat_turn.txt`: the found memories and lore (see [Lore retrieval](#lore-retrieval)), the player's line, a short reminder | Every turn |
 
@@ -372,7 +372,7 @@ The server, not the LLM, picks one topic kind at random from those with material
 | Surroundings | The center's place and the lore entry of its town (`radiant.place_topic`) |
 | Rumor | One of the 5 newest rumors |
 
-- The prompt is `prompt_system.txt` without the chat reply rules (`response_rules.txt`), which are written for one NPC who answers the player, plus `prompt_radiant.txt`. `npc_radiant_template.txt` describes each participant without the hints on the backstory and the speech that `npc_chat_template.txt` adds, because the radiant rules give them once for all participants. The radiant rules give the conversation an opening, an exchange, and a closing line, and make each participant keep its own voice, follow from the lines before it, and give its opinion, in an order that follows the talk. A participant speaks only when it has something to say. Without these rules, one call writes one same-voiced remark on the topic for each participant, in a fixed round, and stops mid-thread.
+- The prompt is `prompt_system.txt` without the chat reply rules (`response_rules.txt`), which are written for one NPC who answers the player, plus `prompt_radiant.txt`. Each participant is described with `npc_template.txt`, as the NPC of a chat is. The radiant rules give the conversation an opening, an exchange, and a closing line, and make each participant keep its own voice, follow from the lines before it, and give its opinion, in an order that follows the talk. A participant speaks only when it has something to say. Without these rules, one call writes one same-voiced remark on the topic for each participant, in a fixed round, and stops mid-thread.
 - The server picks the line count at random from 2 to 4, 5 to 7, or 8 to 12 (`radiant.LENGTHS`), because the model, left to choose, writes a long conversation every time.
 - The prompt tells how well each pair of participants knows each other (`radiant.acquaintance`), so strangers ask about each other and old companions skip the introductions. The phrase comes from the count of the earlier threads in which both were speakers (`campaign_db.thread_partners`): 0 is "have never talked", 1 to 2 is "have talked a little", 3 to 9 is "know each other", and 10 or more is "know each other well".
 - The reply holds `Name|serial: line` lines (`radiant.lines`). A line of a non-participant, or a failed call, leaves everyone silent.
@@ -532,7 +532,7 @@ A character without a profile gets one rolled in code at its first meeting (`new
 
 - A person rolls three traits, a backstory, a speech manner, and a speech quirk from `server/data/defaults/` (`personality_traits.json`, `backstories.json`, `speech_manners.json`, `speech_quirks.json`). Entries have `kinds`, so a skeleton gets only what fits. An animal (`Animal` is 1, from `Character::isAnimal`) rolls only `animal_personalities.json`.
 - A backstory is in the past tense and says nothing about the present, because the roll does not know the job.
-- `SpeechQuirks` holds the manner, then the quirk.
+- `SpeechQuirks` holds the manner, then the quirk. The `SPEECH` label of `npc_template.txt` tells them apart: the manner shows lightly in every line, and the habit, which can be a topic such as money, comes out only once in a while. The label hint sits on the field of each character, because a single hint in the radiant rules let a habit come out in every line.
 - The roll is seeded by the `npc_id`, because a chat and a radiant conversation can both write a new profile.
 
 A profile is provisional while it holds `Interactions` (`campaign_db.PROVISIONAL`), the count of the chat turns in which the NPC replied. At Chats before a bio (`bio_interactions`, default 5, 0 for on request only), `generate_bio` writes the full bio in a background thread. It never rewrites a full profile.
