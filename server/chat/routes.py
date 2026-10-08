@@ -1,6 +1,7 @@
 import json
 import logging
 import queue
+import random
 import re
 import threading
 import time
@@ -67,7 +68,7 @@ def radiant_conversation():
             for serial, npc in participants.items()
         ]
         known = radiant.acquaintance({npc['npc_id']: names[serial] for serial, npc in participants.items()}, {npc_id: campaign_db.thread_partners(npc_id) for npc_id in npc_ids})
-        prompt = fill_prompt("prompt_radiant.txt", place=scene_text.location_text(environment, "They"), participants="\n\n".join(descriptions), acquaintance=known, topic=topic)
+        prompt = fill_prompt("prompt_radiant.txt", place=scene_text.location_text(environment, "They"), participants="\n\n".join(descriptions), acquaintance=known, topic=topic, length=random.choice(radiant.LENGTHS))
         logging.info(f"RADIANT: {', '.join(names.values())} talk. Topic: {topic}")
         content = call_llm("radiant", [{"role": "system", "content": build_system_prompt()}, {"role": "user", "content": prompt}])
         lines = radiant.lines(content or "", participants)
@@ -76,7 +77,9 @@ def radiant_conversation():
             return jsonify({"status": "none"})
 
         time_prefix = get_current_time_prefix()
-        thread_id = campaign_db.join_thread(None, [(npc_id, "speaker", True) for npc_id in npc_ids], campaign_db.game_time(time_prefix), scene_text.location_name(center))
+        spoke = {serial for serial, _ in lines}
+        members = [(npc['npc_id'], "speaker" if serial in spoke else "overheard", True) for serial, npc in participants.items()]
+        thread_id = campaign_db.join_thread(None, members, campaign_db.game_time(time_prefix), scene_text.location_name(center))
         stored = [(f"{time_prefix}{names[serial]}: {text}", participants[serial]['npc_id']) for serial, text in lines]
         for serial, npc in participants.items():
             campaign_db.append_dialogue(npc['npc_id'], stored, profiles[serial], thread_id)

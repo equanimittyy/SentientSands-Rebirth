@@ -9,6 +9,12 @@ from chat.prompts import describe_record
 _LINE = re.compile(r"^([^:|\n]{1,63})\|(\d+)\s*:\s*(.*)$")
 # Allows one level of nested brackets, as the chat reply does: item names like "Bolts [Toothpicks]" contain them
 _BRACKETS = re.compile(r"\[\s*(?:[^\[\]]|\[[^\[\]]*\])+\s*\]")
+# Left to choose, the model writes a long conversation every time, so the server picks the length of each one
+LENGTHS = (
+    "2 to 4. A remark gets a reply or two, and the talk dies out.",
+    "5 to 7. The talk goes back and forth a few times.",
+    "8 to 12. The talk catches, and it goes somewhere new before it ends.",
+)
 
 
 def topic(memories, environment, rumors, choice=random.choice, location=None):

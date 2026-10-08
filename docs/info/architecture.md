@@ -360,7 +360,7 @@ A radiant conversation is a talk between 3 to 5 of the player's characters, whic
 2. The participants are the center and the nearest of the player's characters within `TalkRadius`, up to 5. With fewer than 3, the plugin sends nothing.
 3. The plugin posts them, the center's context as `player_context`, and the game events to `/radiant`.
 4. The server makes no call when a participant fought within 3 game hours (`deeds.fought_recently`), when no topic has material, or when a conversation plays.
-5. Otherwise it makes one `radiant` call, stores the lines as a new thread, and paces them (see [Line pacing](#line-pacing)). Nothing shows during the call, because the player does not wait for a radiant conversation.
+5. Otherwise it makes one `radiant` call, stores the lines as a new thread, and paces them (see [Line pacing](#line-pacing)). The participants that speak join the thread as speakers, and the others as overhearers. Nothing shows during the call, because the player does not wait for a radiant conversation.
 
 The server, not the LLM, picks one topic kind at random from those with material (`radiant.topic`):
 
@@ -370,7 +370,8 @@ The server, not the LLM, picks one topic kind at random from those with material
 | Surroundings | The center's place and the lore entry of its town (`radiant.place_topic`) |
 | Rumor | One of the 5 newest rumors |
 
-- The prompt is `prompt_system.txt` plus `prompt_radiant.txt`. Its rules make each participant speak 1 to 3 times, keep its own voice, and react to the line before it, ask the others by name, and give its opinion, in an order that follows the talk. Without them, one call writes one same-voiced remark on the topic for each participant, in a fixed round.
+- The prompt is `prompt_system.txt` plus `prompt_radiant.txt`. Its rules give the conversation an opening, an exchange, and a closing line, and make each participant keep its own voice, follow from the lines before it, and give its opinion, in an order that follows the talk. A participant speaks only when it has something to say. Without these rules, one call writes one same-voiced remark on the topic for each participant, in a fixed round, and stops mid-thread.
+- The server picks the line count at random from 2 to 4, 5 to 7, or 8 to 12 (`radiant.LENGTHS`), because the model, left to choose, writes a long conversation every time.
 - The prompt gives each pair of participants the count of the earlier threads in which both were speakers (`radiant.acquaintance`, from `campaign_db.thread_partners`), so strangers ask about each other and old companions skip the introductions.
 - The reply holds `Name|serial: line` lines (`radiant.lines`). A line of a non-participant, or a failed call, leaves everyone silent.
 - A radiant conversation does not change `CURRENT_THREAD` or the quiet clock. The memory loop runs after each one (`state.LAST_RADIANT`).
