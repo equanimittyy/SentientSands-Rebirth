@@ -16,7 +16,6 @@
 #include <kenshi/util/hand.h>
 
 #include <mygui/MyGUI_Button.h>
-#include <mygui/MyGUI_ComboBox.h>
 #include <mygui/MyGUI_Delegate.h>
 #include <mygui/MyGUI_EditBox.h>
 #include <mygui/MyGUI_Gui.h>
@@ -27,9 +26,6 @@
 #include <cstdlib>
 #include <vector>
 
-// A layout skin in Kenshi's data\gui\templates\kenshi_templates.xml
-static const char *SPEAKER_BOX_SKIN = "Kenshi_ComboBox";
-
 namespace SentientSands {
 namespace UI {
 
@@ -37,8 +33,9 @@ MyGUI::Window *g_chatWindow = nullptr;
 MyGUI::EditBox *g_chatInput = nullptr;
 MyGUI::Button *g_chatModeBtns[3] = {nullptr, nullptr, nullptr};
 MyGUI::TextBox *g_chatLabel = nullptr;
-MyGUI::ComboBox *g_chatSpeakerBox = nullptr;
+MyGUI::Button *g_chatSpeakerBtn = nullptr;
 std::vector<hand> g_chatSpeakers;
+size_t g_chatSpeakerIndex = 0;
 // In memory only, so a new game session starts on the first squad member
 hand g_lastSpeaker;
 std::string g_chatTargetHandleStr = "";
@@ -55,7 +52,7 @@ void CloseChatUI() {
     for (int i = 0; i < 3; i++)
       g_chatModeBtns[i] = nullptr;
     g_chatLabel = nullptr;
-    g_chatSpeakerBox = nullptr;
+    g_chatSpeakerBtn = nullptr;
   }
 }
 
@@ -158,11 +155,8 @@ void OnChatSendClick(MyGUI::Widget *sender) {
   GameWorld *world = *ppWorld;
 
   Character *speaker = nullptr;
-  if (g_chatSpeakerBox) {
-    size_t index = g_chatSpeakerBox->getIndexSelected();
-    if (index < g_chatSpeakers.size())
-      speaker = g_chatSpeakers[index].getCharacter();
-  }
+  if (g_chatSpeakerIndex < g_chatSpeakers.size())
+    speaker = g_chatSpeakers[g_chatSpeakerIndex].getCharacter();
   if (!speaker && world && world->player &&
       world->player->playerCharacters.size() > 0)
     speaker = world->player->playerCharacters[0];
@@ -361,6 +355,17 @@ void OnChatWindowButtonPressed(MyGUI::Window *sender, const std::string &name) {
     CloseChatUI();
 }
 
+static void ShowChatSpeaker() {
+  Character *member = g_chatSpeakers[g_chatSpeakerIndex].getCharacter();
+  g_chatSpeakerBtn->setCaption(
+      Utf8ToWide(member ? member->getName() : "?").c_str());
+}
+
+void OnChatSpeakerClick(MyGUI::Widget *sender) {
+  g_chatSpeakerIndex = (g_chatSpeakerIndex + 1) % g_chatSpeakers.size();
+  ShowChatSpeaker();
+}
+
 void CreateChatUI(const std::string &npcName, const std::string &handleStr) {
   MyGUI::Gui *gui = MyGUI::Gui::getInstancePtr();
   if (!gui)
@@ -377,17 +382,16 @@ void CreateChatUI(const std::string &npcName, const std::string &handleStr) {
   std::vector<Character *> squad;
   GetCurrentSquad(squad);
   g_chatSpeakers.clear();
-  size_t selected = 0;
+  g_chatSpeakerIndex = 0;
   for (size_t i = 0; i < squad.size(); ++i) {
     if (squad[i]->getHandle().serial == targetSerial)
       continue;
     if (squad[i]->getHandle().serial == g_lastSpeaker.serial)
-      selected = g_chatSpeakers.size();
+      g_chatSpeakerIndex = g_chatSpeakers.size();
     g_chatSpeakers.push_back(squad[i]->getHandle());
   }
 
   std::string actualNpcName = npcName;
-  // Not "Popup": a click there raises the window over its open speaker list
   g_chatWindow = gui->createWidgetReal<MyGUI::Window>(
       "Kenshi_WindowCX", 0.1875f, 0.4f, 0.625f, 0.18f, MyGUI::Align::Center,
       "Window", "SentientSands_ChatWindow");
@@ -402,18 +406,14 @@ void CreateChatUI(const std::string &npcName, const std::string &handleStr) {
   g_chatLabel->setCaption(
       Utf8ToWide(T("Message for ") + actualNpcName + ":").c_str());
 
-  g_chatSpeakerBox = client->createWidgetReal<MyGUI::ComboBox>(
-      SPEAKER_BOX_SKIN, 0.05f, 0.05f, 0.33f, 0.22f,
-      MyGUI::Align::Top | MyGUI::Align::Left, "SentientSands_ChatSpeaker");
-  g_chatSpeakerBox->setComboModeDrop(true);
-  g_chatSpeakerBox->setSmoothShow(false);
-  for (size_t i = 0; i < g_chatSpeakers.size(); ++i) {
-    Character *member = g_chatSpeakers[i].getCharacter();
-    g_chatSpeakerBox->addItem(
-        Utf8ToWide(member ? member->getName() : "?").c_str());
+  if (!g_chatSpeakers.empty()) {
+    g_chatSpeakerBtn = client->createWidgetReal<MyGUI::Button>(
+        "Kenshi_Button1", 0.05f, 0.05f, 0.33f, 0.22f,
+        MyGUI::Align::Top | MyGUI::Align::Left, "SentientSands_ChatSpeakerBtn");
+    g_chatSpeakerBtn->eventMouseButtonClick +=
+        MyGUI::newDelegate(OnChatSpeakerClick);
+    ShowChatSpeaker();
   }
-  if (!g_chatSpeakers.empty())
-    g_chatSpeakerBox->setIndexSelected(selected);
   g_chatInput = client->createWidgetReal<MyGUI::EditBox>(
       "Kenshi_EditBox", 0.05f, 0.35f, 0.9f, 0.25f,
       MyGUI::Align::Top | MyGUI::Align::HStretch, "SentientSands_ChatInput");

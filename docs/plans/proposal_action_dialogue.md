@@ -94,7 +94,7 @@ The model under the action prompt starts each reply with the tag of the category
 
 The player's mark names the category for the model. A later line of the chat thread can name another category, for example `!t` after `!b`. A later line without a mark stays in the action dialogue, and the tag of the reply shows how the model reads it.
 
-The chat window shows system messages about the action dialogue, in the shape of the chat status messages such as "{name} is thinking..." (`NotifyChatStatus` in `plugin/ui/ChatWindow.cpp:62`). They show that the chat thread is an action dialogue, and the category of each reply.
+The chat window shows system messages about the action dialogue, in the shape of the chat status messages such as "{name} is thinking..." (`NotifyChatStatus` in `plugin/ui/ChatWindow.cpp:59`). They show that the chat thread is an action dialogue, and the category of each reply.
 
 ### Outcome
 
@@ -122,7 +122,7 @@ The category sets when the action dialogue closes:
 
 ## 5. Speaker
 
-The plugin gives most actions to the first character of the squad, not to the squad member that spoke: `ATTACK` (`plugin/main.cpp:497`), the release (`plugin/main.cpp:712` and `:723`), and the item and cat handlers (`plugin/game/GameActions.cpp:496`, `:608`, `:702`, `:717`, and `:998`). The chat window knows the speaker (`plugin/ui/ChatWindow.cpp:160`), but the action line does not carry it. Each design of the actions must therefore send the speaker with the action, so that the action acts on the squad member that spoke.
+The plugin gives most actions to the first character of the squad, not to the squad member that spoke: `ATTACK` (`plugin/main.cpp:497`), the release (`plugin/main.cpp:712` and `:723`), and the item and cat handlers (`plugin/game/GameActions.cpp:496`, `:608`, `:702`, `:717`, and `:998`). The chat window knows the speaker (`plugin/ui/ChatWindow.cpp:157`), but the action line does not carry it. Each design of the actions must therefore send the speaker with the action, so that the action acts on the squad member that spoke.
 
 ## 6. Open questions
 
