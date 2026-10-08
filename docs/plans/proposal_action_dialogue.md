@@ -4,7 +4,7 @@ Status: Draft for review
 
 ## 1. Summary
 
-Chat sends no game actions since the action tags were turned off. The plugin still runs the actions (`ExecuteQueuedActions` in `plugin/game/GameActions.cpp:224`). Only the debug commands of the chat send them, through the pipe before the reply line (`server/chat/routes.py:241`).
+Chat sends no game actions since the action tags were turned off. The plugin still runs the actions (`ExecuteQueuedActions` in `plugin/game/GameActions.cpp:245`). Only the debug commands of the chat send them, through the pipe before the reply line (`server/chat/routes.py:250`).
 
 In this plan, the player marks a chat thread as an action dialogue. An action dialogue uses its own system prompt instead of the chat system prompt (`server/data/prompts/prompt_system.txt`). A chat thread without the mark stays plain chat, with no game actions.
 
@@ -12,7 +12,7 @@ In this plan, the player marks a chat thread as an action dialogue. An action di
 
 ## 2. Entry
 
-A player line that starts with `!` marks its chat thread as an action dialogue. The mark holds for the rest of the chat thread, until the action dialogue [ends](#end). A chat thread is one speaker with one NPC in one mode, and it ends after `conversation_timeout_minutes` without a chat (`server/chat/routes.py:268`).
+A player line that starts with `!` marks its chat thread as an action dialogue. The mark holds for the rest of the chat thread, until the action dialogue [ends](#end). A chat thread is one NPC in one mode, and the squad members that speak to that NPC share the thread (`server/chat/routes.py:278`). The chat thread ends after `conversation_timeout_minutes` without a chat (`server/chat/memory.py:13`).
 
 The characters right after the `!` decide the result. A word after the `!` runs up to the first character that is not a letter. Letters and words are case-insensitive, so `!B` names BARTER.
 
@@ -40,7 +40,7 @@ The characters right after the `!` decide the result. A word after the `!` runs 
 
 The text after the mark can be empty, as in `!barter`.
 
-The debug commands of the chat keep the `/` mark (`server/chat/routes.py:176`), so the two marks do not collide.
+The debug commands of the chat keep the `/` mark (`server/chat/routes.py:198`), so the two marks do not collide.
 
 ### No category
 
@@ -73,15 +73,15 @@ A failure sends no action dialogue call. The server replies with the line "X did
 | `f` | `follow` | FOLLOW | Asks the NPC to follow the squad for a time. Unlike RECRUIT, the hire is temporary. |
 | `d` | `dismiss` | DISMISS | Tells the NPC to leave: a squad member leaves the squad, and an NPC outside the squad goes away. The NPC never refuses. |
 
-FOLLOW reuses the game's mercenary hire: the NPC follows the squad under a hire contract, as a hired mercenary does. The plugin already reads such a contract as `temporary_follower` (`plugin/game/Context.cpp:361`).
+FOLLOW reuses the game's mercenary hire: the NPC follows the squad under a hire contract, as a hired mercenary does. The plugin already reads such a contract as `temporary_follower` (`plugin/game/Context.cpp:362`).
 
 BARTER offers a deal only when its gate holds. The gates read only the speaker's `character_state` and `health`, and the NPC's Current Job.
 
 | Deal | Gate |
 |---|---|
-| A release from prison | The speaker's `character_state` (`plugin/game/Context.cpp:764`) is `imprisoned`. |
-| Treatment | The speaker's `health` (`plugin/game/Context.cpp:765`) is `Injured` or `Crippled` (`GetHealthStatus` in `plugin/game/Context.cpp:114`). |
-| A trade of items, or a gift | The NPC's Current Job (`current_job` in `server/chat/current_job.py:40`) is `Trading`, `Running a shop`, or `Travelling as a trader`. |
+| A release from prison | The speaker's `character_state` (`plugin/game/Context.cpp:675`) is `imprisoned`. |
+| Treatment | The speaker's `health` (`plugin/game/Context.cpp:676`) is `Injured` or `Crippled` (`GetHealthStatus` in `plugin/game/Context.cpp:115`). |
+| A trade of items, or a gift | The NPC's Current Job (`current_job` in `server/chat/current_job.py:41`) is `Trading`, `Running a shop`, or `Travelling as a trader`. |
 
 ## 4. Action dialogue
 
@@ -122,7 +122,14 @@ The category sets when the action dialogue closes:
 
 ## 5. Speaker
 
-The plugin gives most actions to the first character of the squad, not to the squad member that spoke: `ATTACK` (`plugin/main.cpp:497`), the release (`plugin/main.cpp:712` and `:723`), and the item and cat handlers (`plugin/game/GameActions.cpp:496`, `:608`, `:702`, `:717`, and `:998`). The chat window knows the speaker (`plugin/ui/ChatWindow.cpp:157`), but the action line does not carry it. Each design of the actions must therefore send the speaker with the action, so that the action acts on the squad member that spoke.
+The chat window names the speaker in the player's line (`plugin/ui/ChatWindow.cpp:214`), and the plugin keeps that squad member as `g_lastChattingPlayerHand` (`plugin/main.cpp:251`). Only `SPAWN_ITEM` acts on that squad member (`plugin/game/GameActions.cpp:1018`). The other actions act on the first character of the squad:
+
+| Actions | Why they act on the first character |
+|---|---|
+| `GIVE_ITEM`, `TAKE_ITEM`, `GIVE_CATS`, `TAKE_CATS` | The plugin queues each action for the speaker (`plugin/main.cpp:522`, `:557`, `:587`, and `:577`), but its handler ignores the speaker (`plugin/game/GameActions.cpp:630`, `:518`, `:724`, and `:739`). |
+| `ATTACK`, `FOLLOW_PLAYER`, and the release | The plugin queues each action for the first character (`plugin/main.cpp:489`, `:673`, `:704`, and `:715`). |
+
+The squad members that take turns share one chat thread ([section 2](#2-entry)), so another squad member can speak before the reply to a line arrives. `g_lastChattingPlayerHand` then names the wrong squad member. Each design of the actions must therefore send the speaker with the action, so that the action acts on the squad member that spoke.
 
 ## 6. Open questions
 
