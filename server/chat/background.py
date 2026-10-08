@@ -80,7 +80,7 @@ def place_of(location, lore):
 def rumor_records(npc_id):
     """The rumors that the chat scene leaves out, because it holds the newest. Each NPC hears each rumor, as in the scene.
     The NPC drops out of the names, because the player names it to address it."""
-    told = world_events.told_rumors()[:-PROMPT_RUMORS]
+    told = campaign_db.rumors()[:-PROMPT_RUMORS]
     events = {event_id: event for event_id, _, event in campaign_db.events()}
     characters = {rumor["id"]: world_events.characters(events[rumor["event_id"]]) for rumor in told}
     names = campaign_db.names_of({member_id for found in characters.values() for member_id, _ in found})

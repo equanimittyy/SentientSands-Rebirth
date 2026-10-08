@@ -2,10 +2,8 @@
 
 The data goes in through the campaign_db calls that the chat route makes: chat threads with speakers and overhearers,
 a whisper and a yell, a radiant conversation of the squad, and the memories of all threads but the newest. The events go in as game events,
-through the attribution of the server: a known figure captured, with a rumor, and one killed. Three bounties go
-in as the bounty route stores them, with the notice, the rumor, and the alias that the LLM writes, and the squad then kills
-one target and captures another. The script refuses a campaign name that is taken, so a second run cannot add the data
-twice. It needs no Flask, so it runs in the dev container.
+through the attribution of the server: a known figure captured, with a rumor, and one killed. The script refuses a
+campaign name that is taken, so a second run cannot add the data twice. It needs no Flask, so it runs in the dev container.
 """
 import argparse
 import re
@@ -16,8 +14,8 @@ REPO = Path(__file__).resolve().parent.parent
 SERVER = REPO / "server"
 sys.path.insert(0, str(SERVER))
 
-from chat import chat_prompt, provisional_profile
-from core import bounties, world_events
+from chat import chat_prompt
+from core import world_events
 from store import campaign_db, world_template
 
 SQUAD, SQUAD_ID = "Nameless", "204-gamedata.base"
@@ -25,7 +23,6 @@ STICK, IZUMI, MIKSE = "h:910001", "h:910002", "h:910003"
 JORGE, JOSH, ABEL = "h:920001", "h:920002", "h:920003"
 # Canon characters of SSR Vanilla
 RUKA, BEEP, DUST_KING, LONGEN = "u:19576-Dialogue.mod", "u:57390-rebirth.mod", "u:2849-gamedata.base", "u:56365-Dialogue.mod"
-GRENN, SADI, TAVI = "h:930001", "h:930002", "h:930003"
 
 PROFILES = {
     STICK: {"Name": "Stick", "Race": "Greenlander", "Sex": "Male", "Faction": SQUAD, "OriginFaction": SQUAD, "Relation": 0,
@@ -41,13 +38,7 @@ PROFILES = {
     ABEL: {"Name": "Paladin Abel", "Race": "Greenlander", "Sex": "Male", "Faction": "The Holy Nation", "OriginFaction": "The Holy Nation", "Relation": -5,
            "Personality": "Stern and suspicious of outsiders.", "Backstory": "Passing through The Hub on the way to Blister Hill.", "SpeechQuirks": "Ends many sentences with a blessing."},
 }
-# Generic bandits that carry a bounty
-WANTED = {
-    GRENN: {"Name": "Grenn", "Race": "Greenlander", "Sex": "Male", "Faction": "Dust Bandits", "OriginFaction": "Dust Bandits", "Relation": -25},
-    SADI: {"Name": "Sadi", "Race": "Scorchlander", "Sex": "Female", "Faction": "Starving Bandits", "OriginFaction": "Starving Bandits", "Relation": -25},
-    TAVI: {"Name": "Tavi", "Race": "Greenlander", "Sex": "Male", "Faction": "Dust Bandits", "OriginFaction": "Dust Bandits", "Relation": -25},
-}
-NAMES = {npc_id: profile["Name"] for npc_id, profile in (PROFILES | WANTED).items()} | {RUKA: "Ruka", BEEP: "Beep"}
+NAMES = {npc_id: profile["Name"] for npc_id, profile in PROFILES.items()} | {RUKA: "Ruka", BEEP: "Beep"}
 IN_SQUAD = {STICK, IZUMI, MIKSE}
 MODE_TAGS = {"talk": "", "whisper": "(Whispered) ", "yell": "(Yelled) "}
 
@@ -63,20 +54,6 @@ def at(day, hour, minute):
 
 def kill(killers, victim, when):
     world_events.take([{"kind": "attack", "attacker": killer, "target": victim["id"], **when} for killer in killers] + [{"kind": "death", "party": victim, **when}])
-
-
-def bounty(npc_id, crime, reason, amount, place, when, notice, rumor, alias):
-    """Stores a bounty as the /bounty/placed route does, and its notice, rumor, and alias as write_bounty_rumor does."""
-    profile = WANTED[npc_id]
-    campaign_db.upsert_profile(npc_id, {**profile, **provisional_profile.roll(npc_id, "person", profile["Race"]), campaign_db.PROVISIONAL: 0})
-    target = {"npc_id": npc_id, "name": profile["Name"], "faction": profile["Faction"], "place": place}
-    # The plugin moves the start of the bounty 100,000 game hours ahead, so the bounty does not end
-    expires = world_events.game_minutes(when) + 100_000 * 60
-    event_id = bounties.store({"target": target, "name": profile["Name"], "reason": reason, "crime": crime, "amount": amount},
-                              {"context": when, "squad": f"squad of {profile['Name']}", "persistent": False, "expires": expires,
-                               "issuers": list(bounties.ISSUERS.values())})
-    campaign_db.add_bounty_rumor(event_id, notice, rumor)
-    campaign_db.add_alias(npc_id, alias)
 
 
 def chat_thread(speaker, npc, exchanges, overhearers=(), mode="talk", memory=None, location="Bar, The Hub"):
@@ -176,29 +153,6 @@ def fill():
                            "Call the squad the Cage Crew.")
     kill([izumi, mikse], party(LONGEN, "Longen", "Traders Guild"), at(9, 20, 30))
 
-    bounty(SADI, "KIDNAPPING", "They took travellers from the road at night and sold them to slavers.", 5200, "Border Zone", at(9, 21, 0),
-           "WANTED: Sadi the Snatcher of the Starving Bandits, for kidnapping. She takes travellers off the road after dark and"
-           " sells them to the slavers, so do not camp alone. Reward: 5,200 cats.",
-           "They say the Snatcher walks through a camp without waking a single dog, and the folk she carries off are next seen in a"
-           " slaver's cage. Sadi of the Starving Bandits is worth 5,200 cats now, and she was last seen haunting the Border Zone.", "the Snatcher")
-    bounty(TAVI, "TERRORISM", "They set fire to the fields of a farming outpost on the night before the harvest.", 12000, "Border Zone", at(9, 23, 0),
-           "WANTED: 'Ashface' Tavi of the Dust Bandits, for terrorism. He burned the fields of a farming outpost on the night"
-           " before the harvest, so keep him away from anything that burns. Reward: 12,000 cats.",
-           "Farmers swear that Ashface can smell a ripe field from a day's walk off, and that the smoke of the last one he burned"
-           " hung over the outpost for a week. Tavi of the Dust Bandits is worth 12,000 cats, and word is that he still roams the Border Zone.", "Ashface")
-    bounty(GRENN, "MURDER", "They killed the guards of a caravan in their sleep and drove off its pack animals.", 8400, "Great Desert", at(10, 6, 0),
-           "WANTED: 'Slit' Grenn of the Dust Bandits, for murder. He killed the guards of a caravan in their sleep and drove"
-           " off its pack animals, so do not doze near this one. Reward: 8,400 cats.",
-           "The caravan folk say that Slit killed their guards so softly that the last one died still snoring, and that Grenn"
-           " hums while he cleans the blade. The Dust Bandit is worth 8,400 cats to anyone who finds him in the Great Desert.", "Slit")
-
-    kill([stick, mikse], party(SADI, NAMES[SADI], "Starving Bandits"), at(10, 16, 0))
-    campaign_db.save_rumor(None, world_events.events()[0]["id"],
-                           "They say Stick and Mikse of Nameless cut down the Snatcher in the Border Zone, and the travellers there sleep easier for it.")
-    tavi = party(TAVI, NAMES[TAVI], "Dust Bandits")
-    world_events.take([{"kind": "attack", "attacker": izumi, "target": TAVI, **at(11, 9, 0)}, {"kind": "knockout", "id": TAVI, **at(11, 9, 1)},
-                {"kind": "up", "id": TAVI, "carried": True, **at(11, 9, 4)}, {"kind": "imprisonment", "party": tavi, **at(11, 10, 30)}])
-
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
@@ -214,8 +168,6 @@ def main():
     folder.mkdir(parents=True)
     campaign_db.open_campaign(str(folder), lambda: seed)
     campaign_db.note_faction(SQUAD_ID, SQUAD, is_player=True)
-    # No game listens to END_BOUNTY, and outside Windows the pipe path is a plain file in the working directory
-    world_events.send_to_pipe = lambda cmd: None
     fill()
     threads = campaign_db.threads()
     print(f"Created the campaign {name} with {len(threads)} chat threads, {sum(thread['memory'] is not None for thread in threads)} of them with a memory, {len(campaign_db.events())} events, and {len(campaign_db.rumors())} rumors.")

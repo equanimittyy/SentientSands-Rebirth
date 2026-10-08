@@ -4,7 +4,7 @@ import time
 from chat import chat_prompt, rumors
 from chat.llm import call_llm, robust_json_parse
 from chat.prompts import fill_prompt
-from core import bounties, state, world_events
+from core import state, world_events
 from core.settings import load_settings
 from store import campaign_db
 
@@ -44,9 +44,6 @@ def write_rumor(event_id, campaign):
     event = campaign_db.event(event_id)
     if not event:
         return
-    if event[1]["kind"] == "bounty":
-        write_bounty_rumor(event_id, event, campaign)
-        return
     text = rumors.clean(call_llm("synthesis", [{"role": "user", "content": rumors.prompt(*event, "", "")}]))
     if not text:
         logging.warning(f"RUMOR: The LLM gave no rumor for the event {event_id}, so it waits for the next quiet period.")
@@ -59,27 +56,6 @@ def write_rumor(event_id, campaign):
         logging.info(f"RUMOR: Stored the rumor of the event {event_id}.")
     else:
         logging.info(f"RUMOR: Dropped the rumor of the event {event_id}, because the player saved one or a cull deleted the event while the LLM wrote it.")
-
-def write_bounty_rumor(event_id, event, campaign):
-    """Has the LLM write the wanted notice and the rumor of a bounty and the alias of its target in one reply, and stores
-    them. A reply without all three leaves the bounty without a rumor."""
-    try:
-        parsed = rumors.bounty_reply(robust_json_parse(call_llm("synthesis", [{"role": "user", "content": rumors.bounty_prompt(*event)}])))
-    except ValueError:
-        parsed = None
-    if not parsed:
-        logging.warning(f"RUMOR: The LLM gave no notice, rumor, and alias for the bounty {event_id}, so it waits for the next quiet period.")
-        return
-    if state.ACTIVE_CAMPAIGN != campaign:
-        logging.info(f"RUMOR: Dropped the rumor of the bounty {event_id}, because the active campaign changed while the LLM wrote it.")
-        return
-    notice, text, alias = parsed
-    if not campaign_db.add_bounty_rumor(event_id, notice, text):
-        logging.info(f"RUMOR: Dropped the rumor of the bounty {event_id}, because a delete or a cull removed the bounty while the LLM wrote it.")
-        return
-    target = event[1]["target"]
-    named = campaign_db.add_alias(target["id"], alias)
-    logging.info(f"RUMOR: Stored the notice and the rumor of the bounty {event_id}" + (f", and {target['name']} is now known as {alias}." if named else "."))
 
 def distill_threads():
     """Writes the memory of each pending chat thread of the active campaign, the oldest first, while the chat stays quiet."""
@@ -132,18 +108,13 @@ def write_auto_rumor(pool, campaign):
     rumors.keep_auto_rumor(reply, pool, campaign)
 
 def memory_loop():
-    """Runs the distillation, then the rumors, once in each quiet period and again after each radiant conversation or new
-    bounty in it, so a thread or an event whose call failed waits for the next run. A pass of the auto rumors runs in the same
-    thread, so its call never overlaps a call of the memories or of the event rumors, because a local model serves one
-    request at a time."""
+    """Runs the distillation, then the rumors, once in each quiet period and again after each radiant conversation in it, so
+    a thread or an event whose call failed waits for the next run. A pass of the auto rumors runs in the same thread, so its
+    call never overlaps a call of the memories or of the event rumors, because a local model serves one request at a time."""
     distilled = None
     last_pass = time.monotonic()
     while True:
         time.sleep(10)
-        try:
-            bounties.tick()
-        except Exception as e:
-            logging.error(f"BOUNTY: The bounty timer failed: {e}")
         if time.monotonic() - last_pass >= auto_rumor_seconds() and chat_is_quiet():
             campaign = state.ACTIVE_CAMPAIGN
             try:
@@ -155,7 +126,7 @@ def memory_loop():
             except Exception as e:
                 logging.error(f"RUMOR: The auto rumor failed: {e}")
         since = state.QUIET_SINCE
-        due = (since, state.LAST_RADIANT, state.LAST_BOUNTY)
+        due = (since, state.LAST_RADIANT)
         if due == distilled or time.monotonic() - since < quiet_seconds():
             continue
         distilled = due

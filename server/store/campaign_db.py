@@ -254,15 +254,6 @@ def rename_character(npc_id, old_name, new_name):
         )
 
 
-def add_alias(npc_id, alias):
-    """Sets the Alias of the stored character unless it has one, which the player may have written. Returns whether it set it."""
-    with _connect(write=True) as conn:
-        return conn.execute(
-            "UPDATE character SET profile = json_set(profile, '$.Alias', ?), updated_at = ? WHERE npc_id = ? AND COALESCE(json_extract(profile, '$.Alias'), '') = ''",
-            (alias, _now(), npc_id),
-        ).rowcount > 0
-
-
 def change_relation(npc_id, delta):
     """Returns the new Relation, clamped to -100..100, or None if the character is not stored."""
     with _connect(write=True) as conn:
@@ -571,27 +562,11 @@ def add_auto_event(rumor, thread_ids):
         return event_id
 
 
-def add_bounty_event(event, game_time):
-    """Stores a bounty that the plugin placed, with no rumor yet. Returns its event ID."""
-    with _connect(write=True) as conn:
-        return conn.execute("INSERT INTO event (game_time, data) VALUES (?, ?)", (game_time, json.dumps({"kind": "bounty", **event}))).lastrowid
-
-
-def add_bounty_rumor(event_id, notice, rumor):
-    """Adds the wanted notice and the rumor of a bounty, unless the bounty is gone or already has a rumor. Returns whether it
-    added them."""
-    with _connect(write=True) as conn:
-        if conn.execute("INSERT OR IGNORE INTO rumor (event_id, game_time, text) SELECT id, game_time, ? FROM event WHERE id = ?", (rumor, event_id)).rowcount == 0:
-            return False
-        conn.execute("UPDATE event SET data = json_set(data, '$.notice', ?) WHERE id = ?", (notice, event_id))
-        return True
-
-
 def delete_event(event_id):
-    """Deletes a custom, an auto, or a bounty event with its rumor. The memories of an auto event stay out of the pool, so the
-    next pass does not spin the same rumor again."""
+    """Deletes a custom or an auto event with its rumor. The memories of an auto event stay out of the pool, so the next pass
+    does not spin the same rumor again."""
     with _connect(write=True) as conn:
-        return conn.execute("DELETE FROM event WHERE id = ? AND json_extract(data, '$.kind') IN ('custom', 'auto', 'bounty')", (event_id,)).rowcount > 0
+        return conn.execute("DELETE FROM event WHERE id = ? AND json_extract(data, '$.kind') IN ('custom', 'auto')", (event_id,)).rowcount > 0
 
 
 def events():

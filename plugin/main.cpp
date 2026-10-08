@@ -173,17 +173,6 @@ void ProcessMessageQueue(GameWorld *thisptr) {
             RefreshLibraryUI();
           } else if (command == "REPORT") {
             AsyncPostToPython(L"/report", GameReport());
-          } else if (command == "BOUNTY_SCAN") {
-            ScanBounties();
-          } else if (command == "BOUNTY_TARGET") {
-            trim(data);
-            PostBountyTarget(data);
-          } else if (command == "PLACE_BOUNTY") {
-            trim(data);
-            PlaceBounty(data);
-          } else if (command == "END_BOUNTY") {
-            trim(data);
-            EndBounty(data);
           } else if (command == "BIO_WRITTEN") {
             OpenBioEditor(data, "Write failed: ");
           } else if (command == "BIO_READ") {

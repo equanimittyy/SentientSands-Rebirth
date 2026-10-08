@@ -2,7 +2,7 @@ import logging
 
 from chat import prompt_store, scene_text, towns
 from chat.characters import is_skeleton, reported_sex
-from core import state, world_events
+from core import state
 from core.game import is_player_faction
 from core.paths import PROMPTS_DIR, USER_PROMPTS_DIR
 from core.settings import load_settings
@@ -80,7 +80,7 @@ def current_job_line(profile):
 
 def alias_line(profile):
     """The whole prompt line, because an NPC without an Alias gets no line at all."""
-    return f"ALIAS (the name that the bounty notices give this character): {profile['Alias']}" if profile.get("Alias") else ""
+    return f"ALIAS (another name that people know this character by): {profile['Alias']}" if profile.get("Alias") else ""
 
 def building_of(ctx):
     """The building that the character is in, or None outdoors. The plugin sends Unknown outdoors."""
@@ -125,7 +125,7 @@ def build_system_prompt(reply_rules=True):
     return prompt.strip()
 
 def scene_values(player, player_name):
-    rumors = [(rumor["game_time"], rumor["text"]) for rumor in world_events.told_rumors()[-PROMPT_RUMORS:]]
+    rumors = [(rumor["game_time"], rumor["text"]) for rumor in campaign_db.rumors()[-PROMPT_RUMORS:]]
     race = player.get("race", "Unknown")
     race_entry = find_race(race)
     player_faction = campaign_db.player_faction()

@@ -14,7 +14,7 @@ from chat.characters import get_character_data, npc_name, should_save_profile
 from chat.llm import call_llm
 from chat.memory import quiet_seconds
 from chat.prompts import PROMPT_RUMORS, build_system_prompt, describe_faction, describe_npc, describe_race, fill_prompt, find_location, language_instruction, npc_scene, scene_values
-from core import bounties, state, world_events
+from core import state, world_events
 from core.game import context_dict, get_current_time_prefix, is_player_faction, note_faction, take_report
 from core.pipe import send_to_pipe
 from core.routes import campaign_write
@@ -36,7 +36,7 @@ def radiant_conversation():
     if not data: return jsonify({"status": "error"}), 400
     center = context_dict(data.get('player_context'))
     take_report(center, data.get('events'), data.get('changed_towns'))
-    rumor_texts = [rumor["text"] for rumor in world_events.told_rumors()[-PROMPT_RUMORS:]]
+    rumor_texts = [rumor["text"] for rumor in campaign_db.rumors()[-PROMPT_RUMORS:]]
     npcs = radiant.npc_group(data.get('npcs') or [], campaign_db.character_exists)
     npc_talk = radiant.npc_talk(npcs, rumor_texts, load_settings()["npc_radiant_chance"])
     participants = {str(npc['id']): npc for npc in (npcs if npc_talk else data.get('participants') or [])}
@@ -206,8 +206,7 @@ def chat():
                         "/take, /attack, /follow, /idle, /patrol, /join, /leave, /free, /breakout,\n" + \
                         "/move, /movefast, /home, /shop, /raid [Town], /travel [Town], /medic, /rescue, /repair,\n" + \
                         "/notify [msg], /give_cats [n], /take_cats [n], /drop [item],\n" + \
-                        "/take_item [item], /spawn [Templ|Name|Desc], /relations [Fact] [n], /task [TASK],\n" + \
-                        "/bounty [n]"
+                        "/take_item [item], /spawn [Templ|Name|Desc], /relations [Fact] [n], /task [TASK]"
             return reply(*help_text.split("\n"))
             
         if cmd == "attack": test_action = "[ATTACK]"
@@ -245,21 +244,6 @@ def chat():
             if len(rparts) == 2:
                 test_action = f"[ACTION: FACTION_RELATIONS: {rparts[0].strip()}: {rparts[1].strip()}]"
         elif cmd == "task": test_action = f"[TASK: {args.upper()}]"
-        elif cmd == "bounty":
-            if args and not args.isdigit():
-                return reply("[DEBUG] /bounty [n] posts an SSR bounty of n cats on the target, or of a rolled amount without n, as the bounty timer does.")
-            target = context_dict(data.get('context'))
-            if target.get("factionID") not in bounties.TARGETS or not str(target.get("npc_id", "")).startswith("h:"):
-                return reply(f"[DEBUG] Only a generic member of a target bandit faction can get a bounty, and {target.get('name') or 'the target'} is not one.",
-                             f"[DEBUG] Bandits: {', '.join(sorted(bounties.TARGETS.values()))}")
-            environment = target.get("environment") or {}
-            candidate = {"npc_id": target["npc_id"], "name": target.get("name", ""), "faction": target.get("faction", ""), "faction_id": target["factionID"],
-                         "place": environment.get("town_name") or environment.get("zone_name") or ""}
-            bounty = bounties.roll([candidate], {event["target"]["id"] for _, event in world_events.open_bounties()}, int(args) if args else None)
-            if not bounty:
-                return reply(f"[DEBUG] {candidate['name']} already has an open bounty.")
-            bounties.send(bounty)
-            return reply(f"[DEBUG] Executing test command: bounty of {bounty['amount']} cats for {bounty['crime']}")
         
         if test_action:
             logging.info(f"CHAT: Test command {cmd} -> {test_action}")
@@ -514,8 +498,6 @@ def rumor_reply(event_id, instruction, so_far=None, **reply):
     event = campaign_db.event(event_id)
     if not event:
         return jsonify({"status": "error", "message": "The event is gone. Load the events again."}), 404
-    if event[1]["kind"] == "bounty":
-        return bounty_refusal()
     if so_far is None:
         so_far = next((rumor["text"] for rumor in campaign_db.rumors() if rumor["event_id"] == event_id), "")
     text = rumors.clean(call_llm("synthesis", [{"role": "user", "content": rumors.prompt(*event, instruction, so_far)}]))
@@ -531,9 +513,6 @@ def keep_rumor_reply(data):
     if not text:
         key = str(data["id"]) if data.get("id") else f"new:{data.get('event')}"
         return jsonify({"status": "error", "errors": [{"field": ["rumors", key], "message": "A rumor needs text. Delete it instead."}]}), 400
-    event = campaign_db.event(data.get("event") or next((rumor["event_id"] for rumor in campaign_db.rumors() if str(rumor["id"]) == str(data.get("id"))), None))
-    if event and event[1]["kind"] == "bounty":
-        return bounty_refusal()
     instruction = data.get("instruction")
     if not campaign_db.save_rumor(data.get("id"), data.get("event"), text, None if instruction is None else str(instruction).strip()):
         return jsonify({"status": "error", "message": "The rumor or its event is gone. Load the events again."}), 404
@@ -556,16 +535,10 @@ def add_event_reply(data, source):
     logging.info(f"EVENTS: Added the custom event {event_id} from {source}")
     return jsonify({"status": "ok", "id": event_id})
 
-def bounty_refusal():
-    return jsonify({"status": "error", "message": "SSR writes the notice and the rumor of a bounty from the bounty in the game, so they cannot be written or edited."}), 400
-
 def delete_event_reply(data):
-    """The game bounty of a deleted bounty stays, because the plugin can reach the target only while it is loaded."""
     refused = campaign_write(data)
     if refused: return refused
-    event = campaign_db.event(data.get("id"))
-    if campaign_db.delete_event(data.get("id")) and event[1]["kind"] == "bounty":
-        world_events.end_bounty(event[1])
+    campaign_db.delete_event(data.get("id"))
     return jsonify({"status": "ok"})
 
 @bp.route('/write_rumor', methods=['POST'])

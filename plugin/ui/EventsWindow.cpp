@@ -12,10 +12,10 @@
 namespace SentientSands {
 namespace UI {
 
-static const char *EVENT_KINDS[] = {"all",    "kill", "capture",
-                                   "custom", "auto", "bounty"};
+static const char *EVENT_KINDS[] = {"all", "kill", "capture", "custom",
+                                   "auto"};
 static const char *EVENT_KIND_LABELS[] = {"All kinds", "Kill", "Capture",
-                                         "Custom",    "Auto", "Bounty"};
+                                         "Custom", "Auto"};
 static const int EVENT_KIND_COUNT = sizeof(EVENT_KINDS) / sizeof(EVENT_KINDS[0]);
 
 MyGUI::Window *g_eventsWindow = nullptr;
@@ -404,8 +404,7 @@ void CreateEventAddUI() {
 }
 
 bool DeletesWholeEvent() {
-  return g_rumorKind == "custom" || g_rumorKind == "auto" ||
-         g_rumorKind == "bounty";
+  return g_rumorKind == "custom" || g_rumorKind == "auto";
 }
 
 void OnEventDeleteClick(MyGUI::Widget *sender) {
@@ -422,12 +421,10 @@ void OnEventDeleteClick(MyGUI::Widget *sender) {
 void CreateEventDeleteUI() {
   bool whole = DeletesWholeEvent();
   bool isAuto = g_rumorKind == "auto";
-  bool isBounty = g_rumorKind == "bounty";
   MyGUI::Widget *client = CreateRumorWindow(
-      !whole     ? "Delete the rumor"
-      : isAuto   ? "Delete the auto event"
-      : isBounty ? "Delete the bounty event"
-                 : "Delete the custom event",
+      !whole   ? "Delete the rumor"
+      : isAuto ? "Delete the auto event"
+               : "Delete the custom event",
       "Delete", OnEventDeleteClick, "Cancel");
   if (!client)
     return;
@@ -435,11 +432,8 @@ void CreateEventDeleteUI() {
              T(!whole   ? "NPCs stop mentioning this rumor."
                : isAuto ? "This deletes the auto event and its rumor, so NPCs "
                           "stop mentioning it."
-               : isBounty
-                   ? "This deletes the bounty event and its rumor, so NPCs stop "
-                     "mentioning it. The bounty in the game stays."
-                   : "This deletes the custom event and its rumor, so NPCs "
-                     "stop mentioning it."),
+                        : "This deletes the custom event and its rumor, so NPCs "
+                          "stop mentioning it."),
              0.12f, "SentientSands_EventDeleteText");
   MyGUI::TextBox *warning = AddBioLine(
       client, T("The delete takes effect immediately and is irreversible."),
@@ -498,21 +492,13 @@ bool SelectRumorEvent() {
   return true;
 }
 
-bool RefusesBountyRumor() {
-  if (g_rumorKind != "bounty")
-    return false;
-  SetEventsText(T("SSR writes the notice and the rumor of a bounty, so they "
-                  "cannot be written or edited."));
-  return true;
-}
-
 void OnEventsGenerateClick(MyGUI::Widget *sender) {
-  if (SelectRumorEvent() && !RefusesBountyRumor())
+  if (SelectRumorEvent())
     CreateRumorAskUI();
 }
 
 void OnEventsEditClick(MyGUI::Widget *sender) {
-  if (!SelectRumorEvent() || RefusesBountyRumor())
+  if (!SelectRumorEvent())
     return;
   CloseRumorUI();
   g_rumorWritten = false;

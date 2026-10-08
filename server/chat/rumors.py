@@ -1,8 +1,6 @@
 """The facts of an event, which the LLM turns into a rumor. The server writes the rumor of each event in a quiet
 period of the chat (write_rumors in chat/memory.py), and Generate Rumor writes it again with the player's instruction. An
-auto event is a rumor that the LLM spins from the conversation memories (auto_prompt), so its rumor is its only account. The
-notice and the rumor of a bounty tell the facts of the game bounty, so only the rumor pass writes them, with the alias of its
-target."""
+auto event is a rumor that the LLM spins from the conversation memories (auto_prompt), so its rumor is its only account."""
 import logging
 import re
 
@@ -16,9 +14,6 @@ from store import campaign_db
 _FIRST_SENTENCE = re.compile(r".+?[.!?](?=\s|$)", re.S)
 AUTO_POOL = 40
 AUTO_TOLD = 30
-BOUNTY_PARTS = ("notice", "rumor", "alias")
-ALIAS_WORDS = 6
-CRIME_WORDS = {"ASSAULT_VIP": "assault of a VIP"}
 
 
 def prompt(at, event, instruction, rumor_so_far):
@@ -142,50 +137,11 @@ def event_sentence(event, names, player_faction):
 
 def person_line(profile):
     """The sex tells the LLM which pronouns fit, and the first sentence of the backstory why the character matters."""
-    first = _FIRST_SENTENCE.match((profile.get("Backstory") or "").strip())
-    return f"- {profile.get('Name', 'Unknown')} ({kind_text(profile)})" + (f": {first.group(0)}" if first else "")
-
-
-def kind_text(profile):
     race = profile.get("Race", "Unknown")
     sex = reported_sex(race, profile.get("Sex", "Unknown"))
-    return f"{sex.lower()} {race}" if sex.lower() in ("male", "female") else f"{race}, no sex" if sex == "Other" else race
-
-
-def bounty_prompt(at, event):
-    return in_language(fill_prompt("prompt_bounty_rumor.txt", facts=bounty_facts(at, event)))
-
-
-def bounty_facts(at, event):
-    """Plain sentences, because the LLM gets only these facts and must invent no other crime. The whole profile of the target
-    goes in, because the alias must fit the character."""
-    target = event["target"]
-    profile = campaign_db.get_character(target["id"]) or {"Name": target["name"]}
-    # A lone payer is news, while the major factions are the usual payers and naming them adds only noise
-    payer = f", paid by {world_events.the_faction(event['issuers'][0])}" if len(event["issuers"]) == 1 else ""
-    lines = [
-        f"The bounty: {event['amount']:,} cats (the money of Kenshi) for the wanted character{payer}.",
-        f"The crime ({CRIME_WORDS.get(event['crime'], event['crime'].lower())}): {event['reason']}",
-        f"The wanted character: {profile.get('Name') or target['name']} ({kind_text(profile)}) of {world_events.the_faction(target['faction'])}.",
-    ]
-    lines += [f"{key}: {profile[key]}" for key in ("Personality", "Backstory") if profile.get(key)]
-    if event["place"]:
-        lines.append(f"Last seen: {event['place']}.")
-    if at is not None:
-        lines.append(f"Time: {campaign_db.game_time_text(at)}.")
-    stance = faction_line(target["faction"])
-    if stance:
-        lines += ["The factions:", stance]
-    return "\n".join(lines)
-
-
-def bounty_reply(reply):
-    """The notice, the rumor, and the alias of reply, the parsed JSON of the LLM, or None unless each holds text and the alias
-    is short."""
-    if not isinstance(reply, dict) or not all(isinstance(reply.get(key), str) for key in BOUNTY_PARTS):
-        return None
-    parts = tuple(clean(reply[key]) for key in BOUNTY_PARTS)
-    return parts if all(parts) and len(parts[2].split()) <= ALIAS_WORDS else None
+    kind = f"{sex.lower()} {race}" if sex.lower() in ("male", "female") else f"{race}, no sex" if sex == "Other" else race
+    first = _FIRST_SENTENCE.match((profile.get("Backstory") or "").strip())
+    return f"- {profile.get('Name', 'Unknown')} ({kind})" + (f": {first.group(0)}" if first else "")
 
 
 def faction_line(name):

@@ -4,8 +4,8 @@ import logging
 from flask import Blueprint, jsonify, request
 
 from chat.bio import recorded_history
-from chat.characters import get_character_data, npc_name, reported_sex, sync_name
-from core import bounties, log_setup, state, world_events
+from chat.characters import get_character_data, reported_sex, sync_name
+from core import log_setup, state, world_events
 from core.game import context_dict, relation_text, take_report
 from core.pipe import send_to_pipe
 from core.settings import CHAT_HOTKEYS, SETTINGS_DEFAULTS, load_configs, load_settings, save_settings, settings_page_values
@@ -58,17 +58,13 @@ def list_events():
         rumor = rumors.get(event["rumor"])
         own = event["kind"] in world_events.RUMOR_ONLY
         # The line of a custom or an auto event tells nothing of the event, so its rumor tells it apart in the list
-        line = f"{kind_label(event)}: {event['line']}" if "status" in event else event["line"]
-        words = (f"{event['kind'].capitalize()}: {rumor['text']}" if own and rumor else line).split()
+        words = (f"{event['kind'].capitalize()}: {rumor['text']}" if own and rumor else event["line"]).split()
         mark = " (rumor)" if rumor and not own else ""
         # "N." numbering rather than "#N": MyGUI parses "#" as a color tag
         title = f"{len(events) + 1}. " + " ".join(words[:7]) + ("..." if len(words) > 7 else "")
         events.append({"id": str(event["id"]), "title": title[:80] + mark, "inner": event["line"] + (" " + rumor["text"] if rumor else ""),
                        "instruction": rumor["instruction"] if rumor else "", "kind": event["kind"], "rumor": str(rumor["id"]) if rumor else ""})
     return jsonify({"status": "ok", "campaign": state.ACTIVE_CAMPAIGN, "events": events})
-
-def kind_label(event):
-    return event["kind"].capitalize() + (f" ({event['status']})" if "status" in event else "")
 
 @bp.route('/events/content', methods=['POST'])
 def events_content():
@@ -79,48 +75,9 @@ def events_content():
     if not event:
         return jsonify({"status": "error", "text": "The event is gone."}), 404
     rumor = next((rumor for rumor in campaign_db.rumors() if rumor["id"] == event["rumor"]), None)
-    none_yet = "None yet. SSR writes it when you stop chatting." if event["kind"] == "bounty" else "None yet. Press Generate Rumor to write one."
-    lines = (["=" * 38, "  EVENT", "=" * 38, ""] + textwrap.wrap(event["line"], width=76) + ["", f"Kind: {kind_label(event)}", f"Time: {event['time']}", "", "RUMOR:"]
-             + (textwrap.wrap(rumor["text"], width=76) if rumor else [none_yet]))
+    lines = (["=" * 38, "  EVENT", "=" * 38, ""] + textwrap.wrap(event["line"], width=76) + ["", f"Kind: {event['kind'].capitalize()}", f"Time: {event['time']}", "", "RUMOR:"]
+             + (textwrap.wrap(rumor["text"], width=76) if rumor else ["None yet. Press Generate Rumor to write one."]))
     return jsonify({"status": "ok", "text": "\n".join(lines)})
-
-@bp.route('/bounty/candidates', methods=['POST'])
-def bounty_candidates():
-    """The plugin posts the loaded characters that can be the target of a bounty, at each BOUNTY_SCAN."""
-    data = request.get_json(silent=True) or {}
-    bounties.place(data.get("candidates") or [])
-    return jsonify({"status": "ok"})
-
-@bp.route('/bounty/target', methods=['POST'])
-def bounty_target():
-    """The plugin posts the context of the target of BOUNTY_TARGET. The target gets its profile as at a first meeting, so a
-    generic target gets a rolled name, and then the bounty goes on it."""
-    context = (request.get_json(silent=True) or {}).get("context") or {}
-    bounty = bounties.pending(context.get("npc_id"))
-    if not bounty:
-        logging.info("BOUNTY: The game placed no bounty (the campaign changed, or another bounty came first).")
-        return jsonify({"status": "ok"})
-    try:
-        bounties.send_placement(bounty, npc_name(context))
-    except campaign_db.CampaignUnavailable as e:
-        return jsonify({"status": "error", "message": str(e)}), 409
-    return jsonify({"status": "ok"})
-
-@bp.route('/bounty/placed', methods=['POST'])
-def bounty_placed():
-    """The plugin posts the result of PLACE_BOUNTY, or the failure of a BOUNTY_TARGET that found no target."""
-    data = request.get_json(silent=True) or {}
-    context = data.get("context") or {}
-    bounty = bounties.take_pending(context.get("npc_id"))
-    if not data.get("placed") or not bounty:
-        logging.info(f"BOUNTY: The game placed no bounty ({data.get('reason') or 'the campaign changed, or the result came twice'}).")
-        return jsonify({"status": "ok"})
-    try:
-        event_id = bounties.store(bounty, data)
-    except campaign_db.CampaignUnavailable as e:
-        return jsonify({"status": "error", "message": str(e)}), 409
-    logging.info(f"BOUNTY: Stored the bounty {event_id} on {bounty['name']} ({context['npc_id']}).")
-    return jsonify({"status": "ok"})
 
 @bp.route('/report', methods=['POST'])
 def game_report():
@@ -205,14 +162,6 @@ def settings_endpoint():
             changes["radiant_rumor_minutes"] = val
             logging.info(f"SETTINGS: Radiant rumor timer set to {val} minutes")
         except: pass
-
-    for key, lowest in (("radiant_bounty_minutes", 1), ("max_open_bounties", 0)):
-        value = data.get(key)
-        if value is not None:
-            try:
-                changes[key] = max(lowest, int(value))
-                logging.info(f"SETTINGS: {key} set to {changes[key]}")
-            except: pass
 
     radii = data.get("radii")
     if radii:

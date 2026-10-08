@@ -8,7 +8,6 @@ import logging
 import threading
 
 from core import state
-from core.pipe import send_to_pipe
 from store import campaign_db
 
 ATTACK_WINDOW_MINUTES = 180
@@ -22,14 +21,13 @@ _lock = threading.Lock()
 _histories = {}
 _newest = None
 _campaign = None
-_expired = set()
 
 
 def take(game_events):
     """Reads the game events of a report in their order, and stores the events that they make."""
     for game_event in game_events or []:
         logging.debug(f"GAME EVENT: {game_event}")
-        at = game_minutes(game_event)
+        at = _minutes(game_event)
         if at is None:
             continue
         ended = _attribute(game_event, at)
@@ -40,7 +38,7 @@ def take(game_events):
                 pass  # The event is lost, but the report must still update the player's context
 
 
-def game_minutes(event):
+def _minutes(event):
     try:
         at = int(event["day"]) * 1440 + int(event["hour"]) * 60 + int(event["minute"])
     except (KeyError, TypeError, ValueError):
@@ -77,7 +75,7 @@ def _attribute(game_event, at):
 def fought_recently(npc_ids, ctx):
     """Whether one of the characters attacked someone, or was knocked out, within FIGHT_QUIET_MINUTES before the game time of
     the context. The plugin sends no attack on a character of the player's faction, so taking hits alone is no fight."""
-    now = game_minutes(ctx)
+    now = _minutes(ctx)
     if now is None:
         return False
     with _lock:
@@ -137,12 +135,8 @@ def canon_id(party):
 
 
 def _store(kind, victim, attackers, at):
-    """The target of an open bounty counts as a known figure, so its kill or capture by the squad ends the bounty."""
     victim_id = canon_id(victim)
-    if victim.get("player"):
-        return
-    wanted = [bounty for _, bounty in open_bounties() if bounty["target"]["id"] == victim_id]
-    if not victim_id.startswith("u:") and not wanted:
+    if victim.get("player") or not victim_id.startswith("u:"):
         return
     event_kind = "kill" if kind == "death" else "capture"
     doers = campaign_db.add_event(
@@ -153,74 +147,16 @@ def _store(kind, victim, attackers, at):
     )
     if doers:
         logging.debug(f"EVENTS: {', '.join(name for _, name in doers)} {'killed' if event_kind == 'kill' else 'captured'} {victim.get('name', '')} ({victim_id}) at {campaign_db.game_time_text(at)}")
-        for bounty in wanted:
-            end_bounty(bounty)
-
-
-def bounty_statuses(rows):
-    """The status of each bounty event among rows, the (id, game_time, event) of campaign_db.events(), by its ID. A kill or a
-    capture of its target that the squad made after it ends a bounty, so the cull of that event opens the bounty again."""
-    now = game_minutes(state.PLAYER_CONTEXT)
-    ends = {}
-    for event_id, _, event in rows:
-        if event["kind"] in ("kill", "capture"):
-            ends.setdefault(event["victim"]["id"], []).append((event_id, event["kind"]))
-    statuses = {}
-    for event_id, _, event in rows:
-        if event["kind"] != "bounty":
-            continue
-        end = max((end for end in ends.get(event["target"]["id"], []) if end[0] > event_id), default=None)
-        if end:
-            statuses[event_id] = "Killed" if end[1] == "kill" else "Captured"
-        else:
-            statuses[event_id] = "Expired" if now is not None and now > event["expires"] else "Open"
-    return statuses
-
-
-def open_bounties():
-    """Each bounty event with the status Open, as (event ID, event)."""
-    rows = campaign_db.events()
-    statuses = bounty_statuses(rows)
-    return [(event_id, event) for event_id, _, event in rows if statuses.get(event_id) == "Open"]
-
-
-def told_rumors():
-    """The rumors that NPCs tell, oldest first: each but the rumor of a bounty that is no longer open, because the kill or
-    the capture of its target has a rumor of its own, and a closed bounty calls no one to hunt."""
-    statuses = bounty_statuses(campaign_db.events())
-    return [rumor for rumor in campaign_db.rumors() if statuses.get(rumor["event_id"], "Open") == "Open"]
-
-
-def end_bounty(event):
-    """Gives the target's squad of a bounty that is no longer open back to the game: the plugin takes it off the world map,
-    and clears the persistent flag that SSR set. A squad that another open bounty holds stays as it is."""
-    if any(other["squad"] == event["squad"] for _, other in open_bounties()):
-        return
-    send_to_pipe(f"END_BOUNTY: {event['squad']}|{0 if event['persistent'] else 1}")
-
-
-def end_expired_bounties():
-    """Ends each bounty that expired since the last call. A load can open an expired bounty again, and it can then expire again."""
-    global _expired
-    rows = campaign_db.events()
-    statuses = bounty_statuses(rows)
-    expired = {(state.ACTIVE_CAMPAIGN, event_id): event for event_id, _, event in rows if statuses.get(event_id) == "Expired"}
-    for key in expired.keys() - _expired:
-        end_bounty(expired[key])
-    _expired = set(expired)
 
 
 def events():
-    """Each event, newest first, as a dict with its ID, kind ("kill", "capture", "custom", "auto", or "bounty"), game
-    time, line, and rumor ID, and the status of a bounty.
-    The line names each character by its current name, so a renamed squad member shows with its new name."""
+    """Each event, newest first, as a dict with its ID, kind ("kill", "capture", "custom", or "auto"), game time, line, and
+    rumor ID. The line names each character by its current name, so a renamed squad member shows with its new name."""
     rows = campaign_db.events()
     names = campaign_db.names_of({npc_id for _, _, event in rows for npc_id in character_ids(event)})
     faction = (campaign_db.player_faction() or {}).get("name")
     rumors = {rumor["event_id"]: rumor["id"] for rumor in campaign_db.rumors()}
-    statuses = bounty_statuses(rows)
-    return [{"id": event_id, "kind": event["kind"], "time": campaign_db.game_time_text(at) if at is not None else "-", "line": event_line(event, names, faction), "rumor": rumors.get(event_id),
-             **({"status": statuses[event_id]} if event_id in statuses else {})}
+    return [{"id": event_id, "kind": event["kind"], "time": campaign_db.game_time_text(at) if at is not None else "-", "line": event_line(event, names, faction), "rumor": rumors.get(event_id)}
             for event_id, at, event in rows]
 
 
@@ -239,8 +175,6 @@ def character_events():
 def characters(event):
     if event["kind"] in RUMOR_ONLY:
         return []
-    if event["kind"] == "bounty":
-        return [(event["target"]["id"], event["target"]["name"])]
     return [(party["id"], party["name"]) for party in [*event["doers"], event["victim"]]]
 
 
@@ -249,10 +183,7 @@ def character_ids(event):
 
 
 def event_line(event, names, player_faction):
-    """names maps an npc_id to its current name; a character with no profile keeps the name of the event. A bounty is no
-    act of the squad, so its wanted notice stands in for the line."""
-    if event["kind"] == "bounty":
-        return event.get("notice") or "Unknown"
+    """names maps an npc_id to its current name; a character with no profile keeps the name of the event."""
     if event["kind"] == "custom":
         return "Written by you"
     if event["kind"] == "auto":

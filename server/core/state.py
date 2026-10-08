@@ -21,7 +21,6 @@ RECENT_HITS = {}
 # Starts with the server, so the threads that a restart left pending get their memories one quiet period after the start
 QUIET_SINCE = time.monotonic()
 LAST_RADIANT = None
-LAST_BOUNTY = None
 WRITE_REQUESTS = 0
 SEEN_FACTIONS = set()
 GAME_REPORTED = threading.Event()

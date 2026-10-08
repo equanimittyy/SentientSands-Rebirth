@@ -15,10 +15,6 @@ void GetRadiantParticipants(Character *selected,
 void GetRadiantNpcs(Character *center, std::vector<Character *> &npcs);
 void LogFactionList();
 void LogNpcRole(Character *npc);
-void ScanBounties();
-void PostBountyTarget(const std::string &serial);
-void PlaceBounty(const std::string &payload);
-void EndBounty(const std::string &payload);
 std::string EventParty(Character *npc);
 std::string RoleJson(Character *npc);
 std::string ProfileJson(Character *npc);
