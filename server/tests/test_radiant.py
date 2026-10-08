@@ -1,4 +1,5 @@
 import os
+import random
 import sys
 import unittest
 
@@ -81,6 +82,32 @@ class NpcTalkTest(unittest.TestCase):
         self.assertFalse(radiant.npc_talk(self.NPCS, [], 100, lambda: 0.0))
         self.assertFalse(radiant.npc_talk([], ["Beep freed the slaves."], 100, lambda: 0.0))
         self.assertFalse(radiant.npc_talk(None, ["Beep freed the slaves."], 100, lambda: 0.0))
+
+
+class TurnsTest(unittest.TestCase):
+    def test_each_line_speaks_to_the_last_speaker_and_nobody_speaks_twice_in_a_row(self):
+        for seed in range(200):
+            order = radiant.turns(["10", "14", "20", "31"], 12, random.Random(seed))
+            self.assertIsNone(order[0][1])
+            for (before, _), (speaker, addressee) in zip(order, order[1:]):
+                self.assertEqual(addressee, before)
+                self.assertNotEqual(speaker, before)
+
+    def test_the_one_addressed_answers_or_a_third_character_cuts_in(self):
+        orders = [radiant.turns(["10", "14", "20", "31"], 12, random.Random(seed)) for seed in range(200)]
+        answers = [order[index][0] == order[index - 1][1] for order in orders for index in range(2, len(order))]
+        self.assertTrue(0.4 < sum(answers) / len(answers) < 0.6)
+
+    def test_two_characters_take_turns(self):
+        order = radiant.turns(["10", "14"], 5, random.Random(1))
+        self.assertEqual([speaker for speaker, _ in order][1:], [order[1][0], order[0][0]] * 2)
+
+    def test_the_script_names_each_speaker_by_its_label_and_each_addressee_by_its_name(self):
+        text = radiant.script({"10": "Stick", "14": "Jorge"}, random.Random(3))
+        rows = text.splitlines()
+        self.assertEqual(len(rows) - 1, int(rows[0].split()[0]))
+        self.assertRegex(rows[1], r"^1\. (Stick\|10|Jorge\|14) to everyone$")
+        self.assertRegex(rows[2], r"^2\. (Stick\|10 to Jorge|Jorge\|14 to Stick)$")
 
 
 class AcquaintanceTest(unittest.TestCase):

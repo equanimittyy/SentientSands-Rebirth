@@ -75,7 +75,7 @@ def radiant_conversation():
             f"{describe_npc(f'{names[serial]}|{serial}', profiles[serial], npc['npc_id'])}\nHEALTH: {npc.get('health') or 'Unknown'}\nGEAR: {npc.get('equipment') or 'nothing notable'}"
             for serial, npc in participants.items()
         ]
-        values = {"place": scene_text.location_text(environment, "They"), "participants": "\n\n".join(descriptions), "length": random.choice(radiant.LENGTHS)}
+        values = {"place": scene_text.location_text(environment, "They"), "participants": "\n\n".join(descriptions), "turns": radiant.script(names)}
         if npc_talk:
             prompt = fill_prompt("prompt_radiant_npc.txt", rumor=topic, **values)
         else:

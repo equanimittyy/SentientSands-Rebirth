@@ -12,10 +12,11 @@ _LINE = re.compile(r"^([^:|\n]{1,63})\|(\d+)\s*:\s*(.*)$")
 _BRACKETS = re.compile(r"\[\s*(?:[^\[\]]|\[[^\[\]]*\])+\s*\]")
 # Left to choose, the model writes a long conversation every time, so the server picks the length of each one
 LENGTHS = (
-    "2 to 4. A remark gets a reply or two, and the talk dies out.",
-    "5 to 7. The talk goes back and forth a few times.",
-    "8 to 12. The talk catches, and it goes somewhere new before it ends.",
+    ((2, 4), "A remark gets a reply or two, and the talk dies out."),
+    ((5, 7), "The talk goes back and forth a few times."),
+    ((8, 12), "The talk catches, and it goes somewhere new before it ends."),
 )
+REPLY_SHARE = 0.5
 _BONDS = ((10, "know each other well"), (3, "know each other"), (1, "have talked a little"), (0, "have never talked"))
 
 
@@ -31,6 +32,31 @@ def topic(memories, environment, rumors, choice=random.choice, location=None):
     if rumors:
         kinds.append(lambda: f"A rumour that they heard: {choice(rumors)}")
     return choice(kinds)() if kinds else None
+
+
+def turns(serials, count, rng=random):
+    """The (speaker, addressee) of each line, with None for everyone. Left to choose, the model gives each character one
+    turn in a fixed round, and no line answers another. So the opener speaks to everyone, and then the one addressed
+    answers, or a third character cuts in, and either speaks to the last speaker."""
+    speaker, addressee = rng.choice(serials), None
+    order = []
+    for _ in range(count):
+        order.append((speaker, addressee))
+        thirds = [serial for serial in serials if serial not in (speaker, addressee)]
+        if addressee and (not thirds or rng.random() < REPLY_SHARE):
+            speaker, addressee = addressee, speaker
+        else:
+            speaker, addressee = rng.choice(thirds), speaker
+    return order
+
+
+def script(names, rng=random):
+    """The TURNS of the prompt: the length and its feel, then the speaker and the addressee of each line. names maps each
+    serial to its Name."""
+    (fewest, most), feel = rng.choice(LENGTHS)
+    order = turns(list(names), rng.randint(fewest, most), rng)
+    rows = [f"{index}. {names[speaker]}|{speaker} to {names[addressee] if addressee else 'everyone'}" for index, (speaker, addressee) in enumerate(order, 1)]
+    return "\n".join([f"{len(order)} lines. {feel}", *rows])
 
 
 def npc_group(npcs, has_profile):
