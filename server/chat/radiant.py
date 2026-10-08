@@ -15,6 +15,7 @@ LENGTHS = (
     "5 to 7. The talk goes back and forth a few times.",
     "8 to 12. The talk catches, and it goes somewhere new before it ends.",
 )
+_BONDS = ((10, "know each other well"), (3, "know each other"), (1, "have talked a little"), (0, "have never talked"))
 
 
 def topic(memories, environment, rumors, choice=random.choice, location=None):
@@ -47,8 +48,8 @@ def acquaintance(names, partners):
     for index, first in enumerate(ids):
         for second in ids[index + 1:]:
             count = partners[first].count(second)
-            talks = "never talked before" if not count else f"talked {count} time{'s' if count > 1 else ''} before"
-            pairs.append(f"- {names[first]} and {names[second]}: {talks}.")
+            bond = next(words for least, words in _BONDS if count >= least)
+            pairs.append(f"- {names[first]} and {names[second]} {bond}.")
     return "\n".join(pairs)
 
 

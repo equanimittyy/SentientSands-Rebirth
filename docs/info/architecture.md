@@ -372,7 +372,7 @@ The server, not the LLM, picks one topic kind at random from those with material
 
 - The prompt is `prompt_system.txt` plus `prompt_radiant.txt`. Its rules give the conversation an opening, an exchange, and a closing line, and make each participant keep its own voice, follow from the lines before it, and give its opinion, in an order that follows the talk. A participant speaks only when it has something to say. Without these rules, one call writes one same-voiced remark on the topic for each participant, in a fixed round, and stops mid-thread.
 - The server picks the line count at random from 2 to 4, 5 to 7, or 8 to 12 (`radiant.LENGTHS`), because the model, left to choose, writes a long conversation every time.
-- The prompt gives each pair of participants the count of the earlier threads in which both were speakers (`radiant.acquaintance`, from `campaign_db.thread_partners`), so strangers ask about each other and old companions skip the introductions.
+- The prompt tells how well each pair of participants knows each other (`radiant.acquaintance`), so strangers ask about each other and old companions skip the introductions. The phrase comes from the count of the earlier threads in which both were speakers (`campaign_db.thread_partners`): 0 is "have never talked", 1 to 2 is "have talked a little", 3 to 9 is "know each other", and 10 or more is "know each other well".
 - The reply holds `Name|serial: line` lines (`radiant.lines`). A line of a non-participant, or a failed call, leaves everyone silent.
 - A radiant conversation does not change `CURRENT_THREAD` or the quiet clock. The memory loop runs after each one (`state.LAST_RADIANT`).
 

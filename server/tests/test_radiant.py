@@ -36,7 +36,12 @@ class AcquaintanceTest(unittest.TestCase):
     def test_each_pair_gets_the_count_of_its_earlier_talks(self):
         names = {"h:10": "Stick", "h:14": "Jorge", "h:20": "Ruka"}
         partners = {"h:10": ["h:14", "h:20", "h:14"], "h:14": ["h:10", "h:10"], "h:20": ["h:10"]}
-        self.assertEqual(radiant.acquaintance(names, partners), "- Stick and Jorge: talked 2 times before.\n- Stick and Ruka: talked 1 time before.\n- Jorge and Ruka: never talked before.")
+        self.assertEqual(radiant.acquaintance(names, partners), "- Stick and Jorge have talked a little.\n- Stick and Ruka have talked a little.\n- Jorge and Ruka have never talked.")
+
+    def test_more_talks_give_a_closer_bond(self):
+        names = {"h:10": "Stick", "h:14": "Jorge", "h:20": "Ruka"}
+        partners = {"h:10": ["h:14"] * 3 + ["h:20"] * 10, "h:14": [], "h:20": []}
+        self.assertEqual(radiant.acquaintance(names, partners), "- Stick and Jorge know each other.\n- Stick and Ruka know each other well.\n- Jorge and Ruka have never talked.")
 
 
 class LinesTest(unittest.TestCase):
