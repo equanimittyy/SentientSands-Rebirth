@@ -14,7 +14,7 @@ from pathlib import Path
 import imageio_ffmpeg
 from PIL import Image, ImageDraw, ImageFilter, ImageFont
 
-from motion import FPS, Motion, bubble_position
+from motion import FPS, Motion, bubble_position, clamp
 
 HERE = Path(__file__).resolve().parent
 CAPTURES = HERE / "captures"
@@ -22,7 +22,9 @@ WEB = HERE.parents[1] / "server" / "dashboard" / "web"
 VIDEOS = WEB / "videos"
 TITLE_FONT = WEB / "fonts" / "Lacquer" / "Lacquer-Regular.ttf"
 TEXT_FONT = WEB / "fonts" / "WalterTurncoat" / "WalterTurncoat-Regular.ttf"
-CRF = 23
+# The Tutorial box is at most about 1000 px wide, and a zoom of 1.5 maps the 1080p screenshots onto 720p pixel for pixel
+OUTPUT = (1280, 720)
+CRF = 30
 # The title card, so the poster names the topic
 POSTER_FRAME = 40
 # Pillow draws shapes without antialiasing, so smooth shapes are drawn this many times larger and scaled down
@@ -154,25 +156,32 @@ class Video:
         timeline = json.loads((folder / "timeline.json").read_text(encoding="utf-8"))
         self.motion = Motion(timeline)
         self.size = (timeline["width"], timeline["height"])
-        self.images = [Image.open(folder / shot["image"]).convert("RGB").resize(self.size, LANCZOS) for shot in self.motion.shots]
+        load = lru_cache(maxsize=None)(lambda file: Image.open(folder / file).convert("RGB").resize(self.size, LANCZOS))
+        self.befores = [load(shot["image"]) for shot in self.motion.shots]
+        self.afters = [load(shot["after"]) for shot in self.motion.shots]
         self.bubbles = {index: bubble_image(shot["note"]) for index, shot in enumerate(self.motion.shots) if shot["note"]}
         self.cursors = {False: cursor_image(1), True: cursor_image(0.85)}
         self.title = TitleCard(timeline["title"], self.size)
         self.night = Image.new("RGB", self.size, NIGHT)
 
     def page(self, state):
-        page = self.images[state.index]
-        if state.fade:
-            page = Image.blend(page, self.images[state.index - 1], state.fade)
+        page = self.befores[state.index]
         if state.reveal:
             x, y, w, h = self.motion.shots[state.index]["box"]
             typed = round(w * state.reveal)
             if typed > 0:
                 page = page.copy()
-                page.paste(self.images[state.index + 1].crop((x, y, x + typed, y + h)), (x, y))
+                page.paste(self.afters[state.index].crop((x, y, x + typed, y + h)), (x, y))
+        if state.leave:
+            page = Image.blend(page, self.afters[state.index], state.leave)
+        if state.enter:
+            page = Image.blend(page, self.afters[state.index - 1], state.enter)
         x, y, zoom = state.camera
         width, height = self.size
-        return page.resize(self.size, Image.Resampling.BICUBIC, box=(x - width / 2 / zoom, y - height / 2 / zoom, x + width / 2 / zoom, y + height / 2 / zoom))
+        view_width, view_height = width / zoom, height / zoom
+        # The rounded camera can put the view a fraction of a pixel past the edge, which Pillow refuses
+        left, top = clamp(x - view_width / 2, 0, width - view_width), clamp(y - view_height / 2, 0, height - view_height)
+        return page.resize(self.size, Image.Resampling.BICUBIC, box=(left, top, left + view_width, top + view_height))
 
     def draw(self, state):
         frame = self.page(state)
@@ -204,15 +213,15 @@ class Video:
 
     def render(self, video, poster):
         writer = imageio_ffmpeg.write_frames(
-            str(video), self.size, fps=FPS, codec="libx264", quality=None, macro_block_size=8,
-            output_params=["-crf", str(CRF), "-preset", "slow", "-movflags", "+faststart"])
+            str(video), OUTPUT, fps=FPS, codec="libx264", quality=None, macro_block_size=8,
+            output_params=["-crf", str(CRF), "-preset", "slow", "-tune", "animation", "-movflags", "+faststart"])
         writer.send(None)
         last_state, image, data = None, None, None
         for frame in range(self.motion.total):
             state = self.motion.state(frame)
             # A held frame repeats its state, so it is drawn once
             if state != last_state:
-                last_state, image = state, self.draw(state)
+                last_state, image = state, self.draw(state).resize(OUTPUT, LANCZOS)
                 data = image.tobytes()
             writer.send(data)
             if frame == POSTER_FRAME:

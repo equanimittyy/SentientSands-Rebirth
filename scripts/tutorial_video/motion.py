@@ -20,7 +20,7 @@ MARGIN = 56
 GAP = 28
 SPRING_FRAMES = 90
 
-State = namedtuple("State", "index fade reveal camera rect focus cursor pressed cursor_alpha ripple bubble title pop outro")
+State = namedtuple("State", "index enter reveal leave camera rect focus cursor pressed cursor_alpha ripple bubble title pop outro")
 
 
 def clamp(value, low, high):
@@ -83,7 +83,7 @@ def layout(shots):
 
 def camera_of(shot, width, height):
     # The zoom shrinks to fit a big target, and the view never leaves the screenshot, so no empty edge shows
-    box = shot["box"]
+    box = shot["frame"] or shot["box"]
     if not box or shot["zoom"] <= 1:
         return (width / 2, height / 2, 1.0)
     zoom = clamp(min(width * 0.8 / box[2], height * 0.6 / box[3]), 1, shot["zoom"])
@@ -128,7 +128,6 @@ class Motion:
         shots, spans = self.shots, self.spans
         index = next((i for i, span in enumerate(spans) if frame < span["start"] + span["length"]), len(shots) - 1)
         shot, span = shots[index], spans[index]
-        previous = shots[index - 1] if index else None
         t = frame - span["start"]
         acting = t - MOVE - span["read"]
         moved = ease(clamp(t / MOVE, 0, 1))
@@ -140,9 +139,14 @@ class Motion:
         def to_screen(point_x, point_y):
             return ((point_x - x) * zoom + self.width / 2, (point_y - y) * zoom + self.height / 2)
 
-        # A typed field already shows its text, so a fade back to the empty field would flicker
-        fade = round(1 - t / FADE, 2) if previous and previous["action"] != "type" and 0 <= t < FADE else 0
-        reveal = round(clamp((acting - TYPE_LEAD) / type_frames(shot["text"]), 0, 1), 3) if shot["action"] == "type" and acting >= TYPE_LEAD else None
+        enter = round(1 - t / FADE, 2) if index and 0 <= t < FADE else 0
+        reveal, leave = None, 0
+        if shot["action"] == "type":
+            typed = TYPE_LEAD + type_frames(shot["text"])
+            reveal = round(clamp((acting - TYPE_LEAD) / type_frames(shot["text"]), 0, 1), 3) if acting >= TYPE_LEAD else None
+            leave = round(ramp(acting, typed, typed + 6), 2)
+        elif shot["action"] in ("click", "choose"):
+            leave = round(ramp(acting, 4, 4 + FADE), 2)
 
         rect, focus = None, 0
         if shot["box"]:
@@ -161,8 +165,9 @@ class Motion:
         title = round(1 - ramp(frame, TITLE - FADE, TITLE), 3)
         return State(
             index=index,
-            fade=fade,
+            enter=enter,
             reveal=reveal,
+            leave=leave,
             camera=(round(x, 1), round(y, 1), round(zoom, 4)),
             rect=rect,
             focus=focus,

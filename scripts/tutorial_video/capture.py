@@ -143,25 +143,34 @@ def capture(browser, scene, theme):
                 target.evaluate("(element) => element.scrollIntoView({ block: 'center', behavior: 'instant' })")
                 page.wait_for_timeout(300)
                 box = target.bounding_box()
+                # The camera frames the whole field, so the label of an input stays in view
+                frame = target.evaluate("(element) => { const r = (element.closest('label') ?? element).getBoundingClientRect(); return [r.x, r.y, r.width, r.height]; }")
                 page.mouse.move(box["x"] + box["width"] / 2, box["y"] + box["height"] / 2)
                 image = f"{len(shots):02}.png"
                 page.screenshot(path=out / image)
-                shots.append({
+                shot = {
                     "image": image,
+                    "after": image,
                     "action": "type" if step.action in ("fill", "append") else step.action,
                     "box": [round(value * SCALE) for value in (box["x"], box["y"], box["width"], box["height"])],
+                    "frame": [round(value * SCALE) for value in frame],
                     "note": step.note,
                     "zoom": step.zoom,
                     "text": step.value,
-                })
+                }
+                shots.append(shot)
                 act(step, target)
                 settle(page)
+                # Before the next step scrolls, so the video shows the result of the action in place
+                if step.action != "look":
+                    shot["after"] = f"{len(shots) - 1:02}-after.png"
+                    page.screenshot(path=out / shot["after"])
             except Exception as error:
                 page.screenshot(path=out / "failed.png")
                 raise RuntimeError(f"Step {number} ({step.action}, note {step.note!r}) failed. The page is in {out / 'failed.png'}.") from error
         image = f"{len(shots):02}.png"
         page.screenshot(path=out / image)
-        shots.append({"image": image, "action": "end", "box": None, "note": scene.outro, "zoom": 1, "text": None})
+        shots.append({"image": image, "after": image, "action": "end", "box": None, "frame": None, "note": scene.outro, "zoom": 1, "text": None})
     finally:
         context.close()
     timeline = {"id": scene.id, "title": scene.title, "width": round(VIEWPORT["width"] * SCALE), "height": round(VIEWPORT["height"] * SCALE), "shots": shots}

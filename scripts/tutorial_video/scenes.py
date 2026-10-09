@@ -155,11 +155,11 @@ SCENES = [
     ]),
     Scene("canon", "World canon", [
         goto("#editor"),
-        look(lambda p: p.get_by_label("Show seeded data"), "Seeded entries come from the template of the campaign."),
+        look(lambda p: p.get_by_role("switch", name="Show seeded data"), "Seeded entries come from the template of the campaign."),
         choose(lambda p: p.get_by_label("Show only").first, "Locations", "Show only one kind of entry."),
         click(lambda p: record(p, "The Hub"), "Choose an entry."),
         choose(lambda p: p.get_by_label("Knowledge Level"), "Secret", "Knowledge Level sets which NPCs know the entry."),
-        look(lambda p: p.get_by_placeholder("Type to search").first, "Only the names in Known by know a secret."),
+        look(lambda p: p.get_by_role("button", name="Add knower"), "Only the names that you add to Known by know the secret."),
         click(lambda p: p.locator("#editor .discard"), "Discard drops your changes."),
     ]),
     Scene("templates", "World templates", [
