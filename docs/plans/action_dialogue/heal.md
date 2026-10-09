@@ -4,6 +4,8 @@
 
 In a HEAL action dialogue, the player asks the NPC to treat the speaker's wounds. The player opens it with `!h` or `!heal`. [framework.md](framework.md) holds the rules that all categories share.
 
+HEAL treats only the speaker. A knocked-out squad member cannot speak ([Blocked](framework.md#blocked)), so HEAL cannot treat it.
+
 ## 2. Deal
 
 HEAL needs all of these ([Blocked](framework.md#blocked)):
@@ -14,9 +16,11 @@ HEAL needs all of these ([Blocked](framework.md#blocked)):
 
 Treatment needs no medical skill, because any NPC can treat a wound.
 
-The popup ([Offer](framework.md#offer)) is, for example, "Doctor offers treatment for 300 cats.".
+The treatment gives the NPC the game's `FIRST_AID_ORDER` task (`deps/KenshiLib/Include/kenshi/Enums.h:304`) as an order, with the speaker as its target, as the release gives `RELEASE_PRISONER` (`plugin/game/GameActions.cpp:793`). `JOB_MEDIC` (`plugin/main.cpp:793`) gives the NPC a job with no target, so it cannot aim the treatment at the speaker.
 
-The action dialogue closes when the player accepts an offer.
+The player pays the fee when it accepts the offer, before the treatment starts. The popup ([Offer](framework.md#offer)) is, for example, "Doctor offers treatment for 300 cats.". When the NPC offers to treat the speaker for free, the treatment starts at once, with no popup.
+
+The action dialogue closes when the treatment starts.
 
 ## 3. Hard limits
 
@@ -30,3 +34,7 @@ The lean ([Outcome](framework.md#outcome)) is how likely the NPC is to treat the
 |---|---|
 | `Injured` | +1 |
 | `Crippled` | +2 |
+
+## 5. Open questions
+
+1. Does `FIRST_AID_ORDER` make an NPC outside the squad treat the speaker? No in-game test covers it yet.
