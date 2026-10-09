@@ -6,7 +6,7 @@ In a THREATEN action dialogue, the player threatens the NPC, demands its cats or
 
 ## 2. Gate
 
-The speaker is not `imprisoned` (`plugin/game/Context.cpp:675`), because a prisoner cannot threaten or fight anyone.
+The speaker is not `imprisoned` (`plugin/game/Context.cpp:675`), because a prisoner cannot threaten or fight anyone ([Blocked](framework.md#blocked)).
 
 ## 3. Answers
 

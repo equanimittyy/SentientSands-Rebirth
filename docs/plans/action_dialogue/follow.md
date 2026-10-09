@@ -6,9 +6,9 @@ In a FOLLOW action dialogue, the player asks the NPC to follow the squad for a t
 
 FOLLOW reuses the game's mercenary hire: the NPC follows the squad under a hire contract, as a hired mercenary does. The plugin already reads such a contract as `temporary_follower` (`plugin/game/Context.cpp:362`).
 
-## 2. Hard limits and lean
+## 2. Gate, hard limits, and lean
 
-FOLLOW uses the [hard limits](recruit.md#3-hard-limits) and the [lean](recruit.md#4-lean) of RECRUIT. Its lean is how likely the NPC is to follow.
+FOLLOW uses the [gate](recruit.md#2-gate), the [hard limits](recruit.md#4-hard-limits), and the [lean](recruit.md#5-lean) of RECRUIT. Its lean is how likely the NPC is to follow.
 
 ## 3. Open questions
 

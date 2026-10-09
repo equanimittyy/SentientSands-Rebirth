@@ -6,10 +6,11 @@ In a HEAL action dialogue, the player asks the NPC to treat the speaker's wounds
 
 ## 2. Deal
 
-The NPC offers treatment only when both of these hold:
+HEAL needs all of these ([Blocked](framework.md#blocked)):
 
 - The speaker's `health` (`plugin/game/Context.cpp:676`) is `Injured` or `Crippled` (`GetHealthStatus` in `plugin/game/Context.cpp:115`).
 - The NPC carries a first aid item (`hasItemFunction` with `ITEM_FIRSTAID` in `deps/KenshiLib/Include/kenshi/Inventory.h:195`). The plugin does not send this yet.
+- The NPC is not `imprisoned` (`plugin/game/Context.cpp:675`), because a fellow prisoner cannot help.
 
 Treatment needs no medical skill, because any NPC can treat a wound.
 

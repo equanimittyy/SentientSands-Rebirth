@@ -8,6 +8,8 @@ In a BARTER action dialogue, the player trades items with the NPC: the player bu
 
 Any NPC can trade, but a trader gives better prices ([section 3](#3-hard-limits)).
 
+A prisoner can trade too, for example to ask a guard for bread. When the speaker is `imprisoned` (`plugin/game/Context.cpp:675`), the prompt says so, and it gives the NPC's Current Job, for example "Guarding the town", and whether the NPC is `imprisoned` too.
+
 The popup of each deal ([Offer](framework.md#offer)):
 
 | Deal | Popup |

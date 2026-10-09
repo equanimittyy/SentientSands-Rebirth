@@ -4,7 +4,11 @@
 
 In a RECRUIT action dialogue, the player asks the NPC to join the squad. The player opens it with `!r` or `!recruit`. [framework.md](framework.md) holds the rules that all categories share.
 
-## 2. Answers
+## 2. Gate
+
+Neither the speaker nor the NPC is `imprisoned` (`plugin/game/Context.cpp:675`), because a caged speaker cannot recruit, and the player must free a caged NPC first ([Blocked](framework.md#blocked)).
+
+## 3. Answers
 
 | Answer | Result |
 |---|---|
@@ -18,11 +22,11 @@ The action dialogue closes when the NPC refuses, or when the player accepts an o
 
 Only RECRUIT has a refusal tag, because only RECRUIT closes on a refusal. Without the tag, code cannot tell a refusal from a reply that still bargains. The chat window shows the tag as a system message ([Reply](framework.md#reply)): "X has refused your Y.", where X is the name of the NPC.
 
-## 3. Hard limits
+## 4. Hard limits
 
-The player has the cats of the fee, and the NPC is not `imprisoned`, because the player must free it first.
+The player has the cats of the fee.
 
-## 4. Lean
+## 5. Lean
 
 The lean ([Outcome](framework.md#outcome)) is how likely the NPC is to join:
 
@@ -35,6 +39,6 @@ The lean ([Outcome](framework.md#outcome)) is how likely the NPC is to join:
 | The NPC is the leader of its faction (`is_leader`) or unique (`unique`) | -1 |
 | The NPC's Current Job is `Trading`, `Running a shop`, or `Travelling as a trader` | -1 |
 
-## 5. Open questions
+## 6. Open questions
 
 1. Which word is Y in the refusal message?

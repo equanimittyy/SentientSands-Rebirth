@@ -6,7 +6,10 @@ In a LIBERATE action dialogue, the player asks the NPC to free the speaker from 
 
 ## 2. Deal
 
-The NPC offers a release only when the speaker's `character_state` (`plugin/game/Context.cpp:675`) is `imprisoned`.
+LIBERATE needs both of these ([Blocked](framework.md#blocked)):
+
+- The speaker's `character_state` (`plugin/game/Context.cpp:675`) is `imprisoned`.
+- The NPC is not `imprisoned`, because a fellow prisoner cannot free anyone.
 
 The popup ([Offer](framework.md#offer)) is, for example, "Guard offers your release for 500 cats.".
 

@@ -17,7 +17,7 @@ The characters right after the `!` decide the result. A word after the `!` runs 
 | After the `!` | Result |
 |---|---|
 | A space | An action dialogue with no category ([No category](#no-category)) |
-| One letter or the full word of a category ([section 3](#3-categories)) | An action dialogue in that category |
+| One letter or the full word of a category ([section 3](#3-categories)) | An action dialogue in that category, or a [block](#blocked) when a gate of the category fails |
 | `e` or `end` | The [end](#end) of the action dialogue |
 | Any other letter or word | A [failure](#failure), with no LLM call |
 | Any other character, such as `!` or `?`, or nothing | Plain chat, with no mark |
@@ -52,10 +52,10 @@ The list leaves out each category that the game state already rules out, because
 |---|---|---|
 | A threat or demand | THREATEN | The speaker is `imprisoned` ([threaten.md](threaten.md#2-gate)). |
 | A request to trade items, or a gift | BARTER | Never |
-| A request to treat wounds | HEAL | The speaker is not `Injured` or `Crippled`, or the NPC carries no first aid item ([heal.md](heal.md#2-deal)). |
-| A request to be freed from prison | LIBERATE | The speaker is not `imprisoned` ([liberate.md](liberate.md#2-deal)). |
-| A request to join the squad | RECRUIT | The NPC is `imprisoned` ([recruit.md](recruit.md#3-hard-limits)). |
-| A request to follow the squad for a time | FOLLOW | The NPC is `imprisoned` ([recruit.md](recruit.md#3-hard-limits)). |
+| A request to treat wounds | HEAL | The speaker is not `Injured` or `Crippled`, the NPC carries no first aid item, or the NPC is `imprisoned` ([heal.md](heal.md#2-deal)). |
+| A request to be freed from prison | LIBERATE | The speaker is not `imprisoned`, or the NPC is `imprisoned` ([liberate.md](liberate.md#2-deal)). |
+| A request to join the squad | RECRUIT | The speaker or the NPC is `imprisoned` ([recruit.md](recruit.md#2-gate)). |
+| A request to follow the squad for a time | FOLLOW | The speaker or the NPC is `imprisoned` ([recruit.md](recruit.md#2-gate)). |
 | An order to leave | DISMISS | Never |
 
 The fee of a deal never leaves out a choice, because code does not know the fee before the call.
@@ -67,6 +67,12 @@ The classify call fails when the call gives an error, or when its output is not 
 ### Failure
 
 A failure sends no action dialogue call. The server replies with the line "X didn't understand what you meant.", where X is the name of the NPC. The chat thread then ends, and the server keeps neither the player's line nor the reply, so a failed line leaves no junk thread.
+
+### Blocked
+
+A line that names a category whose gate fails is blocked, so a named mark cannot open a category that the classify call would leave out. A blocked line sends no LLM call. The chat window shows a system message ([Reply](#reply)) that names the failed gate, for example "You can't threaten anyone while imprisoned.". The server keeps neither the player's line nor the message, so the chat thread stays as it was. The doc of each category holds its gates.
+
+A knockout blocks every category, because a knocked-out character cannot talk. While the speaker or the NPC is knocked out (`character_state` is `unconscious`, `plugin/game/Context.cpp:658`), each line that starts with `!` and each line of an action dialogue is blocked, before any classify call. The message names who is knocked out, for example "Bandit is unconscious.". The block holds for plain chat too: a line from a knocked-out speaker or to a knocked-out NPC sends no LLM call, and the chat window shows the same message. Radiant conversations already leave out knocked-out characters (`CanTalk` in `plugin/game/Context.cpp:495`).
 
 ## 3. Categories
 
@@ -133,12 +139,15 @@ While an offer waits, the chat waits for the answer. The chat window takes no ne
 
 A save load removes the popup and the offer, and it ends the action dialogue, because the load can undo the world that the offer rests on.
 
+A knockout of the speaker or the NPC while an offer waits also removes the popup and the offer, and it ends the action dialogue, because a knocked-out character cannot make or take a deal. The plugin sees each knockout in `setProneState_hook` (`plugin/main.cpp:982`).
+
 ### End
 
 The action dialogue ends at the first of these events:
 
 - The model sends a close signal in its reply.
 - The player accepts an offer, or a save loads while an offer waits ([Offer](#offer)).
+- The speaker or the NPC is knocked out while an offer waits ([Offer](#offer)).
 - The player sends `!e` or `!end`, for example `!end Thanks`.
 - The chat thread ends: `conversation_timeout_minutes` pass without a chat, or the player starts another chat thread, for example with another NPC.
 
