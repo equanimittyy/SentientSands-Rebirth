@@ -832,6 +832,15 @@ label > .hint {
   --fill: var(--advanced-guide-bg);
 }
 
+#tutorial video {
+  display: block;
+  width: 100%;
+  height: auto;
+  aspect-ratio: 16 / 9;
+  margin-top: 0.75rem;
+  border: 1px solid var(--border);
+}
+
 dialog {
   box-sizing: border-box;
   width: min(28rem, calc(100vw - 2rem));

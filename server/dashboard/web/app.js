@@ -11,10 +11,18 @@ const REFRESH_NOTE_MS = 2500;
 const pages = [...document.querySelectorAll("main > section")];
 const links = [...document.querySelectorAll("nav a")];
 
+// A browser keeps playing a hidden video, so a tab switch or a closed dropdown pauses it
 function showPage() {
   const id = pages.some((page) => `#${page.id}` === location.hash) ? location.hash.slice(1) : pages[0].id;
   for (const page of pages) page.hidden = page.id !== id;
   for (const link of links) link.toggleAttribute("aria-current", link.hash === `#${id}`);
+  for (const video of document.querySelectorAll("main > section[hidden] video")) video.pause();
+}
+
+for (const video of document.querySelectorAll("#tutorial video")) {
+  video.closest("details").addEventListener("toggle", (event) => {
+    if (!event.target.open) video.pause();
+  });
 }
 
 window.addEventListener("hashchange", showPage);
