@@ -12,7 +12,7 @@ FOLLOW uses the [gate](recruit.md#2-gate), the [hard limits](recruit.md#4-hard-l
 
 An offer of FOLLOW holds the length of the hire, for example "Drifter offers to follow you for 2 days for 4,000 cats.".
 
-The action dialogue closes when the NPC refuses ([Refusal](recruit.md#refusal)), or when the player accepts an offer.
+The action dialogue ends when the NPC refuses ([Refusal](recruit.md#refusal)), or when the player accepts an offer.
 
 ## 3. Mercenaries
 

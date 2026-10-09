@@ -20,7 +20,7 @@ The treatment gives the NPC the game's `FIRST_AID_ORDER` task (`deps/KenshiLib/I
 
 The player pays the fee when it accepts the offer, before the treatment starts. The popup ([Offer](framework.md#offer)) is, for example, "Doctor offers treatment for 300 cats.". When the NPC offers to treat the speaker for free, the treatment starts at once, with no popup.
 
-The action dialogue closes when the treatment starts.
+The action dialogue ends when the treatment starts.
 
 ## 3. Hard limits
 

@@ -8,6 +8,8 @@ In a THREATEN action dialogue, the player threatens the NPC, demands its cats or
 
 The speaker is not `imprisoned` (`plugin/game/Context.cpp:675`), because a prisoner cannot threaten or fight anyone ([Blocked](framework.md#blocked)).
 
+A chained slave (`enslaved`) can threaten: the NPC, for example a guard, can laugh it off or beat the slave for it.
+
 ## 3. Answers
 
 The NPC answers a threat, a demand, or a challenge to a fight in one of three ways:
@@ -18,7 +20,7 @@ The NPC answers a threat, a demand, or a challenge to a fight in one of three wa
 | It fights | `ATTACK` runs at once. The NPC attacks the speaker ([Speaker](framework.md#5-speaker)), and the fight then spreads to the squad. |
 | It refuses | It neither gives in nor fights, and the action dialogue goes on. |
 
-The action dialogue closes when the player accepts an offer, or when the NPC attacks the speaker.
+The action dialogue ends when the player accepts an offer, or when the NPC attacks the speaker.
 
 ## 4. Hard limits
 

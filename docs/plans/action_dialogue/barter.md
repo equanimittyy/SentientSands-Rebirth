@@ -12,7 +12,7 @@ Any NPC can trade, but a trader gives better prices ([section 3](#3-hard-limits)
 
 A prisoner can trade too, for example to ask a guard for bread. When the speaker is `imprisoned` (`plugin/game/Context.cpp:675`), the prompt says so, and it gives the NPC's Current Job, for example "Guarding the town", and whether the NPC is `imprisoned` too.
 
-The action dialogue closes when the player accepts an offer.
+The action dialogue ends when the player accepts an offer.
 
 ### Barter window
 
@@ -52,8 +52,18 @@ In charity, the NPC gives without receiving anything. Charity costs the NPC noth
 
 Charity has tight limits:
 
-- The NPC gives at most 50 cats, or 1 food item (`ITEM_FOOD` in `deps/KenshiLib/Include/kenshi/Enums.h:224`) with a `price` of 100 or less.
+- The NPC gives at most 50 cats, or 1 item of the cheapest food (`ITEM_FOOD` in `deps/KenshiLib/Include/kenshi/Enums.h:224`).
 - Each NPC gives charity at most once in each game day.
+
+The cheapest food is the food whose base value in the game data is 150 or less:
+
+| Food | Base value | String ID |
+|---|---|---|
+| Dried Gristle Flaps | 40 | `50568-rebirth.mod` |
+| Dried Meat | 150 | `42334-changes_otto.mod` |
+| Rice Bowl | 150 | `1016-gamedata.base` |
+| Gohan | 150 | `43957-rebirth.mod` |
+| Cooked Vegetables | 150 | `43955-rebirth.mod` |
 
 `GIVE_CATS` takes the cats from the NPC (`plugin/game/GameActions.cpp:730`), so charity needs an action that only adds the cats to the player. `SPAWN_ITEM` already creates an item for the speaker (`plugin/game/GameActions.cpp:1018`).
 
@@ -75,4 +85,3 @@ The lean ([Outcome](framework.md#outcome)) is how likely the NPC is to take the 
 
 1. Where does a shopkeeper keep its stock? `inventory` reads only the items of the character and its backpack (`GetAllCharacterItems` in `plugin/game/GameActions.cpp`). An in-game probe decides it ([development.md](../../info/development.md#probes)).
 2. Which data of an item holds the quality that the game shows for a weapon or an armour?
-3. How does code find the template and the `price` of a charity food that the NPC does not carry?

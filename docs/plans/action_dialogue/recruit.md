@@ -9,8 +9,9 @@ In a RECRUIT action dialogue, the player asks the NPC to join the squad. The pla
 RECRUIT needs all of these ([Blocked](framework.md#blocked)):
 
 - Neither the speaker nor the NPC is `imprisoned` or `enslaved` (`character_state` in `plugin/game/Context.cpp:675`), because a caged or shackled speaker cannot recruit, and the player must free a caged or shackled NPC first.
-- The NPC is not in the player faction yet (`in_player_faction` of `current_job` in `server/chat/current_job.py:40`). A temporary follower can join, and its hire then becomes a permanent join.
 - The NPC is not the leader of its faction (`is_leader`), because the faction would lose its leader in the world.
+
+No action reaches an NPC that is already in the player faction ([Blocked](framework.md#blocked)). A temporary follower can join, and its hire then becomes a permanent join.
 
 ## 3. Answers
 
@@ -22,11 +23,11 @@ RECRUIT needs all of these ([Blocked](framework.md#blocked)):
 
 On accept, `JOIN_PARTY` (`plugin/main.cpp:485`) recruits the NPC (`plugin/game/GameActions.cpp:322`).
 
-The action dialogue closes when the NPC refuses, or when the player accepts an offer.
+The action dialogue ends when the NPC refuses, or when the player accepts an offer.
 
 ### Refusal
 
-Only RECRUIT and FOLLOW have a refusal tag, because only they close on a refusal. Without the tag, code cannot tell a refusal from a reply that still bargains. The chat window shows the tag as a system message ([Reply](framework.md#reply)), where X is the name of the NPC and Y is the name of the player faction:
+Only RECRUIT and FOLLOW have a refusal tag, because only they end on a refusal. Without the tag, code cannot tell a refusal from a reply that still bargains. The chat window shows the tag as a system message ([Reply](framework.md#reply)), where X is the name of the NPC and Y is the name of the player faction:
 
 | Category | Message |
 |---|---|

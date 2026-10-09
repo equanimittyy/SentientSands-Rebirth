@@ -23,7 +23,7 @@ Both tasks run through the release handler (`ACT_RELEASE` in `plugin/game/GameAc
 
 A slave in a cage reads as `imprisoned`, because the plugin checks the cage before the slave state (`plugin/game/Context.cpp:659`). The plugin must therefore send the slave state apart from `character_state` (`isSlave` in `plugin/game/Context.cpp:663`), so that the guard rule also holds in a cage.
 
-The action dialogue closes when the player accepts an offer.
+The action dialogue ends when the player accepts an offer.
 
 ## 3. Hard limits
 

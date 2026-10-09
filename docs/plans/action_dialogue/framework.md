@@ -4,13 +4,13 @@
 
 Chat sends no game actions since the action tags were turned off. The plugin still runs the actions (`ExecuteQueuedActions` in `plugin/game/GameActions.cpp:245`). Only the debug commands of the chat send them, through the pipe before the reply line (`server/chat/routes.py:250`).
 
-In this plan, the player marks a chat thread as an action dialogue. An action dialogue uses its own system prompt instead of the chat system prompt (`server/data/prompts/prompt_system.txt`). A chat thread without the mark stays plain chat, with no game actions.
+In this plan, the player marks a chat thread as an action dialogue. An action dialogue uses its own system prompt instead of the chat system prompt (`server/data/prompts/prompt_system.txt`), and a new LLM route (`TASKS` in `server/chat/llm_config.py:14`) that its classify call ([No category](#no-category)) shares. A chat thread without the mark stays plain chat, with no game actions.
 
 This doc holds the framework that all categories share. Each category has its own doc for its own constraints ([section 3](#3-categories)). [Sections 2 to 5](#2-entry) hold the decided design, and [section 6](#6-open-questions) holds what is open.
 
 ## 2. Entry
 
-A player line that starts with `!` marks its chat thread as an action dialogue. The mark holds for the rest of the chat thread, until the action dialogue [ends](#end). A chat thread is one NPC in one mode, and the squad members that speak to that NPC share the thread (`server/chat/routes.py:278`). The chat thread ends after `conversation_timeout_minutes` without a chat (`server/chat/memory.py:13`).
+A player line that starts with `!` marks its chat thread as an action dialogue. The mark holds for the rest of the chat thread. A chat thread is one NPC in one mode, and the squad members that speak to that NPC share the thread (`server/chat/routes.py:278`). An action dialogue belongs to one speaker instead: a line of another squad member to the NPC starts a new chat thread, and the action dialogue [ends](#end). The chat thread ends after `conversation_timeout_minutes` without a chat (`server/chat/memory.py:13`).
 
 The characters right after the `!` decide the result. A word after the `!` runs up to the first character that is not a letter. Letters and words are case-insensitive, so `!B` names BARTER.
 
@@ -36,7 +36,9 @@ The characters right after the `!` decide the result. A word after the `!` runs 
 | `!?!?!` | Plain chat |
 | `!` | Plain chat |
 
-The text after the mark can be empty, as in `!barter`.
+The text after the mark can be empty, as in `!barter`. Such a line opens the action dialogue and sends no LLM call.
+
+An action dialogue works in each chat mode. The mode sets who overhears its lines, as in plain chat (`server/chat/routes.py:286`).
 
 The debug commands of the chat keep the `/` mark (`server/chat/routes.py:198`), so the two marks do not collide.
 
@@ -54,8 +56,8 @@ The list leaves out each category that the game state already rules out, because
 | A request to trade items, a gift, or a plea for charity | BARTER | Never |
 | A request to treat wounds | HEAL | The speaker is not `Injured` or `Crippled`, the NPC carries no first aid item, or the NPC is `imprisoned` ([heal.md](heal.md#2-deal)). |
 | A request to be freed from prison or slavery | LIBERATE | The speaker is neither `imprisoned` nor `enslaved`, the NPC is `imprisoned`, or the speaker is a slave and the NPC is a guard ([liberate.md](liberate.md#2-deal)). |
-| A request to join the squad | RECRUIT | The speaker or the NPC is `imprisoned` or `enslaved`, the NPC is in the player faction, or the NPC leads its faction ([recruit.md](recruit.md#2-gate)). |
-| A request to follow the squad for a time | FOLLOW | The speaker or the NPC is `imprisoned` or `enslaved`, the NPC is in the player faction, or the NPC leads its faction ([recruit.md](recruit.md#2-gate)). |
+| A request to join the squad | RECRUIT | The speaker or the NPC is `imprisoned` or `enslaved`, or the NPC leads its faction ([recruit.md](recruit.md#2-gate)). |
+| A request to follow the squad for a time | FOLLOW | The speaker or the NPC is `imprisoned` or `enslaved`, or the NPC leads its faction ([recruit.md](recruit.md#2-gate)). |
 | An order for a hired follower to leave | DISMISS | The NPC is not a temporary follower ([dismiss.md](dismiss.md#2-gate)). |
 
 The fee of a deal never leaves out a choice, because code does not know the fee before the call.
@@ -76,6 +78,8 @@ A knockout blocks every category, because a knocked-out character cannot talk. W
 
 An animal makes no deals, so each line that starts with `!` to an animal (`animal` in `plugin/game/Context.cpp:705`) is blocked too, before any classify call. Plain chat with an animal stays.
 
+No action works on a member of the player faction, so each line that starts with `!` to an NPC in the player faction (`in_squad` in `server/chat/routes.py:290`) is blocked too, before any classify call. The message is, for example, "Hobbs is a member of your faction.". A temporary follower keeps its own faction, so DISMISS still reaches it.
+
 ## 3. Categories
 
 | Letter | Word | Category | The player's request | Doc |
@@ -88,7 +92,7 @@ An animal makes no deals, so each line that starts with `!` to an animal (`anima
 | `f` | `follow` | FOLLOW | Asks the NPC to follow the squad for a time. | [follow.md](follow.md) |
 | `d` | `dismiss` | DISMISS | Ends the hire of an NPC that follows the squad through FOLLOW. | [dismiss.md](dismiss.md) |
 
-The doc of a category holds its gates, its hard limits, its lean, the popups of its offers, and when its action dialogue closes.
+The doc of a category holds its gates, its hard limits, its lean, the popups of its offers, and the end events of its action dialogue.
 
 ## 4. Action dialogue
 
@@ -99,7 +103,7 @@ The model under the action prompt starts each reply with the tag of the category
 - `[BARTER] So what can I do for you?`
 - `[THREATEN] Don't hurt me! I'll give you what you want, just spare me!`
 
-The player's mark names the category for the model. A later line of the chat thread can name another category, for example `!t` after `!b`. A later line without a mark stays in the action dialogue, and the tag of the reply shows how the model reads it.
+The player's mark names the category for the model. A later line of the chat thread can name another category, for example `!t` after `!b`. A later line without a mark keeps the category of the action dialogue and runs no classify call, so code always knows which lean and which parts of the prompt the call needs. A reply tag that names another category changes nothing.
 
 The chat window shows system messages about the action dialogue, in the shape of the chat status messages such as "{name} is thinking..." (`NotifyChatStatus` in `plugin/ui/ChatWindow.cpp:59`). They show that the chat thread is an action dialogue, and the category of each reply.
 
@@ -124,13 +128,15 @@ BARTER, HEAL, LIBERATE, RECRUIT, and FOLLOW count the NPC's profile `Relation` o
 | -59 to -25 | -1 |
 | -60 or less | -2 |
 
+The action prompt keeps the judgment of plain chat (`judgment` in `server/chat/routes.py:313`): each reply ends with `[JUDGMENT: n]`, and the NPC's `Relation` changes by n. A threat thus costs relation.
+
 A guard is an NPC whose Current Job (`current_job` in `server/chat/current_job.py:41`) is `Guarding the town`, `Guarding a building`, `Patrolling the town`, `Keeping the peace`, or `Working as a slaver`. LIBERATE and RECRUIT read it.
 
 ### Offer
 
 An NPC that agrees to a deal makes an offer. The model ends its reply with an offer tag, which holds the actions of the deal under the names that the plugin already runs, for example `[OFFER: GIVE_CATS: 200]` or `[OFFER: TAKE_CATS: 3000; GIVE_ITEM: Katana]`. Each action that moves cats, items, or characters needs an offer: the handover of THREATEN, each deal of BARTER, HEAL, LIBERATE, RECRUIT, and FOLLOW. Only `ATTACK`, `LEAVE`, and a free treatment of HEAL ([heal.md](heal.md#2-deal)) run at once.
 
-The server checks the offer against the hard limits, and it drops and logs an offer that breaks one. It holds a valid offer and sends it to the plugin after the lines of the reply. The offer goes to the squad member that spoke the line that the offer answers ([section 5](#5-speaker)).
+The server checks the offer against the hard limits, and it drops and logs an offer that breaks one. The reply already reads as a deal, so the chat window then shows the system message "X made an offer it can't keep.", and the action dialogue goes on. It holds a valid offer and sends it to the plugin after the lines of the reply. The offer goes to the squad member that spoke the line that the offer answers ([section 5](#5-speaker)).
 
 The plugin shows the offer in a popup with the buttons Accept and Decline. The server writes the text of the popup from the checked offer, never from the words of the model, so the popup always shows the real deal. The text is "X offers A for B": X is the NPC, A is what the NPC gives, and B is what the player gives. When the player gives nothing, the text has no "for B". For example, "Bandit offers 200 cats and a Katana.".
 
@@ -138,30 +144,44 @@ BARTER shows its offers in a barter window instead ([barter.md](barter.md#barter
 
 | Answer | Result |
 |---|---|
-| Accept | The plugin sends the answer to the server, and the server sends the actions of the offer through the pipe, as for any action. The take actions go before the give actions, because the plugin skips a give after a failed take in the same batch (`transactionFailed` in `plugin/game/GameActions.cpp:253`). The action dialogue and the chat thread then end. |
+| Accept | The plugin sends the answer to the server, and the server sends the actions of the offer through the pipe, as for any action. The action dialogue and the chat thread then end. |
 | Decline | The popup asks the player for a reply, and a blank reply is "No.". The reply goes to the NPC as the next line of the action dialogue, and the action dialogue goes on. |
 
 While an offer waits, the chat waits for the answer. The chat window takes no new line to any NPC, and it shows the status "Answer X's offer first.". No other chat thread or radiant conversation starts, and the chat thread does not time out. The game does not pause.
 
+While the reply to a line of an action dialogue is pending, the chat window also takes no new line to any NPC, and it shows the status "X is still thinking.". The chat window does not wait for a reply before it sends the next line (`ChatResponseThread` in `plugin/ui/ChatWindow.cpp:70`), so without the block a second line could bring a second offer.
+
+Before it runs an accepted offer, the plugin checks that each side still has the cats and the items of the offer. The game does not pause while the offer waits, and `TAKE_CATS` takes all the cats of the player when they are fewer than its count (`plugin/game/GameActions.cpp:747`). When a check fails, the plugin runs no action of the offer, and the chat window shows a system message that names why, for example "You no longer have 500 cats.". The server does the same when an answer arrives for an offer that it no longer holds, for example after a restart of the server. In both cases the action dialogue ends.
+
+The tags of the model never reach the plugin as they are. The server builds each action from the data of the plugin, and it sends the plugin a game-altering payload, such as an order to an NPC. `ATTACK` and `LEAVE` reach the plugin the same way.
+
 A save load removes the popup and the offer, and it ends the action dialogue, because the load can undo the world that the offer rests on.
 
-A knockout of the speaker or the NPC while an offer waits also removes the popup and the offer, and it ends the action dialogue, because a knocked-out character cannot make or take a deal. The plugin sees each knockout in `setProneState_hook` (`plugin/main.cpp:982`).
+A knockout or a death of the speaker or the NPC while an offer waits also removes the popup and the offer, and it ends the action dialogue, because a knocked-out or dead character cannot make or take a deal. The plugin sees each knockout in `setProneState_hook` (`plugin/main.cpp:982`), and each death in `declareDead_hook` (`plugin/main.cpp:968`).
+
+### Memory
+
+The server writes a line into the chat thread for each action that runs and for each answer to an offer. It writes the line from the checked offer, for example "(Drifter accepted: Bandit gives 200 cats.)" or "(Drifter declined: Bandit offered 200 cats.)". The model thus sees on the next turn which offer the player declined.
+
+The line counts as an exchange, so a chat thread that ends in a deal is not deleted as a chat thread of one exchange (`server/chat/memory.py:89`).
+
+A chat thread that holds an action dialogue gets its memory from its own memory prompt instead of `prompt_thread_memory.txt` (`write_memory` in `server/chat/memory.py:22`), so that the memory keeps each action and each deal.
 
 ### End
 
 The action dialogue ends at the first of these events:
 
-- The model sends a close signal in its reply.
+- The model ends its reply with the ending tag `[END]`, as a refusal ends a reply with `[REFUSE]` ([recruit.md](recruit.md#refusal)).
+- An end event of the category occurs, for example the NPC attacks in THREATEN. The doc of each category sets its end events.
 - The player accepts an offer, or a save loads while an offer waits ([Offer](#offer)).
-- The speaker or the NPC is knocked out while an offer waits ([Offer](#offer)).
-- The player sends `!e` or `!end`, for example `!end Thanks`.
-- The chat thread ends: `conversation_timeout_minutes` pass without a chat, or the player starts another chat thread, for example with another NPC.
+- The speaker or the NPC is knocked out or dies while an offer waits ([Offer](#offer)).
+- The player sends `!e` or `!end`, for example `!end Thanks`. The line sends no LLM call, and the server does not keep it.
+- The action dialogue call gives an error. The chat window shows the error status of plain chat, "X could not respond." (`plugin/ui/ChatWindow.cpp:85`).
+- The chat thread ends: `conversation_timeout_minutes` pass without a chat, or the player starts another chat thread, for example with another NPC or from another squad member ([section 2](#2-entry)).
 
-A close signal, `!end`, or an accepted offer also ends the chat thread.
+Each end also ends the chat thread.
 
-The doc of each category sets when its action dialogue closes.
-
-At the end, the NPC says a line from a preset list of its category and its end, picked at random, because the end comes after the last call and a preset line costs no call. A knockout, a save load, a timeout of the chat thread, and the start of another chat thread get no line, because the NPC cannot talk or the player is gone.
+At the end, the NPC says a line from a preset list of its category and its end, picked at random, because the end comes after the last call and a preset line costs no call. A knockout, a death, a save load, an error, a timeout of the chat thread, and the start of another chat thread get no line, because the NPC cannot talk or the player is gone.
 
 | End | Example line |
 |---|---|
@@ -178,10 +198,9 @@ The chat window names the speaker in the player's line (`plugin/ui/ChatWindow.cp
 | `GIVE_ITEM`, `TAKE_ITEM`, `GIVE_CATS`, `TAKE_CATS` | The plugin queues each action for the speaker (`plugin/main.cpp:522`, `:557`, `:587`, and `:577`), but its handler ignores the speaker (`plugin/game/GameActions.cpp:630`, `:518`, `:724`, and `:739`). |
 | `ATTACK`, `FOLLOW_PLAYER`, and the release | The plugin queues each action for the first character (`plugin/main.cpp:489`, `:673`, `:704`, and `:715`). |
 
-The squad members that take turns share one chat thread ([section 2](#2-entry)), so another squad member can speak before the reply to a line arrives. `g_lastChattingPlayerHand` then names the wrong squad member. Each design of the actions must therefore send the speaker with the action, so that the action acts on the squad member that spoke.
+An action dialogue belongs to one speaker ([section 2](#2-entry)), but another squad member can still chat, with this NPC or another, before the reply to a line arrives. `g_lastChattingPlayerHand` then names the wrong squad member. Each design of the actions must therefore send the speaker with the action, so that the action acts on the squad member that spoke.
 
 ## 6. Open questions
 
-1. What is the close signal of the model?
-2. What does the action system prompt hold, and how do an offer, `ATTACK`, and `LEAVE` reach the plugin?
-3. What are the lines of each preset list of the end?
+1. What does the action system prompt hold?
+2. What are the lines of each preset list of the end?

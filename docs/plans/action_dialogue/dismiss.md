@@ -12,7 +12,7 @@ The NPC is a temporary follower (`temporary_follower` in `plugin/game/Context.cp
 
 ## 3. Answer
 
-The NPC never refuses, so DISMISS has no lean and no offer. `LEAVE` runs at once, and the action dialogue closes when the NPC leaves. The player gets no part of the fee back.
+The NPC never refuses, so DISMISS has no lean and no offer. `LEAVE` runs at once, and the action dialogue ends when the NPC leaves. The player gets no part of the fee back.
 
 ## 4. Open questions
 
