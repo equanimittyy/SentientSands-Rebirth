@@ -1,7 +1,5 @@
 # Proposal: Journal
 
-Status: Draft for review
-
 ## 1. Summary
 
 The journal is a notebook for the player in the game. The player creates, edits, and deletes journal entries in a Journal window, which the SSR HUB opens. An entry has a title and free text.
