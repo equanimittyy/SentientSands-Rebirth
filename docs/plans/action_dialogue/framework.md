@@ -1,6 +1,4 @@
-# Proposal: Action Dialogue
-
-Status: Draft for review
+# Proposal: Action Dialogue Framework
 
 ## 1. Summary
 
@@ -8,7 +6,7 @@ Chat sends no game actions since the action tags were turned off. The plugin sti
 
 In this plan, the player marks a chat thread as an action dialogue. An action dialogue uses its own system prompt instead of the chat system prompt (`server/data/prompts/prompt_system.txt`). A chat thread without the mark stays plain chat, with no game actions.
 
-[Sections 2 to 4](#2-entry) hold the decided design, and [section 6](#6-open-questions) holds what is open.
+This doc holds the framework that all categories share. Each category has its own doc for its own constraints ([section 3](#3-categories)). [Sections 2 to 5](#2-entry) hold the decided design, and [section 6](#6-open-questions) holds what is open.
 
 ## 2. Entry
 
@@ -46,16 +44,23 @@ The debug commands of the chat keep the `/` mark (`server/chat/routes.py:198`), 
 
 A line with no category costs two LLM calls: a classify call, and then the action dialogue call. A line that names its category skips the classify call.
 
-The classify call is as lean as possible. Its prompt holds only the player's line and a numbered list of the categories, and it tells the model to output only the number of one choice. The list follows the map of [section 3](#3-categories):
+The classify call is as lean as possible. Its prompt holds only the player's line and a numbered list of the categories, and it tells the model to output only the number of one choice.
 
-1. A threat or demand
-2. A request to trade for items, services or help, or a gift
-3. A request to join the squad
-4. A request to follow the squad for a time
-5. An order to leave
-6. None of these
+The list leaves out each category that the game state already rules out, because a shorter list confuses a small model less. Code numbers the remaining choices from 1 in the order of this table, and it maps the number of the answer back to its category.
 
-The last choice is an escape hatch: it lets the model reject a line that fits no category, instead of forcing the line into one.
+| Choice | Category | Left out when |
+|---|---|---|
+| A threat or demand | THREATEN | The speaker is `imprisoned` ([threaten.md](threaten.md#2-gate)). |
+| A request to trade items, or a gift | BARTER | Never |
+| A request to treat wounds | HEAL | The speaker is not `Injured` or `Crippled`, or the NPC carries no first aid item ([heal.md](heal.md#2-deal)). |
+| A request to be freed from prison | LIBERATE | The speaker is not `imprisoned` ([liberate.md](liberate.md#2-deal)). |
+| A request to join the squad | RECRUIT | The NPC is `imprisoned` ([recruit.md](recruit.md#3-hard-limits)). |
+| A request to follow the squad for a time | FOLLOW | The NPC is `imprisoned` ([recruit.md](recruit.md#3-hard-limits)). |
+| An order to leave | DISMISS | Never |
+
+The fee of a deal never leaves out a choice, because code does not know the fee before the call.
+
+The last choice is always "None of these". It is an escape hatch: it lets the model reject a line that fits no category, instead of forcing the line into one. A line that asks for a left-out category fits no choice, so it ends in the escape hatch.
 
 The classify call fails when the call gives an error, or when its output is not the number of a category. The escape hatch is therefore a [failure](#failure) too.
 
@@ -65,23 +70,17 @@ A failure sends no action dialogue call. The server replies with the line "X did
 
 ## 3. Categories
 
-| Letter | Word | Category | The player's request |
-|---|---|---|---|
-| `t` | `threaten` | THREATEN | Threatens the NPC, demands its cats or items, or challenges it to a fight. |
-| `b` | `barter` | BARTER | Makes a deal with the NPC: buys or sells an item, gives an item or cats for nothing, or asks for a service, such as a release from prison or the treatment of wounds. The player can haggle over the price. A gift is a trade at no price, and the NPC is glad to take it. |
-| `r` | `recruit` | RECRUIT | Asks the NPC to join the squad. |
-| `f` | `follow` | FOLLOW | Asks the NPC to follow the squad for a time. Unlike RECRUIT, the hire is temporary. |
-| `d` | `dismiss` | DISMISS | Tells the NPC to leave: a squad member leaves the squad, and an NPC outside the squad goes away. The NPC never refuses. |
+| Letter | Word | Category | The player's request | Doc |
+|---|---|---|---|---|
+| `t` | `threaten` | THREATEN | Threatens the NPC, demands its cats or items, or challenges it to a fight. | [threaten.md](threaten.md) |
+| `b` | `barter` | BARTER | Trades items with the NPC, or gives it a gift. | [barter.md](barter.md) |
+| `h` | `heal` | HEAL | Asks the NPC to treat the speaker's wounds. | [heal.md](heal.md) |
+| `l` | `liberate` | LIBERATE | Asks the NPC to free the speaker from prison. | [liberate.md](liberate.md) |
+| `r` | `recruit` | RECRUIT | Asks the NPC to join the squad. | [recruit.md](recruit.md) |
+| `f` | `follow` | FOLLOW | Asks the NPC to follow the squad for a time. | [follow.md](follow.md) |
+| `d` | `dismiss` | DISMISS | Tells the NPC to leave. | [dismiss.md](dismiss.md) |
 
-FOLLOW reuses the game's mercenary hire: the NPC follows the squad under a hire contract, as a hired mercenary does. The plugin already reads such a contract as `temporary_follower` (`plugin/game/Context.cpp:362`).
-
-BARTER offers a deal only when its gate holds. The gates read only the speaker's `character_state` and `health`, and the NPC's Current Job.
-
-| Deal | Gate |
-|---|---|
-| A release from prison | The speaker's `character_state` (`plugin/game/Context.cpp:675`) is `imprisoned`. |
-| Treatment | The speaker's `health` (`plugin/game/Context.cpp:676`) is `Injured` or `Crippled` (`GetHealthStatus` in `plugin/game/Context.cpp:115`). |
-| A trade of items, or a gift | The NPC's Current Job (`current_job` in `server/chat/current_job.py:41`) is `Trading`, `Running a shop`, or `Travelling as a trader`. |
+The doc of a category holds its gates, its hard limits, its lean, the popups of its offers, and when its action dialogue closes.
 
 ## 4. Action dialogue
 
@@ -98,28 +97,32 @@ The chat window shows system messages about the action dialogue, in the shape of
 
 ### Outcome
 
-Code sets the hard limits of an action dialogue, and the model decides inside them. Before each call, code reads a lean from the game state and puts it in the prompt as one of three bands: likely to agree, could go either way, or likely to refuse. The lean is a band, not a percentage, because a small model follows a plain band better.
+Code sets the hard limits of an action dialogue, and the model decides inside them. Before each call, code adds up the + and - bonuses of facts in the game state into a lean. The prompt states the lean as a thought of the NPC, in one of three bands: likely to agree, could go either way, or likely to refuse. The lean is a band, not a percentage, because a small model follows a plain band better.
 
-The words of the player can move a close call, but they cannot break a hard limit, because the server checks each offer against the hard limits ([Offer](#offer)). The facts of the lean and the hard limits of each category are open ([section 6](#6-open-questions)).
+| Lean | Band |
+|---|---|
+| +2 or more | Likely to agree |
+| -1 to +1 | Could go either way |
+| -2 or less | Likely to refuse |
+
+The words of the player can move a close call, but they cannot break a hard limit, because the server checks each offer against the hard limits ([Offer](#offer)). The doc of each category holds the facts of its lean and its hard limits.
+
+BARTER, HEAL, and LIBERATE count the NPC's profile `Relation` on one scale:
+
+| Relation | Bonus |
+|---|---|
+| 60 or more | +2 |
+| 25 to 59 | +1 |
+| -59 to -25 | -1 |
+| -60 or less | -2 |
 
 ### Offer
 
-An NPC that agrees to a deal makes an offer. The model ends its reply with an offer tag, which holds the actions of the deal under the names that the plugin already runs, for example `[OFFER: GIVE_CATS: 200]` or `[OFFER: TAKE_CATS: 3000; GIVE_ITEM: Katana]`. Each action that moves cats, items, or characters needs an offer: the handover of THREATEN, each deal of BARTER, RECRUIT, and FOLLOW. Only `ATTACK` and `LEAVE` run at once.
+An NPC that agrees to a deal makes an offer. The model ends its reply with an offer tag, which holds the actions of the deal under the names that the plugin already runs, for example `[OFFER: GIVE_CATS: 200]` or `[OFFER: TAKE_CATS: 3000; GIVE_ITEM: Katana]`. Each action that moves cats, items, or characters needs an offer: the handover of THREATEN, each deal of BARTER, HEAL, LIBERATE, RECRUIT, and FOLLOW. Only `ATTACK` and `LEAVE` run at once.
 
 The server checks the offer against the hard limits, and it drops and logs an offer that breaks one. It holds a valid offer and sends it to the plugin after the lines of the reply. The offer goes to the squad member that spoke the line that the offer answers ([section 5](#5-speaker)).
 
-The plugin shows the offer in a popup with the buttons Accept and Decline. The server writes the text of the popup from the checked offer, never from the words of the model, so the popup always shows the real deal. The text is "X offers A for B": X is the NPC, A is what the NPC gives, and B is what the player gives. When the player gives nothing, the text has no "for B".
-
-| Deal | Popup |
-|---|---|
-| THREATEN, the handover | Bandit offers 200 cats and a Katana. |
-| BARTER, the NPC sells | Trader offers a Katana for 3,000 cats. |
-| BARTER, the NPC buys | Trader offers 1,200 cats for your Katana. |
-| BARTER, a release | Guard offers your release for 500 cats. |
-| BARTER, a treatment | Doctor offers treatment for 300 cats. |
-| BARTER, a gift | Trader offers thanks for your Katana. |
-| RECRUIT | Drifter offers to join your squad for 1,500 cats. |
-| RECRUIT, with no fee | Drifter offers to join your squad. |
+The plugin shows the offer in a popup with the buttons Accept and Decline. The server writes the text of the popup from the checked offer, never from the words of the model, so the popup always shows the real deal. The text is "X offers A for B": X is the NPC, A is what the NPC gives, and B is what the player gives. When the player gives nothing, the text has no "for B". For example, "Trader offers a Katana for 3,000 cats.".
 
 | Answer | Result |
 |---|---|
@@ -141,14 +144,7 @@ The action dialogue ends at the first of these events:
 
 A close signal, `!end`, or an accepted offer also ends the chat thread.
 
-The category sets when the action dialogue closes:
-
-| Category | The action dialogue closes |
-|---|---|
-| BARTER | When the player accepts an offer |
-| THREATEN | When the player accepts an offer, or when the NPC attacks the player |
-| RECRUIT | When the NPC refuses and makes no offer, or when the player accepts an offer |
-| DISMISS | When the NPC leaves |
+The doc of each category sets when its action dialogue closes.
 
 ## 5. Speaker
 
@@ -164,7 +160,4 @@ The squad members that take turns share one chat thread ([section 2](#2-entry)),
 ## 6. Open questions
 
 1. What is the close signal of the model?
-2. Which facts make the lean of each category, and which hard limits does code set for each category?
-3. What does the action system prompt hold, and how do an offer, `ATTACK`, and `LEAVE` reach the plugin?
-4. How does the plugin start a hire contract? The plugin only reads one now, and no in-game test covers a contract yet ([development.md](../info/development.md#probes)).
-5. When does the action dialogue close for FOLLOW?
+2. What does the action system prompt hold, and how do an offer, `ATTACK`, and `LEAVE` reach the plugin?
