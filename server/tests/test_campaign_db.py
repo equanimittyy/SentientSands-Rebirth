@@ -284,6 +284,14 @@ class ThreadTest(CampaignTestCase):
         campaign_db.cull_after(3, 15, 0)
         self.assertEqual(campaign_db.thread_members([early, late]), {early: [(self.STICK, "Stick", "speaker", True), (GENERIC_ID, "Jorge", "speaker", False)]})
 
+    def test_a_cull_recounts_the_exchanges_of_a_thread_that_it_cuts(self):
+        cut = self.exchange(None, "[Day 3, 14:05]", listeners=[self.IZUMI])
+        self.exchange(cut, "[Day 3, 16:00]", speaker=self.RUKA)
+        kept = self.exchange(None, "[Day 2, 10:00]")
+        self.exchange(kept, "[Day 2, 10:01]")
+        campaign_db.cull_after(3, 15, 0)
+        self.assertEqual({thread["id"]: thread["exchanges"] for thread in campaign_db.pending_threads()}, {kept: 2, cut: 1})
+
     def test_a_deleted_character_takes_the_threads_that_only_it_held(self):
         thread_id = campaign_db.join_thread(None, [(GENERIC_ID, "speaker", False)], None)
         campaign_db.append_dialogue(GENERIC_ID, [("Jorge: Hm.", GENERIC_ID)], {}, thread_id)

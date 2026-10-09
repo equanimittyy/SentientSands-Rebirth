@@ -637,8 +637,9 @@ def add_rumor(event_id, text):
 
 
 def cull_after(day, hour, minute):
-    """Deletes the dialogue, events, rumors, thread members, and memories dated after the given game time. Returns
-    the count per table of the dialogue, the events, and the rumors."""
+    """Deletes the dialogue, events, rumors, thread members, and memories dated after the given game time, and recounts
+    the chat exchanges of each thread that it cuts. Returns the count per table of the dialogue, the events, and the
+    rumors."""
     now = day * 1440 + hour * 60 + minute
     with _connect(write=True) as conn:
         touched = {thread_id for (thread_id,) in conn.execute("SELECT id FROM thread WHERE game_time > ?", (now,))}
@@ -648,6 +649,11 @@ def cull_after(day, hour, minute):
         conn.execute("DELETE FROM thread WHERE memory IS NOT NULL AND game_time > ?", (now,))
         conn.execute("UPDATE thread SET game_time = (SELECT MAX(game_time) FROM dialogue WHERE thread_id = thread.id) WHERE game_time > ?", (now,))
         _drop_unused_threads(conn, touched)
+        # Each exchange writes 2 lines into each copy, and the copy of the NPC holds every exchange
+        conn.executemany(
+            "UPDATE thread SET exchanges = (SELECT COUNT(*) / 2 FROM dialogue WHERE thread_id = ?1 GROUP BY character_id ORDER BY 1 DESC LIMIT 1) WHERE id = ?1 AND exchanges > 0",
+            [(thread_id,) for thread_id in touched],
+        )
         return culled
 
 
