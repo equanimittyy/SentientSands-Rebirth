@@ -389,6 +389,24 @@ class ThreadTest(CampaignTestCase):
         self.assertEqual([thread["id"] for thread in campaign_db.threads()], [pending])
         self.assertEqual((campaign_db.thread_members([remembered]), campaign_db.thread_partners(self.STICK)), ({}, [GENERIC_ID]))
 
+    def test_a_chat_counts_each_exchange_and_a_radiant_conversation_none(self):
+        chat = self.exchange(None, "[Day 3, 14:05]")
+        self.exchange(chat, "[Day 3, 14:06]")
+        radiant = campaign_db.join_thread(None, [(GENERIC_ID, "speaker", False), (self.IZUMI, "speaker", False)], campaign_db.game_time("[Day 4, 09:00]"), exchange=False)
+        campaign_db.append_dialogue(GENERIC_ID, [("[Day 4, 09:00] Jorge: Hm.", GENERIC_ID), ("[Day 4, 09:00] Izumi: Hot today.", self.IZUMI)], {}, radiant)
+        self.assertEqual({thread["id"]: thread["exchanges"] for thread in campaign_db.pending_threads()}, {chat: 2, radiant: 0})
+
+    def test_a_pending_thread_is_deleted_with_every_copy_and_only_for_the_game_time_that_was_read(self):
+        pending = self.exchange(None, "[Day 1, 08:00]", listeners=[self.IZUMI])
+        remembered = self.exchange(None, "[Day 2, 08:00]")
+        campaign_db.set_memory(remembered, "Stick greeted Jorge.", campaign_db.game_time("[Day 2, 08:00]"))
+        self.assertFalse(campaign_db.delete_pending_thread(pending, campaign_db.game_time("[Day 1, 07:00]")))
+        self.assertFalse(campaign_db.delete_pending_thread(remembered, campaign_db.game_time("[Day 2, 08:00]")))
+        self.assertTrue(campaign_db.delete_pending_thread(pending, campaign_db.game_time("[Day 1, 08:00]")))
+        self.assertEqual([thread["id"] for thread in campaign_db.threads()], [remembered])
+        self.assertEqual([campaign_db.dialogue(npc_id) for npc_id in (self.STICK, GENERIC_ID, self.IZUMI)], [[], [], []])
+        self.assertEqual((campaign_db.thread_members([pending]), campaign_db.thread_partners(self.STICK)), ({}, [GENERIC_ID]))
+
     def test_the_memories_of_a_member_are_the_newest_oldest_first(self):
         threads = [self.exchange(None, f"[Day {day}, 08:00]", listeners=[self.IZUMI] if day == 2 else []) for day in (1, 2, 3, 4)]
         for day, thread_id in enumerate(threads[:3], start=1):

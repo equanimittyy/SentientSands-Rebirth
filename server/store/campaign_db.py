@@ -15,7 +15,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 DB_NAME = "campaign.db"
-SCHEMA_VERSION = 17
+SCHEMA_VERSION = 18
 DIALOGUE_BLOCK = 20
 # A memory that this many passes read and did not cite leaves the auto rumor pool, so dull memories do not fill each prompt
 RUMOR_PASSES = 6
@@ -46,7 +46,8 @@ CREATE TABLE thread (
   game_time    INTEGER,
   location     TEXT,
   memory       TEXT,
-  rumor_passes INTEGER NOT NULL DEFAULT 0
+  rumor_passes INTEGER NOT NULL DEFAULT 0,
+  exchanges    INTEGER NOT NULL DEFAULT 0
 );
 CREATE TABLE thread_member (
   thread_id         INTEGER NOT NULL REFERENCES thread(id) ON DELETE CASCADE,
@@ -317,15 +318,15 @@ def append_dialogue(npc_id, lines, profile, thread_id=None):
         )
 
 
-def join_thread(thread_id, members, joined_at, location=None):
+def join_thread(thread_id, members, joined_at, location=None, exchange=True):
     """Adds members, (npc_id, role, in_player_faction) triples, to the thread, or to a new thread at location when thread_id
     is None or names a deleted thread. A member keeps the game time and the faction of its first join, and an overhearer
-    becomes a speaker when it speaks. The thread takes joined_at as the game time of its newest exchange. Returns the
-    thread ID."""
+    becomes a speaker when it speaks. The thread takes joined_at as the game time of its newest exchange, and counts one
+    more chat exchange unless exchange is False, as for a radiant conversation. Returns the thread ID."""
     with _connect(write=True) as conn:
         if thread_id is None or not conn.execute("SELECT 1 FROM thread WHERE id = ?", (thread_id,)).fetchone():
             thread_id = conn.execute("INSERT INTO thread (location) VALUES (?)", (location,)).lastrowid
-        conn.execute("UPDATE thread SET game_time = COALESCE(?, game_time) WHERE id = ?", (joined_at, thread_id))
+        conn.execute("UPDATE thread SET game_time = COALESCE(?, game_time), exchanges = exchanges + ? WHERE id = ?", (joined_at, int(exchange), thread_id))
         conn.executemany(
             "INSERT INTO thread_member (thread_id, npc_id, role, game_time, in_player_faction) VALUES (?, ?, ?, ?, ?)"
             " ON CONFLICT (thread_id, npc_id) DO UPDATE SET role = excluded.role WHERE excluded.role = 'speaker'",
@@ -368,12 +369,12 @@ def threads():
 
 
 def pending_threads():
-    """Each thread that has a line and no memory, oldest first, as a dict with the game time of its newest exchange and the
-    lines of one copy (_thread_lines)."""
+    """Each thread that has a line and no memory, oldest first, as a dict with the game time of its newest exchange, its
+    count of chat exchanges, and the lines of one copy (_thread_lines)."""
     with _connect() as conn:
-        rows = conn.execute("SELECT id, game_time FROM thread WHERE memory IS NULL ORDER BY id").fetchall()
+        rows = conn.execute("SELECT id, game_time, exchanges FROM thread WHERE memory IS NULL ORDER BY id").fetchall()
         lines = _thread_lines(conn)
-    return [{"id": thread_id, "game_time": newest, "lines": lines[thread_id]} for thread_id, newest in rows if thread_id in lines]
+    return [{"id": thread_id, "game_time": newest, "exchanges": exchanges, "lines": lines[thread_id]} for thread_id, newest, exchanges in rows if thread_id in lines]
 
 
 def set_memory(thread_id, memory, game_time):
@@ -384,6 +385,17 @@ def set_memory(thread_id, memory, game_time):
         if not conn.execute("UPDATE thread SET memory = ? WHERE id = ? AND memory IS NULL AND game_time IS ?", (memory, thread_id, game_time)).rowcount:
             return False
         conn.execute("DELETE FROM dialogue WHERE thread_id = ?", (thread_id,))
+        return True
+
+
+def delete_pending_thread(thread_id, game_time):
+    """Deletes a pending thread with its members and every copy of its lines, so nothing of the conversation stays. Returns
+    False, with no write, as set_memory does."""
+    with _connect(write=True) as conn:
+        if not conn.execute("SELECT 1 FROM thread WHERE id = ? AND memory IS NULL AND game_time IS ?", (thread_id, game_time)).fetchone():
+            return False
+        conn.execute("DELETE FROM dialogue WHERE thread_id = ?", (thread_id,))
+        conn.execute("DELETE FROM thread WHERE id = ?", (thread_id,))
         return True
 
 

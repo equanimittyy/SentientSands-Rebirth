@@ -80,7 +80,7 @@ def radiant(when, lines, memory):
     stores it."""
     participants = list(dict.fromkeys(npc_id for npc_id, _ in lines))
     prefix = f"[{when}] "
-    thread_id = campaign_db.join_thread(None, [(npc_id, "speaker", True) for npc_id in participants], campaign_db.game_time(prefix), "The Hub")
+    thread_id = campaign_db.join_thread(None, [(npc_id, "speaker", True) for npc_id in participants], campaign_db.game_time(prefix), "The Hub", exchange=False)
     rows = [(f"{prefix}{NAMES[npc_id]}: {text}", npc_id) for npc_id, text in lines]
     for npc_id in participants:
         campaign_db.append_dialogue(npc_id, rows, {}, thread_id)

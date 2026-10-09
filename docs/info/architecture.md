@@ -462,7 +462,7 @@ The `character` table holds every character of a campaign: canon characters, met
 
 Each chat exchange belongs to a chat thread, which records who took part.
 
-- `thread` holds the ID (`AUTOINCREMENT`, so an ID is never reused), the game time of the newest exchange, the start place, the memory, and the count of auto rumor passes that did not cite the memory (see [Auto rumors](#auto-rumors)). `dialogue.thread_id` links each row. Each radiant conversation is a thread (see [Radiant conversations](#radiant-conversations)).
+- `thread` holds the ID (`AUTOINCREMENT`, so an ID is never reused), the game time of the newest exchange, the start place, the memory, the count of auto rumor passes that did not cite the memory (see [Auto rumors](#auto-rumors)), and the count of chat exchanges. A radiant conversation counts no exchange. `dialogue.thread_id` links each row. Each radiant conversation is a thread (see [Radiant conversations](#radiant-conversations)).
 - `thread_member` holds the `npc_id`, the role (`speaker` or `overheard`), the join time, and whether the member was in the player's faction then. A member keeps the join time and the faction of its first join, so the history text stays stable for the cache. An overhearer that speaks becomes a speaker, so the NPC later knows that it spoke with it (`campaign_db.thread_partners`).
 - `CURRENT_THREAD` ends at a chat with another NPC, a switch between Whisper, Talk, and Yell, a campaign switch, a cull, a restart, or a real-time pause of the Conversation timeout (`conversation_timeout_minutes`, default 3). A chat as another squad member stays in the thread, so one memory covers all the exchanges of the squad with the NPC.
 - A cull or a character delete deletes each thread with no memory and no dialogue row.
@@ -480,6 +480,7 @@ The chat prompt uses the threads (`npc_id`, not names):
 The server distils each chat thread into a short memory, which replaces the lines of the thread (`server/chat/memory.py`).
 
 - After the Conversation timeout with no chat (`quiet_seconds`), `memory_loop` writes a memory for each pending thread (a line and no memory), one call at a time, oldest first, then the rumors of the events follow (see [Rumors](#rumors)). It also runs after each radiant conversation. A failed thread stays pending.
+- A chat thread of one exchange gets no memory. `memory_loop` deletes it with its members and lines (`campaign_db.delete_pending_thread`), so the NPCs forget it, and the next chat of the same speakers is a first meeting.
 - Before each call, the server checks that the chat is still quiet, because a local model serves one request at a time. It ends the current thread under `THREAD_LOCK`, so each memory covers a whole thread.
 - The call uses the `memory` task (see [LLM routing](#llm-routing)) and `prompt_thread_memory.txt`. The memory names each speaker and never says "you" outside a quote, so every member reads the same text.
 - The stored text marks each member name with its `npc_id`, and each read puts in the current name (`chat_prompt.mark_names`, `chat_prompt.named`), so a rename changes every memory.

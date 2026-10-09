@@ -91,7 +91,7 @@ def radiant_conversation():
         time_prefix = get_current_time_prefix()
         spoke = {serial for serial, _ in lines}
         members = [(npc['npc_id'], "speaker" if serial in spoke else "overheard", not npc_talk) for serial, npc in participants.items()]
-        thread_id = campaign_db.join_thread(None, members, campaign_db.game_time(time_prefix), scene_text.location_name(center))
+        thread_id = campaign_db.join_thread(None, members, campaign_db.game_time(time_prefix), scene_text.location_name(center), exchange=False)
         stored = [(f"{time_prefix}{names[serial]}: {text}", participants[serial]['npc_id']) for serial, text in lines]
         for serial, npc in participants.items():
             campaign_db.append_dialogue(npc['npc_id'], stored, profiles[serial], thread_id)

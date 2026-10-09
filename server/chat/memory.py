@@ -39,6 +39,15 @@ def write_memory(thread, members, campaign):
     else:
         logging.info(f"MEMORY: Dropped the memory of the chat thread {thread['id']}, because a cull or a delete changed the thread while the LLM wrote it.")
 
+def forget_thread(thread, campaign):
+    """Deletes a pending chat thread of one exchange, which gets no memory, so the NPCs forget the conversation."""
+    if state.ACTIVE_CAMPAIGN != campaign:
+        return
+    if campaign_db.delete_pending_thread(thread["id"], thread["game_time"]):
+        logging.info(f"MEMORY: Deleted the chat thread {thread['id']}, because it holds one exchange.")
+    else:
+        logging.info(f"MEMORY: Kept the chat thread {thread['id']}, because a cull or a delete changed it.")
+
 def write_rumor(event_id, campaign):
     """Has the LLM write the rumor of an event that has none and stores it. A failed call leaves the event without one."""
     event = campaign_db.event(event_id)
@@ -58,7 +67,8 @@ def write_rumor(event_id, campaign):
         logging.info(f"RUMOR: Dropped the rumor of the event {event_id}, because the player saved one or a cull deleted the event while the LLM wrote it.")
 
 def distill_threads():
-    """Writes the memory of each pending chat thread of the active campaign, the oldest first, while the chat stays quiet."""
+    """Writes the memory of each pending chat thread of the active campaign, the oldest first, while the chat stays quiet. A
+    chat thread of one exchange is deleted instead."""
     campaign = state.ACTIVE_CAMPAIGN
     try:
         pending = campaign_db.pending_threads()
@@ -76,7 +86,10 @@ def distill_threads():
                 return
             # A chat during the call then starts a new thread, so each memory covers a whole thread
             state.CURRENT_THREAD.clear()
-        write_memory(thread, members.get(thread["id"], []), campaign)
+        if thread["exchanges"] == 1:
+            forget_thread(thread, campaign)
+        else:
+            write_memory(thread, members.get(thread["id"], []), campaign)
 
 def write_rumors():
     """Writes the rumor of each event of the active campaign that has none, the oldest first, while the chat stays quiet. The
