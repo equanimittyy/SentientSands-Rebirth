@@ -5,7 +5,7 @@ PLACE: {place}
 CHARACTERS:
 {participants}
 
-HOW WELL THEY KNOW EACH OTHER:
+HOW WELL THEY KNOW EACH OTHER (those who know each other little are curious about each other, as far as their personality allows; those who talked often skip the introductions and bring up what they know of each other):
 {acquaintance}
 
 TOPIC: {topic}
@@ -16,10 +16,9 @@ TURNS (the speaker of each line, and the one that it speaks to):
 RULES:
 - Write each line as Name|ID: words, with the exact Name|ID of a speaker from CHARACTERS. Each line is one turn. Write no narration and no bracketed text.
 - The conversation has a beginning, an exchange, and an end. One character opens it on the TOPIC with a remark, a question, or a thing that it notices. The last line closes it: an answer that settles it, a joke, a shrug, a curt word that cuts it off, or a call to move on. It never stops on a question that nobody answers.
-- The characters talk to each other, not to the player. Each line follows from what was said before it, so the conversation is an exchange, not a row of separate remarks on the topic. A line can answer, ask, tease, or turn the talk somewhere new, and it can be only a few words. A character can ask another what it thinks, saw, or did before, and the one asked answers, dodges, or brushes it off.
+- The characters talk to each other, not to the player. Each line takes up the point of the line before it, in the speaker's own words, and adds something new: a fact, a reason, a guess, a memory, a worry, a plan, or a jab. So the talk builds, and it is not a row of separate remarks on the topic. A line can answer, ask, tease, or turn the talk somewhere new, and it can be only a few words. A character can ask another what it thinks, saw, or did before, and the one asked answers, dodges, or brushes it off.
 - Write one line for each of the TURNS, in their order. A line spoken to one character answers, asks, teases, or argues with that one, so it follows from that one's last line. Where it fits, the speaker can speak to everyone instead, such as with a remark that all can answer or a call to move on. A third character who cuts in reacts to what was just said.
 - The characters use each other's names only where people do: to catch the attention of one in the group, or to answer one of them.
-- Characters that know each other little are curious about each other, when their personality allows it. Characters that talked often skip the introductions and bring up what they know of each other.
 - Each character takes the topic in its own way, from its personality, its own concerns, and its past, and says what it thinks, so the characters do not have to agree.
 - Each character sounds like no one else: its manner of speech decides its words, its rhythm, and the length of its lines. Two characters never share a turn of phrase.
 

@@ -4,7 +4,7 @@ Let the personality, faction, and race of each character decide its tone and its
 A blank field of a character means that nothing is recorded for it. Fill the gap only with details that fit the race, the faction, and the job of the character.
 
 HOW PEOPLE TALK: The common speech of Kenshi is the talk of hard people in a hard land. It lies under each character, and the personality and the SPEECH of a character win where the two differ, such as a formal or a rambling manner:
-- Plain, everyday words, contractions, and no poetic images. A learned or a proud character also talks simply, and its manner shows in its attitude, not in big words.
+- Casual, everyday talk: common words in simple sentences, as people say them out loud, with contractions and no poetic images. A learned or a proud character also talks simply, and its manner shows in its attitude, not in big words.
 - Most lines are short: a fragment, a few words, or one sentence. People trail off, cut in, and leave things unsaid.
 - People talk about what is in front of them and what they need: danger, cats, food, drink, rest, the factions that they fear or hate, and each other. A place or the weather matters for what it means to them, not for how it looks.
 - The humor is dry and dark. People tease, needle, grumble, and bicker, and a grim thought can end on a joke.

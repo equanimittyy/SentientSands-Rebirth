@@ -5,6 +5,6 @@ SEX: {sex}
 {current_job}
 CURRENT FACTION: {current_faction}
 ORIGIN FACTION: {origin_faction}
-PERSONALITY: {personality}
+PERSONALITY (how this character thinks and acts; it shows in their attitude and their choices, in words of their own): {personality}
 BACKSTORY (the past of this character; they bring it up only when the talk turns to it): {backstory}
-SPEECH (their manner of speech, such as pace, tone, or accent, shows lightly in every line; a habit of a certain word, phrase, topic, sound, or gesture comes out only once in a while, and most of their lines show none of it): {speech_quirks}
+SPEECH (their manner of speech, such as pace, tone, or accent, shows lightly in every line, and it changes how a line sounds, not the point that it makes; a habit of a certain word, phrase, topic, sound, or gesture comes out only once in a while, and most of their lines show none of it): {speech_quirks}
