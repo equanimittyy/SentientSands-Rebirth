@@ -1,5 +1,6 @@
 #include "LauncherWindow.h"
 #include "EventsWindow.h"
+#include "JournalWindow.h"
 #include "../core/Comm.h"
 #include "../core/Globals.h"
 #include "LibraryWindow.h"
@@ -29,6 +30,7 @@ void CloseLauncherUI() {
 
 void OnLauncherLibraryClick(MyGUI::Widget *sender) { CreateLibraryUI(); }
 void OnLauncherEventsClick(MyGUI::Widget *sender) { CreateEventsUI(); }
+void OnLauncherJournalClick(MyGUI::Widget *sender) { CreateJournalUI(); }
 void OnLauncherWelcomeClick(MyGUI::Widget *sender) { CreateWelcomeUI(); }
 void OnLauncherWebPanelClick(MyGUI::Widget *sender) {
   ShellExecuteA(NULL, "open", "http://127.0.0.1:5000/", NULL, NULL,
@@ -151,9 +153,9 @@ void CreateLauncherUI() {
       MyGUI::newDelegate(OnLauncherWindowButtonPressed);
 
   MyGUI::Widget *client = g_launcherWindow->getClientWidget();
-  float yDelta = 0.16f;
+  float yDelta = 0.137f;
   float yPos = 0.02f;
-  float bH = 0.14f;
+  float bH = 0.12f;
 
   MyGUI::Button *libBtn = client->createWidgetReal<MyGUI::Button>(
       "Kenshi_Button1", 0.05f, yPos, 0.9f, bH,
@@ -169,6 +171,15 @@ void CreateLauncherUI() {
       "SentientSands_LauncherEvtBtn");
   evtBtn->setCaption(Utf8ToWide(T("Events")).c_str());
   evtBtn->eventMouseButtonClick += MyGUI::newDelegate(OnLauncherEventsClick);
+  yPos += yDelta;
+
+  MyGUI::Button *journalBtn = client->createWidgetReal<MyGUI::Button>(
+      "Kenshi_Button1", 0.05f, yPos, 0.9f, bH,
+      MyGUI::Align::Top | MyGUI::Align::HStretch,
+      "SentientSands_LauncherJournalBtn");
+  journalBtn->setCaption(Utf8ToWide(T("Journal")).c_str());
+  journalBtn->eventMouseButtonClick +=
+      MyGUI::newDelegate(OnLauncherJournalClick);
   yPos += yDelta;
 
   MyGUI::Button *cullBtn = client->createWidgetReal<MyGUI::Button>(
@@ -218,6 +229,7 @@ void RefreshLauncherUI() {
   };
   RefreshMap items[] = {{"SentientSands_LauncherLibBtn", "Dialogue Library"},
                         {"SentientSands_LauncherEvtBtn", "Events"},
+                        {"SentientSands_LauncherJournalBtn", "Journal"},
                         {"SentientSands_LauncherWebBtn", "Open Web App"},
                         {"SentientSands_LauncherRestartBtn", "Restart Server"},
                         {"SentientSands_LauncherWelBtn", "Welcome Popup"},

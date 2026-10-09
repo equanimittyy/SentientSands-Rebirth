@@ -1069,3 +1069,14 @@ std::string GameReport() {
   return "{\"player\": " + player + ", \"events\": " + TakeGameEvents() +
          ", \"changed_towns\": " + ChangedTowns() + "}";
 }
+
+// Leading commas, so the empty result without a world leaves the object valid
+std::string GameTimeFields() {
+  GameWorld *world = ppWorld ? *ppWorld : nullptr;
+  if (!world)
+    return "";
+  TimeOfDay tod = world->getTimeStamp_inGameHours();
+  return ", \"day\": " + ToString((int)tod.getTotalDays()) +
+         ", \"hour\": " + ToString((int)fmod(tod.getTotalHours(), 24.0)) +
+         ", \"minute\": " + ToString((int)fmod(tod.getTotalMinutes(), 60.0));
+}

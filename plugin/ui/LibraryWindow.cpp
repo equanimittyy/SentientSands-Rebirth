@@ -270,10 +270,11 @@ MyGUI::TextBox *AddBioLine(MyGUI::Widget *client, const std::string &text,
   return line;
 }
 
-MyGUI::EditBox *AddBioEditBox(MyGUI::Widget *client, float top, float height,
-                              const std::string &name) {
+MyGUI::EditBox *AddWordWrapBox(MyGUI::Widget *client, float left, float top,
+                               float width, float height,
+                               const std::string &name) {
   MyGUI::EditBox *box = client->createWidgetReal<MyGUI::EditBox>(
-      "Kenshi_WordWrap", 0.05f, top, 0.9f, height,
+      "Kenshi_WordWrap", left, top, width, height,
       MyGUI::Align::Top | MyGUI::Align::HStretch, name);
   // Kenshi_WordWrap sets Static, which blocks typing
   box->setEditStatic(false);
@@ -286,6 +287,11 @@ MyGUI::EditBox *AddBioEditBox(MyGUI::Widget *client, float top, float height,
   box->setTextAlign(MyGUI::Align::Left | MyGUI::Align::Top);
   box->setFontHeight(18);
   return box;
+}
+
+MyGUI::EditBox *AddBioEditBox(MyGUI::Widget *client, float top, float height,
+                              const std::string &name) {
+  return AddWordWrapBox(client, 0.05f, top, 0.9f, height, name);
 }
 
 void AddBioButtons(MyGUI::Widget *client, const char *confirmKey,

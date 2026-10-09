@@ -22,3 +22,4 @@ std::string GetVisibleEquipment(Character *npc);
 std::string TakeGameEvents();
 std::string ChangedTowns();
 std::string GameReport();
+std::string GameTimeFields();

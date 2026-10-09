@@ -1,4 +1,4 @@
-"""The campaign's characters, dialogue, canon, events, and rumors, in one SQLite file per campaign folder.
+"""The campaign's characters, dialogue, canon, events, rumors, and journal, in one SQLite file per campaign folder.
 
 Every write runs in one BEGIN IMMEDIATE transaction, and a profile write merges only the keys that the
 caller passes. Two requests that change one NPC during an LLM call therefore keep both changes.
@@ -15,13 +15,15 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 DB_NAME = "campaign.db"
-SCHEMA_VERSION = 16
+SCHEMA_VERSION = 17
 DIALOGUE_BLOCK = 20
 # A memory that this many passes read and did not cite leaves the auto rumor pool, so dull memories do not fill each prompt
 RUMOR_PASSES = 6
 # The chat count of a provisional profile also marks it as provisional: the template validator, which the campaign editor
 # also runs, takes only text and numbers as profile values, so a true/false mark could not be saved from the editor
 PROVISIONAL = "Interactions"
+JOURNAL_PAGE = 20
+JOURNAL_LABEL = 40
 
 SCHEMA = f"""
 CREATE TABLE meta (
@@ -75,6 +77,13 @@ CREATE TABLE rumor (
   game_time   INTEGER,
   text        TEXT NOT NULL,
   instruction TEXT NOT NULL DEFAULT ''
+);
+-- AUTOINCREMENT: the Journal window keeps the ID of the selected entry, so a late save must never reach a new entry
+CREATE TABLE journal (
+  id        INTEGER PRIMARY KEY AUTOINCREMENT,
+  game_time INTEGER,
+  title     TEXT NOT NULL DEFAULT '',
+  text      TEXT NOT NULL DEFAULT ''
 );
 CREATE TABLE faction (
   id          INTEGER PRIMARY KEY,
@@ -633,6 +642,52 @@ def cull_after(day, hour, minute):
 def delete_rumor(rumor_id):
     with _connect(write=True) as conn:
         return conn.execute("DELETE FROM rumor WHERE id = ?", (rumor_id,)).rowcount > 0
+
+
+def add_journal_entry(game_time):
+    """Stores an empty journal entry, created at the game time. Returns its ID."""
+    with _connect(write=True) as conn:
+        return conn.execute("INSERT INTO journal (game_time) VALUES (?)", (game_time,)).lastrowid
+
+
+def journal_entry(entry_id):
+    """The entry as a dict, or None."""
+    with _connect() as conn:
+        row = conn.execute("SELECT game_time, title, text FROM journal WHERE id = ?", (entry_id,)).fetchone()
+    return {"game_time": row[0], "title": row[1], "text": row[2]} if row else None
+
+
+def save_journal_entry(entry_id, title, text):
+    """Returns False when the entry is gone."""
+    with _connect(write=True) as conn:
+        return conn.execute("UPDATE journal SET title = ?, text = ? WHERE id = ?", (title, text, entry_id)).rowcount > 0
+
+
+def delete_journal_entry(entry_id):
+    with _connect(write=True) as conn:
+        return conn.execute("DELETE FROM journal WHERE id = ?", (entry_id,)).rowcount > 0
+
+
+def journal_page(query, page):
+    """One page of the entries whose title or text holds the query, newest first by creation, so an edit moves no entry to
+    another page. Returns (entries, page, pages), each entry with its id and label. A page outside the range moves into it,
+    so the delete of the last entry of the last page shows the page before it."""
+    with _connect() as conn:
+        rows = conn.execute("SELECT id, game_time, title, text FROM journal ORDER BY id DESC").fetchall()
+    # In Python, because the SQLite lower() folds only ASCII letters
+    query = query.casefold()
+    found = [row for row in rows if query in row[2].casefold() or query in row[3].casefold()]
+    pages = max(1, -(-len(found) // JOURNAL_PAGE))
+    page = min(max(page, 1), pages)
+    start = (page - 1) * JOURNAL_PAGE
+    return [{"id": entry_id, "label": _journal_label(at, title, text)} for entry_id, at, title, text in found[start:start + JOURNAL_PAGE]], page, pages
+
+
+def _journal_label(game_time, title, text):
+    name = title.strip() or next((line.strip() for line in text.splitlines() if line.strip()), "") or "Empty entry"
+    if len(name) > JOURNAL_LABEL:
+        name = name[:JOURNAL_LABEL].rstrip() + "..."
+    return name if game_time is None else f"Day {game_time // 1440}  {name}"
 
 
 def overview():

@@ -552,6 +552,65 @@ class AutoRumorTest(CampaignTestCase):
         self.assertEqual([memory["id"] for memory in campaign_db.memories_of(GENERIC_ID)], [kept])
 
 
+class JournalTest(CampaignTestCase):
+    def setUp(self):
+        super().setUp()
+        campaign_db.open_campaign(self.folder, lambda: SEED)
+
+    def labels(self, query="", page=1):
+        entries, page, pages = campaign_db.journal_page(query, page)
+        return [entry["label"] for entry in entries], page, pages
+
+    def test_add_save_and_delete(self):
+        entry_id = campaign_db.add_journal_entry(12 * 1440 + 845)
+        self.assertEqual(campaign_db.journal_entry(entry_id), {"game_time": 12 * 1440 + 845, "title": "", "text": ""})
+        self.assertTrue(campaign_db.save_journal_entry(entry_id, "Trip", "Went to the Hub."))
+        self.assertEqual(campaign_db.journal_entry(entry_id), {"game_time": 12 * 1440 + 845, "title": "Trip", "text": "Went to the Hub."})
+        self.assertTrue(campaign_db.delete_journal_entry(entry_id))
+        self.assertFalse(campaign_db.delete_journal_entry(entry_id))
+        self.assertFalse(campaign_db.save_journal_entry(entry_id, "Late", "save"))
+        self.assertIsNone(campaign_db.journal_entry(entry_id))
+
+    def test_a_new_entry_never_takes_the_id_of_the_deleted_newest_entry(self):
+        gone = campaign_db.add_journal_entry(None)
+        campaign_db.delete_journal_entry(gone)
+        new = campaign_db.add_journal_entry(None)
+        self.assertNotEqual(new, gone)
+        self.assertFalse(campaign_db.save_journal_entry(gone, "Late", "save"))
+        self.assertEqual(campaign_db.journal_entry(new)["text"], "")
+
+    def test_the_label_is_the_day_and_the_title_or_else_the_first_line(self):
+        for title, text in (("Trip", "Went to the Hub."), ("  ", "\n  \n Lost Ruka near Stack. \nShe was hurt."), ("", ""), ("A" * 50, "")):
+            campaign_db.save_journal_entry(campaign_db.add_journal_entry(9 * 1440 + 60), title, text)
+        campaign_db.save_journal_entry(campaign_db.add_journal_entry(None), "No world", "")
+        self.assertEqual(self.labels()[0], ["No world", "Day 9  " + "A" * 40 + "...", "Day 9  Empty entry", "Day 9  Lost Ruka near Stack.", "Day 9  Trip"])
+
+    def test_the_newest_entry_by_creation_comes_first_and_an_edit_moves_none(self):
+        first, second = campaign_db.add_journal_entry(2 * 1440), campaign_db.add_journal_entry(1440)
+        campaign_db.save_journal_entry(first, "First", "")
+        campaign_db.save_journal_entry(second, "Second", "")
+        campaign_db.save_journal_entry(first, "First again", "")
+        self.assertEqual(self.labels()[0], ["Day 1  Second", "Day 2  First again"])
+
+    def test_pages_hold_twenty_entries_and_a_page_outside_the_range_moves_into_it(self):
+        for n in range(45):
+            campaign_db.save_journal_entry(campaign_db.add_journal_entry(None), str(n), "")
+        self.assertEqual(self.labels(page=1), ([str(n) for n in range(44, 24, -1)], 1, 3))
+        self.assertEqual(self.labels(page=3), (["4", "3", "2", "1", "0"], 3, 3))
+        self.assertEqual(self.labels(page=9)[1:], (3, 3))
+        self.assertEqual(self.labels(page=0)[1:], (1, 3))
+
+    def test_the_search_finds_the_title_or_the_text_in_any_case(self):
+        for title, text in (("Stack", ""), ("", "Ruka was hurt at STACK."), ("Hub", "Bought rations."), ("Ödland", "")):
+            campaign_db.save_journal_entry(campaign_db.add_journal_entry(None), title, text)
+        self.assertEqual(self.labels("stack"), (["Ruka was hurt at STACK.", "Stack"], 1, 1))
+        self.assertEqual(self.labels("ödLAND")[0], ["Ödland"])
+        self.assertEqual(self.labels("nowhere"), ([], 1, 1))
+
+    def test_an_empty_journal_has_one_page(self):
+        self.assertEqual(self.labels(page=2), ([], 1, 1))
+
+
 class FactionTest(CampaignTestCase):
     def setUp(self):
         super().setUp()

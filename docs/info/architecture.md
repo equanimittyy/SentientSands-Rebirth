@@ -564,6 +564,30 @@ A profile is provisional while it holds `Interactions` (`campaign_db.PROVISIONAL
 - A record edit carries the `updated_at` that the page loaded, and the server refuses it when the row changed after that.
 - `POST /cull` from the SSR HUB is the same cull without the campaign check.
 
+### Journal
+
+The Journal window of the SSR HUB is a notebook of the player (`plugin/ui/JournalWindow.cpp`). Each campaign has its own journal in the `journal` table: the title, the text, and the game time at which the player created each entry. No prompt reads the journal, and the cull keeps it.
+
+| Route | Behavior |
+|---|---|
+| `POST /journal` | One page of 20 entries (`JOURNAL_PAGE`), newest first by creation, with the active campaign and the page count. A search keeps each entry whose title or text holds the query, case-insensitive. A page number outside the range moves into it. |
+| `POST /journal/read` | The title, the text, and the game time of an entry |
+| `POST /journal/add` | Store an empty entry at the game time that the plugin sends |
+| `POST /journal/save`, `.../delete` | Save the title and the text of an entry, or delete it |
+
+- The `id` is `AUTOINCREMENT`, because the window keeps the ID of the selected entry, and a late save must never reach a new entry.
+- An edit does not move an entry, because the move would take the entry to another page.
+- The search runs on the server, because the window holds only one page. It folds the case in Python (`str.casefold`), because the SQLite `lower()` folds only ASCII letters.
+- The label of an entry is the day and the title, or the first line of the text when the title is blank (`_journal_label` in `server/store/campaign_db.py`).
+- Each write sends back the campaign of the page, and the server refuses it with status 409 after a campaign switch, because the same ID can name another entry in another campaign.
+- `/journal/add` carries the game time from the plugin (`GameTimeFields` in `plugin/game/Context.cpp`), because the player's context of the latest request can be old (see [Game state](#game-state)).
+
+The window:
+
+- It saves a changed entry before the player leaves it: at the select of another entry, a page change, New Entry, and the close of the window. Save saves at once.
+- Each page request and each read takes a number, and the window drops a reply that a newer request made stale, because Search sends a request at each keystroke.
+- It escapes `#` in each label and loads the boxes with `setOnlyText`, because MyGUI reads `#` as a colour tag.
+
 ## World templates
 
 A world template is a folder that describes a world. A new campaign copies every record except the manifest (see [Campaign canon](#campaign-canon)).

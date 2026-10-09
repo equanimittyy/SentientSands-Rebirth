@@ -79,6 +79,52 @@ def events_content():
              + (textwrap.wrap(rumor["text"], width=76) if rumor else ["None yet. Press Generate Rumor to write one."]))
     return jsonify({"status": "ok", "text": "\n".join(lines)})
 
+@bp.route('/journal', methods=['POST'])
+def journal():
+    """A page of the Journal window. The plugin finds the keys of each entry after its "id", so each key must sort after "id",
+    as Flask sorts them. The window sends the campaign back with each write, because the same ID can name another entry in
+    another campaign."""
+    data = request.get_json(silent=True) or {}
+    entries, page, pages = campaign_db.journal_page(str(data.get("query") or ""), int(data.get("page") or 1))
+    return jsonify({"status": "ok", "campaign": state.ACTIVE_CAMPAIGN, "entries": entries, "page": page, "pages": pages})
+
+@bp.route('/journal/read', methods=['POST'])
+def read_journal_entry():
+    entry = campaign_db.journal_entry((request.get_json(silent=True) or {}).get("id"))
+    if not entry:
+        return jsonify({"status": "error", "message": "The entry is gone."}), 404
+    at = entry["game_time"]
+    return jsonify({"status": "ok", "title": entry["title"], "text": entry["text"], "time": "" if at is None else campaign_db.game_time_text(at)})
+
+@bp.route('/journal/add', methods=['POST'])
+def add_journal_entry():
+    """The plugin sends the game time, because the player's context of the latest request can be old."""
+    data = request.get_json(silent=True) or {}
+    refused = campaign_write(data)
+    if refused: return refused
+    at = int(data["day"]) * 1440 + int(data.get("hour") or 0) * 60 + int(data.get("minute") or 0) if "day" in data else None
+    entry_id = campaign_db.add_journal_entry(at)
+    logging.info(f"JOURNAL: Added the entry {entry_id}")
+    return jsonify({"status": "ok", "id": entry_id})
+
+@bp.route('/journal/save', methods=['POST'])
+def save_journal_entry():
+    data = request.get_json(silent=True) or {}
+    refused = campaign_write(data)
+    if refused: return refused
+    if not campaign_db.save_journal_entry(data.get("id"), str(data.get("title") or ""), str(data.get("text") or "")):
+        return jsonify({"status": "error", "message": "The entry is gone."}), 404
+    return jsonify({"status": "ok"})
+
+@bp.route('/journal/delete', methods=['POST'])
+def delete_journal_entry():
+    data = request.get_json(silent=True) or {}
+    refused = campaign_write(data)
+    if refused: return refused
+    if campaign_db.delete_journal_entry(data.get("id")):
+        logging.info(f"JOURNAL: Deleted the entry {data.get('id')}")
+    return jsonify({"status": "ok"})
+
 @bp.route('/report', methods=['POST'])
 def game_report():
     data = request.get_json(silent=True) or {}

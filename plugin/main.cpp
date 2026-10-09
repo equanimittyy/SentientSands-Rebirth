@@ -191,6 +191,16 @@ void ProcessMessageQueue(GameWorld *thisptr) {
             FinishEventChange(data, "Add failed: ");
           } else if (command == "EVENT_DELETED") {
             FinishEventChange(data, "Delete failed: ");
+          } else if (command == "POPULATE_JOURNAL") {
+            PopulateJournalUI(data);
+          } else if (command == "JOURNAL_ENTRY") {
+            SetJournalEntry(data);
+          } else if (command == "JOURNAL_ADDED") {
+            FinishJournalAdd(data);
+          } else if (command == "JOURNAL_SAVED") {
+            FinishJournalSave(data);
+          } else if (command == "JOURNAL_DELETED") {
+            FinishJournalDelete(data);
           }
         }
       } else if (isRename) {
