@@ -37,4 +37,4 @@ The lean ([Outcome](framework.md#outcome)) is how likely the NPC is to treat the
 
 ## 5. Open questions
 
-1. Does `FIRST_AID_ORDER` make an NPC outside the squad treat the speaker? No in-game test covers it yet.
+1. Does `FIRST_AID_ORDER` make an NPC outside the squad treat the speaker? The `/firstaid` probe decides it ([framework.md](framework.md#7-probe)).

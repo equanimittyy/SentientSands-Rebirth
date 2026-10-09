@@ -1,6 +1,7 @@
 #include "Context.h"
 #include "../core/Globals.h"
 #include "../core/Utils.h"
+#include <core/Functions.h>
 #include <kenshi/Building/Building.h>
 #include <kenshi/CharStats.h>
 #include <kenshi/Character.h>
@@ -18,6 +19,7 @@
 #include <kenshi/AI/Blackboard.h>
 #include <kenshi/RaceData.h>
 #include <kenshi/SharedKing.h>
+#include <kenshi/ShopTraderInventory.h>
 #include <kenshi/StateBroadcastData.h>
 #include <kenshi/Tasker.h>
 #include <kenshi/Town.h>
@@ -27,6 +29,7 @@
 #undef WeatherRegion
 #include <kenshi/util/hand.h>
 #include <algorithm>
+#include <cstdlib>
 #include <map>
 #include <set>
 #include <vector>
@@ -474,6 +477,137 @@ void LogNpcRole(Character *npc) {
   logged[serial] = line;
   Log(LOG_DEBUG, "ROLE_PROBE: name='" + npc->getName() + "' npc_id=" +
                      GetNpcId(npc) + " " + line);
+}
+
+static std::string InventoryLine(Inventory *inv) {
+  if (!inv || (uintptr_t)inv < 0x1000)
+    return "none";
+  // A C-style cast checks nothing (kenshi_gotchas.md), so the override of
+  // dropItem in vtable slot 0x38 tells a ShopTraderInventory apart
+  void **vtable = *(void ***)inv;
+  bool shop = vtable[0x38 / sizeof(void *)] ==
+              (void *)KenshiLib::GetRealAddress(
+                  &ShopTraderInventory::_NV_dropItem);
+  RootObject *owner = inv->getOwner();
+  std::string line =
+      "owner='" +
+      (owner ? ((RootObjectBase *)owner)->getName() : std::string("-")) +
+      "' shop=" + (shop ? "1" : "0") +
+      " all_items=" + ToString(inv->getAllItems().size()) + " sections=";
+  for (auto it = inv->sections.begin(); it != inv->sections.end(); ++it)
+    if (it->second)
+      line += it->first + ":" +
+              ToString((int)it->second->getItems().size()) + ",";
+  if (shop) {
+    ShopTraderInventory *stock = (ShopTraderInventory *)inv;
+    line += " sources=";
+    for (auto it = stock->inventories.begin(); it != stock->inventories.end();
+         ++it)
+      if (it->second)
+        line += it->first.toString() + "/" + it->second->name + ":" +
+                ToString((int)it->second->getItems().size()) + ",";
+  }
+  return line;
+}
+
+static void LogItems(const std::string &who, Inventory *inv) {
+  if (!inv || (uintptr_t)inv < 0x1000)
+    return;
+  const lektor<Item *> &items = inv->getAllItems();
+  for (uint32_t i = 0; i < items.size(); ++i) {
+    Item *item = items[i];
+    if (!item || (uintptr_t)item < 0x1000)
+      continue;
+    Log(LOG_DEBUG,
+        "STOCK_PROBE: item who=" + who + " name='" + item->getName() +
+            "' data=" + DataLabel(item->data) +
+            " type=" + ToString((int)item->objectType) +
+            " count=" + ToString(item->quantity) +
+            " price=" + ToString(item->getValueSingle(false)) +
+            " quality=" + ToString(item->quality) +
+            " level=" + ToString(item->getLevel()) +
+            " manufacturer=" + DataLabel(item->manufacturerData) +
+            " material=" + DataLabel(item->materialData) + " section='" +
+            item->inventorySection + "'");
+  }
+}
+
+static void ProbeStock(Character *npc, Character *speaker) {
+  Building *building = npc->isIndoors().getBuilding();
+  std::string place = "none";
+  if (building)
+    place = "'" + ((RootObjectBase *)building)->getName() + "' " +
+            InventoryLine(building->getInventory());
+  Log(LOG_DEBUG, "STOCK_PROBE: name='" + npc->getName() + "' npc " +
+                     InventoryLine(npc->getInventory()) + " building=" + place);
+  LogItems("npc", npc->getInventory());
+  if (speaker)
+    LogItems("speaker", speaker->getInventory());
+}
+
+static void ProbeFirstAid(Character *npc, Character *speaker) {
+  Inventory *inv = npc->getInventory();
+  std::string line =
+      "name='" + npc->getName() + "' first_aid_item=" +
+      (inv && inv->hasItemFunction(ITEM_FIRSTAID) ? "1" : "0");
+  if (speaker) {
+    line += " speaker='" + speaker->getName() +
+            "' health=" + GetHealthStatus(speaker) + " dist=" +
+            ToString(npc->getPosition().distance(speaker->getPosition()));
+    npc->clearAllAIGoals();
+    npc->addOrder(nullptr, FIRST_AID_ORDER, (RootObject *)speaker, false, true,
+                  speaker->getPosition());
+    npc->reThinkCurrentAIAction();
+  }
+  Log(LOG_DEBUG, "FIRSTAID_PROBE: " + line);
+}
+
+static void ProbeHire(Character *npc, Character *speaker,
+                      const std::string &arg) {
+  GameWorld *world = ppWorld ? *ppWorld : NULL;
+  Blackboard *board = npc->getBlackboard();
+  if (!world || !board || (uintptr_t)board < 0x1000)
+    return;
+  std::string action = "log";
+  if (arg == "end") {
+    board->endContractJob();
+    action = "end";
+  } else if (arg.find('-') != std::string::npos && speaker) {
+    GameData *line = world->gamedata.getData(arg);
+    if (line)
+      board->setContractJob(line, speaker->getHandle());
+    action = line ? "line " + DataLabel(line) : "no_line";
+  } else if (!arg.empty() && speaker) {
+    // The Bodyguard package, which the game's hire dialogues give with hours
+    GameData *bodyguard = world->gamedata.getData("5090-gamedata.base");
+    if (bodyguard)
+      board->_setContractJob(bodyguard, atoi(arg.c_str()),
+                             speaker->getHandle());
+    action = bodyguard ? "hours " + arg : "no_package";
+  }
+  Log(LOG_DEBUG,
+      "HIRE_PROBE: name='" + npc->getName() + "' action=" + action +
+          " contract=" + (board->hasContractJob() ? "1" : "0") + " package='" +
+          board->getCurrentAIPackageName() + "' now=" +
+          ToString((float)world->getTimeStamp_inGameHours().getTotalHours()) +
+          " expiry=" +
+          ToString((float)board->getContractExpiryTime().getTotalHours()));
+}
+
+void RunProbe(Character *npc, Character *speaker, const std::string &payload) {
+  size_t colon = payload.find(':');
+  std::string name = payload.substr(0, colon);
+  std::string arg;
+  if (colon != std::string::npos) {
+    arg = payload.substr(colon + 1);
+    arg.erase(0, arg.find_first_not_of(' '));
+  }
+  if (name == "stock")
+    ProbeStock(npc, speaker);
+  else if (name == "firstaid")
+    ProbeFirstAid(npc, speaker);
+  else if (name == "hire")
+    ProbeHire(npc, speaker, arg);
 }
 
 void GetCurrentSquad(std::vector<Character *> &members) {

@@ -83,5 +83,5 @@ The lean ([Outcome](framework.md#outcome)) is how likely the NPC is to take the 
 
 ## 8. Open questions
 
-1. Where does a shopkeeper keep its stock? `inventory` reads only the items of the character and its backpack (`GetAllCharacterItems` in `plugin/game/GameActions.cpp`). An in-game probe decides it ([development.md](../../info/development.md#probes)).
-2. Which data of an item holds the quality that the game shows for a weapon or an armour?
+1. Where does a shopkeeper keep its stock? `inventory` reads only the items of the character and its backpack (`GetAllCharacterItems` in `plugin/game/Context.cpp`). The `/stock` probe decides it ([framework.md](framework.md#7-probe)).
+2. Which data of an item holds the quality that the game shows for a weapon or an armour? The `/stock` probe decides it.

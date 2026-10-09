@@ -15,6 +15,7 @@ void GetRadiantParticipants(Character *selected,
 void GetRadiantNpcs(Character *center, std::vector<Character *> &npcs);
 void LogFactionList();
 void LogNpcRole(Character *npc);
+void RunProbe(Character *npc, Character *speaker, const std::string &payload);
 std::string EventParty(Character *npc);
 std::string RoleJson(Character *npc);
 std::string ProfileJson(Character *npc);

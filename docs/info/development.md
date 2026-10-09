@@ -84,6 +84,11 @@ Some questions of the plans need data from the game. The plugin writes probe lin
 |---|---|---|---|
 | `FACTION_PROBE` | At the first chat of each game, one line for each faction | `LogFactionList` | The string ID of each faction, and whether it stays the same when the mod list changes |
 | `ROLE_PROBE` | For the chat target, each NPC in chat range, and each radiant participant, again when a value changes | `LogNpcRole` | Which game data tells the role of an NPC, and whether a hired NPC holds a contract (`contract=1`) |
+| `STOCK_PROBE` | At each `/stock` test command of the chat | `ProbeStock` | Where a trader keeps its stock, and which data of an item holds the grade that the game shows for a weapon or an armour |
+| `FIRSTAID_PROBE` | At each `/firstaid` test command of the chat | `ProbeFirstAid` | Whether the chat target carries a first aid item, and whether `FIRST_AID_ORDER` makes it treat the speaker |
+| `HIRE_PROBE` | At each `/hire` test command of the chat | `ProbeHire` | Which call starts a hire contract with an expiry time, and which call ends it |
+
+`/stock` changes nothing. `/firstaid` gives the chat target the `FIRST_AID_ORDER` task on the speaker. `/hire [hours]` gives the chat target the `Bodyguard` contract for that many hours, `/hire [line ID]` starts the contract of a dialogue line of the game, `/hire end` ends the contract, and `/hire` alone only logs. The in-game checks are in [framework.md](../plans/action_dialogue/framework.md#7-probe).
 
 [kenshi_internals.md](kenshi_internals.md) records the answers of the in-game tests. The contract of a hired NPC is not tested yet.
 

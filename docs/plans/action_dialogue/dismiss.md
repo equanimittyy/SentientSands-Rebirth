@@ -16,4 +16,4 @@ The NPC never refuses, so DISMISS has no lean and no offer. `LEAVE` runs at once
 
 ## 4. Open questions
 
-1. Which call ends a hire contract? The game ends the contract of a mercenary when its time runs out, so a way exists. A candidate is `signalEnd` of `Contract_Timed` (`deps/KenshiLib/Include/kenshi/AI/Contract.h:11`), which `Contract_HiredAlly` inherits. `LEAVE` now runs `PerformLeaveSquad` (`plugin/game/GameActions.cpp:25`), which takes a member out of the squad instead.
+1. Which call ends a hire contract? The game ends the contract of a mercenary when its time runs out, so a way exists. The `/hire end` probe tries `endContractJob` of the blackboard (`deps/KenshiLib/Include/kenshi/AI/Blackboard.h:76`) ([framework.md](framework.md#7-probe)). It does not try `signalEnd` of `Contract_Timed`, because `AI/Contract.h` includes `AIPackage.h`, which clashes with `Blackboard.h` ([kenshi_gotchas.md](../../info/kenshi_gotchas.md#kenshilib-headers)). `LEAVE` now runs `PerformLeaveSquad` (`plugin/game/GameActions.cpp:25`), which takes a member out of the squad instead.

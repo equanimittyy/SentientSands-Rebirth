@@ -857,6 +857,8 @@ void ExecuteQueuedActions(GameWorld *thisptr, int &inventoryTimer) {
             npc->clearAllAIGoals();
             npc->reThinkCurrentAIAction();
           }
+        } else if (act.type == ACT_PROBE) {
+          RunProbe(npc, target, act.message);
         } else if (act.type == ACT_FACTION_RELATIONS) {
           if (thisptr->factionMgr) {
             Faction *targetFaction =

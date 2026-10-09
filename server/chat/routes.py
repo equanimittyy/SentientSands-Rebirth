@@ -206,7 +206,8 @@ def chat():
                         "/take, /attack, /follow, /idle, /patrol, /join, /leave, /free, /breakout,\n" + \
                         "/move, /movefast, /home, /shop, /raid [Town], /travel [Town], /medic, /rescue, /repair,\n" + \
                         "/notify [msg], /give_cats [n], /take_cats [n], /drop [item],\n" + \
-                        "/take_item [item], /spawn [Templ|Name|Desc], /relations [Fact] [n], /task [TASK]"
+                        "/take_item [item], /spawn [Templ|Name|Desc], /relations [Fact] [n], /task [TASK],\n" + \
+                        "/stock, /firstaid, /hire [hours|end|line ID]"
             return reply(*help_text.split("\n"))
             
         if cmd == "attack": test_action = "[ATTACK]"
@@ -244,6 +245,13 @@ def chat():
             if len(rparts) == 2:
                 test_action = f"[ACTION: FACTION_RELATIONS: {rparts[0].strip()}: {rparts[1].strip()}]"
         elif cmd == "task": test_action = f"[TASK: {args.upper()}]"
+        elif cmd in ("stock", "firstaid", "hire"):
+            if cmd == "hire" and args and not re.fullmatch(r"\d+|end|\d+-\S+", args):
+                return reply("[DEBUG] /hire alone logs the contract of the target. /hire [hours] or /hire [line ID] starts one, and /hire end ends it.")
+            probe = f"[ACTION: PROBE: {cmd}{': ' + args if args else ''}]"
+            logging.info(f"CHAT: Test command {cmd} -> {probe}")
+            # The plugin also runs a tag in a spoken line, so an echo of the tag would run the probe twice
+            return reply(f"[DEBUG] Executing test command: {cmd} probe", actions=[probe])
         
         if test_action:
             logging.info(f"CHAT: Test command {cmd} -> {test_action}")

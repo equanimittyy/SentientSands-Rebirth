@@ -31,4 +31,4 @@ The Cannibal Hunters sell only the `contract Mercenary outpost guard`, in which 
 
 ## 4. Open questions
 
-1. Which call starts a `Contract_HiredAlly` with an expiry time? No in-game test covers a contract yet ([development.md](../../info/development.md#probes)).
+1. Which call starts a `Contract_HiredAlly` with an expiry time? The `/hire` probe tries `_setContractJob` of the blackboard with the `Bodyguard` package and the hours, and `setContractJob` with a hire line of the game (`deps/KenshiLib/Include/kenshi/AI/Blackboard.h:65` and `:75`) ([framework.md](framework.md#7-probe)).

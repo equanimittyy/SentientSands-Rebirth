@@ -482,7 +482,16 @@ void ProcessMessageQueue(GameWorld *thisptr) {
             return res;
           };
 
-          if (actStr.find("JOIN_PARTY") != std::string::npos) {
+          if (actStr.find("PROBE:") != std::string::npos) {
+            EnterCriticalSection(&g_uiMutex);
+            QueuedAction act;
+            act.type = ACT_PROBE;
+            act.actor = targetHand;
+            act.target = g_lastChattingPlayerHand;
+            act.message = getPayload(actStr, "PROBE:");
+            g_uiActionQueue.push_back(act);
+            LeaveCriticalSection(&g_uiMutex);
+          } else if (actStr.find("JOIN_PARTY") != std::string::npos) {
             EnterCriticalSection(&g_uiMutex);
             QueuedAction act;
             act.type = ACT_JOIN_PARTY;
