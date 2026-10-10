@@ -69,6 +69,13 @@ class GateTest(unittest.TestCase):
         self.assertIsNotNone(self.gate("HEAL", {**kit, "character_state": "imprisoned"}, {"health": "Crippled"}))
         self.assertIsNone(self.gate("HEAL", kit, {"health": "Injured"}))
 
+    def test_a_slight_wound_counts_for_heal(self):
+        kit = {"has_first_aid": True}
+        slight = {"health": "Healthy", "medical": {"limbs": {"head": 100, "head_max": 100, "left_arm": 90, "left_arm_max": 100}}}
+        whole = {"health": "Healthy", "medical": {"limbs": {"head": 100, "head_max": 100, "left_arm": 100, "left_arm_max": 100}}}
+        self.assertIsNone(self.gate("HEAL", kit, slight))
+        self.assertEqual(self.gate("HEAL", kit, whole), "You have no wounds to treat.")
+
     def test_liberate_needs_a_captive_speaker_and_a_free_npc(self):
         self.assertIsNotNone(self.gate("LIBERATE", speaker={"character_state": "normal"}))
         self.assertIsNotNone(self.gate("LIBERATE", {"character_state": "imprisoned"}, {"character_state": "imprisoned"}))

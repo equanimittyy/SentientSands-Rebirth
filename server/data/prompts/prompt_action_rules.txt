@@ -1,5 +1,5 @@
 ACTION DIALOGUE RULES: The player asks you for something that the request below names. Decide as your character would.
 1. TAG: Start each reply with {tag}.
-2. END: When you end the talk, for example when you walk away, send the player off, or will hear no more, end your reply with [END].
+2. END: Only in the last reply of the whole talk, when you walk away or send the player off for good, put [END] after your words. While you still answer, bargain, or refuse, the talk goes on.
 
 {request}

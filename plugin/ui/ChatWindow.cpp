@@ -255,12 +255,11 @@ void OnChatSendClick(MyGUI::Widget *sender) {
   if (pendingName.empty() && actionLine)
     g_actionPendingName = npcName;
   LeaveCriticalSection(&g_msgMutex);
+  CloseChatUI();
   if (!pendingName.empty()) {
     NotifyChatStatus("{name} is still thinking.", pendingName);
     return;
   }
-
-  CloseChatUI();
 
   if (!words.empty()) {
     EnterCriticalSection(&g_msgMutex);

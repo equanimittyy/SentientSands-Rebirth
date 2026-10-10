@@ -74,7 +74,7 @@ def gate_block(category, npc, speaker, npc_name):
         if speaker_state == "imprisoned":
             return "You can't threaten anyone while imprisoned."
     elif category == "HEAL":
-        if speaker.get("health") not in ("Injured", "Crippled"):
+        if not wounded(speaker):
             return "You have no wounds to treat."
         if not npc.get("has_first_aid"):
             return f"{npc_name} has no first aid kit."
@@ -100,6 +100,13 @@ def gate_block(category, npc, speaker, npc_name):
         if not npc.get("temporary_follower"):
             return f"{npc_name} is not a hired follower."
     return None
+
+
+def wounded(ctx):
+    """A body part below its full health, so a slight wound counts too: the Injured of health needs a part below 70%."""
+    limbs = (ctx.get("medical") or {}).get("limbs") or {}
+    hurt = any(hp < limbs.get(f"{part}_max", hp) for part, hp in limbs.items() if not part.endswith("_max"))
+    return hurt or ctx.get("health") in ("Injured", "Crippled")
 
 
 def is_guard(npc):

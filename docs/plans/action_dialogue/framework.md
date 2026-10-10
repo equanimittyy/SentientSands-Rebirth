@@ -54,7 +54,7 @@ The list leaves out each category that the game state already rules out, because
 |---|---|---|
 | A threat or demand | THREATEN | The speaker is `imprisoned` ([threaten.md](threaten.md#2-gate)). |
 | A request to trade items, a gift, or a plea for charity | BARTER | Never |
-| A request to treat wounds | HEAL | The speaker is not `Injured` or `Crippled`, the NPC carries no first aid item, or the NPC is `imprisoned` ([heal.md](heal.md#2-deal)). |
+| A request to treat wounds | HEAL | The speaker has no wound, the NPC carries no first aid item, or the NPC is `imprisoned` ([heal.md](heal.md#2-deal)). |
 | A request to be freed from prison or slavery | LIBERATE | The speaker is neither `imprisoned` nor `enslaved`, the NPC is `imprisoned`, or the speaker is a slave and the NPC is a guard ([liberate.md](liberate.md#2-deal)). |
 | A request to join the squad | RECRUIT | The speaker or the NPC is `imprisoned` or `enslaved`, or the NPC leads its faction ([recruit.md](recruit.md#2-gate)). |
 | A request to follow the squad for a time | FOLLOW | The speaker or the NPC is `imprisoned` or `enslaved`, or the NPC leads its faction ([recruit.md](recruit.md#2-gate)). |
