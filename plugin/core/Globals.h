@@ -36,8 +36,8 @@ extern CRITICAL_SECTION g_msgMutex;
 extern hand g_talkTargetHand;
 extern DWORD g_mainThreadId;
 extern DWORD g_lastRadiantTick;
-extern std::map<unsigned int, std::string> g_originFactions;
-extern std::map<unsigned int, OriginState> g_originJobs;
+extern std::map<std::string, std::string> g_originFactions;
+extern std::map<std::string, OriginState> g_originJobs;
 
 extern float g_proximityRadius;
 extern float g_yellRadius;

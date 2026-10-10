@@ -9,6 +9,8 @@ void GetAllCharacterItems(Character *npc, std::vector<Item *> &outItems);
 std::string GetDetailedContext(Character *npc, const std::string &type = "npc");
 std::string GetIdentityFaction(Character *npc);
 std::string GetNpcId(Character *npc);
+unsigned int HandleKey(Character *npc);
+Character *KeyedCharacter(unsigned int key);
 void GetCurrentSquad(std::vector<Character *> &members);
 void GetRadiantParticipants(Character *selected,
                             std::vector<Character *> &participants);

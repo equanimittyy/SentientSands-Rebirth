@@ -182,11 +182,58 @@ std::string GetVisibleEquipment(Character *npc) {
   return eq;
 }
 
-// The serial is the only member of a handle that survives a recruit
+// The serial is the only member of a handle that survives a recruit, and
+// characters of other squads can share it, so the template tells them apart
 std::string GetNpcId(Character *npc) {
   if (npc->isUnique() && npc->data)
     return "u:" + npc->data->stringID;
-  return "h:" + ToString(npc->getHandle().serial);
+  std::string id = "h:" + ToString(npc->getHandle().serial);
+  return npc->data ? id + "-" + npc->data->stringID : id;
+}
+
+struct KeyedCharacterEntry {
+  Character *character;
+  hand handle;
+};
+
+// Without a lock, because only the game thread keys or looks up a character
+static std::vector<KeyedCharacterEntry> g_keyed;
+
+// A squad change gives a character a new handle, but it keeps the object and
+// the serial, so a key outlives the change
+unsigned int HandleKey(Character *npc) {
+  hand h = npc->getHandle();
+  for (size_t i = 0; i < g_keyed.size(); ++i)
+    if (g_keyed[i].character == npc && g_keyed[i].handle.serial == h.serial) {
+      g_keyed[i].handle = h;
+      return (unsigned int)i + 1;
+    }
+  KeyedCharacterEntry entry;
+  entry.character = npc;
+  entry.handle = h;
+  g_keyed.push_back(entry);
+  return (unsigned int)g_keyed.size();
+}
+
+Character *KeyedCharacter(unsigned int key) {
+  if (key == 0 || key > g_keyed.size())
+    return nullptr;
+  KeyedCharacterEntry &entry = g_keyed[key - 1];
+  Character *c = entry.handle.getCharacter();
+  if (c || !ppWorld || !*ppWorld)
+    return c;
+  // Compared as a pointer before any read, because the object can be gone
+  const auto &chars = (*ppWorld)->getCharacterUpdateList();
+  for (auto it = chars.begin(); it != chars.end(); ++it) {
+    if (*it != entry.character)
+      continue;
+    hand h = entry.character->getHandle();
+    if (h.serial != entry.handle.serial)
+      return nullptr;
+    entry.handle = h;
+    return entry.character;
+  }
+  return nullptr;
 }
 
 static std::string RaceName(Character *npc) {
@@ -776,12 +823,12 @@ std::string GetIdentityFaction(Character *npc) {
   }
 
   std::string identityFaction = factionName;
-  unsigned int serial = npc->getHandle().serial;
+  std::string npcId = GetNpcId(npc);
 
   std::string cached = "";
   EnterCriticalSection(&g_stateMutex);
-  if (g_originFactions.count(serial)) {
-    cached = g_originFactions[serial];
+  if (g_originFactions.count(npcId)) {
+    cached = g_originFactions[npcId];
   }
   LeaveCriticalSection(&g_stateMutex);
 
@@ -799,7 +846,7 @@ std::string GetIdentityFaction(Character *npc) {
             (*ppWorld)->factionMgr->getFactionByStringID(refs->at(0).sid);
         if (refFaction && !refFaction->isThePlayer()) {
           identityFaction = refFaction->getName();
-          g_originFactions[serial] = identityFaction;
+          g_originFactions[npcId] = identityFaction;
           return identityFaction;
         }
       }
@@ -812,7 +859,7 @@ std::string GetIdentityFaction(Character *npc) {
     if (!factionName.empty() && factionName != "Unknown" &&
         factionName != "Neutral") {
       EnterCriticalSection(&g_stateMutex);
-      g_originFactions[serial] = factionName;
+      g_originFactions[npcId] = factionName;
       LeaveCriticalSection(&g_stateMutex);
     }
   }
@@ -1040,12 +1087,12 @@ std::string GetDetailedContext(Character *npc, const std::string &type) {
         std::string o_gender = other->isFemale() ? "female" : "male";
         float dist = npc->getPosition().distance(other->getPosition());
 
-        unsigned int o_serial = other->getHandle().serial;
+        std::string o_npcId = GetNpcId(other);
 
         EnterCriticalSection(&g_stateMutex);
-        if (!g_originFactions.count(o_serial) && o_fact &&
+        if (!g_originFactions.count(o_npcId) && o_fact &&
             !o_fact->isThePlayer())
-          g_originFactions[o_serial] = o_fn;
+          g_originFactions[o_npcId] = o_fn;
         LeaveCriticalSection(&g_stateMutex);
 
         std::string o_health = GetHealthStatus(other);
@@ -1059,7 +1106,7 @@ std::string GetDetailedContext(Character *npc, const std::string &type) {
         json += "\"gender\":\"" + EscapeJSON(o_gender) + "\",";
         json += "\"health\":\"" + EscapeJSON(o_health) + "\",";
         json += "\"equipment\":\"" + EscapeJSON(o_equip) + "\",";
-        json += "\"npc_id\":\"" + EscapeJSON(GetNpcId(other)) + "\",";
+        json += "\"npc_id\":\"" + EscapeJSON(o_npcId) + "\",";
         json += "\"dist\":" + ToString(dist) + "}";
       }
     }

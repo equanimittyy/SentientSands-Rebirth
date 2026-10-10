@@ -304,7 +304,7 @@ void ProcessMessageQueue(GameWorld *thisptr) {
           size_t colon = remainder.find(':');
 
           std::string name = "";
-          unsigned int tSerial = 0;
+          unsigned int key = 0;
 
           if (colon != std::string::npos && colon < 64 && remainder[0] != '[') {
             header_processed = true;
@@ -313,52 +313,42 @@ void ProcessMessageQueue(GameWorld *thisptr) {
             size_t piper = header.find("|");
             if (piper != std::string::npos) {
               name = header.substr(0, piper);
-              std::string sStr = header.substr(piper + 1);
-              size_t endS = sStr.find_first_not_of("0123456789");
-              if (endS != std::string::npos)
-                sStr = sStr.substr(0, endS);
-              tSerial = (unsigned int)strtoul(sStr.c_str(), NULL, 10);
+              key = (unsigned int)strtoul(header.c_str() + piper + 1, NULL, 10);
             }
 
             std::string nLow = name;
             std::transform(nLow.begin(), nLow.end(), nLow.begin(), ::tolower);
 
-            Character *bestMatch = nullptr;
-            int bestScore = 0;
+            Character *bestMatch = KeyedCharacter(key);
+            int bestScore = bestMatch ? 1000 : 0;
 
             const ogre_unordered_set<Character *>::type &chars =
                 thisptr->getCharacterUpdateList();
-            for (auto it = chars.begin(); it != chars.end(); ++it) {
+            for (auto it = chars.begin(); bestScore < 1000 && it != chars.end();
+                 ++it) {
               Character *c = *it;
               if (!c || (uintptr_t)c < 0x1000)
                 continue;
 
               int score = 0;
-              if (tSerial > 0 && c->getHandle().serial == tSerial)
-                score = 1000;
+              std::string cName = c->getName();
+              if (cName == name)
+                score = 500;
               else {
-                std::string cName = c->getName();
-                if (cName == name)
-                  score = 500;
-                else {
-                  std::string cLow = cName;
-                  std::transform(cLow.begin(), cLow.end(), cLow.begin(),
-                                 ::tolower);
-                  if (cLow == nLow)
-                    score = 400;
-                  else if (cLow.find(nLow) == 0)
-                    score =
-                        200;
-                  else if (cLow.find(nLow) != std::string::npos)
-                    score = 100;
-                }
+                std::string cLow = cName;
+                std::transform(cLow.begin(), cLow.end(), cLow.begin(),
+                               ::tolower);
+                if (cLow == nLow)
+                  score = 400;
+                else if (cLow.find(nLow) == 0)
+                  score = 200;
+                else if (cLow.find(nLow) != std::string::npos)
+                  score = 100;
               }
 
               if (score > bestScore) {
                 bestScore = score;
                 bestMatch = c;
-                if (score == 1000)
-                  break;
               }
             }
 
@@ -379,30 +369,24 @@ void ProcessMessageQueue(GameWorld *thisptr) {
                   continue;
 
                 int score = 0;
-                if (tSerial > 0 && c->getHandle().serial == tSerial)
-                  score = 1000;
+                std::string cName = c->getName();
+                if (cName == name)
+                  score = 500;
                 else {
-                  std::string cName = c->getName();
-                  if (cName == name)
-                    score = 500;
-                  else {
-                    std::string cLow = cName;
-                    std::transform(cLow.begin(), cLow.end(), cLow.begin(),
-                                   ::tolower);
-                    if (cLow == nLow)
-                      score = 400;
-                    else if (cLow.find(nLow) == 0)
-                      score = 200;
-                    else if (cLow.find(nLow) != std::string::npos)
-                      score = 100;
-                  }
+                  std::string cLow = cName;
+                  std::transform(cLow.begin(), cLow.end(), cLow.begin(),
+                                 ::tolower);
+                  if (cLow == nLow)
+                    score = 400;
+                  else if (cLow.find(nLow) == 0)
+                    score = 200;
+                  else if (cLow.find(nLow) != std::string::npos)
+                    score = 100;
                 }
 
                 if (score > bestScore) {
                   bestScore = score;
                   bestMatch = c;
-                  if (score == 1000)
-                    break;
                 }
               }
               if (bestMatch && bestScore > 0) {
@@ -1060,7 +1044,7 @@ static std::string RadiantJson(const std::vector<Character *> &characters,
     LogNpcRole(other);
     std::string identityFaction = GetIdentityFaction(other);
     json += "{\"name\":\"" + EscapeJSON(other->getName()) + "\",";
-    json += "\"id\":" + ToString(other->getHandle().serial) + ",";
+    json += "\"id\":" + ToString(HandleKey(other)) + ",";
     json += "\"npc_id\":\"" + EscapeJSON(GetNpcId(other)) + "\",";
     json += "\"race\":\"" + EscapeJSON(o_rn) + "\",";
     json += "\"animal\":false,";
@@ -1214,7 +1198,7 @@ void playerUpdate_hook(PlayerInterface *thisptr) {
             }
           }
 
-          CreateChatUI(sel->getName(), ToString(sel->getHandle().serial));
+          CreateChatUI(sel->getName(), ToString(HandleKey(sel)));
         }
       }
     }

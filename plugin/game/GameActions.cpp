@@ -65,8 +65,8 @@ void PerformLeaveSquad(Character *npc, GameWorld *world,
     std::string targetFactionName = "Drifters";
     if (useNamedFaction) {
       targetFactionName = factionPart;
-    } else if (g_originFactions.count(npc->getHandle().serial)) {
-      targetFactionName = g_originFactions[npc->getHandle().serial];
+    } else if (g_originFactions.count(GetNpcId(npc))) {
+      targetFactionName = g_originFactions[GetNpcId(npc)];
     }
 
     Faction *targetFaction = fm->getFactionByName(targetFactionName);
@@ -298,7 +298,7 @@ void ExecuteQueuedActions(GameWorld *thisptr, int &inventoryTimer) {
           thisptr->showPlayerAMessage(npc->getName() + " is attacking!", false);
         } else if (act.type == ACT_JOIN_PARTY && thisptr->player) {
           // Saved before recruiting so dismissal can restore the original jobs and home
-          unsigned int serial = npc->getHandle().serial;
+          std::string npcId = GetNpcId(npc);
           OriginState state;
 
           Ownerships *own = npc->getOwnerships();
@@ -317,7 +317,7 @@ void ExecuteQueuedActions(GameWorld *thisptr, int &inventoryTimer) {
             oj.location = npc->getPosition();
             state.jobs.push_back(oj);
           }
-          g_originJobs[serial] = state;
+          g_originJobs[npcId] = state;
 
           thisptr->player->recruit(npc, false);
           thisptr->playNotification("ui_cat_change");
@@ -328,9 +328,9 @@ void ExecuteQueuedActions(GameWorld *thisptr, int &inventoryTimer) {
           npc->clearAllAIGoals();
           PerformLeaveSquad(npc, thisptr, act.message);
 
-          unsigned int serial = npc->getHandle().serial;
-          if (g_originJobs.count(serial)) {
-            const OriginState &state = g_originJobs[serial];
+          std::string npcId = GetNpcId(npc);
+          if (g_originJobs.count(npcId)) {
+            const OriginState &state = g_originJobs[npcId];
 
             Ownerships *own = npc->getOwnerships();
             if (own) {

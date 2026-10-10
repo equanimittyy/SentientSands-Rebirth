@@ -9,6 +9,8 @@ Add a gotcha when a call or a pattern crashes the game, gives wrong data, or bre
 - A C-style cast from `RootObject *` to a subclass, such as `TownBase *`, checks nothing. A virtual function of the subclass, called on an object of another class, runs the function in the same vtable slot of that class. The game then crashes inside its own code, far from the plugin line. Take the objects from a list that holds only the class of the cast.
 - `GameWorld::getObjectsWithinSphere` with the `itemType` `TOWN` gives items, not towns. `TownBase::isTown` on such an item ran the function in vtable slot `0x268` of `Item` (`Item::serialiseInInventory`) with wrong arguments, and the game crashed at each chat when it read address `0x9`. `ChangedTowns` in `plugin/game/Context.cpp` now reads the town list of the game (`TownList::getAllTowns`) through the KenshiLib global `shou`.
 
+- A handle `serial` does not name one character (see [kenshi_internals.md](kenshi_internals.md#character-identity)). The plugin found characters by their `serial`, so a chat with a squad member sent the context of a stranger with the same `serial`, the lines of the squad member showed over the stranger, and the server renamed the stranger after the squad member. The plugin now finds a character by a key for its full handle (`HandleKey` in `plugin/game/Context.cpp`), and the `npc_id` of a generic character adds its template (see [architecture.md](architecture.md#line-pacing)).
+
 ## KenshiLib headers
 
 - `AI/AIPackage.h` and `AI/Blackboard.h` define the same enum, `BlackboardSignalFunctions`, so one source file cannot include both (error C2011). The plugin reads the AI package only by name, through `Blackboard::getCurrentAIPackageName` (`LogNpcRole` in `plugin/game/Context.cpp`).

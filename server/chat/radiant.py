@@ -35,15 +35,15 @@ def topic(memories, environment, rumors, choice=random.choice, location=None):
     return choice(kinds)() if kinds else None
 
 
-def turns(serials, count, rng=random):
+def turns(keys, count, rng=random):
     """The (speaker, addressee) of each line, with None for everyone. Left to choose, the model gives each character one
     turn in a fixed round, and no line answers another. So the opener speaks to everyone, and then the one addressed
     answers, or a third character cuts in, and either speaks to the last speaker."""
-    speaker, addressee = rng.choice(serials), None
+    speaker, addressee = rng.choice(keys), None
     order = []
     for _ in range(count):
         order.append((speaker, addressee))
-        thirds = [serial for serial in serials if serial not in (speaker, addressee)]
+        thirds = [key for key in keys if key not in (speaker, addressee)]
         if addressee and (not thirds or rng.random() < REPLY_SHARE):
             speaker, addressee = addressee, speaker
         else:
@@ -53,7 +53,7 @@ def turns(serials, count, rng=random):
 
 def script(names, rng=random):
     """The TURNS of the prompt: the length and its feel, then the speaker and the addressee of each line. names maps each
-    serial to its Name."""
+    handle key to its Name."""
     (fewest, most), feel = rng.choice(LENGTHS)
     order = turns(list(names), rng.randint(fewest, most), rng)
     rows = [f"{index}. {names[speaker]}|{speaker} to {names[addressee] if addressee else 'everyone'}" for index, (speaker, addressee) in enumerate(order, 1)]
@@ -103,15 +103,15 @@ def acquaintance(names, partners):
     return "\n".join(pairs)
 
 
-def lines(content, serials):
-    """The (serial, text) of each line of the reply, or none when a line is not the line of a participant. That line would
-    reach the game as a line of nobody, and the conversation without it can make no sense."""
+def lines(content, keys):
+    """The (handle key, text) of each line of the reply, or none when a line is not the line of a participant. That line
+    would reach the game as a line of nobody, and the conversation without it can make no sense."""
     found = []
     for line in content.splitlines():
         if not line.strip():
             continue
         match = _LINE.match(line.strip())
-        if not match or match.group(2) not in serials:
+        if not match or match.group(2) not in keys:
             return []
         text = _BRACKETS.sub("", match.group(3)).strip().strip('"').strip()
         if text:

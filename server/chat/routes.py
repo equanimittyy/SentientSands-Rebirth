@@ -50,11 +50,11 @@ def radiant_conversation():
         return jsonify({"status": "ignore"})
 
     names, profiles = {}, {}
-    for serial, npc in participants.items():
+    for key, npc in participants.items():
         # The faction of a participant is its identity faction, not the current faction that Campaign Canon shows
-        merge_live_context({key: value for key, value in npc.items() if key != 'faction'})
-        names[serial] = npc_name(npc)
-        profiles[serial] = get_character_data(names[serial], context=json.dumps(npc))
+        merge_live_context({field: value for field, value in npc.items() if field != 'faction'})
+        names[key] = npc_name(npc)
+        profiles[key] = get_character_data(names[key], context=json.dumps(npc))
 
     environment = center.get("environment") or {}
     if npc_talk:
@@ -72,14 +72,14 @@ def radiant_conversation():
     playing = False
     try:
         descriptions = [
-            f"{describe_npc(f'{names[serial]}|{serial}', profiles[serial], npc['npc_id'])}\nHEALTH: {npc.get('health') or 'Unknown'}\nGEAR: {npc.get('equipment') or 'nothing notable'}"
-            for serial, npc in participants.items()
+            f"{describe_npc(f'{names[key]}|{key}', profiles[key], npc['npc_id'])}\nHEALTH: {npc.get('health') or 'Unknown'}\nGEAR: {npc.get('equipment') or 'nothing notable'}"
+            for key, npc in participants.items()
         ]
         values = {"place": scene_text.location_text(environment, "They"), "participants": "\n\n".join(descriptions), "turns": radiant.script(names)}
         if npc_talk:
             prompt = fill_prompt("prompt_radiant_npc.txt", rumor=topic, **values)
         else:
-            known = radiant.acquaintance({npc['npc_id']: names[serial] for serial, npc in participants.items()}, {npc_id: campaign_db.thread_partners(npc_id) for npc_id in npc_ids})
+            known = radiant.acquaintance({npc['npc_id']: names[key] for key, npc in participants.items()}, {npc_id: campaign_db.thread_partners(npc_id) for npc_id in npc_ids})
             prompt = fill_prompt("prompt_radiant.txt", acquaintance=known, topic=topic, **values)
         logging.info(f"RADIANT: {', '.join(names.values())} talk{' among the NPCs' if npc_talk else ''}. Topic: {topic}")
         content = call_llm("radiant", [{"role": "system", "content": build_system_prompt(reply_rules=False)}, {"role": "user", "content": prompt}])
@@ -89,17 +89,17 @@ def radiant_conversation():
             return jsonify({"status": "none"})
 
         time_prefix = get_current_time_prefix()
-        spoke = {serial for serial, _ in lines}
-        members = [(npc['npc_id'], "speaker" if serial in spoke else "overheard", not npc_talk) for serial, npc in participants.items()]
+        spoke = {key for key, _ in lines}
+        members = [(npc['npc_id'], "speaker" if key in spoke else "overheard", not npc_talk) for key, npc in participants.items()]
         thread_id = campaign_db.join_thread(None, members, campaign_db.game_time(time_prefix), scene_text.location_name(center), exchange=False)
-        stored = [(f"{time_prefix}{names[serial]}: {text}", participants[serial]['npc_id']) for serial, text in lines]
-        for serial, npc in participants.items():
-            campaign_db.append_dialogue(npc['npc_id'], stored, profiles[serial], thread_id)
+        stored = [(f"{time_prefix}{names[key]}: {text}", participants[key]['npc_id']) for key, text in lines]
+        for key, npc in participants.items():
+            campaign_db.append_dialogue(npc['npc_id'], stored, profiles[key], thread_id)
         state.LAST_RADIANT = time.monotonic()
         # Before the start: a thread that ends at once releases the stage, and the finally would release it again
         playing = True
-        threading.Thread(target=play_radiant, args=([f"{names[serial]}|{serial}: {text}" for serial, text in lines],), daemon=True).start()
-        logging.info("RADIANT: " + " | ".join(f'{names[serial]}: "{text}"' for serial, text in lines))
+        threading.Thread(target=play_radiant, args=([f"{names[key]}|{key}: {text}" for key, text in lines],), daemon=True).start()
+        logging.info("RADIANT: " + " | ".join(f'{names[key]}: "{text}"' for key, text in lines))
         return jsonify({"status": "ok"})
     finally:
         if not playing:
@@ -192,12 +192,12 @@ def chat():
 
     primary_npc = register(raw_npc)
     npcs = [register(n) for n in raw_npcs]
-    target_serial = raw_npcs[0].partition('|')[2] if raw_npcs else ""
+    target_key = raw_npcs[0].partition('|')[2] if raw_npcs else ""
 
     def reply(*texts, actions=(), action_open=False):
-        # The plugin takes the text before a first colon as the speaker. It finds the NPC by the serial after the bar,
+        # The plugin takes the text before a first colon as the speaker. It finds the NPC by the handle key after the bar,
         # because its request named the NPC before a rename.
-        voice = f"{primary_npc}|{target_serial}"
+        voice = f"{primary_npc}|{target_key}"
         play_lines([f"{voice}: {text}" for text in texts], [f"{voice}: {action}" for action in actions])
         # The plugin takes no new line while the reply to a line of an open action dialogue is pending
         return jsonify({"status": "ok", "action_dialogue": action_open})

@@ -37,14 +37,14 @@ MyGUI::Button *g_chatSpeakerBtn = nullptr;
 std::vector<hand> g_chatSpeakers;
 size_t g_chatSpeakerIndex = 0;
 // In memory only, so a new game session starts on the first squad member
-hand g_lastSpeaker;
+unsigned int g_lastSpeakerKey = 0;
 std::string g_chatTargetHandleStr = "";
 std::string g_chatTargetNameStr = "";
 size_t g_lastChatModeIndex = 1;
 bool g_chatJustOpened = false;
 // Both guarded by g_msgMutex, because the reply thread of a chat line sets them
 std::string g_actionPendingName;
-unsigned int g_actionNpcSerial = 0;
+unsigned int g_actionNpcKey = 0;
 
 void CloseChatUI() {
   if (g_chatWindow) {
@@ -96,7 +96,7 @@ static void SettleActionDialogue(ChatTask *t, const std::string &response) {
   EnterCriticalSection(&g_msgMutex);
   if (t->action)
     g_actionPendingName.clear();
-  g_actionNpcSerial =
+  g_actionNpcKey =
       open ? (unsigned int)strtoul(t->handleStr.c_str(), NULL, 10) : 0;
   LeaveCriticalSection(&g_msgMutex);
 }
@@ -196,7 +196,7 @@ void OnChatSendClick(MyGUI::Widget *sender) {
       world->player->playerCharacters.size() > 0)
     speaker = world->player->playerCharacters[0];
   if (speaker)
-    g_lastSpeaker = speaker->getHandle();
+    g_lastSpeakerKey = HandleKey(speaker);
   std::string playerName = speaker ? speaker->getName() : "Drifter";
 
   if (text.substr(0, 6) == "/name " && text.length() > 6) {
@@ -207,17 +207,8 @@ void OnChatSendClick(MyGUI::Widget *sender) {
     if (!newName.empty()) {
       GameWorld *world = *ppWorld;
       if (world) {
-        Character *target = nullptr;
-        const auto &chars = world->getCharacterUpdateList();
-        for (auto it = chars.begin(); it != chars.end(); ++it) {
-          if (*it && (uintptr_t)(*it) > 0x1000) {
-            unsigned int serial = std::stoul(handleStr);
-            if ((*it)->getHandle().serial == serial) {
-              target = *it;
-              break;
-            }
-          }
-        }
+        Character *target =
+            KeyedCharacter((unsigned int)strtoul(handleStr.c_str(), NULL, 10));
 
         if (target) {
           target->setName(newName);
@@ -243,12 +234,11 @@ void OnChatSendClick(MyGUI::Widget *sender) {
   }
 
   bool marked = IsActionMark(text);
-  unsigned int targetSerial =
-      (unsigned int)strtoul(handleStr.c_str(), NULL, 10);
+  unsigned int targetKey = (unsigned int)strtoul(handleStr.c_str(), NULL, 10);
   EnterCriticalSection(&g_msgMutex);
   std::string pendingName = g_actionPendingName;
-  bool actionLine = marked || (g_actionNpcSerial != 0 &&
-                               targetSerial == g_actionNpcSerial);
+  bool actionLine =
+      marked || (g_actionNpcKey != 0 && targetKey == g_actionNpcKey);
   // A second line could bring a second offer, so an action dialogue line
   // holds every chat until its reply arrives
   if (pendingName.empty() && actionLine)
@@ -279,6 +269,7 @@ void OnChatSendClick(MyGUI::Widget *sender) {
   else if (mode == "yell")
     searchRadius = g_yellRadius;
 
+  Character *targetNpc = KeyedCharacter(targetKey);
   if (world && speaker) {
     try {
       Character *player = speaker;
@@ -286,15 +277,15 @@ void OnChatSendClick(MyGUI::Widget *sender) {
       for (auto it = chars.begin(); it != chars.end(); ++it) {
         Character *other = *it;
         if (other && (uintptr_t)other > 0x1000 && other != player &&
-            other->getHandle().serial !=
-                (unsigned int)strtoul(handleStr.c_str(), NULL, 10)) {
+            other != targetNpc) {
           float dist = player->getPosition().distance(other->getPosition());
           if (dist < searchRadius) {
             LogNpcRole(other);
             std::string o_name = other->getName();
-            unsigned int o_serial = other->getHandle().serial;
+            unsigned int o_key = HandleKey(other);
+            std::string o_npcId = GetNpcId(other);
             npcsJson +=
-                ", \"" + EscapeJSON(o_name) + "|" + ToString(o_serial) + "\"";
+                ", \"" + EscapeJSON(o_name) + "|" + ToString(o_key) + "\"";
 
             RaceData *race =
                 other->getRace() ? other->getRace() : other->myRace;
@@ -319,18 +310,17 @@ void OnChatSendClick(MyGUI::Widget *sender) {
                 factionName = faction->data->stringID;
             }
 
-            if (!g_originFactions.count(o_serial) && faction &&
+            if (!g_originFactions.count(o_npcId) && faction &&
                 !faction->isThePlayer())
-              g_originFactions[o_serial] = factionName;
+              g_originFactions[o_npcId] = factionName;
 
             std::string o_gender = other->isFemale() ? "female" : "male";
 
             if (!nearbyFullJson.empty())
               nearbyFullJson += ",";
             nearbyFullJson += "{\"name\":\"" + EscapeJSON(other->getName()) +
-                              "\", \"id\":\"" +
-                              ToString(other->getHandle().serial) +
-                              "\", \"npc_id\":\"" + EscapeJSON(GetNpcId(other)) +
+                              "\", \"id\":\"" + ToString(o_key) +
+                              "\", \"npc_id\":\"" + EscapeJSON(o_npcId) +
                               "\", \"race\":\"" + EscapeJSON(raceName) +
                               "\", \"faction\":\"" + EscapeJSON(factionName) +
                               "\", \"gender\":\"" + EscapeJSON(o_gender) +
@@ -353,23 +343,6 @@ void OnChatSendClick(MyGUI::Widget *sender) {
       }
     } catch (...) {
       Log(LOG_WARN, "CHAT: Exception during proximity check.");
-    }
-  }
-
-  Character *targetNpc = nullptr;
-  if (world) {
-    try {
-      // By serial, because two loaded NPCs can share a name
-      unsigned int targetSerial = std::stoul(handleStr);
-      const auto &chars = world->getCharacterUpdateList();
-      for (auto it = chars.begin(); it != chars.end(); ++it) {
-        if ((*it) && (uintptr_t)(*it) > 0x1000 &&
-            (*it)->getHandle().serial == targetSerial) {
-          targetNpc = *it;
-          break;
-        }
-      }
-    } catch (...) {
     }
   }
 
@@ -432,16 +405,16 @@ void CreateChatUI(const std::string &npcName, const std::string &handleStr) {
   g_chatTargetHandleStr = handleStr;
   g_chatJustOpened = true;
 
-  unsigned int targetSerial =
-      (unsigned int)strtoul(handleStr.c_str(), NULL, 10);
+  unsigned int targetKey = (unsigned int)strtoul(handleStr.c_str(), NULL, 10);
   std::vector<Character *> squad;
   GetCurrentSquad(squad);
   g_chatSpeakers.clear();
   g_chatSpeakerIndex = 0;
   for (size_t i = 0; i < squad.size(); ++i) {
-    if (squad[i]->getHandle().serial == targetSerial)
+    unsigned int key = HandleKey(squad[i]);
+    if (key == targetKey)
       continue;
-    if (squad[i]->getHandle().serial == g_lastSpeaker.serial)
+    if (key == g_lastSpeakerKey)
       g_chatSpeakerIndex = g_chatSpeakers.size();
     g_chatSpeakers.push_back(squad[i]->getHandle());
   }

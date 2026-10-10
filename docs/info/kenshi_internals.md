@@ -18,7 +18,7 @@ A change of the mod list is not tested, by decision. Because a string ID names t
 | A town reload: the player leaves the town until it unloads, and comes back | The whole handle of a generic trader |
 | A recruit into the player's squad | Only `serial`. The recruit changes `index`, `container`, and `containerSerial`. |
 
-- No other loaded character had the `serial` of the target NPC, in seven chats with about 100 loaded characters. A `serial` is 32 bits and looks random, so a clash in a long campaign is possible but unlikely.
+- Characters of other squads can have the same `serial`. In one session, 2 of the 5 characters of the start squad had the `serial` of a loaded character of another squad: Zip had the `serial` of a Shinobi Thieves guard, and Izumi had the `serial` of a Bonedog.
 - The instance ID (`getInstanceID()->uid`) and the layout instance ID (`getLayoutInstanceID`) are empty for unique and generic NPCs.
 - `npc->data->stringID` is the string ID of the template of the character. Many generic NPCs share one template.
 - `Character::isUnique` gives `1` for a unique NPC, such as Ruka, Harenga the Loud, or Jewel, whose template is its own. It gives `0` for a generic NPC, whose template has a generated name, such as `Barman /GENNAME/`.

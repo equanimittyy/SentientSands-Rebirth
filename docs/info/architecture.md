@@ -197,7 +197,7 @@ A chat request is ordered for the provider's prompt cache, which reuses only an 
 - The history is a block window (`chat_prompt.history_window`) that moves by 20 lines, so its start stays cacheable. `history_turns` makes only the NPC's own lines assistant turns.
 - An overheard line is stored as `(Overheard) Speaker to Target: ...`, because without the target a listener took "you" as itself. An animal never overhears.
 - The judgment is the change in how the NPC feels about the player, from -5 to 5. Rejected: a judgment of politeness, because a scornful NPC grew friendlier with each apology.
-- Each reply line starts with `Name|serial:`, because the plugin takes the text before the first colon as the speaker (`ProcessMessageQueue`). An animal replies only in `*actions*`.
+- Each reply line starts with `Name|key:` (see [Line pacing](#line-pacing)), because the plugin takes the text before the first colon as the speaker (`ProcessMessageQueue`). An animal replies only in `*actions*`.
 - A chat reply carries no game actions; the server reads only the judgment.
 
 ## Lore retrieval
@@ -366,7 +366,7 @@ The server, not the LLM, picks one topic kind at random from those with material
 - The server picks the line count at random from 2 to 4, 5 to 7, or 8 to 12 (`radiant.LENGTHS`), because the model, left to choose, writes a long conversation every time.
 - The server also picks the speaker and the addressee of each line (`radiant.turns`), because the model, left to choose, gave each participant one turn in a fixed round, and no line answered another, also under a rule against it. The first speaker speaks to everyone. Then the one addressed answers, or a third participant cuts in, at even odds (`REPLY_SHARE`), and either speaks to the last speaker. Two participants take turns. The prompt lists the turns as `Name|ID to Name` (`radiant.script`), and a speaker can speak to everyone instead where that fits.
 - The prompt tells how well each pair of participants knows each other (`radiant.acquaintance`), so strangers ask about each other and old companions skip the introductions. That hint sits on the label of the list, because Gemma 4 ignored it as one of the radiant rules. The phrase comes from the count of the earlier threads in which both were speakers (`campaign_db.thread_partners`): 0 is "have never talked", 1 to 2 is "have talked a little", 3 to 9 is "know each other", and 10 or more is "know each other well".
-- The reply holds `Name|serial: line` lines (`radiant.lines`). A line of a non-participant, or a failed call, leaves everyone silent.
+- The reply holds `Name|key: line` lines (`radiant.lines`). A line of a non-participant, or a failed call, leaves everyone silent.
 - A radiant conversation does not change `CURRENT_THREAD` or the quiet clock. The memory loop runs after each one (`state.LAST_RADIANT`).
 
 ### NPC radiant conversations
@@ -396,8 +396,10 @@ A chat line that starts with `!` marks its chat thread as an action dialogue ([f
 
 ## Line pacing
 
-The server paces the lines of every conversation (`say` in `server/chat/routes.py`). The reply of `/chat` and `/radiant` holds no text. A server thread sends the actions as `NPC_ACTION`, then each line as `NPC_SAY: Name|serial: line`, at least `DialogueSpeed` (5 s by default) after the line before it.
+The server paces the lines of every conversation (`say` in `server/chat/routes.py`). The reply of `/chat` and `/radiant` holds no text. A server thread sends the actions as `NPC_ACTION`, then each line as `NPC_SAY: Name|key: line`, at least `DialogueSpeed` (5 s by default) after the line before it.
 
+- The key is a number that the plugin gives a character for the game session (`HandleKey` in `plugin/game/Context.cpp`). Each character of a request carries its key, and the server sends it back unchanged. The plugin finds the character of a line by its key, and by its name only when the key finds no character.
+- The key stands for the full handle, because characters of other squads can have the same `serial` ([kenshi_internals.md](kenshi_internals.md#character-identity)). A squad change gives the character a new handle, so the key also keeps the character object and its `serial`, and finds the character again by them.
 - One conversation plays at a time, and chat replies queue (`reply_loop`). A radiant conversation holds the stage (`_STAGE`) to its last line.
 - In a radiant conversation, the speaker of each line shows `...` for the last 40% of the delay before the line (`THINK_SHARE`), so the lines seem to come one by one, although one call wrote them all.
 - The actions go first, so an AI state change cannot clear a bubble that is already up.
@@ -464,9 +466,9 @@ The `character` table holds every character of a campaign: canon characters, met
 | Character | `npc_id` |
 |---|---|
 | A unique NPC | `u:` and the string ID of its template |
-| Every other character | `h:` and the `serial` of its handle |
+| Every other character | `h:`, the `serial` of its handle, `-`, and the string ID of its template |
 
-- A `u:` ID is the same in every save and campaign, so a canon character binds to it. The `serial` is the only part of a handle that survives a save, a town reload, and a recruit ([kenshi_internals.md](kenshi_internals.md#character-identity)).
+- A `u:` ID is the same in every save and campaign, so a canon character binds to it. The `serial` is the only part of a handle that survives a save, a town reload, and a recruit ([kenshi_internals.md](kenshi_internals.md#character-identity)). Characters of other squads can have the same `serial`, so the ID adds the template.
 - The server stores an `npc_id` as the plugin sends it, and builds one only for a canon character (`u:<game_id>`). A generic NPC whose `template_id` is a canon character takes that `npc_id` (`adopt_canon`).
 - The name is only the `Name` key of the profile, so two NPCs with one name keep two rows. In one request, the server keys NPCs by `npc_id`, and each dialogue row stores its speaker's `npc_id` in `speaker`.
 - A `Race`, `Sex`, or `Faction` of `Unknown` takes the value that the plugin reports (`get_character_data`).
