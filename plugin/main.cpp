@@ -80,6 +80,12 @@ void (*declareDead_orig)(Character *) = nullptr;
 void (*setPrisonMode_orig)(Character *, bool, UseableStuff *) = nullptr;
 void (*setProneState_orig)(Character *, ProneState) = nullptr;
 void (*setName_orig)(Character *, const std::string &) = nullptr;
+bool (*recruit_orig)(PlayerInterface *, Character *, bool) = nullptr;
+void (*setPlatoon_orig)(Character *, ActivePlatoon *, int) = nullptr;
+bool (*addActiveObject_orig)(ActivePlatoon *, RootObject *) = nullptr;
+void (*addCharacterAt_orig)(ActivePlatoon *, RootObject *, int) = nullptr;
+void (*swapCharacters_orig)(ActivePlatoon *, int, int) = nullptr;
+void (*capturedSquads_orig)(ActivePlatoon *) = nullptr;
 static std::vector<hand> g_renamedSquad;
 
 #include <mygui/MyGUI_Button.h>
@@ -1024,6 +1030,63 @@ void setName_hook(Character *c, const std::string &name) {
   }
 }
 
+bool recruit_hook(PlayerInterface *thisptr, Character *c, bool editor) {
+  hand before = c ? c->getHandle() : hand();
+  bool recruited = recruit_orig ? recruit_orig(thisptr, c, editor) : false;
+  LogHandleProbe("recruit", c, before, true);
+  return recruited;
+}
+
+void setPlatoon_hook(Character *c, ActivePlatoon *p, int idnum) {
+  hand before = c ? c->getHandle() : hand();
+  if (setPlatoon_orig)
+    setPlatoon_orig(c, p, idnum);
+  LogHandleProbe("_setPlatoon " + ToString(idnum), c, before, false);
+}
+
+// A C-style cast checks nothing, so the data type tells a character apart
+static Character *AsCharacter(RootObject *o) {
+  return o && o->getDataType() == CHARACTER ? (Character *)o : nullptr;
+}
+
+bool addActiveObject_hook(ActivePlatoon *p, RootObject *o) {
+  Character *c = AsCharacter(o);
+  hand before = c ? c->getHandle() : hand();
+  bool added = addActiveObject_orig ? addActiveObject_orig(p, o) : false;
+  LogHandleProbe("addActiveObject", c, before, false);
+  return added;
+}
+
+void addCharacterAt_hook(ActivePlatoon *p, RootObject *o, int index) {
+  Character *c = AsCharacter(o);
+  hand before = c ? c->getHandle() : hand();
+  if (addCharacterAt_orig)
+    addCharacterAt_orig(p, o, index);
+  LogHandleProbe("addCharacterAt " + ToString(index), c, before, false);
+}
+
+// The player reorders the selected squad, so its members show the change
+void swapCharacters_hook(ActivePlatoon *p, int indexA, int indexB) {
+  std::vector<Character *> squad;
+  GetCurrentSquad(squad);
+  std::vector<hand> before;
+  for (size_t i = 0; i < squad.size(); ++i)
+    before.push_back(squad[i]->getHandle());
+  LogHandleProbe("swapCharacters " + ToString(indexA) + " " + ToString(indexB),
+                 nullptr, hand(), true);
+  if (swapCharacters_orig)
+    swapCharacters_orig(p, indexA, indexB);
+  for (size_t i = 0; i < squad.size(); ++i)
+    LogHandleProbe("swapCharacters", squad[i], before[i], false);
+}
+
+void capturedSquads_hook(ActivePlatoon *p) {
+  LogHandleProbe("putTheSpecialCharactersInNewSquads_captured", nullptr, hand(),
+                 true);
+  if (capturedSquads_orig)
+    capturedSquads_orig(p);
+}
+
 static std::string RadiantJson(const std::vector<Character *> &characters,
                                bool inPlayerFaction) {
   std::string json = "[";
@@ -1293,6 +1356,47 @@ extern "C" __declspec(dllexport) void startPlugin() {
   if (thunkName)
     KenshiLib::AddHook((void *)KenshiLib::GetRealAddress(thunkName),
                        (void *)setName_hook, (void **)&setName_orig);
+
+  void *thunkRecruit = (void *)GetProcAddress(
+      hLib, "?recruit@PlayerInterface@@QEAA_NPEAVCharacter@@_N@Z");
+  if (thunkRecruit)
+    KenshiLib::AddHook((void *)KenshiLib::GetRealAddress(thunkRecruit),
+                       (void *)recruit_hook, (void **)&recruit_orig);
+
+  void *thunkSetPlatoon = (void *)GetProcAddress(
+      hLib, "?_setPlatoon@Character@@QEAAXPEAVActivePlatoon@@H@Z");
+  if (thunkSetPlatoon)
+    KenshiLib::AddHook((void *)KenshiLib::GetRealAddress(thunkSetPlatoon),
+                       (void *)setPlatoon_hook, (void **)&setPlatoon_orig);
+
+  void *thunkAddActive = (void *)GetProcAddress(
+      hLib, "?_NV_addActiveObject@ActivePlatoon@@QEAA_NPEAVRootObject@@@Z");
+  if (thunkAddActive)
+    KenshiLib::AddHook((void *)KenshiLib::GetRealAddress(thunkAddActive),
+                       (void *)addActiveObject_hook,
+                       (void **)&addActiveObject_orig);
+
+  void *thunkAddAt = (void *)GetProcAddress(
+      hLib, "?addCharacterAt@ActivePlatoon@@QEAAXPEAVRootObject@@H@Z");
+  if (thunkAddAt)
+    KenshiLib::AddHook((void *)KenshiLib::GetRealAddress(thunkAddAt),
+                       (void *)addCharacterAt_hook,
+                       (void **)&addCharacterAt_orig);
+
+  void *thunkSwap =
+      (void *)GetProcAddress(hLib, "?swapCharacters@ActivePlatoon@@QEAAXHH@Z");
+  if (thunkSwap)
+    KenshiLib::AddHook((void *)KenshiLib::GetRealAddress(thunkSwap),
+                       (void *)swapCharacters_hook,
+                       (void **)&swapCharacters_orig);
+
+  void *thunkCaptured = (void *)GetProcAddress(
+      hLib, "?putTheSpecialCharactersInNewSquads_captured@ActivePlatoon@@"
+            "QEAAXXZ");
+  if (thunkCaptured)
+    KenshiLib::AddHook((void *)KenshiLib::GetRealAddress(thunkCaptured),
+                       (void *)capturedSquads_hook,
+                       (void **)&capturedSquads_orig);
 
   CreateThread(NULL, 0, MainThread, NULL, 0, NULL);
 }

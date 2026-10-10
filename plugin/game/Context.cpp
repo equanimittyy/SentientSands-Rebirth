@@ -526,6 +526,31 @@ void LogNpcRole(Character *npc) {
                      GetNpcId(npc) + " " + line);
 }
 
+// Probe: which game call gives a character a new handle. Without always, only
+// a change of a handle that the character already had logs, because each
+// character that loads gets its first handle
+void LogHandleProbe(const std::string &call, Character *npc, const hand &before,
+                    bool always) {
+  if (!LogEnabled(LOG_DEBUG))
+    return;
+  if (!npc) {
+    if (always)
+      Log(LOG_DEBUG, "HANDLE_PROBE: " + call);
+    return;
+  }
+  hand after = npc->getHandle();
+  bool changed = !before.isNull() &&
+                 (after.type != before.type ||
+                  after.container != before.container ||
+                  after.containerSerial != before.containerSerial ||
+                  after.index != before.index || after.serial != before.serial);
+  if (!changed && !always)
+    return;
+  Log(LOG_DEBUG, "HANDLE_PROBE: " + call + " name='" + npc->getName() +
+                     "' npc_id=" + GetNpcId(npc) + " before=" +
+                     before.toString() + " after=" + after.toString());
+}
+
 static std::string InventoryLine(Inventory *inv) {
   if (!inv || (uintptr_t)inv < 0x1000)
     return "none";

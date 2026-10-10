@@ -87,6 +87,7 @@ Some questions of the plans need data from the game. The plugin writes probe lin
 | `STOCK_PROBE` | At each `/stock` test command of the chat | `ProbeStock` | Where a trader keeps its stock, and which data of an item holds the grade that the game shows for a weapon or an armour |
 | `FIRSTAID_PROBE` | At each `/firstaid` test command of the chat | `ProbeFirstAid` | Whether the chat target carries a first aid item, and whether `FIRST_AID_ORDER` makes it treat the speaker |
 | `HIRE_PROBE` | At each `/hire` test command of the chat | `ProbeHire` | Which call starts a hire contract with an expiry time, and which call ends it |
+| `HANDLE_PROBE` | At each recruit, squad reorder, and capture into new squads, and at each change of a handle that a character already had in `_setPlatoon`, `addActiveObject`, `addCharacterAt`, or `swapCharacters` | `LogHandleProbe`, from the hooks in `plugin/main.cpp` | Which game call gives a character a new handle, so that a generic character can keep its `npc_id` after a squad change |
 
 `/stock` changes nothing. `/firstaid` gives the chat target the `FIRST_AID_ORDER` task on the speaker. `/hire [hours]` gives the chat target the `Bodyguard` contract for that many hours, `/hire [line ID]` starts the contract of a dialogue line of the game, `/hire end` ends the contract, and `/hire` alone only logs.
 
