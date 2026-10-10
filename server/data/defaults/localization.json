@@ -100,7 +100,8 @@
         "Search": "Search",
         "{name} is thinking...": "{name} is thinking...",
         "{name} has responded.": "{name} has responded.",
-        "{name} could not respond.": "{name} could not respond."
+        "{name} could not respond.": "{name} could not respond.",
+        "{name} is still thinking.": "{name} is still thinking."
     },
     "Spanish": {
         "Talking to: ": "Hablando con: ",
@@ -203,7 +204,8 @@
         "Search": "Buscar",
         "{name} is thinking...": "{name} está pensando...",
         "{name} has responded.": "{name} ha respondido.",
-        "{name} could not respond.": "{name} no pudo responder."
+        "{name} could not respond.": "{name} no pudo responder.",
+        "{name} is still thinking.": "{name} todavía está pensando."
     },
     "French": {
         "Talking to: ": "Discussion avec : ",
@@ -306,7 +308,8 @@
         "Search": "Rechercher",
         "{name} is thinking...": "{name} réfléchit...",
         "{name} has responded.": "{name} a répondu.",
-        "{name} could not respond.": "{name} n'a pas pu répondre."
+        "{name} could not respond.": "{name} n'a pas pu répondre.",
+        "{name} is still thinking.": "{name} réfléchit encore."
     },
     "Japanese": {
         "Talking to: ": "会話相手: ",
@@ -409,7 +412,8 @@
         "Search": "検索",
         "{name} is thinking...": "{name}は考えています...",
         "{name} has responded.": "{name}が返答しました。",
-        "{name} could not respond.": "{name}は返答できませんでした。"
+        "{name} could not respond.": "{name}は返答できませんでした。",
+        "{name} is still thinking.": "{name}はまだ考えています。"
     },
     "Russian": {
         "Talking to: ": "Разговор с: ",
@@ -512,6 +516,7 @@
         "Search": "Поиск",
         "{name} is thinking...": "{name} думает...",
         "{name} has responded.": "{name} ответил(а).",
-        "{name} could not respond.": "{name} не смог(ла) ответить."
+        "{name} could not respond.": "{name} не смог(ла) ответить.",
+        "{name} is still thinking.": "{name} всё ещё думает."
     }
 }

@@ -187,7 +187,7 @@ A chat request is ordered for the provider's prompt cache, which reuses only an 
 
 | Part | Content | Changes |
 |---|---|---|
-| System message | `prompt_chat_template.txt`: `prompt_system.txt` (`prompt_animal_system.txt` for an animal), the judgment rule, `npc_template.txt`, `prompt_chat_scene.txt`, then the newest memories of the NPC's threads (see [Conversation memories](#conversation-memories)) | When a conversation starts or such a memory is written |
+| System message | `prompt_chat_template.txt`: `prompt_system.txt` (`prompt_animal_system.txt` for an animal, and `prompt_action_rules.txt` after it in an action dialogue), the judgment rule, `npc_template.txt`, `prompt_chat_scene.txt`, then the newest memories of the NPC's threads (see [Conversation memories](#conversation-memories)) | When a conversation starts or such a memory is written |
 | History | The NPC's thread lines without a memory, as user and assistant turns (see [Chat threads](#chat-threads)) | One exchange more each turn |
 | Last user message | `prompt_chat_turn.txt`: the found memories, rumors, and lore (see [Lore retrieval](#lore-retrieval)), the player's line, a short reminder | Every turn |
 
@@ -379,6 +379,19 @@ An NPC radiant conversation takes the place of a talk of the player's characters
 - For an NPC, only a knockout counts as a fight, because the game events hold only the attacks of the player's faction (see [Game events](#game-events)).
 - The name of an NPC comes from `npc_name`, as in a chat, and the thread stores each NPC as a member outside the player's faction.
 
+## Action dialogue
+
+A chat line that starts with `!` marks its chat thread as an action dialogue ([framework.md](../plans/action_dialogue/framework.md)). The NPC talks under the action prompt, but it makes no deal yet, because the offers are not built.
+
+- `action_dialogue.parse` (`server/chat/action_dialogue.py`) reads the mark. `chat` in `server/chat/routes.py` then checks the blocks, runs the classify call for a line of `!` and a space, and sends the action call. Both calls take the `action` route.
+- The blocks read only the contexts of the request. A knockout of the speaker or the NPC blocks every line, plain chat too. An animal or a member of the player faction blocks each marked line, and a failed gate of a named category blocks its line (`gate_block`). The classify list leaves out each category that `gate_block` blocks.
+- The plugin sends `slave` and `has_first_aid` in each context (`GetDetailedContext` in `plugin/game/Context.cpp`), because a slave in a cage reads as `imprisoned`, and HEAL needs a first aid item.
+- `CURRENT_THREAD` holds the category and the speaker of the action dialogue (`action`). A line without a mark keeps the category. A line of another squad member starts a new chat thread (`thread_of`). The ending tag `[END]`, `!end`, a failure, and an error of the action call end the chat thread.
+- The system prompt adds `prompt_action_rules.txt` after `prompt_system.txt` and the reply rules. It holds the request of the category (`prompt_action_<category>.txt`), and the final instruction asks for the category tag first.
+- The server sends each system message through the pipe as `NOTIFY:`: a block, a failure, "Barter dialogue with X." after each reply, and "X ended the barter dialogue." after a reply with `[END]`.
+- At `!end`, the NPC says a random line of `server/data/defaults/action_end_lines.json`, which holds the preset lines of each end.
+- The reply of `/chat` holds `action_dialogue`, which is true while the action dialogue stays open. While the reply to a line of an action dialogue is pending, the chat window takes no new line and shows "{name} is still thinking." (`OnChatSendClick` in `plugin/ui/ChatWindow.cpp`). A marked line is such a line, and so is each line to the NPC of the open action dialogue. The speech bubble of the player leaves out the mark.
+
 ## Line pacing
 
 The server paces the lines of every conversation (`say` in `server/chat/routes.py`). The reply of `/chat` and `/radiant` holds no text. A server thread sends the actions as `NPC_ACTION`, then each line as `NPC_SAY: Name|serial: line`, at least `DialogueSpeed` (5 s by default) after the line before it.
@@ -390,7 +403,7 @@ The server paces the lines of every conversation (`say` in `server/chat/routes.p
 
 ## LLM routing
 
-Each LLM call names a task: `chat`, `radiant`, `profile`, `synthesis`, or `memory`. `server/config/llm_config.json` holds the providers, the profiles, the default profile, and the routes, and the Models page edits them through `/api/llm`.
+Each LLM call names a task: `chat`, `radiant`, `profile`, `synthesis`, `memory`, or `action`. `server/config/llm_config.json` holds the providers, the profiles, the default profile, and the routes, and the Models page edits them through `/api/llm`.
 
 | Part | Contents |
 |---|---|
@@ -464,7 +477,7 @@ Each chat exchange belongs to a chat thread, which records who took part.
 
 - `thread` holds the ID (`AUTOINCREMENT`, so an ID is never reused), the game time of the newest exchange, the start place, the memory, the count of auto rumor passes that did not cite the memory (see [Auto rumors](#auto-rumors)), and the count of chat exchanges. A radiant conversation counts no exchange. `dialogue.thread_id` links each row. Each radiant conversation is a thread (see [Radiant conversations](#radiant-conversations)).
 - `thread_member` holds the `npc_id`, the role (`speaker` or `overheard`), the join time, and whether the member was in the player's faction then. A member keeps the join time and the faction of its first join, so the history text stays stable for the cache. An overhearer that speaks becomes a speaker, so the NPC later knows that it spoke with it (`campaign_db.thread_partners`).
-- `CURRENT_THREAD` ends at a chat with another NPC, a switch between Whisper, Talk, and Yell, a campaign switch, a cull, a restart, or a real-time pause of the Conversation timeout (`conversation_timeout_minutes`, default 3). A chat as another squad member stays in the thread, so one memory covers all the exchanges of the squad with the NPC.
+- `CURRENT_THREAD` ends at a chat with another NPC, a switch between Whisper, Talk, and Yell, a campaign switch, a cull, a restart, or a real-time pause of the Conversation timeout (`conversation_timeout_minutes`, default 3). A chat as another squad member stays in the thread, so one memory covers all the exchanges of the squad with the NPC. An action dialogue is the exception: it belongs to its speaker, and each of its ends also ends the thread (see [Action dialogue](#action-dialogue)).
 - A cull or a character delete deletes each thread with no memory and no dialogue row. A cull recounts the exchanges of each thread that it cuts, from the copy of the NPC, which holds 2 lines for each exchange.
 
 The chat prompt uses the threads (`npc_id`, not names):

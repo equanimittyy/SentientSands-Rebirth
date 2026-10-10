@@ -1,0 +1,110 @@
+{
+    "end": [
+        "Right.",
+        "Fine.",
+        "Whatever.",
+        "Suit yourself.",
+        "Off you go, then.",
+        "That's it, then?",
+        "Another time.",
+        "If you say so.",
+        "Alright.",
+        "Watch yourself out there."
+    ],
+    "barter_accept": [
+        "Pleasure doing business.",
+        "Done.",
+        "That'll do.",
+        "Good. That's settled.",
+        "Right. We're square.",
+        "Nice and simple.",
+        "Fair enough.",
+        "We're done here.",
+        "Good. Now go on.",
+        "Come back if you need anything else."
+    ],
+    "threaten_accept": [
+        "Fine. Take it and go.",
+        "Here. Just leave me be.",
+        "Alright, alright! Take it.",
+        "You'll get yours one day.",
+        "Take it. Hope you choke on it.",
+        "There. Happy now?",
+        "It's yours. Don't hurt me.",
+        "Take it and get out of my sight.",
+        "This isn't over.",
+        "Just go. Please."
+    ],
+    "threaten_attack": [
+        "Think you can take me? C'mon then!",
+        "Wrong person to threaten.",
+        "That's it. You're dead.",
+        "You asked for this.",
+        "I'll bury you myself.",
+        "Big mistake.",
+        "Let's see you back that up.",
+        "Enough talk!",
+        "You'll regret that.",
+        "I've killed better than you."
+    ],
+    "heal_start": [
+        "Hold still.",
+        "Sit down before you fall down.",
+        "This'll sting.",
+        "Let's have a look at that.",
+        "Stop squirming.",
+        "Lucky for you I've got bandages.",
+        "Don't bleed on me.",
+        "Ugh, that's nasty. Hold still.",
+        "Bite down on something.",
+        "I've seen worse. Not much worse."
+    ],
+    "liberate_accept": [
+        "Right. Let's get you out of there.",
+        "Keep your head down once you're out.",
+        "Don't make me regret this.",
+        "Stay still. This won't take long.",
+        "Go on. Run.",
+        "You never saw me.",
+        "Quick, before anyone looks.",
+        "Out you go.",
+        "Don't get caught again.",
+        "Come on. Move it."
+    ],
+    "recruit_accept": [
+        "Alright. Where to?",
+        "Better than sitting here.",
+        "I'm in. Don't get me killed.",
+        "Fine. Show me the way.",
+        "Guess I'm with you now.",
+        "About time something changed.",
+        "You'd better be worth it.",
+        "Nothing keeping me here anyway.",
+        "Count me in.",
+        "Let's go, before I think better of it."
+    ],
+    "follow_accept": [
+        "Lead on.",
+        "For a while, then.",
+        "I'll watch your back. For now.",
+        "Till my time's up.",
+        "Fine. I'll tag along.",
+        "Don't expect me to die for you.",
+        "Where are we headed?",
+        "Just point me at the trouble.",
+        "Right behind you.",
+        "Let's get moving."
+    ],
+    "dismiss_end": [
+        "Fine by me.",
+        "Back to it, then.",
+        "Was nice while it lasted.",
+        "Your loss.",
+        "Good luck out there.",
+        "So that's it, then.",
+        "Right. I'm off.",
+        "No refunds, mind.",
+        "Shame. I was starting to like you lot.",
+        "You know where to find me."
+    ]
+}

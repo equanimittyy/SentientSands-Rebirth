@@ -27,6 +27,7 @@ struct ChatTask {
   std::string json;
   std::string npcName;
   std::string handleStr;
+  bool action;
 };
 
 struct LibraryTask {

@@ -866,6 +866,18 @@ std::string GetDetailedContext(Character *npc, const std::string &type) {
   json += "\"character_state\": \"" + charState + "\",";
   json += "\"health\": \"" + GetHealthStatus(npc) + "\",";
 
+  bool slave = false;
+  bool firstAid = false;
+  try {
+    slave = npc->isSlave() != 0;
+    Inventory *inv = npc->getInventory();
+    firstAid = inv && inv->hasItemFunction(ITEM_FIRSTAID);
+  } catch (...) {
+  }
+  json += "\"slave\": " + std::string(slave ? "true" : "false") + ",";
+  json += "\"has_first_aid\": " + std::string(firstAid ? "true" : "false") +
+          ",";
+
   std::string name = "Unknown";
   try {
     name = npc->getName();

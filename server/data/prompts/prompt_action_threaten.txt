@@ -1,0 +1,1 @@
+REQUEST: {speaker} threatens you, demands your cats or your items, or challenges you to a fight.

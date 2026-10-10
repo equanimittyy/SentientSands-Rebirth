@@ -17,6 +17,7 @@ TASKS = {
     "profile": {"max_tokens": 1500, "temperature": 0.7},
     "synthesis": {"max_tokens": 2048, "temperature": 0.8},
     "memory": {"max_tokens": 1500, "temperature": 0.3},
+    "action": {"max_tokens": 2048, "temperature": 0.8},
 }
 PROVIDER_TYPES = ("openai", "player2")
 # The plugin stops waiting for a reply after 60 s, so a whole fallback chain must end before that

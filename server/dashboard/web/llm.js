@@ -6,6 +6,7 @@ const TASK_LABELS = {
   profile: "NPC profile",
   synthesis: "Rumors",
   memory: "Conversation memories",
+  action: "Action dialogue",
 };
 const TASK_HINTS = {
   chat: "The reply of an NPC when you talk to it.",
@@ -13,6 +14,7 @@ const TASK_HINTS = {
   profile: "The bio of an NPC, or one part of it, written after a few chats with it, or when you ask for it.",
   synthesis: "A rumor about an event, when you stop chatting or press Generate Rumor, and a rumor about a story that comes back in your conversations, on the radiant rumor timer.",
   memory: "A short summary of each conversation, written when you stop chatting for the Conversation timeout on the Settings page.",
+  action: "The reply of an NPC when you start a chat line with !, such as a trade or a threat, and the pick of the kind of request when the line names none.",
 };
 const TYPE_LABELS = { openai: "OpenAI-compatible", player2: "Player2" };
 const GAME_WAIT_S = 60;

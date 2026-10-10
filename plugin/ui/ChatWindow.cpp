@@ -42,6 +42,9 @@ std::string g_chatTargetHandleStr = "";
 std::string g_chatTargetNameStr = "";
 size_t g_lastChatModeIndex = 1;
 bool g_chatJustOpened = false;
+// Both guarded by g_msgMutex, because the reply thread of a chat line sets them
+std::string g_actionPendingName;
+unsigned int g_actionNpcSerial = 0;
 
 void CloseChatUI() {
   if (g_chatWindow) {
@@ -67,6 +70,37 @@ static void NotifyChatStatus(const std::string &key,
   LeaveCriticalSection(&g_msgMutex);
 }
 
+static bool IsAsciiLetter(char c) {
+  return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z');
+}
+
+// The server parses the mark, so the window only tells a marked line apart and
+// keeps the mark out of the speech bubble
+static bool SplitActionMark(const std::string &text, std::string &words) {
+  if (text.size() < 2 || text[0] != '!' ||
+      !(text[1] == ' ' || IsAsciiLetter(text[1])))
+    return false;
+  size_t end = 1;
+  while (end < text.size() && IsAsciiLetter(text[end]))
+    ++end;
+  size_t start = text.find_first_not_of(' ', end);
+  std::string rest = start == std::string::npos ? "" : text.substr(start);
+  if (text[1] == ' ' && rest.empty())
+    return false;
+  words = rest;
+  return true;
+}
+
+static void SettleActionDialogue(ChatTask *t, const std::string &response) {
+  bool open = GetJsonValue(response, "action_dialogue").find("true") == 0;
+  EnterCriticalSection(&g_msgMutex);
+  if (t->action)
+    g_actionPendingName.clear();
+  g_actionNpcSerial =
+      open ? (unsigned int)strtoul(t->handleStr.c_str(), NULL, 10) : 0;
+  LeaveCriticalSection(&g_msgMutex);
+}
+
 DWORD WINAPI ChatResponseThread(LPVOID lpParam) {
   ChatTask *t = (ChatTask *)lpParam;
   Log(LOG_INFO, "CHAT: Sending chat request for " + t->npcName);
@@ -77,6 +111,7 @@ DWORD WINAPI ChatResponseThread(LPVOID lpParam) {
   LeaveCriticalSection(&g_msgMutex);
 
   std::string response = PostToPythonWithResponse(L"/chat", t->json);
+  SettleActionDialogue(t, response);
 
   std::string error = GetJsonValue(response, "error");
   if (response.empty() || !error.empty()) {
@@ -207,13 +242,33 @@ void OnChatSendClick(MyGUI::Widget *sender) {
     }
   }
 
+  std::string words = text;
+  bool marked = SplitActionMark(text, words);
+  unsigned int targetSerial =
+      (unsigned int)strtoul(handleStr.c_str(), NULL, 10);
+  EnterCriticalSection(&g_msgMutex);
+  std::string pendingName = g_actionPendingName;
+  bool actionLine = marked || (g_actionNpcSerial != 0 &&
+                               targetSerial == g_actionNpcSerial);
+  // A second line could bring a second offer, so an action dialogue line
+  // holds every chat until its reply arrives
+  if (pendingName.empty() && actionLine)
+    g_actionPendingName = npcName;
+  LeaveCriticalSection(&g_msgMutex);
+  if (!pendingName.empty()) {
+    NotifyChatStatus("{name} is still thinking.", pendingName);
+    return;
+  }
+
   CloseChatUI();
 
-  EnterCriticalSection(&g_msgMutex);
-  // Names the speaker, so its bubble and the NPC's actions go to that squad member
-  g_messageQueue.push_back(
-      "PLAYER_SAY: " + (speaker ? playerName + ": " : std::string()) + text);
-  LeaveCriticalSection(&g_msgMutex);
+  if (!words.empty()) {
+    EnterCriticalSection(&g_msgMutex);
+    // Names the speaker, so its bubble and the NPC's actions go to that squad member
+    g_messageQueue.push_back(
+        "PLAYER_SAY: " + (speaker ? playerName + ": " : std::string()) + words);
+    LeaveCriticalSection(&g_msgMutex);
+  }
 
   std::string primaryId = npcName + "|" + handleStr;
   std::string npcsJson = "\"" + EscapeJSON(primaryId) + "\"";
@@ -341,6 +396,7 @@ void OnChatSendClick(MyGUI::Widget *sender) {
   task->json = json;
   task->npcName = npcName;
   task->handleStr = handleStr;
+  task->action = actionLine;
   CreateThread(NULL, 0, ChatResponseThread, task, 0, NULL);
 }
 

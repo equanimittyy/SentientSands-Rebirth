@@ -1,0 +1,8 @@
+Which choice fits the line below best?
+
+LINE: {line}
+
+CHOICES:
+{choices}
+
+Output ONLY the number of one choice.

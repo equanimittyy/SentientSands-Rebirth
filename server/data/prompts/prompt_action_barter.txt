@@ -1,0 +1,1 @@
+REQUEST: {speaker} wants to trade with you: to buy or sell an item, to swap items, to give you a gift, or to ask you for charity. {speaker} can haggle over the price.

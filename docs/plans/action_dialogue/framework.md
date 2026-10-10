@@ -191,7 +191,7 @@ Each end also ends the chat thread.
 
 At the end, the NPC says a line from the preset list of the end, picked at random, because the end comes after the last call and a preset line costs no call. A knockout, a death, a save load, an error, a timeout of the chat thread, and the start of another chat thread get no line, because the NPC cannot talk or the player is gone. `[END]` and `[REFUSE]` get no line either, because the reply of the model already holds the last words of the NPC.
 
-[end_lines.md](end_lines.md) holds the preset lists.
+`server/data/defaults/action_end_lines.json` holds the preset lists.
 
 ## 5. Speaker
 

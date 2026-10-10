@@ -8,7 +8,7 @@ import time
 
 from flask import Blueprint, jsonify, request
 
-from chat import background, chat_prompt, radiant, retrieval, rumors, scene_text
+from chat import action_dialogue, background, chat_prompt, radiant, retrieval, rumors, scene_text
 from chat.bio import BIO_PARTS, generate_bio, recorded_history, write_bio
 from chat.characters import get_character_data, npc_name, should_save_profile
 from chat.llm import call_llm
@@ -145,6 +145,24 @@ def reply_loop():
             # An error must not end the loop, or no later chat reply would play
             logging.error(f"CHAT: The lines of a reply failed: {e}")
 
+def notify(text):
+    send_to_pipe(f"NOTIFY: {text}")
+
+def end_thread():
+    with state.THREAD_LOCK:
+        state.CURRENT_THREAD.clear()
+
+def thread_of(thread_key, speaker_id):
+    """The ID and the action dialogue of the current chat thread for a line, or (None, None) for a new chat thread. Call it
+    under THREAD_LOCK. An action dialogue belongs to its speaker, so a line of another squad member starts a new chat thread."""
+    live = state.CURRENT_THREAD
+    if live.get("key") != thread_key or time.monotonic() - live["replied"] >= quiet_seconds():
+        return None, None
+    action = live.get("action")
+    if action and action["speaker"] != speaker_id:
+        return None, None
+    return live.get("id"), action
+
 def merge_live_context(ctx):
     # Merge rather than replace, because a nearby entry lacks fields, such as factionID, that a full context of the same character stored
     live = state.LIVE_CONTEXTS.setdefault(ctx['npc_id'], {})
@@ -176,12 +194,13 @@ def chat():
     npcs = [register(n) for n in raw_npcs]
     target_serial = raw_npcs[0].partition('|')[2] if raw_npcs else ""
 
-    def reply(*texts, actions=()):
+    def reply(*texts, actions=(), action_open=False):
         # The plugin takes the text before a first colon as the speaker. It finds the NPC by the serial after the bar,
         # because its request named the NPC before a rename.
         voice = f"{primary_npc}|{target_serial}"
         play_lines([f"{voice}: {text}" for text in texts], [f"{voice}: {action}" for action in actions])
-        return jsonify({"status": "ok"})
+        # The plugin takes no new line while the reply to a line of an open action dialogue is pending
+        return jsonify({"status": "ok", "action_dialogue": action_open})
     
     player_name = data.get('player', 'Drifter')
     mode = data.get('mode', 'talk')
@@ -284,10 +303,43 @@ def chat():
         npc_name(speaker)
     # Not the speaker, so the squad members that take turns with the NPC share one thread and one memory
     thread_key = (primary_id, mode)
-    timeout = quiet_seconds()
     with state.THREAD_LOCK:
-        current_thread = state.CURRENT_THREAD.get("id") if state.CURRENT_THREAD.get("key") == thread_key and time.monotonic() - state.CURRENT_THREAD["replied"] < timeout else None
+        current_thread, action = thread_of(thread_key, speaker_id)
         state.restart_quiet_clock()
+
+    kind, category, text = action_dialogue.parse(player_message)
+    npc_in_faction = bool(ctx_dict.get("in_player_faction") or is_player_faction(ctx_dict.get("faction"), ctx_dict.get("factionID")))
+    blocked = action_dialogue.knockout_block(ctx_dict, speaker, primary_npc, player_name)
+    if kind and not blocked:
+        blocked = action_dialogue.mark_block(ctx_dict, primary_npc, npc_in_faction)
+    if kind == "category" and not blocked:
+        blocked = action_dialogue.gate_block(category, ctx_dict, speaker, primary_npc)
+    if blocked:
+        logging.info(f"ACTION: Blocked the line of {player_name} to {primary_npc}: {blocked}")
+        notify(blocked)
+        return reply(action_open=bool(action))
+    if kind == "classify":
+        listed = action_dialogue.choices(ctx_dict, speaker, primary_npc)
+        prompt = fill_prompt("prompt_action_classify.txt", line=text, choices=action_dialogue.choice_list(listed))
+        category = action_dialogue.chosen(call_llm("action", [{"role": "user", "content": prompt}]), listed)
+        logging.info(f"ACTION: Classified the line of {player_name} to {primary_npc} as {category or 'no category'}.")
+    if kind == "failure" or (kind == "classify" and not category):
+        end_thread()
+        notify(f"{primary_npc} didn't understand what you meant.")
+        return reply()
+    if kind == "end":
+        end_thread()
+        logging.info(f"ACTION: {player_name} ended the conversation with {primary_npc}.")
+        return reply(action_dialogue.end_line("end"))
+    if kind:
+        player_message = text
+    elif action:
+        category = action["category"]
+    if category and not player_message:
+        with state.THREAD_LOCK:
+            state.CURRENT_THREAD.update(key=thread_key, id=current_thread, replied=time.monotonic(), action={"category": category, "speaker": speaker_id})
+        notify(f"{category.capitalize()} dialogue with {primary_npc}.")
+        return reply(action_open=True)
 
     talk_radius, yell_radius = get_config_radii()
     # A whisper is one-on-one: nobody overhears
@@ -295,7 +347,7 @@ def chat():
 
     # Keyed by npc_id, because NPCs near the player can share a name, for example two Dust Bandits
     listeners = {primary_id: (primary_npc, context)}
-    in_squad = {primary_id: bool(ctx_dict.get("in_player_faction") or is_player_faction(ctx_dict.get("faction"), ctx_dict.get("factionID"))), speaker_id: True}
+    in_squad = {primary_id: npc_in_faction, speaker_id: True}
     for n in chat_prompt.overhearers(nearby, radius, {primary_id, speaker.get("npc_id")}):
         merge_live_context(n)
         listeners[n["npc_id"]] = (npc_name(n), json.dumps(n))
@@ -322,6 +374,10 @@ def chat():
     if animal:
         system_prompt = fill_prompt("prompt_animal_system.txt", language_instruction=language_instruction())
         final_instruction = f"Reply as {primary_npc} with one action or sound in asterisks, and no words. End with [JUDGMENT: n]."
+    elif category:
+        wanted = fill_prompt(f"prompt_action_{category.lower()}.txt", speaker=player_name)
+        system_prompt = build_system_prompt() + "\n\n" + fill_prompt("prompt_action_rules.txt", tag=f"[{category}]", request=wanted)
+        final_instruction = f"Reply as {primary_npc}{', quietly' if mode == 'whisper' else ''}. Start with [{category}], and end with [JUDGMENT: n]."
     else:
         system_prompt = build_system_prompt()
         final_instruction = f"Reply as {primary_npc}{', quietly' if mode == 'whisper' else ''}. End with [JUDGMENT: n]."
@@ -374,14 +430,17 @@ def chat():
     notes = chat_prompt.overheard_notes(campaign_db.thread_members({thread_id for _, _, thread_id in history if thread_id}), primary_id)
     messages = chat_prompt.chat_messages(system, chat_prompt.history_turns(chat_prompt.with_notes(history, notes), primary_id), turn)
 
-    content = call_llm("chat", messages)
+    content = call_llm("action" if category else "chat", messages)
     state.restart_quiet_clock()
     if not content:
         logging.error("CHAT: No reply from the LLM.")
+        if category:
+            end_thread()
     
     if content:
         judged = re.search(r'\[[^\]]*JUDGMENT\D*?(-?\d+)[^\]]*\]', content, re.IGNORECASE)
         judgment_value = max(-5, min(5, int(judged.group(1)))) if judged else 0
+        closing = bool(category) and action_dialogue.ended(content)
 
         # Allows one level of nested brackets: item names like "Bolts [Toothpicks]" contain them
         content = re.sub(r'\[\s*(?:[^\[\]]|\[[^\[\]]*\])+\s*\]', '', content).strip()
@@ -460,7 +519,9 @@ def chat():
         if primary_id:
             members = [(npc_id, "speaker" if npc_id in (primary_id, speaker_id) else "overheard", in_squad.get(npc_id, False)) for npc_id, _, _ in copies]
             thread_id = campaign_db.join_thread(current_thread, members, campaign_db.game_time(time_prefix), scene_text.location_name(speaker or state.PLAYER_CONTEXT))
-            state.CURRENT_THREAD.update(key=thread_key, id=thread_id, replied=time.monotonic())
+            state.CURRENT_THREAD.update(key=thread_key, id=thread_id, replied=time.monotonic(), action={"category": category, "speaker": speaker_id} if category else None)
+            if closing:
+                state.CURRENT_THREAD.clear()
         for npc_id, name, new_lines in copies:
             campaign_db.append_dialogue(npc_id, new_lines, char_datas[npc_id], thread_id)
             if npc_id == primary_id and judgment_value:
@@ -477,8 +538,10 @@ def chat():
             # In the background, so the reply does not wait for a second LLM call
             threading.Thread(target=generate_bio, args=(primary_id,), daemon=True).start()
 
-        logging.info(f'CHAT: {mode_tag}{player_name} to {primary_npc}: "{player_message}" | {primary_npc}: "{content}" ({time.monotonic() - started:.1f} s)')
-        return reply(content)
+        logging.info(f'CHAT: {mode_tag}{player_name} to {primary_npc}{f" [{category}]" if category else ""}: "{player_message}" | {primary_npc}: "{content}" ({time.monotonic() - started:.1f} s)')
+        if category:
+            notify(f"{primary_npc} ended the {category.lower()} dialogue." if closing else f"{category.capitalize()} dialogue with {primary_npc}.")
+        return reply(content, action_open=bool(category) and not closing)
     return jsonify({"error": "No reply from the LLM.", "status": "error"}), 502
 
 def bio_refusal(data):
