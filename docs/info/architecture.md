@@ -392,7 +392,7 @@ A chat line that starts with `!` marks its chat thread as an action dialogue ([f
 - The server sends each system message through the pipe as `NOTIFY:`: a block, a failure, "Barter dialogue with X." after each reply, and "X ended the barter dialogue." after a reply with `[END]`.
 - The bubble of an action reply starts with the category tag, for example `[THREATEN] Hell no!`. The stored line has no tag. The plugin strips every other tag from a bubble, so it keeps only a leading category tag (`LeadingCategoryTag` in `plugin/main.cpp`).
 - At `!end`, the NPC says a random line of `server/data/defaults/action_end_lines.json`, which holds the preset lines of each end.
-- The reply of `/chat` holds `action_dialogue`, which is true while the action dialogue stays open. While the reply to a line of an action dialogue is pending, a send closes the chat window, drops the line, and shows "{name} is still thinking." (`OnChatSendClick` in `plugin/ui/ChatWindow.cpp`). A marked line is such a line, and so is each line to the NPC of the open action dialogue. The speech bubble of the player shows the whole line with its mark, and the stored line leaves the mark out.
+- The reply of `/chat` holds `action_dialogue`, which is true while the action dialogue stays open. While the reply to a line of an action dialogue is pending, a send closes the chat window, drops the line, and shows "{name} is still thinking." (`OnChatSendClick` in `plugin/ui/ChatWindow.cpp`). A marked line is such a line, and so is each line to the NPC of the open action dialogue. The speech bubble of the player and the stored line leave out the mark, so a line of only a mark, such as `!end`, shows no bubble.
 
 ## Line pacing
 

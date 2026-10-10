@@ -74,13 +74,21 @@ static bool IsAsciiLetter(char c) {
   return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z');
 }
 
-// The server parses the mark, so the window only tells a marked line apart
+// The server parses the mark, so the window does not check the category name
 static bool IsActionMark(const std::string &text) {
   if (text.size() < 2 || text[0] != '!')
     return false;
   if (IsAsciiLetter(text[1]))
     return true;
   return text[1] == ' ' && text.find_first_not_of(' ', 1) != std::string::npos;
+}
+
+static std::string WithoutActionMark(const std::string &text) {
+  size_t end = 1;
+  while (end < text.size() && IsAsciiLetter(text[end]))
+    end++;
+  size_t start = text.find_first_not_of(' ', end);
+  return start == std::string::npos ? std::string() : text.substr(start);
 }
 
 static void SettleActionDialogue(ChatTask *t, const std::string &response) {
@@ -253,9 +261,12 @@ void OnChatSendClick(MyGUI::Widget *sender) {
   }
 
   EnterCriticalSection(&g_msgMutex);
-  // Names the speaker, so its bubble and the NPC's actions go to that squad member
+  // Names the speaker, so its bubble and the NPC's actions go to that squad
+  // member. A line of only a mark, such as !end, shows no bubble but still
+  // names the speaker
   g_messageQueue.push_back(
-      "PLAYER_SAY: " + (speaker ? playerName + ": " : std::string()) + text);
+      "PLAYER_SAY: " + (speaker ? playerName + ": " : std::string()) +
+      (marked ? WithoutActionMark(text) : text));
   LeaveCriticalSection(&g_msgMutex);
 
   std::string primaryId = npcName + "|" + handleStr;
