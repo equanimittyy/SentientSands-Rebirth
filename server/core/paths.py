@@ -16,6 +16,7 @@ def resolve_mod_file(filename):
     return path
 
 INI_PATH = resolve_mod_file("SentientSands_Config.ini")
+LOGS_DIR = resolve_mod_file("logs")
 DEFAULTS_DIR = os.path.join(SERVER_DIR, "data", "defaults")
 LLM_CONFIG_PATH = os.path.join(SERVER_DIR, "config", "llm_config.json")
 DEFAULT_MODELS_PATH = os.path.join(DEFAULTS_DIR, "default_models.json")

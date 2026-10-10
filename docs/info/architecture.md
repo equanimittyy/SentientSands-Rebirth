@@ -27,17 +27,18 @@ SentientSandsRebirth/
   mod.info
   SentientSandsRebirth.mod
   SentientSands_Config.ini   settings, created by the server on first start
+  logs/                      the plugin and server logs, created at runtime
   server/
     main.py
     core/  chat/  store/  dashboard/
     data/templates/  data/prompts/  data/defaults/
     python/                  embedded runtime, added by scripts/package_release.py
-    config/  logs/           created at runtime
+    config/                  created at runtime
     data/campaigns/  data/user_templates/   created at runtime
 ```
 
 - The plugin takes the mod root from the path of its DLL, and runs `server\python\python.exe server\main.py`, or `python` on `PATH` (`StartPythonServer` in `plugin/core/Utils.cpp`).
-- The mod root is the parent of the folder of `main.py`. From the repo, the server finds the INI in `mod/` (`resolve_mod_file`).
+- The mod root is the parent of the folder of `main.py`. From the repo, the server finds the INI and `logs/` in `mod/` (`resolve_mod_file`).
 
 ## Runtime flow
 
@@ -682,11 +683,13 @@ Each record is one line (a line break is written as `\n`). The tag after the lev
 
 `LogLevel` in the INI sets the lowest level for both sides. The default is `INFO`. A change on the Settings page reaches the plugin as `SET_CONFIG: g_logLevel` (see [Settings](#settings)).
 
+All log files are in the `logs/` folder of the mod root.
+
 | File | Writer | Contents | Size |
 |---|---|---|---|
-| `SentientSands_SDK.log` in the Kenshi folder | Plugin | The current game. The previous game becomes `SentientSands_SDK.old.log`. | One game |
-| `server/logs/server.log` | Server | The server log | 512 KB, 3 backups |
-| `server/logs/llm.log` | Server | Each prompt and reply, only at `DEBUG` | 2 MB, 1 backup |
+| `SentientSands_SDK.log` | Plugin | The current game. The previous game becomes `SentientSands_SDK.old.log`. | One game |
+| `server.log` | Server | The server log | 512 KB, 3 backups |
+| `llm.log` | Server | Each prompt and reply, only at `DEBUG` | 2 MB, 1 backup |
 
 The plugin flushes each line, so the lines before a crash reach the file.
 
@@ -695,7 +698,6 @@ The plugin flushes each line, so the lines before a crash reach the file.
 | Location | Contents |
 |---|---|
 | `server/data/campaigns/<name>/` | One campaign: `campaign.db` (see [Campaign storage](#campaign-storage)). |
-| `server/logs/` | `server.log` and `llm.log` (see [Logging](#logging)). |
 | `server/config/prompts/` | The player's prompt overrides and `base_hashes.json` (see [Prompts](#prompts)). |
 | `server/data/user_templates/` | The player's world templates (see [World templates](#world-templates)). |
 | `server/config/llm_config.json` | The LLM providers with the player's API keys, the profiles, and the routes (see [LLM routing](#llm-routing)). |

@@ -31,6 +31,7 @@ from chat.llm import load_llm_config, player2_ping_loop
 from chat.memory import memory_loop
 from core import log_setup
 from core import routes as core_routes
+from core.paths import LOGS_DIR
 from core.app import app
 from core.process import kill_old_servers, monitor_kenshi_process
 from core.settings import load_configs, push_settings_to_plugin
@@ -42,7 +43,7 @@ for blueprint in (core_routes.bp, chat_routes.bp, dashboard_routes.bp):
     app.register_blueprint(blueprint)
 
 def start():
-    log_setup.setup(os.path.join(SERVER_DIR, "logs"))
+    log_setup.setup(LOGS_DIR)
     kill_old_servers()
     load_configs()
     init_server_state()

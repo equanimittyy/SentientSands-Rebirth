@@ -68,10 +68,13 @@ void Log(LogLevel level, const std::string &msg) {
   }
 
   if (!s_logRotated) {
+    std::string logDir = g_modRoot + "\\logs";
+    std::string logPath = logDir + "\\SentientSands_SDK.log";
+    CreateDirectoryA(logDir.c_str(), NULL);
     // Keeps the previous game's log, so a crash log survives the relaunch
-    MoveFileExA("SentientSands_SDK.log", "SentientSands_SDK.old.log",
+    MoveFileExA(logPath.c_str(), (logDir + "\\SentientSands_SDK.old.log").c_str(),
                 MOVEFILE_REPLACE_EXISTING);
-    s_logFile.open("SentientSands_SDK.log", std::ios::app);
+    s_logFile.open(logPath.c_str(), std::ios::app);
     s_logRotated = true;
   }
   if (s_logFile.is_open())

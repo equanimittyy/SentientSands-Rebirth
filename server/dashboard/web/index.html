@@ -210,7 +210,7 @@
             <li><b>The chat key does nothing</b>: select an NPC first, and close the Dialogue Library. The first character of your squad cannot be a chat target.</li>
             <li><b>This page says that the server is not running</b>: press <b>Restart Server</b> in the SSR HUB.</li>
             <li><b>Replies are slow with a local model</b>: see Local models in the Advanced Guide.</li>
-            <li><b>A bug report</b>: attach <code>SentientSands_SDK.log</code> from the Kenshi folder and <code>server\logs\server.log</code> from the SSR folder.</li>
+            <li><b>A bug report</b>: attach <code>logs\SentientSands_SDK.log</code> and <code>logs\server.log</code> from the SSR folder.</li>
           </ul>
         </details>
       </fieldset>
@@ -315,8 +315,8 @@
           <ul>
             <li><b>Log level</b> on the <a href="#settings">Settings</a> tab sets how much SSR writes to its logs. DEBUG writes the most, and also shows <b>Test search</b> on the Editor tab.</li>
             <li><b>Test search</b> shows which lore entries, memories, and rumors an NPC gets with a line that you say.</li>
-            <li><code>SentientSands_SDK.log</code> in the Kenshi folder holds the current game, and <code>SentientSands_SDK.old.log</code> the game before.</li>
-            <li><code>server\logs\server.log</code> in the SSR folder holds the server log. At DEBUG, <code>server\logs\llm.log</code> holds each prompt and reply.</li>
+            <li>The <code>logs</code> folder in the SSR folder holds the logs. <code>SentientSands_SDK.log</code> holds the current game, and <code>SentientSands_SDK.old.log</code> the game before.</li>
+            <li><code>server.log</code> holds the server log. At DEBUG, <code>llm.log</code> holds each prompt and reply.</li>
           </ul>
           <video controls preload="none" poster="/web/videos/test-search.jpg" src="/web/videos/test-search.mp4"></video>
         </details>
