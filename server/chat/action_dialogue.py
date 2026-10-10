@@ -18,8 +18,8 @@ CATEGORIES = [
     ("b", "barter", "BARTER", "A request to trade items, a gift, or a plea for charity"),
     ("h", "heal", "HEAL", "A request to treat wounds"),
     ("l", "liberate", "LIBERATE", "A request to be freed from prison or slavery"),
-    ("r", "recruit", "RECRUIT", "A request to join the squad"),
-    ("f", "follow", "FOLLOW", "A request to follow the squad for a time"),
+    ("r", "recruit", "RECRUIT", "A request to join the squad for good, as a new member"),
+    ("f", "follow", "FOLLOW", 'A request to come along or be hired for a while, such as "follow me"'),
     ("d", "dismiss", "DISMISS", "An order for a hired follower to leave"),
 ]
 NONE_OF_THESE = "None of these"

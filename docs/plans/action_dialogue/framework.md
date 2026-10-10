@@ -56,8 +56,8 @@ The list leaves out each category that the game state already rules out, because
 | A request to trade items, a gift, or a plea for charity | BARTER | Never |
 | A request to treat wounds | HEAL | The speaker has no wound, the NPC carries no first aid item, or the NPC is `imprisoned` ([heal.md](heal.md#2-deal)). |
 | A request to be freed from prison or slavery | LIBERATE | The speaker is neither `imprisoned` nor `enslaved`, the NPC is `imprisoned`, or the speaker is a slave and the NPC is a guard ([liberate.md](liberate.md#2-deal)). |
-| A request to join the squad | RECRUIT | The speaker or the NPC is `imprisoned` or `enslaved`, or the NPC leads its faction ([recruit.md](recruit.md#2-gate)). |
-| A request to follow the squad for a time | FOLLOW | The speaker or the NPC is `imprisoned` or `enslaved`, or the NPC leads its faction ([recruit.md](recruit.md#2-gate)). |
+| A request to join the squad for good, as a new member | RECRUIT | The speaker or the NPC is `imprisoned` or `enslaved`, or the NPC leads its faction ([recruit.md](recruit.md#2-gate)). |
+| A request to come along or be hired for a while, such as "follow me" | FOLLOW | The speaker or the NPC is `imprisoned` or `enslaved`, or the NPC leads its faction ([recruit.md](recruit.md#2-gate)). |
 | An order for a hired follower to leave | DISMISS | The NPC is not a temporary follower ([dismiss.md](dismiss.md#2-gate)). |
 
 The fee of a deal never leaves out a choice, because code does not know the fee before the call.
