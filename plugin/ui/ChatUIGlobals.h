@@ -28,6 +28,9 @@ struct ChatTask {
   std::string npcName;
   std::string handleStr;
   bool action;
+  // The decline goes to /offer before the reply line, or the server would
+  // still hold the offer and drop the line
+  std::string offerAnswer;
 };
 
 struct LibraryTask {

@@ -1,4 +1,5 @@
 #include "ChatWindow.h"
+#include "OfferWindow.h"
 #include "../core/Comm.h"
 #include "../game/Context.h"
 #include "../core/Globals.h"
@@ -44,9 +45,10 @@ std::string g_chatTargetHandleStr = "";
 std::string g_chatTargetNameStr = "";
 size_t g_lastChatModeIndex = 1;
 bool g_chatJustOpened = false;
-// Both guarded by g_msgMutex, because the reply thread of a chat line sets them
+// Guarded by g_msgMutex, because the reply thread of a chat line sets them
 std::string g_actionPendingName;
 unsigned int g_actionNpcKey = 0;
+std::string g_offerPendingName;
 
 void CloseChatUI() {
   if (g_chatWindow) {
@@ -150,9 +152,13 @@ static std::string ChangeCats(Character *player, const std::string &args) {
 
 static void SettleActionDialogue(ChatTask *t, const std::string &response) {
   bool open = GetJsonValue(response, "action_dialogue").find("true") == 0;
+  bool offered = GetJsonValue(response, "offer").find("true") == 0;
   EnterCriticalSection(&g_msgMutex);
   if (t->action)
     g_actionPendingName.clear();
+  // Set before the popup opens, because the popup waits for the reply lines
+  if (offered)
+    g_offerPendingName = t->npcName;
   g_actionNpcKey =
       open ? (unsigned int)strtoul(t->handleStr.c_str(), NULL, 10) : 0;
   LeaveCriticalSection(&g_msgMutex);
@@ -160,6 +166,8 @@ static void SettleActionDialogue(ChatTask *t, const std::string &response) {
 
 DWORD WINAPI ChatResponseThread(LPVOID lpParam) {
   ChatTask *t = (ChatTask *)lpParam;
+  if (!t->offerAnswer.empty())
+    PostToPythonWithResponse(L"/offer", t->offerAnswer);
   Log(LOG_INFO, "CHAT: Sending chat request for " + t->npcName);
   NotifyChatStatus("{name} is thinking...", t->npcName);
   EnterCriticalSection(&g_msgMutex);
@@ -223,6 +231,17 @@ void OnChatInputChange(MyGUI::EditBox *sender) {
 
 void OnChatInputAccept(MyGUI::EditBox *sender) { OnChatSendClick(sender); }
 
+void SetOfferPending(const std::string &npcName) {
+  EnterCriticalSection(&g_msgMutex);
+  g_offerPendingName = npcName;
+  LeaveCriticalSection(&g_msgMutex);
+}
+
+std::string CurrentChatMode() {
+  const char *modes[] = {"whisper", "talk", "yell"};
+  return g_lastChatModeIndex < 3 ? modes[g_lastChatModeIndex] : "talk";
+}
+
 void OnChatSendClick(MyGUI::Widget *sender) {
   if (!g_chatInput)
     return;
@@ -232,16 +251,7 @@ void OnChatSendClick(MyGUI::Widget *sender) {
     return;
   }
 
-  std::string mode = "talk";
-  size_t selIndex = g_lastChatModeIndex;
-
-  if (selIndex == 0)
-    mode = "whisper";
-  else if (selIndex == 1)
-    mode = "talk";
-  else if (selIndex == 2)
-    mode = "yell";
-
+  std::string mode = CurrentChatMode();
   std::string npcName = g_chatTargetNameStr;
   std::string handleStr = g_chatTargetHandleStr;
   GameWorld *world = *ppWorld;
@@ -254,7 +264,6 @@ void OnChatSendClick(MyGUI::Widget *sender) {
     speaker = world->player->playerCharacters[0];
   if (speaker)
     g_lastSpeakerKey = HandleKey(speaker);
-  std::string playerName = speaker ? speaker->getName() : "Drifter";
 
   if (text.substr(0, 6) == "/name " && text.length() > 6) {
     std::string newName = text.substr(6);
@@ -307,18 +316,35 @@ void OnChatSendClick(MyGUI::Widget *sender) {
     return;
   }
 
+  SendChatLine(npcName, handleStr, speaker, text, mode, "");
+}
+
+void SendChatLine(const std::string &npcName, const std::string &handleStr,
+                  Character *speaker, const std::string &text,
+                  const std::string &mode, const std::string &offerAnswer) {
+  GameWorld *world = *ppWorld;
+  std::string playerName = speaker ? speaker->getName() : "Drifter";
   bool marked = IsActionMark(text);
   unsigned int targetKey = (unsigned int)strtoul(handleStr.c_str(), NULL, 10);
   EnterCriticalSection(&g_msgMutex);
   std::string pendingName = g_actionPendingName;
+  std::string offerName = g_offerPendingName;
   bool actionLine =
       marked || (g_actionNpcKey != 0 && targetKey == g_actionNpcKey);
   // A second line could bring a second offer, so an action dialogue line
   // holds every chat until its reply arrives
-  if (pendingName.empty() && actionLine)
+  if (pendingName.empty() && offerName.empty() && actionLine)
     g_actionPendingName = npcName;
   LeaveCriticalSection(&g_msgMutex);
   CloseChatUI();
+  if (!offerName.empty()) {
+    NotifyChatStatus("Answer {name}'s offer first.", offerName);
+    // The pipe drops a message when it finds no instance in time, so the
+    // server sends the popup again, or says that it holds no offer
+    if (!g_offerWindow)
+      AsyncPostToPython(L"/offer", "{\"answer\": \"show\"}");
+    return;
+  }
   if (!pendingName.empty()) {
     NotifyChatStatus("{name} is still thinking.", pendingName);
     return;
@@ -434,7 +460,8 @@ void OnChatSendClick(MyGUI::Widget *sender) {
       "], \"nearby\": [" + nearbyFullJson + "], \"message\": \"" +
       EscapeJSON(text) + "\", \"player\": \"" + EscapeJSON(playerName) +
       "\", \"mode\": \"" + mode + "\", \"context\": " + detailedContext +
-      ", \"speaker\": " + speakerContext +
+      ", \"speaker\": " + speakerContext + ", \"speaker_key\": \"" +
+      (speaker ? ToString(HandleKey(speaker)) : std::string()) + "\"" +
       ", \"events\": " + TakeGameEvents() +
       ", \"changed_towns\": " + ChangedTowns() + "}";
 
@@ -443,6 +470,7 @@ void OnChatSendClick(MyGUI::Widget *sender) {
   task->npcName = npcName;
   task->handleStr = handleStr;
   task->action = actionLine;
+  task->offerAnswer = offerAnswer;
   CreateThread(NULL, 0, ChatResponseThread, task, 0, NULL);
 }
 

@@ -76,7 +76,10 @@ enum ActionType {
   ACT_SPAWN_ITEM,
   ACT_RELEASE,
   ACT_TAKE_ITEM,
-  ACT_PROBE
+  ACT_PROBE,
+  ACT_HIRE,
+  ACT_END_HIRE,
+  ACT_FIRST_AID
 };
 
 struct GameEvent {

@@ -130,6 +130,7 @@ void ProcessMessageQueue(GameWorld *thisptr) {
 
       hand targetHand = g_talkTargetHand;
       hand speakerHand = hand();
+      hand actionSpeaker = hand();
 
       if (isCmd) {
         size_t firstColon = msg.find(":", 4); // skip "CMD:"
@@ -221,6 +222,10 @@ void ProcessMessageQueue(GameWorld *thisptr) {
             FinishJournalSave(data);
           } else if (command == "JOURNAL_DELETED") {
             FinishJournalDelete(data);
+          } else if (command == "OFFER") {
+            ShowOfferUI(data);
+          } else if (command == "OFFER_GONE") {
+            DropOfferUI();
           }
         }
       } else if (isRename) {
@@ -319,7 +324,14 @@ void ProcessMessageQueue(GameWorld *thisptr) {
             size_t piper = header.find("|");
             if (piper != std::string::npos) {
               name = header.substr(0, piper);
-              key = (unsigned int)strtoul(header.c_str() + piper + 1, NULL, 10);
+              char *rest = NULL;
+              key = (unsigned int)strtoul(header.c_str() + piper + 1, &rest, 10);
+              Character *spoke =
+                  rest && *rest == '>'
+                      ? KeyedCharacter((unsigned int)strtoul(rest + 1, NULL, 10))
+                      : nullptr;
+              if (spoke)
+                actionSpeaker = spoke->getHandle();
             }
 
             std::string nLow = name;
@@ -435,6 +447,14 @@ void ProcessMessageQueue(GameWorld *thisptr) {
         }
       }
 
+      hand firstCharacter =
+          thisptr->player && thisptr->player->playerCharacters.size() > 0
+              ? thisptr->player->playerCharacters[0]->getHandle()
+              : hand();
+      hand itemHolder =
+          actionSpeaker.isValid() ? actionSpeaker : g_lastChattingPlayerHand;
+      hand actionTarget = actionSpeaker.isValid() ? actionSpeaker : firstCharacter;
+
       if (isNPCAction || isNPCSay) {
         size_t searchPos = 0;
         while (true) {
@@ -502,14 +522,37 @@ void ProcessMessageQueue(GameWorld *thisptr) {
             act.actor = targetHand;
             g_uiActionQueue.push_back(act);
             LeaveCriticalSection(&g_uiMutex);
+          } else if (actStr.find("END_HIRE") != std::string::npos) {
+            EnterCriticalSection(&g_uiMutex);
+            QueuedAction act;
+            act.type = ACT_END_HIRE;
+            act.actor = targetHand;
+            g_uiActionQueue.push_back(act);
+            LeaveCriticalSection(&g_uiMutex);
+          } else if (actStr.find("HIRE:") != std::string::npos) {
+            EnterCriticalSection(&g_uiMutex);
+            QueuedAction act;
+            act.type = ACT_HIRE;
+            act.actor = targetHand;
+            act.target = actionTarget;
+            act.taskValue = atoi(getPayload(actStr, "HIRE:").c_str());
+            g_uiActionQueue.push_back(act);
+            LeaveCriticalSection(&g_uiMutex);
+          } else if (actStr.find("FIRST_AID") != std::string::npos) {
+            EnterCriticalSection(&g_uiMutex);
+            QueuedAction act;
+            act.type = ACT_FIRST_AID;
+            act.actor = targetHand;
+            act.target = actionTarget;
+            g_uiActionQueue.push_back(act);
+            LeaveCriticalSection(&g_uiMutex);
           } else if (actStr.find("ATTACK") != std::string::npos &&
                      actStr.find("TOWN") == std::string::npos) {
             EnterCriticalSection(&g_uiMutex);
             QueuedAction act;
             act.type = ACT_ATTACK;
             act.actor = targetHand;
-            if (thisptr->player && thisptr->player->playerCharacters.size() > 0)
-              act.target = thisptr->player->playerCharacters[0]->getHandle();
+            act.target = actionTarget;
             g_uiActionQueue.push_back(act);
             LeaveCriticalSection(&g_uiMutex);
           } else if (actStr.find("GIVE_ITEM:") != std::string::npos) {
@@ -542,7 +585,7 @@ void ProcessMessageQueue(GameWorld *thisptr) {
             QueuedAction act;
             act.type = ACT_GIVE_ITEM;
             act.actor = targetHand;
-            act.target = g_lastChattingPlayerHand;
+            act.target = itemHolder;
             act.message = payload;
             act.taskValue = count;
             g_uiActionQueue.push_back(act);
@@ -577,7 +620,7 @@ void ProcessMessageQueue(GameWorld *thisptr) {
             QueuedAction act;
             act.type = ACT_TAKE_ITEM;
             act.actor = targetHand;
-            act.target = g_lastChattingPlayerHand;
+            act.target = itemHolder;
             act.message = payload;
             act.taskValue = count;
             g_uiActionQueue.push_back(act);
@@ -682,7 +725,7 @@ void ProcessMessageQueue(GameWorld *thisptr) {
             QueuedAction act;
             act.type = ACT_SPAWN_ITEM;
             act.actor = targetHand;
-            act.target = g_lastChattingPlayerHand;
+            act.target = itemHolder;
             act.message = payload;
             act.taskValue = count;
             g_uiActionQueue.push_back(act);
@@ -723,8 +766,7 @@ void ProcessMessageQueue(GameWorld *thisptr) {
             act.type = ACT_RELEASE;
             act.actor = targetHand;
             act.taskValue = 110; // RELEASE_PRISONER
-            if (thisptr->player && thisptr->player->playerCharacters.size() > 0)
-              act.target = thisptr->player->playerCharacters[0]->getHandle();
+            act.target = actionTarget;
             g_uiActionQueue.push_back(act);
             LeaveCriticalSection(&g_uiMutex);
           } else if (actStr.find("BREAKOUT_PRISONER") != std::string::npos ||
@@ -734,8 +776,7 @@ void ProcessMessageQueue(GameWorld *thisptr) {
             act.type = ACT_RELEASE;
             act.actor = targetHand;
             act.taskValue = 111; // BREAKOUT_PRISONER
-            if (thisptr->player && thisptr->player->playerCharacters.size() > 0)
-              act.target = thisptr->player->playerCharacters[0]->getHandle();
+            act.target = actionTarget;
             g_uiActionQueue.push_back(act);
             LeaveCriticalSection(&g_uiMutex);
           } else if (actStr.find("MOVE_ON_FREE_WILL_FAST") !=
@@ -1173,6 +1214,7 @@ void playerUpdate_hook(PlayerInterface *thisptr) {
     ProcessMessageQueue(world);
     static int invTimer = 0;
     ExecuteQueuedActions(world, invTimer);
+    WatchOffer();
 
     for (size_t i = 0; i < renamed.size(); ++i) {
       Character *c = renamed[i].getCharacter();

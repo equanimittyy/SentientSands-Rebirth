@@ -192,9 +192,10 @@ def declined_line(offer, npc, player):
 
 
 def actions(offer):
-    """The plugin actions of the deal. The player's side goes first, because the plugin skips the NPC's handover after a
-    payment that fell short."""
-    out = []
+    """The plugin actions of the deal. A join goes first, because the plugin pays no fee to a member of the player faction,
+    and the fee would land back in the player's purse. The player's side goes next, because the plugin skips the NPC's
+    handover after a payment that fell short."""
+    out = ["[ACTION: JOIN_PARTY]" for kind, _ in offer["gives"] if kind == "JOIN_PARTY"]
     for kind, value in offer["takes"]:
         out.append(f"[ACTION: TAKE_CATS: {value}]" if kind == "CATS" else f"[ACTION: TAKE_ITEM: {value[1]}: {value[0]}]")
     for kind, value in offer["gives"]:
@@ -206,7 +207,7 @@ def actions(offer):
             out.append(f"[ACTION: HIRE: {value}]")
         elif kind == "RELEASE":
             out.append("[ACTION: RELEASE_PRISONER]" if value else "[ACTION: BREAKOUT_PRISONER]")
-        else:
+        elif kind != "JOIN_PARTY":
             out.append(f"[ACTION: {kind}]")
     return out
 

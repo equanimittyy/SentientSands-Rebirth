@@ -197,11 +197,4 @@ At the end, the NPC says a line from the preset list of the end, picked at rando
 
 ## 5. Speaker
 
-The chat window names the speaker in the player's line (`plugin/ui/ChatWindow.cpp:214`), and the plugin keeps that squad member as `g_lastChattingPlayerHand` (`plugin/main.cpp:251`). Only `SPAWN_ITEM` acts on that squad member (`plugin/game/GameActions.cpp:1018`). The other actions act on the first character of the squad:
-
-| Actions | Why they act on the first character |
-|---|---|
-| `GIVE_ITEM`, `TAKE_ITEM`, `GIVE_CATS`, `TAKE_CATS` | The plugin queues each action for the speaker (`plugin/main.cpp:522`, `:557`, `:587`, and `:577`), but its handler ignores the speaker (`plugin/game/GameActions.cpp:630`, `:518`, `:724`, and `:739`). |
-| `ATTACK`, `FOLLOW_PLAYER`, and the release | The plugin queues each action for the first character (`plugin/main.cpp:489`, `:673`, `:704`, and `:715`). |
-
-An action dialogue belongs to one speaker ([section 2](#2-entry)), but another squad member can still chat, with this NPC or another, before the reply to a line arrives. `g_lastChattingPlayerHand` then names the wrong squad member. The server therefore sends the key of the speaker with each action, as `Name|key>speaker key:`, so that the action acts on the squad member that spoke. The cats belong to the whole player faction, so `GIVE_CATS` and `TAKE_CATS` keep the first character.
+The chat window names the speaker in the player's line, and the plugin keeps that squad member as `g_lastChattingPlayerHand`. An action dialogue belongs to one speaker ([section 2](#2-entry)), but another squad member can still chat, with this NPC or another, before the reply to a line arrives, and `g_lastChattingPlayerHand` then names the wrong squad member. The server therefore sends the key of the speaker with each action, as `Name|key>speaker key:`, and `ATTACK`, the release, `HIRE`, `FIRST_AID`, and the item actions act on that squad member. The cats belong to the whole player faction, so `GIVE_CATS` and `TAKE_CATS` keep the first character.

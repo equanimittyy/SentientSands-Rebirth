@@ -4,6 +4,7 @@
 #include "../core/Utils.h"
 #include <algorithm>
 #include <core/Functions.h>
+#include <kenshi/AI/Blackboard.h>
 #include <kenshi/Character.h>
 #include <kenshi/Dialogue.h>
 #include <kenshi/Faction.h>
@@ -221,6 +222,46 @@ std::string GetTaskName(TaskType tt) {
   }
 }
 
+// An exact name first, so that a deal for Bread never hands over a Bread Loaf
+static Item *FindNamedItem(Character *holder, const std::string &lowerName) {
+  std::vector<Item *> items;
+  GetAllCharacterItems(holder, items);
+  Item *partial = nullptr;
+  for (size_t i = 0; i < items.size(); ++i) {
+    if (!items[i])
+      continue;
+    std::string name = items[i]->getName();
+    std::transform(name.begin(), name.end(), name.begin(), ::tolower);
+    if (name == lowerName)
+      return items[i];
+    if (!partial && name.find(lowerName) != std::string::npos)
+      partial = items[i];
+  }
+  return partial;
+}
+
+// Moves at most count of the stack, so a deal for 2 Bread never hands over a
+// whole stack of 10. Returns how many moved.
+static int MoveItems(Character *holder, Item *item, int count,
+                     Character *receiver) {
+  int moved = count < item->quantity ? count : item->quantity;
+  bool split = moved < item->quantity;
+  if (item->isEquipped)
+    holder->unequipItem(item->inventorySection, item);
+  Inventory *inv = item->getInventory();
+  if (!inv)
+    inv = holder->getInventory();
+  Item *detached =
+      inv ? inv->removeItemDontDestroy_returnsItem(item, moved, split) : nullptr;
+  if (!detached)
+    return 0;
+  if (!receiver->giveItem(detached, true, false)) {
+    holder->giveItem(detached, true, false);
+    return 0;
+  }
+  return moved;
+}
+
 static hand g_newestBubble;
 static hand g_previousBubble;
 
@@ -319,6 +360,10 @@ void ExecuteQueuedActions(GameWorld *thisptr, int &inventoryTimer) {
           }
           g_originJobs[npcId] = state;
 
+          // A hired follower joins for good, so its contract must not run out
+          Blackboard *board = npc->getBlackboard();
+          if (board && (uintptr_t)board > 0x1000 && board->hasContractJob())
+            board->endContractJob();
           thisptr->player->recruit(npc, false);
           thisptr->playNotification("ui_cat_change");
           thisptr->showPlayerAMessage_withLog(
@@ -514,9 +559,11 @@ void ExecuteQueuedActions(GameWorld *thisptr, int &inventoryTimer) {
           }
         } else if (act.type == ACT_TAKE_ITEM) {
           Character *player =
-              (thisptr->player && thisptr->player->playerCharacters.size() > 0)
-                  ? thisptr->player->playerCharacters[0]
-                  : nullptr;
+              target ? target
+                     : (thisptr->player &&
+                                thisptr->player->playerCharacters.size() > 0
+                            ? thisptr->player->playerCharacters[0]
+                            : nullptr);
           if (player) {
             std::string targetName = act.message;
             size_t fnot = targetName.find_first_not_of(" \t\n\r\"'");
@@ -539,48 +586,18 @@ void ExecuteQueuedActions(GameWorld *thisptr, int &inventoryTimer) {
                 "ACTION: NPC " + npc->getName() + " attempting to take " +
                     ToString(count) + "x '" + targetName + "'");
 
-            // Rescan per item: removals reorder the inventory
+            // Rescan per stack: removals reorder the inventory
             while (taken < count) {
-              std::vector<Item *> pItems;
-              GetAllCharacterItems(player, pItems);
-              Item *found = nullptr;
-
-              for (uint32_t i = 0; i < pItems.size(); ++i) {
-                Item *it = pItems[i];
-                if (!it)
-                  continue;
-                std::string itemName = it->getName();
-                std::transform(itemName.begin(), itemName.end(),
-                               itemName.begin(), ::tolower);
-                if (itemName.find(lowerTarget) != std::string::npos) {
-                  found = it;
-                  break;
-                }
-              }
-
-              if (found) {
-                Log(LOG_DEBUG,
-                    "ACTION: Taking item (" + ToString(taken + 1) + "/" +
-                        ToString(count) + "): " + found->getName());
-                if (found->isEquipped)
-                  player->unequipItem(found->inventorySection, found);
-                Inventory *inv = found->getInventory();
-                if (!inv)
-                  inv = player->getInventory();
-                Item *detached = inv ? inv->removeItemDontDestroy_returnsItem(
-                                           found, found->quantity, false)
-                                     : nullptr;
-                bool success = npc->giveItem(detached ? detached : found, true, false);
-                if (success) {
-                  taken++;
-                } else {
-                  Log(LOG_WARN, "ACTION: NPC " + npc->getName() + " inventory full. Returning item to player.");
-                  player->giveItem(detached ? detached : found, true, false);
-                  break;
-                }
-              } else {
+              Item *found = FindNamedItem(player, lowerTarget);
+              if (!found)
+                break;
+              int moved = MoveItems(player, found, count - taken, npc);
+              if (moved == 0) {
+                Log(LOG_WARN, "ACTION: NPC " + npc->getName() +
+                                  " could not take " + found->getName() + ".");
                 break;
               }
+              taken += moved;
             }
 
             if (taken < count) {
@@ -606,8 +623,6 @@ void ExecuteQueuedActions(GameWorld *thisptr, int &inventoryTimer) {
             Log(LOG_INFO, "ACTION: Skipping GIVE_ITEM due to previous transaction failure (" + failureReason + ")");
             continue;
           }
-          std::vector<Item *> items;
-          GetAllCharacterItems(npc, items);
           std::string targetName = act.message;
           size_t fnot = targetName.find_first_not_of(" \t\n\r\"'");
           if (fnot != std::string::npos) {
@@ -626,36 +641,26 @@ void ExecuteQueuedActions(GameWorld *thisptr, int &inventoryTimer) {
           int given = 0;
 
           Character *player =
-              (thisptr->player && thisptr->player->playerCharacters.size() > 0)
-                  ? thisptr->player->playerCharacters[0]
-                  : nullptr;
+              target ? target
+                     : (thisptr->player &&
+                                thisptr->player->playerCharacters.size() > 0
+                            ? thisptr->player->playerCharacters[0]
+                            : nullptr);
 
           if (player) {
-            for (uint32_t i = 0; i < items.size() && given < count; ++i) {
-              std::string itemName = items[i]->getName();
-              std::transform(itemName.begin(), itemName.end(), itemName.begin(),
-                             ::tolower);
-              if (itemName.find(targetName) != std::string::npos) {
-                Log(LOG_DEBUG,
-                    "ACTION: Giving item (" + ToString(given + 1) + "/" +
-                        ToString(count) + "): " + items[i]->getName());
-                if (items[i]->isEquipped)
-                  npc->unequipItem(items[i]->inventorySection, items[i]);
-                Inventory *inv = items[i]->getInventory();
-                if (!inv)
-                  inv = npc->getInventory();
-                Item *detached = inv ? inv->removeItemDontDestroy_returnsItem(
-                                           items[i], items[i]->quantity, false)
-                                     : nullptr;
-                if (detached) {
-                  player->giveItem(detached, true, false);
-                  given++;
-                } else {
-                  Log(LOG_WARN,
-                      "ACTION: Failed to detach " + items[i]->getName() +
-                          " from " + npc->getName() + "'s inventory.");
-                }
+            while (given < count) {
+              Item *found = FindNamedItem(npc, targetName);
+              if (!found)
+                break;
+              int moved = MoveItems(npc, found, count - given, player);
+              if (moved == 0) {
+                Log(LOG_WARN, "ACTION: Failed to detach " + found->getName() +
+                                  " from " + npc->getName() + "'s inventory.");
+                break;
               }
+              Log(LOG_DEBUG, "ACTION: Gave " + ToString(moved) + "x " +
+                                 found->getName());
+              given += moved;
             }
 
             if (given < count) {
@@ -857,6 +862,31 @@ void ExecuteQueuedActions(GameWorld *thisptr, int &inventoryTimer) {
             npc->clearAllAIGoals();
             npc->reThinkCurrentAIAction();
           }
+        } else if (act.type == ACT_HIRE && target) {
+          Blackboard *board = npc->getBlackboard();
+          GameData *bodyguard = thisptr->gamedata.getData("5090-gamedata.base");
+          if (board && (uintptr_t)board > 0x1000 && bodyguard) {
+            // The game's hire dialogues give the Bodyguard package with hours
+            board->_setContractJob(bodyguard, act.taskValue, target->getHandle());
+            thisptr->showPlayerAMessage_withLog(
+                npc->getName() + " follows you for " + ToString(act.taskValue) +
+                    " hours.",
+                true);
+          }
+        } else if (act.type == ACT_END_HIRE) {
+          Blackboard *board = npc->getBlackboard();
+          if (board && (uintptr_t)board > 0x1000 && board->hasContractJob()) {
+            board->endContractJob();
+            thisptr->showPlayerAMessage_withLog(
+                npc->getName() + " no longer follows you.", true);
+          }
+        } else if (act.type == ACT_FIRST_AID && target) {
+          npc->clearAllAIGoals();
+          npc->addOrder(nullptr, FIRST_AID_ORDER, (RootObject *)target, false,
+                        true, target->getPosition());
+          npc->reThinkCurrentAIAction();
+          thisptr->showPlayerAMessage(
+              npc->getName() + " is treating " + target->getName() + ".", false);
         } else if (act.type == ACT_PROBE) {
           RunProbe(npc, target, act.message);
         } else if (act.type == ACT_FACTION_RELATIONS) {

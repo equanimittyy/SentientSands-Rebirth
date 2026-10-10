@@ -65,6 +65,7 @@
     <ClCompile Include="ui\JournalWindow.cpp" />
     <ClCompile Include="ui\LauncherWindow.cpp" />
     <ClCompile Include="ui\LibraryWindow.cpp" />
+    <ClCompile Include="ui\OfferWindow.cpp" />
     <ClCompile Include="ui\WelcomeWindow.cpp" />
   </ItemGroup>
   <ItemGroup>
@@ -80,6 +81,7 @@
     <ClInclude Include="ui\JournalWindow.h" />
     <ClInclude Include="ui\LauncherWindow.h" />
     <ClInclude Include="ui\LibraryWindow.h" />
+    <ClInclude Include="ui\OfferWindow.h" />
     <ClInclude Include="ui\WelcomeWindow.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

@@ -1,6 +1,8 @@
 #pragma once
 #include "ChatUIGlobals.h"
 
+class Character;
+
 namespace SentientSands {
 namespace UI {
 
@@ -14,6 +16,11 @@ extern size_t g_lastChatModeIndex;
 
 void CreateChatUI(const std::string &npcName, const std::string &handleStr);
 void CloseChatUI();
+void SendChatLine(const std::string &npcName, const std::string &handleStr,
+                  Character *speaker, const std::string &text,
+                  const std::string &mode, const std::string &offerAnswer);
+void SetOfferPending(const std::string &npcName);
+std::string CurrentChatMode();
 
 DWORD WINAPI ChatResponseThread(LPVOID lpParam);
 void OnChatInputChange(MyGUI::EditBox *sender);

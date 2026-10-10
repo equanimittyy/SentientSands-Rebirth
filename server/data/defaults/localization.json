@@ -101,7 +101,16 @@
         "{name} is thinking...": "{name} is thinking...",
         "{name} has responded.": "{name} has responded.",
         "{name} could not respond.": "{name} could not respond.",
-        "{name} is still thinking.": "{name} is still thinking."
+        "{name} is still thinking.": "{name} is still thinking.",
+        "Answer {name}'s offer first.": "Answer {name}'s offer first.",
+        "Offer from {name}": "Offer from {name}",
+        "Accept": "Accept",
+        "Decline": "Decline",
+        "Your reply:": "Your reply:",
+        "No.": "No.",
+        "You no longer have {what}.": "You no longer have {what}.",
+        "{name} no longer has {what}.": "{name} no longer has {what}.",
+        "{name}'s offer is gone.": "{name}'s offer is gone."
     },
     "Spanish": {
         "Talking to: ": "Hablando con: ",
@@ -205,7 +214,16 @@
         "{name} is thinking...": "{name} está pensando...",
         "{name} has responded.": "{name} ha respondido.",
         "{name} could not respond.": "{name} no pudo responder.",
-        "{name} is still thinking.": "{name} todavía está pensando."
+        "{name} is still thinking.": "{name} todavía está pensando.",
+        "Answer {name}'s offer first.": "Responde primero a la oferta de {name}.",
+        "Offer from {name}": "Oferta de {name}",
+        "Accept": "Aceptar",
+        "Decline": "Rechazar",
+        "Your reply:": "Tu respuesta:",
+        "No.": "No.",
+        "You no longer have {what}.": "Ya no tienes {what}.",
+        "{name} no longer has {what}.": "{name} ya no tiene {what}.",
+        "{name}'s offer is gone.": "La oferta de {name} ya no está en pie."
     },
     "French": {
         "Talking to: ": "Discussion avec : ",
@@ -309,7 +327,16 @@
         "{name} is thinking...": "{name} réfléchit...",
         "{name} has responded.": "{name} a répondu.",
         "{name} could not respond.": "{name} n'a pas pu répondre.",
-        "{name} is still thinking.": "{name} réfléchit encore."
+        "{name} is still thinking.": "{name} réfléchit encore.",
+        "Answer {name}'s offer first.": "Réponds d'abord à l'offre de {name}.",
+        "Offer from {name}": "Offre de {name}",
+        "Accept": "Accepter",
+        "Decline": "Refuser",
+        "Your reply:": "Ta réponse :",
+        "No.": "Non.",
+        "You no longer have {what}.": "Tu n'as plus {what}.",
+        "{name} no longer has {what}.": "{name} n'a plus {what}.",
+        "{name}'s offer is gone.": "L'offre de {name} ne tient plus."
     },
     "Japanese": {
         "Talking to: ": "会話相手: ",
@@ -413,7 +440,16 @@
         "{name} is thinking...": "{name}は考えています...",
         "{name} has responded.": "{name}が返答しました。",
         "{name} could not respond.": "{name}は返答できませんでした。",
-        "{name} is still thinking.": "{name}はまだ考えています。"
+        "{name} is still thinking.": "{name}はまだ考えています。",
+        "Answer {name}'s offer first.": "先に{name}の申し出に答えてください。",
+        "Offer from {name}": "{name}からの申し出",
+        "Accept": "受け入れる",
+        "Decline": "断る",
+        "Your reply:": "返事：",
+        "No.": "いいえ。",
+        "You no longer have {what}.": "もう{what}を持っていません。",
+        "{name} no longer has {what}.": "{name}はもう{what}を持っていません。",
+        "{name}'s offer is gone.": "{name}の申し出は無効になりました。"
     },
     "Russian": {
         "Talking to: ": "Разговор с: ",
@@ -517,6 +553,15 @@
         "{name} is thinking...": "{name} думает...",
         "{name} has responded.": "{name} ответил(а).",
         "{name} could not respond.": "{name} не смог(ла) ответить.",
-        "{name} is still thinking.": "{name} всё ещё думает."
+        "{name} is still thinking.": "{name} всё ещё думает.",
+        "Answer {name}'s offer first.": "Сначала ответьте на предложение {name}.",
+        "Offer from {name}": "Предложение от {name}",
+        "Accept": "Принять",
+        "Decline": "Отказаться",
+        "Your reply:": "Ваш ответ:",
+        "No.": "Нет.",
+        "You no longer have {what}.": "У вас больше нет {what}.",
+        "{name} no longer has {what}.": "У {name} больше нет {what}.",
+        "{name}'s offer is gone.": "Предложение {name} больше не в силе."
     }
 }

@@ -93,9 +93,9 @@ class TextTest(unittest.TestCase):
             self.assertTrue(offers.DEAL_LINE.search(f"[Day 1, 10:00] {line}"), line)
         self.assertFalse(offers.DEAL_LINE.search("[Day 1, 10:00] Zaps: Fine (for now)."))
 
-    def test_the_player_pays_before_the_npc_hands_over(self):
+    def test_the_join_goes_first_and_the_player_pays_before_the_npc_hands_over(self):
         recruit, _ = check("RECRUIT", "[OFFER: JOIN_PARTY; TAKE_CATS: 800]")
-        self.assertEqual(offers.actions(recruit), ["[ACTION: TAKE_CATS: 800]", "[ACTION: JOIN_PARTY]"])
+        self.assertEqual(offers.actions(recruit), ["[ACTION: JOIN_PARTY]", "[ACTION: TAKE_CATS: 800]"])
         handover, _ = check("THREATEN", "[OFFER: GIVE_ITEM: 2 Bread]")
         self.assertEqual(offers.actions(handover), ["[ACTION: GIVE_ITEM: Bread: 2]"])
 

@@ -182,9 +182,13 @@ def record_deal(thread_id, line, parties, location):
 def answer_offer():
     """The player's answer to an offer: accept, decline, cancel after a save load, a knockout, or a death, or failed when
     the plugin found that a side no longer holds its part of the deal. A decline keeps the action dialogue, and the plugin
-    sends the player's reply as the next chat line."""
+    sends the player's reply as the next chat line. show sends the popup again, because the pipe drops a message that
+    finds no pipe instance in time."""
     data = request.json or {}
     answer = data.get("answer")
+    if answer == "show":
+        send_to_pipe(state.PENDING_OFFER["command"] if state.PENDING_OFFER else "CMD: OFFER_GONE")
+        return jsonify({"status": "ok"})
     held = offers.take(data.get("id"))
     if not held:
         logging.info(f"ACTION: The answer {answer} names an offer that the server no longer holds.")
@@ -360,6 +364,7 @@ def chat():
         state.restart_quiet_clock()
     if state.PENDING_OFFER:
         notify(f"Answer {state.PENDING_OFFER['npc']}'s offer first.")
+        send_to_pipe(state.PENDING_OFFER["command"])
         return reply(action_open=bool(action))
 
     kind, category, text = action_dialogue.parse(player_message)
@@ -620,7 +625,8 @@ def chat():
             popup = offers.popup_text(offer, primary_npc, player_name)
             offer_id = offers.hold(offer, npc=primary_npc, player=player_name, voice=voice(),
                                    thread=thread_id, parties=[npc_party, speaker_party], location=location)
-            after = [offers.command(offer_id, offer, primary_npc, target_key, speaker_key, popup)]
+            state.PENDING_OFFER["command"] = offers.command(offer_id, offer, primary_npc, target_key, speaker_key, popup)
+            after = [state.PENDING_OFFER["command"]]
             logging.info(f"ACTION: {popup}")
 
         state.RECENT_HITS.clear()
