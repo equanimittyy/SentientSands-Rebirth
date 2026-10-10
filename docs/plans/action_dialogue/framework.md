@@ -6,7 +6,7 @@ Chat sends no game actions since the action tags were turned off. The plugin sti
 
 In this plan, the player marks a chat thread as an action dialogue. An action dialogue uses its own system prompt instead of the chat system prompt (`server/data/prompts/prompt_system.txt`), and a new LLM route (`TASKS` in `server/chat/llm_config.py:14`) that its classify call ([No category](#no-category)) shares. A chat thread without the mark stays plain chat, with no game actions.
 
-This doc holds the framework that all categories share. Each category has its own doc for its own constraints ([section 3](#3-categories)). [Sections 2 to 5](#2-entry) hold the decided design, [section 6](#6-open-questions) holds what is open, and [section 7](#7-probe) holds the in-game checks of the probe.
+This doc holds the framework that all categories share. Each category has its own doc for its own constraints ([section 3](#3-categories)). [Sections 2 to 5](#2-entry) hold the decided design, and [section 6](#6-open-questions) holds what is open.
 
 ## 2. Entry
 
@@ -204,21 +204,3 @@ An action dialogue belongs to one speaker ([section 2](#2-entry)), but another s
 
 1. What does the action system prompt hold?
 2. What are the lines of each preset list of the end?
-
-## 7. Probe
-
-Two test commands of the chat answer the open questions of the category docs that need the game ([development.md](../../info/development.md#probes)). Before the checks, set **Log level** on the Settings page to `DEBUG`. The speaker is the squad member that the chat window names.
-
-`/stock` answers where a trader keeps its stock and which data of an item holds its grade ([barter.md](barter.md#8-open-questions)):
-
-1. Chat with a trader in its shop, for example a weapon smith, and send `/stock`.
-2. Open the trade window of the trader. Compare the count of each item in the window with the `STOCK_PROBE: totals` line, which adds up each item over all the furniture of the building and, after the slash, over the shop counters of the trader. Note the price of one item in the window, and find that item in the `STOCK_PROBE` lines.
-3. For each weapon and each armour of the trader and of the speaker, compare the grade in the tooltip of the game, for example "Edge Type 1" or "Specialist", with `quality`, `level`, `manufacturer`, and `material`.
-
-`/hire` answers whether a hire contract ends at its expiry time, and which call ends it early ([follow.md](follow.md#4-open-questions), [dismiss.md](dismiss.md#4-open-questions)):
-
-1. Chat with an NPC outside the squad, and send `/hire 6`.
-2. Check that the `HIRE_PROBE` line shows `contract=1`, and that `expiry` is 6 more than `now`.
-3. Check that the NPC follows the squad, and that its next `ROLE_PROBE` line shows `contract=1`.
-4. Wait 6 game hours, and check that the NPC stops following.
-5. Send `/hire 6` again, and then `/hire end`. Check that the line shows `contract=0`, and that the NPC stops following.

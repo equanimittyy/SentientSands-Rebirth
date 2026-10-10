@@ -82,16 +82,21 @@ The role probe logged 26 characters in one town of a UWE game.
 
 ## Inventories
 
-The `STOCK_PROBE` and `FIRSTAID_PROBE` lines of one bar showed these facts.
+The `STOCK_PROBE` and `FIRSTAID_PROBE` lines of a bar and of a shop in a Shinobi Tower showed these facts.
 
 - `Inventory::getAllItems` leaves out the equipped items. The sections of a barman held 5 items, 2 of them in `legs` and `armour`, but `getAllItems` gave 3. `GetAllCharacterItems` (`plugin/game/Context.cpp`) reads the sections, so it gets all 5.
 - The barman carried only his own items, and his inventory was not a `ShopTraderInventory`. The bar (`Character::isIndoors().getBuilding()`) had no inventory: `getInventory` gave null.
+- The trade window of the bar showed the items in all the furniture of the bar. For Water, Vodka, Water Jug, and Bread, the counts in the window were the sums over `Building::findAllFurnitureWithFunction` with `BF_ANY`, for example 14 Water Jugs. The shop counters (`Ownerships::getHomeFurnitureOfType` with `BF_SHOP`) held only 4 of the 14 Water Jugs. Each piece of furniture keeps its items in the `backpack_content` section, and its inventory is not a `ShopTraderInventory`.
+- `Item::getValueSingle(false)` gave one item a different price on different holders: a Standard First Aid Kit was 102 on the barman and 132 in the furniture.
+- The data of a weapon holds its grade: `materialData` names the grade, for example "09 - Refitted Blade", and `manufacturerData` names the maker, for example "Ancient". `Item::getLevel` rises with the grade.
+- `Item::getLevel` gives the grade of an armour: 40 is Standard and 60 is High. The game showed no grade for Shinobi Clothpants (alt) at level 60, whose game data covers no body part (no `part coverage`).
 - `Inventory::hasItemFunction` with `ITEM_FIRSTAID` was true for the barman, who carried a Standard First Aid Kit.
 
 ## Orders and contracts
 
 - `Character::addOrder` with `FIRST_AID_ORDER` and an injured player character as the target made a shop guard outside the squad walk 50 m to the character and treat it.
-- `Blackboard::_setContractJob` with the `Bodyguard` AI package (`5090-gamedata.base`) and 6 hours started a hire contract on a vagrant outside the squad. `hasContractJob` became true, `getContractExpiryTime` was 6 game hours after the call, the AI package became `Bodyguard`, and the NPC took the task `FOLLOW_PLAYER_ORDER` (44). The KenshiLib header marks the function private in a comment, but declares it public, and `KenshiLib.lib` exports it.
+- `Blackboard::_setContractJob` with the `Bodyguard` AI package (`5090-gamedata.base`) and 6 hours started a hire contract on a vagrant outside the squad. `hasContractJob` became true, `getContractExpiryTime` was 6 game hours after the call, the AI package became `Bodyguard`, and the NPC took the task `FOLLOW_PLAYER_ORDER` (44). The UI of the game showed the NPC as a hired mercenary. The KenshiLib header marks the function private in a comment, but declares it public, and `KenshiLib.lib` exports it.
+- `Blackboard::endContractJob` ended that hire contract early on two NPCs. `hasContractJob` became false, the AI package became empty, and the NPC stopped following.
 
 ## Crash dumps
 

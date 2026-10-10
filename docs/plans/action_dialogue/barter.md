@@ -73,15 +73,12 @@ A gift raises the NPC's profile `Relation` (`change_relation` in `server/store/c
 
 ## 6. Price guide
 
-The prompt opens with a stocktake of the NPC: the name and the count of each item, with no prices. Each turn, code finds the items that the player's line and the NPC's last reply name, in the inventories of the NPC and the speaker, and it adds each item with its `price` to the turn message. The model thus gets the real price of each item that the deal is about, and it does not invent one.
+The prompt opens with a stocktake of the NPC: the name and the count of each item, with no prices. For a shopkeeper, the stocktake also holds the items in all the furniture of its building, because the trade window of the game shows them as its stock ([kenshi_internals.md](../../info/kenshi_internals.md#inventories)). The furniture of the building can hold items that are not stock, for example the personal chest of a guard. The NPC can then sell those items too, and the plan accepts that cost. Each turn, code finds the items that the player's line and the NPC's last reply name, in the inventories of the NPC and the speaker, and it adds each item with its `price` to the turn message. The model thus gets the real price of each item that the deal is about, and it does not invent one.
 
-The stocktake, the price guide, and the offer name each weapon and each armour with its quality from the game, so two items with one name and different prices stay apart. The item holds the candidate data (`manufacturerData`, `quality`, and `getLevel` in `deps/KenshiLib/Include/kenshi/Item.h:63` to `:74`), but the plugin does not send it yet.
+One item can have a different `price` on different holders, for example a Standard First Aid Kit was 102 on a barman and 132 in the furniture of the bar ([kenshi_internals.md](../../info/kenshi_internals.md#inventories)). The deal therefore takes the `price` of an item from the stock of the NPC, because that is the price that the NPC sells at. When the stock holds the item at different prices, the deal takes the highest. When the stock does not hold the item, the deal takes the highest `price` of the item in the inventory of the speaker.
+
+The stocktake, the price guide, and the offer name each weapon and each armour with its quality from the game, so two items with one name and different prices stay apart. A weapon keeps its grade in `materialData` and its maker in `manufacturerData`, and an armour keeps its grade in `getLevel` (`deps/KenshiLib/Include/kenshi/Item.h:63` to `:66`) ([kenshi_internals.md](../../info/kenshi_internals.md#inventories)). The plugin does not send them yet.
 
 ## 7. Lean
 
 The lean ([Outcome](framework.md#outcome)) is how likely the NPC is to take the deal. It counts only the relation, on the scale of [Outcome](framework.md#outcome). The value of the trade reaches the model through the price guide ([section 6](#6-price-guide)) instead.
-
-## 8. Open questions
-
-1. Where does a shopkeeper keep its stock? `inventory` reads only the items of the character and its backpack (`GetAllCharacterItems` in `plugin/game/Context.cpp`). The `/stock` probe decides it ([framework.md](framework.md#7-probe)).
-2. Which data of an item holds the quality that the game shows for a weapon or an armour? The `/stock` probe decides it.

@@ -28,7 +28,3 @@ A mercenary never follows for free: its fee is at least the daily rate of its fa
 | Black Dog | 2,500 cats | `Black dog random extortion` (`47469-Dialogue.mod`): 1 day for 2,500 |
 
 The Cannibal Hunters sell only the `contract Mercenary outpost guard`, in which the hired squad guards an outpost and does not follow, so they are not mercenaries of FOLLOW.
-
-## 4. Open questions
-
-1. Does the NPC stop following at the expiry time of the contract? The `/hire` probe decides it ([framework.md](framework.md#7-probe)).
