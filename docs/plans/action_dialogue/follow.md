@@ -4,7 +4,7 @@
 
 In a FOLLOW action dialogue, the player asks the NPC to follow the squad for a time. Unlike RECRUIT, the hire is temporary. The player opens it with `!f` or `!follow`. [framework.md](framework.md) holds the rules that all categories share.
 
-FOLLOW reuses the game's mercenary hire: the NPC follows the squad under a hire contract, as a hired mercenary does. The game's hire dialogues give the NPC the `Bodyguard` contract (`5090-gamedata.base`) with a length in hours, and the game runs it as a hired ally (`Contract_HiredAlly` in `deps/KenshiLib/Include/kenshi/AI/Contract.h:63`). The contract expires at the end of its length. The plugin already reads such a contract as `temporary_follower` (`plugin/game/Context.cpp:362`). The player ends the hire early with DISMISS ([dismiss.md](dismiss.md)).
+FOLLOW reuses the game's mercenary hire: the NPC follows the squad under a hire contract, as a hired mercenary does. The game's hire dialogues give the NPC the `Bodyguard` contract (`5090-gamedata.base`) with a length in hours, and the game runs it as a hired ally (`Contract_HiredAlly` in `deps/KenshiLib/Include/kenshi/AI/Contract.h:63`). The contract expires at the end of its length. The plugin starts the hire with `_setContractJob` of the blackboard, with the `Bodyguard` package and the hours of the hire (`deps/KenshiLib/Include/kenshi/AI/Blackboard.h:65`), which an in-game test showed to work ([kenshi_internals.md](../../info/kenshi_internals.md#orders-and-contracts)). The plugin already reads such a contract as `temporary_follower` (`plugin/game/Context.cpp:362`). The player ends the hire early with DISMISS ([dismiss.md](dismiss.md)).
 
 ## 2. Gate, hard limits, and lean
 
@@ -31,4 +31,4 @@ The Cannibal Hunters sell only the `contract Mercenary outpost guard`, in which 
 
 ## 4. Open questions
 
-1. Which call starts a `Contract_HiredAlly` with an expiry time? The `/hire` probe tries `_setContractJob` of the blackboard with the `Bodyguard` package and the hours, and `setContractJob` with a hire line of the game (`deps/KenshiLib/Include/kenshi/AI/Blackboard.h:65` and `:75`) ([framework.md](framework.md#7-probe)).
+1. Does the NPC stop following at the expiry time of the contract? The `/hire` probe decides it ([framework.md](framework.md#7-probe)).

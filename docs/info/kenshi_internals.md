@@ -80,6 +80,19 @@ The role probe logged 26 characters in one town of a UWE game.
 - An AI goal record of the game data holds its task type as the int `enum`, for example 20, `STAND_AT_SHOPKEEPER_NODE`, for the goal Shopkeeper.
 - `Blackboard::getCurrentAIPackageName` gives the name of the AI package of a character. The plugin reads only the name, because the package data needs a header that clashes with `AI/Blackboard.h` (see [kenshi_gotchas.md](kenshi_gotchas.md#kenshilib-headers)).
 
+## Inventories
+
+The `STOCK_PROBE` and `FIRSTAID_PROBE` lines of one bar showed these facts.
+
+- `Inventory::getAllItems` leaves out the equipped items. The sections of a barman held 5 items, 2 of them in `legs` and `armour`, but `getAllItems` gave 3. `GetAllCharacterItems` (`plugin/game/Context.cpp`) reads the sections, so it gets all 5.
+- The barman carried only his own items, and his inventory was not a `ShopTraderInventory`. The bar (`Character::isIndoors().getBuilding()`) had no inventory: `getInventory` gave null.
+- `Inventory::hasItemFunction` with `ITEM_FIRSTAID` was true for the barman, who carried a Standard First Aid Kit.
+
+## Orders and contracts
+
+- `Character::addOrder` with `FIRST_AID_ORDER` and an injured player character as the target made a shop guard outside the squad walk 50 m to the character and treat it.
+- `Blackboard::_setContractJob` with the `Bodyguard` AI package (`5090-gamedata.base`) and 6 hours started a hire contract on a vagrant outside the squad. `hasContractJob` became true, `getContractExpiryTime` was 6 game hours after the call, the AI package became `Bodyguard`, and the NPC took the task `FOLLOW_PLAYER_ORDER` (44). The KenshiLib header marks the function private in a comment, but declares it public, and `KenshiLib.lib` exports it.
+
 ## Crash dumps
 
 When the game crashes, Kenshi writes a zip, for example `crashDump1.0.65_x64.zip`, with a minidump (`.dmp`) and the logs of the game. The minidump holds the exception, the registers of the thread that crashed, the loaded modules, and the stack memory. These steps find the plugin call that crashed the game:

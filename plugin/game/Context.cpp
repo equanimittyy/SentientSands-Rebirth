@@ -510,10 +510,22 @@ static std::string InventoryLine(Inventory *inv) {
   return line;
 }
 
-static void LogItems(const std::string &who, Inventory *inv) {
+static void SectionItems(Inventory *inv, std::vector<Item *> &out) {
   if (!inv || (uintptr_t)inv < 0x1000)
     return;
-  const lektor<Item *> &items = inv->getAllItems();
+  for (auto it = inv->sections.begin(); it != inv->sections.end(); ++it) {
+    if (!it->second)
+      continue;
+    const Ogre::vector<InventorySection::SectionItem>::type &items =
+        it->second->getItems();
+    for (uint32_t i = 0; i < items.size(); ++i)
+      if (items[i].item)
+        out.push_back(items[i].item);
+  }
+}
+
+static void LogItems(const std::string &who,
+                     const std::vector<Item *> &items) {
   for (uint32_t i = 0; i < items.size(); ++i) {
     Item *item = items[i];
     if (!item || (uintptr_t)item < 0x1000)
@@ -532,6 +544,27 @@ static void LogItems(const std::string &who, Inventory *inv) {
   }
 }
 
+static void LogFurniture(const std::string &list,
+                         const lektor<Building *> &furniture,
+                         std::map<std::string, int> &totals) {
+  Log(LOG_DEBUG, "STOCK_PROBE: " + list + "=" + ToString(furniture.size()));
+  for (uint32_t i = 0; i < furniture.size(); ++i) {
+    Building *piece = furniture[i];
+    if (!piece || (uintptr_t)piece < 0x1000)
+      continue;
+    std::string name = ((RootObjectBase *)piece)->getName();
+    Log(LOG_DEBUG, "STOCK_PROBE: " + list + "='" + name + "' handle=" +
+                       piece->getHandle().toString() + " function=" +
+                       ToString((int)piece->getSpecialFunction()) + " " +
+                       InventoryLine(piece->getInventory()));
+    std::vector<Item *> stock;
+    SectionItems(piece->getInventory(), stock);
+    LogItems(list + ":" + name, stock);
+    for (size_t s = 0; s < stock.size(); ++s)
+      totals[stock[s]->getName()] += stock[s]->quantity;
+  }
+}
+
 static void ProbeStock(Character *npc, Character *speaker) {
   Building *building = npc->isIndoors().getBuilding();
   std::string place = "none";
@@ -540,9 +573,33 @@ static void ProbeStock(Character *npc, Character *speaker) {
             InventoryLine(building->getInventory());
   Log(LOG_DEBUG, "STOCK_PROBE: name='" + npc->getName() + "' npc " +
                      InventoryLine(npc->getInventory()) + " building=" + place);
-  LogItems("npc", npc->getInventory());
-  if (speaker)
-    LogItems("speaker", speaker->getInventory());
+  std::vector<Item *> items;
+  GetAllCharacterItems(npc, items);
+  LogItems("npc", items);
+
+  std::map<std::string, int> counterTotals, furnitureTotals;
+  Ownerships *owned = npc->getOwnerships();
+  if (owned && (uintptr_t)owned > 0x1000) {
+    lektor<Building *> counters;
+    owned->getHomeFurnitureOfType(counters, BF_SHOP);
+    LogFurniture("counter", counters, counterTotals);
+  }
+  if (building) {
+    lektor<Building *> furniture;
+    building->findAllFurnitureWithFunction(furniture, BF_ANY);
+    LogFurniture("furniture", furniture, furnitureTotals);
+  }
+  std::string line;
+  for (auto it = furnitureTotals.begin(); it != furnitureTotals.end(); ++it)
+    line += " '" + it->first + "'=" + ToString(it->second) + "/" +
+            ToString(counterTotals[it->first]);
+  Log(LOG_DEBUG, "STOCK_PROBE: totals furniture/counter" + line);
+
+  if (speaker) {
+    items.clear();
+    GetAllCharacterItems(speaker, items);
+    LogItems("speaker", items);
+  }
 }
 
 static void ProbeFirstAid(Character *npc, Character *speaker) {

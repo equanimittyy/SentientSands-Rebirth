@@ -16,7 +16,7 @@ HEAL needs all of these ([Blocked](framework.md#blocked)):
 
 Treatment needs no medical skill, because any NPC can treat a wound.
 
-The treatment gives the NPC the game's `FIRST_AID_ORDER` task (`deps/KenshiLib/Include/kenshi/Enums.h:304`) as an order, with the speaker as its target, as the release gives `RELEASE_PRISONER` (`plugin/game/GameActions.cpp:793`). `JOB_MEDIC` (`plugin/main.cpp:793`) gives the NPC a job with no target, so it cannot aim the treatment at the speaker.
+The treatment gives the NPC the game's `FIRST_AID_ORDER` task (`deps/KenshiLib/Include/kenshi/Enums.h:304`) as an order, with the speaker as its target, as the release gives `RELEASE_PRISONER` (`plugin/game/GameActions.cpp:793`). `JOB_MEDIC` (`plugin/main.cpp:793`) gives the NPC a job with no target, so it cannot aim the treatment at the speaker. An in-game test showed that the order makes an NPC outside the squad treat the speaker ([kenshi_internals.md](../../info/kenshi_internals.md#orders-and-contracts)).
 
 The player pays the fee when it accepts the offer, before the treatment starts. The popup ([Offer](framework.md#offer)) is, for example, "Doctor offers treatment for 300 cats.". When the NPC offers to treat the speaker for free, the treatment starts at once, with no popup.
 
@@ -34,7 +34,3 @@ The lean ([Outcome](framework.md#outcome)) is how likely the NPC is to treat the
 |---|---|
 | `Injured` | +1 |
 | `Crippled` | +2 |
-
-## 5. Open questions
-
-1. Does `FIRST_AID_ORDER` make an NPC outside the squad treat the speaker? The `/firstaid` probe decides it ([framework.md](framework.md#7-probe)).
