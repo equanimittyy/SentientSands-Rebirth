@@ -4,11 +4,13 @@
 #include "../core/Globals.h"
 #include "../core/Utils.h"
 
+#include <kenshi/CharStats.h>
 #include <kenshi/Character.h>
 #include <kenshi/Faction.h>
 #include <kenshi/GameData.h>
 #include <kenshi/GameWorld.h>
 #include <kenshi/Kenshi.h>
+#include <kenshi/Platoon.h>
 #include <kenshi/PlayerInterface.h>
 #include <kenshi/RaceData.h>
 #include <kenshi/RootObject.h>
@@ -89,6 +91,61 @@ static std::string WithoutActionMark(const std::string &text) {
     end++;
   size_t start = text.find_first_not_of(' ', end);
   return start == std::string::npos ? std::string() : text.substr(start);
+}
+
+static std::string Squashed(const std::string &text) {
+  std::string out;
+  for (size_t i = 0; i < text.size(); ++i)
+    if (text[i] != ' ')
+      out += (char)tolower((unsigned char)text[i]);
+  return out;
+}
+
+static std::string SetStat(Character *target, const std::string &args) {
+  const std::string usage =
+      "Type /stat, a stat, and a level, for example /stat strength 80.";
+  size_t space = args.find_last_of(' ');
+  CharStats *stats = target ? target->getStats() : NULL;
+  if (space == std::string::npos || !stats)
+    return usage;
+  char *end = NULL;
+  long level = strtol(args.c_str() + space + 1, &end, 10);
+  if (*end != '\0')
+    return usage;
+  level = level > 100 ? 100 : level < 0 ? 0 : level;
+  std::string typed = args.substr(0, space);
+  std::string wanted = Squashed(typed);
+  std::string known;
+  for (int i = STAT_NONE + 1; i < STAT_END; ++i) {
+    std::string name = CharStats::getStatName((StatsEnumerated)i);
+    if (Squashed(name) == wanted) {
+      stats->getStatRef((StatsEnumerated)i) = (float)level;
+      std::string result = target->getName() + "'s " + name + " is now " +
+                           ToString((int)level) + ".";
+      Log(LOG_INFO, "CHEAT: " + result);
+      return result;
+    }
+    known += (known.empty() ? "" : ", ") + name;
+  }
+  Log(LOG_INFO, "CHEAT: No stat named '" + typed + "'. The stats are " + known);
+  return "No stat named '" + typed + "'.";
+}
+
+static std::string ChangeCats(Character *player, const std::string &args) {
+  char *end = NULL;
+  long amount = strtol(args.c_str(), &end, 10);
+  if (!player || args.empty() || *end != '\0')
+    return "Type /cats and an amount, for example /cats 500 or /cats -500.";
+  int money = player->getMoney();
+  if (money <= 0 && player->getOwnerships())
+    money = player->getOwnerships()->getMoney();
+  if (amount < -money)
+    amount = -money;
+  player->takeMoney((int)-amount);
+  std::string result = amount < 0 ? "Took " + ToString((int)-amount) + " cats."
+                                  : "Added " + ToString((int)amount) + " cats.";
+  Log(LOG_INFO, "CHEAT: " + result);
+  return result;
 }
 
 static void SettleActionDialogue(ChatTask *t, const std::string &response) {
@@ -231,6 +288,23 @@ void OnChatSendClick(MyGUI::Widget *sender) {
         }
       }
     }
+  }
+
+  std::string command = text.substr(0, text.find(' '));
+  if (command == "/stat" || command == "/cats") {
+    std::string args = text.substr(command.size());
+    args.erase(0, args.find_first_not_of(" \t\r\n"));
+    args.erase(args.find_last_not_of(" \t\r\n") + 1);
+    std::string result =
+        command == "/stat"
+            ? SetStat(KeyedCharacter(
+                          (unsigned int)strtoul(handleStr.c_str(), NULL, 10)),
+                      args)
+            : ChangeCats(speaker, args);
+    if (g_chatLabel)
+      g_chatLabel->setCaption(result);
+    g_chatInput->setCaption("");
+    return;
   }
 
   bool marked = IsActionMark(text);

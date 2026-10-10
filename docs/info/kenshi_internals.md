@@ -66,6 +66,10 @@ A probe of these hooks in several played sessions showed these facts. The plugin
 
 `PlayerInterface::getCurrentPlatoon` gives the squad that the player selected. A squad member is in that squad when its `Character::getPlatoon` is the `getActivePlatoon` of that squad.
 
+## Stats
+
+`CharStats::getStatRef` gives the writable base level of a stat. A level that the plugin set stayed after a save and a load.
+
 ## Roles
 
 The role probe logged 26 characters in one town of a UWE game.
