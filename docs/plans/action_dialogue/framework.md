@@ -6,7 +6,7 @@ Chat sends no game actions since the action tags were turned off. The plugin sti
 
 In this plan, the player marks a chat thread as an action dialogue. An action dialogue uses its own system prompt instead of the chat system prompt (`server/data/prompts/prompt_system.txt`), and a new LLM route (`TASKS` in `server/chat/llm_config.py:14`) that its classify call ([No category](#no-category)) shares. A chat thread without the mark stays plain chat, with no game actions.
 
-This doc holds the framework that all categories share. Each category has its own doc for its own constraints ([section 3](#3-categories)). [Sections 2 to 5](#2-entry) hold the decided design, and [section 6](#6-open-questions) holds what is open.
+This doc holds the framework that all categories share. Each category has its own doc for its own constraints ([section 3](#3-categories)). [Sections 2 to 5](#2-entry) hold the decided design.
 
 ## 2. Entry
 
@@ -96,6 +96,14 @@ The doc of a category holds its gates, its hard limits, its lean, the popups of 
 
 ## 4. Action dialogue
 
+### Prompt
+
+The action prompt takes the parts of the chat system prompt (`server/data/prompts/prompt_system.txt`) that it needs, for example the voice rules, HOW PEOPLE TALK, and WORLD LORE, so that the NPC talks as it does in plain chat. It also takes the reply rules of chat (`server/data/prompts/response_rules.txt`), and it adds the rules of the action dialogue: the reply tag ([Reply](#reply)), the offer tag ([Offer](#offer)), `[REFUSE]` ([recruit.md](recruit.md#refusal)), `[END]` ([End](#end)), and `[JUDGMENT: n]` ([Outcome](#outcome)).
+
+Each category has its own prompt file, which the action prompt adds for the category of the action dialogue. The file holds what the player wants, the shape of the offer tag with one example, and the rules of the category, for example charity and gifts in BARTER.
+
+The turn message of each call holds the lean ([Outcome](#outcome)), the facts of the hard limits, for example the cats of each side, and the price guide of BARTER ([barter.md](barter.md#6-price-guide)), because these change each turn.
+
 ### Reply
 
 The model under the action prompt starts each reply with the tag of the category that it reads in the player's request:
@@ -181,13 +189,9 @@ The action dialogue ends at the first of these events:
 
 Each end also ends the chat thread.
 
-At the end, the NPC says a line from a preset list of its category and its end, picked at random, because the end comes after the last call and a preset line costs no call. A knockout, a death, a save load, an error, a timeout of the chat thread, and the start of another chat thread get no line, because the NPC cannot talk or the player is gone.
+At the end, the NPC says a line from the preset list of the end, picked at random, because the end comes after the last call and a preset line costs no call. A knockout, a death, a save load, an error, a timeout of the chat thread, and the start of another chat thread get no line, because the NPC cannot talk or the player is gone. `[END]` and `[REFUSE]` get no line either, because the reply of the model already holds the last words of the NPC.
 
-| End | Example line |
-|---|---|
-| BARTER: the player accepts an offer | "Pleasure doing business." |
-| HEAL: the treatment starts | "I'll patch you right up." |
-| THREATEN: the NPC attacks the speaker | "Think you can take me? C'mon then!" |
+[end_lines.md](end_lines.md) holds the preset lists.
 
 ## 5. Speaker
 
@@ -199,8 +203,3 @@ The chat window names the speaker in the player's line (`plugin/ui/ChatWindow.cp
 | `ATTACK`, `FOLLOW_PLAYER`, and the release | The plugin queues each action for the first character (`plugin/main.cpp:489`, `:673`, `:704`, and `:715`). |
 
 An action dialogue belongs to one speaker ([section 2](#2-entry)), but another squad member can still chat, with this NPC or another, before the reply to a line arrives. `g_lastChattingPlayerHand` then names the wrong squad member. Each design of the actions must therefore send the speaker with the action, so that the action acts on the squad member that spoke.
-
-## 6. Open questions
-
-1. What does the action system prompt hold?
-2. What are the lines of each preset list of the end?
