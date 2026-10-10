@@ -17,7 +17,7 @@ The NPC answers a threat, a demand, or a challenge to a fight in one of three wa
 | Answer | Result |
 |---|---|
 | It gives in | It makes an offer of the handover ([Offer](framework.md#offer)), for example "Bandit offers 200 cats and a Katana.". When the player declines the offer, the player can demand more in the reply. |
-| It fights | `ATTACK` runs at once. The NPC attacks the speaker ([Speaker](framework.md#5-speaker)), and the fight then spreads to the squad. |
+| It fights | The reply ends with `[ATTACK]`, and `ATTACK` runs at once. The NPC attacks the speaker ([Speaker](framework.md#5-speaker)), and the fight then spreads to the squad. |
 | It refuses | It neither gives in nor fights, and the action dialogue goes on. |
 
 The action dialogue ends when the player accepts an offer, or when the NPC attacks the speaker.

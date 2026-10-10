@@ -116,6 +116,36 @@ class ClassifyTest(unittest.TestCase):
             self.assertIsNone(ad.chosen(output, listed))
 
 
+class LeanTest(unittest.TestCase):
+    def test_the_relation_scale(self):
+        self.assertEqual([ad.relation_bonus(r) for r in (60, 25, 24, -24, -25, -60, None)], [2, 1, 0, 0, -1, -2, 0])
+
+    def test_the_bands(self):
+        self.assertEqual(ad.lean_text(2), "You are inclined to agree.")
+        self.assertEqual(ad.lean_text(1), "You could go either way.")
+        self.assertEqual(ad.lean_text(-1), "You could go either way.")
+        self.assertEqual(ad.lean_text(-2), "You are inclined to refuse.")
+
+    def test_a_worse_wound_raises_the_heal_lean(self):
+        self.assertEqual(ad.lean("HEAL", {}, {"health": "Crippled"}, 25), 3)
+        self.assertEqual(ad.lean("LIBERATE", {}, {"health": "Crippled"}, 0), 1)
+
+    def test_a_guard_or_a_unique_npc_joins_less_readily(self):
+        self.assertEqual(ad.lean("RECRUIT", {"unique": True, **GUARD}, {}, 0), -2)
+        self.assertEqual(ad.lean("RECRUIT", {"character_state": "escaped-slave"}, {}, 0), 1)
+
+    def test_a_npc_that_is_no_mercenary_is_wary_of_following(self):
+        self.assertEqual(ad.lean("FOLLOW", {}, {}, 0), -1)
+        self.assertEqual(ad.lean("FOLLOW", {"faction": "Tech Hunters"}, {}, 0), 0)
+
+    def test_a_threat_counts_strength_and_numbers(self):
+        strong = {"stats": {"melee_attack": 40, "melee_defence": 40}, "faction": "Nameless", "name": "Zaps", "squad": ["Zaps", "Zip"]}
+        npc = {"stats": {"melee_attack": 10, "melee_defence": 10}, "faction": "Dust Bandits", "health": "Injured",
+               "nearby": [{"name": "Zip", "faction": "Nameless"}, {"name": "Bandit", "faction": "Dust Bandits"}]}
+        self.assertEqual(ad.lean("THREATEN", npc, strong, 0), 3)
+        self.assertEqual(ad.lean("THREATEN", {**npc, "is_leader": True}, strong, 0), 2)
+
+
 class ReplyTest(unittest.TestCase):
     def test_the_ending_tag_ends_the_action_dialogue(self):
         self.assertTrue(ad.ended("[BARTER] Get lost. [END] [JUDGMENT: -1]"))

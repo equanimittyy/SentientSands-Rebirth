@@ -1,1 +1,2 @@
 REQUEST: {speaker} asks you to treat their wounds.
+OFFER: When you agree to treat {speaker}, put [OFFER: FIRST_AID] after your words, and add TAKE_CATS: n when you want n cats for it. Example: Hold still. 300 cats and I'll patch you up. [OFFER: FIRST_AID; TAKE_CATS: 300]

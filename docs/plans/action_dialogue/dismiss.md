@@ -12,6 +12,6 @@ The NPC is a temporary follower (`temporary_follower` in `plugin/game/Context.cp
 
 ## 3. Answer
 
-The NPC never refuses, so DISMISS has no lean and no offer. The hire ends at once, and the action dialogue ends with it. The player gets no part of the fee back.
+The NPC never refuses, so DISMISS has no lean, no offer, and no LLM call. The hire ends at once, the NPC says a line of `dismiss_end`, and the action dialogue ends with it. The player gets no part of the fee back.
 
 The plugin ends the hire with `endContractJob` of the blackboard (`deps/KenshiLib/Include/kenshi/AI/Blackboard.h:76`), which an in-game test showed to work ([kenshi_internals.md](../../info/kenshi_internals.md#orders-and-contracts)). `LEAVE` does not fit, because it runs `PerformLeaveSquad` (`plugin/game/GameActions.cpp:25`), which takes a member out of the squad.

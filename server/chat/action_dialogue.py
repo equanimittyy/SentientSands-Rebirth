@@ -24,6 +24,11 @@ CATEGORIES = [
 ]
 NONE_OF_THESE = "None of these"
 GUARD_JOBS = {"Guarding the town", "Guarding a building", "Patrolling the town", "Keeping the peace", "Working as a slaver"}
+TRADER_JOBS = {"Trading", "Running a shop", "Travelling as a trader"}
+MERCENARY_RATES = {"Mercenary Guild": 2000, "Tech Hunters": 2000, "Vagrants": 2000, "Black Dog": 2500}
+# A small model follows a plain band better than a number
+LEAN_BANDS = ((2, "You are inclined to agree."), (-1, "You could go either way."))
+REFUSED_LEAN = "You are inclined to refuse."
 END_LINES_PATH = f"{DEFAULTS_DIR}/action_end_lines.json"
 _WORD = re.compile(r"[^\W\d_]+")
 
@@ -111,6 +116,78 @@ def wounded(ctx):
 
 def is_guard(npc):
     return current_job.current_job(npc, False, "") in GUARD_JOBS
+
+
+def is_trader(npc):
+    return current_job.current_job(npc, False, "") in TRADER_JOBS
+
+
+def mercenary_rate(npc):
+    return MERCENARY_RATES.get(npc.get("faction"))
+
+
+def relation_bonus(relation):
+    relation = relation or 0
+    if relation >= 60:
+        return 2
+    if relation >= 25:
+        return 1
+    if relation <= -60:
+        return -2
+    if relation <= -25:
+        return -1
+    return 0
+
+
+def lean(category, npc, speaker, relation, overheard=()):
+    """The sum of the + and - bonuses of the game state for the deal of the category. overheard is the nearby list of the
+    chat request, the characters near the speaker."""
+    if category == "THREATEN":
+        return threat_lean(npc, speaker, overheard)
+    value = relation_bonus(relation)
+    health = speaker.get("health")
+    if category == "HEAL":
+        value += {"Injured": 1, "Crippled": 2}.get(health, 0)
+    elif category == "LIBERATE":
+        value += health == "Crippled"
+    elif category in ("RECRUIT", "FOLLOW"):
+        value += npc.get("character_state") == "escaped-slave"
+        value -= bool(npc.get("unique")) + is_guard(npc) + is_trader(npc)
+        if category == "FOLLOW" and not mercenary_rate(npc):
+            value -= 1
+    return value
+
+
+def threat_lean(npc, speaker, overheard):
+    def melee(ctx):
+        stats = ctx.get("stats") or {}
+        return stats.get("melee_attack", 0) + stats.get("melee_defence", 0)
+
+    def sign(n):
+        return (n > 0) - (n < 0)
+
+    squad, own = sides(npc, speaker, overheard)
+    value = sign(melee(speaker) - melee(npc)) + sign(squad - own)
+    value += npc.get("health") in ("Injured", "Crippled")
+    value -= speaker.get("health") in ("Injured", "Crippled")
+    value -= bool(npc.get("is_leader") or npc.get("unique"))
+    return value
+
+
+def sides(npc, speaker, overheard):
+    """The counts of the player faction and of the NPC's faction near the NPC. The nearby list of the NPC leaves out the
+    first squad character, so that character counts when it speaks or stands near the speaker."""
+    near = npc.get("nearby") or []
+    squad = sum(1 for other in near if other.get("faction") == speaker.get("faction"))
+    members = speaker.get("squad") or []
+    if members and (members[0] == speaker.get("name") or members[0] in {other.get("name") for other in overheard}):
+        squad += 1
+    own = sum(1 for other in near if other.get("faction") == npc.get("faction"))
+    return squad, own
+
+
+def lean_text(value):
+    return next((text for floor, text in LEAN_BANDS if value >= floor), REFUSED_LEAN)
 
 
 def choices(npc, speaker, npc_name):

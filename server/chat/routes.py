@@ -8,7 +8,7 @@ import time
 
 from flask import Blueprint, jsonify, request
 
-from chat import action_dialogue, background, chat_prompt, radiant, retrieval, rumors, scene_text
+from chat import action_dialogue, background, chat_prompt, offers, radiant, retrieval, rumors, scene_text
 from chat.bio import BIO_PARTS, generate_bio, recorded_history, write_bio
 from chat.characters import get_character_data, npc_name, should_save_profile
 from chat.llm import call_llm
@@ -37,6 +37,9 @@ def radiant_conversation():
     center = context_dict(data.get('player_context'))
     take_report(center, data.get('events'), data.get('changed_towns'))
     rumor_texts = [rumor["text"] for rumor in campaign_db.rumors()[-PROMPT_RUMORS:]]
+    if state.PENDING_OFFER:
+        logging.info("RADIANT: An offer waits for the player's answer, so nobody talks.")
+        return jsonify({"status": "ignore"})
     npcs = radiant.npc_group(data.get('npcs') or [], campaign_db.character_exists)
     npc_talk = radiant.npc_talk(npcs, rumor_texts, load_settings()["npc_radiant_chance"])
     participants = {str(npc['id']): npc for npc in (npcs if npc_talk else data.get('participants') or [])}
@@ -131,16 +134,19 @@ def play_radiant(lines):
     finally:
         _STAGE.release()
 
-def play_lines(lines, actions=()):
-    """Queues a chat reply, which plays after every reply before it and after a radiant conversation that holds the stage."""
-    _REPLIES.put((lines, actions))
+def play_lines(lines, actions=(), after=()):
+    """Queues a chat reply, which plays after every reply before it and after a radiant conversation that holds the stage.
+    The pipe messages of after go out after the last line, so the popup of an offer opens when the NPC has spoken."""
+    _REPLIES.put((lines, actions, after))
 
 def reply_loop():
     while True:
-        lines, actions = _REPLIES.get()
+        lines, actions, after = _REPLIES.get()
         try:
             with _STAGE:
                 say(lines, actions)
+                for message in after:
+                    send_to_pipe(message)
         except Exception as e:
             # An error must not end the loop, or no later chat reply would play
             logging.error(f"CHAT: The lines of a reply failed: {e}")
@@ -162,6 +168,49 @@ def thread_of(thread_key, speaker_id):
     if action and action["speaker"] != speaker_id:
         return None, None
     return live.get("id"), action
+
+def record_deal(thread_id, line, parties, location):
+    """Writes the line of a deal into the chat thread of each party, (npc_id, name, context, in_player_faction), as an
+    exchange, so that a chat thread that ends in a deal is not deleted as a thread of one exchange. Returns the thread ID."""
+    time_prefix = get_current_time_prefix()
+    thread_id = campaign_db.join_thread(thread_id, [(npc_id, "speaker", in_faction) for npc_id, _, _, in_faction in parties], campaign_db.game_time(time_prefix), location)
+    for npc_id, name, context, _ in parties:
+        campaign_db.append_dialogue(npc_id, [(f"{time_prefix}{line}", None)], get_character_data(name, context), thread_id)
+    return thread_id
+
+@bp.route('/offer', methods=['POST'])
+def answer_offer():
+    """The player's answer to an offer: accept, decline, cancel after a save load, a knockout, or a death, or failed when
+    the plugin found that a side no longer holds its part of the deal. A decline keeps the action dialogue, and the plugin
+    sends the player's reply as the next chat line."""
+    data = request.json or {}
+    answer = data.get("answer")
+    held = offers.take(data.get("id"))
+    if not held:
+        logging.info(f"ACTION: The answer {answer} names an offer that the server no longer holds.")
+        if answer == "accept":
+            end_thread()
+            npc = data.get("npc")
+            notify(f"{npc}'s offer no longer stands." if npc else "The offer no longer stands.")
+        return jsonify({"status": "gone"})
+    offer, npc, player = held["offer"], held["npc"], held["player"]
+    if answer == "accept":
+        record_deal(held["thread"], offers.accepted_line(offer, npc, player), held["parties"], held["location"])
+        end_thread()
+        voice = held["voice"]
+        play_lines([f"{voice}: {action_dialogue.end_line(offers.ACCEPT_LINES[offer['category']])}"], [f"{voice}: {action}" for action in offers.actions(offer)])
+        logging.info(f"ACTION: {player} accepted: {offers.popup_text(offer, npc, player)}")
+    elif answer == "decline":
+        record_deal(held["thread"], offers.declined_line(offer, npc, player), held["parties"], held["location"])
+        with state.THREAD_LOCK:
+            # The player can take longer than the timeout to answer, and the reply still belongs to this action dialogue
+            if state.CURRENT_THREAD:
+                state.CURRENT_THREAD["replied"] = time.monotonic()
+        logging.info(f"ACTION: {player} declined: {offers.popup_text(offer, npc, player)}")
+    else:
+        end_thread()
+        logging.info(f"ACTION: The offer of {npc} ended: {answer}.")
+    return jsonify({"status": "ok"})
 
 def merge_live_context(ctx):
     # Merge rather than replace, because a nearby entry lacks fields, such as factionID, that a full context of the same character stored
@@ -193,14 +242,17 @@ def chat():
     primary_npc = register(raw_npc)
     npcs = [register(n) for n in raw_npcs]
     target_key = raw_npcs[0].partition('|')[2] if raw_npcs else ""
+    speaker_key = str(data.get('speaker_key') or "")
 
-    def reply(*texts, actions=(), action_open=False):
+    def voice():
         # The plugin takes the text before a first colon as the speaker. It finds the NPC by the handle key after the bar,
-        # because its request named the NPC before a rename.
-        voice = f"{primary_npc}|{target_key}"
-        play_lines([f"{voice}: {text}" for text in texts], [f"{voice}: {action}" for action in actions])
-        # The plugin takes no new line while the reply to a line of an open action dialogue is pending
-        return jsonify({"status": "ok", "action_dialogue": action_open})
+        # because its request named the NPC before a rename, and the actions act on the squad member of the key after >.
+        return f"{primary_npc}|{target_key}{f'>{speaker_key}' if speaker_key else ''}"
+
+    def reply(*texts, actions=(), action_open=False, after=()):
+        play_lines([f"{voice()}: {text}" for text in texts], [f"{voice()}: {action}" for action in actions], after)
+        # The plugin takes no new line while the reply to a line of an open action dialogue is pending, or while an offer waits
+        return jsonify({"status": "ok", "action_dialogue": action_open, "offer": bool(after)})
     
     player_name = data.get('player', 'Drifter')
     mode = data.get('mode', 'talk')
@@ -306,6 +358,9 @@ def chat():
     with state.THREAD_LOCK:
         current_thread, action = thread_of(thread_key, speaker_id)
         state.restart_quiet_clock()
+    if state.PENDING_OFFER:
+        notify(f"Answer {state.PENDING_OFFER['npc']}'s offer first.")
+        return reply(action_open=bool(action))
 
     kind, category, text = action_dialogue.parse(player_message)
     npc_in_faction = bool(ctx_dict.get("in_player_faction") or is_player_faction(ctx_dict.get("faction"), ctx_dict.get("factionID")))
@@ -335,6 +390,15 @@ def chat():
         player_message = text
     elif action:
         category = action["category"]
+    npc_party = (primary_id, primary_npc, context, npc_in_faction)
+    speaker_party = (speaker_id, player_name, json.dumps(speaker), True)
+    location = scene_text.location_name(speaker or state.PLAYER_CONTEXT)
+    if category == "DISMISS":
+        # The NPC never refuses, so a dismissal needs no call
+        end_thread()
+        record_deal(current_thread, f"({player_name} dismissed {primary_npc}.)", [npc_party, speaker_party], location)
+        logging.info(f"ACTION: {player_name} dismissed {primary_npc}.")
+        return reply(action_dialogue.end_line("dismiss_end"), actions=["[ACTION: END_HIRE]"])
     if category and not player_message:
         with state.THREAD_LOCK:
             state.CURRENT_THREAD.update(key=thread_key, id=current_thread, replied=time.monotonic(), action={"category": category, "speaker": speaker_id})
@@ -425,6 +489,9 @@ def chat():
         [hit["record"]["memory"] for hit in found_memories], [hit["record"]["rumor"] for hit in found_rumors], [hit["record"] for hit in found_entries if not hit["travels"]], primary_id, player_name,
         [hit["record"] for hit in found_entries if hit["travels"]], state.PLAYER_CONTEXT.get("day"),
     )
+    if category:
+        lean = action_dialogue.lean(category, ctx_dict, speaker, primary_data.get("Relation"), nearby)
+        background_block = offers.facts(category, ctx_dict, speaker, player_name, lean) + "\n\n" + background_block
     turn = fill_prompt("prompt_chat_turn.txt", background=background_block, player_line=full_player_entry, final_instruction=final_instruction).strip()
     history = chat_prompt.history_window(chat_prompt.chat_lines(rows), campaign_db.DIALOGUE_BLOCK)
     notes = chat_prompt.overheard_notes(campaign_db.thread_members({thread_id for _, _, thread_id in history if thread_id}), primary_id)
@@ -440,7 +507,20 @@ def chat():
     if content:
         judged = re.search(r'\[[^\]]*JUDGMENT\D*?(-?\d+)[^\]]*\]', content, re.IGNORECASE)
         judgment_value = max(-5, min(5, int(judged.group(1)))) if judged else 0
-        closing = bool(category) and action_dialogue.ended(content)
+        outcome, offer = None, None
+        if category == "THREATEN" and offers.attacked(content):
+            outcome = "attack"
+        elif category in ("RECRUIT", "FOLLOW") and offers.refused(content):
+            outcome = "refused"
+        elif category and offers.read(content) is not None:
+            offer, unkept = offers.check(category, offers.read(content), ctx_dict, speaker, action_dialogue.is_guard(ctx_dict))
+            if not offer:
+                logging.info(f"ACTION: Dropped the offer of {primary_npc}, because {unkept}: {offers.OFFER_TAG.search(content).group(0)}")
+                outcome = "unkept"
+            else:
+                outcome = "free" if category == "HEAL" and not offer["takes"] else "offer"
+        # A valid offer keeps the action dialogue open until the player answers it
+        closing = bool(category) and (outcome in ("attack", "refused", "free") or (outcome != "offer" and action_dialogue.ended(content)))
 
         # Allows one level of nested brackets: item names like "Bolts [Toothpicks]" contain them
         content = re.sub(r'\[\s*(?:[^\[\]]|\[[^\[\]]*\])+\s*\]', '', content).strip()
@@ -529,6 +609,20 @@ def chat():
                 new_rel = campaign_db.change_relation(npc_id, judgment_value)
                 logging.info(f"RELATION: {name} personal relation is now {new_rel} (judgment={judgment_value})")
 
+        actions, last_words, after = [], [], []
+        if outcome == "attack":
+            actions, last_words = ["[ATTACK]"], [action_dialogue.end_line("threaten_attack")]
+            record_deal(thread_id, f"({primary_npc} attacked {player_name}.)", [npc_party, speaker_party], location)
+        elif outcome == "free":
+            actions, last_words = offers.actions(offer), [action_dialogue.end_line("heal_start")]
+            record_deal(thread_id, f"({primary_npc} treated {player_name} for free.)", [npc_party, speaker_party], location)
+        elif outcome == "offer":
+            popup = offers.popup_text(offer, primary_npc, player_name)
+            offer_id = offers.hold(offer, npc=primary_npc, player=player_name, voice=voice(),
+                                   thread=thread_id, parties=[npc_party, speaker_party], location=location)
+            after = [offers.command(offer_id, offer, primary_npc, target_key, speaker_key, popup)]
+            logging.info(f"ACTION: {popup}")
+
         state.RECENT_HITS.clear()
         state.RECENT_HITS[pair] = retrieval.next_turns(recent_turns, [hit["record"]["key"] for hit in found_memories + found_rumors + found_entries], cooldown)
 
@@ -539,9 +633,13 @@ def chat():
             threading.Thread(target=generate_bio, args=(primary_id,), daemon=True).start()
 
         logging.info(f'CHAT: {mode_tag}{player_name} to {primary_npc}{f" [{category}]" if category else ""}: "{player_message}" | {primary_npc}: "{content}" ({time.monotonic() - started:.1f} s)')
-        if category:
+        if outcome == "unkept":
+            notify(f"{primary_npc} made an offer it can't keep.")
+        if outcome == "refused":
+            notify(f"{primary_npc} has refused your invitation to join {speaker.get('faction') or 'your squad'}." if category == "RECRUIT" else f"{primary_npc} has refused your offer of hire.")
+        elif category:
             notify(f"{primary_npc} ended the {category.lower()} dialogue." if closing else f"{category.capitalize()} dialogue with {primary_npc}.")
-        return reply(f"[{category}] {content}" if category else content, action_open=bool(category) and not closing)
+        return reply(f"[{category}] {content}" if category else content, *last_words, actions=actions, after=after, action_open=bool(category) and not closing)
     return jsonify({"error": "No reply from the LLM.", "status": "error"}), 502
 
 def bio_refusal(data):

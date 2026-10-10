@@ -1,7 +1,7 @@
 import logging
 import time
 
-from chat import chat_prompt, rumors
+from chat import chat_prompt, offers, rumors
 from chat.llm import call_llm, robust_json_parse
 from chat.prompts import fill_prompt
 from core import state, world_events
@@ -17,11 +17,13 @@ def auto_rumor_seconds():
     return load_settings()["radiant_rumor_minutes"] * 60
 
 def chat_is_quiet():
-    return time.monotonic() - state.QUIET_SINCE >= quiet_seconds()
+    # An offer that waits keeps its chat thread open, so the memory of the thread waits for the answer
+    return not state.PENDING_OFFER and time.monotonic() - state.QUIET_SINCE >= quiet_seconds()
 
 def write_memory(thread, members, campaign):
     """Has the LLM write the memory of a pending chat thread and stores it. A failed call leaves the thread pending."""
-    prompt = fill_prompt("prompt_thread_memory.txt", lines="\n".join(thread["lines"]))
+    dealt = any(offers.DEAL_LINE.search(line) for line in thread["lines"])
+    prompt = fill_prompt("prompt_action_memory.txt" if dealt else "prompt_thread_memory.txt", lines="\n".join(thread["lines"]))
     language = load_settings().get("language", "English")
     if language and language.lower() != "english":
         prompt += f"\nLANGUAGE: You MUST write the memory ONLY in {language}. Do not use English.\n"

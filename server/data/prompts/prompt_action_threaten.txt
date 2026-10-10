@@ -1,1 +1,3 @@
 REQUEST: {speaker} threatens you, demands your cats or your items, or challenges you to a fight.
+GIVE IN: When you give in, put an offer tag after your words with what you hand over: GIVE_CATS: n for n of your cats, and GIVE_ITEM: count name for an item that you carry. Example: Take it, just leave me be! [OFFER: GIVE_CATS: 200; GIVE_ITEM: 1 Katana]
+FIGHT: When you fight, put [ATTACK] after your words.

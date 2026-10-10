@@ -1,1 +1,3 @@
 REQUEST: {speaker} asks you to follow their squad for a time, as a hired guard does.
+OFFER: When you agree to follow, put [OFFER: HIRE: length] after your words, with the length in hours or days, and add TAKE_CATS: n when you want n cats for it. Example: Two days, 4000 cats up front. [OFFER: HIRE: 2 days; TAKE_CATS: 4000]
+REFUSE: When you turn {speaker} down for good, put [REFUSE] after your words.

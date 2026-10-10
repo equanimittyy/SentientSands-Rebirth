@@ -144,7 +144,7 @@ A guard is an NPC whose Current Job (`current_job` in `server/chat/current_job.p
 
 ### Offer
 
-An NPC that agrees to a deal makes an offer. The model ends its reply with an offer tag, which holds the actions of the deal under the names that the plugin already runs, for example `[OFFER: GIVE_CATS: 200]` or `[OFFER: TAKE_CATS: 3000; GIVE_ITEM: Katana]`. Each action that moves cats, items, or characters needs an offer: the handover of THREATEN, each deal of BARTER, HEAL, LIBERATE, RECRUIT, and FOLLOW. Only `ATTACK`, `LEAVE`, and a free treatment of HEAL ([heal.md](heal.md#2-deal)) run at once.
+An NPC that agrees to a deal makes an offer. The model ends its reply with an offer tag, which holds the parts of the deal, for example `[OFFER: GIVE_CATS: 200]` or `[OFFER: TAKE_CATS: 3000; GIVE_ITEM: Katana]`. The parts are `GIVE_CATS`, `TAKE_CATS`, `GIVE_ITEM`, and `TAKE_ITEM`, and the part of each category that moves a character or runs a service: `JOIN_PARTY`, `HIRE`, `FIRST_AID`, and `RELEASE`. Each action that moves cats, items, or characters needs an offer: the handover of THREATEN, each deal of BARTER, HEAL, LIBERATE, RECRUIT, and FOLLOW. Only `ATTACK`, `LEAVE`, and a free treatment of HEAL ([heal.md](heal.md#2-deal)) run at once.
 
 The server checks the offer against the hard limits, and it drops and logs an offer that breaks one. The reply already reads as a deal, so the chat window then shows the system message "X made an offer it can't keep.", and the action dialogue goes on. It holds a valid offer and sends it to the plugin after the lines of the reply. The offer goes to the squad member that spoke the line that the offer answers ([section 5](#5-speaker)).
 
@@ -175,7 +175,7 @@ The server writes a line into the chat thread for each action that runs and for 
 
 The line counts as an exchange, so a chat thread that ends in a deal is not deleted as a chat thread of one exchange (`server/chat/memory.py:89`).
 
-A chat thread that holds an action dialogue gets its memory from its own memory prompt instead of `prompt_thread_memory.txt` (`write_memory` in `server/chat/memory.py:22`), so that the memory keeps each action and each deal.
+A chat thread that holds a line of an action or of an answer gets its memory from its own memory prompt, `prompt_action_memory.txt`, instead of `prompt_thread_memory.txt` (`write_memory` in `server/chat/memory.py`), so that the memory keeps each action and each deal.
 
 ### End
 
@@ -204,4 +204,4 @@ The chat window names the speaker in the player's line (`plugin/ui/ChatWindow.cp
 | `GIVE_ITEM`, `TAKE_ITEM`, `GIVE_CATS`, `TAKE_CATS` | The plugin queues each action for the speaker (`plugin/main.cpp:522`, `:557`, `:587`, and `:577`), but its handler ignores the speaker (`plugin/game/GameActions.cpp:630`, `:518`, `:724`, and `:739`). |
 | `ATTACK`, `FOLLOW_PLAYER`, and the release | The plugin queues each action for the first character (`plugin/main.cpp:489`, `:673`, `:704`, and `:715`). |
 
-An action dialogue belongs to one speaker ([section 2](#2-entry)), but another squad member can still chat, with this NPC or another, before the reply to a line arrives. `g_lastChattingPlayerHand` then names the wrong squad member. Each design of the actions must therefore send the speaker with the action, so that the action acts on the squad member that spoke.
+An action dialogue belongs to one speaker ([section 2](#2-entry)), but another squad member can still chat, with this NPC or another, before the reply to a line arrives. `g_lastChattingPlayerHand` then names the wrong squad member. The server therefore sends the key of the speaker with each action, as `Name|key>speaker key:`, so that the action acts on the squad member that spoke. The cats belong to the whole player faction, so `GIVE_CATS` and `TAKE_CATS` keep the first character.
