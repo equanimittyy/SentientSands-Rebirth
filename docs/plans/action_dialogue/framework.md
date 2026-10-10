@@ -98,7 +98,7 @@ The doc of a category holds its gates, its hard limits, its lean, the popups of 
 
 ### Prompt
 
-The action prompt takes the parts of the chat system prompt (`server/data/prompts/prompt_system.txt`) that it needs, for example the voice rules, HOW PEOPLE TALK, and WORLD LORE, so that the NPC talks as it does in plain chat. It also takes the reply rules of chat (`server/data/prompts/response_rules.txt`), and it adds the rules of the action dialogue: the reply tag ([Reply](#reply)), the offer tag ([Offer](#offer)), `[REFUSE]` ([recruit.md](recruit.md#refusal)), `[END]` ([End](#end)), and `[JUDGMENT: n]` ([Outcome](#outcome)).
+The action prompt takes the parts of the chat system prompt (`server/data/prompts/prompt_system.txt`) that it needs, for example the voice rules, HOW PEOPLE TALK, and WORLD LORE, so that the NPC talks as it does in plain chat. It also takes the reply rules of chat (`server/data/prompts/response_rules.txt`), and it adds the rules of the action dialogue: the offer tag ([Offer](#offer)), `[REFUSE]` ([recruit.md](recruit.md#refusal)), `[END]` ([End](#end)), and `[JUDGMENT: n]` ([Outcome](#outcome)).
 
 Each category has its own prompt file, which the action prompt adds for the category of the action dialogue. The file holds what the player wants, the shape of the offer tag with one example, and the rules of the category, for example charity and gifts in BARTER.
 
@@ -106,14 +106,9 @@ The turn message of each call holds the lean ([Outcome](#outcome)), the facts of
 
 ### Reply
 
-The model under the action prompt starts each reply with the tag of the category that it reads in the player's request:
+The speech bubble of each reply starts with the category tag of the action dialogue, for example "[THREATEN] Hell no!". Code writes the tag from the category of the action dialogue, so the prompt does not ask the model for it, and the server keeps the reply without it.
 
-- `[BARTER] So what can I do for you?`
-- `[THREATEN] Don't hurt me! I'll give you what you want, just spare me!`
-
-The speech bubble of each reply starts with the category tag of the action dialogue, for example "[THREATEN] Hell no!". Code writes the tag from the category of the action dialogue, not from the reply, and the server keeps the reply without it.
-
-The player's mark names the category for the model. A later line of the chat thread can name another category, for example `!t` after `!b`. A later line without a mark keeps the category of the action dialogue and runs no classify call, so code always knows which lean and which parts of the prompt the call needs. A reply tag that names another category changes nothing.
+The player's mark names the category for the model. A later line of the chat thread can name another category, for example `!t` after `!b`. A later line without a mark keeps the category of the action dialogue and runs no classify call, so code always knows which lean and which parts of the prompt the call needs.
 
 The chat window shows system messages about the action dialogue, in the shape of the chat status messages such as "{name} is thinking..." (`NotifyChatStatus` in `plugin/ui/ChatWindow.cpp:59`). They show that the chat thread is an action dialogue, and the category of each reply.
 

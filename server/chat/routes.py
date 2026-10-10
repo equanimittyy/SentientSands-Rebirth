@@ -449,13 +449,12 @@ def chat():
     if animal:
         system_prompt = fill_prompt("prompt_animal_system.txt", language_instruction=language_instruction())
         final_instruction = f"Reply as {primary_npc} with one action or sound in asterisks, and no words. End with [JUDGMENT: n]."
-    elif category:
-        goods = {"stock": offers.stocktake(ctx_dict)} if category == "BARTER" else {}
-        wanted = fill_prompt(f"prompt_action_{category.lower()}.txt", speaker=player_name, **goods)
-        system_prompt = build_system_prompt() + "\n\n" + fill_prompt("prompt_action_rules.txt", tag=f"[{category}]", request=wanted)
-        final_instruction = f"Reply as {primary_npc}{', quietly' if mode == 'whisper' else ''}. Start with [{category}], and end with [JUDGMENT: n]."
     else:
         system_prompt = build_system_prompt()
+        if category:
+            goods = {"stock": offers.stocktake(ctx_dict)} if category == "BARTER" else {}
+            wanted = fill_prompt(f"prompt_action_{category.lower()}.txt", speaker=player_name, **goods)
+            system_prompt += "\n\n" + fill_prompt("prompt_action_rules.txt", request=wanted)
         final_instruction = f"Reply as {primary_npc}{', quietly' if mode == 'whisper' else ''}. End with [JUDGMENT: n]."
 
     mode_tag = {"whisper": "(Whispered) ", "yell": "(Yelled) "}.get(mode, "")
