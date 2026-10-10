@@ -111,6 +111,8 @@ The model under the action prompt starts each reply with the tag of the category
 - `[BARTER] So what can I do for you?`
 - `[THREATEN] Don't hurt me! I'll give you what you want, just spare me!`
 
+The speech bubble of each reply starts with the category tag of the action dialogue, for example "[THREATEN] Hell no!". Code writes the tag from the category of the action dialogue, not from the reply, and the server keeps the reply without it.
+
 The player's mark names the category for the model. A later line of the chat thread can name another category, for example `!t` after `!b`. A later line without a mark keeps the category of the action dialogue and runs no classify call, so code always knows which lean and which parts of the prompt the call needs. A reply tag that names another category changes nothing.
 
 The chat window shows system messages about the action dialogue, in the shape of the chat status messages such as "{name} is thinking..." (`NotifyChatStatus` in `plugin/ui/ChatWindow.cpp:59`). They show that the chat thread is an action dialogue, and the category of each reply.

@@ -74,21 +74,13 @@ static bool IsAsciiLetter(char c) {
   return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z');
 }
 
-// The server parses the mark, so the window only tells a marked line apart and
-// keeps the mark out of the speech bubble
-static bool SplitActionMark(const std::string &text, std::string &words) {
-  if (text.size() < 2 || text[0] != '!' ||
-      !(text[1] == ' ' || IsAsciiLetter(text[1])))
+// The server parses the mark, so the window only tells a marked line apart
+static bool IsActionMark(const std::string &text) {
+  if (text.size() < 2 || text[0] != '!')
     return false;
-  size_t end = 1;
-  while (end < text.size() && IsAsciiLetter(text[end]))
-    ++end;
-  size_t start = text.find_first_not_of(' ', end);
-  std::string rest = start == std::string::npos ? "" : text.substr(start);
-  if (text[1] == ' ' && rest.empty())
-    return false;
-  words = rest;
-  return true;
+  if (IsAsciiLetter(text[1]))
+    return true;
+  return text[1] == ' ' && text.find_first_not_of(' ', 1) != std::string::npos;
 }
 
 static void SettleActionDialogue(ChatTask *t, const std::string &response) {
@@ -242,8 +234,7 @@ void OnChatSendClick(MyGUI::Widget *sender) {
     }
   }
 
-  std::string words = text;
-  bool marked = SplitActionMark(text, words);
+  bool marked = IsActionMark(text);
   unsigned int targetSerial =
       (unsigned int)strtoul(handleStr.c_str(), NULL, 10);
   EnterCriticalSection(&g_msgMutex);
@@ -261,13 +252,11 @@ void OnChatSendClick(MyGUI::Widget *sender) {
     return;
   }
 
-  if (!words.empty()) {
-    EnterCriticalSection(&g_msgMutex);
-    // Names the speaker, so its bubble and the NPC's actions go to that squad member
-    g_messageQueue.push_back(
-        "PLAYER_SAY: " + (speaker ? playerName + ": " : std::string()) + words);
-    LeaveCriticalSection(&g_msgMutex);
-  }
+  EnterCriticalSection(&g_msgMutex);
+  // Names the speaker, so its bubble and the NPC's actions go to that squad member
+  g_messageQueue.push_back(
+      "PLAYER_SAY: " + (speaker ? playerName + ": " : std::string()) + text);
+  LeaveCriticalSection(&g_msgMutex);
 
   std::string primaryId = npcName + "|" + handleStr;
   std::string npcsJson = "\"" + EscapeJSON(primaryId) + "\"";

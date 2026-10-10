@@ -92,6 +92,20 @@ static std::vector<hand> g_renamedSquad;
 
 #include "ui/ChatUI.h"
 
+// The bubble strips every other tag, but the reply tag of an action dialogue
+// stays, so the player sees which category the NPC answers in
+static std::string LeadingCategoryTag(const std::string &text) {
+  static const char *TAGS[] = {"[THREATEN]", "[BARTER]",  "[HEAL]",
+                               "[LIBERATE]", "[RECRUIT]", "[FOLLOW]",
+                               "[DISMISS]"};
+  for (size_t i = 0; i < sizeof(TAGS) / sizeof(TAGS[0]); ++i) {
+    std::string tag = TAGS[i];
+    if (text.compare(0, tag.size(), tag) == 0)
+      return tag;
+  }
+  return "";
+}
+
 // Kenshi engine writes must happen on the main thread, inside hooks.
 void ProcessMessageQueue(GameWorld *thisptr) {
   if (TryEnterCriticalSection(&g_msgMutex)) {
@@ -893,6 +907,9 @@ void ProcessMessageQueue(GameWorld *thisptr) {
         }
 
         if (!bubbleContent.empty() && (isNPCSay || isNPCAction)) {
+          std::string categoryTag =
+              isNPCSay ? LeadingCategoryTag(bubbleContent) : "";
+          bubbleContent.erase(0, categoryTag.size());
           size_t searchPos = 0;
           while (true) {
             size_t aPos = bubbleContent.find("[", searchPos);
@@ -929,6 +946,8 @@ void ProcessMessageQueue(GameWorld *thisptr) {
           size_t l = bubbleContent.find_last_not_of(" \t\r\n");
           if (l != std::string::npos)
             bubbleContent.erase(l + 1);
+          if (!categoryTag.empty() && !bubbleContent.empty())
+            bubbleContent = categoryTag + " " + bubbleContent;
         }
 
         hand bubbleAnchor = isPlayerSay ? speakerHand : targetHand;

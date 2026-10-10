@@ -541,7 +541,7 @@ def chat():
         logging.info(f'CHAT: {mode_tag}{player_name} to {primary_npc}{f" [{category}]" if category else ""}: "{player_message}" | {primary_npc}: "{content}" ({time.monotonic() - started:.1f} s)')
         if category:
             notify(f"{primary_npc} ended the {category.lower()} dialogue." if closing else f"{category.capitalize()} dialogue with {primary_npc}.")
-        return reply(content, action_open=bool(category) and not closing)
+        return reply(f"[{category}] {content}" if category else content, action_open=bool(category) and not closing)
     return jsonify({"error": "No reply from the LLM.", "status": "error"}), 502
 
 def bio_refusal(data):

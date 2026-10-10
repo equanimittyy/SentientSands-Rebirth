@@ -390,8 +390,9 @@ A chat line that starts with `!` marks its chat thread as an action dialogue ([f
 - `CURRENT_THREAD` holds the category and the speaker of the action dialogue (`action`). A line without a mark keeps the category. A line of another squad member starts a new chat thread (`thread_of`). The ending tag `[END]`, `!end`, a failure, and an error of the action call end the chat thread.
 - The system prompt adds `prompt_action_rules.txt` after `prompt_system.txt` and the reply rules. It holds the request of the category (`prompt_action_<category>.txt`), and the final instruction asks for the category tag first.
 - The server sends each system message through the pipe as `NOTIFY:`: a block, a failure, "Barter dialogue with X." after each reply, and "X ended the barter dialogue." after a reply with `[END]`.
+- The bubble of an action reply starts with the category tag, for example `[THREATEN] Hell no!`. The stored line has no tag. The plugin strips every other tag from a bubble, so it keeps only a leading category tag (`LeadingCategoryTag` in `plugin/main.cpp`).
 - At `!end`, the NPC says a random line of `server/data/defaults/action_end_lines.json`, which holds the preset lines of each end.
-- The reply of `/chat` holds `action_dialogue`, which is true while the action dialogue stays open. While the reply to a line of an action dialogue is pending, a send closes the chat window, drops the line, and shows "{name} is still thinking." (`OnChatSendClick` in `plugin/ui/ChatWindow.cpp`). A marked line is such a line, and so is each line to the NPC of the open action dialogue. The speech bubble of the player leaves out the mark.
+- The reply of `/chat` holds `action_dialogue`, which is true while the action dialogue stays open. While the reply to a line of an action dialogue is pending, a send closes the chat window, drops the line, and shows "{name} is still thinking." (`OnChatSendClick` in `plugin/ui/ChatWindow.cpp`). A marked line is such a line, and so is each line to the NPC of the open action dialogue. The speech bubble of the player shows the whole line with its mark, and the stored line leaves the mark out.
 
 ## Line pacing
 
