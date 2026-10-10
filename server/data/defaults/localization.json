@@ -110,7 +110,10 @@
         "No.": "No.",
         "You no longer have {what}.": "You no longer have {what}.",
         "{name} no longer has {what}.": "{name} no longer has {what}.",
-        "{name}'s offer is gone.": "{name}'s offer is gone."
+        "{name}'s offer is gone.": "{name}'s offer is gone.",
+        "You are offering:": "You are offering:",
+        "They are offering:": "They are offering:",
+        "Nothing": "Nothing"
     },
     "Spanish": {
         "Talking to: ": "Hablando con: ",
@@ -223,7 +226,10 @@
         "No.": "No.",
         "You no longer have {what}.": "Ya no tienes {what}.",
         "{name} no longer has {what}.": "{name} ya no tiene {what}.",
-        "{name}'s offer is gone.": "La oferta de {name} ya no está en pie."
+        "{name}'s offer is gone.": "La oferta de {name} ya no está en pie.",
+        "You are offering:": "Tú ofreces:",
+        "They are offering:": "Ellos ofrecen:",
+        "Nothing": "Nada"
     },
     "French": {
         "Talking to: ": "Discussion avec : ",
@@ -336,7 +342,10 @@
         "No.": "Non.",
         "You no longer have {what}.": "Tu n'as plus {what}.",
         "{name} no longer has {what}.": "{name} n'a plus {what}.",
-        "{name}'s offer is gone.": "L'offre de {name} ne tient plus."
+        "{name}'s offer is gone.": "L'offre de {name} ne tient plus.",
+        "You are offering:": "Tu offres :",
+        "They are offering:": "Ils offrent :",
+        "Nothing": "Rien"
     },
     "Japanese": {
         "Talking to: ": "会話相手: ",
@@ -449,7 +458,10 @@
         "No.": "いいえ。",
         "You no longer have {what}.": "もう{what}を持っていません。",
         "{name} no longer has {what}.": "{name}はもう{what}を持っていません。",
-        "{name}'s offer is gone.": "{name}の申し出は無効になりました。"
+        "{name}'s offer is gone.": "{name}の申し出は無効になりました。",
+        "You are offering:": "あなたが差し出すもの：",
+        "They are offering:": "相手が差し出すもの：",
+        "Nothing": "なし"
     },
     "Russian": {
         "Talking to: ": "Разговор с: ",
@@ -562,6 +574,9 @@
         "No.": "Нет.",
         "You no longer have {what}.": "У вас больше нет {what}.",
         "{name} no longer has {what}.": "У {name} больше нет {what}.",
-        "{name}'s offer is gone.": "Предложение {name} больше не в силе."
+        "{name}'s offer is gone.": "Предложение {name} больше не в силе.",
+        "You are offering:": "Вы предлагаете:",
+        "They are offering:": "Они предлагают:",
+        "Nothing": "Ничего"
     }
 }

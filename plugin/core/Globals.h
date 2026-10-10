@@ -79,7 +79,8 @@ enum ActionType {
   ACT_PROBE,
   ACT_HIRE,
   ACT_END_HIRE,
-  ACT_FIRST_AID
+  ACT_FIRST_AID,
+  ACT_ADD_CATS
 };
 
 struct GameEvent {

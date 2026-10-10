@@ -103,7 +103,72 @@ class TextTest(unittest.TestCase):
         offer, _ = check("BARTER", "[OFFER: GIVE_ITEM: Katana; TAKE_CATS: 250; TAKE_ITEM: Dirty Loincloth]")
         lines = offers.command(7, offer, "Bandit", "12", "3", "text").split("\n")
         self.assertEqual(lines[:4], ["CMD: OFFER: 7", "12 3", "Bandit", "text"])
-        self.assertEqual(lines[4:], ["CHECK: CATS player 250", "CHECK: ITEM player 1 Dirty Loincloth", "CHECK: ITEM npc 1 Katana"])
+        self.assertEqual(lines[4:], ["CHECK: CATS player 250", "CHECK: ITEM player 1 Dirty Loincloth", "CHECK: ITEM npc 1 Katana",
+                                     "BOX: player 250 cats", "BOX: player 1 Dirty Loincloth", "BOX: npc 1 Katana"])
+
+
+SHOP = {"npc_id": "h:1-shop", "day": 4, "money": 5000, "squad_jobs": ["STAND_AT_SHOPKEEPER_NODE"],
+        "inventory": [{"name": "Bread", "count": 2, "price": 400}],
+        "stock": [{"name": "Katana (Ancient, Refitted Blade)", "count": 1, "price": 3000}, {"name": "First Aid Kit", "count": 1, "price": 102},
+                  {"name": "First Aid Kit", "count": 1, "price": 132}]}
+BUYER = {"money": 5000, "inventory": [{"name": "Dirty Loincloth", "count": 1, "price": 100}, {"name": "Chain Shirt (High)", "count": 1, "price": 20000}]}
+
+
+class BarterTest(unittest.TestCase):
+    def tearDown(self):
+        state.CHARITY_DAYS.clear()
+
+    def barter(self, tag, npc=SHOP, speaker=BUYER):
+        return offers.check("BARTER", offers.read(tag), npc, speaker)
+
+    def test_a_shopkeeper_sells_the_stock_of_its_shop(self):
+        offer, reason = self.barter("[OFFER: GIVE_ITEM: Katana; TAKE_CATS: 2400]")
+        self.assertIsNone(reason)
+        self.assertEqual(offer["gives"], [("ITEM", (1, "Katana (Ancient, Refitted Blade)"))])
+
+    def test_another_npc_hands_over_only_what_it_carries(self):
+        self.assertIsNone(self.barter("[OFFER: GIVE_ITEM: Katana; TAKE_CATS: 3000]", npc={**SHOP, "squad_jobs": []})[0])
+
+    def test_what_the_npc_receives_is_worth_what_it_gives(self):
+        # A trader sells at 80% of the price and buys at 60%
+        self.assertIsNone(self.barter("[OFFER: GIVE_ITEM: Katana; TAKE_CATS: 2399]")[0])
+        self.assertIn("worth", self.barter("[OFFER: GIVE_ITEM: Katana; TAKE_ITEM: Dirty Loincloth]")[1])
+        swap, _ = self.barter("[OFFER: GIVE_ITEM: Katana; TAKE_ITEM: Chain Shirt]")
+        self.assertIsNotNone(swap)
+
+    def test_the_stock_sets_the_price_at_its_highest(self):
+        self.assertEqual(offers.price_of("First Aid Kit", offers.goods(SHOP, "BARTER")), 132)
+        self.assertIsNone(self.barter("[OFFER: GIVE_ITEM: First Aid Kit; TAKE_CATS: 105]")[0])
+
+    def test_a_name_without_its_grade_needs_one_grade_held(self):
+        two = {**BUYER, "inventory": BUYER["inventory"] + [{"name": "Chain Shirt (Standard)", "count": 1, "price": 10000}]}
+        self.assertEqual(offers.held(BUYER["inventory"], "chain shirt"), ("Chain Shirt (High)", 1))
+        self.assertEqual(offers.held(two["inventory"], "Chain Shirt"), (None, 0))
+
+    def test_charity_costs_the_npc_nothing_but_has_tight_limits(self):
+        poor = {**SHOP, "money": 0, "stock": [], "inventory": []}
+        cats, _ = self.barter("[OFFER: GIVE_CATS: 50]", npc=poor)
+        self.assertTrue(cats["charity"])
+        self.assertEqual(offers.actions(cats), ["[ACTION: ADD_CATS: 50]"])
+        self.assertEqual(offers.checks(cats), [])
+        food, _ = self.barter("[OFFER: GIVE_ITEM: 1 rice bowl]", npc=poor)
+        self.assertEqual(offers.actions(food), ["[ACTION: SPAWN_ITEM: Rice Bowl]"])
+        self.assertIsNone(self.barter("[OFFER: GIVE_CATS: 51]", npc=poor)[0])
+        self.assertIsNone(self.barter("[OFFER: GIVE_ITEM: 1 Katana]")[0])
+        state.CHARITY_DAYS[SHOP["npc_id"]] = 4
+        self.assertIsNone(self.barter("[OFFER: GIVE_CATS: 10]", npc=poor)[0])
+
+    def test_a_gift_raises_the_relation_by_its_worth(self):
+        self.assertEqual(self.barter("[OFFER: TAKE_CATS: 1499]")[0]["gift"], 2)
+        self.assertEqual(self.barter("[OFFER: TAKE_CATS: 499]")[0]["gift"], 0)
+        self.assertEqual(self.barter("[OFFER: TAKE_ITEM: Chain Shirt]")[0]["gift"], 10)
+        self.assertEqual(offers.popup_text(self.barter("[OFFER: TAKE_CATS: 500]")[0], "Shopkeeper", "Zaps"), "Shopkeeper accepts your gift of 500 cats.")
+
+    def test_the_prompt_lists_the_goods_and_the_prices_of_the_items_named(self):
+        self.assertEqual(offers.stocktake(SHOP), "YOUR GOODS: 2 Bread, 1 Katana (Ancient, Refitted Blade), 2 First Aid Kit.")
+        guide = offers.price_guide("How much for the katana? I could sell my chain shirt.", SHOP, BUYER, "Zaps")
+        self.assertEqual(guide, ["You sell Katana (Ancient, Refitted Blade) for at least 2,400 cats each.",
+                                 "You pay at most 12,000 cats each for the Chain Shirt (High) of Zaps."])
 
 
 class HoldTest(unittest.TestCase):

@@ -204,6 +204,12 @@ def answer_offer():
         voice = held["voice"]
         play_lines([f"{voice}: {action_dialogue.end_line(offers.ACCEPT_LINES[offer['category']])}"], [f"{voice}: {action}" for action in offers.actions(offer)])
         logging.info(f"ACTION: {player} accepted: {offers.popup_text(offer, npc, player)}")
+        if offer.get("charity"):
+            state.CHARITY_DAYS[held["npc_id"]] = held["day"]
+        if offer.get("gift"):
+            relation = campaign_db.change_relation(held["npc_id"], offer["gift"])
+            notify(f"{npc} likes you more for the gift (+{offer['gift']} relation).")
+            logging.info(f"RELATION: {npc} personal relation is now {relation} (gift={offer['gift']})")
     elif answer == "decline":
         record_deal(held["thread"], offers.declined_line(offer, npc, player), held["parties"], held["location"])
         with state.THREAD_LOCK:
@@ -444,7 +450,8 @@ def chat():
         system_prompt = fill_prompt("prompt_animal_system.txt", language_instruction=language_instruction())
         final_instruction = f"Reply as {primary_npc} with one action or sound in asterisks, and no words. End with [JUDGMENT: n]."
     elif category:
-        wanted = fill_prompt(f"prompt_action_{category.lower()}.txt", speaker=player_name)
+        goods = {"stock": offers.stocktake(ctx_dict)} if category == "BARTER" else {}
+        wanted = fill_prompt(f"prompt_action_{category.lower()}.txt", speaker=player_name, **goods)
         system_prompt = build_system_prompt() + "\n\n" + fill_prompt("prompt_action_rules.txt", tag=f"[{category}]", request=wanted)
         final_instruction = f"Reply as {primary_npc}{', quietly' if mode == 'whisper' else ''}. Start with [{category}], and end with [JUDGMENT: n]."
     else:
@@ -496,7 +503,8 @@ def chat():
     )
     if category:
         lean = action_dialogue.lean(category, ctx_dict, speaker, primary_data.get("Relation"), nearby)
-        background_block = offers.facts(category, ctx_dict, speaker, player_name, lean) + "\n\n" + background_block
+        last_reply = next((line for line, who, _ in reversed(rows) if who == primary_id), "")
+        background_block = offers.facts(category, ctx_dict, speaker, player_name, lean, f"{player_message}\n{last_reply}") + "\n\n" + background_block
     turn = fill_prompt("prompt_chat_turn.txt", background=background_block, player_line=full_player_entry, final_instruction=final_instruction).strip()
     history = chat_prompt.history_window(chat_prompt.chat_lines(rows), campaign_db.DIALOGUE_BLOCK)
     notes = chat_prompt.overheard_notes(campaign_db.thread_members({thread_id for _, _, thread_id in history if thread_id}), primary_id)
@@ -623,8 +631,8 @@ def chat():
             record_deal(thread_id, f"({primary_npc} treated {player_name} for free.)", [npc_party, speaker_party], location)
         elif outcome == "offer":
             popup = offers.popup_text(offer, primary_npc, player_name)
-            offer_id = offers.hold(offer, npc=primary_npc, player=player_name, voice=voice(),
-                                   thread=thread_id, parties=[npc_party, speaker_party], location=location)
+            offer_id = offers.hold(offer, npc=primary_npc, player=player_name, voice=voice(), thread=thread_id, parties=[npc_party, speaker_party],
+                                   location=location, npc_id=primary_id, day=ctx_dict.get("day"))
             state.PENDING_OFFER["command"] = offers.command(offer_id, offer, primary_npc, target_key, speaker_key, popup)
             after = [state.PENDING_OFFER["command"]]
             logging.info(f"ACTION: {popup}")

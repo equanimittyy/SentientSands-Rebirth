@@ -53,7 +53,7 @@ In charity, the NPC gives without receiving anything. Charity costs the NPC noth
 Charity has tight limits:
 
 - The NPC gives at most 50 cats, or 1 item of the cheapest food (`ITEM_FOOD` in `deps/KenshiLib/Include/kenshi/Enums.h:224`).
-- Each NPC gives charity at most once in each game day.
+- Each NPC gives charity at most once in each game day. The server keeps the day of the last charity of each NPC in memory, so a restart of the server forgets it.
 
 The cheapest food is the food whose base value in the game data is 150 or less:
 
@@ -77,7 +77,7 @@ The prompt opens with a stocktake of the NPC: the name and the count of each ite
 
 One item can have a different `price` on different holders, for example a Standard First Aid Kit was 102 on a barman and 132 in the furniture of the bar ([kenshi_internals.md](../../info/kenshi_internals.md#inventories)). The deal therefore takes the `price` of an item from the stock of the NPC, because that is the price that the NPC sells at. When the stock holds the item at different prices, the deal takes the highest. When the stock does not hold the item, the deal takes the highest `price` of the item in the inventory of the speaker.
 
-The stocktake, the price guide, and the offer name each weapon and each armour with its quality from the game, so two items with one name and different prices stay apart. A weapon keeps its grade in `materialData` and its maker in `manufacturerData`, and an armour keeps its grade in `getLevel` (`deps/KenshiLib/Include/kenshi/Item.h:63` to `:66`) ([kenshi_internals.md](../../info/kenshi_internals.md#inventories)). The plugin does not send them yet.
+The stocktake, the price guide, and the offer name each weapon and each armour with its quality from the game, so two items with one name and different prices stay apart. A weapon keeps its grade in `materialData` and its maker in `manufacturerData`, and an armour keeps its grade in `getLevel` (`deps/KenshiLib/Include/kenshi/Item.h:63` to `:66`) ([kenshi_internals.md](../../info/kenshi_internals.md#inventories)). The plugin writes them into the name of the item, for example `Katana (Ancient, Refitted Blade)` or `Chain Shirt (High)` (`ItemLabel` in `plugin/game/Context.cpp`). The armour grades follow the level in steps of 20, from Prototype at 0 to Masterwork at 100. A name without the grade finds the item when the holder holds only one grade of it.
 
 ## 7. Lean
 

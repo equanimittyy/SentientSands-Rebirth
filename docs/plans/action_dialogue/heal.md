@@ -11,7 +11,7 @@ HEAL treats only the speaker. A knocked-out squad member cannot speak ([Blocked]
 HEAL needs all of these ([Blocked](framework.md#blocked)):
 
 - The speaker has a wound: a body part below its full health (`limbs` of `medical` in the speaker's context, `plugin/game/Context.cpp`). A slight wound counts too, although `health` (`GetHealthStatus` in `plugin/game/Context.cpp:118`) says `Injured` only below 70% of a part.
-- The NPC carries a first aid item (`hasItemFunction` with `ITEM_FIRSTAID` in `deps/KenshiLib/Include/kenshi/Inventory.h:195`). The plugin does not send this yet.
+- The NPC carries a first aid item (`has_first_aid` in the NPC's context, from `hasItemFunction` with `ITEM_FIRSTAID` in `deps/KenshiLib/Include/kenshi/Inventory.h:195`).
 - The NPC is not `imprisoned` (`plugin/game/Context.cpp:675`), because a fellow prisoner cannot help.
 
 Treatment needs no medical skill, because any NPC can treat a wound.

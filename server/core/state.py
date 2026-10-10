@@ -22,6 +22,8 @@ RECENT_HITS = {}
 QUIET_SINCE = time.monotonic()
 LAST_RADIANT = None
 PENDING_OFFER = None
+# {npc_id: the game day of its last charity}, so each NPC gives charity at most once a day; a restart forgets it
+CHARITY_DAYS = {}
 WRITE_REQUESTS = 0
 SEEN_FACTIONS = set()
 GAME_REPORTED = threading.Event()

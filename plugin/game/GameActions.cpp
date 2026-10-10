@@ -222,22 +222,42 @@ std::string GetTaskName(TaskType tt) {
   }
 }
 
-// An exact name first, so that a deal for Bread never hands over a Bread Loaf
-static Item *FindNamedItem(Character *holder, const std::string &lowerName) {
-  std::vector<Item *> items;
-  GetAllCharacterItems(holder, items);
+static std::string LowerText(std::string text) {
+  std::transform(text.begin(), text.end(), text.begin(), ::tolower);
+  return text;
+}
+
+// The label with the grade first, then the exact name, so that a deal for
+// Bread never hands over a Bread Loaf
+static Item *FindInItems(const std::vector<Item *> &items,
+                         const std::string &lowerName) {
+  Item *named = nullptr;
   Item *partial = nullptr;
   for (size_t i = 0; i < items.size(); ++i) {
     if (!items[i])
       continue;
-    std::string name = items[i]->getName();
-    std::transform(name.begin(), name.end(), name.begin(), ::tolower);
-    if (name == lowerName)
+    if (LowerText(ItemLabel(items[i])) == lowerName)
       return items[i];
+    std::string name = LowerText(items[i]->getName());
+    if (!named && name == lowerName)
+      named = items[i];
     if (!partial && name.find(lowerName) != std::string::npos)
       partial = items[i];
   }
-  return partial;
+  return named ? named : partial;
+}
+
+// A shopkeeper also sells the stock in the furniture of its shop
+static Item *FindNamedItem(Character *holder, const std::string &lowerName,
+                           bool withShop = false) {
+  std::vector<Item *> items;
+  GetAllCharacterItems(holder, items);
+  Item *found = FindInItems(items, lowerName);
+  if (found || !withShop)
+    return found;
+  std::vector<Item *> stock;
+  GetShopItems(holder, stock);
+  return FindInItems(stock, lowerName);
 }
 
 // Moves at most count of the stack, so a deal for 2 Bread never hands over a
@@ -649,7 +669,7 @@ void ExecuteQueuedActions(GameWorld *thisptr, int &inventoryTimer) {
 
           if (player) {
             while (given < count) {
-              Item *found = FindNamedItem(npc, targetName);
+              Item *found = FindNamedItem(npc, targetName, true);
               if (!found)
                 break;
               int moved = MoveItems(npc, found, count - given, player);
@@ -872,6 +892,14 @@ void ExecuteQueuedActions(GameWorld *thisptr, int &inventoryTimer) {
                 npc->getName() + " follows you for " + ToString(act.taskValue) +
                     " hours.",
                 true);
+          }
+        } else if (act.type == ACT_ADD_CATS) {
+          // Charity costs the NPC nothing, so the cats come from no purse
+          if (thisptr->player && thisptr->player->playerCharacters.size() > 0 &&
+              act.taskValue > 0) {
+            thisptr->player->playerCharacters[0]->takeMoney(-act.taskValue);
+            thisptr->showPlayerAMessage_withLog(
+                "Gained " + ToString(act.taskValue) + " cats.", true);
           }
         } else if (act.type == ACT_END_HIRE) {
           Blackboard *board = npc->getBlackboard();

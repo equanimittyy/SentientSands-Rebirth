@@ -1,1 +1,5 @@
 REQUEST: {speaker} wants to trade with you: to buy or sell an item, to swap items, to give you a gift, or to ask you for charity. {speaker} can haggle over the price.
+OFFER: When you agree to a deal, put an offer tag after your words with both sides of it: GIVE_ITEM: count name and GIVE_CATS: n for what you hand over, and TAKE_ITEM: count name and TAKE_CATS: n for what {speaker} hands over. Write each item name as your goods or the prices write it. Example: The Katana is yours for 4600 cats. [OFFER: GIVE_ITEM: 1 Katana; TAKE_CATS: 4600]
+GIFT: When you take a gift, the offer tag holds only what {speaker} gives, as in [OFFER: TAKE_CATS: 500].
+CHARITY: When you give charity, the offer tag holds only what you give: at most 50 cats, or 1 of these foods: Dried Gristle Flaps, Dried Meat, Rice Bowl, Gohan, Cooked Vegetables.
+{stock}

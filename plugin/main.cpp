@@ -634,6 +634,14 @@ void ProcessMessageQueue(GameWorld *thisptr) {
             act.message = iName;
             g_uiActionQueue.push_back(act);
             LeaveCriticalSection(&g_uiMutex);
+          } else if (actStr.find("ADD_CATS:") != std::string::npos) {
+            EnterCriticalSection(&g_uiMutex);
+            QueuedAction act;
+            act.type = ACT_ADD_CATS;
+            act.actor = targetHand;
+            act.taskValue = atoi(getPayload(actStr, "ADD_CATS:").c_str());
+            g_uiActionQueue.push_back(act);
+            LeaveCriticalSection(&g_uiMutex);
           } else if (actStr.find("TAKE_CATS:") != std::string::npos) {
             std::string amtStr = getPayload(actStr, "TAKE_CATS:");
             EnterCriticalSection(&g_uiMutex);

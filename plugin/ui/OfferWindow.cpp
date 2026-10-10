@@ -16,6 +16,8 @@
 #include <mygui/MyGUI_EditBox.h>
 #include <mygui/MyGUI_Gui.h>
 #include <mygui/MyGUI_InputManager.h>
+#include <mygui/MyGUI_ListBox.h>
+#include <mygui/MyGUI_TextBox.h>
 #include <mygui/MyGUI_Window.h>
 
 #include <algorithm>
@@ -31,6 +33,7 @@ static MyGUI::EditBox *g_offerReply = nullptr;
 static MyGUI::Button *g_offerAcceptBtn = nullptr;
 static MyGUI::Button *g_offerDeclineBtn = nullptr;
 static MyGUI::Button *g_offerSendBtn = nullptr;
+static std::vector<MyGUI::Widget *> g_offerBoxes;
 
 struct Offer {
   std::string id;
@@ -54,6 +57,7 @@ static void CloseOfferUI() {
   g_offerAcceptBtn = nullptr;
   g_offerDeclineBtn = nullptr;
   g_offerSendBtn = nullptr;
+  g_offerBoxes.clear();
 }
 
 static void NotifyText(const std::string &text) {
@@ -93,13 +97,16 @@ static int MoneyOf(Character *c) {
   return money;
 }
 
-static int CountItems(Character *c, const std::string &name) {
+// The NPC also sells the stock in the furniture of its shop
+static int CountItems(Character *c, const std::string &name, bool withShop) {
   std::vector<Item *> items;
   GetAllCharacterItems(c, items);
+  if (withShop)
+    GetShopItems(c, items);
   std::string wanted = Lower(name);
   int count = 0;
   for (size_t i = 0; i < items.size(); ++i)
-    if (items[i] && Lower(items[i]->getName()) == wanted)
+    if (items[i] && Lower(ItemLabel(items[i])) == wanted)
       count += items[i]->quantity;
   return count;
 }
@@ -122,7 +129,7 @@ static std::string Shortfall(Character *npc, Character *speaker) {
     name.erase(0, name.find_first_not_of(' '));
     bool player = side == "player";
     int have = kind == "CATS" ? MoneyOf(player ? payer : npc)
-                              : CountItems(player ? speaker : npc, name);
+                              : CountItems(player ? speaker : npc, name, !player);
     if (have >= count)
       continue;
     std::string what = ToString(count) + (kind == "CATS" ? " cats" : " " + name);
@@ -147,6 +154,9 @@ static void OnOfferAccept(MyGUI::Widget *sender) {
 }
 
 static void ShowReplyBox() {
+  for (size_t i = 0; i < g_offerBoxes.size(); ++i)
+    g_offerBoxes[i]->setVisible(false);
+  g_offerText->setVisible(true);
   g_offerText->setCaption(Utf8ToWide(T("Your reply:")).c_str());
   g_offerAcceptBtn->setVisible(false);
   g_offerDeclineBtn->setVisible(false);
@@ -196,8 +206,27 @@ static MyGUI::Button *AddOfferButton(MyGUI::Widget *client, const char *key,
   return button;
 }
 
+static void AddOfferBox(MyGUI::Widget *client, const char *labelKey,
+                        float left, const std::vector<std::string> &entries,
+                        const std::string &name) {
+  MyGUI::TextBox *label = client->createWidgetReal<MyGUI::TextBox>(
+      "Kenshi_TextboxStandardText", left, 0.03f, 0.43f, 0.1f,
+      MyGUI::Align::Top | MyGUI::Align::Left, name + "Label");
+  label->setCaption(Utf8ToWide(T(labelKey)).c_str());
+  MyGUI::ListBox *box = client->createWidgetReal<MyGUI::ListBox>(
+      "Kenshi_ListBox", left, 0.14f, 0.43f, 0.52f,
+      MyGUI::Align::Top | MyGUI::Align::Left, name);
+  if (entries.empty())
+    box->addItem(Utf8ToWide(T("Nothing")).c_str());
+  for (size_t i = 0; i < entries.size(); ++i)
+    box->addItem(Utf8ToWide(entries[i]).c_str());
+  g_offerBoxes.push_back(label);
+  g_offerBoxes.push_back(box);
+}
+
 // The data holds, one to a line, the offer ID, the keys of the NPC and the
-// speaker, the name of the NPC, the text of the popup, and the CHECK lines
+// speaker, the name of the NPC, the text of the popup, the CHECK lines, and the
+// BOX lines of a barter offer, which shows in two boxes instead of the text
 void ShowOfferUI(const std::string &data) {
   std::vector<std::string> lines;
   std::istringstream in(data);
@@ -219,9 +248,16 @@ void ShowOfferUI(const std::string &data) {
   offer.speakerKey = 0;
   keys >> offer.npcKey >> offer.speakerKey;
   offer.npcName = lines[2];
-  for (size_t i = 4; i < lines.size(); ++i)
+  std::vector<std::string> mine, theirs;
+  for (size_t i = 4; i < lines.size(); ++i) {
     if (lines[i].compare(0, 7, "CHECK: ") == 0)
       offer.checks.push_back(lines[i].substr(7));
+    else if (lines[i].compare(0, 12, "BOX: player ") == 0)
+      mine.push_back(lines[i].substr(12));
+    else if (lines[i].compare(0, 9, "BOX: npc ") == 0)
+      theirs.push_back(lines[i].substr(9));
+  }
+  bool barter = !mine.empty() || !theirs.empty();
   offer.npc = KeyedCharacter(offer.npcKey);
   offer.speaker = KeyedCharacter(offer.speakerKey);
   g_offer = offer;
@@ -232,8 +268,9 @@ void ShowOfferUI(const std::string &data) {
   }
 
   g_offerWindow = gui->createWidgetReal<MyGUI::Window>(
-      "Kenshi_WindowCX", 0.3f, 0.36f, 0.4f, 0.24f, MyGUI::Align::Center,
-      "Popup", "SentientSands_OfferWindow");
+      "Kenshi_WindowCX", 0.3f, barter ? 0.3f : 0.36f, 0.4f,
+      barter ? 0.36f : 0.24f, MyGUI::Align::Center, "Popup",
+      "SentientSands_OfferWindow");
   g_offerWindow->setCaption(
       Utf8ToWide(Fill(T("Offer from {name}"), "{name}", offer.npcName))
           .c_str());
@@ -250,6 +287,13 @@ void ShowOfferUI(const std::string &data) {
   g_offerText->setTextAlign(MyGUI::Align::Left | MyGUI::Align::Top);
   g_offerText->setFontHeight(18);
   g_offerText->setCaption(Utf8ToWide(lines[3]).c_str());
+  if (barter) {
+    g_offerText->setVisible(false);
+    AddOfferBox(client, "You are offering:", 0.05f, mine,
+                "SentientSands_OfferMine");
+    AddOfferBox(client, "They are offering:", 0.52f, theirs,
+                "SentientSands_OfferTheirs");
+  }
 
   g_offerReply = client->createWidgetReal<MyGUI::EditBox>(
       "Kenshi_EditBox", 0.05f, 0.35f, 0.9f, 0.22f,

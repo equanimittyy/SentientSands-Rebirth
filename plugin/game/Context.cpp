@@ -596,6 +596,65 @@ static void SectionItems(Inventory *inv, std::vector<Item *> &out) {
   }
 }
 
+// Two items with one name can differ in grade and price, so the name of a
+// weapon or an armour holds its grade, and a deal names the right one
+std::string ItemLabel(Item *item) {
+  std::string name = item->getName();
+  if (item->objectType == WEAPON && item->materialData) {
+    std::string grade = item->materialData->name;
+    // The game data numbers the weapon grades, as in "09 - Refitted Blade"
+    size_t dash = grade.find(" - ");
+    if (dash != std::string::npos && dash < 4)
+      grade = grade.substr(dash + 3);
+    std::string maker =
+        item->manufacturerData ? item->manufacturerData->name : std::string();
+    if (maker.empty() || maker == "Unknown")
+      return name + " (" + grade + ")";
+    return name + " (" + maker + ", " + grade + ")";
+  }
+  if (item->objectType == ARMOUR) {
+    static const char *GRADES[] = {"Prototype", "Shoddy",     "Standard",
+                                   "High",      "Specialist", "Masterwork"};
+    int level = item->getLevel();
+    if (level >= 0 && level <= 100 && level % 20 == 0)
+      return name + " (" + GRADES[level / 20] + ")";
+  }
+  return name;
+}
+
+void GetShopItems(Character *npc, std::vector<Item *> &out) {
+  Building *building = npc->isIndoors().getBuilding();
+  if (!building)
+    return;
+  lektor<Building *> furniture;
+  building->findAllFurnitureWithFunction(furniture, BF_ANY);
+  for (uint32_t i = 0; i < furniture.size(); ++i)
+    if (furniture[i] && (uintptr_t)furniture[i] > 0x1000)
+      SectionItems(furniture[i]->getInventory(), out);
+}
+
+static std::string ItemsJson(const std::vector<Item *> &items) {
+  std::string json = "[";
+  for (uint32_t i = 0; i < items.size(); ++i) {
+    if (!items[i])
+      continue;
+    int price = 0;
+    try {
+      price = items[i]->getValueSingle(false);
+    } catch (...) {
+      price = 0;
+    }
+    if (json.size() > 1)
+      json += ",";
+    json += "{\"name\": \"" + EscapeJSON(ItemLabel(items[i])) +
+            "\", \"count\": " + ToString((int)items[i]->quantity) +
+            ", \"price\": " + ToString(price) + ", \"equipped\": " +
+            (items[i]->isEquipped ? "true" : "false") + ", \"slot\": \"" +
+            SlotToString(items[i]->slotType) + "\"}";
+  }
+  return json + "]";
+}
+
 static void LogItems(const std::string &who,
                      const std::vector<Item *> &items) {
   for (uint32_t i = 0; i < items.size(); ++i) {
@@ -1220,30 +1279,16 @@ std::string GetDetailedContext(Character *npc, const std::string &type) {
 
   json += "\"inventory\": ";
   if (GetCurrentThreadId() == g_mainThreadId) {
-    json += "[";
     std::vector<Item *> allItems;
     GetAllCharacterItems(npc, allItems);
-    for (uint32_t i = 0; i < allItems.size(); ++i) {
-      if (allItems[i]) {
-        if (i > 0)
-          json += ",";
-        
-        int price = 0;
-        try {
-            price = allItems[i]->getValueSingle(false);
-        } catch (...) {
-            price = 0;
-        }
-
-        json +=
-            "{\"name\": \"" + EscapeJSON(allItems[i]->getName()) +
-            "\", \"count\": " + ToString((int)allItems[i]->quantity) +
-            ", \"price\": " + ToString(price) +
-            ", \"equipped\": " + (allItems[i]->isEquipped ? "true" : "false") +
-            ", \"slot\": \"" + SlotToString(allItems[i]->slotType) + "\"}";
-      }
+    json += ItemsJson(allItems) + ",";
+    // The trade window of a shop shows the items of all its furniture as its
+    // stock
+    if (type != "player" && inAShop) {
+      std::vector<Item *> stock;
+      GetShopItems(npc, stock);
+      json += "\"stock\": " + ItemsJson(stock) + ",";
     }
-    json += "],";
   } else {
     json += "[],";
   }
