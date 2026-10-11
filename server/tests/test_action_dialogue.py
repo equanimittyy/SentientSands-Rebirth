@@ -146,13 +146,14 @@ class LeanTest(unittest.TestCase):
         self.assertEqual(ad.lean("LIBERATE", GUARD, caged_slave, 0), [(-2, "You are a guard, and {player} is a slave.")])
         self.assertEqual(ad.lean("LIBERATE", GUARD, {"character_state": "imprisoned"}, 0), [])
 
-    def test_a_second_charity_in_a_day_leans_to_refuse(self):
+    def test_a_charity_counts_for_its_game_day_but_not_in_the_lean_of_a_trade(self):
         npc = {"npc_id": "h:1-beggar", "day": 4}
-        self.assertEqual(ad.lean("BARTER", npc, {}, 0), [])
+        self.assertFalse(ad.gave_charity_today(npc))
         state.CHARITY_DAYS[npc["npc_id"]] = 4
         self.addCleanup(state.CHARITY_DAYS.clear)
-        self.assertEqual(ad.lean("BARTER", npc, {}, 0), [(-2, "You already gave charity today.")])
-        self.assertEqual(ad.lean("BARTER", {**npc, "day": 5}, {}, 0), [])
+        self.assertTrue(ad.gave_charity_today(npc))
+        self.assertFalse(ad.gave_charity_today({**npc, "day": 5}))
+        self.assertEqual(ad.lean("BARTER", npc, {}, 0), [])
 
     def test_a_guard_or_a_unique_npc_joins_less_readily(self):
         self.assertEqual(score("RECRUIT", {"unique": True, **GUARD}, {}, 0), -2)

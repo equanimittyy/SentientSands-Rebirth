@@ -445,4 +445,9 @@ def facts(category, npc, speaker, player_name, lean, said=""):
         lines.append(f"You are a mercenary: you never follow for free, and you charge at least {rate:,} cats for each day." if rate
                      else "You are no mercenary, so you ask no fee to follow.")
     deal = "DEAL FACTS:\n" + "\n".join(f"- {line}" for line in lines) + "\n\n" if lines else ""
-    return f"{deal}YOUR THOUGHT: {action_dialogue.thought(lean, player_name)}"
+    thought = action_dialogue.thought(lean, player_name)
+    # The turn message comes before the reply, so the server cannot tell a plea from a trade, and a plea gets its own band
+    if category == "BARTER" and action_dialogue.gave_charity_today(npc):
+        plea = action_dialogue.lean_text(sum(bonus for bonus, _ in lean) - 2)
+        thought += f"\n- If {player_name} begs for charity: {plea} You already gave charity today."
+    return f"{deal}YOUR THOUGHT: {thought}"

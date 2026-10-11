@@ -148,10 +148,7 @@ def lean(category, npc, speaker, relation, overheard=()):
     bonus = relation_bonus(relation)
     pairs = [(bonus, RELATION_REASONS.get(bonus))]
     health = speaker.get("health")
-    if category == "BARTER":
-        charity_day = state.CHARITY_DAYS.get(npc.get("npc_id"))
-        pairs.append((-2 * (charity_day is not None and charity_day == npc.get("day")), "You already gave charity today."))
-    elif category == "HEAL":
+    if category == "HEAL":
         pairs.append(({"Injured": 1, "Crippled": 2}.get(health, 0), f"{{player}} is {str(health).lower()}."))
     elif category == "LIBERATE":
         # A slave in a cage reads as imprisoned, so the slave state comes apart from character_state
@@ -164,6 +161,11 @@ def lean(category, npc, speaker, relation, overheard=()):
                   (-is_trader(npc), "You have a trade to run."),
                   (-(category == "FOLLOW" and not mercenary_rate(npc)), "You are no mercenary.")]
     return [(int(bonus), reason) for bonus, reason in pairs if bonus]
+
+
+def gave_charity_today(npc):
+    charity_day = state.CHARITY_DAYS.get(npc.get("npc_id"))
+    return charity_day is not None and charity_day == npc.get("day")
 
 
 def threat_lean(npc, speaker, overheard):

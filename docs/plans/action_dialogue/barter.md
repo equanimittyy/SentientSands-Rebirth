@@ -53,7 +53,7 @@ In charity, the NPC gives without receiving anything. Charity costs the NPC noth
 Charity has tight limits:
 
 - The NPC gives at most 50 cats, or 1 Dried Gristle Flaps, the cheapest food in the game data (base value 40, `50568-rebirth.mod`).
-- After an NPC gives charity, its lean takes -2 for the rest of the game day ([section 7](#7-lean)). A second plea is thus likely refused, but not blocked. The server keeps the day of the last charity of each NPC in memory, so a restart of the server forgets it.
+- After an NPC gives charity, a plea for more charity takes -2 on its lean for the rest of the game day ([section 7](#7-lean)). A second plea is thus likely refused, but not blocked. A trade with the NPC keeps its lean. The server keeps the day of the last charity of each NPC in memory, so a restart of the server forgets it.
 
 The model often offers more cats than the cap, for example 500 cats from an NPC that holds 3,000 cats. The server then cuts the offer to 50 cats, and it does not drop the offer, so the player still gets the charity. The popup shows 50 cats, although the reply of the NPC can name more. Each turn message of a trade also states the cap next to the cats of the NPC (`offers.facts`).
 
@@ -75,10 +75,8 @@ The stocktake, the price guide, and the offer name each weapon and each armour w
 
 ## 7. Lean
 
-The lean ([Outcome](framework.md#outcome)) is how likely the NPC is to take the deal. It counts the relation, on the scale of [Outcome](framework.md#outcome), and a charity that the NPC already gave in this game day ([section 4](#4-charity)):
+The lean ([Outcome](framework.md#outcome)) is how likely the NPC is to take the deal. It counts the relation, on the scale of [Outcome](framework.md#outcome).
 
-| Fact | Bonus |
-|---|---|
-| The NPC gave charity in this game day | -2 |
+After the NPC gives charity in a game day ([section 4](#4-charity)), the thought gets one more line: the band of a plea for charity, which is the lean -2, for example "If Zaps begs for charity: You are inclined to refuse. You already gave charity today." (`offers.facts`). The turn message comes before the reply, so the server does not know if the player begs or trades, and the -2 thus stays out of the lean of a trade.
 
 The value of the trade reaches the model through the price guide ([section 6](#6-price-guide)) instead.

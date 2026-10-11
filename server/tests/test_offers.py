@@ -230,6 +230,18 @@ class FactsTest(unittest.TestCase):
     def test_a_trade_names_the_cap_of_charity(self):
         self.assertIn("- As charity, you give at most 50 cats.", offers.facts("BARTER", NPC, SPEAKER, "Zaps", []))
 
+    def test_a_second_plea_in_a_day_leans_to_refuse_but_a_trade_does_not(self):
+        npc = {**NPC, "npc_id": "h:1-beggar", "day": 4}
+        liked = [(1, "You like {player}'s group.")]
+        self.assertNotIn("begs for charity", offers.facts("BARTER", npc, SPEAKER, "Zaps", liked))
+        state.CHARITY_DAYS[npc["npc_id"]] = 4
+        self.addCleanup(state.CHARITY_DAYS.clear)
+        text = offers.facts("BARTER", npc, SPEAKER, "Zaps", liked)
+        self.assertIn("YOUR THOUGHT: You could go either way.\n- Reasons to agree: You like Zaps's group.\n"
+                      "- If Zaps begs for charity: You could go either way. You already gave charity today.", text)
+        text = offers.facts("BARTER", npc, SPEAKER, "Zaps", [])
+        self.assertIn("- If Zaps begs for charity: You are inclined to refuse. You already gave charity today.", text)
+
     def test_a_mercenary_names_its_rate(self):
         self.assertIn("at least 2,500 cats for each day", offers.facts("FOLLOW", {**NPC, "faction": "Black Dog"}, SPEAKER, "Zaps", []))
 
