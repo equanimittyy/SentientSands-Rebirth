@@ -527,12 +527,15 @@ def chat():
         elif category and offers.read(content) is not None:
             offer, unkept = offers.check(category, offers.read(content), ctx_dict, speaker, action_dialogue.is_guard(ctx_dict))
             if not offer:
-                logging.info(f"ACTION: Dropped the offer of {primary_npc}, because {unkept}: {offers.OFFER_TAG.search(content).group(0)}")
+                logging.info(f"ACTION: Dropped the offer of {primary_npc}, because {unkept}: {offers.offer_text(content)}")
                 outcome = "unkept"
             else:
                 outcome = "free" if category == "HEAL" and not offer["takes"] else "offer"
         # A valid offer keeps the action dialogue open until the player answers it
         closing = bool(category) and (outcome in ("attack", "refused", "free") or (outcome != "offer" and action_dialogue.ended(content)))
+        offered = offers.offer_text(content) if category else None
+        if offered:
+            content = content.replace(offered, "")
 
         # Allows one level of nested brackets: item names like "Bolts [Toothpicks]" contain them
         content = re.sub(r'\[\s*(?:[^\[\]]|\[[^\[\]]*\])+\s*\]', '', content).strip()

@@ -23,6 +23,13 @@ class ReadTest(unittest.TestCase):
 
     def test_a_reply_without_the_tag_has_no_offer(self):
         self.assertIsNone(offers.read("[RECRUIT] Maybe. [JUDGMENT: 0]"))
+        self.assertIsNone(offers.read("I won't hire on, and I won't release you either."))
+
+    def test_the_parts_without_their_brackets(self):
+        reply = "Take it. GIVE_CATS: 4; GIVE_ITEM: 1 Shovel [JUDGMENT: -3]"
+        self.assertEqual(offers.read(reply), [("GIVE_CATS", "4"), ("GIVE_ITEM", "1 Shovel")])
+        self.assertEqual(offers.offer_text(reply).strip(), "GIVE_CATS: 4; GIVE_ITEM: 1 Shovel")
+        self.assertEqual(offers.read("Fine. OFFER: JOIN_PARTY; TAKE_CATS: 800"), [("JOIN_PARTY", ""), ("TAKE_CATS", "800")])
 
     def test_the_refusal_and_the_attack(self):
         self.assertTrue(offers.refused("No. [REFUSE]"))

@@ -636,7 +636,9 @@ void GetShopItems(Character *npc, std::vector<Item *> &out) {
 static std::string ItemsJson(const std::vector<Item *> &items) {
   std::string json = "[";
   for (uint32_t i = 0; i < items.size(); ++i) {
-    if (!items[i])
+    // NPCs carry loose cats as items apart from their purse, and the model
+    // took them for the purse
+    if (!items[i] || items[i]->itemFunction == ITEM_MONEY)
       continue;
     int price = 0;
     try {

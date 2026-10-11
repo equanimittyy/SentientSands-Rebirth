@@ -15,6 +15,9 @@ from chat import action_dialogue, current_job
 from core import state
 
 OFFER_TAG = re.compile(r"\[\s*OFFER\s*:((?:[^\[\]]|\[[^\[\]]*\])*)\]", re.IGNORECASE)
+# Bare parts count only in capitals, so a spoken "hire" or "release" is no offer
+_PART = r"\b(?:GIVE_CATS|TAKE_CATS|GIVE_ITEM|TAKE_ITEM|JOIN_PARTY|HIRE|FIRST_AID|RELEASE)\b(?:\s*:[^;\[\]\n]*)?"
+BARE_OFFER = re.compile(rf"(?:\bOFFER\s*:\s*)?({_PART}(?:\s*;\s*{_PART})*)")
 REFUSE_TAG = re.compile(r"\[\s*REFUSE\s*\]", re.IGNORECASE)
 ATTACK_TAG = re.compile(r"\[\s*ATTACK\s*\]", re.IGNORECASE)
 DEAL_LINE = re.compile(r"\((?:[^()]+ (?:accepted|declined): |[^()]+ (?:attacked|treated|dismissed) )[^()]*\)\s*$")
@@ -33,9 +36,19 @@ ACCEPT_LINES = {"RECRUIT": "recruit_accept", "FOLLOW": "follow_accept", "HEAL": 
 _ids = itertools.count(1)
 
 
+def _offer(content):
+    return OFFER_TAG.search(content or "") or BARE_OFFER.search(content or "")
+
+
+def offer_text(content):
+    """The offer of a reply as the model wrote it, or None."""
+    tag = _offer(content)
+    return tag.group(0) if tag else None
+
+
 def read(content):
     """The parts of the offer tag of a reply as (name, argument) pairs, or None for a reply without one."""
-    tag = OFFER_TAG.search(content or "")
+    tag = _offer(content)
     if not tag:
         return None
     parts = []

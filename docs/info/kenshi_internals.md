@@ -95,6 +95,7 @@ The `STOCK_PROBE` and `FIRSTAID_PROBE` lines of a bar and of a shop in a Shinobi
 - The data of a weapon holds its grade: `materialData` names the grade, for example "09 - Refitted Blade", and `manufacturerData` names the maker, for example "Ancient". `Item::getLevel` rises with the grade.
 - `Item::getLevel` gives the grade of an armour: 40 is Standard and 60 is High. The game showed no grade for Shinobi Clothpants (alt) at level 60, whose game data covers no body part (no `part coverage`).
 - `Inventory::hasItemFunction` with `ITEM_FIRSTAID` was true for the barman, who carried a Standard First Aid Kit.
+- An NPC can carry loose cats as items, apart from its purse. A peasant carried 4 Cats, an item whose game data has the item function `ITEM_MONEY`, and `Character::getMoney` gave 100. `ItemsJson` (`plugin/game/Context.cpp`) leaves these items out, because the model took them for a second purse.
 
 ## Orders and contracts
 
