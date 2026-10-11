@@ -310,6 +310,36 @@ def promote_profile(npc_id, bio):
         return True
 
 
+def prune_profiles(before, keep_names):
+    """Deletes each provisional profile whose first save and newest chat thread are both dated before the game time before,
+    except a favorite, a Name in keep_names, or a profile with no game time. Each memory of its threads keeps its name as
+    text, so the other members still remember the talk, and a thread that no member holds any more goes. Returns the
+    names of the pruned NPCs."""
+    with _connect(write=True) as conn:
+        rows = conn.execute(
+            "SELECT c.id, c.npc_id, json_extract(c.profile, '$.Name'), c.game_time,"
+            " (SELECT MAX(t.game_time) FROM thread_member m JOIN thread t ON t.id = m.thread_id WHERE m.npc_id = c.npc_id)"
+            f" FROM character c WHERE c.favorite = 0 AND json_extract(c.profile, '$.{PROVISIONAL}') IS NOT NULL"
+        ).fetchall()
+        pruned = []
+        for character_id, npc_id, name, first_time, thread_time in rows:
+            dated = [t for t in (first_time, thread_time) if t is not None]
+            if dated and max(dated) < before and name not in keep_names:
+                pruned.append((character_id, npc_id, name))
+        touched = set()
+        for character_id, npc_id, name in pruned:
+            touched |= {thread_id for (thread_id,) in conn.execute("SELECT thread_id FROM thread_member WHERE npc_id = ?", (npc_id,))}
+            conn.execute("UPDATE thread SET memory = replace(memory, ?1, ?2) WHERE instr(memory, ?1)", ("{" + npc_id + "}", name))
+            conn.execute("DELETE FROM thread_member WHERE npc_id = ?", (npc_id,))
+            conn.execute("DELETE FROM character WHERE id = ?", (character_id,))
+        conn.executemany(
+            "DELETE FROM thread WHERE id = ?1 AND NOT EXISTS (SELECT 1 FROM dialogue WHERE thread_id = ?1)"
+            " AND (memory IS NULL OR NOT EXISTS (SELECT 1 FROM thread_member WHERE thread_id = ?1))",
+            [(thread_id,) for thread_id in touched],
+        )
+        return [name for _, _, name in pruned]
+
+
 def append_dialogue(npc_id, lines, profile, thread_id=None):
     """lines are (line, speaker) pairs, where speaker is the npc_id of the character who spoke, or None. Stores profile first
     only if the character is not stored yet, with the game time of the first line. No line is trimmed: the memory of a

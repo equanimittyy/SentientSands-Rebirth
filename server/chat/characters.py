@@ -3,8 +3,9 @@ import random
 
 from chat import current_job, npc_names, provisional_profile, scene_text
 from core import state
-from core.game import context_dict, get_current_time_prefix, is_player_faction
+from core.game import context_dict, get_current_time_prefix, is_player_faction, report_from_game
 from core.pipe import send_to_pipe
+from core.settings import load_settings
 from store import campaign_db
 
 # The game reports a skeleton as male. The prefixes cover the skeleton races of vanilla Kenshi and UWE.
@@ -256,3 +257,20 @@ def npc_name(npc):
     # The faction of a radiant participant is its identity faction, so only in_player_faction marks a squad member there
     in_squad = npc.get("in_player_faction") or is_player_faction(npc.get("faction"), npc.get("factionID"))
     return sync_name(npc, profile, in_squad)
+
+def prune_profiles():
+    """Deletes the provisional profiles of the NPCs that took part in no chat thread for prune_profile_days game days, because
+    each NPC near a chat gets a profile. It asks the game for the time, because the player's context of the latest request
+    can come from a save that a load replaced since, and a later time would prune NPCs that the loaded save still knows."""
+    days = load_settings()["prune_profile_days"]
+    if not days or not report_from_game():
+        return
+    now = campaign_db.game_time(get_current_time_prefix())
+    if now is None:
+        return
+    try:
+        names = campaign_db.prune_profiles(now - days * 1440, set(state.PLAYER_CONTEXT.get("squad") or []))
+    except campaign_db.CampaignUnavailable:
+        return  # load_campaign_config already logged why
+    if names:
+        logging.info(f"PROFILE: Pruned the provisional profiles idle for {days} game days ({len(names)}): {', '.join(names)}")

@@ -298,6 +298,29 @@ class ThreadTest(CampaignTestCase):
         campaign_db.delete_record("character", (GENERIC_ID,))
         self.assertEqual(campaign_db.thread_members([thread_id]), {})
 
+    def test_a_prune_deletes_only_the_provisional_profiles_dated_before_the_cut(self):
+        old, recent, favorite, squad, undated = "h:20", "h:21", "h:22", "h:23", "h:24"
+        for npc_id, name, when in ((old, "Old", "[Day 1, 08:00]"), (recent, "Recent", "[Day 70, 08:00]"), (favorite, "Fav", "[Day 1, 08:00]"), (squad, "Squad", "[Day 1, 08:00]"), (undated, "Undated", None)):
+            campaign_db.upsert_profile(npc_id, {"Name": name, campaign_db.PROVISIONAL: 0}, campaign_db.game_time(when) if when else None)
+        campaign_db.toggle_favorite(favorite)
+        campaign_db.upsert_profile(GENERIC_ID, {campaign_db.PROVISIONAL: 0})
+        self.exchange(None, "[Day 70, 08:00]")
+        self.assertEqual(campaign_db.prune_profiles(campaign_db.game_time("[Day 10, 00:00]"), {"Squad"}), ["Old"])
+        kept = [old, recent, favorite, squad, undated, GENERIC_ID, self.STICK]
+        self.assertEqual([npc_id for npc_id in kept if campaign_db.character_exists(npc_id)], kept[1:])
+
+    def test_a_pruned_npc_stays_named_in_the_memories_and_takes_the_threads_that_only_it_held(self):
+        campaign_db.upsert_profile(GENERIC_ID, {campaign_db.PROVISIONAL: 0})
+        shared = self.exchange(None, "[Day 1, 08:00]")
+        campaign_db.set_memory(shared, "{" + self.STICK + "} greeted {" + GENERIC_ID + "}.", campaign_db.game_time("[Day 1, 08:00]"))
+        alone = campaign_db.join_thread(None, [(GENERIC_ID, "speaker", False)], campaign_db.game_time("[Day 2, 08:00]"), exchange=False)
+        campaign_db.append_dialogue(GENERIC_ID, [("[Day 2, 08:00] Jorge: Hm.", GENERIC_ID)], {}, alone)
+        campaign_db.set_memory(alone, "{" + GENERIC_ID + "} hummed.", campaign_db.game_time("[Day 2, 08:00]"))
+        self.assertEqual(campaign_db.prune_profiles(campaign_db.game_time("[Day 10, 00:00]"), set()), ["Jorge"])
+        self.assertEqual({thread["id"]: thread["memory"] for thread in campaign_db.threads()}, {shared: "{" + self.STICK + "} greeted Jorge."})
+        self.assertEqual(campaign_db.thread_members([shared, alone]), {shared: [(self.STICK, "Stick", "speaker", True)]})
+        self.assertEqual(campaign_db.thread_partners(self.STICK), [])
+
     def test_the_threads_show_the_copy_of_a_speaker_newest_first(self):
         first = self.exchange(None, "[Day 3, 14:05]", listeners=[self.IZUMI])
         self.exchange(first, "[Day 3, 14:06]", listeners=[self.IZUMI])

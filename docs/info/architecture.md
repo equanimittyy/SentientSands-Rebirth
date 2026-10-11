@@ -548,7 +548,7 @@ Above the input, the chat window shows a header line with the type and the title
 
 The server distils each chat thread into a short memory, which replaces the lines of the thread (`server/chat/memory.py`).
 
-- After the Conversation timeout with no chat (`quiet_seconds`), `memory_loop` writes a memory for each pending thread (a line and no memory), one call at a time, oldest first, then the rumors of the events follow (see [Rumors](#rumors)). It also runs after each radiant conversation. A failed thread stays pending.
+- After the Conversation timeout with no chat (`quiet_seconds`), `memory_loop` writes a memory for each pending thread (a line and no memory), one call at a time, oldest first, then the rumors of the events follow (see [Rumors](#rumors)), then the prune of the profiles (see [Pruned profiles](#pruned-profiles)). It also runs after each radiant conversation. A failed thread stays pending.
 - A chat thread of one exchange gets no memory. `memory_loop` deletes it with its members and lines (`campaign_db.delete_pending_thread`), so the NPCs forget it, and the next chat of the same speakers is a first meeting.
 - Before each call, the server checks that the chat is still quiet, because a local model serves one request at a time. It ends the current thread under `THREAD_LOCK`, so each memory covers a whole thread.
 - The call uses the `memory` task (see [LLM routing](#llm-routing)) and `prompt_thread_memory.txt`, or `prompt_action_memory.txt` for a thread that holds a deal line (`offers.DEAL_LINE`), so that the memory keeps each deal. The memory names each speaker and never says "you" outside a quote, so every member reads the same text.
@@ -612,6 +612,16 @@ A profile is provisional while it holds `Interactions` (`campaign_db.PROVISIONAL
 
 - Generate Bio uses `write_bio`, which stores nothing. The Dialogue Library uses `/write_bio`, `/read_bio`, and `/keep_bio`. `/keep_bio` writes only changed parts and refuses the text when the campaign changed.
 - `promote_profile` writes the bio and removes `Interactions` in one transaction. `generate_bio` drops the bio when the campaign changed during the call.
+
+### Pruned profiles
+
+The server deletes a provisional profile that took part in no chat thread for the game days of Prune profiles after (`prune_profile_days`, default 60, 0 for never), because each NPC near a chat gets a profile (`prune_profiles` in `server/chat/characters.py`).
+
+- The age of an NPC comes from the newest of its first save and the game times of its threads, as a speaker or an overhearer. A profile with no game time stays.
+- A favorite of the Dialogue Library stays. A name of the player's characters in the report (`squad`) stays, because a squad member that only works at a base can be in no thread for a long time.
+- The prune asks the game for a report first, because the player's context of the latest request can come from a save that a load replaced, and a later game time prunes more.
+- `campaign_db.prune_profiles` writes the name of the NPC over its mark in each memory (see [Conversation memories](#conversation-memories)), so the other members still remember the conversation. Then it deletes the thread members, the row, and the lines of the NPC, and each of its threads with no member left, or with no memory and no line.
+- The NPC is a stranger at its next meeting. The seeded roll gives it the same personality, backstory, and speech again.
 
 ### Campaign routes of the web app
 

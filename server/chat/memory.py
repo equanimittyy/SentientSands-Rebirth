@@ -1,7 +1,7 @@
 import logging
 import time
 
-from chat import chat_prompt, offers, rumors
+from chat import characters, chat_prompt, offers, rumors
 from chat.llm import call_llm, robust_json_parse
 from chat.prompts import fill_prompt
 from core import state, world_events
@@ -123,9 +123,10 @@ def write_auto_rumor(pool, campaign):
     rumors.keep_auto_rumor(reply, pool, campaign)
 
 def memory_loop():
-    """Runs the distillation, then the rumors, once in each quiet period and again after each radiant conversation in it, so
-    a thread or an event whose call failed waits for the next run. A pass of the auto rumors runs in the same thread, so its
-    call never overlaps a call of the memories or of the event rumors, because a local model serves one request at a time."""
+    """Runs the distillation, then the rumors, then the prune of the profiles, once in each quiet period and again after each
+    radiant conversation in it, so a thread or an event whose call failed waits for the next run. A pass of the auto rumors
+    runs in the same thread, so its call never overlaps a call of the memories or of the event rumors, because a local model
+    serves one request at a time."""
     distilled = None
     last_pass = time.monotonic()
     while True:
@@ -155,3 +156,7 @@ def memory_loop():
             write_rumors()
         except Exception as e:
             logging.error(f"RUMOR: The rumors of the events failed: {e}")
+        try:
+            characters.prune_profiles()
+        except Exception as e:
+            logging.error(f"PROFILE: The prune of the provisional profiles failed: {e}")

@@ -98,6 +98,7 @@
         <fieldset>
           <legend>NPC profiles</legend>
           <label><span class="label-text">Chats before a bio<span class="help" tabindex="0">?<span class="tip">How many times you talk to an NPC with a provisional profile before the LLM writes its full bio. 0 writes a bio only when you ask for one.</span></span></span> <input type="number" name="bio_interactions" min="0" required></label>
+          <label><span class="label-text">Prune profiles after (game days)<span class="help" tabindex="0">?<span class="tip">SSR deletes the provisional profile of an NPC after this many in-game days with no conversation that the NPC took part in or overheard. Your characters and the favorites of the Dialogue Library stay. 0 keeps every profile.</span></span></span> <input type="number" name="prune_profile_days" min="0" required></label>
         </fieldset>
         <fieldset>
           <legend>Diagnostics</legend>
@@ -277,6 +278,7 @@
           <ul>
             <li>When you meet an NPC, SSR gives it a provisional profile: a rolled personality, backstory, and way of speech.</li>
             <li>After <b>Chats before a bio</b> (5 by default), the AI writes the full bio from your chats.</li>
+            <li>After <b>Prune profiles after</b> (60 game days by default) with no conversation, SSR deletes a provisional profile, and the NPC is a stranger again. To keep an NPC, make it a favorite in the Dialogue Library.</li>
             <li>To write a bio now, press <b>Generate Bio</b> in the Dialogue Library, or on the character in <a href="#editor">Editor</a> &gt; Campaign Canon &gt; Database. You can add instructions, for example "a former slave who distrusts every noble".</li>
             <li>Most NPCs get a name, for example Barman Arleen. To rename an NPC, change its <b>Name</b> in the Editor.</li>
           </ul>

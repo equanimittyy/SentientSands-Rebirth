@@ -104,3 +104,20 @@ class AnimalFlagTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class PruneTest(unittest.TestCase):
+    def prune(self, days, reported):
+        with mock.patch.object(characters, "load_settings", return_value={"prune_profile_days": days}), \
+                mock.patch.object(characters, "report_from_game", return_value=reported), \
+                mock.patch.object(characters.state, "PLAYER_CONTEXT", {"day": 100, "hour": 6, "minute": 0, "squad": ["Kang"]}), \
+                mock.patch.object(campaign_db, "prune_profiles", return_value=[]) as prune:
+            characters.prune_profiles()
+        return prune
+
+    def test_the_prune_cuts_the_days_from_the_reported_game_time_and_keeps_the_squad(self):
+        self.prune(60, True).assert_called_once_with(40 * 1440 + 6 * 60, {"Kang"})
+
+    def test_0_days_or_no_report_prunes_nothing(self):
+        for days, reported in ((0, True), (60, False)):
+            self.prune(days, reported).assert_not_called()
