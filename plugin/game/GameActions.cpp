@@ -1176,12 +1176,12 @@ void ExecuteQueuedActions(GameWorld *thisptr, int &inventoryTimer) {
                   }
                 }
 
-                // KenshiLib names the third argument weaponMesh, but it takes
-                // the manufacturer, as the item constructors do: a weapon
-                // grade there made createItem fail, and a manufacturer in the
-                // fourth left armour without its colours
+                // For a weapon, createItem takes the manufacturer first and the
+                // weapon third; the weapon first makes it return null
+                bool isWeapon = gd->type == WEAPON;
                 Item *item = thisptr->theFactory->createItem(
-                    gd, hand(), makerData, gradeData, act.itemLevel, NULL);
+                    isWeapon ? makerData : gd, hand(), isWeapon ? gd : NULL,
+                    gradeData, act.itemLevel, NULL);
                 if (item) {
                   item->quantity = 1;
                   item->quality = 1.0f;
