@@ -52,10 +52,10 @@ The list leaves out each category that the game state already rules out, because
 
 | Choice | Category | Left out when |
 |---|---|---|
-| A threat or demand | THREATEN | The speaker is `imprisoned` ([threaten.md](threaten.md#2-gate)). |
+| A threat or demand | THREATEN | Never |
 | A request to buy, sell, or swap items, a gift, or a plea for charity | BARTER | Never |
 | A request to treat wounds, paid or free | HEAL | The speaker has no wound, the NPC carries no first aid item, or the NPC is `imprisoned` ([heal.md](heal.md#2-deal)). |
-| A request to be freed from prison or slavery, paid or free | LIBERATE | The speaker is neither `imprisoned` nor `enslaved`, the NPC is `imprisoned`, or the speaker is a slave and the NPC is a guard ([liberate.md](liberate.md#2-deal)). |
+| A request to be freed from prison or slavery, paid or free | LIBERATE | The speaker is neither `imprisoned` nor `enslaved`, or the NPC is `imprisoned` ([liberate.md](liberate.md#2-deal)). |
 | A request to join the squad for good, as a new member | RECRUIT | The speaker or the NPC is `imprisoned` or `enslaved`, or the NPC leads its faction ([recruit.md](recruit.md#2-gate)). |
 | A request to come along or be hired for a while, such as "follow me" | FOLLOW | The speaker or the NPC is `imprisoned` or `enslaved`, or the NPC leads its faction ([recruit.md](recruit.md#2-gate)). |
 | An order for a hired follower to leave | DISMISS | The NPC is not a temporary follower ([dismiss.md](dismiss.md#2-gate)). |
@@ -74,7 +74,7 @@ A failure sends no action dialogue call. The server replies with the line "X did
 
 ### Blocked
 
-A line that names a category whose gate fails is blocked, so a named mark cannot open a category that the classify call would leave out. A blocked line sends no LLM call. The chat window shows a system message ([Reply](#reply)) that names the failed gate, for example "You can't threaten anyone while imprisoned.". The server keeps neither the player's line nor the message, so the chat thread stays as it was. The doc of each category holds its gates.
+A line that names a category whose gate fails is blocked, so a named mark cannot open a category that the classify call would leave out. A blocked line sends no LLM call. The chat window shows a system message ([Reply](#reply)) that names the failed gate, for example "You have no wounds to treat.". The server keeps neither the player's line nor the message, so the chat thread stays as it was. The doc of each category holds its gates.
 
 A knockout blocks every category, because a knocked-out character cannot talk. While the speaker or the NPC is knocked out (`character_state` is `unconscious`, `plugin/game/Context.cpp:658`), each line that starts with `!` and each line of an action dialogue is blocked, before any classify call. The message names who is knocked out, for example "Bandit is unconscious.". The block holds for plain chat too: a line from a knocked-out speaker or to a knocked-out NPC sends no LLM call, and the chat window shows the same message. Radiant conversations already leave out knocked-out characters (`CanTalk` in `plugin/game/Context.cpp:495`).
 
@@ -116,7 +116,7 @@ The chat window shows system messages about the action dialogue, in the shape of
 
 ### Outcome
 
-Code sets the hard limits of an action dialogue, and the model decides inside them. Before each call, code adds up the + and - bonuses of facts in the game state into a lean. The prompt states the lean as a thought of the NPC, in one of three bands: likely to agree, could go either way, or likely to refuse. The lean is a band, not a percentage, because a small model follows a plain band better.
+Code sets the hard limits of an action dialogue, and the model decides inside them. Before each call, code adds up the + and - bonuses of facts in the game state into a lean. The prompt states the lean as a thought of the NPC, in one of three bands: likely to agree, could go either way, or likely to refuse. The lean is a band, not a percentage, because a small model follows a plain band better. Under the band, the thought gives the facts of the lean as reasons to agree and reasons to refuse, for example "Reasons to refuse: You are a guard, and Zaps is a slave.", so that the reply can name what sways the NPC (`action_dialogue.thought`).
 
 | Lean | Band |
 |---|---|

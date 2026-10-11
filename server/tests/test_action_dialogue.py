@@ -11,6 +11,10 @@ from chat import action_dialogue as ad
 GUARD = {"squad_jobs": ["MAN_THE_GATE"]}
 
 
+def score(*args):
+    return sum(bonus for bonus, _ in ad.lean(*args))
+
+
 class ParseTest(unittest.TestCase):
     def test_the_lines_of_the_entry_table(self):
         self.assertEqual(ad.parse("! Hand me over all your money!"), ("classify", None, "Hand me over all your money!"))
@@ -57,9 +61,8 @@ class GateTest(unittest.TestCase):
     def gate(self, category, npc=None, speaker=None):
         return ad.gate_block(category, npc or {}, speaker or {}, "Bandit")
 
-    def test_threaten_needs_a_free_speaker(self):
-        self.assertEqual(self.gate("THREATEN", speaker={"character_state": "imprisoned"}), "You can't threaten anyone while imprisoned.")
-        self.assertIsNone(self.gate("THREATEN", speaker={"character_state": "enslaved"}))
+    def test_threaten_has_no_gate(self):
+        self.assertIsNone(self.gate("THREATEN", speaker={"character_state": "imprisoned"}))
 
     def test_barter_has_no_gate(self):
         self.assertIsNone(self.gate("BARTER", {"character_state": "imprisoned"}, {"character_state": "imprisoned"}))
@@ -83,10 +86,8 @@ class GateTest(unittest.TestCase):
         self.assertIsNotNone(self.gate("LIBERATE", {"character_state": "imprisoned"}, {"character_state": "imprisoned"}))
         self.assertIsNone(self.gate("LIBERATE", speaker={"character_state": "enslaved"}))
 
-    def test_a_guard_never_frees_a_slave_even_in_a_cage(self):
-        caged_slave = {"character_state": "imprisoned", "slave": True}
-        self.assertIn("guard", self.gate("LIBERATE", GUARD, caged_slave))
-        self.assertIsNone(self.gate("LIBERATE", GUARD, {"character_state": "imprisoned"}))
+    def test_a_guard_can_free_a_slave(self):
+        self.assertIsNone(self.gate("LIBERATE", GUARD, {"character_state": "imprisoned", "slave": True}))
 
     def test_a_jailer_at_a_bounty_desk_is_a_guard(self):
         desk = {"squad_jobs": ["STAND_AT_SHOPKEEPER_NODE", "STAY_IN_HOME", "FIND_CAGE_AND_PUT_DEADGUY_IN"]}
@@ -136,23 +137,37 @@ class LeanTest(unittest.TestCase):
         self.assertEqual(ad.lean_text(-2), "You are inclined to refuse.")
 
     def test_a_worse_wound_raises_the_heal_lean(self):
-        self.assertEqual(ad.lean("HEAL", {}, {"health": "Crippled"}, 25), 3)
-        self.assertEqual(ad.lean("LIBERATE", {}, {"health": "Crippled"}, 0), 1)
+        self.assertEqual(score("HEAL", {}, {"health": "Crippled"}, 25), 3)
+        self.assertEqual(score("LIBERATE", {}, {"health": "Crippled"}, 0), 1)
+
+    def test_a_guard_is_loath_to_free_a_slave_even_in_a_cage(self):
+        caged_slave = {"character_state": "imprisoned", "slave": True}
+        self.assertEqual(ad.lean("LIBERATE", GUARD, caged_slave, 0), [(-2, "You are a guard, and {player} is a slave.")])
+        self.assertEqual(ad.lean("LIBERATE", GUARD, {"character_state": "imprisoned"}, 0), [])
 
     def test_a_guard_or_a_unique_npc_joins_less_readily(self):
-        self.assertEqual(ad.lean("RECRUIT", {"unique": True, **GUARD}, {}, 0), -2)
-        self.assertEqual(ad.lean("RECRUIT", {"character_state": "escaped-slave"}, {}, 0), 1)
+        self.assertEqual(score("RECRUIT", {"unique": True, **GUARD}, {}, 0), -2)
+        self.assertEqual(score("RECRUIT", {"character_state": "escaped-slave"}, {}, 0), 1)
 
     def test_a_npc_that_is_no_mercenary_is_wary_of_following(self):
-        self.assertEqual(ad.lean("FOLLOW", {}, {}, 0), -1)
-        self.assertEqual(ad.lean("FOLLOW", {"faction": "Tech Hunters"}, {}, 0), 0)
+        self.assertEqual(score("FOLLOW", {}, {}, 0), -1)
+        self.assertEqual(score("FOLLOW", {"faction": "Tech Hunters"}, {}, 0), 0)
 
     def test_a_threat_counts_strength_and_numbers(self):
         strong = {"stats": {"melee_attack": 40, "melee_defence": 40}, "faction": "Nameless", "name": "Zaps", "squad": ["Zaps", "Zip"]}
         npc = {"stats": {"melee_attack": 10, "melee_defence": 10}, "faction": "Dust Bandits", "health": "Injured",
                "nearby": [{"name": "Zip", "faction": "Nameless"}, {"name": "Bandit", "faction": "Dust Bandits"}]}
-        self.assertEqual(ad.lean("THREATEN", npc, strong, 0), 3)
-        self.assertEqual(ad.lean("THREATEN", {**npc, "is_leader": True}, strong, 0), 2)
+        self.assertEqual(score("THREATEN", npc, strong, 0), 3)
+        self.assertEqual(score("THREATEN", {**npc, "is_leader": True}, strong, 0), 2)
+
+    def test_a_threat_from_a_cage_weighs_little(self):
+        self.assertEqual(ad.lean("THREATEN", {}, {"character_state": "imprisoned"}, 0), [(-2, "{player} is locked up.")])
+
+    def test_the_thought_gives_the_band_and_its_reasons(self):
+        lean = ad.lean("RECRUIT", {"character_state": "escaped-slave", **GUARD}, {}, -30)
+        self.assertEqual(ad.thought(lean, "Zaps"), "You could go either way.\n- Reasons to agree: You escaped slavery.\n"
+                         "- Reasons to refuse: You dislike Zaps's group. You are a guard.")
+        self.assertEqual(ad.thought([], "Zaps"), "You could go either way.")
 
 
 class ReplyTest(unittest.TestCase):

@@ -6,7 +6,7 @@ In a THREATEN action dialogue, the player threatens the NPC, demands its cats or
 
 ## 2. Gate
 
-The speaker is not `imprisoned` (`plugin/game/Context.cpp:675`), because a prisoner cannot threaten or fight anyone ([Blocked](framework.md#blocked)).
+THREATEN has no gate. An `imprisoned` speaker (`plugin/game/Context.cpp:675`) can threaten, but the threat takes -2 on the lean ([section 5](#5-lean)), because a prisoner can do little to back it.
 
 A chained slave (`enslaved`) can threaten: the NPC, for example a guard, can laugh it off or beat the slave for it.
 
@@ -39,5 +39,6 @@ The lean ([Outcome](framework.md#outcome)) is how likely the NPC is to give in:
 | The NPC's `health` is `Injured` or `Crippled` | +1 |
 | The speaker's `health` is `Injured` or `Crippled` | -1 |
 | The NPC is the leader of its faction (`is_leader`) or unique (`unique`) | -1 |
+| The speaker is `imprisoned` | -2 |
 
 `nearby` leaves out the first squad character (`plugin/game/Context.cpp:806`), so the count must add that character when it is near.

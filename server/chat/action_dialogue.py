@@ -31,6 +31,8 @@ MERCENARY_RATES = {"Mercenary Guild": 2000, "Tech Hunters": 2000, "Vagrants": 20
 # A small model follows a plain band better than a number
 LEAN_BANDS = ((2, "You are inclined to agree."), (-1, "You could go either way."))
 REFUSED_LEAN = "You are inclined to refuse."
+RELATION_REASONS = {2: "You like {player}'s group a lot.", 1: "You like {player}'s group.", -1: "You dislike {player}'s group.",
+                    -2: "You hate {player}'s group."}
 END_LINES_PATH = f"{DEFAULTS_DIR}/action_end_lines.json"
 _WORD = re.compile(r"[^\W\d_]+")
 
@@ -79,10 +81,7 @@ def gate_block(category, npc, speaker, npc_name):
     """The message of the first gate of the category that fails, or None. The classify list leaves out each category that
     this blocks, so a named mark and the classify call reach the same categories."""
     npc_state, speaker_state = npc.get("character_state"), speaker.get("character_state")
-    if category == "THREATEN":
-        if speaker_state == "imprisoned":
-            return "You can't threaten anyone while imprisoned."
-    elif category == "HEAL":
+    if category == "HEAL":
         if not wounded(speaker):
             return "You have no wounds to treat."
         if not npc.get("has_first_aid"):
@@ -94,9 +93,6 @@ def gate_block(category, npc, speaker, npc_name):
             return "You are neither imprisoned nor enslaved."
         if npc_state == "imprisoned":
             return f"{npc_name} can't free you while imprisoned."
-        # A slave in a cage reads as imprisoned, so the slave state comes apart from character_state
-        if speaker.get("slave") and is_guard(npc):
-            return f"{npc_name} is a guard, and a guard never frees a slave."
     elif category in ("RECRUIT", "FOLLOW"):
         verb = "recruit" if category == "RECRUIT" else "hire"
         if speaker_state in ("imprisoned", "enslaved"):
@@ -144,22 +140,26 @@ def relation_bonus(relation):
 
 
 def lean(category, npc, speaker, relation, overheard=()):
-    """The sum of the + and - bonuses of the game state for the deal of the category. overheard is the nearby list of the
-    chat request, the characters near the speaker."""
+    """The (bonus, reason) pairs of the game state for the deal of the category, each bonus + or -. A reason names the
+    speaker as {player}. overheard is the nearby list of the chat request, the characters near the speaker."""
     if category == "THREATEN":
         return threat_lean(npc, speaker, overheard)
-    value = relation_bonus(relation)
+    bonus = relation_bonus(relation)
+    pairs = [(bonus, RELATION_REASONS.get(bonus))]
     health = speaker.get("health")
     if category == "HEAL":
-        value += {"Injured": 1, "Crippled": 2}.get(health, 0)
+        pairs.append(({"Injured": 1, "Crippled": 2}.get(health, 0), f"{{player}} is {str(health).lower()}."))
     elif category == "LIBERATE":
-        value += health == "Crippled"
+        # A slave in a cage reads as imprisoned, so the slave state comes apart from character_state
+        pairs += [(health == "Crippled", "{player} is crippled."),
+                  (-2 * (bool(speaker.get("slave")) and is_guard(npc)), "You are a guard, and {player} is a slave.")]
     elif category in ("RECRUIT", "FOLLOW"):
-        value += npc.get("character_state") == "escaped-slave"
-        value -= bool(npc.get("unique")) + is_guard(npc) + is_trader(npc)
-        if category == "FOLLOW" and not mercenary_rate(npc):
-            value -= 1
-    return value
+        pairs += [(npc.get("character_state") == "escaped-slave", "You escaped slavery."),
+                  (-bool(npc.get("unique")), "You are no common drifter."),
+                  (-is_guard(npc), "You are a guard."),
+                  (-is_trader(npc), "You have a trade to run."),
+                  (-(category == "FOLLOW" and not mercenary_rate(npc)), "You are no mercenary.")]
+    return [(int(bonus), reason) for bonus, reason in pairs if bonus]
 
 
 def threat_lean(npc, speaker, overheard):
@@ -171,11 +171,14 @@ def threat_lean(npc, speaker, overheard):
         return (n > 0) - (n < 0)
 
     squad, own = sides(npc, speaker, overheard)
-    value = sign(melee(speaker) - melee(npc)) + sign(squad - own)
-    value += npc.get("health") in ("Injured", "Crippled")
-    value -= speaker.get("health") in ("Injured", "Crippled")
-    value -= bool(npc.get("is_leader") or npc.get("unique"))
-    return value
+    fight, numbers = sign(melee(speaker) - melee(npc)), sign(squad - own)
+    pairs = [(fight, "{player} fights better than you." if fight > 0 else "You fight better than {player}."),
+             (numbers, "{player}'s side outnumbers yours here." if numbers > 0 else "Your side outnumbers {player}'s here."),
+             (npc.get("health") in ("Injured", "Crippled"), "You are hurt."),
+             (-(speaker.get("health") in ("Injured", "Crippled")), "{player} is hurt."),
+             (-bool(npc.get("is_leader") or npc.get("unique")), "You lead your faction." if npc.get("is_leader") else "You are no common drifter."),
+             (-2 * (speaker.get("character_state") == "imprisoned"), "{player} is locked up.")]
+    return [(int(bonus), reason) for bonus, reason in pairs if bonus]
 
 
 def sides(npc, speaker, overheard):
@@ -192,6 +195,16 @@ def sides(npc, speaker, overheard):
 
 def lean_text(value):
     return next((text for floor, text in LEAN_BANDS if value >= floor), REFUSED_LEAN)
+
+
+def thought(lean, player_name):
+    """The band of the lean, then its reasons, so the reply can name what sways the NPC."""
+    lines = [lean_text(sum(bonus for bonus, _ in lean))]
+    for label, sign in (("Reasons to agree", 1), ("Reasons to refuse", -1)):
+        reasons = [reason.format(player=player_name) for bonus, reason in lean if bonus * sign > 0]
+        if reasons:
+            lines.append(f"- {label}: {' '.join(reasons)}")
+    return "\n".join(lines)
 
 
 def choices(npc, speaker, npc_name):

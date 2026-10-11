@@ -447,4 +447,4 @@ def facts(category, npc, speaker, player_name, lean, said=""):
         lines.append(f"You are a mercenary: you never follow for free, and you charge at least {rate:,} cats for each day." if rate
                      else "You are no mercenary, so you ask no fee to follow.")
     deal = "DEAL FACTS:\n" + "\n".join(f"- {line}" for line in lines) + "\n\n" if lines else ""
-    return f"{deal}YOUR THOUGHT: {action_dialogue.lean_text(lean)}"
+    return f"{deal}YOUR THOUGHT: {action_dialogue.thought(lean, player_name)}"
