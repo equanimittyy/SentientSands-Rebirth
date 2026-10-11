@@ -49,11 +49,8 @@ bool g_chatJustOpened = false;
 std::string g_actionPendingName;
 unsigned int g_actionNpcKey = 0;
 std::string g_offerPendingName;
-bool g_chatHistoryShown = false;
 MyGUI::TextBox *g_chatThreadHeader = nullptr;
 MyGUI::EditBox *g_chatHistoryText = nullptr;
-MyGUI::ListBox *g_chatMemberLists[2] = {nullptr, nullptr};
-std::vector<std::string> g_chatMemberIds[2];
 int g_chatHistoryRequest = 0;
 const float CHAT_INPUT_HEIGHT = 0.18f;
 const float CHAT_HEADER_HEIGHT = 0.035f;
@@ -71,10 +68,6 @@ void CloseChatUI() {
     g_chatSpeakerBtn = nullptr;
     g_chatThreadHeader = nullptr;
     g_chatHistoryText = nullptr;
-    for (int i = 0; i < 2; i++) {
-      g_chatMemberLists[i] = nullptr;
-      g_chatMemberIds[i].clear();
-    }
   }
 }
 
@@ -450,39 +443,10 @@ void SetChatHistory(const std::string &data) {
   }
   SetChatThreadHeader(GetJsonValue(reply, "type") + ": " +
                       GetJsonValue(reply, "title"));
-  if (!g_chatHistoryText)
-    return;
   g_chatHistoryText->setOnlyText(
       Utf8ToWide(GetJsonValue(reply, "lines")).c_str());
   // The view follows the cursor, so the newest line shows
   g_chatHistoryText->setTextCursor(g_chatHistoryText->getTextLength());
-  const char *roles[] = {"speakers", "overheard"};
-  for (int i = 0; i < 2; i++) {
-    std::string members = GetJsonValue(reply, roles[i]);
-    // Flask sorts the keys, so each member's name lies between its "id" and
-    // the next one
-    size_t cur = members.find("\"id\":");
-    while (cur != std::string::npos) {
-      size_t next = members.find("\"id\":", cur + 5);
-      std::string member = members.substr(cur, next - cur);
-      g_chatMemberIds[i].push_back(GetJsonValue(member, "id"));
-      g_chatMemberLists[i]->addItem(MyGUI::TextIterator::toTagsString(
-          Utf8ToWide(GetJsonValue(member, "name"))));
-      cur = next;
-    }
-  }
-}
-
-void OnChatMemberClick(MyGUI::ListBox *sender, size_t index) {
-  int list = sender == g_chatMemberLists[0] ? 0 : 1;
-  if (index >= g_chatMemberIds[list].size())
-    return;
-  // The list still reads itself after this event, so the chat window closes
-  // on the next frame
-  EnterCriticalSection(&g_msgMutex);
-  g_messageQueue.push_back("CMD: OPEN_LIBRARY: " +
-                           g_chatMemberIds[list][index]);
-  LeaveCriticalSection(&g_msgMutex);
 }
 
 static void ShowChatSpeaker() {
@@ -498,7 +462,7 @@ void OnChatSpeakerClick(MyGUI::Widget *sender) {
 
 static void AddChatHistory(MyGUI::Widget *client, float top, float height) {
   g_chatHistoryText = client->createWidgetReal<MyGUI::EditBox>(
-      "Kenshi_WordWrap", 0.05f, top, 0.58f, height,
+      "Kenshi_WordWrap", 0.05f, top, 0.9f, height,
       MyGUI::Align::Top | MyGUI::Align::HStretch, "SentientSands_ChatHistory");
   g_chatHistoryText->setEditMultiLine(true);
   g_chatHistoryText->setEditWordWrap(true);
@@ -508,30 +472,10 @@ static void AddChatHistory(MyGUI::Widget *client, float top, float height) {
   g_chatHistoryText->setMaxTextLength(262144);
   g_chatHistoryText->setTextAlign(MyGUI::Align::Left | MyGUI::Align::Top);
   g_chatHistoryText->setFontHeight(18);
-
-  const char *labelKeys[] = {"Speakers", "Overheard"};
-  for (int i = 0; i < 2; i++) {
-    float y = top + 0.53f * i * height;
-    MyGUI::TextBox *label = client->createWidgetReal<MyGUI::TextBox>(
-        "Kenshi_TextboxStandardText", 0.65f, y, 0.3f, 0.13f * height,
-        MyGUI::Align::Top | MyGUI::Align::Right,
-        "SentientSands_ChatMembersLabel_" + ToString(i));
-    label->setCaption(Utf8ToWide(T(labelKeys[i])).c_str());
-    label->setTextAlign(MyGUI::Align::Left | MyGUI::Align::VCenter);
-    label->setTextColour(MyGUI::Colour(0.7f, 0.7f, 0.7f));
-    g_chatMemberLists[i] = client->createWidgetReal<MyGUI::ListBox>(
-        "Kenshi_ListBox", 0.65f, y + 0.13f * height, 0.3f,
-        (i == 0 ? 0.38f : 0.34f) * height,
-        MyGUI::Align::Top | MyGUI::Align::Right,
-        "SentientSands_ChatMembers_" + ToString(i));
-    g_chatMemberLists[i]->eventListMouseItemActivate +=
-        MyGUI::newDelegate(OnChatMemberClick);
-  }
 }
 
 static void BuildChatWindow(MyGUI::Gui *gui) {
-  float panel = CHAT_HEADER_HEIGHT +
-                (g_chatHistoryShown ? CHAT_HISTORY_HEIGHT : 0.0f);
+  float panel = CHAT_HEADER_HEIGHT + CHAT_HISTORY_HEIGHT;
   g_chatWindow = gui->createWidgetReal<MyGUI::Window>(
       "Kenshi_WindowCX", 0.1875f, 0.4f - panel, 0.625f,
       CHAT_INPUT_HEIGHT + panel, MyGUI::Align::Center, "Window",
@@ -555,8 +499,7 @@ static void BuildChatWindow(MyGUI::Gui *gui) {
       "SentientSands_ChatThreadHeader");
   g_chatThreadHeader->setTextAlign(MyGUI::Align::Left | MyGUI::Align::VCenter);
   g_chatThreadHeader->setTextColour(MyGUI::Colour(1.0f, 0.9f, 0.5f));
-  if (g_chatHistoryShown)
-    AddChatHistory(client, header, top - header);
+  AddChatHistory(client, header, top - header);
   RequestChatHistory();
 
   g_chatLabel = client->createWidgetReal<MyGUI::TextBox>(
@@ -574,14 +517,6 @@ static void BuildChatWindow(MyGUI::Gui *gui) {
         MyGUI::newDelegate(OnChatSpeakerClick);
     ShowChatSpeaker();
   }
-  MyGUI::Button *historyBtn = client->createWidgetReal<MyGUI::Button>(
-      "Kenshi_Button1", 0.225f, top + 0.05f * rows, 0.165f, 0.22f * rows,
-      MyGUI::Align::Top | MyGUI::Align::Left, "SentientSands_ChatHistoryBtn");
-  historyBtn->setCaption(
-      Utf8ToWide(g_chatHistoryShown ? "> " + T("History") + " <"
-                                    : T("History"))
-          .c_str());
-  historyBtn->eventMouseButtonClick += MyGUI::newDelegate(OnChatHistoryClick);
 
   g_chatInput = client->createWidgetReal<MyGUI::EditBox>(
       "Kenshi_EditBox", 0.05f, top + 0.35f * rows, 0.9f, 0.25f * rows,
@@ -658,14 +593,6 @@ void CreateChatUI(const std::string &npcName, const std::string &handleStr) {
   }
 
   BuildChatWindow(gui);
-}
-
-void OnChatHistoryClick(MyGUI::Widget *sender) {
-  MyGUI::UString draft = g_chatInput->getCaption();
-  CloseChatUI();
-  g_chatHistoryShown = !g_chatHistoryShown;
-  BuildChatWindow(MyGUI::Gui::getInstancePtr());
-  g_chatInput->setCaption(draft);
 }
 
 void OnModeButtonClick(MyGUI::Widget *sender) {

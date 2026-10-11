@@ -36,7 +36,7 @@ class OpenThreadTest(unittest.TestCase):
         state.CURRENT_THREAD.update(key=(JORGE, "talk"), id=thread_id, replied=time.monotonic(), action=action)
         return thread_id
 
-    def test_an_open_thread_holds_its_members_by_role_and_only_its_own_lines_of_the_npc(self):
+    def test_an_open_thread_holds_only_its_own_lines_of_the_npc(self):
         old = self.chat(None, STICK, "Stick: Before.")
         state.CURRENT_THREAD.clear()
         thread_id = self.chat(None, STICK, "Stick: Hello.", listeners=[IZUMI])
@@ -45,8 +45,6 @@ class OpenThreadTest(unittest.TestCase):
         self.assertEqual(chat_window.open_thread(JORGE, QUIET), {
             "title": "Stick, Jorge, and 1 more | The Hub",
             "type": "Chat",
-            "speakers": [{"id": STICK, "name": "Stick"}, {"id": JORGE, "name": "Jorge"}, {"id": RUKA, "name": "Unknown"}],
-            "overheard": [{"id": IZUMI, "name": "Izumi"}],
             "lines": "\n".join(["[Day 3, 14:05] Stick: Hello.", "[Day 3, 14:05] Jorge: Hm.", "[Day 3, 14:05] Ruka: And me.", "[Day 3, 14:05] Jorge: Hm."]),
         })
 

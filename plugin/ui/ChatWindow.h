@@ -29,8 +29,6 @@ void OnChatInputAccept(MyGUI::EditBox *sender);
 void OnChatSendClick(MyGUI::Widget *sender);
 void OnChatCancelClick(MyGUI::Widget *sender);
 void OnChatSpeakerClick(MyGUI::Widget *sender);
-void OnChatHistoryClick(MyGUI::Widget *sender);
-void OnChatMemberClick(MyGUI::ListBox *sender, size_t index);
 void OnModeButtonClick(MyGUI::Widget *sender);
 void UpdateModeButtons();
 void OnRadiantClick(MyGUI::Widget *sender);

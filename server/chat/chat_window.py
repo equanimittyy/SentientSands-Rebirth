@@ -15,16 +15,11 @@ def open_thread(npc_id, quiet):
     if not npc_id or live.get("key", (None,))[0] != npc_id or time.monotonic() - live["replied"] >= quiet:
         return None
     thread_id = live["id"]
-    roles = {"speaker": [], "overheard": []}
-    for member_id, name, role, _ in campaign_db.thread_members([thread_id]).get(thread_id, []):
-        roles[role].append({"id": member_id, "name": name or "Unknown"})
-    names = [member["name"] for member in roles["speaker"]]
+    names = [name or "Unknown" for _, name, role, _ in campaign_db.thread_members([thread_id]).get(thread_id, []) if role == "speaker"]
     speakers = f"{', '.join(names[:2])}, and {len(names) - 2} more" if len(names) > 2 else " and ".join(names)
     action = live.get("action")
     return {
         "title": f"{speakers} | {campaign_db.thread_location(thread_id) or 'Unknown'}",
         "type": action["category"].capitalize() if action else "Chat",
-        "speakers": roles["speaker"],
-        "overheard": roles["overheard"],
         "lines": "\n".join(line for line, _, line_thread in campaign_db.dialogue(npc_id) if line_thread == thread_id),
     }

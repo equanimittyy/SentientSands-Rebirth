@@ -9,7 +9,7 @@ extern MyGUI::ListBox *g_libraryList;
 extern MyGUI::EditBox *g_libraryText;
 extern std::vector<std::string> g_libraryStorageIds;
 
-void CreateLibraryUI(const std::string &selectSid = "");
+void CreateLibraryUI();
 void CloseLibraryUI();
 void RefreshLibraryUI();
 void PopulateLibraryUI(const std::string &data);

@@ -224,10 +224,6 @@ void ProcessMessageQueue(GameWorld *thisptr) {
             DropOfferUI();
           } else if (command == "CHAT_HISTORY") {
             SetChatHistory(data);
-          } else if (command == "OPEN_LIBRARY") {
-            trim(data);
-            CloseChatUI();
-            CreateLibraryUI(data);
           }
         }
       } else if (isRename) {

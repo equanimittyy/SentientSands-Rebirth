@@ -31,7 +31,6 @@ std::vector<std::string> g_libraryAllSids;
 std::string g_librarySortMode = "alphabetical";
 std::vector<std::string> g_libraryFavorites;
 int g_libraryRequest = 0;
-std::string g_librarySelectSid;
 
 static const int LIBRARY_FACT_COUNT = 9;
 static const char *LIBRARY_FACT_KEYS[] = {"race",     "faction", "sex",
@@ -548,14 +547,7 @@ void PopulateLibraryUI(const std::string &dataInput) {
     }
   }
 
-  std::string pick = g_librarySelectSid;
-  g_librarySelectSid.clear();
-  ApplyLibraryFilter(pick.empty() ? selSid : pick);
-  size_t index = g_libraryList->getIndexSelected();
-  if (!pick.empty() && index != MyGUI::ITEM_NONE) {
-    g_libraryList->beginToItemAt(index);
-    OnLibraryNPCSelect(g_libraryList, index);
-  }
+  ApplyLibraryFilter(selSid);
 }
 
 void SetLibraryText(const std::string &text) {
@@ -695,13 +687,12 @@ void AddLibraryFact(MyGUI::Widget *client, int i) {
   g_libraryFacts[i]->setTextAlign(MyGUI::Align::Left | MyGUI::Align::VCenter);
 }
 
-void CreateLibraryUI(const std::string &selectSid) {
+void CreateLibraryUI() {
   MyGUI::Gui *gui = MyGUI::Gui::getInstancePtr();
   if (!gui)
     return;
   if (g_libraryWindow)
     CloseLibraryUI();
-  g_librarySelectSid = selectSid;
 
   g_libraryWindow = gui->createWidgetReal<MyGUI::Window>(
       "Kenshi_WindowCX", 0.15f, 0.1f, 0.7f, 0.8f, MyGUI::Align::Center, "Popup",

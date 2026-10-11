@@ -247,8 +247,7 @@ def answer_offer():
 
 @bp.route('/chat_thread', methods=['POST'])
 def chat_thread():
-    """The open chat thread with the NPC for the chat window. The plugin finds the keys of each member after its "id", so
-    each key must sort after "id", as Flask sorts them."""
+    """The open chat thread with the NPC for the chat window."""
     thread = chat_window.open_thread((request.get_json(silent=True) or {}).get("npc_id"), quiet_seconds())
     return jsonify({"status": "ok", "open": thread is not None, **(thread or {})})
 

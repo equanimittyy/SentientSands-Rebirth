@@ -522,13 +522,12 @@ The chat prompt uses the threads (`npc_id`, not names):
 
 ### Chat history
 
-A header line above the input of the chat window shows the type and the title of the open chat thread, and the History button adds its lines and its members below the header (`BuildChatWindow` in `plugin/ui/ChatWindow.cpp`). The button is off at each game start, because the plugin keeps the choice in memory only.
+Above the input, the chat window shows a header line with the type and the title of the open chat thread, and the lines of the thread below the header (`BuildChatWindow` in `plugin/ui/ChatWindow.cpp`).
 
 - `POST /chat_thread` (`server/chat/chat_window.py`) returns the thread while `CURRENT_THREAD` belongs to the target NPC and its last reply is within the Conversation timeout. It does not compare the mode or the speaker, because a change of either ends the thread only at the next line, and each line closes the chat window.
-- The reply holds the type (`Chat` or the action category), the title (the speakers and the start place, as on Dialogue & Memories), the speakers, the overheard members, and the copy of the thread lines of the NPC.
-- The window asks at each open and at each press of History, also while History is off, because the header always shows. It drops a reply that a newer request made stale. A thread that ends while the window is open shows until the next open.
+- The reply holds the type (`Chat` or the action category), the title (the speakers and the start place, as on Dialogue & Memories), and the copy of the thread lines of the NPC.
+- The window asks at each open, and drops a reply that a newer request made stale. A thread that ends while the window is open shows until the next open.
 - The panel adds its height above the input, so the input rows keep their size and the window grows upward.
-- A click on a member opens the Dialogue Library on that character on the next frame, because the list reads itself after its event. A character without a stored profile is not in the Library list, so the Library opens with no selection.
 
 ### Conversation memories
 
