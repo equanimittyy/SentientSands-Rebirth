@@ -311,15 +311,16 @@ def promote_profile(npc_id, bio):
 
 
 def prune_profiles(before, keep_names):
-    """Deletes each provisional profile whose first save and newest chat thread are both dated before the game time before,
-    except a favorite, a Name in keep_names, or a profile with no game time. Each memory of its threads keeps its name as
-    text, so the other members still remember the talk, and a thread that no member holds any more goes. Returns the
-    names of the pruned NPCs."""
+    """Deletes each provisional profile whose first save and newest chat thread are both dated before the game time before.
+    A favorite, a Name in keep_names, a profile with no game time, and a character that was ever in the player's faction in
+    a thread stay. Each memory of its threads keeps its name as text, so the other members still remember the talk, and a
+    thread that no member holds any more goes. Returns the names of the pruned NPCs."""
     with _connect(write=True) as conn:
         rows = conn.execute(
             "SELECT c.id, c.npc_id, json_extract(c.profile, '$.Name'), c.game_time,"
             " (SELECT MAX(t.game_time) FROM thread_member m JOIN thread t ON t.id = m.thread_id WHERE m.npc_id = c.npc_id)"
             f" FROM character c WHERE c.favorite = 0 AND json_extract(c.profile, '$.{PROVISIONAL}') IS NOT NULL"
+            " AND NOT EXISTS (SELECT 1 FROM thread_member WHERE npc_id = c.npc_id AND in_player_faction = 1)"
         ).fetchall()
         pruned = []
         for character_id, npc_id, name, first_time, thread_time in rows:

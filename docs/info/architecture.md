@@ -618,7 +618,7 @@ A profile is provisional while it holds `Interactions` (`campaign_db.PROVISIONAL
 The server deletes a provisional profile that took part in no chat thread for the game days of Prune profiles after (`prune_profile_days`, default 60, 0 for never), because each NPC near a chat gets a profile (`prune_profiles` in `server/chat/characters.py`).
 
 - The age of an NPC comes from the newest of its first save and the game times of its threads, as a speaker or an overhearer. A profile with no game time stays.
-- A favorite of the Dialogue Library stays. A name of the player's characters in the report (`squad`) stays, because a squad member that only works at a base can be in no thread for a long time.
+- A favorite of the Dialogue Library stays. A character that was in the player's faction at a join of a thread (`thread_member.in_player_faction`) stays, and so does a name of the player's characters in the report (`squad`), because a squad member that only works at a base can be in no thread for a long time.
 - The prune asks the game for a report first, because the player's context of the latest request can come from a save that a load replaced, and a later game time prunes more.
 - `campaign_db.prune_profiles` writes the name of the NPC over its mark in each memory (see [Conversation memories](#conversation-memories)), so the other members still remember the conversation. Then it deletes the thread members, the row, and the lines of the NPC, and each of its threads with no member left, or with no memory and no line.
 - The NPC is a stranger at its next meeting. The seeded roll gives it the same personality, backstory, and speech again.

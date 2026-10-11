@@ -309,6 +309,16 @@ class ThreadTest(CampaignTestCase):
         kept = [old, recent, favorite, squad, undated, GENERIC_ID, self.STICK]
         self.assertEqual([npc_id for npc_id in kept if campaign_db.character_exists(npc_id)], kept[1:])
 
+    def test_a_prune_keeps_a_character_that_was_in_the_player_faction_in_a_thread(self):
+        stranger = "h:25"
+        campaign_db.upsert_profile(stranger, {"Name": "Ruben"})
+        for npc_id in (self.IZUMI, stranger):
+            campaign_db.upsert_profile(npc_id, {campaign_db.PROVISIONAL: 0})
+        thread_id = self.exchange(None, "[Day 1, 08:00]", listeners=[self.IZUMI])
+        campaign_db.join_thread(thread_id, [(stranger, "overheard", False)], campaign_db.game_time("[Day 1, 08:00]"))
+        self.assertEqual(campaign_db.prune_profiles(campaign_db.game_time("[Day 10, 00:00]"), set()), ["Ruben"])
+        self.assertTrue(campaign_db.character_exists(self.IZUMI))
+
     def test_a_pruned_npc_stays_named_in_the_memories_and_takes_the_threads_that_only_it_held(self):
         campaign_db.upsert_profile(GENERIC_ID, {campaign_db.PROVISIONAL: 0})
         shared = self.exchange(None, "[Day 1, 08:00]")
