@@ -78,7 +78,7 @@
           <label class="check"><input type="checkbox" name="enable_radiant"> <b>Radiant conversations</b></label>
           <div class="columns">
             <label><span class="label-text">Talk range<span class="help" tabindex="0">?<span class="tip">NPCs within this distance hear what you say in talk mode. A radiant conversation takes your characters within this distance of the selected one.</span></span></span> <input type="number" name="radii.talk" min="1" required></label>
-            <label><span class="label-text">Yell range<span class="help" tabindex="0">?<span class="tip">NPCs within this distance hear what you say in yell mode. An NPC radiant conversation takes the NPCs within this distance of the selected character.</span></span></span> <input type="number" name="radii.yell" min="1" required></label>
+            <label><span class="label-text">Yell range<span class="help" tabindex="0">?<span class="tip">NPCs within this distance hear what you say in yell mode, and up to 3 of them can answer. An NPC radiant conversation takes the NPCs within this distance of the selected character.</span></span></span> <input type="number" name="radii.yell" min="1" required></label>
             <label><span class="label-text">Conversation timeout (min)<span class="help" tabindex="0">?<span class="tip">A conversation ends after this long without a chat. SSR then compacts dialogue into memories and rumors from events.</span></span></span> <input type="number" name="conversation_timeout_minutes" min="1" required></label>
             <label><span class="label-text">Radiant chat timer (min)<span class="help" tabindex="0">?<span class="tip">The time between two radiant conversations. Paused time does not count.</span></span></span> <input type="number" name="radiant_chat_minutes" min="1" required></label>
             <label><span class="label-text">NPC radiant chance (%)<span class="help" tabindex="0">?<span class="tip">The chance that a radiant conversation is a talk about a rumor between nearby NPCs of one squad who relax at a bar, in place of a talk between your characters.</span></span></span> <input type="number" name="npc_radiant_chance" min="0" max="100" required></label>
@@ -175,7 +175,7 @@
             <li>Select an NPC. You can also talk to your squad members, except the first character of your squad.</li>
             <li>Press the chat key, <b>\</b> by default. You can change it on the <a href="#settings">Settings</a> tab.</li>
             <li>To speak as another squad member, press the button with the name of the speaker until it shows that member.</li>
-            <li>Choose <b>Whisper</b>, <b>Talk</b>, or <b>Yell</b>. Only the NPC hears a whisper. NPCs within the <b>Talk range</b> or the <b>Yell range</b> hear the other two.</li>
+            <li>Choose <b>Whisper</b>, <b>Talk</b>, or <b>Yell</b>. Only the NPC hears a whisper. NPCs within the <b>Talk range</b> or the <b>Yell range</b> hear the other two. Up to 3 NPCs within the <b>Yell range</b> can answer a yell, one after another.</li>
             <li>Type your line and press <b>Enter</b>. The NPC replies in a speech bubble.</li>
             <li>Above the input, the chat window shows the type of the current conversation, such as Chat or Barter, with its speakers and its place, and below them its lines.</li>
             <li>To close the chat window, press <b>Enter</b> on an empty line, or press <b>Cancel</b>.</li>

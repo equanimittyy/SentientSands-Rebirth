@@ -10,7 +10,7 @@ from flask import Blueprint, jsonify, request
 
 from chat import action_dialogue, background, chat_prompt, chat_window, offers, radiant, reply_text, retrieval, rumors, scene_text
 from chat.bio import BIO_PARTS, generate_bio, recorded_history, write_bio
-from chat.characters import get_character_data, npc_name, should_save_profile
+from chat.characters import animal_flag, get_character_data, npc_name, should_save_profile
 from chat.llm import call_llm
 from chat.memory import quiet_seconds
 from chat.prompts import PROMPT_RUMORS, build_system_prompt, describe_faction, describe_npc, describe_persona, describe_race, fill_prompt, find_location, language_instruction, npc_scene, scene_values
@@ -127,8 +127,7 @@ def play_radiant(conversation):
     try:
         for index, (speaker, _) in enumerate(conversation["order"]):
             label = f"{names[speaker]}|{speaker}"
-            prompt = conversation["frame"] + "\n\n" + fill_prompt("prompt_radiant_line.txt", talk=radiant.talk(spoken, names), speaker=label, persona=conversation["personas"][speaker], turn=radiant.turn(index, conversation["order"], names))
-            text = reply_text.spoken(call_llm("radiant", [{"role": "system", "content": conversation["system"]}, {"role": "user", "content": prompt}]) or "", *radiant.voices(names, speaker))
+            text = write_line(conversation, spoken, index)
             if not text:
                 logging.warning(f"RADIANT: The LLM wrote no line for {names[speaker]}, so the talk ends.")
                 break
@@ -146,6 +145,42 @@ def play_radiant(conversation):
     finally:
         _STAGE.release()
 
+def write_line(conversation, spoken, index):
+    """The words of line index of the order, or "" when the LLM wrote none. spoken holds the (handle key, text) of the lines
+    before it."""
+    names, order = conversation["names"], conversation["order"]
+    speaker = order[index][0]
+    prompt = conversation["frame"] + "\n\n" + fill_prompt("prompt_radiant_line.txt", talk=radiant.talk(spoken, names), speaker=f"{names[speaker]}|{speaker}", persona=conversation["personas"][speaker], turn=radiant.turn(index, order, names))
+    return reply_text.spoken(call_llm("radiant", [{"role": "system", "content": conversation["system"]}, {"role": "user", "content": prompt}]) or "", *radiant.voices(names, speaker))
+
+def play_yell(yell):
+    """The replies of a yell after the first one, each written as a radiant line while the line before it shows. It runs in
+    reply_loop, which holds the stage, so no other reply plays between them. Each line joins the chat thread when it is
+    said, so a quick next yell already sees it."""
+    names, ids, spoken = yell["names"], yell["ids"], yell["spoken"]
+    for index in range(len(spoken), len(yell["order"])):
+        speaker, addressee = yell["order"][index]
+        text = write_line(yell, spoken, index)
+        if not text:
+            logging.warning(f"CHAT: The LLM wrote no line for {names[speaker]}, so the yell ends.")
+            return
+        if state.ACTIVE_CAMPAIGN != yell["campaign"]:
+            logging.info("CHAT: The active campaign changed, so the yell ends.")
+            return
+        say([f"{names[speaker]}|{speaker}: {text}"], think=True)
+        spoken.append((speaker, text))
+        speaker_id = ids[speaker]
+        if speaker_id in yell["copies"]:
+            campaign_db.join_thread(yell["thread"], [(speaker_id, "speaker", yell["in_squad"].get(speaker_id, False))], campaign_db.game_time(yell["time_prefix"]), exchange=False)
+        for npc_id, profile in yell["copies"].items():
+            line = chat_prompt.heard_line(yell["time_prefix"], npc_id, (speaker_id, names[speaker]), (ids[addressee], names[addressee]), text)
+            campaign_db.append_dialogue(npc_id, [(line, speaker_id)], profile, yell["thread"])
+        with state.THREAD_LOCK:
+            if state.CURRENT_THREAD.get("id") == yell["thread"]:
+                state.CURRENT_THREAD["replied"] = time.monotonic()
+        state.restart_quiet_clock()
+        logging.info(f'CHAT: {names[speaker]} to {names[addressee]}: "{text}"')
+
 def remember_radiant(conversation, spoken):
     names, participants, time_prefix = conversation["names"], conversation["participants"], conversation["time_prefix"]
     spoke = {key for key, _ in spoken}
@@ -157,19 +192,22 @@ def remember_radiant(conversation, spoken):
     state.LAST_RADIANT = time.monotonic()
     logging.info("RADIANT: " + " | ".join(f'{names[key]}: "{text}"' for key, text in spoken))
 
-def play_lines(lines, actions=(), after=()):
+def play_lines(lines, actions=(), after=(), then=None):
     """Queues a chat reply, which plays after every reply before it and after a radiant conversation that holds the stage.
-    The pipe messages of after go out after the last line, so the popup of an offer opens when the NPC has spoken."""
-    _REPLIES.put((lines, actions, after))
+    The pipe messages of after go out after the last line, so the popup of an offer opens when the NPC has spoken. then
+    runs after them on the stage, so the next reply waits for it."""
+    _REPLIES.put((lines, actions, after, then))
 
 def reply_loop():
     while True:
-        lines, actions, after = _REPLIES.get()
+        lines, actions, after, then = _REPLIES.get()
         try:
             with _STAGE:
                 say(lines, actions)
                 for message in after:
                     send_to_pipe(message)
+                if then:
+                    then()
         except Exception as e:
             # An error must not end the loop, or no later chat reply would play
             logging.error(f"CHAT: The lines of a reply failed: {e}")
@@ -288,8 +326,8 @@ def chat():
         # because its request named the NPC before a rename, and the actions act on the squad member of the key after >.
         return f"{primary_npc}|{target_key}{f'>{speaker_key}' if speaker_key else ''}"
 
-    def reply(*texts, actions=(), action_open=False, after=()):
-        play_lines([f"{voice()}: {text}" for text in texts], [f"{voice()}: {action}" for action in actions], after)
+    def reply(*texts, actions=(), action_open=False, after=(), then=None):
+        play_lines([f"{voice()}: {text}" for text in texts], [f"{voice()}: {action}" for action in actions], after, then)
         # The plugin takes no new line while the reply to a line of an open action dialogue is pending, or while an offer waits
         return jsonify({"status": "ok", "action_dialogue": action_open, "offer": bool(after)})
     
@@ -440,6 +478,13 @@ def chat():
         logging.info(f"ACTION: {player_name} dismissed {primary_npc}.")
         return reply(action_dialogue.end_line("dismiss_end"), actions=["[ACTION: END_HIRE]"])
 
+    yell = mode == "yell" and not category
+    if yell:
+        # One thread for all plain yells, so the NPCs that answered one yell are the ones already speaking at the next
+        thread_key = (None, mode)
+        with state.THREAD_LOCK:
+            current_thread, _ = thread_of(thread_key, speaker_id)
+
     talk_radius, yell_radius = get_config_radii()
     # A whisper is one-on-one: nobody overhears
     radius = {"talk": talk_radius, "yell": yell_radius}.get(mode)
@@ -447,10 +492,25 @@ def chat():
     # Keyed by npc_id, because NPCs near the player can share a name, for example two Dust Bandits
     listeners = {primary_id: (primary_npc, context)}
     in_squad = {primary_id: npc_in_faction, speaker_id: True}
-    for n in chat_prompt.overhearers(nearby, radius, {primary_id, speaker.get("npc_id")}):
+    heard = chat_prompt.overhearers(nearby, radius, {primary_id, speaker.get("npc_id")})
+    for n in heard:
         merge_live_context(n)
         listeners[n["npc_id"]] = (npc_name(n), json.dumps(n))
         in_squad[n["npc_id"]] = bool(n.get("in_player_faction") or is_player_faction(n.get("faction"), n.get("factionID")))
+
+    target = (primary_id, primary_npc)
+    order = None
+    if yell and primary_id and speaker_id and not animal_flag(ctx_dict):
+        crowd = {target_key: ctx_dict, **{str(n["id"]): n for n in heard if radiant.can_answer(n)}}
+        speaking = {npc_id for npc_id, _, role, _ in campaign_db.thread_members([current_thread]).get(current_thread, []) if role == "speaker"} if current_thread else set()
+        aliases = {key: (listeners[npc["npc_id"]][0], npc.get("name")) for key, npc in crowd.items()}
+        favoured = {target_key} | radiant.named(player_message, aliases) | {key for key, npc in crowd.items() if npc["npc_id"] in speaking}
+        order = radiant.yell_turns(list(crowd), favoured, speaker_key, target_key)
+        first = order[1][0]
+        if first != target_key:
+            ctx_dict, raw_npc, target_key = crowd[first], crowd[first]["name"], first
+            primary_id = ctx_dict["npc_id"]
+            primary_npc = listeners[primary_id][0]
 
     char_datas = {}
     for npc_id, (name, local_context) in listeners.items():
@@ -483,7 +543,7 @@ def chat():
 
     mode_tag = {"whisper": "(Whispered) ", "yell": "(Yelled) "}.get(mode, "")
     time_prefix = get_current_time_prefix()
-    full_player_entry = f"{time_prefix}{mode_tag}{player_name}: {player_message}"
+    full_player_entry = chat_prompt.heard_line(time_prefix, primary_id, (speaker_id, player_name), target, player_message, mode_tag)
 
     live = state.LIVE_CONTEXTS.get(primary_id, {})
     rows = campaign_db.dialogue(primary_id)
@@ -576,16 +636,12 @@ def chat():
         recorders = {speaker_id: (player_name, speaker), **listeners} if speaker_id else listeners
         copies = []
         for npc_id, (name, local_context) in recorders.items():
-            overheard_tag = "" if npc_id in (primary_id, speaker_id) else "(Overheard) "
-            # Without the addressees, a listener takes the "you" of a line as itself
-            to_npc, to_player = (f" to {primary_npc}", f" to {player_name}") if overheard_tag else ("", "")
-
             if npc_id not in char_datas:
                 char_datas[npc_id] = get_character_data(name, local_context)
 
             new_lines = [
-                (f"{time_prefix}{overheard_tag}{mode_tag}{player_name}{to_npc}: {player_message}", speaker.get("npc_id")),
-                (f"{time_prefix}{overheard_tag}{primary_npc}{to_player}: {content}", primary_id),
+                (chat_prompt.heard_line(time_prefix, npc_id, (speaker_id, player_name), target, player_message, mode_tag), speaker_id),
+                (chat_prompt.heard_line(time_prefix, npc_id, (primary_id, primary_npc), (speaker_id, player_name), content), primary_id),
             ]
             char_datas[npc_id]["ConversationHistory"].extend(line for line, _ in new_lines)
 
@@ -630,12 +686,31 @@ def chat():
             # In the background, so the reply does not wait for a second LLM call
             threading.Thread(target=generate_bio, args=(primary_id,), daemon=True).start()
 
+        more = None
+        if order and len(order) > 2 and thread_id:
+            yell_names = {speaker_key: player_name, **{key: listeners[npc["npc_id"]][0] for key, npc in crowd.items()}}
+            yell_ids = {speaker_key: speaker_id, **{key: npc["npc_id"] for key, npc in crowd.items()}}
+            contexts = {speaker_key: speaker, **crowd}
+            descriptions = [
+                f"{describe_npc(f'{yell_names[key]}|{key}', char_datas[yell_ids[key]], yell_ids[key], persona=False)}\nHEALTH: {contexts[key].get('health') or 'Unknown'}"
+                for key in dict.fromkeys(key for pair in order for key in pair)
+            ]
+            frame = fill_prompt("prompt_yell.txt", speaker=player_name, target=target[1], length=len(order), participants="\n\n".join(descriptions),
+                                place=scene_text.location_text((speaker or state.PLAYER_CONTEXT).get("environment") or {}, "They"))
+            yell_talk = {
+                "system": build_system_prompt(reply_rules=False), "frame": frame, "order": order, "names": yell_names, "ids": yell_ids,
+                "personas": {key: describe_persona(char_datas[yell_ids[key]]) for key, _ in order[2:]}, "spoken": [(speaker_key, player_message), (target_key, content)],
+                "copies": {npc_id: char_datas[npc_id] for npc_id, _, _ in copies}, "in_squad": in_squad, "thread": thread_id,
+                "time_prefix": time_prefix, "campaign": state.ACTIVE_CAMPAIGN,
+            }
+            more = lambda: play_yell(yell_talk)
+
         logging.info(f'CHAT: {mode_tag}{player_name} to {primary_npc}{f" [{category}]" if category else ""}: "{player_message}" | {primary_npc}: "{content}" ({time.monotonic() - started:.1f} s)')
         if outcome == "unkept":
             notify(f"{primary_npc} made an offer it can't keep. (LLM hallucinated an offer it can't make)")
         if outcome == "refused":
             notify(f"{primary_npc} has refused your invitation to join {speaker.get('faction') or 'your squad'}." if category == "RECRUIT" else f"{primary_npc} refused to follow you.")
-        return reply(f"[{category}] {content}" if category else content, *last_words, actions=actions, after=after, action_open=bool(category) and not closing)
+        return reply(f"[{category}] {content}" if category else content, *last_words, actions=actions, after=after, action_open=bool(category) and not closing, then=more)
     return jsonify({"error": "No reply from the LLM.", "status": "error"}), 502
 
 def bio_refusal(data):

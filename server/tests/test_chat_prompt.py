@@ -52,6 +52,18 @@ class OverhearersTest(unittest.TestCase):
 BEEP = "u:19576-Dialogue.mod"
 
 
+class HeardLineTest(unittest.TestCase):
+    STICK, JORGE = ("h:10", "Stick"), ("h:13", "Jorge")
+
+    def test_the_speaker_and_the_addressee_hear_the_line_plainly(self):
+        for reader in ("h:10", "h:13"):
+            self.assertEqual(chat_prompt.heard_line("[Day 3, 14:05] ", reader, self.STICK, self.JORGE, "Hey!", "(Yelled) "), "[Day 3, 14:05] (Yelled) Stick: Hey!")
+
+    def test_another_reader_overhears_the_line_with_its_addressee(self):
+        self.assertEqual(chat_prompt.heard_line("[Day 3, 14:05] ", "h:11", self.STICK, self.JORGE, "Hey!", "(Yelled) "), "[Day 3, 14:05] (Overheard) (Yelled) Stick to Jorge: Hey!")
+        self.assertEqual(chat_prompt.heard_line("", "h:11", self.JORGE, self.STICK, "Hm."), "(Overheard) Jorge to Stick: Hm.")
+
+
 class HistoryTurnsTest(unittest.TestCase):
     def test_the_npc_lines_are_assistant_turns_without_time_or_name(self):
         entries = [

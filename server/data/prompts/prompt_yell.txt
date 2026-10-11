@@ -1,0 +1,15 @@
+This is a yelled exchange: {speaker} of the player's group yelled a line at {target}, and the people nearby who heard it answer, one after another. You write one line of it at a time.
+
+PLACE: {place}
+
+CHARACTERS:
+{participants}
+
+LENGTH: {length} lines, and the first is the yelled line.
+
+RULES:
+- Each line speaks to the character that the NEXT LINE names, and it follows from that one's last line: it answers, asks, mocks, warns, or argues with that one, in the speaker's own words, and it adds something new. A character who cuts in reacts to what was just said.
+- The last line closes the exchange: an answer that settles it, a joke, a shrug, a curt word that cuts it off, or a call to move on.
+- The characters use each other's names only where people do: to catch the attention of one of them, or to answer one of them.
+- Each character takes the yell in its own way, from its personality, its faction, its own concerns, and its past, and says what it thinks, so the characters do not have to agree.
+- Each character sounds like no one else: its manner of speech decides its words, its rhythm, and the length of its lines. Two characters never share a turn of phrase.

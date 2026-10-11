@@ -9,13 +9,17 @@ from store import campaign_db
 def open_thread(npc_id, quiet):
     """The chat thread with the NPC while it is open, or None. quiet is the Conversation timeout in seconds. The thread
     matches by the NPC only, because a switch of the mode or the speaker ends it only at the next line, and each line
-    closes the chat window."""
+    closes the chat window. The yell thread belongs to no one NPC, so it matches each of its members."""
     with state.THREAD_LOCK:
         live = dict(state.CURRENT_THREAD)
-    if not npc_id or live.get("key", (None,))[0] != npc_id or time.monotonic() - live["replied"] >= quiet:
+    if not npc_id or not live or time.monotonic() - live["replied"] >= quiet:
         return None
     thread_id = live["id"]
-    names = [name or "Unknown" for _, name, role, _ in campaign_db.thread_members([thread_id]).get(thread_id, []) if role == "speaker"]
+    members = campaign_db.thread_members([thread_id]).get(thread_id, [])
+    owner = live["key"][0]
+    if owner != npc_id and (owner is not None or all(member_id != npc_id for member_id, *_ in members)):
+        return None
+    names = [name or "Unknown" for _, name, role, _ in members if role == "speaker"]
     speakers = f"{', '.join(names[:2])}, and {len(names) - 2} more" if len(names) > 2 else " and ".join(names)
     action = live.get("action")
     return {

@@ -122,6 +122,54 @@ class TurnsTest(unittest.TestCase):
             self.assertTrue(2 <= len(order) <= 10)
 
 
+class YellTurnsTest(unittest.TestCase):
+    CROWD = ["10", "14", "20"]
+
+    def orders(self, keys=CROWD, favoured=frozenset(), count=600):
+        return [radiant.yell_turns(keys, favoured, "1", "10", random.Random(seed)) for seed in range(count)]
+
+    def test_a_lone_npc_gives_the_only_reply(self):
+        for order in self.orders(["10"], count=50):
+            self.assertEqual(order, [("1", "10"), ("10", "1")])
+
+    def test_the_yell_gets_1_to_3_replies_and_mostly_1(self):
+        counts = [len(order) - 1 for order in self.orders()]
+        self.assertEqual(set(counts), {1, 2, 3})
+        self.assertTrue(counts.count(1) > counts.count(2) > counts.count(3))
+
+    def test_the_first_reply_speaks_to_the_player_and_each_later_one_to_the_player_or_the_last_speaker(self):
+        for order in self.orders():
+            self.assertEqual(order[0], ("1", "10"))
+            self.assertEqual(order[1][1], "1")
+            for (before, _), (speaker, addressee) in zip(order[1:], order[2:]):
+                self.assertNotIn(speaker, ("1", before))
+                self.assertIn(addressee, ("1", before))
+
+    def test_the_npc_addressed_can_answer_back(self):
+        orders = [order for order in self.orders() if len(order) == 4 and order[2][1] != "1"]
+        self.assertTrue(any(order[3] == (order[2][1], order[2][0]) for order in orders))
+
+    def test_a_favoured_npc_mostly_answers_first_also_in_a_crowd(self):
+        crowd = [str(key) for key in range(10, 30)]
+        firsts = [order[1][0] for order in self.orders(crowd, {"10"}, 400)]
+        self.assertGreater(firsts.count("10"), 250)
+        self.assertGreater(len(set(firsts)), 5)
+
+
+class CanAnswerTest(unittest.TestCase):
+    def test_only_an_awake_npc_outside_the_player_faction_answers_a_yell(self):
+        self.assertTrue(radiant.can_answer({"health": "Injured", "in_player_faction": False}))
+        for npc in ({"in_player_faction": True}, {"health": "Unconscious"}, {"health": "Dead"}, {"health": "Playing Dead"}):
+            self.assertFalse(radiant.can_answer(npc))
+
+
+class NamedTest(unittest.TestCase):
+    def test_the_message_names_an_npc_by_a_whole_name(self):
+        aliases = {"10": ("Ruka", "Shek Warrior"), "14": ("Bo", None), "20": ("Dust Bandit", "Dust Bandit")}
+        self.assertEqual(radiant.named("Hey RUKA, and you, dust bandit!", aliases), {"10", "20"})
+        self.assertEqual(radiant.named("Bob, look at the shek warriors.", aliases), set())
+
+
 NAMES = {"10": "Stick", "14": "Jorge"}
 
 

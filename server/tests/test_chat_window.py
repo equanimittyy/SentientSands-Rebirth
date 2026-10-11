@@ -53,6 +53,13 @@ class OpenThreadTest(unittest.TestCase):
         thread = chat_window.open_thread(JORGE, QUIET)
         self.assertEqual((thread["title"], thread["type"]), ("Stick and Jorge | The Hub", "Barter"))
 
+    def test_the_yell_thread_is_open_for_each_of_its_members_only(self):
+        self.chat(None, STICK, "(Yelled) Stick: Hey!", listeners=[IZUMI])
+        state.CURRENT_THREAD["key"] = (None, "yell")
+        self.assertEqual(chat_window.open_thread(JORGE, QUIET)["title"], "Stick and Jorge | The Hub")
+        self.assertEqual(chat_window.open_thread(IZUMI, QUIET)["lines"], "[Day 3, 14:05] (Overheard) (Yelled) Stick: Hey!")
+        self.assertIsNone(chat_window.open_thread(RUKA, QUIET))
+
     def test_no_thread_is_open_for_another_npc_after_the_timeout_or_after_an_end(self):
         self.chat(None, STICK, "Stick: Hello.")
         self.assertIsNone(chat_window.open_thread(STICK, QUIET))

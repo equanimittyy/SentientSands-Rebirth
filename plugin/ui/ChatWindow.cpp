@@ -332,7 +332,9 @@ void SendChatLine(const std::string &npcName, const std::string &handleStr,
                               "\", \"id\":\"" + ToString(o_key) +
                               "\", \"npc_id\":\"" + EscapeJSON(o_npcId) +
                               "\", \"race\":\"" + EscapeJSON(raceName) +
-                              "\", \"faction\":\"" + EscapeJSON(factionName) +
+                              "\", \"animal\":" +
+                              (other->isAnimal() ? "true" : "false") +
+                              ", \"faction\":\"" + EscapeJSON(factionName) +
                               "\", \"gender\":\"" + EscapeJSON(o_gender) +
                               "\", \"template\":\"" +
                               EscapeJSON(other->data ? other->data->name

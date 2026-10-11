@@ -385,6 +385,21 @@ An NPC radiant conversation takes the place of a talk of the player's characters
 - For an NPC, only a knockout counts as a fight, because the game events hold only the attacks of the player's faction (see [Game events](#game-events)).
 - The name of an NPC comes from `npc_name`, as in a chat, and the thread stores each NPC as a member outside the player's faction.
 
+## Yells
+
+A plain chat line in Yell mode can get up to 3 replies, one after another, from the NPCs that hear it (`chat` in `server/chat/routes.py`). An action dialogue in Yell mode gets one reply from its NPC, because an offer and a judgment belong to one NPC.
+
+- The NPCs that can answer are the target and each NPC within `YellRadius` that is outside the player's faction and awake (`radiant.can_answer`). An animal never answers, and a yell at an animal gets only the reply of the animal.
+- The server rolls the count of replies: 1 at 50 %, 2 at 30 %, or 3 at 20 % (`radiant.YELL_REPLIES`). When only one NPC can answer, the count is 1.
+- The server picks the speaker and the addressee of each reply (`radiant.yell_turns`), as in a radiant conversation. The first reply speaks to the player's speaker. Then the NPC addressed answers back, or another NPC cuts in, at even odds (`REPLY_SHARE`), and speaks to the last speaker or to the player's speaker.
+- Each pick takes a favoured NPC at 75 % (`FAVOURED_SHARE`): the target, an NPC whose name the line holds, or an NPC that spoke in the yell thread. So in a crowd the NPC that the player meant mostly answers, but the target does not have to.
+- The first reply is a chat reply of its speaker, with its memories, the lore search, and the judgment. When another NPC answers first, its chat call takes the `nearby` entry of that NPC, and the player's line reaches it as overheard, for example `(Overheard) (Yelled) Stick to Jorge: ...`.
+- Each later reply is a radiant line with the `radiant` task (`play_yell`): the frame `prompt_yell.txt`, then `prompt_radiant_line.txt` with the lines so far and the persona of the speaker. It has no judgment. It plays on the stage after the first reply, so no other reply plays between the lines, and the call for the next line runs while the line before it shows.
+- Each later line joins the chat thread when it shows, and its speaker becomes a speaker of the thread. A failed call or a campaign switch ends the yell, and the lines so far stay.
+- All plain yells share one chat thread, with the key `(None, "yell")`, so the NPCs that answered one yell are favoured at the next.
+- A reader that neither spoke a line nor was spoken to gets the line as `(Overheard)` with its addressee (`chat_prompt.heard_line`).
+- The plugin sends `animal` in each `nearby` entry (`SendChatLine` in `plugin/ui/ChatWindow.cpp`), so neither an answer nor an overheard copy goes to an animal.
+
 ## Action dialogue
 
 A chat line that starts with `!` marks its chat thread as an action dialogue ([framework.md](../plans/action_dialogue/framework.md)). The NPC talks under the action prompt, and it can make an offer of a deal that the game carries out when the player accepts it.
@@ -424,7 +439,7 @@ The server paces the lines of every conversation (`say` in `server/chat/routes.p
 
 - The key is a number that the plugin gives a character for the game session (`HandleKey` in `plugin/game/Context.cpp`). Each character of a request carries its key, and the server sends it back unchanged. The plugin finds the character of a line by its key, and by its name only when the key finds no character.
 - The key stands for the full handle, because characters of other squads can have the same `serial` ([kenshi_internals.md](kenshi_internals.md#character-identity)). A squad change gives the character a new handle, and `RekeyCharacter` gives the key that handle (see [Characters](#characters)).
-- One conversation plays at a time, and chat replies queue (`reply_loop`). A radiant conversation holds the stage (`_STAGE`) to its last line.
+- One conversation plays at a time, and chat replies queue (`reply_loop`). A radiant conversation holds the stage (`_STAGE`) to its last line, and so does a yell (see [Yells](#yells)).
 - In a radiant conversation, the speaker of each line shows `...` for the last 40% of the delay before the line (`THINK_SHARE`), so the player sees who speaks next. When the call for a line takes longer than the rest of the delay, the `...` shows when the call returns.
 - The actions go first, so an AI state change cannot clear a bubble that is already up.
 - The plugin shows at most two bubbles: the newest line or `...`, and the line before it. A bubble on a third character ends the oldest bubble (`KeepTwoBubbles` in `plugin/game/GameActions.cpp`), so the participants of a radiant conversation do not all talk at once.
@@ -509,7 +524,7 @@ Each chat exchange belongs to a chat thread, which records who took part.
 
 - `thread` holds the ID (`AUTOINCREMENT`, so an ID is never reused), the game time of the newest exchange, the start place, the memory, the count of auto rumor passes that did not cite the memory (see [Auto rumors](#auto-rumors)), and the count of chat exchanges. A radiant conversation counts no exchange. `dialogue.thread_id` links each row. Each radiant conversation is a thread (see [Radiant conversations](#radiant-conversations)).
 - `thread_member` holds the `npc_id`, the role (`speaker` or `overheard`), the join time, and whether the member was in the player's faction then. A member keeps the join time and the faction of its first join, so the history text stays stable for the cache. An overhearer that speaks becomes a speaker, so the NPC later knows that it spoke with it (`campaign_db.thread_partners`).
-- `CURRENT_THREAD` ends at a chat with another NPC, a switch between Whisper, Talk, and Yell, a campaign switch, a cull, a restart, or a real-time pause of the Conversation timeout (`conversation_timeout_minutes`, default 3). A chat as another squad member stays in the thread, so one memory covers all the exchanges of the squad with the NPC. An action dialogue is the exception: it belongs to its speaker, and each of its ends also ends the thread (see [Action dialogue](#action-dialogue)).
+- `CURRENT_THREAD` ends at a chat with another NPC, a switch between Whisper, Talk, and Yell, a campaign switch, a cull, a restart, or a real-time pause of the Conversation timeout (`conversation_timeout_minutes`, default 3). A chat as another squad member stays in the thread, so one memory covers all the exchanges of the squad with the NPC. An action dialogue is the exception: it belongs to its speaker, and each of its ends also ends the thread (see [Action dialogue](#action-dialogue)). A plain yell is the other exception: all plain yells share one thread, whichever NPC the player yells at (see [Yells](#yells)).
 - A cull or a character delete deletes each thread with no memory and no dialogue row. A cull recounts the exchanges of each thread that it cuts, from the copy of the NPC, which holds 2 lines for each exchange.
 
 The chat prompt uses the threads (`npc_id`, not names):
@@ -524,7 +539,7 @@ The chat prompt uses the threads (`npc_id`, not names):
 
 Above the input, the chat window shows a header line with the type and the title of the open chat thread, and the lines of the thread below the header (`BuildChatWindow` in `plugin/ui/ChatWindow.cpp`).
 
-- `POST /chat_thread` (`server/chat/chat_window.py`) returns the thread while `CURRENT_THREAD` belongs to the target NPC and its last reply is within the Conversation timeout. It does not compare the mode or the speaker, because a change of either ends the thread only at the next line, and each line closes the chat window.
+- `POST /chat_thread` (`server/chat/chat_window.py`) returns the thread while `CURRENT_THREAD` belongs to the target NPC, or is the yell thread and the NPC is its member, and its last reply is within the Conversation timeout. It does not compare the mode or the speaker, because a change of either ends the thread only at the next line, and each line closes the chat window.
 - The reply holds the type (`Chat` or the action category), the title (the speakers and the start place, as on Dialogue & Memories), and the copy of the thread lines of the NPC.
 - The window asks at each open, and drops a reply that a newer request made stale. A thread that ends while the window is open shows until the next open.
 - The panel adds its height above the input, so the input rows keep their size and the window grows upward.
