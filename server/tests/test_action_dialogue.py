@@ -103,12 +103,14 @@ class ClassifyTest(unittest.TestCase):
         self.assertEqual(ad.choices({}, {"character_state": "normal", "health": "Healthy"}, "Bandit"), ["THREATEN", "BARTER", "RECRUIT", "FOLLOW"])
 
     def test_the_list_is_numbered_and_ends_in_the_escape_hatch(self):
-        self.assertEqual(ad.choice_list(["THREATEN", "BARTER"]), "1. A threat or demand\n2. A request to trade items, a gift, or a plea for charity\n3. None of these")
+        self.assertEqual(ad.choice_list(["THREATEN", "BARTER", "HEAL"]), "1. A threat or demand\n2. A request to buy, sell, or swap items, a gift, or a plea for charity\n"
+                         "3. A request to treat wounds, paid or free\n4. None of these")
 
     def test_the_number_maps_back_to_its_category(self):
-        listed = ["THREATEN", "BARTER"]
+        listed = ["THREATEN", "BARTER", "HEAL"]
         self.assertEqual(ad.chosen("2", listed), "BARTER")
         self.assertEqual(ad.chosen(" 1.", listed), "THREATEN")
+        self.assertEqual(ad.chosen("3", listed), "HEAL")
 
     def test_the_escape_hatch_and_other_output_choose_nothing(self):
         listed = ["THREATEN", "BARTER"]

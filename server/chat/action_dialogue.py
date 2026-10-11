@@ -12,12 +12,12 @@ import re
 from chat import current_job
 from core.paths import DEFAULTS_DIR
 
-# In the order of the classify list
+# In the order of the classify list, one choice for each category
 CATEGORIES = [
     ("t", "threaten", "THREATEN", "A threat or demand"),
-    ("b", "barter", "BARTER", "A request to trade items, a gift, or a plea for charity"),
-    ("h", "heal", "HEAL", "A request to treat wounds"),
-    ("l", "liberate", "LIBERATE", "A request to be freed from prison or slavery"),
+    ("b", "barter", "BARTER", "A request to buy, sell, or swap items, a gift, or a plea for charity"),
+    ("h", "heal", "HEAL", "A request to treat wounds, paid or free"),
+    ("l", "liberate", "LIBERATE", "A request to be freed from prison or slavery, paid or free"),
     ("r", "recruit", "RECRUIT", "A request to join the squad for good, as a new member"),
     ("f", "follow", "FOLLOW", 'A request to come along or be hired for a while, such as "follow me"'),
     ("d", "dismiss", "DISMISS", "An order for a hired follower to leave"),
