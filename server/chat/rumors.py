@@ -8,6 +8,7 @@ from chat.characters import reported_sex
 from chat.chat_prompt import memory_text
 from chat.prompts import fill_prompt
 from core import state, world_events
+from core.game import get_current_time_prefix
 from core.settings import load_settings
 from store import campaign_db
 
@@ -73,6 +74,7 @@ def keep_auto_rumor(reply, memories, campaign):
             logging.info("RUMOR: Dropped the auto rumor, because a delete or a cull changed its memories while the LLM wrote it.")
             return
         logging.info(f"RUMOR: Stored the auto event {event_id} from the memories of the chat threads {', '.join(map(str, cited))}.")
+        campaign_db.use_memories(cited, campaign_db.game_time(get_current_time_prefix()))
     else:
         logging.info("RUMOR: The LLM found no story in the memories.")
     campaign_db.count_rumor_pass(memory["id"] for memory in memories)

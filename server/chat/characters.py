@@ -258,9 +258,10 @@ def npc_name(npc):
     return sync_name(npc, profile, in_squad)
 
 def prune_profiles():
-    """Deletes the provisional profiles of the NPCs that took part in no chat thread for prune_profile_days game days, because
-    each NPC near a chat gets a profile. It asks the game for the time, because the player's context of the latest request
-    can come from a save that a load replaced since, and a later time would prune NPCs that the loaded save still knows."""
+    """Deletes the provisional profiles of the NPCs that took part in no chat thread, and whose memories no prompt used, for
+    prune_profile_days game days, because each NPC near a chat gets a profile. It asks the game for the time, because the
+    player's context of the latest request can come from a save that a load replaced since, and a later time would prune
+    NPCs that the loaded save still knows."""
     days = load_settings()["prune_profile_days"]
     if not days or not report_from_game():
         return

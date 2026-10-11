@@ -319,6 +319,15 @@ class ThreadTest(CampaignTestCase):
         self.assertEqual(campaign_db.prune_profiles(campaign_db.game_time("[Day 10, 00:00]"), set()), ["Ruben"])
         self.assertTrue(campaign_db.character_exists(self.IZUMI))
 
+    def test_a_used_memory_keeps_its_members_until_a_cull_undoes_the_use(self):
+        campaign_db.upsert_profile(GENERIC_ID, {campaign_db.PROVISIONAL: 0})
+        thread_id = self.exchange(None, "[Day 1, 08:00]")
+        campaign_db.set_memory(thread_id, "Stick greeted Jorge.", campaign_db.game_time("[Day 1, 08:00]"))
+        campaign_db.use_memories([thread_id], campaign_db.game_time("[Day 50, 08:00]"))
+        self.assertEqual(campaign_db.prune_profiles(campaign_db.game_time("[Day 10, 00:00]"), set()), [])
+        campaign_db.cull_after(20, 0, 0)
+        self.assertEqual(campaign_db.prune_profiles(campaign_db.game_time("[Day 10, 00:00]"), set()), ["Jorge"])
+
     def test_a_pruned_npc_stays_named_in_the_memories_and_takes_the_threads_that_only_it_held(self):
         campaign_db.upsert_profile(GENERIC_ID, {campaign_db.PROVISIONAL: 0})
         shared = self.exchange(None, "[Day 1, 08:00]")

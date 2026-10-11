@@ -7,7 +7,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."
 
 from chat import radiant, reply_text
 
-MEMORY = {"game_time": None, "memory": "Stick asked Jorge for work.", "members": [("h:10", "Stick", "speaker", True), ("h:14", "Jorge", "speaker", True)]}
+MEMORY = {"id": 7, "game_time": None, "memory": "Stick asked Jorge for work.", "members": [("h:10", "Stick", "speaker", True), ("h:14", "Jorge", "speaker", True)]}
 
 
 def first(items):
@@ -21,16 +21,16 @@ def last(items):
 class TopicTest(unittest.TestCase):
     def test_each_kind_with_material_can_be_the_topic(self):
         place = {"town_name": "Squin"}
-        self.assertEqual(radiant.topic([MEMORY], place, ["Beep freed the slaves."], first), "A conversation that some of them remember. (Memory of a conversation between Stick and Jorge) Stick asked Jorge for work.")
-        self.assertEqual(radiant.topic([MEMORY], place, ["Beep freed the slaves."], last), "A rumour that they heard: Beep freed the slaves.")
-        self.assertEqual(radiant.topic([], {"zone_name": "Border Zone"}, [], first), "The place where they are.")
+        self.assertEqual(radiant.topic([MEMORY], place, ["Beep freed the slaves."], first), ("A conversation that some of them remember. (Memory of a conversation between Stick and Jorge) Stick asked Jorge for work.", 7))
+        self.assertEqual(radiant.topic([MEMORY], place, ["Beep freed the slaves."], last), ("A rumour that they heard: Beep freed the slaves.", None))
+        self.assertEqual(radiant.topic([], {"zone_name": "Border Zone"}, [], first), ("The place where they are.", None))
 
     def test_the_place_holds_the_lore_of_the_town(self):
         location = {"name": "Squin", "aliases": [], "fields": {"type": "town"}, "description": "Squin is a town."}
-        self.assertEqual(radiant.topic([], {"town_name": "Squin"}, [], first, location=location), "The place where they are. Its lore follows. They may know only a part of it, and they never recite it.\nSquin (location; type: town): Squin is a town.")
+        self.assertEqual(radiant.topic([], {"town_name": "Squin"}, [], first, location=location)[0], "The place where they are. Its lore follows. They may know only a part of it, and they never recite it.\nSquin (location; type: town): Squin is a town.")
 
     def test_no_material_gives_no_topic(self):
-        self.assertIsNone(radiant.topic([], {}, [], first))
+        self.assertEqual(radiant.topic([], {}, [], first), (None, None))
 
 
 def drinker(serial, squad, jobs=("RELAX_IN_TOWN_PACKAGE",)):

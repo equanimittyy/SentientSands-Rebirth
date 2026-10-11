@@ -15,7 +15,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 DB_NAME = "campaign.db"
-SCHEMA_VERSION = 19
+SCHEMA_VERSION = 20
 DIALOGUE_BLOCK = 20
 # A memory that this many passes read and did not cite leaves the auto rumor pool, so dull memories do not fill each prompt
 RUMOR_PASSES = 6
@@ -54,7 +54,8 @@ CREATE TABLE thread (
   location     TEXT,
   memory       TEXT,
   rumor_passes INTEGER NOT NULL DEFAULT 0,
-  exchanges    INTEGER NOT NULL DEFAULT 0
+  exchanges    INTEGER NOT NULL DEFAULT 0,
+  used_at      INTEGER
 );
 CREATE TABLE thread_member (
   thread_id         INTEGER NOT NULL REFERENCES thread(id) ON DELETE CASCADE,
@@ -311,20 +312,21 @@ def promote_profile(npc_id, bio):
 
 
 def prune_profiles(before, keep_names):
-    """Deletes each provisional profile whose first save and newest chat thread are both dated before the game time before.
-    A favorite, a Name in keep_names, a profile with no game time, and a character that was ever in the player's faction in
-    a thread stay. Each memory of its threads keeps its name as text, so the other members still remember the talk, and a
-    thread that no member holds any more goes. Returns the names of the pruned NPCs."""
+    """Deletes each provisional profile whose first save, newest chat thread, and newest use of a memory (use_memories) are
+    all dated before the game time before. A favorite, a Name in keep_names, a profile with no game time, and a character
+    that was ever in the player's faction in a thread stay. Each memory of its threads keeps its name as text, so the other
+    members still remember the talk, and a thread that no member holds any more goes. Returns the names of the pruned NPCs."""
     with _connect(write=True) as conn:
         rows = conn.execute(
             "SELECT c.id, c.npc_id, json_extract(c.profile, '$.Name'), c.game_time,"
-            " (SELECT MAX(t.game_time) FROM thread_member m JOIN thread t ON t.id = m.thread_id WHERE m.npc_id = c.npc_id)"
+            " (SELECT MAX(t.game_time) FROM thread_member m JOIN thread t ON t.id = m.thread_id WHERE m.npc_id = c.npc_id),"
+            " (SELECT MAX(t.used_at) FROM thread_member m JOIN thread t ON t.id = m.thread_id WHERE m.npc_id = c.npc_id)"
             f" FROM character c WHERE c.favorite = 0 AND json_extract(c.profile, '$.{PROVISIONAL}') IS NOT NULL"
             " AND NOT EXISTS (SELECT 1 FROM thread_member WHERE npc_id = c.npc_id AND in_player_faction = 1)"
         ).fetchall()
         pruned = []
-        for character_id, npc_id, name, first_time, thread_time in rows:
-            dated = [t for t in (first_time, thread_time) if t is not None]
+        for character_id, npc_id, name, first_time, thread_time, used_time in rows:
+            dated = [t for t in (first_time, thread_time, used_time) if t is not None]
             if dated and max(dated) < before and name not in keep_names:
                 pruned.append((character_id, npc_id, name))
         touched = set()
@@ -339,6 +341,15 @@ def prune_profiles(before, keep_names):
             [(thread_id,) for thread_id in touched],
         )
         return [name for _, _, name in pruned]
+
+
+def use_memories(thread_ids, game_time):
+    """Dates the newest use of each memory of the threads in a prompt, so that its members stay out of prune_profiles."""
+    thread_ids = list(thread_ids)
+    if not thread_ids or game_time is None:
+        return
+    with _connect(write=True) as conn:
+        conn.execute(f"UPDATE thread SET used_at = ? WHERE id IN ({', '.join('?' * len(thread_ids))})", (game_time, *thread_ids))
 
 
 def append_dialogue(npc_id, lines, profile, thread_id=None):
@@ -696,8 +707,9 @@ def rekey(old_id, new_id, game_time):
 
 def cull_after(day, hour, minute):
     """Undoes the re-keys after the given game time, newest first. Then deletes the characters first stored after it, the
-    dialogue, events, rumors, thread members, and memories dated after it, and recounts the chat exchanges of each thread
-    that it cuts. Returns the count per table of the characters, the dialogue, the events, and the rumors."""
+    dialogue, events, rumors, thread members, and memories dated after it, clears the uses of memories after it, and
+    recounts the chat exchanges of each thread that it cuts. Returns the count per table of the characters, the dialogue,
+    the events, and the rumors."""
     now = day * 1440 + hour * 60 + minute
     with _connect(write=True) as conn:
         for old_id, new_id in conn.execute("SELECT old_id, new_id FROM rekey WHERE game_time > ? ORDER BY id DESC", (now,)).fetchall():
@@ -709,6 +721,7 @@ def cull_after(day, hour, minute):
         touched = {thread_id for (thread_id,) in conn.execute("SELECT id FROM thread WHERE game_time > ?", (now,))}
         culled = {table: conn.execute(f"DELETE FROM {table} WHERE game_time > ?", (now,)).rowcount for table in ("dialogue", "rumor", "event", "character")}
         conn.execute("DELETE FROM thread_member WHERE game_time > ?", (now,))
+        conn.execute("UPDATE thread SET used_at = NULL WHERE used_at > ?", (now,))
         # The memory told of culled exchanges, and it replaced every line, so nothing from before the cut is left to keep
         conn.execute("DELETE FROM thread WHERE memory IS NOT NULL AND game_time > ?", (now,))
         conn.execute("UPDATE thread SET game_time = (SELECT MAX(game_time) FROM dialogue WHERE thread_id = thread.id) WHERE game_time > ?", (now,))

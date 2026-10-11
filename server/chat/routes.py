@@ -60,11 +60,12 @@ def radiant_conversation():
         profiles[key] = get_character_data(names[key], context=json.dumps(npc))
 
     environment = center.get("environment") or {}
+    memory_id = None
     if npc_talk:
         topic = random.choice(rumor_texts)
     else:
         location = find_location(environment["town_name"]) if environment.get("town_name") else None
-        topic = radiant.topic(campaign_db.shared_memories(npc_ids), environment, rumor_texts, location=location)
+        topic, memory_id = radiant.topic(campaign_db.shared_memories(npc_ids), environment, rumor_texts, location=location)
     if not topic:
         logging.info("RADIANT: No topic, so nobody talks.")
         return jsonify({"status": "ignore"})
@@ -86,6 +87,8 @@ def radiant_conversation():
             known = radiant.acquaintance({npc['npc_id']: names[key] for key, npc in participants.items()}, {npc_id: campaign_db.thread_partners(npc_id) for npc_id in npc_ids})
             frame = fill_prompt("prompt_radiant.txt", acquaintance=known, topic=topic, **values)
         logging.info(f"RADIANT: {', '.join(names.values())} talk{' among the NPCs' if npc_talk else ''}. Topic: {topic}")
+        if memory_id:
+            campaign_db.use_memories([memory_id], campaign_db.game_time(get_current_time_prefix()))
         conversation = {
             "system": build_system_prompt(reply_rules=False), "frame": frame, "order": order, "names": names,
             "personas": {key: describe_persona(profiles[key]) for key in participants}, "participants": participants,
@@ -567,8 +570,8 @@ def chat():
         state.CONVERSATION_SCENE.clear()
         state.CONVERSATION_SCENE[conversation] = scene
     # Read on each turn, not with the scene, so a memory that the distillation writes during a conversation reaches the next turn
-    memories = chat_prompt.memories_block(chat_prompt.starting_memories(campaign_db.memories_of(primary_id), primary_id), primary_id)
-    system = fill_prompt("prompt_chat_template.txt", system_prompt=system_prompt, judgment=judgment, primary_npc=primary_npc, npc_profiles=describe_npc(primary_npc, primary_data, primary_id), scene=scene, memories=memories)
+    starting = chat_prompt.starting_memories(campaign_db.memories_of(primary_id), primary_id)
+    system = fill_prompt("prompt_chat_template.txt", system_prompt=system_prompt, judgment=judgment, primary_npc=primary_npc, npc_profiles=describe_npc(primary_npc, primary_data, primary_id), scene=scene, memories=chat_prompt.memories_block(starting, primary_id))
     pair = (speaker_id, primary_id)
     cooldown = load_settings()["retrieval_cooldown_turns"]
     recent_turns = state.RECENT_HITS.get(pair, [])
@@ -584,6 +587,7 @@ def chat():
         [hit["record"]["memory"] for hit in found_memories], [hit["record"]["rumor"] for hit in found_rumors], [hit["record"] for hit in found_entries if not hit["travels"]], primary_id, player_name,
         [hit["record"] for hit in found_entries if hit["travels"]], state.PLAYER_CONTEXT.get("day"),
     )
+    campaign_db.use_memories([memory["id"] for memory in starting] + [hit["record"]["memory"]["id"] for hit in found_memories], campaign_db.game_time(time_prefix))
     if category:
         lean = action_dialogue.lean(category, ctx_dict, speaker, primary_data.get("Relation"), nearby)
         last_reply = next((line for line, who, _ in reversed(rows) if who == primary_id), "")

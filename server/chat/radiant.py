@@ -21,17 +21,20 @@ _BONDS = ((10, "know each other well"), (3, "know each other"), (1, "have talked
 
 
 def topic(memories, environment, rumors, choice=random.choice, location=None):
-    """The topic from one kind with material, each kind with an equal chance, or None when no kind has material. memories
-    are shared_memories of the participants, environment is the one of the center, rumors are texts, and location is the
-    lore record of the town of the center, or None."""
+    """The topic from one kind with material, each kind with an equal chance, and the thread ID of its memory, or (None,
+    None) when no kind has material. memories are shared_memories of the participants, environment is the one of the
+    center, rumors are texts, and location is the lore record of the town of the center, or None."""
     kinds = []
     if memories:
-        kinds.append(lambda: f"A conversation that some of them remember. {chat_prompt.shared_memory(choice(memories))}")
+        def remembered():
+            memory = choice(memories)
+            return f"A conversation that some of them remember. {chat_prompt.shared_memory(memory)}", memory["id"]
+        kinds.append(remembered)
     if environment.get("town_name") or environment.get("zone_name"):
-        kinds.append(lambda: place_topic(location))
+        kinds.append(lambda: (place_topic(location), None))
     if rumors:
-        kinds.append(lambda: f"A rumour that they heard: {choice(rumors)}")
-    return choice(kinds)() if kinds else None
+        kinds.append(lambda: (f"A rumour that they heard: {choice(rumors)}", None))
+    return choice(kinds)() if kinds else (None, None)
 
 
 def turns(keys, count, rng=random):
