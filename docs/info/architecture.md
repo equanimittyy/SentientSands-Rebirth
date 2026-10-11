@@ -196,7 +196,7 @@ A chat request is ordered for the provider's prompt cache, which reuses only an 
 - The scene is a snapshot for the whole conversation (`CONVERSATION_SCENE`). A conversation ends when the player chats with another NPC, speaks as another squad member, switches the campaign, when the NPC's name or faction changes, or when the other speakers of the current chat thread change.
 - `server/chat/scene_text.py` writes the scene as second-person prose, because a model reads a sentence more reliably than a number. The relation bounds match the relation labels of the Dialogue Library.
 - The history is a block window (`chat_prompt.history_window`) that moves by 20 lines, so its start stays cacheable. `history_turns` makes only the NPC's own lines assistant turns.
-- An overheard line is stored as `(Overheard) Speaker to Target: ...`, because without the target a listener took "you" as itself. An animal never overhears.
+- An overheard line is stored as `(Overheard) Speaker to Target: ...`, because without the target a listener took "you" as itself. An animal never overhears, and neither does a dead or knocked-out NPC (`chat_prompt.overhearers`). An NPC that plays dead is awake, so it overhears.
 - The judgment is the change in how the NPC feels about the player, from -5 to 5. Rejected: a judgment of politeness, because a scornful NPC grew friendlier with each apology.
 - Each reply line starts with `Name|key:` (see [Line pacing](#line-pacing)), because the plugin takes the text before the first colon as the speaker (`ProcessMessageQueue`). An animal replies only in `*actions*`.
 - A chat reply carries no game actions; the server reads only the judgment.

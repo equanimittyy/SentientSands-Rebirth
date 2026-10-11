@@ -42,6 +42,14 @@ class OverhearersTest(unittest.TestCase):
         ]
         self.assertEqual([n["npc_id"] for n in chat_prompt.overhearers(nearby, 100, set())], ["h:1", "h:2"])
 
+    def test_a_dead_or_knocked_out_npc_never_overhears_but_one_that_plays_dead_does(self):
+        nearby = self.NEARBY + [
+            {"name": "Corpse", "npc_id": "h:5", "health": "Dead", "dist": 10},
+            {"name": "Sleeper", "npc_id": "h:6", "health": "Unconscious", "dist": 10},
+            {"name": "Faker", "npc_id": "h:7", "health": "Playing Dead", "dist": 10},
+        ]
+        self.assertEqual([n["npc_id"] for n in chat_prompt.overhearers(nearby, 100, set())], ["h:1", "h:2", "h:7"])
+
     def test_nobody_overhears_without_a_radius(self):
         self.assertEqual(chat_prompt.overhearers(self.NEARBY, None, set()), [])
 

@@ -16,6 +16,7 @@ _TIME_PREFIX = re.compile(r"^\[Day [^\]]*\]\s*")
 # Some chat templates require the turns after the system message to start with a user message
 EARLIER = "(Earlier conversation)"
 MEMORY_LIMIT = 5
+_UNAWARE = ("Dead", "Unconscious")
 
 
 def chat_lines(entries):
@@ -31,13 +32,14 @@ def history_window(lines, block):
 
 def overhearers(nearby, radius, excluded_ids):
     """The NPCs of nearby within radius, one for each npc_id, because NPCs near the player can share a name. A radius of
-    None means that nobody overhears. An animal never overhears, because it cannot understand speech."""
+    None means that nobody overhears. An animal never overhears, because it cannot understand speech, and a dead or
+    knocked-out NPC hears nothing. An NPC that plays dead is awake, so it overhears."""
     if radius is None:
         return []
     found = {}
     for npc in nearby:
         npc_id = npc.get("npc_id")
-        if npc_id and npc_id not in excluded_ids and npc.get("dist", 999.0) <= radius and not animal_flag(npc):
+        if npc_id and npc_id not in excluded_ids and npc.get("dist", 999.0) <= radius and not animal_flag(npc) and npc.get("health") not in _UNAWARE:
             found.setdefault(npc_id, npc)
     return list(found.values())
 
