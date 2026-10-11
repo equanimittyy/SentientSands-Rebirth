@@ -1090,12 +1090,12 @@ void ExecuteQueuedActions(GameWorld *thisptr, int &inventoryTimer) {
                     ToString(c + 1) + "/" + ToString(count) + ") for " +
                     p->getName());
 
-                // Weapons, armour, and crossbows need material and manufacturer data
-                GameData *meshData = act.itemModel;
-                GameData *materialData = act.itemMaker;
+                // Weapons, armour, and crossbows need a grade, and weapons also a manufacturer
+                GameData *gradeData = act.itemModel;
+                GameData *makerData = act.itemMaker;
 
-                if (!meshData && (gd->type == WEAPON || gd->type == ARMOUR ||
-                                  gd->type == CROSSBOW)) {
+                if (!gradeData && (gd->type == WEAPON || gd->type == ARMOUR ||
+                                   gd->type == CROSSBOW)) {
                   auto getRef = [&](const std::string &refName) -> GameData * {
                     const Ogre::vector<GameDataReference>::type *refs =
                         gd->getReferenceListIfExists(refName);
@@ -1110,32 +1110,33 @@ void ExecuteQueuedActions(GameWorld *thisptr, int &inventoryTimer) {
                     return nullptr;
                   };
 
-                  int requiredMeshType = 0;
+                  int gradeType = 0;
                   if (gd->type == WEAPON)
-                    requiredMeshType = MATERIAL_SPECS_WEAPON;
+                    gradeType = MATERIAL_SPECS_WEAPON;
                   else if (gd->type == ARMOUR)
-                    requiredMeshType = MATERIAL_SPECS_CLOTHING;
+                    gradeType = MATERIAL_SPECS_CLOTHING;
 
-                  // createItem's 3rd arg is grade data (MATERIAL_SPECS_*): "material", not the visual "mesh"
-                  meshData = getRef("material");
-                  if (!meshData ||
-                      (requiredMeshType && meshData->type != requiredMeshType))
-                    meshData = getRef("model");
-                  if (!meshData ||
-                      (requiredMeshType && meshData->type != requiredMeshType))
-                    meshData = getRef("mesh");
+                  gradeData = getRef("material");
+                  if (!gradeData ||
+                      (gradeType && gradeData->type != gradeType))
+                    gradeData = getRef("model");
+                  if (!gradeData ||
+                      (gradeType && gradeData->type != gradeType))
+                    gradeData = getRef("mesh");
 
-                  materialData = getRef("manufacturer");
+                  if (gd->type == WEAPON)
+                    makerData = getRef("manufacturer");
 
-                  bool needsMesh =
-                      !meshData ||
-                      (requiredMeshType && meshData->type != requiredMeshType);
-                  bool needsMat = !materialData ||
-                                  (materialData->type != WEAPON_MANUFACTURER);
+                  bool needsGrade =
+                      !gradeData ||
+                      (gradeType && gradeData->type != gradeType);
+                  bool needsMaker =
+                      gd->type == WEAPON &&
+                      (!makerData || makerData->type != WEAPON_MANUFACTURER);
 
-                  if (needsMesh || needsMat) {
-                    GameData *firstMesh = nullptr;
-                    GameData *firstMat = nullptr;
+                  if (needsGrade || needsMaker) {
+                    GameData *firstGrade = nullptr;
+                    GameData *firstMaker = nullptr;
                     boost::unordered::unordered_map<std::string,
                                                     GameData *>::iterator it;
 
@@ -1145,38 +1146,42 @@ void ExecuteQueuedActions(GameWorld *thisptr, int &inventoryTimer) {
                       if (!check)
                         continue;
 
-                      if (needsMesh && (!requiredMeshType ||
-                                        check->type == requiredMeshType)) {
-                        if (!firstMesh)
-                          firstMesh = check;
+                      if (needsGrade && (!gradeType ||
+                                         check->type == gradeType)) {
+                        if (!firstGrade)
+                          firstGrade = check;
                         if (check->name.find("Standard") != std::string::npos ||
                             check->name.find("Catun") != std::string::npos)
-                          meshData = check;
+                          gradeData = check;
                       }
 
-                      if (needsMat && check->type == WEAPON_MANUFACTURER) {
-                        if (!firstMat)
-                          firstMat = check;
+                      if (needsMaker && check->type == WEAPON_MANUFACTURER) {
+                        if (!firstMaker)
+                          firstMaker = check;
                         if (check->name.find("Skeleton Smiths") !=
                                 std::string::npos ||
                             check->name.find("Standard") != std::string::npos)
-                          materialData = check;
+                          makerData = check;
                       }
 
-                      if ((!needsMesh || meshData) &&
-                          (!needsMat || materialData))
+                      if ((!needsGrade || gradeData) &&
+                          (!needsMaker || makerData))
                         break;
                     }
 
-                    if (needsMesh && !meshData)
-                      meshData = firstMesh;
-                    if (needsMat && !materialData)
-                      materialData = firstMat;
+                    if (needsGrade && !gradeData)
+                      gradeData = firstGrade;
+                    if (needsMaker && !makerData)
+                      makerData = firstMaker;
                   }
                 }
 
+                // KenshiLib names the third argument weaponMesh, but it takes
+                // the manufacturer, as the item constructors do: a weapon
+                // grade there made createItem fail, and a manufacturer in the
+                // fourth left armour without its colours
                 Item *item = thisptr->theFactory->createItem(
-                    gd, hand(), meshData, materialData, act.itemLevel, NULL);
+                    gd, hand(), makerData, gradeData, act.itemLevel, NULL);
                 if (item) {
                   item->quantity = 1;
                   item->quality = 1.0f;
@@ -1205,9 +1210,9 @@ void ExecuteQueuedActions(GameWorld *thisptr, int &inventoryTimer) {
                   }
                 } else {
                   Log(LOG_ERROR, "ACTION: Resolved " + gd->name +
-                      " but Factory failed to createItem! (Mesh: " +
-                      (meshData ? meshData->name : "NULL") + ", Mat: " +
-                      (materialData ? materialData->name : "NULL") + ")");
+                      " but Factory failed to createItem! (Grade: " +
+                      (gradeData ? gradeData->name : "NULL") + ", Maker: " +
+                      (makerData ? makerData->name : "NULL") + ")");
                 }
               }
 
