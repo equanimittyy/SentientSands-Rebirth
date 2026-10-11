@@ -1,3 +1,4 @@
+import json
 import os
 import sys
 import tempfile
@@ -7,6 +8,7 @@ from unittest import mock
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
 
 from chat import characters
+from core.paths import NAMES_PATH
 from store import campaign_db
 
 SEED = {
@@ -17,6 +19,38 @@ SEED = {
     "characters": [],
     "entities": [],
 }
+
+
+class NamePoolTest(unittest.TestCase):
+    def setUp(self):
+        with open(NAMES_PATH, encoding="utf-8") as f:
+            self.names = json.load(f)
+        patcher = mock.patch.object(characters.state, "NAMES_CONFIG", self.names)
+        patcher.start()
+        self.addCleanup(patcher.stop)
+
+    def pool(self, key, sex):
+        return self.names["pools"][key][sex]
+
+    def test_the_race_comes_before_the_faction(self):
+        self.assertEqual(characters.name_pool("Shek", "United Cities", "Male"), self.pool("shek", "Male"))
+        self.assertEqual(characters.name_pool("Hive Worker Drone", "United Cities", "Male"), self.pool("hive", "Any"))
+
+    def test_a_human_takes_the_names_of_its_faction(self):
+        self.assertEqual(characters.name_pool("Greenlander", "The Holy Nation", "Female"), self.pool("holy_nation", "Female"))
+        self.assertEqual(characters.name_pool("Scorchlander", "Dust Bandits", "Male"), self.pool("general", "Male"))
+
+    def test_a_skeleton_takes_the_general_names_of_both_sexes_in_any_faction(self):
+        both = self.pool("general", "Male") + self.pool("general", "Female")
+        self.assertEqual(characters.name_pool("Skeleton P4MkII", "United Cities", "Other"), both)
+
+    def test_a_race_with_a_trailing_space_finds_its_pool(self):
+        self.assertEqual(characters.name_pool("Deadhive Praetorian ", "Fogmen", "Male"), self.pool("cannibal", "Any"))
+
+    def test_a_rolled_name_is_one_that_the_campaign_does_not_use(self):
+        dominion = self.pool("dominion", "Male")
+        with mock.patch.object(characters, "get_used_names", return_value={n.lower() for n in dominion[1:]}):
+            self.assertEqual(characters.generate_unique_lore_name("Greenlander", "The Dominion", "Male"), dominion[0])
 
 
 class AnimalFlagTest(unittest.TestCase):

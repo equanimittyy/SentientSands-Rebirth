@@ -176,7 +176,7 @@ def load_configs():
         try:
             with open(NAMES_PATH, "r") as f:
                 state.NAMES_CONFIG = json.load(f)
-            logging.debug(f"CONFIG: Loaded {len(state.NAMES_CONFIG)} gender pools from names.json.")
+            logging.debug(f"CONFIG: Loaded {len(state.NAMES_CONFIG.get('pools', {}))} name pools from names.json.")
         except Exception as e:
             logging.error(f"CONFIG: Cannot load names.json: {e}")
 

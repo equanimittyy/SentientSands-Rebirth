@@ -574,6 +574,7 @@ The game gives most generic NPCs a name, and the server keeps it (`name_of` in `
 - The server sends `NPC_RENAME: <npc_id>|<Name>` (`send_rename`), and the plugin puts the `Name` in place of the token (`ShownName` in `plugin/main.cpp`), so Barman Arleen renamed Bob shows as Barman Bob.
 - Outside the player's faction, the profile wins: a chat renames an NPC whose game name differs (`sync_name`). In the player's faction, the game name wins: `setName_hook` notes a rename, and the frame hook posts it to `/squad_rename`.
 - A rolled name comes from `server/data/defaults/names.json`, differs from each `Name` of the campaign (`get_used_names`), and is set only when the profile is first stored. An animal keeps its template name.
+- The pool of a rolled name follows the race, then the faction, then the general pool (`name_pool`), with the pool of each sex, or of both sexes for a skeleton. The pools copy the cultures of the name lists of UWE: biblical names for the Holy Nation, Japanese names for the United Cities, Slavic and steppe names for the Shek, short sounds and object words for hivers, and odd Kenshi names for the rest. The race comes first and a skeleton always takes the general pool, because UWE gives a Shek, a hiver, or a skeleton of the United Cities the names of its race.
 
 ### Current Job
 
