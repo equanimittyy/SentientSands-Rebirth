@@ -23,6 +23,7 @@
 
 #include <algorithm>
 #include <cstdlib>
+#include <map>
 #include <set>
 #include <vector>
 
@@ -41,7 +42,16 @@ static MyGUI::EditBox *g_cheatCount = nullptr;
 static std::vector<hand> g_cheatCharacters;
 static size_t g_cheatCharacterIndex = 0;
 static std::vector<StatsEnumerated> g_cheatStats;
-static std::vector<std::string> g_cheatItemNames;
+
+struct CheatItem {
+  std::string label;
+  GameData *data;
+  GameData *model;
+  GameData *maker;
+  int level;
+};
+static std::vector<CheatItem> g_cheatItems;
+static std::vector<size_t> g_cheatShown;
 
 static void CloseCheatUI() {
   if (g_cheatWindow && MyGUI::Gui::getInstancePtr())
@@ -180,21 +190,118 @@ static bool IsItem(itemType type) {
          type == MAP_ITEM;
 }
 
-static void AddItemNames(GameDataManager &data, std::set<std::string> &names) {
+struct WeaponGrade {
+  int level;
+  GameData *model;
+  GameData *maker;
+};
+
+// The levels of the armour grades on the wiki, which crossbows share; the game
+// showed 40 as Standard and 60 as High on armour
+static const struct {
+  const char *name;
+  int level;
+} GEAR_GRADES[] = {{"Prototype", 5}, {"Shoddy", 20},     {"Standard", 40},
+                     {"High", 60},     {"Specialist", 80}, {"Masterwork", 95}};
+
+static bool ByLevel(const WeaponGrade &a, const WeaponGrade &b) {
+  return a.level < b.level;
+}
+
+static void AddItemRecords(GameDataManager &data,
+                           std::map<std::string, GameData *> &records) {
   boost::unordered::unordered_map<std::string, GameData *>::iterator it;
   for (it = data.gamedataSID.begin(); it != data.gamedataSID.end(); ++it) {
     GameData *record = it->second;
     if (record && !record->name.empty() && IsItem(record->type))
-      names.insert(record->name);
+      records.insert(std::make_pair(record->name, record));
+  }
+}
+
+// A manufacturer lists the weapons that it makes and its grades, each grade
+// with its level. The player's own manufacturer marks a weapon as homemade, so
+// the manufacturer of a trader wins.
+static void AddWeaponGrades(
+    GameDataManager &data,
+    std::map<std::string, std::map<std::string, WeaponGrade> > &grades) {
+  boost::unordered::unordered_map<std::string, GameData *>::iterator it;
+  for (it = data.gamedataSID.begin(); it != data.gamedataSID.end(); ++it) {
+    GameData *maker = it->second;
+    if (!maker || maker->type != WEAPON_MANUFACTURER)
+      continue;
+    const Ogre::vector<GameDataReference>::type *weapons =
+        maker->getReferenceListIfExists("weapon types");
+    const Ogre::vector<GameDataReference>::type *models =
+        maker->getReferenceListIfExists("weapon models");
+    for (size_t m = 0; weapons && models && m < models->size(); ++m) {
+      GameData *model = data.getData(models->at(m).sid);
+      int level = models->at(m).values.value[0];
+      if (!model || level < 1)
+        continue;
+      for (size_t w = 0; w < weapons->size(); ++w) {
+        WeaponGrade &grade = grades[weapons->at(w).sid][model->name];
+        if (grade.model && grade.maker->stringID != "PLAYER_WEAPONS")
+          continue;
+        grade.level = level;
+        grade.model = model;
+        grade.maker = maker;
+      }
+    }
+  }
+}
+
+static void AddCheatItem(const std::string &label, GameData *data,
+                         GameData *model, GameData *maker, int level) {
+  CheatItem item;
+  item.label = label;
+  item.data = data;
+  item.model = model;
+  item.maker = maker;
+  item.level = level;
+  g_cheatItems.push_back(item);
+}
+
+static void FindCheatItems(GameWorld *world) {
+  std::map<std::string, GameData *> records;
+  AddItemRecords(world->leveldata, records);
+  AddItemRecords(world->gamedata, records);
+  std::map<std::string, std::map<std::string, WeaponGrade> > weaponGrades;
+  AddWeaponGrades(world->gamedata, weaponGrades);
+  g_cheatItems.clear();
+  std::map<std::string, GameData *>::iterator it;
+  for (it = records.begin(); it != records.end(); ++it) {
+    GameData *data = it->second;
+    std::vector<WeaponGrade> grades;
+    std::map<std::string, std::map<std::string, WeaponGrade> >::iterator found =
+        weaponGrades.find(data->stringID);
+    if (data->type == WEAPON && found != weaponGrades.end())
+      for (std::map<std::string, WeaponGrade>::iterator g =
+               found->second.begin();
+           g != found->second.end(); ++g)
+        grades.push_back(g->second);
+    std::stable_sort(grades.begin(), grades.end(), ByLevel);
+    for (size_t g = 0; g < grades.size(); ++g)
+      AddCheatItem(it->first + " (" + grades[g].model->name + ")", data,
+                   grades[g].model, grades[g].maker, grades[g].level);
+    if (data->type == ARMOUR || data->type == CROSSBOW)
+      for (size_t g = 0; g < sizeof(GEAR_GRADES) / sizeof(GEAR_GRADES[0]); ++g)
+        AddCheatItem(it->first + " (" + GEAR_GRADES[g].name + ")", data, NULL,
+                     NULL, GEAR_GRADES[g].level);
+    else if (grades.empty())
+      AddCheatItem(it->first, data, NULL, NULL, 0);
   }
 }
 
 static void OnCheatSearchChange(MyGUI::EditBox *sender) {
   std::string wanted = Lower(sender->getCaption().asUTF8());
   g_cheatItemList->removeAllItems();
-  for (size_t i = 0; i < g_cheatItemNames.size(); ++i)
-    if (Lower(g_cheatItemNames[i]).find(wanted) != std::string::npos)
-      g_cheatItemList->addItem(Utf8ToWide(g_cheatItemNames[i]).c_str());
+  g_cheatShown.clear();
+  for (size_t i = 0; i < g_cheatItems.size(); ++i) {
+    if (Lower(g_cheatItems[i].label).find(wanted) == std::string::npos)
+      continue;
+    g_cheatShown.push_back(i);
+    g_cheatItemList->addItem(Utf8ToWide(g_cheatItems[i].label).c_str());
+  }
 }
 
 static void OnCheatSpawnClick(MyGUI::Widget *sender) {
@@ -202,11 +309,16 @@ static void OnCheatSpawnClick(MyGUI::Widget *sender) {
   Character *c = CheatCharacter();
   if (index == MyGUI::ITEM_NONE || !c)
     return;
+  const CheatItem &item = g_cheatItems[g_cheatShown[index]];
   QueuedAction act;
   act.type = ACT_SPAWN_ITEM;
   act.actor = c->getHandle();
   act.target = c->getHandle();
-  act.message = g_cheatItemList->getItemNameAt(index).asUTF8();
+  act.message = item.data->name + "|" + item.label;
+  act.itemData = item.data;
+  act.itemModel = item.model;
+  act.itemMaker = item.maker;
+  act.itemLevel = item.level;
   act.taskValue = atoi(Trimmed(g_cheatCount).c_str());
   if (act.taskValue < 1)
     act.taskValue = 1;
@@ -214,7 +326,7 @@ static void OnCheatSpawnClick(MyGUI::Widget *sender) {
   g_uiActionQueue.push_back(act);
   LeaveCriticalSection(&g_uiMutex);
   Log(LOG_INFO, "CHEAT: Spawning " + ToString(act.taskValue) + " " +
-                    act.message + " for " + c->getName());
+                    item.label + " for " + c->getName());
 }
 
 static void OnCheatWindowButtonPressed(MyGUI::Window *sender,
@@ -250,10 +362,7 @@ void ShowCheatUI(Character *chatTarget) {
   if (!world || !gui)
     return;
   FindCheatCharacters(chatTarget);
-  std::set<std::string> names;
-  AddItemNames(world->leveldata, names);
-  AddItemNames(world->gamedata, names);
-  g_cheatItemNames.assign(names.begin(), names.end());
+  FindCheatItems(world);
   g_cheatStats.clear();
   for (int i = STAT_NONE + 1; i < STAT_END; ++i)
     if (!CharStats::getStatName((StatsEnumerated)i).empty())

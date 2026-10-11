@@ -7,6 +7,7 @@
 
 #include "Utils.h"
 
+class GameData;
 class GameWorld;
 class SharedKing;
 namespace Ogre {
@@ -104,6 +105,14 @@ struct QueuedAction {
   hand target;
   std::string message; // Text, item, faction, town name, or probe payload, depending on type
   int taskValue;       // Task ID, item count, cats, or relation delta, depending on type
+  // A cheat spawn names its record and grade, so SPAWN_ITEM looks up neither
+  GameData *itemData;
+  GameData *itemModel; // The grade of a weapon
+  GameData *itemMaker; // The manufacturer of a weapon
+  int itemLevel;       // The grade of an armour or a crossbow, or the level of a weapon grade
+  QueuedAction()
+      : taskValue(0), itemData(NULL), itemModel(NULL), itemMaker(NULL),
+        itemLevel(0) {}
 };
 
 extern std::deque<QueuedAction> g_uiActionQueue;

@@ -996,7 +996,7 @@ void ExecuteQueuedActions(GameWorld *thisptr, int &inventoryTimer) {
 
           itemType types[] = {ITEM,      WEAPON,           ARMOUR,  CROSSBOW,
                               BLUEPRINT, LIMB_REPLACEMENT, MAP_ITEM};
-          GameData *gd = nullptr;
+          GameData *gd = act.itemData;
 
           auto findInSource = [&](GameDataManager &dm,
                                   const std::string &name) -> GameData * {
@@ -1028,7 +1028,8 @@ void ExecuteQueuedActions(GameWorld *thisptr, int &inventoryTimer) {
             return (GameData *)nullptr;
           };
 
-          gd = findInSource(thisptr->leveldata, templateName);
+          if (!gd)
+            gd = findInSource(thisptr->leveldata, templateName);
           if (!gd)
             gd = findInSource(thisptr->gamedata, templateName);
 
@@ -1090,11 +1091,11 @@ void ExecuteQueuedActions(GameWorld *thisptr, int &inventoryTimer) {
                     p->getName());
 
                 // Weapons, armour, and crossbows need material and manufacturer data
-                GameData *meshData = nullptr;
-                GameData *materialData = nullptr;
+                GameData *meshData = act.itemModel;
+                GameData *materialData = act.itemMaker;
 
-                if (gd->type == WEAPON || gd->type == ARMOUR ||
-                    gd->type == CROSSBOW) {
+                if (!meshData && (gd->type == WEAPON || gd->type == ARMOUR ||
+                                  gd->type == CROSSBOW)) {
                   auto getRef = [&](const std::string &refName) -> GameData * {
                     const Ogre::vector<GameDataReference>::type *refs =
                         gd->getReferenceListIfExists(refName);
@@ -1175,7 +1176,7 @@ void ExecuteQueuedActions(GameWorld *thisptr, int &inventoryTimer) {
                 }
 
                 Item *item = thisptr->theFactory->createItem(
-                    gd, hand(), meshData, materialData, 0, NULL);
+                    gd, hand(), meshData, materialData, act.itemLevel, NULL);
                 if (item) {
                   item->quantity = 1;
                   item->quality = 1.0f;
