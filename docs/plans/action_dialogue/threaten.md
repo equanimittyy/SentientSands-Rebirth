@@ -17,10 +17,12 @@ The NPC answers a threat, a demand, or a challenge to a fight in one of three wa
 | Answer | Result |
 |---|---|
 | It gives in | It makes an offer of the handover ([Offer](framework.md#offer)), for example "Bandit offers 200 cats and a Katana.". When the player declines the offer, the player can demand more in the reply. |
-| It fights | The reply ends with `[ATTACK]`, and `ATTACK` runs at once. The NPC attacks the speaker ([Speaker](framework.md#5-speaker)), and the fight then spreads to the squad. |
+| It fights | The reply ends with `[ATTACK]`, and `ATTACK` runs at once. The NPC attacks the speaker ([Speaker](framework.md#5-speaker)), and its squad fights the squad of the speaker. |
 | It refuses | It neither gives in nor fights, and the action dialogue goes on. |
 
 The action dialogue ends when the player accepts an offer, or when the NPC attacks the speaker.
+
+An attack marks the NPC's squad and the speaker's squad as temporary enemies of each other, because the game marks only the hitter of a character as its enemy. The fight ends when one squad is all knocked out or dead, or when neither squad attacks the other for 30 s of unpaused game time, for example after the player runs away. The plugin then clears the marks and the AI goals of the NPC's squad, so that the NPC does not attack the speaker again when the speaker gets up (`WatchFights` in `plugin/game/GameActions.cpp`).
 
 ## 4. Hard limits
 

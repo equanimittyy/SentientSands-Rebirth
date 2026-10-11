@@ -366,9 +366,17 @@ static void FreePrisoner(GameWorld *world, Character *target) {
   world->showPlayerAMessage("You have been freed!", true);
 }
 
-// A jailer whose package keeps it at its desk never walks to the cage, so a
-// paid release frees the prisoner after this much unpaused time
-static const DWORD RELEASE_WAIT_MS = 30000;
+// The unpaused time after which a watcher stops waiting for the game: a jailer
+// whose package keeps it at its desk never walks to the cage, and a squad that
+// runs from a fight never goes down
+static const DWORD ACTION_WAIT_MS = 30000;
+
+static DWORD UnpausedStep(GameWorld *world, DWORD &last) {
+  DWORD now = GetTickCount();
+  DWORD step = world->isPaused() ? 0 : now - last;
+  last = now;
+  return step;
+}
 
 struct PendingRelease {
   unsigned int key; // A key outlives the new handle of a squad change
@@ -378,9 +386,7 @@ static std::vector<PendingRelease> g_releases;
 
 void WatchReleases(GameWorld *world) {
   static DWORD last = GetTickCount();
-  DWORD now = GetTickCount();
-  DWORD step = world->isPaused() ? 0 : now - last;
-  last = now;
+  DWORD step = UnpausedStep(world, last);
   for (size_t i = 0; i < g_releases.size();) {
     Character *target = KeyedCharacter(g_releases[i].key);
     if (!target || !IsLockedUp(target)) {
@@ -388,7 +394,7 @@ void WatchReleases(GameWorld *world) {
       continue;
     }
     g_releases[i].waited += step;
-    if (g_releases[i].waited < RELEASE_WAIT_MS) {
+    if (g_releases[i].waited < ACTION_WAIT_MS) {
       ++i;
       continue;
     }
@@ -396,6 +402,111 @@ void WatchReleases(GameWorld *world) {
                       " locked up, so the plugin frees it");
     FreePrisoner(world, target);
     g_releases.erase(g_releases.begin() + i);
+  }
+}
+
+struct Fight {
+  std::vector<unsigned int> npcs;
+  std::vector<unsigned int> players;
+  DWORD quiet;
+};
+static std::vector<Fight> g_fights;
+
+static void SquadKeys(Character *member, std::vector<unsigned int> &keys) {
+  ActivePlatoon *active = member->getPlatoon();
+  if (!active || (uintptr_t)active < 0x1000) {
+    keys.push_back(HandleKey(member));
+    return;
+  }
+  for (uint32_t i = 0; i < active->things.size(); ++i) {
+    RootObject *thing = active->things[i];
+    // A pack animal does not fight, so the fight would go on until it died
+    if (thing && (uintptr_t)thing > 0x1000 &&
+        thing->getDataType() == CHARACTER &&
+        !((Character *)thing)->isAnimal())
+      keys.push_back(HandleKey((Character *)thing));
+  }
+}
+
+static void Members(const std::vector<unsigned int> &keys,
+                    std::vector<Character *> &out) {
+  for (size_t i = 0; i < keys.size(); ++i) {
+    Character *c = KeyedCharacter(keys[i]);
+    if (c)
+      out.push_back(c);
+  }
+}
+
+// The game marks only the hitter of a character as its enemy, so a squad-mate
+// that no one hits stays out of the fight
+static void MarkEnemies(const std::vector<Character *> &side,
+                        const std::vector<Character *> &enemies, bool enemy) {
+  for (size_t i = 0; i < side.size(); ++i)
+    for (size_t j = 0; j < enemies.size(); ++j) {
+      if (enemy)
+        side[i]->rememberCharacter(enemies[j], ST_TEMPORARY_ENEMY);
+      else
+        side[i]->clearTempEnemyStatus(enemies[j]);
+    }
+}
+
+static bool Down(const std::vector<Character *> &side) {
+  for (size_t i = 0; i < side.size(); ++i)
+    if (!side[i]->isDead() && !side[i]->isUnconcious())
+      return false;
+  return true;
+}
+
+static bool Attacks(const std::vector<Character *> &side,
+                    const std::vector<Character *> &enemies) {
+  for (size_t i = 0; i < side.size(); ++i) {
+    Character *target = side[i]->getAttackTarget().getCharacter();
+    if (target &&
+        std::find(enemies.begin(), enemies.end(), target) != enemies.end())
+      return true;
+  }
+  return false;
+}
+
+static void StartFight(Character *npc, Character *speaker) {
+  Fight fight;
+  fight.quiet = 0;
+  SquadKeys(npc, fight.npcs);
+  SquadKeys(speaker, fight.players);
+  std::vector<Character *> npcs, players;
+  Members(fight.npcs, npcs);
+  Members(fight.players, players);
+  MarkEnemies(npcs, players, true);
+  MarkEnemies(players, npcs, true);
+  g_fights.push_back(fight);
+}
+
+void WatchFights(GameWorld *world) {
+  static DWORD last = GetTickCount();
+  DWORD step = UnpausedStep(world, last);
+  for (size_t i = 0; i < g_fights.size();) {
+    std::vector<Character *> npcs, players;
+    Members(g_fights[i].npcs, npcs);
+    Members(g_fights[i].players, players);
+    bool fighting = Attacks(npcs, players) || Attacks(players, npcs);
+    g_fights[i].quiet = fighting ? 0 : g_fights[i].quiet + step;
+    bool down = Down(npcs) || Down(players);
+    if (!down && g_fights[i].quiet < ACTION_WAIT_MS) {
+      ++i;
+      continue;
+    }
+    // The marks and the attack goal outlive the fight, so the NPC attacked the
+    // speaker again when it got up
+    MarkEnemies(npcs, players, false);
+    MarkEnemies(players, npcs, false);
+    for (size_t j = 0; j < npcs.size(); ++j)
+      if (!npcs[j]->isDead()) {
+        npcs[j]->clearAllAIGoals();
+        npcs[j]->reThinkCurrentAIAction();
+      }
+    Log(LOG_INFO, std::string("ACTION: A fight ended, because ") +
+                      (down ? "a squad is down" : "no one attacked"));
+    g_fights.erase(g_fights.begin() + i);
   }
 }
 
@@ -449,6 +560,7 @@ void ExecuteQueuedActions(GameWorld *thisptr, int &inventoryTimer) {
             PerformLeaveSquad(npc, thisptr, "");
             npc->clearAllAIGoals();
           }
+          StartFight(npc, target);
           npc->attackTarget(target);
           npc->addGoal(MELEE_ATTACK, (RootObjectBase *)target);
           npc->reThinkCurrentAIAction();
