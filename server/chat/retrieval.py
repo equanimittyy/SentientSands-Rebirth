@@ -20,6 +20,8 @@ STOP_WORDS = frozenset("""
     such t than that the their theirs them themselves then there these they this those through to too under until up ve
     very was we were what when where which while who whom why will with would y yes you your yours yourself yourselves
 """.split())
+# The money of Kenshi, which a barter names on every line: as "cat" it would find the character Cat, and Cat-Lon
+CURRENCY = "cats"
 TEXT_LIMIT = 700
 # The name, the aliases, the fields, and the text
 WEIGHTS = (10.0, 10.0, 3.0, 1.0)
@@ -59,7 +61,7 @@ def _character(character):
 
 def words(text):
     """A word of 4 or more letters loses a final "s", so "skeletons" finds Skeleton."""
-    return [word[:-1] if len(word) >= 4 and word.endswith("s") else word for word in _WORD.findall(text.casefold())]
+    return [word[:-1] if len(word) >= 4 and word.endswith("s") and word != CURRENCY else word for word in _WORD.findall(text.casefold())]
 
 
 # The knowledge filter takes the name words of each name and field value of the lore on each chat line
@@ -119,6 +121,8 @@ def find_lore(message, records, town=None, zone=None):
     for word, term in _terms(db, list(dict.fromkeys(_WORD.findall(message.casefold())))):
         if word in STOP_WORDS:
             skipped.append((word, "common"))
+        elif word == CURRENCY:
+            skipped.append((word, "currency"))
         elif term not in vocabulary:
             skipped.append((word, "not lore"))
         elif counts[term] > COMMON_SHARE * len(records):

@@ -223,7 +223,7 @@ The last user message holds the lore entries, memories, and rumors that the play
 
 ### Name matching
 
-1. The line and each name become lowercase words, split at each character that is not a letter or a digit. A word of 4 or more letters loses a final "s".
+1. The line and each name become lowercase words, split at each character that is not a letter or a digit. A word of 4 or more letters loses a final "s", except "cats" (`CURRENCY`): a barter names the money on every line, and as "cat" it found the character Cat.
 2. A name loses a leading "the".
 3. A name matches when its words appear in the line in order, with no word between them.
 4. A match inside a longer match is dropped.
@@ -232,7 +232,7 @@ The last user message holds the lore entries, memories, and rumors that the play
 
 An FTS5 table holds one row per record (name, aliases, fields, text) with the `porter unicode61` tokenizer.
 
-1. A word of the line searches only when it is in the vocabulary of names, aliases, and field values, is not a stop word, and appears in no more than a tenth of the records (`COMMON_SHARE`). The vocabulary keeps chat words out, because BM25 ranks rare words high.
+1. A word of the line searches only when it is in the vocabulary of names, aliases, and field values, is not a stop word or "cats", and appears in no more than a tenth of the records (`COMMON_SHARE`). The stemmer turns "cats" into "cat", which found Cat-Lon in the fields of the Second and the Third Empire. The vocabulary keeps chat words out, because BM25 ranks rare words high.
 2. The search is an OR of these words, ranked by BM25 with the weights in `WEIGHTS`.
 3. A hit below 60% of the best score is dropped (`SCORE_RATIO`).
 

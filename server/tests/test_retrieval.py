@@ -119,6 +119,19 @@ class ContentSearchTest(unittest.TestCase):
         self.assertEqual(hits[0]["name"], "Shek Kingdom")
 
 
+class CurrencyTest(unittest.TestCase):
+    LORE = [*LORE, record("character", "Cat", "A medic held for ransom."), record("faction", "Third Empire", "An army of the dead.", fields={"leader": "Mad Cat-Lon"})]
+
+    def test_the_currency_finds_no_lore(self):
+        hits, skipped = retrieval.find_lore("I'll give you 500 cats.", self.LORE)
+        self.assertEqual(hits, [])
+        self.assertIn(("cats", "currency"), skipped)
+
+    def test_a_name_with_cat_still_finds_its_record(self):
+        self.assertEqual(names(retrieval.find_lore("Where is Cat?", self.LORE)[0])[0], ("character", "Cat"))
+        self.assertIn(("faction", "Third Empire"), names(retrieval.find_lore("Who is Cat-Lon?", self.LORE)[0]))
+
+
 class PlaceOrderTest(unittest.TestCase):
     def test_without_a_place_the_hits_keep_their_score_order(self):
         self.assertEqual(set(names(lore("Any bonedogs around?"))), {("location", "Squin"), ("region", "Bast"), ("region", "Stenn Desert"), ("region", "Border Zone")})

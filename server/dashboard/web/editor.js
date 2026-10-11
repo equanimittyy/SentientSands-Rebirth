@@ -73,7 +73,7 @@ const creation = { kind: "faction", name: "" };
 const duplication = { name: "" };
 const importing = { name: "" };
 const testSearch = { open: false, message: "", npc: "", speaker: "", result: null, of: "" };
-const SKIP_REASONS = { common: "a common English word", "not lore": "not a word of the lore", frequent: "in too many entries" };
+const SKIP_REASONS = { common: "a common English word", currency: "the money of Kenshi", "not lore": "not a word of the lore", frequent: "in too many entries" };
 
 const commaList = (text) => text.split(",").map((item) => item.trim()).filter(Boolean);
 const lineList = (text) => text.split("\n").map((item) => item.trim()).filter(Boolean);
