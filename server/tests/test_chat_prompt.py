@@ -71,10 +71,6 @@ class HeardLineTest(unittest.TestCase):
         self.assertEqual(chat_prompt.heard_line("[Day 3, 14:05] ", "h:11", self.STICK, self.JORGE, "Hey!", "(Yelled) "), "[Day 3, 14:05] (Overheard) (Yelled) Stick to Jorge: Hey!")
         self.assertEqual(chat_prompt.heard_line("", "h:11", self.JORGE, self.STICK, "Hm."), "(Overheard) Jorge to Stick: Hm.")
 
-    def test_each_reader_hears_a_line_to_everyone_plainly(self):
-        for reader in ("h:10", "h:11"):
-            self.assertEqual(chat_prompt.heard_line("", reader, self.STICK, None, "Hey!", "(Yelled) "), "(Yelled) Stick: Hey!")
-
 
 class HistoryTurnsTest(unittest.TestCase):
     def test_the_npc_lines_are_assistant_turns_without_time_or_name(self):

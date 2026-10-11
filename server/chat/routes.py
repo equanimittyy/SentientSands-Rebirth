@@ -522,7 +522,9 @@ def chat():
         favoured = {target_key} | radiant.named(player_message, aliases) | {key for key, npc in crowd.items() if npc["npc_id"] in speaking}
         order = radiant.yell_turns(answering, favoured, speaker_key, target_key)
         if primary_id == speaker_id:
+            # A yell at everyone counts as spoken only to the NPCs that answer it, so a bystander that stays quiet overhears it
             target = None
+            answerers = {crowd[key]["npc_id"] for key, _ in order[1:]}
         first = order[1][0]
         if first != target_key:
             ctx_dict, raw_npc, target_key = crowd[first], crowd[first]["name"], first
@@ -562,7 +564,7 @@ def chat():
 
     mode_tag = {"whisper": "(Whispered) ", "yell": "(Yelled) "}.get(mode, "")
     time_prefix = get_current_time_prefix()
-    full_player_entry = chat_prompt.heard_line(time_prefix, primary_id, (speaker_id, player_name), target, player_message, mode_tag)
+    full_player_entry = chat_prompt.heard_line(time_prefix, primary_id, (speaker_id, player_name), target or (primary_id, primary_npc), player_message, mode_tag)
 
     live = state.LIVE_CONTEXTS.get(primary_id, {})
     rows = campaign_db.dialogue(primary_id)
@@ -667,7 +669,7 @@ def chat():
                 char_datas[npc_id] = get_character_data(name, local_context)
 
             new_lines = [
-                (chat_prompt.heard_line(time_prefix, npc_id, (speaker_id, player_name), target, player_message, mode_tag), speaker_id),
+                (chat_prompt.heard_line(time_prefix, npc_id, (speaker_id, player_name), target or ((npc_id, name) if npc_id in answerers else (None, "everyone")), player_message, mode_tag), speaker_id),
                 (chat_prompt.heard_line(time_prefix, npc_id, (primary_id, primary_npc), (speaker_id, player_name), content), primary_id),
             ]
             char_datas[npc_id]["ConversationHistory"].extend(line for line, _ in new_lines)

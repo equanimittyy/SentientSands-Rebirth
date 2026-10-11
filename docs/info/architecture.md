@@ -391,7 +391,7 @@ A plain chat line in Yell mode can get up to 3 replies, one after another, from 
 
 - The NPCs that can answer are the target and each NPC within `YellRadius` that is outside the player's faction and awake (`radiant.can_answer`). An animal never answers, and a yell at an animal outside the squad gets only the reply of the animal.
 - Only the player's speaker speaks for the squad. So a yell at the speaker or at a squad member gets only the replies of the other NPCs, and no reply when no other NPC can answer.
-- A yell at the speaker itself is a yell at everyone, so each NPC that hears it gets the line as spoken to it, for example `(Yelled) Stick: ...`.
+- A yell at the speaker itself is a yell at everyone. Each NPC that answers it gets the line as spoken to it, for example `(Yelled) Stick: ...`, and each other NPC overhears it, for example `(Overheard) (Yelled) Stick to everyone: ...`.
 - The server shows the "{name} is thinking..." status and the "..." bubble of the NPC that answers first, just before its chat call. For a talk or a whisper the plugin shows them for the target when it sends the line (`ChatResponseThread` in `plugin/ui/ChatWindow.cpp`), but only the server knows which NPC answers a yell.
 - A plain chat reason of the target (see [Action dialogue](#action-dialogue)) does not reach another NPC that answers first, because the reason judges only the target.
 - The server rolls the count of replies: 1 at 50 %, 2 at 30 %, or 3 at 20 % (`radiant.YELL_REPLIES`). When only one NPC can answer, the count is 1.
