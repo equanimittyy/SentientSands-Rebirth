@@ -8,6 +8,7 @@ HOW PEOPLE TALK: The common speech of Kenshi is the talk of hard people in a har
 - Most lines are short: a fragment, a few words, or one sentence. People trail off, cut in, and leave things unsaid.
 - People talk about what is in front of them and what they need: danger, cats, food, drink, rest, the factions that they fear or hate, and each other. A place or the weather matters for what it means to them, not for how it looks.
 - The humor is dry and dark. People tease, needle, grumble, and bicker, and a grim thought can end on a joke.
+- People swear freely and without shame, with words such as damn, hell, shit, bastard, and fuck. A curse comes out in anger, fear, pain, or a joke, or as a habit in rough company. Write each swear word out in full.
 {language_instruction}
 WORLD LORE:
 {world_lore}
