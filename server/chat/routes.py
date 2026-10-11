@@ -8,7 +8,7 @@ import time
 
 from flask import Blueprint, jsonify, request
 
-from chat import action_dialogue, background, chat_prompt, offers, radiant, retrieval, rumors, scene_text
+from chat import action_dialogue, background, chat_prompt, offers, radiant, reply_text, retrieval, rumors, scene_text
 from chat.bio import BIO_PARTS, generate_bio, recorded_history, write_bio
 from chat.characters import get_character_data, npc_name, should_save_profile
 from chat.llm import call_llm
@@ -128,7 +128,7 @@ def play_radiant(conversation):
         for index, (speaker, _) in enumerate(conversation["order"]):
             label = f"{names[speaker]}|{speaker}"
             prompt = conversation["frame"] + "\n\n" + fill_prompt("prompt_radiant_line.txt", talk=radiant.talk(spoken, names), speaker=label, persona=conversation["personas"][speaker], turn=radiant.turn(index, conversation["order"], names))
-            text = radiant.line(call_llm("radiant", [{"role": "system", "content": conversation["system"]}, {"role": "user", "content": prompt}]) or "", names[speaker], speaker)
+            text = reply_text.spoken(call_llm("radiant", [{"role": "system", "content": conversation["system"]}, {"role": "user", "content": prompt}]) or "", *radiant.voices(names, speaker))
             if not text:
                 logging.warning(f"RADIANT: The LLM wrote no line for {names[speaker]}, so the talk ends.")
                 break
@@ -555,53 +555,11 @@ def chat():
         if offered:
             content = content.replace(offered, "")
 
-        # Allows one level of nested brackets: item names like "Bolts [Toothpicks]" contain them
-        content = re.sub(r'\[\s*(?:[^\[\]]|\[[^\[\]]*\])+\s*\]', '', content).strip()
-
-
-        content = content.replace('"', '').strip()
-        
-        lines = content.split('\n')
         # The chat window keeps the name that the target had when it opened, so the request can name the target by an old name
         own_names = {primary_npc.lower(), register(raw_npc).lower()}
         # The game name and the Name of an NPC differ when the game gave it a title
         other_names = {name.lower() for name in [*npcs, *(n["name"] for n in nearby if n.get("name")), *(name for name, _ in listeners.values())]} - own_names
-        filtered_lines = []
-        for line in lines:
-            line = line.strip()
-            if not line: continue
-            
-            line = re.sub(r'\[\s*[^\]]+\s*\]', '', line).strip()
-            if not line: continue
-
-            lower_line = line.lower()
-            if any(lower_line.startswith(prefix) for prefix in [
-                "thought:", "thinking:", "observation:", "note:", "(thinking", 
-                "as an ai", "i cannot", "here is", "raw llm response:", 
-                "timestamp:", "request for:", "prompt:", "user message:",
-                "history:", "character:", "personality:", "backstory:", "current condition"
-            ]):
-                continue
-            
-            # A divider such as "===" holds no letters, but an animal's "Grr" does
-            if not any(c.isalnum() for c in line):
-                continue
-                
-            # Only a known name counts as a speaker, so a reply such as "Listen: ..." keeps its first word
-            prefix_match = re.match(r'^([^:]{1,63}):\s*', line)
-            if prefix_match:
-                p = prefix_match.group(1).strip().lower()
-                if p == player_name.lower() or p in other_names:
-                    logging.debug(f"CHAT: Filter: Discarded a line voiced as {p} (expected {primary_npc})")
-                    continue
-                if p in own_names:
-                    line = line[prefix_match.end():]
-            
-            if line:
-                filtered_lines.append(line)
-        
-        # The plugin shows each line as its own speech bubble, so one reply is one line
-        content = " ".join(filtered_lines) if filtered_lines else "..."
+        content = reply_text.spoken(content, own_names, other_names | {player_name.lower()}) or "..."
         # The model still gives an animal words now and then, so only the *action* parts reach the game
         if animal:
             content = " ".join(re.findall(r"\*[^*\n]+\*", content)) or "..."

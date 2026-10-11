@@ -5,7 +5,7 @@ import unittest
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
 
-from chat import radiant
+from chat import radiant, reply_text
 
 MEMORY = {"game_time": None, "memory": "Stick asked Jorge for work.", "members": [("h:10", "Stick", "speaker", True), ("h:14", "Jorge", "speaker", True)]}
 
@@ -161,21 +161,20 @@ class AcquaintanceTest(unittest.TestCase):
         self.assertEqual(radiant.acquaintance(names, partners), "- Stick and Jorge know each other.\n- Stick and Ruka know each other well.\n- Jorge and Ruka have never talked.")
 
 
-class LineTest(unittest.TestCase):
-    def test_the_words_of_the_reply_stay(self):
-        self.assertEqual(radiant.line("\"Too hot.\"", "Jorge", "14"), "Too hot.")
+class VoicesTest(unittest.TestCase):
+    NAMES = {"10": "Stick", "14": "Jorge", "20": "Stick"}
 
-    def test_the_label_of_the_speaker_goes(self):
-        for reply in ("Jorge|14: Too hot.", "Jorge: Too hot.", "**Jorge|14**: Too hot.", "Jorge|14:\nToo hot."):
-            self.assertEqual(radiant.line(reply, "Jorge", "14"), "Too hot.", reply)
+    def test_the_speaker_owns_its_name_and_its_label(self):
+        own, _ = radiant.voices(self.NAMES, "14")
+        self.assertEqual(own, {"jorge", "jorge|14"})
 
-    def test_only_the_first_line_of_the_reply_counts(self):
-        self.assertEqual(radiant.line("Too hot.\nStick|10: Then drink.", "Jorge", "14"), "Too hot.")
+    def test_the_others_are_named_by_their_names_and_labels_but_never_by_the_own_name(self):
+        _, others = radiant.voices(self.NAMES, "10")
+        self.assertEqual(others, {"jorge", "jorge|14", "stick|20"})
 
-    def test_bracketed_text_goes_and_a_reply_of_only_brackets_has_no_line(self):
-        self.assertEqual(radiant.line("[ACTION: IDLE] Fine. [JUDGMENT: 2]", "Jorge", "14"), "Fine.")
-        self.assertEqual(radiant.line("[ACTION: IDLE]", "Jorge", "14"), "")
-        self.assertEqual(radiant.line("", "Jorge", "14"), "")
+    def test_the_reply_keeps_only_the_words_of_the_speaker(self):
+        reply = "**Jorge|14**: Too hot.\nStick|10: Then drink.\nJorge|14: I will."
+        self.assertEqual(reply_text.spoken(reply, *radiant.voices(self.NAMES, "14")), "Too hot.")
 
 
 if __name__ == "__main__":

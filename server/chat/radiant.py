@@ -2,13 +2,10 @@
 in which one LLM call writes each line."""
 
 import random
-import re
 
 from chat import chat_prompt, current_job, retrieval
 from chat.prompts import describe_record
 
-# Allows one level of nested brackets, as the chat reply does: item names like "Bolts [Toothpicks]" contain them
-_BRACKETS = re.compile(r"\[\s*(?:[^\[\]]|\[[^\[\]]*\])+\s*\]")
 LENGTHS = (
     ((2, 4), "A remark gets a reply or two, and the talk dies out."),
     ((5, 7), "The talk goes back and forth a few times."),
@@ -116,9 +113,9 @@ def acquaintance(names, partners):
     return "\n".join(pairs)
 
 
-def line(content, name, key):
-    """The words of the line in the reply, or "" when it has none. The model can start the reply with the label of the
-    speaker, as THE TALK SO FAR shows each line, and go on with the lines of others."""
-    text = re.sub(rf"^\**(?:{re.escape(f'{name}|{key}')}|{re.escape(name)})\**\s*:", "", content.strip()).strip()
-    first = text.splitlines()[0] if text else ""
-    return _BRACKETS.sub("", first).strip().strip('"').strip()
+def voices(names, speaker):
+    """The own names and the other names of reply_text.spoken for a line of the speaker. The model can start the reply
+    with the label of the speaker, as THE TALK SO FAR shows each line, and go on with the lines of others."""
+    own = {names[speaker].lower(), f"{names[speaker]}|{speaker}".lower()}
+    others = {label.lower() for key, name in names.items() if key != speaker for label in (name, f"{name}|{key}")}
+    return own, others - own
