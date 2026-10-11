@@ -1,5 +1,5 @@
-"""The topic and the reply of a radiant conversation, a talk between the player's characters, or between NPCs near them,
-that one LLM call writes."""
+"""The topic and the lines of a radiant conversation, a talk between the player's characters, or between NPCs near them,
+in which one LLM call writes each line."""
 
 import random
 import re
@@ -7,10 +7,8 @@ import re
 from chat import chat_prompt, current_job, retrieval
 from chat.prompts import describe_record
 
-_LINE = re.compile(r"^([^:|\n]{1,63})\|(\d+)\s*:\s*(.*)$")
 # Allows one level of nested brackets, as the chat reply does: item names like "Bolts [Toothpicks]" contain them
 _BRACKETS = re.compile(r"\[\s*(?:[^\[\]]|\[[^\[\]]*\])+\s*\]")
-# Left to choose, the model writes a long conversation every time, so the server picks the length of each one
 LENGTHS = (
     ((2, 4), "A remark gets a reply or two, and the talk dies out."),
     ((5, 7), "The talk goes back and forth a few times."),
@@ -51,13 +49,28 @@ def turns(keys, count, rng=random):
     return order
 
 
-def script(names, rng=random):
-    """The TURNS of the prompt: the length and its feel, then the speaker and the addressee of each line. names maps each
-    handle key to its Name."""
+def plan(keys, rng=random):
+    """The LENGTH of the prompt, which is the line count and its feel, and the turns of the lines."""
     (fewest, most), feel = rng.choice(LENGTHS)
-    order = turns(list(names), rng.randint(fewest, most), rng)
-    rows = [f"{index}. {names[speaker]}|{speaker} to {names[addressee] if addressee else 'everyone'}" for index, (speaker, addressee) in enumerate(order, 1)]
-    return "\n".join([f"{len(order)} lines. {feel}", *rows])
+    order = turns(keys, rng.randint(fewest, most), rng)
+    return f"{len(order)} lines. {feel}", order
+
+
+def turn(index, order, names):
+    """The NEXT LINE of the prompt. Each call sees only the lines before it, so the line must know where it stands in the
+    talk to open it or to close it. names maps each handle key to its Name."""
+    speaker, addressee = order[index]
+    where = f"Line {index + 1} of {len(order)}"
+    if index == len(order) - 1:
+        where += ", the last, which closes the talk"
+    elif index == 0:
+        where += ", which opens the talk"
+    return f"{where}. {names[speaker]}|{speaker} speaks to {names[addressee] if addressee else 'everyone'}."
+
+
+def talk(spoken, names):
+    """THE TALK SO FAR of the prompt. spoken holds the (handle key, text) of each line."""
+    return "\n".join(f"{names[key]}|{key}: {text}" for key, text in spoken) or "Nobody has spoken yet."
 
 
 def npc_group(npcs, has_profile, rng=random):
@@ -103,17 +116,9 @@ def acquaintance(names, partners):
     return "\n".join(pairs)
 
 
-def lines(content, keys):
-    """The (handle key, text) of each line of the reply, or none when a line is not the line of a participant. That line
-    would reach the game as a line of nobody, and the conversation without it can make no sense."""
-    found = []
-    for line in content.splitlines():
-        if not line.strip():
-            continue
-        match = _LINE.match(line.strip())
-        if not match or match.group(2) not in keys:
-            return []
-        text = _BRACKETS.sub("", match.group(3)).strip().strip('"').strip()
-        if text:
-            found.append((match.group(2), text))
-    return found
+def line(content, name, key):
+    """The words of the line in the reply, or "" when it has none. The model can start the reply with the label of the
+    speaker, as THE TALK SO FAR shows each line, and go on with the lines of others."""
+    text = re.sub(rf"^\**(?:{re.escape(f'{name}|{key}')}|{re.escape(name)})\**\s*:", "", content.strip()).strip()
+    first = text.splitlines()[0] if text else ""
+    return _BRACKETS.sub("", first).strip().strip('"').strip()

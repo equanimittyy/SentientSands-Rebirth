@@ -1,0 +1,9 @@
+THE TALK SO FAR:
+{talk}
+
+SPEAKER: {speaker}
+{persona}
+
+NEXT LINE: {turn}
+
+Output ONLY the words of this line, with no narration and no bracketed text.

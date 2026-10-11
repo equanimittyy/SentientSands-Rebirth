@@ -87,11 +87,13 @@ def building_of(ctx):
     building = ctx.get("building_name")
     return building if building and building != "Unknown" else None
 
-def describe_npc(name, profile, npc_id):
+def describe_npc(name, profile, npc_id, persona=True):
+    """Without persona, only what anyone can see of the NPC: a radiant conversation gives the persona to the speaker of a
+    line alone, because a small model copies the manner of speech of every character in its context into every line."""
     race = profile.get("Race", "Unknown")
     race_entry = find_race(race)
     current_faction = describe_faction(profile.get("Faction"), state.LIVE_CONTEXTS.get(npc_id, {}).get("factionID"))
-    return fill_prompt(
+    facts = fill_prompt(
         "npc_template.txt",
         name=name,
         alias=alias_line(profile),
@@ -100,6 +102,12 @@ def describe_npc(name, profile, npc_id):
         current_job=current_job_line(profile),
         current_faction=current_faction,
         origin_faction=describe_origin(describe_faction(profile.get("OriginFaction", "Unknown")), current_faction),
+    )
+    return f"{facts}\n{describe_persona(profile)}" if persona else facts
+
+def describe_persona(profile):
+    return fill_prompt(
+        "npc_persona_template.txt",
         personality=profile.get("Personality") or "",
         backstory=profile.get("Backstory") or "",
         speech_quirks=profile.get("SpeechQuirks") or "",

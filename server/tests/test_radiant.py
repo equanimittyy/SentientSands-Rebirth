@@ -115,12 +115,38 @@ class TurnsTest(unittest.TestCase):
         order = radiant.turns(["10", "14"], 5, random.Random(1))
         self.assertEqual([speaker for speaker, _ in order][1:], [order[1][0], order[0][0]] * 2)
 
-    def test_the_script_names_each_speaker_by_its_label_and_each_addressee_by_its_name(self):
-        text = radiant.script({"10": "Stick", "14": "Jorge"}, random.Random(3))
-        rows = text.splitlines()
-        self.assertEqual(len(rows) - 1, int(rows[0].split()[0]))
-        self.assertRegex(rows[1], r"^1\. (Stick\|10|Jorge\|14) to everyone$")
-        self.assertRegex(rows[2], r"^2\. (Stick\|10 to Jorge|Jorge\|14 to Stick)$")
+    def test_the_length_counts_the_lines_of_the_plan(self):
+        for seed in range(20):
+            length, order = radiant.plan(["10", "14"], random.Random(seed))
+            self.assertEqual(int(length.split()[0]), len(order))
+            self.assertTrue(2 <= len(order) <= 12)
+
+
+NAMES = {"10": "Stick", "14": "Jorge"}
+
+
+class TurnTest(unittest.TestCase):
+    ORDER = [("10", None), ("14", "10"), ("10", "14")]
+
+    def test_the_first_line_opens_the_talk_and_speaks_to_everyone(self):
+        self.assertEqual(radiant.turn(0, self.ORDER, NAMES), "Line 1 of 3, which opens the talk. Stick|10 speaks to everyone.")
+
+    def test_a_middle_line_names_its_speaker_by_its_label_and_its_addressee_by_its_name(self):
+        self.assertEqual(radiant.turn(1, self.ORDER, NAMES), "Line 2 of 3. Jorge|14 speaks to Stick.")
+
+    def test_the_last_line_closes_the_talk(self):
+        self.assertEqual(radiant.turn(2, self.ORDER, NAMES), "Line 3 of 3, the last, which closes the talk. Stick|10 speaks to Jorge.")
+
+
+class TalkTest(unittest.TestCase):
+    def test_the_talk_so_far_grows_only_at_its_end(self):
+        before = radiant.talk([("10", "Hot today.")], NAMES)
+        after = radiant.talk([("10", "Hot today."), ("14", "Too hot.")], NAMES)
+        self.assertEqual(after, "Stick|10: Hot today.\nJorge|14: Too hot.")
+        self.assertTrue(after.startswith(before))
+
+    def test_a_talk_without_lines_says_so(self):
+        self.assertEqual(radiant.talk([], NAMES), "Nobody has spoken yet.")
 
 
 class AcquaintanceTest(unittest.TestCase):
@@ -135,18 +161,21 @@ class AcquaintanceTest(unittest.TestCase):
         self.assertEqual(radiant.acquaintance(names, partners), "- Stick and Jorge know each other.\n- Stick and Ruka know each other well.\n- Jorge and Ruka have never talked.")
 
 
-class LinesTest(unittest.TestCase):
-    def test_the_lines_of_participants_stay(self):
-        content = "Stick|10: Hot today.\n\nJorge|14: \"Too hot.\""
-        self.assertEqual(radiant.lines(content, {"10": {}, "14": {}}), [("10", "Hot today."), ("14", "Too hot.")])
+class LineTest(unittest.TestCase):
+    def test_the_words_of_the_reply_stay(self):
+        self.assertEqual(radiant.line("\"Too hot.\"", "Jorge", "14"), "Too hot.")
 
-    def test_one_line_of_no_participant_silences_the_reply(self):
-        for stray in ("Narrator: The wind howls.", "Jorge|99: Who am I?", "The end.", "**Jorge|14**: Too hot."):
-            self.assertEqual(radiant.lines(f"Stick|10: Hot today.\n{stray}", {"10": {}, "14": {}}), [], stray)
+    def test_the_label_of_the_speaker_goes(self):
+        for reply in ("Jorge|14: Too hot.", "Jorge: Too hot.", "**Jorge|14**: Too hot.", "Jorge|14:\nToo hot."):
+            self.assertEqual(radiant.line(reply, "Jorge", "14"), "Too hot.", reply)
 
-    def test_bracketed_text_goes_and_an_empty_line_with_it(self):
-        content = "Stick|10: [ACTION: IDLE] Fine. [JUDGMENT: 2]\nJorge|14: [ACTION: IDLE]"
-        self.assertEqual(radiant.lines(content, {"10": {}, "14": {}}), [("10", "Fine.")])
+    def test_only_the_first_line_of_the_reply_counts(self):
+        self.assertEqual(radiant.line("Too hot.\nStick|10: Then drink.", "Jorge", "14"), "Too hot.")
+
+    def test_bracketed_text_goes_and_a_reply_of_only_brackets_has_no_line(self):
+        self.assertEqual(radiant.line("[ACTION: IDLE] Fine. [JUDGMENT: 2]", "Jorge", "14"), "Fine.")
+        self.assertEqual(radiant.line("[ACTION: IDLE]", "Jorge", "14"), "")
+        self.assertEqual(radiant.line("", "Jorge", "14"), "")
 
 
 if __name__ == "__main__":

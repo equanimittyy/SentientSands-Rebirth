@@ -13,7 +13,7 @@ from chat.bio import BIO_PARTS, generate_bio, recorded_history, write_bio
 from chat.characters import get_character_data, npc_name, should_save_profile
 from chat.llm import call_llm
 from chat.memory import quiet_seconds
-from chat.prompts import PROMPT_RUMORS, build_system_prompt, describe_faction, describe_npc, describe_race, fill_prompt, find_location, language_instruction, npc_scene, scene_values
+from chat.prompts import PROMPT_RUMORS, build_system_prompt, describe_faction, describe_npc, describe_persona, describe_race, fill_prompt, find_location, language_instruction, npc_scene, scene_values
 from core import state, world_events
 from core.game import context_dict, get_current_time_prefix, is_player_faction, note_faction, take_report
 from core.pipe import send_to_pipe
@@ -75,34 +75,26 @@ def radiant_conversation():
     playing = False
     try:
         descriptions = [
-            f"{describe_npc(f'{names[key]}|{key}', profiles[key], npc['npc_id'])}\nHEALTH: {npc.get('health') or 'Unknown'}\nGEAR: {npc.get('equipment') or 'nothing notable'}"
+            f"{describe_npc(f'{names[key]}|{key}', profiles[key], npc['npc_id'], persona=False)}\nHEALTH: {npc.get('health') or 'Unknown'}\nGEAR: {npc.get('equipment') or 'nothing notable'}"
             for key, npc in participants.items()
         ]
-        values = {"place": scene_text.location_text(environment, "They"), "participants": "\n\n".join(descriptions), "turns": radiant.script(names)}
+        length, order = radiant.plan(list(participants))
+        values = {"place": scene_text.location_text(environment, "They"), "participants": "\n\n".join(descriptions), "length": length}
         if npc_talk:
-            prompt = fill_prompt("prompt_radiant_npc.txt", rumor=topic, **values)
+            frame = fill_prompt("prompt_radiant_npc.txt", rumor=topic, **values)
         else:
             known = radiant.acquaintance({npc['npc_id']: names[key] for key, npc in participants.items()}, {npc_id: campaign_db.thread_partners(npc_id) for npc_id in npc_ids})
-            prompt = fill_prompt("prompt_radiant.txt", acquaintance=known, topic=topic, **values)
+            frame = fill_prompt("prompt_radiant.txt", acquaintance=known, topic=topic, **values)
         logging.info(f"RADIANT: {', '.join(names.values())} talk{' among the NPCs' if npc_talk else ''}. Topic: {topic}")
-        content = call_llm("radiant", [{"role": "system", "content": build_system_prompt(reply_rules=False)}, {"role": "user", "content": prompt}])
-        lines = radiant.lines(content or "", participants)
-        if not lines:
-            logging.warning("RADIANT: The reply of the LLM is not a conversation of the participants, so nobody talks.")
-            return jsonify({"status": "none"})
-
-        time_prefix = get_current_time_prefix()
-        spoke = {key for key, _ in lines}
-        members = [(npc['npc_id'], "speaker" if key in spoke else "overheard", not npc_talk) for key, npc in participants.items()]
-        thread_id = campaign_db.join_thread(None, members, campaign_db.game_time(time_prefix), scene_text.location_name(center), exchange=False)
-        stored = [(f"{time_prefix}{names[key]}: {text}", participants[key]['npc_id']) for key, text in lines]
-        for key, npc in participants.items():
-            campaign_db.append_dialogue(npc['npc_id'], stored, profiles[key], thread_id)
-        state.LAST_RADIANT = time.monotonic()
+        conversation = {
+            "system": build_system_prompt(reply_rules=False), "frame": frame, "order": order, "names": names,
+            "personas": {key: describe_persona(profiles[key]) for key in participants}, "participants": participants,
+            "profiles": profiles, "npc_talk": npc_talk, "time_prefix": get_current_time_prefix(),
+            "place": scene_text.location_name(center), "campaign": state.ACTIVE_CAMPAIGN,
+        }
         # Before the start: a thread that ends at once releases the stage, and the finally would release it again
         playing = True
-        threading.Thread(target=play_radiant, args=([f"{names[key]}|{key}: {text}" for key, text in lines],), daemon=True).start()
-        logging.info("RADIANT: " + " | ".join(f'{names[key]}: "{text}"' for key, text in lines))
+        threading.Thread(target=play_radiant, args=(conversation,), daemon=True).start()
         return jsonify({"status": "ok"})
     finally:
         if not playing:
@@ -112,8 +104,7 @@ def say(lines, actions=(), think=False):
     """Sends the actions, then each line at least the dialogue delay after the line before it, also when that line ended an
     earlier conversation. The plugin shows a line when it arrives, so the server alone paces every conversation. A pause of
     the game does not stop the delay. The actions go first, so an AI state change cannot clear a bubble that is already up.
-    With think, the speaker of each line shows "..." for the last THINK_SHARE of the delay, so a conversation that one call
-    wrote seems to be thought out line by line."""
+    With think, the speaker of each line shows "..." for the last THINK_SHARE of the delay before it."""
     global _last_line
     for action in actions:
         send_to_pipe(f"NPC_ACTION: {action}")
@@ -128,11 +119,43 @@ def say(lines, actions=(), think=False):
         send_to_pipe(f"NPC_SAY: {line}")
         _last_line = time.monotonic()
 
-def play_radiant(lines):
+def play_radiant(conversation):
+    """Writes each line with its own call, which holds the persona of its speaker alone, and shows it, so the next call
+    runs while the line is up. The prompt grows only at the end of THE TALK SO FAR, so each call reuses the provider's
+    cache of the call before it up to the newest line. A call without a line ends the talk, and the lines so far count."""
+    names, spoken = conversation["names"], []
     try:
-        say(lines, think=True)
+        for index, (speaker, _) in enumerate(conversation["order"]):
+            label = f"{names[speaker]}|{speaker}"
+            prompt = conversation["frame"] + "\n\n" + fill_prompt("prompt_radiant_line.txt", talk=radiant.talk(spoken, names), speaker=label, persona=conversation["personas"][speaker], turn=radiant.turn(index, conversation["order"], names))
+            text = radiant.line(call_llm("radiant", [{"role": "system", "content": conversation["system"]}, {"role": "user", "content": prompt}]) or "", names[speaker], speaker)
+            if not text:
+                logging.warning(f"RADIANT: The LLM wrote no line for {names[speaker]}, so the talk ends.")
+                break
+            # The same npc_id can name another character in another campaign
+            if state.ACTIVE_CAMPAIGN != conversation["campaign"]:
+                logging.info("RADIANT: The active campaign changed, so the talk ends, and nobody remembers it.")
+                return
+            say([f"{label}: {text}"], think=True)
+            spoken.append((speaker, text))
+        if spoken:
+            remember_radiant(conversation, spoken)
+    except Exception as e:
+        # A thread, where nothing else would log the error
+        logging.error(f"RADIANT: The conversation failed: {e}")
     finally:
         _STAGE.release()
+
+def remember_radiant(conversation, spoken):
+    names, participants, time_prefix = conversation["names"], conversation["participants"], conversation["time_prefix"]
+    spoke = {key for key, _ in spoken}
+    members = [(npc['npc_id'], "speaker" if key in spoke else "overheard", not conversation["npc_talk"]) for key, npc in participants.items()]
+    thread_id = campaign_db.join_thread(None, members, campaign_db.game_time(time_prefix), conversation["place"], exchange=False)
+    stored = [(f"{time_prefix}{names[key]}: {text}", participants[key]['npc_id']) for key, text in spoken]
+    for key, npc in participants.items():
+        campaign_db.append_dialogue(npc['npc_id'], stored, conversation["profiles"][key], thread_id)
+    state.LAST_RADIANT = time.monotonic()
+    logging.info("RADIANT: " + " | ".join(f'{names[key]}: "{text}"' for key, text in spoken))
 
 def play_lines(lines, actions=(), after=()):
     """Queues a chat reply, which plays after every reply before it and after a radiant conversation that holds the stage.
