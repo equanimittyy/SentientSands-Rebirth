@@ -389,7 +389,11 @@ An NPC radiant conversation takes the place of a talk of the player's characters
 
 A plain chat line in Yell mode can get up to 3 replies, one after another, from the NPCs that hear it (`chat` in `server/chat/routes.py`). An action dialogue in Yell mode gets one reply from its NPC, because an offer and a judgment belong to one NPC.
 
-- The NPCs that can answer are the target and each NPC within `YellRadius` that is outside the player's faction and awake (`radiant.can_answer`). An animal never answers, and a yell at an animal gets only the reply of the animal.
+- The NPCs that can answer are the target and each NPC within `YellRadius` that is outside the player's faction and awake (`radiant.can_answer`). An animal never answers, and a yell at an animal outside the squad gets only the reply of the animal.
+- Only the player's speaker speaks for the squad. So a yell at the speaker or at a squad member gets only the replies of the other NPCs, and no reply when no other NPC can answer.
+- A yell at the speaker itself is a yell at everyone, so each NPC that hears it gets the line as spoken to it, for example `(Yelled) Stick: ...`.
+- The server shows the "{name} is thinking..." status and the "..." bubble of the NPC that answers first, just before its chat call. For a talk or a whisper the plugin shows them for the target when it sends the line (`ChatResponseThread` in `plugin/ui/ChatWindow.cpp`), but only the server knows which NPC answers a yell.
+- A plain chat reason of the target (see [Action dialogue](#action-dialogue)) does not reach another NPC that answers first, because the reason judges only the target.
 - The server rolls the count of replies: 1 at 50 %, 2 at 30 %, or 3 at 20 % (`radiant.YELL_REPLIES`). When only one NPC can answer, the count is 1.
 - The server picks the speaker and the addressee of each reply (`radiant.yell_turns`), as in a radiant conversation. The first reply speaks to the player's speaker. Then the NPC addressed answers back, or another NPC cuts in, at even odds (`REPLY_SHARE`), and speaks to the last speaker or to the player's speaker.
 - Each pick takes a favoured NPC at 75 % (`FAVOURED_SHARE`): the target, an NPC whose name the line holds, or an NPC that spoke in the yell thread. So in a crowd the NPC that the player meant mostly answers, but the target does not have to.

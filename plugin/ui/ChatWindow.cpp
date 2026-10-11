@@ -122,11 +122,15 @@ DWORD WINAPI ChatResponseThread(LPVOID lpParam) {
   if (!t->offerAnswer.empty())
     PostToPythonWithResponse(L"/offer", t->offerAnswer);
   Log(LOG_INFO, "CHAT: Sending chat request for " + t->npcName);
-  NotifyChatStatus("{name} is thinking...", t->npcName);
-  EnterCriticalSection(&g_msgMutex);
-  g_messageQueue.push_back("NPC_SAY: " + t->npcName + "|" + t->handleStr +
-                           ": ...");
-  LeaveCriticalSection(&g_msgMutex);
+  // The server picks the NPC that answers a yell, so it shows these for that
+  // NPC
+  if (!t->yell) {
+    NotifyChatStatus("{name} is thinking...", t->npcName);
+    EnterCriticalSection(&g_msgMutex);
+    g_messageQueue.push_back("NPC_SAY: " + t->npcName + "|" + t->handleStr +
+                             ": ...");
+    LeaveCriticalSection(&g_msgMutex);
+  }
 
   std::string response = PostToPythonWithResponse(L"/chat", t->json);
   SettleActionDialogue(t, response);
@@ -382,6 +386,7 @@ void SendChatLine(const std::string &npcName, const std::string &handleStr,
   task->npcName = npcName;
   task->handleStr = handleStr;
   task->action = actionLine;
+  task->yell = mode == "yell";
   task->offerAnswer = offerAnswer;
   CreateThread(NULL, 0, ChatResponseThread, task, 0, NULL);
 }

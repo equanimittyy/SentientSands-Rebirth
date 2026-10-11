@@ -47,8 +47,8 @@ def overhearers(nearby, radius, excluded_ids):
 def heard_line(time_prefix, reader, speaker, addressee, text, mode_tag=""):
     """The copy of a chat line for the reader, an npc_id. speaker and addressee are (npc_id, name) pairs. A line that the
     reader neither spoke nor was spoken to names its addressee, because without it a listener took the "you" of the line
-    as itself."""
-    if reader in (speaker[0], addressee[0]):
+    as itself. An addressee of None is everyone, so each reader was spoken to."""
+    if addressee is None or reader in (speaker[0], addressee[0]):
         return f"{time_prefix}{mode_tag}{speaker[1]}: {text}"
     return f"{time_prefix}(Overheard) {mode_tag}{speaker[1]} to {addressee[1]}: {text}"
 

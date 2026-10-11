@@ -510,17 +510,26 @@ def chat():
 
     target = (primary_id, primary_npc)
     order = None
-    if yell and primary_id and speaker_id and not animal_flag(ctx_dict):
+    if yell and primary_id and speaker_id and (npc_in_faction or not animal_flag(ctx_dict)):
         crowd = {target_key: ctx_dict, **{str(n["id"]): n for n in heard if radiant.can_answer(n)}}
+        # Only the player's speaker talks for the squad, so a yell at the speaker or at a squad member gets only the replies of bystanders
+        answering = [key for key in crowd if key != target_key or not npc_in_faction]
+        if not answering:
+            logging.info(f"CHAT: No one outside the squad can answer the yell of {player_name}.")
+            return reply()
         speaking = {npc_id for npc_id, _, role, _ in campaign_db.thread_members([current_thread]).get(current_thread, []) if role == "speaker"} if current_thread else set()
         aliases = {key: (listeners[npc["npc_id"]][0], npc.get("name")) for key, npc in crowd.items()}
         favoured = {target_key} | radiant.named(player_message, aliases) | {key for key, npc in crowd.items() if npc["npc_id"] in speaking}
-        order = radiant.yell_turns(list(crowd), favoured, speaker_key, target_key)
+        order = radiant.yell_turns(answering, favoured, speaker_key, target_key)
+        if primary_id == speaker_id:
+            target = None
         first = order[1][0]
         if first != target_key:
             ctx_dict, raw_npc, target_key = crowd[first], crowd[first]["name"], first
             primary_id = ctx_dict["npc_id"]
             primary_npc = listeners[primary_id][0]
+            # The reason judges the target, so it does not hold for another NPC
+            chat_reason = None
 
     char_datas = {}
     for npc_id, (name, local_context) in listeners.items():
@@ -606,6 +615,11 @@ def chat():
     notes = chat_prompt.overheard_notes(campaign_db.thread_members({thread_id for _, _, thread_id in history if thread_id}), primary_id)
     messages = chat_prompt.chat_messages(system, chat_prompt.history_turns(chat_prompt.with_notes(history, notes), primary_id), turn)
 
+    if mode == "yell":
+        # The plugin shows these at once for a talk, but only the server knows which NPC answers a yell
+        thinking = state.LOCALIZATION_CONFIG.get(load_settings()["language"], {}).get("{name} is thinking...", "{name} is thinking...")
+        notify(thinking.replace("{name}", primary_npc))
+        send_to_pipe(f"NPC_SAY: {voice()}: ...")
     content = call_llm("action" if category else "chat", messages)
     state.restart_quiet_clock()
     if not content:
@@ -708,7 +722,7 @@ def chat():
                 f"{describe_npc(f'{yell_names[key]}|{key}', char_datas[yell_ids[key]], yell_ids[key], persona=False)}\nHEALTH: {contexts[key].get('health') or 'Unknown'}"
                 for key in dict.fromkeys(key for pair in order for key in pair)
             ]
-            frame = fill_prompt("prompt_yell.txt", speaker=player_name, target=target[1], length=len(order), participants="\n\n".join(descriptions),
+            frame = fill_prompt("prompt_yell.txt", speaker=player_name, target=target[1] if target else "everyone", length=len(order), participants="\n\n".join(descriptions),
                                 place=scene_text.location_text((speaker or state.PLAYER_CONTEXT).get("environment") or {}, "They"))
             yell_talk = {
                 "system": build_system_prompt(reply_rules=False), "frame": frame, "order": order, "names": yell_names, "ids": yell_ids,
