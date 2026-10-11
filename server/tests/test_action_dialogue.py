@@ -7,6 +7,7 @@ ROOT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..")
 sys.path.insert(0, os.path.join(ROOT, "server"))
 
 from chat import action_dialogue as ad
+from core import state
 
 GUARD = {"squad_jobs": ["MAN_THE_GATE"]}
 
@@ -144,6 +145,14 @@ class LeanTest(unittest.TestCase):
         caged_slave = {"character_state": "imprisoned", "slave": True}
         self.assertEqual(ad.lean("LIBERATE", GUARD, caged_slave, 0), [(-2, "You are a guard, and {player} is a slave.")])
         self.assertEqual(ad.lean("LIBERATE", GUARD, {"character_state": "imprisoned"}, 0), [])
+
+    def test_a_second_charity_in_a_day_leans_to_refuse(self):
+        npc = {"npc_id": "h:1-beggar", "day": 4}
+        self.assertEqual(ad.lean("BARTER", npc, {}, 0), [])
+        state.CHARITY_DAYS[npc["npc_id"]] = 4
+        self.addCleanup(state.CHARITY_DAYS.clear)
+        self.assertEqual(ad.lean("BARTER", npc, {}, 0), [(-2, "You already gave charity today.")])
+        self.assertEqual(ad.lean("BARTER", {**npc, "day": 5}, {}, 0), [])
 
     def test_a_guard_or_a_unique_npc_joins_less_readily(self):
         self.assertEqual(score("RECRUIT", {"unique": True, **GUARD}, {}, 0), -2)

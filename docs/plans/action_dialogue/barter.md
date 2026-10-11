@@ -53,7 +53,7 @@ In charity, the NPC gives without receiving anything. Charity costs the NPC noth
 Charity has tight limits:
 
 - The NPC gives at most 50 cats, or 1 Dried Gristle Flaps, the cheapest food in the game data (base value 40, `50568-rebirth.mod`).
-- Each NPC gives charity at most once in each game day. The server keeps the day of the last charity of each NPC in memory, so a restart of the server forgets it.
+- After an NPC gives charity, its lean takes -2 for the rest of the game day ([section 7](#7-lean)). A second plea is thus likely refused, but not blocked. The server keeps the day of the last charity of each NPC in memory, so a restart of the server forgets it.
 
 For food, the model writes `GIVE_FOOD`, and code picks the food. The prompt names no food, because the model offered a food that the charity rule listed, Dried Meat, as its own stock in a trade.
 
@@ -73,4 +73,10 @@ The stocktake, the price guide, and the offer name each weapon and each armour w
 
 ## 7. Lean
 
-The lean ([Outcome](framework.md#outcome)) is how likely the NPC is to take the deal. It counts only the relation, on the scale of [Outcome](framework.md#outcome). The value of the trade reaches the model through the price guide ([section 6](#6-price-guide)) instead.
+The lean ([Outcome](framework.md#outcome)) is how likely the NPC is to take the deal. It counts the relation, on the scale of [Outcome](framework.md#outcome), and a charity that the NPC already gave in this game day ([section 4](#4-charity)):
+
+| Fact | Bonus |
+|---|---|
+| The NPC gave charity in this game day | -2 |
+
+The value of the trade reaches the model through the price guide ([section 6](#6-price-guide)) instead.

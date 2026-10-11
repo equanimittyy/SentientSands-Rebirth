@@ -10,6 +10,7 @@ import random
 import re
 
 from chat import current_job
+from core import state
 from core.paths import DEFAULTS_DIR
 
 # In the order of the classify list, one choice for each category
@@ -147,7 +148,10 @@ def lean(category, npc, speaker, relation, overheard=()):
     bonus = relation_bonus(relation)
     pairs = [(bonus, RELATION_REASONS.get(bonus))]
     health = speaker.get("health")
-    if category == "HEAL":
+    if category == "BARTER":
+        charity_day = state.CHARITY_DAYS.get(npc.get("npc_id"))
+        pairs.append((-2 * (charity_day is not None and charity_day == npc.get("day")), "You already gave charity today."))
+    elif category == "HEAL":
         pairs.append(({"Injured": 1, "Crippled": 2}.get(health, 0), f"{{player}} is {str(health).lower()}."))
     elif category == "LIBERATE":
         # A slave in a cage reads as imprisoned, so the slave state comes apart from character_state

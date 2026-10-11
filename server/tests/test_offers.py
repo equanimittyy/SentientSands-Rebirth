@@ -168,8 +168,10 @@ class BarterTest(unittest.TestCase):
         self.assertIsNone(self.barter("[OFFER: GIVE_ITEM: 1 Dried Meat]", npc=poor)[0])
         self.assertIsNone(self.barter("[OFFER: GIVE_CATS: 51]", npc=poor)[0])
         self.assertIsNone(self.barter("[OFFER: GIVE_ITEM: 1 Katana]")[0])
-        state.CHARITY_DAYS[SHOP["npc_id"]] = 4
-        self.assertIsNone(self.barter("[OFFER: GIVE_CATS: 10]", npc=poor)[0])
+
+    def test_a_second_charity_in_a_day_is_no_hard_limit(self):
+        state.CHARITY_DAYS[SHOP["npc_id"]] = SHOP["day"]
+        self.assertTrue(self.barter("[OFFER: GIVE_CATS: 10]", npc={**SHOP, "money": 0})[0]["charity"])
 
     def test_a_gift_raises_the_relation_by_its_worth(self):
         self.assertEqual(self.barter("[OFFER: TAKE_CATS: 1499]")[0]["gift"], 2)

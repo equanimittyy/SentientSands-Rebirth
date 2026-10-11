@@ -170,8 +170,6 @@ def worth(parts, npc, speaker, side):
 def charity(gives, npc):
     """The checked charity of a trade in which the NPC gives without receiving, or a reason. Charity costs the NPC nothing,
     so the plugin creates the cats or the food, and the NPC need not hold them."""
-    if state.CHARITY_DAYS.get(npc.get("npc_id")) == npc.get("day"):
-        return None, "the NPC gave charity today"
     if len(gives) == 1 and gives[0][0] == "GIVE_CATS" and gives[0][1] <= CHARITY_CATS:
         return {"category": "BARTER", "gives": [("CATS", gives[0][1])], "takes": [], "charity": True}, None
     if len(gives) == 1 and gives[0][0] == "GIVE_FOOD":
@@ -439,8 +437,6 @@ def facts(category, npc, speaker, player_name, lean, said=""):
     if category == "BARTER":
         if speaker.get("character_state") == "imprisoned":
             lines.append(f"{player_name} is imprisoned." + (" You are imprisoned too." if npc.get("character_state") == "imprisoned" else ""))
-        if state.CHARITY_DAYS.get(npc.get("npc_id")) == npc.get("day"):
-            lines.append("You already gave charity today.")
         lines += price_guide(said, npc, speaker, player_name)
     if category == "FOLLOW":
         rate = action_dialogue.mercenary_rate(npc)
