@@ -282,6 +282,52 @@ static int MoveItems(Character *holder, Item *item, int count,
   return moved;
 }
 
+// For a weapon, createItem takes the manufacturer first and the weapon third;
+// the weapon first makes it return null. The player's own manufacturer would
+// mark a picked weapon as homemade.
+static Item *CreateItem(GameWorld *world, GameData *data, GameData *maker,
+                        GameData *grade, int level) {
+  if (data->type != WEAPON)
+    return world->theFactory->createItem(data, hand(), NULL, grade, level,
+                                         NULL);
+  if (!grade) {
+    boost::unordered::unordered_map<std::string, GameData *>::iterator it;
+    for (it = world->gamedata.gamedataSID.begin();
+         it != world->gamedata.gamedataSID.end(); ++it) {
+      GameData *check = it->second;
+      if (!check || check->type != WEAPON_MANUFACTURER ||
+          check->stringID == "PLAYER_WEAPONS")
+        continue;
+      const Ogre::vector<GameDataReference>::type *weapons =
+          check->getReferenceListIfExists("weapon types");
+      const Ogre::vector<GameDataReference>::type *models =
+          check->getReferenceListIfExists("weapon models");
+      if (!weapons || !models)
+        continue;
+      bool makes = false;
+      for (size_t w = 0; !makes && w < weapons->size(); ++w)
+        makes = weapons->at(w).sid == data->stringID;
+      for (size_t m = 0; makes && m < models->size(); ++m) {
+        GameData *model = world->gamedata.getData(models->at(m).sid);
+        int modelLevel = models->at(m).values.value[0];
+        if (model && modelLevel >= 1 && (!grade || modelLevel < level)) {
+          maker = check;
+          grade = model;
+          level = modelLevel;
+        }
+      }
+    }
+    if (!grade) {
+      Log(LOG_WARN, "ACTION: No manufacturer makes " + data->name);
+      return NULL;
+    }
+    Log(LOG_DEBUG, "ACTION: Picked grade " + grade->name + " by " +
+                       maker->name + " for " + data->name);
+  }
+  return world->theFactory->createItem(maker, hand(), data, grade, level,
+                                       NULL);
+}
+
 static hand g_newestBubble;
 static hand g_previousBubble;
 
@@ -713,8 +759,7 @@ void ExecuteQueuedActions(GameWorld *thisptr, int &inventoryTimer) {
                       gd->type, uniqueID, gd->name);
                   if (newGd) {
                     newGd->updateFrom(gd, true);
-                    Item *spawned = thisptr->theFactory->createItem(
-                        gd, hand(), NULL, NULL, 0, NULL);
+                    Item *spawned = CreateItem(thisptr, gd, NULL, NULL, 0);
                     if (spawned) {
                       spawned->quantity = 1;
                       spawned->setProperOwner(player->getHandle());
@@ -1090,12 +1135,10 @@ void ExecuteQueuedActions(GameWorld *thisptr, int &inventoryTimer) {
                     ToString(c + 1) + "/" + ToString(count) + ") for " +
                     p->getName());
 
-                // Weapons, armour, and crossbows need a grade, and weapons also a manufacturer
                 GameData *gradeData = act.itemModel;
-                GameData *makerData = act.itemMaker;
 
-                if (!gradeData && (gd->type == WEAPON || gd->type == ARMOUR ||
-                                   gd->type == CROSSBOW)) {
+                if (!gradeData &&
+                    (gd->type == ARMOUR || gd->type == CROSSBOW)) {
                   auto getRef = [&](const std::string &refName) -> GameData * {
                     const Ogre::vector<GameDataReference>::type *refs =
                         gd->getReferenceListIfExists(refName);
@@ -1110,11 +1153,8 @@ void ExecuteQueuedActions(GameWorld *thisptr, int &inventoryTimer) {
                     return nullptr;
                   };
 
-                  int gradeType = 0;
-                  if (gd->type == WEAPON)
-                    gradeType = MATERIAL_SPECS_WEAPON;
-                  else if (gd->type == ARMOUR)
-                    gradeType = MATERIAL_SPECS_CLOTHING;
+                  int gradeType =
+                      gd->type == ARMOUR ? MATERIAL_SPECS_CLOTHING : 0;
 
                   gradeData = getRef("material");
                   if (!gradeData ||
@@ -1124,19 +1164,9 @@ void ExecuteQueuedActions(GameWorld *thisptr, int &inventoryTimer) {
                       (gradeType && gradeData->type != gradeType))
                     gradeData = getRef("mesh");
 
-                  if (gd->type == WEAPON)
-                    makerData = getRef("manufacturer");
-
-                  bool needsGrade =
-                      !gradeData ||
-                      (gradeType && gradeData->type != gradeType);
-                  bool needsMaker =
-                      gd->type == WEAPON &&
-                      (!makerData || makerData->type != WEAPON_MANUFACTURER);
-
-                  if (needsGrade || needsMaker) {
+                  if (!gradeData ||
+                      (gradeType && gradeData->type != gradeType)) {
                     GameData *firstGrade = nullptr;
-                    GameData *firstMaker = nullptr;
                     boost::unordered::unordered_map<std::string,
                                                     GameData *>::iterator it;
 
@@ -1146,42 +1176,24 @@ void ExecuteQueuedActions(GameWorld *thisptr, int &inventoryTimer) {
                       if (!check)
                         continue;
 
-                      if (needsGrade && (!gradeType ||
-                                         check->type == gradeType)) {
+                      if (!gradeType || check->type == gradeType) {
                         if (!firstGrade)
                           firstGrade = check;
                         if (check->name.find("Standard") != std::string::npos ||
-                            check->name.find("Catun") != std::string::npos)
+                            check->name.find("Catun") != std::string::npos) {
                           gradeData = check;
+                          break;
+                        }
                       }
-
-                      if (needsMaker && check->type == WEAPON_MANUFACTURER) {
-                        if (!firstMaker)
-                          firstMaker = check;
-                        if (check->name.find("Skeleton Smiths") !=
-                                std::string::npos ||
-                            check->name.find("Standard") != std::string::npos)
-                          makerData = check;
-                      }
-
-                      if ((!needsGrade || gradeData) &&
-                          (!needsMaker || makerData))
-                        break;
                     }
 
-                    if (needsGrade && !gradeData)
+                    if (!gradeData)
                       gradeData = firstGrade;
-                    if (needsMaker && !makerData)
-                      makerData = firstMaker;
                   }
                 }
 
-                // For a weapon, createItem takes the manufacturer first and the
-                // weapon third; the weapon first makes it return null
-                bool isWeapon = gd->type == WEAPON;
-                Item *item = thisptr->theFactory->createItem(
-                    isWeapon ? makerData : gd, hand(), isWeapon ? gd : NULL,
-                    gradeData, act.itemLevel, NULL);
+                Item *item = CreateItem(thisptr, gd, act.itemMaker, gradeData,
+                                        act.itemLevel);
                 if (item) {
                   item->quantity = 1;
                   item->quality = 1.0f;
@@ -1212,7 +1224,7 @@ void ExecuteQueuedActions(GameWorld *thisptr, int &inventoryTimer) {
                   Log(LOG_ERROR, "ACTION: Resolved " + gd->name +
                       " but Factory failed to createItem! (Grade: " +
                       (gradeData ? gradeData->name : "NULL") + ", Maker: " +
-                      (makerData ? makerData->name : "NULL") + ")");
+                      (act.itemMaker ? act.itemMaker->name : "NULL") + ")");
                 }
               }
 
@@ -1241,8 +1253,7 @@ void ExecuteQueuedActions(GameWorld *thisptr, int &inventoryTimer) {
                   "ACTION: No player character found, dropping item at "
                       "NPC/Origin.");
 
-              Item *item = thisptr->theFactory->createItem(gd, hand(), NULL,
-                                                           NULL, 1, NULL);
+              Item *item = CreateItem(thisptr, gd, NULL, NULL, 1);
               if (item) {
                 item->quantity = 1;
                 item->activate(true, dropPos, Ogre::Quaternion::IDENTITY, false,
