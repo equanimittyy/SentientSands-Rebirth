@@ -6,7 +6,7 @@ import unittest
 ROOT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..")
 sys.path.insert(0, os.path.join(ROOT, "server"))
 
-from chat import current_job
+from chat import action_dialogue, current_job
 
 
 def job(ctx, in_player_faction=False):
@@ -37,10 +37,10 @@ class CurrentJobTest(unittest.TestCase):
         self.assertIsNone(job({"squad_jobs": []}))
         self.assertIsNone(job({"squad_jobs": ["JOB_MEDIC", "SELF_PRESERVATION"]}))
 
-    def test_the_plugin_sends_each_task_of_the_table(self):
+    def test_the_plugin_sends_each_task_of_the_table_and_the_jailer_task(self):
         with open(os.path.join(ROOT, "plugin", "game", "Context.cpp"), encoding="utf-8") as f:
             source = f.read()
-        self.assertEqual(set(re.findall(r"ROLE_TASK\((\w+)\),", source)), current_job.TASKS)
+        self.assertEqual(set(re.findall(r"ROLE_TASK\((\w+)\),", source)), current_job.TASKS | {action_dialogue.JAILER_TASK})
 
 
 if __name__ == "__main__":

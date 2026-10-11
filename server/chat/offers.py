@@ -431,8 +431,6 @@ def facts(category, npc, speaker, player_name, lean, said=""):
     """The facts of the hard limits and the lean, for the turn message, because they change each turn. said is the text in
     which the price guide of a trade looks for item names."""
     lines = []
-    if "TAKE_CATS" in TAKES[category]:
-        lines.append(f"{player_name}'s squad has {cats_of(speaker):,} cats.")
     if category in ("THREATEN", "BARTER"):
         lines.append(f"You have {cats_of(npc):,} cats.")
     if category == "THREATEN":

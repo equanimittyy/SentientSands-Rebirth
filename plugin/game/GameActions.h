@@ -8,3 +8,4 @@ class GameWorld;
 void PerformLeaveSquad(Character *npc, GameWorld *world,
                        const std::string &originFaction);
 void ExecuteQueuedActions(GameWorld *thisptr, int &inventoryTimer);
+void WatchReleases(GameWorld *world);

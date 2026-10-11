@@ -217,9 +217,9 @@ class HoldTest(unittest.TestCase):
 
 
 class FactsTest(unittest.TestCase):
-    def test_the_turn_message_holds_the_cats_and_the_lean(self):
+    def test_the_turn_message_holds_the_lean_but_not_the_cats_of_the_squad(self):
         text = offers.facts("RECRUIT", NPC, SPEAKER, "Zaps", 2)
-        self.assertIn("Zaps's squad has 1,000 cats.", text)
+        self.assertNotIn("1,000", text)
         self.assertIn("YOUR THOUGHT: You are inclined to agree.", text)
 
     def test_a_threat_lists_what_the_npc_carries(self):

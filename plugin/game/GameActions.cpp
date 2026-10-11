@@ -349,6 +349,56 @@ static void KeepTwoBubbles(const hand &speaker) {
   g_newestBubble = speaker;
 }
 
+static bool IsLockedUp(Character *c) {
+  return c->inSomething == IN_PRISON || c->isChained || c->isChainedMode();
+}
+
+static void FreePrisoner(GameWorld *world, Character *target) {
+  if (target->isChained || target->isChainedMode()) {
+    target->setChainedMode(false, hand());
+    target->isChained = false;
+  }
+  if (target->inSomething == IN_PRISON) {
+    target->setPrisonMode(false, nullptr);
+    // setPrisonMode may not reset inSomething, so clear it directly
+    target->inSomething = IN_NOTHING;
+  }
+  world->showPlayerAMessage("You have been freed!", true);
+}
+
+// A jailer whose package keeps it at its desk never walks to the cage, so a
+// paid release frees the prisoner after this much unpaused time
+static const DWORD RELEASE_WAIT_MS = 30000;
+
+struct PendingRelease {
+  unsigned int key; // A key outlives the new handle of a squad change
+  DWORD waited;
+};
+static std::vector<PendingRelease> g_releases;
+
+void WatchReleases(GameWorld *world) {
+  static DWORD last = GetTickCount();
+  DWORD now = GetTickCount();
+  DWORD step = world->isPaused() ? 0 : now - last;
+  last = now;
+  for (size_t i = 0; i < g_releases.size();) {
+    Character *target = KeyedCharacter(g_releases[i].key);
+    if (!target || !IsLockedUp(target)) {
+      g_releases.erase(g_releases.begin() + i);
+      continue;
+    }
+    g_releases[i].waited += step;
+    if (g_releases[i].waited < RELEASE_WAIT_MS) {
+      ++i;
+      continue;
+    }
+    Log(LOG_INFO, "ACTION: The release task left " + target->getName() +
+                      " locked up, so the plugin frees it");
+    FreePrisoner(world, target);
+    g_releases.erase(g_releases.begin() + i);
+  }
+}
+
 void ExecuteQueuedActions(GameWorld *thisptr, int &inventoryTimer) {
   std::deque<QueuedAction> localQueue;
   if (TryEnterCriticalSection(&g_uiMutex)) {
@@ -875,16 +925,7 @@ void ExecuteQueuedActions(GameWorld *thisptr, int &inventoryTimer) {
           // Free directly when close: for recruits/friends the engine cancels the release task
           if (dist < 4.0f && (inCage || shackled)) {
             Log(LOG_DEBUG, "ACTION: Proximity force-release triggered.");
-            if (shackled) {
-              target->setChainedMode(false, hand());
-              target->isChained = false;
-            }
-            if (inCage) {
-              target->setPrisonMode(false, nullptr);
-              // setPrisonMode may not reset inSomething, so clear it directly
-              target->inSomething = (UseStuffState)0; // IN_NOTHING
-            }
-            thisptr->showPlayerAMessage("You have been freed!", true);
+            FreePrisoner(thisptr, target);
           }
 
           bool didSomething = false;
@@ -912,6 +953,8 @@ void ExecuteQueuedActions(GameWorld *thisptr, int &inventoryTimer) {
             npc->addOrder(nullptr, tt, (RootObject *)target, false, true,
                           target->getPosition());
             npc->reThinkCurrentAIAction();
+            PendingRelease pending = {HandleKey(target), 0};
+            g_releases.push_back(pending);
 
             thisptr->showPlayerAMessage(npc->getName() +
                                             (act.taskValue == 111

@@ -104,7 +104,7 @@ The action prompt takes the parts of the chat system prompt (`server/data/prompt
 
 Each category has its own prompt file, which the action prompt adds for the category of the action dialogue. The file holds what the player wants, the shape of the offer tag with one example, and the rules of the category, for example charity and gifts in BARTER.
 
-The turn message of each call holds the lean ([Outcome](#outcome)), the facts of the hard limits, for example the cats of each side, and the price guide of BARTER ([barter.md](barter.md#6-price-guide)), because these change each turn.
+The turn message of each call holds the lean ([Outcome](#outcome)), the facts of the hard limits, for example the cats of the NPC, and the price guide of BARTER ([barter.md](barter.md#6-price-guide)), because these change each turn.
 
 ### Reply
 
@@ -137,13 +137,13 @@ BARTER, HEAL, LIBERATE, RECRUIT, and FOLLOW count the NPC's profile `Relation` o
 
 The action prompt keeps the judgment of plain chat (`judgment` in `server/chat/routes.py:313`): each reply ends with `[JUDGMENT: n]`, and the NPC's `Relation` changes by n. A threat thus costs relation.
 
-A guard is an NPC whose Current Job (`current_job` in `server/chat/current_job.py:41`) is `Guarding the town`, `Guarding a building`, `Patrolling the town`, `Keeping the peace`, or `Working as a slaver`. LIBERATE and RECRUIT read it.
+A guard is an NPC whose Current Job (`current_job` in `server/chat/current_job.py:41`) is `Guarding the town`, `Guarding a building`, `Patrolling the town`, `Keeping the peace`, or `Working as a slaver`, or whose squad jobs hold the jailer task `FIND_CAGE_AND_PUT_DEADGUY_IN`. The captain of a bounty desk is a jailer, but it stands at a shopkeeper node, so its Current Job reads `Running a shop`. LIBERATE and RECRUIT read it.
 
 ### Offer
 
 An NPC that agrees to a deal makes an offer. The model ends its reply with an offer tag, which holds the parts of the deal, for example `[OFFER: GIVE_CATS: 200]` or `[OFFER: TAKE_CATS: 3000; GIVE_ITEM: Katana]`. The parts are `GIVE_CATS`, `TAKE_CATS`, `GIVE_ITEM`, and `TAKE_ITEM`, the part of each category that moves a character or runs a service: `JOIN_PARTY`, `HIRE`, `FIRST_AID`, and `RELEASE`, and `GIVE_FOOD` for the charity of BARTER ([barter.md](barter.md#4-charity)). Each action that moves cats, items, or characters needs an offer: the handover of THREATEN, each deal of BARTER, HEAL, LIBERATE, RECRUIT, and FOLLOW. Only `ATTACK`, `LEAVE`, and a free treatment of HEAL ([heal.md](heal.md#2-deal)) run at once. The server also reads the parts when the model leaves out the brackets of the tag, but only in capitals.
 
-The server checks the offer against the hard limits, and it drops and logs an offer that breaks one. The reply already reads as a deal, so the chat window then shows the system message "X made an offer it can't keep.", and the action dialogue goes on. It holds a valid offer and sends it to the plugin after the lines of the reply. The offer goes to the squad member that spoke the line that the offer answers ([section 5](#5-speaker)).
+The server checks the offer against the hard limits, and it drops and logs an offer that breaks one. The prompt never gives the cats of the player's squad, so the NPC does not ask for the whole purse; a fee above the purse breaks a hard limit. The reply already reads as a deal, so the chat window then shows the system message "X made an offer it can't keep.", and the action dialogue goes on. It holds a valid offer and sends it to the plugin after the lines of the reply. The offer goes to the squad member that spoke the line that the offer answers ([section 5](#5-speaker)).
 
 The plugin shows the offer in a popup with the buttons Accept and Decline. The server writes the text of the popup from the checked offer, never from the words of the model, so the popup always shows the real deal. The text is "X offers A for B": X is the NPC, A is what the NPC gives, and B is what the player gives. When the player gives nothing, the text has no "for B". For example, "Bandit offers 200 cats and a Katana.".
 

@@ -24,6 +24,8 @@ CATEGORIES = [
 ]
 NONE_OF_THESE = "None of these"
 GUARD_JOBS = {"Guarding the town", "Guarding a building", "Patrolling the town", "Keeping the peace", "Working as a slaver"}
+# A jailer such as the captain of a bounty desk stands at a shopkeeper node, so its job reads Running a shop
+JAILER_TASK = "FIND_CAGE_AND_PUT_DEADGUY_IN"
 TRADER_JOBS = {"Trading", "Running a shop", "Travelling as a trader"}
 MERCENARY_RATES = {"Mercenary Guild": 2000, "Tech Hunters": 2000, "Vagrants": 2000, "Black Dog": 2500}
 # A small model follows a plain band better than a number
@@ -115,7 +117,7 @@ def wounded(ctx):
 
 
 def is_guard(npc):
-    return current_job.current_job(npc, False, "") in GUARD_JOBS
+    return current_job.current_job(npc, False, "") in GUARD_JOBS or JAILER_TASK in (npc.get("squad_jobs") or [])
 
 
 def is_trader(npc):

@@ -86,6 +86,11 @@ class GateTest(unittest.TestCase):
         self.assertIn("guard", self.gate("LIBERATE", GUARD, caged_slave))
         self.assertIsNone(self.gate("LIBERATE", GUARD, {"character_state": "imprisoned"}))
 
+    def test_a_jailer_at_a_bounty_desk_is_a_guard(self):
+        desk = {"squad_jobs": ["STAND_AT_SHOPKEEPER_NODE", "STAY_IN_HOME", "FIND_CAGE_AND_PUT_DEADGUY_IN"]}
+        self.assertTrue(ad.is_guard(desk))
+        self.assertFalse(ad.is_guard({"squad_jobs": ["STAND_AT_SHOPKEEPER_NODE"]}))
+
     def test_recruit_and_follow_need_free_characters_and_no_leader(self):
         for category in ("RECRUIT", "FOLLOW"):
             self.assertIsNotNone(self.gate(category, speaker={"character_state": "enslaved"}))
