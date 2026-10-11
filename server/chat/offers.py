@@ -169,12 +169,13 @@ def worth(parts, npc, speaker, side):
 
 def charity(gives, npc):
     """The checked charity of a trade in which the NPC gives without receiving, or a reason. Charity costs the NPC nothing,
-    so the plugin creates the cats or the food, and the NPC need not hold them."""
-    if len(gives) == 1 and gives[0][0] == "GIVE_CATS" and gives[0][1] <= CHARITY_CATS:
-        return {"category": "BARTER", "gives": [("CATS", gives[0][1])], "takes": [], "charity": True}, None
+    so the plugin creates the cats or the food, and the NPC need not hold them. The model often offers more cats than the
+    cap, and the cap cuts them instead of dropping the offer."""
+    if len(gives) == 1 and gives[0][0] == "GIVE_CATS":
+        return {"category": "BARTER", "gives": [("CATS", min(gives[0][1], CHARITY_CATS))], "takes": [], "charity": True}, None
     if len(gives) == 1 and gives[0][0] == "GIVE_FOOD":
         return {"category": "BARTER", "gives": [("ITEM", (1, CHARITY_FOOD))], "takes": [], "charity": True}, None
-    return None, f"charity is at most {CHARITY_CATS} cats or GIVE_FOOD"
+    return None, "charity is only GIVE_CATS or GIVE_FOOD"
 
 
 def check(category, parts, npc, speaker, guard=False):
@@ -435,6 +436,7 @@ def facts(category, npc, speaker, player_name, lean, said=""):
         carried = [f"{item.get('count') or 1} {item['name']}" for item in npc.get("inventory") or [] if item.get("name")]
         lines.append(f"You carry: {', '.join(carried)}." if carried else "You carry no items.")
     if category == "BARTER":
+        lines.append(f"As charity, you give at most {CHARITY_CATS} cats.")
         if speaker.get("character_state") == "imprisoned":
             lines.append(f"{player_name} is imprisoned." + (" You are imprisoned too." if npc.get("character_state") == "imprisoned" else ""))
         lines += price_guide(said, npc, speaker, player_name)

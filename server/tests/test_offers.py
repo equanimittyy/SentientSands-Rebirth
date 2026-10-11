@@ -166,7 +166,7 @@ class BarterTest(unittest.TestCase):
         self.assertEqual(offers.actions(food), ["[ACTION: SPAWN_ITEM: Dried Gristle Flaps]"])
         self.assertIn("only for charity", self.barter("[OFFER: GIVE_FOOD; TAKE_CATS: 10]")[1])
         self.assertIsNone(self.barter("[OFFER: GIVE_ITEM: 1 Dried Meat]", npc=poor)[0])
-        self.assertIsNone(self.barter("[OFFER: GIVE_CATS: 51]", npc=poor)[0])
+        self.assertEqual(self.barter("[OFFER: GIVE_CATS: 500]", npc=poor)[0]["gives"], [("CATS", 50)])
         self.assertIsNone(self.barter("[OFFER: GIVE_ITEM: 1 Katana]")[0])
 
     def test_a_second_charity_in_a_day_is_no_hard_limit(self):
@@ -226,6 +226,9 @@ class FactsTest(unittest.TestCase):
 
     def test_a_threat_lists_what_the_npc_carries(self):
         self.assertIn("You carry: 1 Katana, 2 Bread, 1 Bread.", offers.facts("THREATEN", NPC, SPEAKER, "Zaps", []))
+
+    def test_a_trade_names_the_cap_of_charity(self):
+        self.assertIn("- As charity, you give at most 50 cats.", offers.facts("BARTER", NPC, SPEAKER, "Zaps", []))
 
     def test_a_mercenary_names_its_rate(self):
         self.assertIn("at least 2,500 cats for each day", offers.facts("FOLLOW", {**NPC, "faction": "Black Dog"}, SPEAKER, "Zaps", []))
