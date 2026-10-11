@@ -47,6 +47,29 @@ def rename_character():
     logging.info(f"RENAME: {old_name} is now {new_name} ({npc_id})")
     return jsonify({"status": "ok"})
 
+@bp.route('/relation', methods=['POST'])
+def cheat_relation():
+    """The Cheats window reads the Relation of a character, and sets it when the request carries one. Only a set creates
+    a profile, so a look through the squad stores nobody."""
+    data = request.get_json(silent=True) or {}
+    context = data.get('context', '')
+    ctx = context_dict(context)
+    npc_id = ctx.get('npc_id')
+    if not npc_id:
+        return jsonify({"status": "error", "message": "Missing the NPC ID"}), 400
+
+    if data.get('relation') is not None:
+        if not campaign_db.character_exists(npc_id):
+            get_character_data(ctx.get('name', ''), context)
+        # upsert_profile would insert a profile that holds only the Relation, if get_character_data stored none
+        if campaign_db.character_exists(npc_id):
+            relation = max(-100, min(100, int(data['relation'])))
+            campaign_db.upsert_profile(npc_id, {"Relation": relation})
+            logging.info(f"RELATION: Cheat set the personal relation of {npc_id} to {relation}")
+
+    profile = campaign_db.get_character(npc_id)
+    return jsonify({"status": "ok", "relation": relation_text(profile.get("Relation", 0)) if profile else "No profile yet"})
+
 @bp.route('/events', methods=['GET', 'POST'])
 def list_events():
     """The events for the Events window, newest first. The plugin finds the keys of each event after its "id", so each key must

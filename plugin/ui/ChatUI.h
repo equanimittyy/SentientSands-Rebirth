@@ -2,6 +2,7 @@
 
 #include "ChatUIGlobals.h"
 #include "ChatWindow.h"
+#include "CheatWindow.h"
 #include "EventsWindow.h"
 #include "JournalWindow.h"
 #include "LauncherWindow.h"

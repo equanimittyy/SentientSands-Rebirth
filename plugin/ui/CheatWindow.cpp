@@ -35,6 +35,9 @@ static MyGUI::Button *g_cheatCharacterBtn = nullptr;
 static MyGUI::EditBox *g_cheatName = nullptr;
 static MyGUI::TextBox *g_cheatCats = nullptr;
 static MyGUI::EditBox *g_cheatAmount = nullptr;
+static MyGUI::TextBox *g_cheatRelation = nullptr;
+static MyGUI::EditBox *g_cheatPoints = nullptr;
+static int g_cheatRelationRequest = 0;
 static MyGUI::ListBox *g_cheatStatList = nullptr;
 static MyGUI::EditBox *g_cheatLevel = nullptr;
 static MyGUI::ListBox *g_cheatItemList = nullptr;
@@ -109,12 +112,36 @@ static void FillStatList() {
             .c_str());
 }
 
+// The relation lives in the server's profile; an empty one only reads it
+static void RequestCheatRelation(const std::string &relation) {
+  Character *c = CheatCharacter();
+  g_cheatRelation->setCaption("Relation: ...");
+  if (!c)
+    return;
+  StartJournalRequest(
+      L"/relation",
+      "{\"context\": " + GetDetailedContext(c) +
+          (relation.empty() ? "" : ", \"relation\": " + relation) + "}",
+      "CHEAT_RELATION", ToString(++g_cheatRelationRequest));
+}
+
+void SetCheatRelation(const std::string &data) {
+  std::string tag, reply;
+  if (!g_cheatWindow || !SplitJournalReply(data, tag, reply) ||
+      atoi(tag.c_str()) != g_cheatRelationRequest)
+    return;
+  std::string relation = GetJsonValue(reply, "relation");
+  g_cheatRelation->setCaption(
+      Utf8ToWide("Relation: " + (relation.empty() ? "?" : relation)).c_str());
+}
+
 static void ShowCheatCharacter() {
   Character *c = CheatCharacter();
   std::string name = c ? c->getName() : "?";
   g_cheatCharacterBtn->setCaption(Utf8ToWide(name).c_str());
   g_cheatName->setCaption(Utf8ToWide(c ? name : "").c_str());
   FillStatList();
+  RequestCheatRelation("");
 }
 
 static void OnCheatCharacterClick(MyGUI::Widget *sender) {
@@ -156,6 +183,19 @@ static void ChangeCats(int sign) {
 
 static void OnCheatAddCatsClick(MyGUI::Widget *sender) { ChangeCats(1); }
 static void OnCheatTakeCatsClick(MyGUI::Widget *sender) { ChangeCats(-1); }
+
+static void OnCheatSetRelationClick(MyGUI::Widget *sender) {
+  Character *c = CheatCharacter();
+  std::string text = Trimmed(g_cheatPoints);
+  char *end = NULL;
+  long points = strtol(text.c_str(), &end, 10);
+  if (!c || text.empty() || *end != '\0')
+    return;
+  points = points > 100 ? 100 : points < -100 ? -100 : points;
+  Log(LOG_INFO, "CHEAT: Setting " + c->getName() + "'s relation to " +
+                    ToString((int)points));
+  RequestCheatRelation(ToString((int)points));
+}
 
 static void OnCheatStatSelect(MyGUI::ListBox *sender, size_t index) {
   Character *c = CheatCharacter();
@@ -395,6 +435,14 @@ void ShowCheatUI(Character *chatTarget) {
                    OnCheatAddCatsClick, "SentientSands_CheatAddCatsBtn");
   AddJournalButton(client, "Take Cats", 0.165f, 0.50f, 0.135f,
                    OnCheatTakeCatsClick, "SentientSands_CheatTakeCatsBtn");
+  g_cheatRelation =
+      AddJournalLine(client, 0.02f, 0.64f, 0.28f, "SentientSands_CheatRelation");
+  AddJournalLine(client, 0.02f, 0.72f, 0.07f, "SentientSands_CheatPointsLabel")
+      ->setCaption("Points");
+  g_cheatPoints = AddJournalLineBox(client, 0.09f, 0.72f, 0.21f,
+                                    "SentientSands_CheatPoints");
+  AddJournalButton(client, "Set Relation", 0.02f, 0.80f, 0.135f,
+                   OnCheatSetRelationClick, "SentientSands_CheatSetRelationBtn");
 
   AddJournalLine(client, 0.32f, 0.02f, 0.32f, "SentientSands_CheatStatsLabel")
       ->setCaption("Stats");
