@@ -62,11 +62,10 @@ class AnimalFlagTest(unittest.TestCase):
         campaign_db.close_campaign()
         self._tmp.cleanup()
 
-    def test_the_game_flag_makes_an_animal_of_a_race_that_no_list_knows(self):
+    def test_the_game_flag_makes_a_provisional_animal_of_a_race_that_no_list_knows(self):
         profile = characters.get_character_data("Bone Mutt", {"npc_id": "h:1", "race": "Bone Mutt", "animal": True})
         self.assertEqual(campaign_db.get_character("h:1")["Animal"], 1)
-        self.assertEqual((profile["Backstory"], profile["SpeechQuirks"]), ("", ""))
-        self.assertNotIn(campaign_db.PROVISIONAL, profile)
+        self.assertEqual((profile["Backstory"], profile["SpeechQuirks"], profile[campaign_db.PROVISIONAL]), ("", "", 0))
 
     def test_a_fishman_is_an_animal_though_the_game_does_not_flag_it(self):
         for npc_id, race in (("h:5", "Fishman"), ("h:6", "Alpha Fishman olive")):

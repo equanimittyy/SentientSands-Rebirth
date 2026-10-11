@@ -84,8 +84,7 @@ def location_field(ctx):
 
 def new_profile(name, npc_id, ctx_data):
     """The profile of an NPC at its first meeting, rolled in code. The LLM would know no more than the race, the faction, and
-    the job yet, so the roll loses nothing; the LLM writes the bio later (generate_bio). An animal's roll is final, because a
-    bio would give it a backstory and a speech quirk."""
+    the job yet, so the roll loses nothing; the LLM writes the bio later (generate_bio)."""
     live_ctx = state.LIVE_CONTEXTS.get(npc_id) or {}
 
     def fact(key, missing="Unknown"):
@@ -112,7 +111,7 @@ def new_profile(name, npc_id, ctx_data):
         **provisional_profile.roll(npc_id, kind, race),
         "ConversationHistory": [],
         "Relation": int(float(ctx_data.get("relation", 0)) / 2),
-        **({} if kind == "animal" else {campaign_db.PROVISIONAL: 0}),
+        campaign_db.PROVISIONAL: 0,
     }
 
 def get_character_data(name, context=""):
