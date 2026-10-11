@@ -56,7 +56,8 @@ MyGUI::ListBox *g_chatMemberLists[2] = {nullptr, nullptr};
 std::vector<std::string> g_chatMemberIds[2];
 int g_chatHistoryRequest = 0;
 const float CHAT_INPUT_HEIGHT = 0.18f;
-const float CHAT_HISTORY_HEIGHT = 0.18f;
+const float CHAT_HEADER_HEIGHT = 0.035f;
+const float CHAT_HISTORY_HEIGHT = 0.15f;
 
 void CloseChatUI() {
   if (g_chatWindow) {
@@ -435,7 +436,7 @@ static void RequestChatHistory() {
 
 void SetChatHistory(const std::string &data) {
   size_t sep = data.find('|');
-  if (!g_chatHistoryText || sep == std::string::npos ||
+  if (!g_chatThreadHeader || sep == std::string::npos ||
       atoi(data.c_str()) != g_chatHistoryRequest)
     return;
   std::string reply = data.substr(sep + 1);
@@ -449,6 +450,8 @@ void SetChatHistory(const std::string &data) {
   }
   SetChatThreadHeader(GetJsonValue(reply, "type") + ": " +
                       GetJsonValue(reply, "title"));
+  if (!g_chatHistoryText)
+    return;
   g_chatHistoryText->setOnlyText(
       Utf8ToWide(GetJsonValue(reply, "lines")).c_str());
   // The view follows the cursor, so the newest line shows
@@ -493,16 +496,9 @@ void OnChatSpeakerClick(MyGUI::Widget *sender) {
   ShowChatSpeaker();
 }
 
-static void AddChatHistoryPanel(MyGUI::Widget *client, float height) {
-  g_chatThreadHeader = client->createWidgetReal<MyGUI::TextBox>(
-      "Kenshi_TextboxStandardText", 0.05f, 0.02f * height, 0.9f,
-      0.15f * height, MyGUI::Align::Top | MyGUI::Align::HStretch,
-      "SentientSands_ChatThreadHeader");
-  g_chatThreadHeader->setTextAlign(MyGUI::Align::Left | MyGUI::Align::VCenter);
-  g_chatThreadHeader->setTextColour(MyGUI::Colour(1.0f, 0.9f, 0.5f));
-
+static void AddChatHistory(MyGUI::Widget *client, float top, float height) {
   g_chatHistoryText = client->createWidgetReal<MyGUI::EditBox>(
-      "Kenshi_WordWrap", 0.05f, 0.19f * height, 0.58f, 0.81f * height,
+      "Kenshi_WordWrap", 0.05f, top, 0.58f, height,
       MyGUI::Align::Top | MyGUI::Align::HStretch, "SentientSands_ChatHistory");
   g_chatHistoryText->setEditMultiLine(true);
   g_chatHistoryText->setEditWordWrap(true);
@@ -515,17 +511,17 @@ static void AddChatHistoryPanel(MyGUI::Widget *client, float height) {
 
   const char *labelKeys[] = {"Speakers", "Overheard"};
   for (int i = 0; i < 2; i++) {
-    float top = (0.19f + 0.43f * i) * height;
+    float y = top + 0.53f * i * height;
     MyGUI::TextBox *label = client->createWidgetReal<MyGUI::TextBox>(
-        "Kenshi_TextboxStandardText", 0.65f, top, 0.3f, 0.11f * height,
+        "Kenshi_TextboxStandardText", 0.65f, y, 0.3f, 0.13f * height,
         MyGUI::Align::Top | MyGUI::Align::Right,
         "SentientSands_ChatMembersLabel_" + ToString(i));
     label->setCaption(Utf8ToWide(T(labelKeys[i])).c_str());
     label->setTextAlign(MyGUI::Align::Left | MyGUI::Align::VCenter);
     label->setTextColour(MyGUI::Colour(0.7f, 0.7f, 0.7f));
     g_chatMemberLists[i] = client->createWidgetReal<MyGUI::ListBox>(
-        "Kenshi_ListBox", 0.65f, top + 0.11f * height, 0.3f,
-        (i == 0 ? 0.32f : 0.27f) * height,
+        "Kenshi_ListBox", 0.65f, y + 0.13f * height, 0.3f,
+        (i == 0 ? 0.38f : 0.34f) * height,
         MyGUI::Align::Top | MyGUI::Align::Right,
         "SentientSands_ChatMembers_" + ToString(i));
     g_chatMemberLists[i]->eventListMouseItemActivate +=
@@ -534,7 +530,8 @@ static void AddChatHistoryPanel(MyGUI::Widget *client, float height) {
 }
 
 static void BuildChatWindow(MyGUI::Gui *gui) {
-  float panel = g_chatHistoryShown ? CHAT_HISTORY_HEIGHT : 0.0f;
+  float panel = CHAT_HEADER_HEIGHT +
+                (g_chatHistoryShown ? CHAT_HISTORY_HEIGHT : 0.0f);
   g_chatWindow = gui->createWidgetReal<MyGUI::Window>(
       "Kenshi_WindowCX", 0.1875f, 0.4f - panel, 0.625f,
       CHAT_INPUT_HEIGHT + panel, MyGUI::Align::Center, "Window",
@@ -544,18 +541,23 @@ static void BuildChatWindow(MyGUI::Gui *gui) {
   g_chatWindow->eventWindowButtonPressed +=
       MyGUI::newDelegate(OnChatWindowButtonPressed);
   MyGUI::Widget *client = g_chatWindow->getClientWidget();
-  // The input rows keep their pixel height under the history panel, so rows
-  // is their share of the client and top is the share of the panel
-  float frame = (float)(g_chatWindow->getHeight() - client->getHeight());
-  float rows = (g_chatWindow->getHeight() * CHAT_INPUT_HEIGHT /
-                    (CHAT_INPUT_HEIGHT + panel) -
-                frame) /
-               client->getHeight();
-  float top = 1.0f - rows;
-  if (g_chatHistoryShown) {
-    AddChatHistoryPanel(client, top);
-    RequestChatHistory();
-  }
+  // unit turns a share of the screen into a share of the client, so the panel
+  // gets its screen height and the input rows keep their pixel height
+  float unit = (float)g_chatWindow->getHeight() /
+               (CHAT_INPUT_HEIGHT + panel) / client->getHeight();
+  float header = CHAT_HEADER_HEIGHT * unit;
+  float top = panel * unit;
+  float rows = 1.0f - top;
+
+  g_chatThreadHeader = client->createWidgetReal<MyGUI::TextBox>(
+      "Kenshi_TextboxStandardText", 0.05f, 0.0f, 0.9f, header,
+      MyGUI::Align::Top | MyGUI::Align::HStretch,
+      "SentientSands_ChatThreadHeader");
+  g_chatThreadHeader->setTextAlign(MyGUI::Align::Left | MyGUI::Align::VCenter);
+  g_chatThreadHeader->setTextColour(MyGUI::Colour(1.0f, 0.9f, 0.5f));
+  if (g_chatHistoryShown)
+    AddChatHistory(client, header, top - header);
+  RequestChatHistory();
 
   g_chatLabel = client->createWidgetReal<MyGUI::TextBox>(
       "Kenshi_TextboxStandardText", 0.40f, top + 0.05f * rows, 0.55f,
