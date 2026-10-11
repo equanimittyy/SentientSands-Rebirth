@@ -10,10 +10,11 @@ from core import state
 
 NPC = {"money": 300, "inventory": [{"name": "Katana", "count": 1}, {"name": "Bread", "count": 2}, {"name": "Bread", "count": 1}]}
 SPEAKER = {"money": 1000, "inventory": [{"name": "Dirty Loincloth", "count": 1}]}
+GUARD = {**NPC, "squad_jobs": ["MAN_THE_GATE"]}
 
 
-def check(category, tag, npc=NPC, speaker=SPEAKER, guard=False):
-    return offers.check(category, offers.read(tag), npc, speaker, guard)
+def check(category, tag, npc=NPC, speaker=SPEAKER):
+    return offers.check(category, offers.read(tag), npc, speaker)
 
 
 class ReadTest(unittest.TestCase):
@@ -73,8 +74,13 @@ class CheckTest(unittest.TestCase):
         self.assertIsNotNone(check("FOLLOW", "[OFFER: HIRE: 2 days; TAKE_CATS: 4000]", npc=merc, speaker=rich)[0])
         self.assertIsNotNone(check("FOLLOW", "[OFFER: HIRE: 6 hours; TAKE_CATS: 500]", npc=merc)[0])
 
-    def test_a_release_knows_whether_a_guard_releases(self):
-        self.assertEqual(check("LIBERATE", "[OFFER: RELEASE]", guard=True)[0]["gives"], [("RELEASE", True)])
+    def test_a_release_costs_a_bribe_on_top_of_the_bounty(self):
+        self.assertIsNone(check("LIBERATE", "[OFFER: RELEASE]", npc=GUARD)[0])
+        self.assertIsNone(check("LIBERATE", "[OFFER: RELEASE; TAKE_CATS: 499]", npc=GUARD)[0])
+        self.assertEqual(check("LIBERATE", "[OFFER: RELEASE; TAKE_CATS: 500]", npc=GUARD)[0]["gives"], [("RELEASE", None)])
+        wanted = {**SPEAKER, "money": 5000, "bounty": 2000}
+        self.assertIsNone(check("LIBERATE", "[OFFER: RELEASE; TAKE_CATS: 2000]", npc=GUARD, speaker=wanted)[0])
+        self.assertIsNotNone(check("LIBERATE", "[OFFER: RELEASE; TAKE_CATS: 2500]", npc=GUARD, speaker=wanted)[0])
 
 
 class TextTest(unittest.TestCase):
@@ -85,10 +91,9 @@ class TextTest(unittest.TestCase):
         self.assertEqual(offers.popup_text(handover, "Bandit", "Zaps"), "Bandit offers 200 cats and a Katana.")
         hire, _ = check("FOLLOW", "[OFFER: HIRE: 2 days; TAKE_CATS: 400]")
         self.assertEqual(offers.popup_text(hire, "Drifter", "Zaps"), "Drifter offers to follow you for 2 days for 400 cats.")
-        release, _ = check("LIBERATE", "[OFFER: RELEASE; TAKE_CATS: 500]", guard=True)
+        release, _ = check("LIBERATE", "[OFFER: RELEASE; TAKE_CATS: 500]", npc=GUARD)
         self.assertEqual(offers.popup_text(release, "Guard", "Zaps"), "Guard offers your release for 500 cats.")
-        breakout, _ = check("LIBERATE", "[OFFER: RELEASE; TAKE_CATS: 500]")
-        self.assertEqual(offers.popup_text(breakout, "Drifter", "Zaps"), "Drifter offers to break you out for 500 cats.")
+        self.assertEqual(offers.actions(release), ["[ACTION: TAKE_CATS: 500]", "[ACTION: RELEASE_PRISONER]"])
 
     def test_the_memory_lines_are_deal_lines(self):
         handover, _ = check("THREATEN", "[OFFER: GIVE_CATS: 200]")
@@ -241,6 +246,11 @@ class FactsTest(unittest.TestCase):
                       "- If Zaps begs for charity: You could go either way. You already gave charity today.", text)
         text = offers.facts("BARTER", npc, SPEAKER, "Zaps", [])
         self.assertIn("- If Zaps begs for charity: You are inclined to refuse. You already gave charity today.", text)
+
+    def test_a_guard_names_its_bribe(self):
+        self.assertIn("- You release Zaps only for a bribe of at least 500 cats.", offers.facts("LIBERATE", GUARD, SPEAKER, "Zaps", []))
+        text = offers.facts("LIBERATE", GUARD, {**SPEAKER, "bounty": 2000}, "Zaps", [])
+        self.assertIn("- You release Zaps only for a bribe of at least 2,500 cats: the bounty of 2,000 cats on Zaps, and 500 more.", text)
 
     def test_a_mercenary_names_its_rate(self):
         self.assertIn("at least 2,500 cats for each day", offers.facts("FOLLOW", {**NPC, "faction": "Black Dog"}, SPEAKER, "Zaps", []))

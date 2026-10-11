@@ -31,6 +31,7 @@ CHARITY_CATS = 50
 # A gift raises the relation by 1 for each GIFT_WORTH of its worth, so small gifts cannot farm relation
 GIFT_WORTH = 500
 GIFT_MOST = 10
+RELEASE_BRIBE = 500
 ACCEPT_LINES = {"RECRUIT": "recruit_accept", "FOLLOW": "follow_accept", "HEAL": "heal_start", "LIBERATE": "liberate_accept", "THREATEN": "threaten_accept", "BARTER": "barter_accept"}
 # Keyed by the kinds of ItemKind (plugin/game/Context.cpp). Kenshi files alcohol under narcotics, so a drink is a "drug".
 KIND_WORDS = {
@@ -178,10 +179,14 @@ def charity(gives, npc):
     return None, "charity is only GIVE_CATS or GIVE_FOOD"
 
 
-def check(category, parts, npc, speaker, guard=False):
+def release_fee(speaker):
+    return RELEASE_BRIBE + (speaker.get("bounty") or 0)
+
+
+def check(category, parts, npc, speaker):
     """(offer, None) for an offer that keeps the hard limits, or (None, reason). An offer holds the parts that the NPC gives
     and the parts that the player gives, as (kind, value) pairs: CATS with a count, ITEM with (count, name), HIRE with the
-    hours, RELEASE with whether a guard releases, and JOIN_PARTY or FIRST_AID with None."""
+    hours, and JOIN_PARTY, FIRST_AID, or RELEASE with None."""
     if category not in GIVES:
         return None, f"{category} makes no offers"
     parsed = []
@@ -204,7 +209,7 @@ def check(category, parts, npc, speaker, guard=False):
                 return None, "HIRE has no length"
             parsed.append((name, hours))
         else:
-            parsed.append((name, guard if name == "RELEASE" else None))
+            parsed.append((name, None))
     if category == "BARTER" and parsed and all(name in GIVES["BARTER"] for name, _ in parsed):
         return charity(parsed, npc)
     if any(name == "GIVE_FOOD" for name, _ in parsed):
@@ -236,6 +241,9 @@ def check(category, parts, npc, speaker, guard=False):
     hours = sum(value for kind, value in gives if kind == "HIRE")
     if rate and paid < math.ceil(rate * hours / 24):
         return None, f"a mercenary charges at least {rate} cats a day"
+    fee = release_fee(speaker)
+    if any(kind == "RELEASE" for kind, _ in gives) and paid < fee:
+        return None, f"a release costs a bribe of at least {fee} cats"
     offer = {"category": category, "gives": gives, "takes": takes}
     if category == "BARTER":
         received, handed = worth(takes, npc, speaker, "takes"), worth(gives, npc, speaker, "gives")
@@ -277,9 +285,7 @@ def deal_text(offer, voice, player):
     if "FIRST_AID" in kinds:
         return {"popup": "treatment", "offered": f"to treat {player}", "accepted": f"treats {player}"}[voice]
     if "RELEASE" in kinds:
-        if kinds["RELEASE"]:
-            return {"popup": "your release", "offered": f"to release {player}", "accepted": f"releases {player}"}[voice]
-        return {"popup": "to break you out", "offered": f"to break {player} out", "accepted": f"breaks {player} out"}[voice]
+        return {"popup": "your release", "offered": f"to release {player}", "accepted": f"releases {player}"}[voice]
     goods = goods_text(offer["gives"])
     return f"gives {player} {goods}" if voice == "accepted" else goods
 
@@ -323,7 +329,7 @@ def actions(offer):
         elif kind == "HIRE":
             out.append(f"[ACTION: HIRE: {value}]")
         elif kind == "RELEASE":
-            out.append("[ACTION: RELEASE_PRISONER]" if value else "[ACTION: BREAKOUT_PRISONER]")
+            out.append("[ACTION: RELEASE_PRISONER]")
         elif kind != "JOIN_PARTY":
             out.append(f"[ACTION: {kind}]")
     return out
@@ -440,6 +446,10 @@ def facts(category, npc, speaker, player_name, lean, said=""):
         if speaker.get("character_state") == "imprisoned":
             lines.append(f"{player_name} is imprisoned." + (" You are imprisoned too." if npc.get("character_state") == "imprisoned" else ""))
         lines += price_guide(said, npc, speaker, player_name)
+    if category == "LIBERATE":
+        bounty = speaker.get("bounty") or 0
+        lines.append(f"You release {player_name} only for a bribe of at least {release_fee(speaker):,} cats"
+                     + (f": the bounty of {bounty:,} cats on {player_name}, and {RELEASE_BRIBE} more." if bounty else "."))
     if category == "FOLLOW":
         rate = action_dialogue.mercenary_rate(npc)
         lines.append(f"You are a mercenary: you never follow for free, and you charge at least {rate:,} cats for each day." if rate

@@ -106,6 +106,7 @@ The `STOCK_PROBE` and `FIRSTAID_PROBE` lines of a bar and of a shop in a Shinobi
 - `Character::addOrder` with `FIRST_AID_ORDER` and an injured player character as the target made a shop guard outside the squad walk 50 m to the character and treat it.
 - `Blackboard::_setContractJob` with the `Bodyguard` AI package (`5090-gamedata.base`) and 6 hours started a hire contract on a vagrant outside the squad. `hasContractJob` became true, `getContractExpiryTime` was 6 game hours after the call, the AI package became `Bodyguard`, and the NPC took the task `FOLLOW_PLAYER_ORDER` (44). The UI of the game showed the NPC as a hired mercenary. The KenshiLib header marks the function private in a comment, but declares it public, and `KenshiLib.lib` exports it.
 - `Blackboard::endContractJob` ended that hire contract early on two NPCs. `hasContractJob` became false, the AI package became empty, and the NPC stopped following.
+- `Character::addOrder` with `BREAKOUT_PRISONER` (111) did not make an apothecary of the Holy Nation Outlaws walk to the player character in a cage of its own faction, 63 m away. After 30 s the character was still locked up.
 
 ## Crash dumps
 

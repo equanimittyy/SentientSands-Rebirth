@@ -446,19 +446,26 @@ def chat():
     kind, category, text = action_dialogue.parse(player_message)
     npc_in_faction = bool(ctx_dict.get("in_player_faction") or is_player_faction(ctx_dict.get("faction"), ctx_dict.get("factionID")))
     blocked = action_dialogue.knockout_block(ctx_dict, speaker, primary_npc, player_name)
-    if kind and not blocked:
-        blocked = action_dialogue.mark_block(ctx_dict, primary_npc, npc_in_faction)
-    if kind == "category" and not blocked:
+    chat_reason = None
+    if kind in ("category", "classify") and not blocked:
+        chat_reason = action_dialogue.mark_chat(ctx_dict, npc_in_faction)
+    if kind == "category" and not blocked and not chat_reason:
         blocked = action_dialogue.gate_block(category, ctx_dict, speaker, primary_npc)
+        chat_reason = action_dialogue.plain_chat(category, ctx_dict, speaker)
     if blocked:
         logging.info(f"ACTION: Blocked the line of {player_name} to {primary_npc}: {blocked}")
         notify(blocked)
         return reply(action_open=bool(action))
-    if kind == "classify":
+    if kind == "classify" and not chat_reason:
         listed = action_dialogue.choices(ctx_dict, speaker, primary_npc)
         prompt = fill_prompt("prompt_action_classify.txt", line=text, choices=action_dialogue.choice_list(listed))
         category = action_dialogue.chosen(call_llm("action", [{"role": "user", "content": prompt}]), listed)
         logging.info(f"ACTION: Classified the line of {player_name} to {primary_npc} as {category or 'no category'}.")
+        chat_reason = action_dialogue.plain_chat(category, ctx_dict, speaker)
+    if chat_reason:
+        chat_reason = chat_reason.format(player=player_name)
+        logging.info(f"ACTION: The line of {player_name} to {primary_npc} goes to plain chat: {chat_reason}")
+        kind, category, player_message = None, None, text
     if kind == "failure" or (kind == "classify" and not category):
         end_thread()
         notify(f"{primary_npc} didn't understand what you meant.")
@@ -469,7 +476,7 @@ def chat():
         return reply(action_dialogue.end_line("end"))
     if kind:
         player_message = text
-    elif action:
+    elif action and not chat_reason:
         category = action["category"]
     npc_party = (primary_id, primary_npc, context, npc_in_faction)
     speaker_party = (speaker_id, player_name, json.dumps(speaker), True)
@@ -592,6 +599,8 @@ def chat():
         lean = action_dialogue.lean(category, ctx_dict, speaker, primary_data.get("Relation"), nearby)
         last_reply = next((line for line, who, _ in reversed(rows) if who == primary_id), "")
         background_block = offers.facts(category, ctx_dict, speaker, player_name, lean, f"{player_message}\n{last_reply}") + "\n\n" + background_block
+    elif chat_reason:
+        background_block = f"YOUR THOUGHT: {chat_reason}\n\n{background_block}"
     turn = fill_prompt("prompt_chat_turn.txt", background=background_block, player_line=full_player_entry, final_instruction=final_instruction).strip()
     history = chat_prompt.history_window(chat_prompt.chat_lines(rows), campaign_db.DIALOGUE_BLOCK)
     notes = chat_prompt.overheard_notes(campaign_db.thread_members({thread_id for _, _, thread_id in history if thread_id}), primary_id)
@@ -613,7 +622,7 @@ def chat():
         elif category in ("RECRUIT", "FOLLOW") and offers.refused(content):
             outcome = "refused"
         elif category and offers.read(content) is not None:
-            offer, unkept = offers.check(category, offers.read(content), ctx_dict, speaker, action_dialogue.is_guard(ctx_dict))
+            offer, unkept = offers.check(category, offers.read(content), ctx_dict, speaker)
             if not offer:
                 logging.info(f"ACTION: Dropped the offer of {primary_npc}, because {unkept}: {offers.offer_text(content)}")
                 outcome = "unkept"

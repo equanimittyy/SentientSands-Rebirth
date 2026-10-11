@@ -69,42 +69,55 @@ def knockout_block(npc, speaker, npc_name, speaker_name):
     return None
 
 
-def mark_block(npc, npc_name, in_player_faction):
-    """The block of every marked line, before any classify call."""
+def mark_chat(npc, in_player_faction):
+    """The reason that each marked line to the NPC goes to plain chat, before any classify call, or None."""
     if npc.get("animal"):
-        return f"{npc_name} is an animal and makes no deals."
+        return "You are an animal and make no deals."
     if in_player_faction:
-        return f"{npc_name} is a member of your faction."
+        return "You are in {player}'s faction, so you make no deals with {player}."
     return None
 
 
 def gate_block(category, npc, speaker, npc_name):
-    """The message of the first gate of the category that fails, or None. The classify list leaves out each category that
-    this blocks, so a named mark and the classify call reach the same categories."""
+    """The message of a deal that cannot happen at all, or None. The classify list leaves out each category that this
+    blocks, so a named mark and the classify call reach the same categories."""
+    if category == "DISMISS" and not npc.get("temporary_follower"):
+        return f"{npc_name} is not a hired follower."
+    return None
+
+
+def plain_chat(category, npc, speaker):
+    """The reason that a line of the category goes to plain chat instead, or None, because the story allows the deal but
+    the game cannot carry it out. The NPC can name the reason, and the model never gets the prompt of the category, so it
+    never learns how to make the deal. A reason names the speaker as {player}. A slave in a cage reads as imprisoned, so the
+    slave state comes apart from character_state."""
     npc_state, speaker_state = npc.get("character_state"), speaker.get("character_state")
+    if category == "THREATEN" and speaker_state == "imprisoned":
+        return "{player} is locked in a cage, so you do not take the threat seriously."
     if category == "HEAL":
         if not wounded(speaker):
-            return "You have no wounds to treat."
+            return "{player} has no wounds to treat."
         if not npc.get("has_first_aid"):
-            return f"{npc_name} has no first aid kit."
+            return "You have no first aid kit."
         if npc_state == "imprisoned":
-            return f"{npc_name} can't treat you while imprisoned."
+            return "You are locked in a cage, so you cannot treat {player}."
     elif category == "LIBERATE":
-        if speaker_state not in ("imprisoned", "enslaved"):
-            return "You are neither imprisoned nor enslaved."
+        if speaker.get("slave"):
+            return "{player} is a slave, and no one releases a slave."
+        if speaker_state != "imprisoned":
+            return "{player} is free already."
         if npc_state == "imprisoned":
-            return f"{npc_name} can't free you while imprisoned."
+            return "You are locked in a cage too, so you cannot free {player}."
+        if not is_guard(npc):
+            return "You are not a guard, so you cannot release {player}."
     elif category in ("RECRUIT", "FOLLOW"):
-        verb = "recruit" if category == "RECRUIT" else "hire"
+        verb = "join" if category == "RECRUIT" else "follow"
         if speaker_state in ("imprisoned", "enslaved"):
-            return f"You can't {verb} anyone while {speaker_state}."
+            return f"{{player}} is {speaker_state}, so you cannot {verb} {{player}}."
         if npc_state in ("imprisoned", "enslaved"):
-            return f"{npc_name} can't {'join' if category == 'RECRUIT' else 'follow'} you while {npc_state}."
+            return f"You are {npc_state}, so you cannot {verb} {{player}}."
         if npc.get("is_leader"):
-            return f"{npc_name} leads {npc.get('faction') or 'a faction'} and will not leave it."
-    elif category == "DISMISS":
-        if not npc.get("temporary_follower"):
-            return f"{npc_name} is not a hired follower."
+            return f"You lead {npc.get('faction') or 'your faction'} and will not leave it."
     return None
 
 
@@ -151,9 +164,7 @@ def lean(category, npc, speaker, relation, overheard=()):
     if category == "HEAL":
         pairs.append(({"Injured": 1, "Crippled": 2}.get(health, 0), f"{{player}} is {str(health).lower()}."))
     elif category == "LIBERATE":
-        # A slave in a cage reads as imprisoned, so the slave state comes apart from character_state
-        pairs += [(health == "Crippled", "{player} is crippled."),
-                  (-2 * (bool(speaker.get("slave")) and is_guard(npc)), "You are a guard, and {player} is a slave.")]
+        pairs.append((health == "Crippled", "{player} is crippled."))
     elif category in ("RECRUIT", "FOLLOW"):
         pairs += [(npc.get("character_state") == "escaped-slave", "You escaped slavery."),
                   (-bool(npc.get("unique")), "You are no common drifter."),
@@ -182,8 +193,7 @@ def threat_lean(npc, speaker, overheard):
              (numbers, "{player}'s side outnumbers yours here." if numbers > 0 else "Your side outnumbers {player}'s here."),
              (npc.get("health") in ("Injured", "Crippled"), "You are hurt."),
              (-(speaker.get("health") in ("Injured", "Crippled")), "{player} is hurt."),
-             (-bool(npc.get("is_leader") or npc.get("unique")), "You lead your faction." if npc.get("is_leader") else "You are no common drifter."),
-             (-2 * (speaker.get("character_state") == "imprisoned"), "{player} is locked up.")]
+             (-bool(npc.get("is_leader") or npc.get("unique")), "You lead your faction." if npc.get("is_leader") else "You are no common drifter.")]
     return [(int(bonus), reason) for bonus, reason in pairs if bonus]
 
 

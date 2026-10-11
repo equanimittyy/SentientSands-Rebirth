@@ -1,2 +1,2 @@
-REQUEST: {speaker} asks you to free them from prison or slavery.
-OFFER: When you agree to free {speaker}, put [OFFER: RELEASE] after your words, and add TAKE_CATS: n when you want n cats for it. Example: 500 cats, and the lock opens. [OFFER: RELEASE; TAKE_CATS: 500]
+REQUEST: {speaker} asks you, a guard, to release them from prison.
+OFFER: You release {speaker} only for a bribe, never for free. When you agree, put [OFFER: RELEASE; TAKE_CATS: n] after your words, where n is the bribe. Example: 800 cats, and the lock opens. [OFFER: RELEASE; TAKE_CATS: 800]

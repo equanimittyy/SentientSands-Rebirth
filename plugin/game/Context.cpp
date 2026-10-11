@@ -1048,13 +1048,16 @@ std::string GetDetailedContext(Character *npc, const std::string &type) {
 
   bool slave = false;
   bool firstAid = false;
+  int bounty = 0;
   try {
     slave = npc->isSlave() != 0;
+    bounty = npc->crimes.getTotalBounty();
     Inventory *inv = npc->getInventory();
     firstAid = inv && inv->hasItemFunction(ITEM_FIRSTAID);
   } catch (...) {
   }
   json += "\"slave\": " + std::string(slave ? "true" : "false") + ",";
+  json += "\"bounty\": " + ToString(bounty) + ",";
   json += "\"has_first_aid\": " + std::string(firstAid ? "true" : "false") +
           ",";
 

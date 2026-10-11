@@ -17,7 +17,7 @@ The characters right after the `!` decide the result. A word after the `!` runs 
 | After the `!` | Result |
 |---|---|
 | A space | An action dialogue with no category ([No category](#no-category)) |
-| One letter or the full word of a category ([section 3](#3-categories)) | An action dialogue in that category, or a [block](#blocked) when a gate of the category fails |
+| One letter or the full word of a category ([section 3](#3-categories)) | An action dialogue in that category, [plain chat](#plain-chat) when the story allows the deal but code rules it out, or a [block](#blocked) when the deal cannot happen at all |
 | `e` or `end` | The [end](#end) of the action dialogue |
 | Any other letter or word, a category without text, or nothing | A [failure](#failure), with no LLM call |
 | Any other character, such as `!` or `?` | Plain chat, with no mark |
@@ -48,16 +48,16 @@ A line with no category costs two LLM calls: a classify call, and then the actio
 
 The classify call is as lean as possible. Its prompt holds only the player's line and a numbered list of the categories, and it tells the model to output only the number of one choice.
 
-The list leaves out each category that the game state already rules out, because a shorter list confuses a small model less. Code numbers the remaining choices from 1 in the order of this table, and it maps the number of the answer back to its category.
+The list leaves out each blocked category ([Blocked](#blocked)). A category that goes to plain chat stays in the list, so that the line reaches the NPC with the reason ([Plain chat](#plain-chat)). Code numbers the remaining choices from 1 in the order of this table, and it maps the number of the answer back to its category.
 
 | Choice | Category | Left out when |
 |---|---|---|
 | A threat or demand | THREATEN | Never |
 | A request to buy, sell, or swap items, a gift, or a plea for charity | BARTER | Never |
-| A request to treat wounds, paid or free | HEAL | The speaker has no wound, the NPC carries no first aid item, or the NPC is `imprisoned` ([heal.md](heal.md#2-deal)). |
-| A request to be freed from prison or slavery, paid or free | LIBERATE | The speaker is neither `imprisoned` nor `enslaved`, or the NPC is `imprisoned` ([liberate.md](liberate.md#2-deal)). |
-| A request to join the squad for good, as a new member | RECRUIT | The speaker or the NPC is `imprisoned` or `enslaved`, or the NPC leads its faction ([recruit.md](recruit.md#2-gate)). |
-| A request to come along or be hired for a while, such as "follow me" | FOLLOW | The speaker or the NPC is `imprisoned` or `enslaved`, or the NPC leads its faction ([recruit.md](recruit.md#2-gate)). |
+| A request to treat wounds, paid or free | HEAL | Never |
+| A request to be freed from prison or slavery, paid or free | LIBERATE | Never |
+| A request to join the squad for good, as a new member | RECRUIT | Never |
+| A request to come along or be hired for a while, such as "follow me" | FOLLOW | Never |
 | An order for a hired follower to leave | DISMISS | The NPC is not a temporary follower ([dismiss.md](dismiss.md#2-gate)). |
 
 Each category has one choice, because each choice leads to its own pipeline. The choices of HEAL and LIBERATE say "paid or free", and the choice of BARTER names items, so a line that pays for a treatment or a release fits HEAL or LIBERATE instead of a trade.
@@ -74,13 +74,27 @@ A failure sends no action dialogue call. The server replies with the line "X did
 
 ### Blocked
 
-A line that names a category whose gate fails is blocked, so a named mark cannot open a category that the classify call would leave out. A blocked line sends no LLM call. The chat window shows a system message ([Reply](#reply)) that names the failed gate, for example "You have no wounds to treat.". The server keeps neither the player's line nor the message, so the chat thread stays as it was. The doc of each category holds its gates.
+A deal that cannot happen at all is blocked. A blocked line sends no LLM call. The chat window shows a system message ([Reply](#reply)) that names the reason, for example "Hobbs is not a hired follower.". The server keeps neither the player's line nor the message, so the chat thread stays as it was. Two blocks exist:
 
-A knockout blocks every category, because a knocked-out character cannot talk. While the speaker or the NPC is knocked out (`character_state` is `unconscious`, `plugin/game/Context.cpp:658`), each line that starts with `!` and each line of an action dialogue is blocked, before any classify call. The message names who is knocked out, for example "Bandit is unconscious.". The block holds for plain chat too: a line from a knocked-out speaker or to a knocked-out NPC sends no LLM call, and the chat window shows the same message. Radiant conversations already leave out knocked-out characters (`CanTalk` in `plugin/game/Context.cpp:495`).
+- A knockout blocks every line (`knockout_block`), because a knocked-out character cannot talk. While the speaker or the NPC is knocked out (`character_state` is `unconscious`, `plugin/game/Context.cpp:658`), each line that starts with `!` and each line of an action dialogue is blocked, before any classify call. The message names who is knocked out, for example "Bandit is unconscious.". The block holds for plain chat too: a line from a knocked-out speaker or to a knocked-out NPC sends no LLM call, and the chat window shows the same message. Radiant conversations already leave out knocked-out characters (`CanTalk` in `plugin/game/Context.cpp:495`).
+- DISMISS of an NPC that is not a temporary follower is blocked (`gate_block`, [dismiss.md](dismiss.md#2-gate)).
 
-An animal makes no deals, so each line that starts with `!` to an animal (`animal` in `plugin/game/Context.cpp:705`) is blocked too, before any classify call. Plain chat with an animal stays.
+### Plain chat
 
-No action works on a member of the player faction, so each line that starts with `!` to an NPC in the player faction (`in_squad` in `server/chat/routes.py:290`) is blocked too, before any classify call. The message is, for example, "Hobbs is a member of your faction.". A temporary follower keeps its own faction, so DISMISS still reaches it.
+A deal that the story allows but code rules out goes to plain chat instead: the NPC answers in its own words, and the model never gets the prompt of the category, so it never learns how to make the deal. The turn message gives the NPC the reason as its thought, for example "YOUR THOUGHT: Zaps is locked in a cage, so you do not take the threat seriously.", so that the reply can name it. The server log names each line that goes to plain chat, with its reason.
+
+Each marked line goes to plain chat before any classify call (`mark_chat`) when the NPC is an animal (`animal` in `plugin/game/Context.cpp:705`) or a member of the player faction (`in_squad` in `server/chat/routes.py:290`). A temporary follower keeps its own faction, so DISMISS still reaches it.
+
+A line of a category goes to plain chat when the game state fails a gate of the category (`plain_chat`):
+
+| Category | Gate that fails | Thought, for example |
+|---|---|---|
+| THREATEN | The speaker is `imprisoned` ([threaten.md](threaten.md#2-gate)). | Zaps is locked in a cage, so you do not take the threat seriously. |
+| HEAL | The speaker has no wound, the NPC carries no first aid item, or the NPC is `imprisoned` ([heal.md](heal.md#2-deal)). | Zaps has no wounds to treat. |
+| LIBERATE | The speaker is a slave or is not `imprisoned`, or the NPC is `imprisoned` or is not a guard ([liberate.md](liberate.md#2-deal)). | You are not a guard, so you cannot release Zaps. |
+| RECRUIT, FOLLOW | The speaker or the NPC is `imprisoned` or `enslaved`, or the NPC leads its faction ([recruit.md](recruit.md#2-gate)). | You lead Holy Nation Outlaws and will not leave it. |
+
+A named mark goes to plain chat at once, and a classify call goes to plain chat after it chose the category. A line that goes to plain chat does not continue an open action dialogue, but the action dialogue stays open for the next line.
 
 ## 3. Categories
 

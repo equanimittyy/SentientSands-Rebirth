@@ -52,43 +52,51 @@ class BlockTest(unittest.TestCase):
         self.assertEqual(ad.knockout_block({"character_state": "unconscious"}, {}, "Bandit", "Beep"), "Bandit is unconscious.")
         self.assertIsNone(ad.knockout_block({}, {}, "Bandit", "Beep"))
 
-    def test_an_animal_or_a_member_of_the_player_faction_blocks_a_marked_line(self):
-        self.assertIn("animal", ad.mark_block({"animal": True}, "Goat", False))
-        self.assertEqual(ad.mark_block({}, "Hobbs", True), "Hobbs is a member of your faction.")
-        self.assertIsNone(ad.mark_block({}, "Bandit", False))
+    def test_a_marked_line_to_an_animal_or_a_member_of_the_player_faction_is_plain_chat(self):
+        self.assertEqual(ad.mark_chat({"animal": True}, False), "You are an animal and make no deals.")
+        self.assertIn("{player}'s faction", ad.mark_chat({}, True))
+        self.assertIsNone(ad.mark_chat({}, False))
+
+    def test_only_a_dismissal_of_no_hired_follower_is_blocked(self):
+        self.assertEqual(ad.gate_block("DISMISS", {}, {}, "Bandit"), "Bandit is not a hired follower.")
+        self.assertIsNone(ad.gate_block("DISMISS", {"temporary_follower": True}, {}, "Bandit"))
+        for category in ("THREATEN", "BARTER", "HEAL", "LIBERATE", "RECRUIT", "FOLLOW"):
+            self.assertIsNone(ad.gate_block(category, {"character_state": "imprisoned"}, {"character_state": "normal"}, "Bandit"))
 
 
-class GateTest(unittest.TestCase):
-    def gate(self, category, npc=None, speaker=None):
-        return ad.gate_block(category, npc or {}, speaker or {}, "Bandit")
+class PlainChatTest(unittest.TestCase):
+    def chat(self, category, npc=None, speaker=None):
+        return ad.plain_chat(category, npc or {}, speaker or {})
 
-    def test_threaten_has_no_gate(self):
-        self.assertIsNone(self.gate("THREATEN", speaker={"character_state": "imprisoned"}))
+    def test_barter_never_goes_to_plain_chat(self):
+        self.assertIsNone(self.chat("BARTER", {"character_state": "imprisoned"}, {"character_state": "imprisoned", "slave": True}))
 
-    def test_barter_has_no_gate(self):
-        self.assertIsNone(self.gate("BARTER", {"character_state": "imprisoned"}, {"character_state": "imprisoned"}))
+    def test_a_threat_from_a_cage_is_not_taken_seriously(self):
+        self.assertEqual(self.chat("THREATEN", speaker={"character_state": "imprisoned"}), "{player} is locked in a cage, so you do not take the threat seriously.")
+        self.assertIsNone(self.chat("THREATEN", speaker={"character_state": "normal"}))
 
     def test_heal_needs_wounds_a_kit_and_a_free_npc(self):
         kit = {"has_first_aid": True}
-        self.assertIsNotNone(self.gate("HEAL", kit, {"health": "Healthy"}))
-        self.assertIsNotNone(self.gate("HEAL", {}, {"health": "Injured"}))
-        self.assertIsNotNone(self.gate("HEAL", {**kit, "character_state": "imprisoned"}, {"health": "Crippled"}))
-        self.assertIsNone(self.gate("HEAL", kit, {"health": "Injured"}))
+        self.assertEqual(self.chat("HEAL", kit, {"health": "Healthy"}), "{player} has no wounds to treat.")
+        self.assertEqual(self.chat("HEAL", {}, {"health": "Injured"}), "You have no first aid kit.")
+        self.assertIsNotNone(self.chat("HEAL", {**kit, "character_state": "imprisoned"}, {"health": "Crippled"}))
+        self.assertIsNone(self.chat("HEAL", kit, {"health": "Injured"}))
 
     def test_a_slight_wound_counts_for_heal(self):
         kit = {"has_first_aid": True}
         slight = {"health": "Healthy", "medical": {"limbs": {"head": 100, "head_max": 100, "left_arm": 90, "left_arm_max": 100}}}
         whole = {"health": "Healthy", "medical": {"limbs": {"head": 100, "head_max": 100, "left_arm": 100, "left_arm_max": 100}}}
-        self.assertIsNone(self.gate("HEAL", kit, slight))
-        self.assertEqual(self.gate("HEAL", kit, whole), "You have no wounds to treat.")
+        self.assertIsNone(self.chat("HEAL", kit, slight))
+        self.assertIsNotNone(self.chat("HEAL", kit, whole))
 
-    def test_liberate_needs_a_captive_speaker_and_a_free_npc(self):
-        self.assertIsNotNone(self.gate("LIBERATE", speaker={"character_state": "normal"}))
-        self.assertIsNotNone(self.gate("LIBERATE", {"character_state": "imprisoned"}, {"character_state": "imprisoned"}))
-        self.assertIsNone(self.gate("LIBERATE", speaker={"character_state": "enslaved"}))
-
-    def test_a_guard_can_free_a_slave(self):
-        self.assertIsNone(self.gate("LIBERATE", GUARD, {"character_state": "imprisoned", "slave": True}))
+    def test_only_a_free_guard_releases_a_prisoner_who_is_no_slave(self):
+        prisoner = {"character_state": "imprisoned"}
+        self.assertIsNone(self.chat("LIBERATE", GUARD, prisoner))
+        self.assertEqual(self.chat("LIBERATE", GUARD, {"character_state": "normal"}), "{player} is free already.")
+        self.assertEqual(self.chat("LIBERATE", {}, prisoner), "You are not a guard, so you cannot release {player}.")
+        self.assertIsNotNone(self.chat("LIBERATE", {**GUARD, "character_state": "imprisoned"}, prisoner))
+        for slave in ({**prisoner, "slave": True}, {"character_state": "enslaved", "slave": True}):
+            self.assertEqual(self.chat("LIBERATE", GUARD, slave), "{player} is a slave, and no one releases a slave.")
 
     def test_a_jailer_at_a_bounty_desk_is_a_guard(self):
         desk = {"squad_jobs": ["STAND_AT_SHOPKEEPER_NODE", "STAY_IN_HOME", "FIND_CAGE_AND_PUT_DEADGUY_IN"]}
@@ -96,20 +104,16 @@ class GateTest(unittest.TestCase):
         self.assertFalse(ad.is_guard({"squad_jobs": ["STAND_AT_SHOPKEEPER_NODE"]}))
 
     def test_recruit_and_follow_need_free_characters_and_no_leader(self):
+        self.assertEqual(self.chat("RECRUIT", speaker={"character_state": "enslaved"}), "{player} is enslaved, so you cannot join {player}.")
+        self.assertEqual(self.chat("FOLLOW", {"character_state": "imprisoned"}), "You are imprisoned, so you cannot follow {player}.")
         for category in ("RECRUIT", "FOLLOW"):
-            self.assertIsNotNone(self.gate(category, speaker={"character_state": "enslaved"}))
-            self.assertIsNotNone(self.gate(category, {"character_state": "imprisoned"}))
-            self.assertIsNotNone(self.gate(category, {"is_leader": True, "faction": "Holy Nation"}))
-            self.assertIsNone(self.gate(category))
-
-    def test_dismiss_needs_a_temporary_follower(self):
-        self.assertEqual(self.gate("DISMISS"), "Bandit is not a hired follower.")
-        self.assertIsNone(self.gate("DISMISS", {"temporary_follower": True}))
+            self.assertEqual(self.chat(category, {"is_leader": True, "faction": "Holy Nation"}), "You lead Holy Nation and will not leave it.")
+            self.assertIsNone(self.chat(category))
 
 
 class ClassifyTest(unittest.TestCase):
-    def test_the_list_leaves_out_each_category_that_the_game_state_rules_out(self):
-        self.assertEqual(ad.choices({}, {"character_state": "normal", "health": "Healthy"}, "Bandit"), ["THREATEN", "BARTER", "RECRUIT", "FOLLOW"])
+    def test_the_list_leaves_out_only_a_blocked_category(self):
+        self.assertEqual(ad.choices({}, {"character_state": "normal", "health": "Healthy"}, "Bandit"), ["THREATEN", "BARTER", "HEAL", "LIBERATE", "RECRUIT", "FOLLOW"])
 
     def test_the_list_is_numbered_and_ends_in_the_escape_hatch(self):
         self.assertEqual(ad.choice_list(["THREATEN", "BARTER", "HEAL"]), "1. A threat or demand\n2. A request to buy, sell, or swap items, a gift, or a plea for charity\n"
@@ -141,11 +145,6 @@ class LeanTest(unittest.TestCase):
         self.assertEqual(score("HEAL", {}, {"health": "Crippled"}, 25), 3)
         self.assertEqual(score("LIBERATE", {}, {"health": "Crippled"}, 0), 1)
 
-    def test_a_guard_is_loath_to_free_a_slave_even_in_a_cage(self):
-        caged_slave = {"character_state": "imprisoned", "slave": True}
-        self.assertEqual(ad.lean("LIBERATE", GUARD, caged_slave, 0), [(-2, "You are a guard, and {player} is a slave.")])
-        self.assertEqual(ad.lean("LIBERATE", GUARD, {"character_state": "imprisoned"}, 0), [])
-
     def test_a_charity_counts_for_its_game_day_but_not_in_the_lean_of_a_trade(self):
         npc = {"npc_id": "h:1-beggar", "day": 4}
         self.assertFalse(ad.gave_charity_today(npc))
@@ -169,9 +168,6 @@ class LeanTest(unittest.TestCase):
                "nearby": [{"name": "Zip", "faction": "Nameless"}, {"name": "Bandit", "faction": "Dust Bandits"}]}
         self.assertEqual(score("THREATEN", npc, strong, 0), 3)
         self.assertEqual(score("THREATEN", {**npc, "is_leader": True}, strong, 0), 2)
-
-    def test_a_threat_from_a_cage_weighs_little(self):
-        self.assertEqual(ad.lean("THREATEN", {}, {"character_state": "imprisoned"}, 0), [(-2, "{player} is locked up.")])
 
     def test_the_thought_gives_the_band_and_its_reasons(self):
         lean = ad.lean("RECRUIT", {"character_state": "escaped-slave", **GUARD}, {}, -30)
