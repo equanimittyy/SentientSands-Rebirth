@@ -1292,27 +1292,18 @@ void playerUpdate_hook(PlayerInterface *thisptr) {
     if (GetTickCount() - lastTalkTick > 500) {
       lastTalkTick = GetTickCount();
       if (sel && (uintptr_t)sel > 0x1000) {
-        // Only the slot-1 leader is excluded; squadmates are valid talk targets.
-        bool isMainPlayer = false;
-        const lektor<Character *> &pc = thisptr->getAllPlayerCharacters();
-        if (pc.size() > 0 && pc[0] == sel) {
-          isMainPlayer = true;
-        }
+        g_talkTargetHand = sel->getHandle();
 
-        if (!isMainPlayer) {
-          g_talkTargetHand = sel->getHandle();
-
-          // End vanilla dialogue, or it runs alongside the AI chat ("double dialogue").
-          if (sel->dialogue && (uintptr_t)sel->dialogue > 0x1000) {
-            try {
-              sel->dialogue->endDialogue(true);
-              sel->dialogue->setInDialog(false);
-            } catch (...) {
-            }
+        // End vanilla dialogue, or it runs alongside the AI chat ("double dialogue").
+        if (sel->dialogue && (uintptr_t)sel->dialogue > 0x1000) {
+          try {
+            sel->dialogue->endDialogue(true);
+            sel->dialogue->setInDialog(false);
+          } catch (...) {
           }
-
-          CreateChatUI(sel->getName(), ToString(HandleKey(sel)));
         }
+
+        CreateChatUI(sel->getName(), ToString(HandleKey(sel)));
       }
     }
   }
