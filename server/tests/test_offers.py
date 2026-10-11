@@ -171,6 +171,12 @@ class BarterTest(unittest.TestCase):
                                  "You pay at most 12,000 cats each for the Chain Shirt (High) of Zaps."])
 
 
+class BoxTest(unittest.TestCase):
+    def test_cats_come_first_then_the_biggest_count_then_the_name(self):
+        offer = {"category": "BARTER", "takes": [], "gives": [("ITEM", (1, "katana")), ("ITEM", (3, "Water")), ("CATS", 200), ("ITEM", (3, "Bread")), ("ITEM", (1, "Hat"))]}
+        self.assertEqual(offers.boxes(offer), ["BOX: npc 200 cats", "BOX: npc 3 Bread", "BOX: npc 3 Water", "BOX: npc 1 Hat", "BOX: npc 1 katana"])
+
+
 class HoldTest(unittest.TestCase):
     def tearDown(self):
         state.PENDING_OFFER = None

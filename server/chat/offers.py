@@ -309,11 +309,17 @@ def checks(offer):
     return lines
 
 
+def box_order(part):
+    """Cats first, then the items by the biggest count, and items of one count by name."""
+    kind, value = part
+    return (0, 0, "") if kind == "CATS" else (1, -value[0], value[1].lower())
+
+
 def boxes(offer):
-    """The BOX lines of a trade, which the plugin shows in the two boxes of the barter window, cats first."""
+    """The BOX lines of a trade, which the plugin shows in the two boxes of the barter window."""
     lines = []
     for side, parts in (("player", offer["takes"]), ("npc", offer["gives"])):
-        ordered = sorted(parts, key=lambda part: part[0] != "CATS")
+        ordered = sorted(parts, key=box_order)
         lines += [f"BOX: {side} {value:,} cats" if kind == "CATS" else f"BOX: {side} {value[0]} {value[1]}" for kind, value in ordered]
     return lines
 

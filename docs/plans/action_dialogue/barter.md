@@ -23,7 +23,7 @@ An offer of BARTER shows in a barter window instead of the popup line of [Offer]
 | 500 cats | 1 Katana |
 | 1 Dirty Loincloth | |
 
-Each box lists the cats first, and then each item with its count. A box with nothing in it, as in a gift or in charity, shows "Nothing". The server fills the boxes from the checked offer, as it writes the popup line. The boxes reuse the list boxes of the existing windows, for example the event list of the Events window (`MyGUI::ListBox` in `plugin/ui/EventsWindow.cpp:22`).
+Each box lists the cats first, and then each item with its count, the biggest count first and items of one count by name. A box with nothing in it, as in a gift or in charity, shows "Nothing". The server fills the boxes from the checked offer, as it writes the popup line. The boxes reuse the list boxes of the existing windows, for example the event list of the Events window (`MyGUI::ListBox` in `plugin/ui/EventsWindow.cpp:22`).
 
 ## 3. Hard limits
 
