@@ -636,6 +636,48 @@ void GetShopItems(Character *npc, std::vector<Item *> &out) {
       SectionItems(furniture[i]->getInventory(), out);
 }
 
+// KIND_WORDS in server/chat/offers.py keys on these names
+static const char *ItemKind(Item *item) {
+  switch (item->objectType) {
+  case WEAPON:
+    return "weapon";
+  case CROSSBOW:
+    return "crossbow";
+  case ARMOUR:
+    return "armour";
+  case BLUEPRINT:
+    return "blueprint";
+  case LIMB_REPLACEMENT:
+    return "limb";
+  default:
+    break;
+  }
+  switch (item->itemFunction) {
+  case ITEM_FOOD:
+  case ITEM_FOOD_RESTRICTED:
+    return "food";
+  case ITEM_NARCOTIC:
+    return "drug";
+  case ITEM_FIRSTAID:
+  case ITEM_MEDRIGGING:
+    return "medical";
+  case ITEM_ROBOTREPAIR:
+    return "repair";
+  case ITEM_BOOK:
+    return "book";
+  case ITEM_AMMO:
+    return "ammo";
+  case ITEM_CONTAINER:
+    return "backpack";
+  case ITEM_TOOL:
+    return "tool";
+  case ITEM_BLUEPRINT:
+    return "blueprint";
+  default:
+    return "goods";
+  }
+}
+
 static std::string ItemsJson(const std::vector<Item *> &items) {
   std::string json = "[";
   for (uint32_t i = 0; i < items.size(); ++i) {
@@ -655,7 +697,8 @@ static std::string ItemsJson(const std::vector<Item *> &items) {
             "\", \"count\": " + ToString((int)items[i]->quantity) +
             ", \"price\": " + ToString(price) + ", \"equipped\": " +
             (items[i]->isEquipped ? "true" : "false") + ", \"slot\": \"" +
-            SlotToString(items[i]->slotType) + "\"}";
+            SlotToString(items[i]->slotType) + "\", \"kind\": \"" +
+            ItemKind(items[i]) + "\"}";
   }
   return json + "]";
 }

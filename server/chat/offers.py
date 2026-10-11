@@ -32,6 +32,26 @@ CHARITY_CATS = 50
 GIFT_WORTH = 500
 GIFT_MOST = 10
 ACCEPT_LINES = {"RECRUIT": "recruit_accept", "FOLLOW": "follow_accept", "HEAL": "heal_start", "LIBERATE": "liberate_accept", "THREATEN": "threaten_accept", "BARTER": "barter_accept"}
+# Keyed by the kinds of ItemKind (plugin/game/Context.cpp). Kenshi files alcohol under narcotics, so a drink is a "drug".
+KIND_WORDS = {
+    "food": {"food", "meal", "eat", "hungry", "starving", "ration", "grub"},
+    "drug": {"drink", "booze", "alcohol", "liquor", "drug", "smoke"},
+    "medical": {"medicine", "medical", "bandage", "heal", "healing", "medkit"},
+    "repair": {"repair"},
+    "armour": {"armour", "armor", "clothes", "clothing", "outfit"},
+    "weapon": {"weapon", "sword", "blade"},
+    "crossbow": {"crossbow", "bow", "ranged"},
+    "ammo": {"ammo", "ammunition", "bolts"},
+    "book": {"book", "reading"},
+    "blueprint": {"blueprint", "research"},
+    "backpack": {"backpack", "bag", "pack"},
+    "tool": {"tool"},
+    "limb": {"limb", "prosthetic", "robotic"},
+}
+# Speech words that are also in item names, such as "cats" in "Cat-Lon Letter" or "right" in the severed limbs
+COMMON_WORDS = {"the", "and", "for", "all", "can", "one", "out", "day", "man", "way", "boy", "that", "with", "from", "good",
+                "great", "long", "thing", "before", "last", "little", "open", "part", "hand", "cat", "money", "left", "right"}
+PRICE_LINES = 10
 
 _ids = itertools.count(1)
 
@@ -372,23 +392,38 @@ def stocktake(npc):
     return "YOUR GOODS: " + (", ".join(f"{count} {name}" for name, count in counts.items()) or "nothing") + "."
 
 
+def stem(word):
+    return word[:-1] if len(word) > 3 and word.endswith("s") else word
+
+
+def words_of(text):
+    return {stem(word) for word in re.findall(r"[a-z]+", text.lower()) if len(word) >= 3} - COMMON_WORDS
+
+
+def asked(items, said):
+    """The labels of the items that the text names by a word of their name, the grade left out, or by their kind."""
+    said_words = words_of(said)
+    kinds = {kind for kind, words in KIND_WORDS.items() if said_words & {stem(word) for word in words}}
+    labels = []
+    for item in items:
+        label = item.get("name")
+        if label and label not in labels and (said_words & words_of(label.split(" (")[0]) or item.get("kind") in kinds):
+            labels.append(label)
+    return labels
+
+
 def price_guide(said, npc, speaker, player_name):
-    """The price of each item that the text names, in the goods of the NPC or of the speaker, at the share that the worth
-    rule allows, so the model gives a price that the check keeps instead of inventing one."""
-    text = said.lower()
+    """The count and the price of each item that the text asks for, in the goods of the NPC or of the speaker, at the share
+    that the worth rule allows, so the model gives a price that the check keeps instead of inventing one. A kind word such
+    as "food" can ask for a whole shop, so each side gives at most PRICE_LINES items."""
     sell, buy = shares(npc)
     stock = goods(npc, "BARTER")
     carried = speaker.get("inventory") or []
     lines = []
-    for items, own in ((stock, True), (carried, False)):
-        for label in dict.fromkeys(item["name"] for item in items if item.get("name")):
-            base = label.split(" (")[0].lower()
-            if not base or not re.search(rf"\b{re.escape(base)}s?\b", text):
-                continue
-            if own:
-                lines.append(f"You sell {label} for at least {math.ceil(price_of(label, stock) * sell):,} cats each.")
-            else:
-                lines.append(f"You pay at most {math.floor(price_of(label, stock, carried) * buy):,} cats each for the {label} of {player_name}.")
+    for label in asked(stock, said)[:PRICE_LINES]:
+        lines.append(f"You have {held(stock, label)[1]} {label}: you sell each for at least {math.ceil(price_of(label, stock) * sell):,} cats.")
+    for label in asked(carried, said)[:PRICE_LINES]:
+        lines.append(f"{player_name} has {held(carried, label)[1]} {label}: you pay at most {math.floor(price_of(label, stock, carried) * buy):,} cats each.")
     return lines
 
 

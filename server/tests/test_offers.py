@@ -180,8 +180,23 @@ class BarterTest(unittest.TestCase):
     def test_the_prompt_lists_the_goods_and_the_prices_of_the_items_named(self):
         self.assertEqual(offers.stocktake(SHOP), "YOUR GOODS: 2 Bread, 1 Katana (Ancient, Refitted Blade), 2 First Aid Kit.")
         guide = offers.price_guide("How much for the katana? I could sell my chain shirt.", SHOP, BUYER, "Zaps")
-        self.assertEqual(guide, ["You sell Katana (Ancient, Refitted Blade) for at least 2,400 cats each.",
-                                 "You pay at most 12,000 cats each for the Chain Shirt (High) of Zaps."])
+        self.assertEqual(guide, ["You have 1 Katana (Ancient, Refitted Blade): you sell each for at least 2,400 cats.",
+                                 "Zaps has 1 Chain Shirt (High): you pay at most 12,000 cats each."])
+
+    def test_a_word_of_the_name_or_a_kind_word_asks_for_an_item(self):
+        bar = {**SHOP, "inventory": [], "stock": [{"name": "Water", "count": 3, "price": 10, "kind": "food"},
+                                                  {"name": "Water Jug", "count": 14, "price": 120, "kind": "goods"},
+                                                  {"name": "Sake", "count": 2, "price": 200, "kind": "drug"},
+                                                  {"name": "Bread", "count": 5, "price": 50, "kind": "food"}]}
+        self.assertEqual(offers.asked(bar["stock"], "Got any water?"), ["Water", "Water Jug"])
+        self.assertEqual(offers.asked(bar["stock"], "Anything to drink?"), ["Sake"])
+        self.assertEqual(offers.asked(bar["stock"], "I need food"), ["Water", "Bread"])
+        self.assertEqual(offers.asked(bar["stock"], "Can I pay in cats, right now?"), [])
+        self.assertEqual(offers.price_guide("Got any water?", bar, BUYER, "Zaps")[1], "You have 14 Water Jug: you sell each for at least 96 cats.")
+
+    def test_a_kind_word_prices_at_most_ten_items_of_each_side(self):
+        store = {**SHOP, "inventory": [], "stock": [{"name": f"Food {n}", "count": 1, "price": 10, "kind": "food"} for n in range(15)]}
+        self.assertEqual(len(offers.price_guide("Any food?", store, BUYER, "Zaps")), offers.PRICE_LINES)
 
 
 class BoxTest(unittest.TestCase):
