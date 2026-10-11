@@ -39,8 +39,10 @@ def parse(message):
     """(kind, category, text) of a player line. kind is None for plain chat, or "category", "classify", "end", or "failure".
     text is the line without its mark."""
     message = message.strip()
-    if len(message) < 2 or message[0] != "!":
+    if not message.startswith("!"):
         return None, None, message
+    if message == "!":
+        return "failure", None, ""
     if message[1] == " ":
         return "classify", None, message[1:].strip()
     word = _WORD.match(message, 1)
@@ -51,7 +53,7 @@ def parse(message):
     if name in ("e", "end"):
         return "end", None, text
     for letter, full, category, _ in CATEGORIES:
-        if name in (letter, full):
+        if name in (letter, full) and text:
             return "category", category, text
     return "failure", None, text
 

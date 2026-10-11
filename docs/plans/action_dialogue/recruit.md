@@ -32,7 +32,7 @@ Only RECRUIT and FOLLOW have a refusal tag, because only they end on a refusal. 
 | Category | Message |
 |---|---|
 | RECRUIT | X has refused your invitation to join Y. |
-| FOLLOW | X has refused your offer of hire. |
+| FOLLOW | X refused to follow you. |
 
 ## 4. Hard limits
 

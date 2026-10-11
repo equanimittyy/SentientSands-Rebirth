@@ -61,7 +61,7 @@ For food, the model writes `GIVE_FOOD`, and code picks the food. The prompt name
 
 ## 5. Gifts
 
-A gift raises the NPC's profile `Relation` (`change_relation` in `server/store/campaign_db.py:267`) by 1 for each 500 cats of the worth that the NPC receives ([section 3](#3-hard-limits)), at most by 10 for each gift. A gift worth less than 500 thus gives nothing, so small gifts cannot farm relation. The game shows the gain as a message, as it shows "Gained 200 cats." (`showPlayerAMessage_withLog` in `plugin/game/GameActions.cpp:732`).
+A gift raises the NPC's profile `Relation` (`change_relation` in `server/store/campaign_db.py:267`) by 1 for each 500 cats of the worth that the NPC receives ([section 3](#3-hard-limits)), at most by 10 for each gift. A gift worth less than 500 thus gives nothing, so small gifts cannot farm relation. The game shows "X appreciates the gift." as a message, as it shows "Gained 200 cats." (`showPlayerAMessage_withLog` in `plugin/game/GameActions.cpp:732`).
 
 ## 6. Price guide
 

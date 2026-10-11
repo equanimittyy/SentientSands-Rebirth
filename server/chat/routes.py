@@ -231,7 +231,7 @@ def answer_offer():
             state.CHARITY_DAYS[held["npc_id"]] = held["day"]
         if offer.get("gift"):
             relation = campaign_db.change_relation(held["npc_id"], offer["gift"])
-            notify(f"{npc} likes you more for the gift (+{offer['gift']} relation).")
+            notify(f"{npc} appreciates the gift.")
             logging.info(f"RELATION: {npc} personal relation is now {relation} (gift={offer['gift']})")
     elif answer == "decline":
         record_deal(held["thread"], offers.declined_line(offer, npc, player), held["parties"], held["location"])
@@ -433,11 +433,6 @@ def chat():
         record_deal(current_thread, f"({player_name} dismissed {primary_npc}.)", [npc_party, speaker_party], location)
         logging.info(f"ACTION: {player_name} dismissed {primary_npc}.")
         return reply(action_dialogue.end_line("dismiss_end"), actions=["[ACTION: END_HIRE]"])
-    if category and not player_message:
-        with state.THREAD_LOCK:
-            state.CURRENT_THREAD.update(key=thread_key, id=current_thread, replied=time.monotonic(), action={"category": category, "speaker": speaker_id})
-        notify(f"{category.capitalize()} dialogue with {primary_npc}.")
-        return reply(action_open=True)
 
     talk_radius, yell_radius = get_config_radii()
     # A whisper is one-on-one: nobody overhears
@@ -673,11 +668,9 @@ def chat():
 
         logging.info(f'CHAT: {mode_tag}{player_name} to {primary_npc}{f" [{category}]" if category else ""}: "{player_message}" | {primary_npc}: "{content}" ({time.monotonic() - started:.1f} s)')
         if outcome == "unkept":
-            notify(f"{primary_npc} made an offer it can't keep.")
+            notify(f"{primary_npc} made an offer it can't keep. (LLM hallucinated an offer it can't make)")
         if outcome == "refused":
-            notify(f"{primary_npc} has refused your invitation to join {speaker.get('faction') or 'your squad'}." if category == "RECRUIT" else f"{primary_npc} has refused your offer of hire.")
-        elif category:
-            notify(f"{primary_npc} ended the {category.lower()} dialogue." if closing else f"{category.capitalize()} dialogue with {primary_npc}.")
+            notify(f"{primary_npc} has refused your invitation to join {speaker.get('faction') or 'your squad'}." if category == "RECRUIT" else f"{primary_npc} refused to follow you.")
         return reply(f"[{category}] {content}" if category else content, *last_words, actions=actions, after=after, action_open=bool(category) and not closing)
     return jsonify({"error": "No reply from the LLM.", "status": "error"}), 502
 

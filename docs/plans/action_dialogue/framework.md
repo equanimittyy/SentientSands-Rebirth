@@ -19,24 +19,24 @@ The characters right after the `!` decide the result. A word after the `!` runs 
 | A space | An action dialogue with no category ([No category](#no-category)) |
 | One letter or the full word of a category ([section 3](#3-categories)) | An action dialogue in that category, or a [block](#blocked) when a gate of the category fails |
 | `e` or `end` | The [end](#end) of the action dialogue |
-| Any other letter or word | A [failure](#failure), with no LLM call |
-| Any other character, such as `!` or `?`, or nothing | Plain chat, with no mark |
+| Any other letter or word, a category without text, or nothing | A [failure](#failure), with no LLM call |
+| Any other character, such as `!` or `?` | Plain chat, with no mark |
 
 | Line | Result |
 |---|---|
 | `! Hand me over all your money!` | No category |
 | `!t Hand me over your cats!` | THREATEN |
 | `!b I'd like to trade` | BARTER |
-| `!barter` | BARTER |
+| `!barter` | Failure |
 | `!end Thanks` | End |
 | `!o` | Failure |
 | `!I see the light` | Failure |
 | `!light the way` | Failure |
 | `!!!` | Plain chat |
 | `!?!?!` | Plain chat |
-| `!` | Plain chat |
+| `!` | Failure |
 
-The text after the mark can be empty, as in `!barter`. Such a line opens the action dialogue and sends no LLM call.
+A category needs text after its mark, so `!barter` alone is a failure. Only the end mark works without text, as in `!end`.
 
 An action dialogue works in each chat mode. The mode sets who overhears its lines, as in plain chat (`server/chat/routes.py:286`).
 
@@ -112,7 +112,7 @@ The speech bubble of each reply starts with the category tag of the action dialo
 
 The player's mark names the category for the model. A later line of the chat thread can name another category, for example `!t` after `!b`. A later line without a mark keeps the category of the action dialogue and runs no classify call, so code always knows which lean and which parts of the prompt the call needs.
 
-The chat window shows system messages about the action dialogue, in the shape of the chat status messages such as "{name} is thinking..." (`NotifyChatStatus` in `plugin/ui/ChatWindow.cpp:59`). They show that the chat thread is an action dialogue, and the category of each reply.
+The chat window shows system messages about the action dialogue, in the shape of the chat status messages such as "{name} is thinking..." (`NotifyChatStatus` in `plugin/ui/ChatWindow.cpp:65`). They show only a block, a failure, a refusal, and an offer that the NPC can't keep, because a message after each reply crowded the chat window.
 
 ### Outcome
 
@@ -143,7 +143,7 @@ A guard is an NPC whose Current Job (`current_job` in `server/chat/current_job.p
 
 An NPC that agrees to a deal makes an offer. The model ends its reply with an offer tag, which holds the parts of the deal, for example `[OFFER: GIVE_CATS: 200]` or `[OFFER: TAKE_CATS: 3000; GIVE_ITEM: Katana]`. The parts are `GIVE_CATS`, `TAKE_CATS`, `GIVE_ITEM`, and `TAKE_ITEM`, the part of each category that moves a character or runs a service: `JOIN_PARTY`, `HIRE`, `FIRST_AID`, and `RELEASE`, and `GIVE_FOOD` for the charity of BARTER ([barter.md](barter.md#4-charity)). Each action that moves cats, items, or characters needs an offer: the handover of THREATEN, each deal of BARTER, HEAL, LIBERATE, RECRUIT, and FOLLOW. Only `ATTACK`, `LEAVE`, and a free treatment of HEAL ([heal.md](heal.md#2-deal)) run at once. The server also reads the parts when the model leaves out the brackets of the tag, but only in capitals.
 
-The server checks the offer against the hard limits, and it drops and logs an offer that breaks one. The prompt never gives the cats of the player's squad, so the NPC does not ask for the whole purse; a fee above the purse breaks a hard limit. The reply already reads as a deal, so the chat window then shows the system message "X made an offer it can't keep.", and the action dialogue goes on. It holds a valid offer and sends it to the plugin after the lines of the reply. The offer goes to the squad member that spoke the line that the offer answers ([section 5](#5-speaker)).
+The server checks the offer against the hard limits, and it drops and logs an offer that breaks one. The prompt never gives the cats of the player's squad, so the NPC does not ask for the whole purse; a fee above the purse breaks a hard limit. The reply already reads as a deal, so the chat window then shows the system message "X made an offer it can't keep. (LLM hallucinated an offer it can't make)", and the action dialogue goes on. It holds a valid offer and sends it to the plugin after the lines of the reply. The offer goes to the squad member that spoke the line that the offer answers ([section 5](#5-speaker)).
 
 The plugin shows the offer in a popup with the buttons Accept and Decline. The server writes the text of the popup from the checked offer, never from the words of the model, so the popup always shows the real deal. The text is "X offers A for B": X is the NPC, A is what the NPC gives, and B is what the player gives. When the player gives nothing, the text has no "for B". For example, "Bandit offers 200 cats and a Katana.".
 
@@ -183,7 +183,7 @@ The action dialogue ends at the first of these events:
 - The player accepts an offer, or a save loads while an offer waits ([Offer](#offer)).
 - The speaker or the NPC is knocked out or dies while an offer waits ([Offer](#offer)).
 - The player sends `!e` or `!end`, for example `!end Thanks`. The line sends no LLM call, and the server does not keep it.
-- The action dialogue call gives an error. The chat window shows the error status of plain chat, "X could not respond." (`plugin/ui/ChatWindow.cpp:85`).
+- The action dialogue call gives an error. The chat window shows the error status of plain chat, "X could not respond. (Something went wrong, is SSR configured?)" (`plugin/ui/ChatWindow.cpp:129`).
 - The chat thread ends: `conversation_timeout_minutes` pass without a chat, or the player starts another chat thread, for example with another NPC or from another squad member ([section 2](#2-entry)).
 
 Each end also ends the chat thread.

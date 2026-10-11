@@ -16,12 +16,13 @@ class ParseTest(unittest.TestCase):
         self.assertEqual(ad.parse("! Hand me over all your money!"), ("classify", None, "Hand me over all your money!"))
         self.assertEqual(ad.parse("!t Hand me over your cats!"), ("category", "THREATEN", "Hand me over your cats!"))
         self.assertEqual(ad.parse("!b I'd like to trade"), ("category", "BARTER", "I'd like to trade"))
-        self.assertEqual(ad.parse("!barter"), ("category", "BARTER", ""))
+        self.assertEqual(ad.parse("!barter"), ("failure", None, ""))
         self.assertEqual(ad.parse("!end Thanks"), ("end", None, "Thanks"))
         self.assertEqual(ad.parse("!o"), ("failure", None, ""))
         self.assertEqual(ad.parse("!I see the light"), ("failure", None, "see the light"))
         self.assertEqual(ad.parse("!light the way"), ("failure", None, "the way"))
-        for line in ("!!!", "!?!?!", "!"):
+        self.assertEqual(ad.parse("!"), ("failure", None, ""))
+        for line in ("!!!", "!?!?!"):
             self.assertEqual(ad.parse(line), (None, None, line))
 
     def test_a_mark_is_case_insensitive(self):
@@ -32,8 +33,9 @@ class ParseTest(unittest.TestCase):
         self.assertEqual(ad.parse("!t, now"), ("category", "THREATEN", ", now"))
         self.assertEqual(ad.parse("!1 thing"), (None, None, "!1 thing"))
 
-    def test_a_space_with_nothing_after_it_is_plain_chat(self):
-        self.assertEqual(ad.parse("!   "), (None, None, "!"))
+    def test_a_mark_without_text_is_a_failure(self):
+        for line in ("!   ", "!b", "!x"):
+            self.assertEqual(ad.parse(line), ("failure", None, ""))
 
     def test_a_line_without_a_mark_is_plain_chat(self):
         self.assertEqual(ad.parse("Hello there"), (None, None, "Hello there"))

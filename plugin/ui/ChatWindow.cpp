@@ -126,12 +126,13 @@ DWORD WINAPI ChatResponseThread(LPVOID lpParam) {
   if (response.empty() || !error.empty()) {
     Log(LOG_WARN, "CHAT: No reply from server for " + t->npcName +
                       (error.empty() ? "" : ": " + error));
-    NotifyChatStatus("{name} could not respond.", t->npcName);
+    NotifyChatStatus(
+        "{name} could not respond. (Something went wrong, is SSR configured?)",
+        t->npcName);
     delete t;
     return 0;
   }
   // The server sends the reply and its actions through the pipe, and paces the lines
-  NotifyChatStatus("{name} has responded.", t->npcName);
   Log(LOG_INFO, "CHAT: Got response for " + t->npcName);
 
   delete t;
