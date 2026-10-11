@@ -57,7 +57,8 @@ DWORD WINAPI CullThread(LPVOID lpParam) {
            GetJsonValue(response, "time") + ". " + T("Dialogue lines: ") +
            GetJsonValue(response, "dialogue") + ", " + T("events: ") +
            GetJsonValue(response, "event") + ", " + T("rumors: ") +
-           GetJsonValue(response, "rumor") + ".";
+           GetJsonValue(response, "rumor") + ", " + T("profiles: ") +
+           GetJsonValue(response, "character") + ".";
   } else {
     std::string error = GetJsonValue(response, "message");
     if (error.empty())
@@ -99,7 +100,7 @@ void CreateCullUI() {
   MyGUI::Widget *client = g_cullWindow->getClientWidget();
 
   const char *lineKeys[] = {
-      "This deletes every NPC memory, event, and rumor of the active campaign",
+      "This deletes every NPC memory, event, rumor, and profile of the active campaign",
       "dated after the current game time.",
       "The cull takes effect immediately and is irreversible!"};
   const char *lineNames[] = {"SentientSands_CullL1", "SentientSands_CullL2",

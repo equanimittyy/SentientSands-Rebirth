@@ -15,7 +15,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 DB_NAME = "campaign.db"
-SCHEMA_VERSION = 18
+SCHEMA_VERSION = 19
 DIALOGUE_BLOCK = 20
 # A memory that this many passes read and did not cite leaves the auto rumor pool, so dull memories do not fill each prompt
 RUMOR_PASSES = 6
@@ -38,7 +38,14 @@ CREATE TABLE character (
   favorite   INTEGER NOT NULL DEFAULT 0,
   knowledge  TEXT NOT NULL DEFAULT '',
   known_by   TEXT NOT NULL DEFAULT '[]',
+  game_time  INTEGER,
   updated_at TEXT NOT NULL
+);
+CREATE TABLE rekey (
+  id        INTEGER PRIMARY KEY,
+  old_id    TEXT NOT NULL,
+  new_id    TEXT NOT NULL,
+  game_time INTEGER
 );
 -- AUTOINCREMENT: the server keeps the ID of the current thread in memory, so the ID of a deleted thread must never name a new one
 CREATE TABLE thread (
@@ -232,13 +239,14 @@ def character_exists(npc_id):
         return conn.execute("SELECT 1 FROM character WHERE npc_id = ?", (npc_id,)).fetchone() is not None
 
 
-def upsert_profile(npc_id, fields):
+def upsert_profile(npc_id, fields, game_time=None):
     """Ignores ConversationHistory, so a caller can pass a whole profile. A value of None removes the key, because the
-    template validator takes only text and numbers as profile values."""
+    template validator takes only text and numbers as profile values. A new character takes game_time, so a cull to an
+    earlier time deletes it."""
     with _connect(write=True) as conn:
         row = conn.execute("SELECT id, profile FROM character WHERE npc_id = ?", (npc_id,)).fetchone()
         if not row:
-            _insert_character(conn, npc_id, {k: v for k, v in fields.items() if v is not None})
+            _insert_character(conn, npc_id, {k: v for k, v in fields.items() if v is not None}, game_time)
             return
         profile = json.loads(row[1])
         profile.update(fields)
@@ -304,14 +312,15 @@ def promote_profile(npc_id, bio):
 
 def append_dialogue(npc_id, lines, profile, thread_id=None):
     """lines are (line, speaker) pairs, where speaker is the npc_id of the character who spoke, or None. Stores profile first
-    only if the character is not stored yet. No line is trimmed: the memory of a thread replaces its lines (set_memory)."""
+    only if the character is not stored yet, with the game time of the first line. No line is trimmed: the memory of a
+    thread replaces its lines (set_memory)."""
     with _connect(write=True) as conn:
         row = conn.execute("SELECT id FROM character WHERE npc_id = ?", (npc_id,)).fetchone()
         if row:
             character_id = row[0]
             conn.execute("UPDATE character SET updated_at = ? WHERE id = ?", (_now(), character_id))
         else:
-            character_id = _insert_character(conn, npc_id, profile)
+            character_id = _insert_character(conn, npc_id, profile, game_time(lines[0][0]) if lines else None)
         conn.executemany(
             "INSERT INTO dialogue (character_id, game_time, line, speaker, thread_id) VALUES (?, ?, ?, ?, ?)",
             [(character_id, game_time(line), line, speaker, thread_id) for line, speaker in lines],
@@ -636,14 +645,29 @@ def add_rumor(event_id, text):
         return conn.execute("INSERT OR IGNORE INTO rumor (event_id, game_time, text) SELECT id, game_time, ? FROM event WHERE id = ?", (text, event_id)).rowcount > 0
 
 
+def rekey(old_id, new_id, game_time):
+    """Moves the records of a character from the npc_id of its old handle to the npc_id of its new handle, because the game
+    gives a character a new handle at a squad change. The move keeps its game time, so a cull to an earlier time moves the
+    records back to the handle of the loaded save. Returns False, with no write, when a record already has new_id."""
+    with _connect(write=True) as conn:
+        if not _move_records(conn, old_id, new_id):
+            return False
+        conn.execute("INSERT INTO rekey (old_id, new_id, game_time) VALUES (?, ?, ?)", (old_id, new_id, game_time))
+        return True
+
+
 def cull_after(day, hour, minute):
-    """Deletes the dialogue, events, rumors, thread members, and memories dated after the given game time, and recounts
-    the chat exchanges of each thread that it cuts. Returns the count per table of the dialogue, the events, and the
-    rumors."""
+    """Undoes the re-keys after the given game time, newest first. Then deletes the characters first stored after it, the
+    dialogue, events, rumors, thread members, and memories dated after it, and recounts the chat exchanges of each thread
+    that it cuts. Returns the count per table of the characters, the dialogue, the events, and the rumors."""
     now = day * 1440 + hour * 60 + minute
     with _connect(write=True) as conn:
+        for old_id, new_id in conn.execute("SELECT old_id, new_id FROM rekey WHERE game_time > ? ORDER BY id DESC", (now,)).fetchall():
+            if not _move_records(conn, new_id, old_id):
+                logging.warning(f"CAMPAIGN: The cull keeps the records of {new_id}, because {old_id} already has records.")
+        conn.execute("DELETE FROM rekey WHERE game_time > ?", (now,))
         touched = {thread_id for (thread_id,) in conn.execute("SELECT id FROM thread WHERE game_time > ?", (now,))}
-        culled = {table: conn.execute(f"DELETE FROM {table} WHERE game_time > ?", (now,)).rowcount for table in ("dialogue", "rumor", "event")}
+        culled = {table: conn.execute(f"DELETE FROM {table} WHERE game_time > ?", (now,)).rowcount for table in ("dialogue", "rumor", "event", "character")}
         conn.execute("DELETE FROM thread_member WHERE game_time > ?", (now,))
         # The memory told of culled exchanges, and it replaced every line, so nothing from before the cut is left to keep
         conn.execute("DELETE FROM thread WHERE memory IS NOT NULL AND game_time > ?", (now,))
@@ -924,8 +948,28 @@ def _connect(write=False):
         conn.close()
 
 
-def _insert_character(conn, npc_id, profile):
-    return conn.execute("INSERT INTO character (npc_id, profile, origin, updated_at) VALUES (?, ?, 'game', ?)", (npc_id, json.dumps(_stored(profile)), _now())).lastrowid
+def _insert_character(conn, npc_id, profile, game_time):
+    return conn.execute(
+        "INSERT INTO character (npc_id, profile, origin, game_time, updated_at) VALUES (?, ?, 'game', ?, ?)", (npc_id, json.dumps(_stored(profile)), game_time, _now())
+    ).lastrowid
+
+
+def _move_records(conn, old_id, new_id):
+    """Gives every row and every {npc_id} mark of a memory (chat_prompt.mark_names) that names old_id the npc_id new_id.
+    Returns False, with no change, when a character or a thread member already has new_id."""
+    if conn.execute("SELECT 1 FROM character WHERE npc_id = ?1 UNION ALL SELECT 1 FROM thread_member WHERE npc_id = ?1", (new_id,)).fetchone():
+        return False
+    conn.execute("UPDATE character SET npc_id = ? WHERE npc_id = ?", (new_id, old_id))
+    conn.execute("UPDATE thread_member SET npc_id = ? WHERE npc_id = ?", (new_id, old_id))
+    conn.execute("UPDATE dialogue SET speaker = ? WHERE speaker = ?", (new_id, old_id))
+    conn.execute("UPDATE thread SET memory = replace(memory, ?1, ?2) WHERE instr(memory, ?1)", ("{" + old_id + "}", "{" + new_id + "}"))
+    for event_id, data in conn.execute("SELECT id, data FROM event WHERE instr(data, ?)", (json.dumps(old_id),)).fetchall():
+        event = json.loads(data)
+        for party in [*event.get("doers", []), event.get("victim", {})]:
+            if party.get("id") == old_id:
+                party["id"] = new_id
+        conn.execute("UPDATE event SET data = ? WHERE id = ?", (json.dumps(event), event_id))
+    return True
 
 
 def _threads_of(conn, where, args):

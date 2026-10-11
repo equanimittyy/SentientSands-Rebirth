@@ -17,6 +17,10 @@ A change of the mod list is not tested, by decision. Because a string ID names t
 | A save and a load | The whole handle |
 | A town reload: the player leaves the town until it unloads, and comes back | The whole handle of a generic trader |
 | A recruit into the player's squad | Only `serial`. The recruit changes `index`, `container`, and `containerSerial`. |
+| A leave from the player's squad (`Character::setFaction` with a new squad) | Only `serial` |
+| A move to another squad of the player | Nothing. The move also gives a new `serial`. |
+
+- A recruit and a leave add the character to its new squad with `ActivePlatoon::addActiveObject`, and a move between the player's squads with `ActivePlatoon::addCharacterAt`. `Character::_setPlatoon` changed no handle in these tests, and neither call changed a handle in a capture of 4 squad members.
 
 - Characters of other squads can have the same `serial`. In one session, 2 of the 5 characters of the start squad had the `serial` of a loaded character of another squad: Zip had the `serial` of a Shinobi Thieves guard, and Izumi had the `serial` of a Bonedog.
 - The instance ID (`getInstanceID()->uid`) and the layout instance ID (`getLayoutInstanceID`) are empty for unique and generic NPCs.

@@ -182,14 +182,16 @@ std::string GetVisibleEquipment(Character *npc) {
   return eq;
 }
 
-// The serial is the only member of a handle that survives a recruit, and
-// characters of other squads can share it, so the template tells them apart
-std::string GetNpcId(Character *npc) {
+// The whole handle, because characters of other squads can share a serial and
+// a template. A squad change gives a new handle, so RekeyCharacter follows it
+static std::string NpcIdOf(Character *npc, const hand &h) {
   if (npc->isUnique() && npc->data)
     return "u:" + npc->data->stringID;
-  std::string id = "h:" + ToString(npc->getHandle().serial);
-  return npc->data ? id + "-" + npc->data->stringID : id;
+  return "h:" + ToString(h.index) + "-" + ToString(h.serial) + "-" +
+         ToString(h.container) + "-" + ToString(h.containerSerial);
 }
+
+std::string GetNpcId(Character *npc) { return NpcIdOf(npc, npc->getHandle()); }
 
 struct KeyedCharacterEntry {
   Character *character;
@@ -199,8 +201,8 @@ struct KeyedCharacterEntry {
 // Without a lock, because only the game thread keys or looks up a character
 static std::vector<KeyedCharacterEntry> g_keyed;
 
-// A squad change gives a character a new handle, but it keeps the object and
-// the serial, so a key outlives the change
+// A squad change gives a character a new handle, and RekeyCharacter gives the
+// key that handle, so a key outlives the change
 unsigned int HandleKey(Character *npc) {
   hand h = npc->getHandle();
   for (size_t i = 0; i < g_keyed.size(); ++i)
@@ -234,6 +236,32 @@ Character *KeyedCharacter(unsigned int key) {
     return entry.character;
   }
   return nullptr;
+}
+
+// A character that loads gets its first handle, which replaces no npc_id
+void RekeyCharacter(Character *npc, const hand &before) {
+  if (!npc || before.isNull())
+    return;
+  std::string oldId = NpcIdOf(npc, before);
+  std::string newId = GetNpcId(npc);
+  if (oldId == newId)
+    return;
+  for (size_t i = 0; i < g_keyed.size(); ++i)
+    if (g_keyed[i].character == npc &&
+        g_keyed[i].handle.serial == before.serial)
+      g_keyed[i].handle = npc->getHandle();
+  if (g_originFactions.count(oldId)) {
+    g_originFactions[newId] = g_originFactions[oldId];
+    g_originFactions.erase(oldId);
+  }
+  if (g_originJobs.count(oldId)) {
+    g_originJobs[newId] = g_originJobs[oldId];
+    g_originJobs.erase(oldId);
+  }
+  QueueGameEvent("rekey", "\"old\": \"" + EscapeJSON(oldId) +
+                              "\", \"new\": \"" + EscapeJSON(newId) + "\"");
+  Log(LOG_INFO,
+      "REKEY: '" + npc->getName() + "' " + oldId + " is now " + newId);
 }
 
 static std::string RaceName(Character *npc) {
@@ -524,31 +552,6 @@ void LogNpcRole(Character *npc) {
   logged[serial] = line;
   Log(LOG_DEBUG, "ROLE_PROBE: name='" + npc->getName() + "' npc_id=" +
                      GetNpcId(npc) + " " + line);
-}
-
-// Probe: which game call gives a character a new handle. Without always, only
-// a change of a handle that the character already had logs, because each
-// character that loads gets its first handle
-void LogHandleProbe(const std::string &call, Character *npc, const hand &before,
-                    bool always) {
-  if (!LogEnabled(LOG_DEBUG))
-    return;
-  if (!npc) {
-    if (always)
-      Log(LOG_DEBUG, "HANDLE_PROBE: " + call);
-    return;
-  }
-  hand after = npc->getHandle();
-  bool changed = !before.isNull() &&
-                 (after.type != before.type ||
-                  after.container != before.container ||
-                  after.containerSerial != before.containerSerial ||
-                  after.index != before.index || after.serial != before.serial);
-  if (!changed && !always)
-    return;
-  Log(LOG_DEBUG, "HANDLE_PROBE: " + call + " name='" + npc->getName() +
-                     "' npc_id=" + GetNpcId(npc) + " before=" +
-                     before.toString() + " after=" + after.toString());
 }
 
 static std::string InventoryLine(Inventory *inv) {

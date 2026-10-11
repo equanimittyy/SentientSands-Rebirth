@@ -320,7 +320,7 @@ def cull_future_data():
     # The player loaded an earlier save, so the next chat starts a conversation of its own
     state.CURRENT_THREAD.clear()
     state.restart_quiet_clock()
-    logging.info(f"CAMPAIGN: Culled {culled['dialogue']} dialogue lines, {culled['event']} events, and {culled['rumor']} rumors after [Day {day}, {hour:02d}:{minute:02d}] in '{state.ACTIVE_CAMPAIGN}'")
+    logging.info(f"CAMPAIGN: Culled {culled['dialogue']} dialogue lines, {culled['event']} events, {culled['rumor']} rumors, and {culled['character']} profiles after [Day {day}, {hour:02d}:{minute:02d}] in '{state.ACTIVE_CAMPAIGN}'")
     return jsonify({"status": "ok", "time": f"Day {day}, {hour:02d}:{minute:02d}", "culled": culled})
 
 @bp.route('/history', methods=['POST'])

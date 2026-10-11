@@ -122,12 +122,12 @@ async function switchCampaign(name) {
 }
 
 async function cull() {
-  if (!(await ask("Cull future data", "Cull", `This deletes every NPC memory, event, and rumor of ${currentName()} dated after the current game time. `,
+  if (!(await ask("Cull future data", "Cull", `This deletes every NPC memory, event, rumor, and profile of ${currentName()} dated after the current game time. `,
     "\n\n", el("b", { className: "warning" }, "The cull takes effect immediately and is irreversible!")))) return;
   try {
     const reply = await sendJson("POST", "/api/campaign/cull", { campaign: currentName() });
-    const { dialogue, event, rumor } = reply.culled;
-    flashMessage(message, `Culled after ${reply.time}: ${count(dialogue, "dialogue line")}, ${count(event, "event")}, and ${count(rumor, "rumor")}.`);
+    const { dialogue, event, rumor, character } = reply.culled;
+    flashMessage(message, `Culled after ${reply.time}: ${count(dialogue, "dialogue line")}, ${count(event, "event")}, ${count(rumor, "rumor")}, and ${count(character, "profile")}.`);
   } catch (error) {
     showMessage(message, `Cull failed: ${error.message}`, true);
   }

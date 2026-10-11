@@ -3,7 +3,7 @@ import random
 
 from chat import current_job, npc_names, provisional_profile, scene_text
 from core import state
-from core.game import context_dict, is_player_faction
+from core.game import context_dict, get_current_time_prefix, is_player_faction
 from core.pipe import send_to_pipe
 from store import campaign_db
 
@@ -204,7 +204,7 @@ def get_character_data(name, context=""):
         # Only the changed keys, so the write cannot undo a change that another request made since the read
         changes = {k: v for k, v in data.items() if stored.get(k) != v}
         if changes:
-            campaign_db.upsert_profile(npc_id, changes)
+            campaign_db.upsert_profile(npc_id, changes, campaign_db.game_time(get_current_time_prefix()))
     return data
 
 def should_save_profile(name, npc_id, data):

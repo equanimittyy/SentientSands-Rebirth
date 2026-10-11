@@ -60,6 +60,10 @@ def death(target, minutes):
     return {"kind": "death", "party": target, **when(minutes)}
 
 
+def rekey(old_id, new_id, minutes):
+    return {"kind": "rekey", "old": old_id, "new": new_id, **when(minutes)}
+
+
 def imprisonment(target, minutes):
     return {"kind": "imprisonment", "party": target, **when(minutes)}
 
@@ -204,9 +208,13 @@ class EventTest(WorldEventsTestCase):
         self.kill([BEEP], KING, at(1))
         self.kill([BEEP], TINFIST, at(3))
         campaign_db.save_rumor(None, world_events.events()[0]["id"], "Beep killed Tinfist.")
-        self.assertEqual(campaign_db.cull_after(2, 0, 0), {"dialogue": 0, "rumor": 1, "event": 1})
+        self.assertEqual(campaign_db.cull_after(2, 0, 0), {"dialogue": 0, "rumor": 1, "event": 1, "character": 0})
         self.assertEqual(self.lines(), ["Beep of Nameless killed Dust King."])
         self.assertEqual(campaign_db.rumors(), [])
+
+    def test_a_rekey_after_a_kill_in_one_report_gives_the_kill_the_new_npc_id(self):
+        world_events.take([attack(BEEP, KING, at(1, 10)), death(KING, at(1, 11)), rekey(BEEP["id"], "h:9", at(1, 12))])
+        self.assertEqual(self.events(), [("kill", "h:9", KING["id"])])
 
 
 class CustomEventTest(WorldEventsTestCase):

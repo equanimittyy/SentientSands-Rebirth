@@ -1,4 +1,5 @@
-"""Which known figures the player's squad killed or captured, from the game events.
+"""Which known figures the player's squad killed or captured, from the game events, and the re-key of a character's records
+when a squad change gives it a new npc_id.
 
 The plugin keeps no state, so its hooks stay light: it sends the attacks of the player's faction, and the knockouts,
 wake-ups, deaths, and imprisonments of everyone. The server keeps the game events of each character in memory and replays them
@@ -28,6 +29,9 @@ def take(game_events):
     for game_event in game_events or []:
         logging.debug(f"GAME EVENT: {game_event}")
         at = _minutes(game_event)
+        if game_event.get("kind") == "rekey":
+            _rekey(game_event["old"], game_event["new"], at)
+            continue
         if at is None:
             continue
         ended = _attribute(game_event, at)
@@ -36,6 +40,16 @@ def take(game_events):
                 _store(game_event["kind"], game_event["party"], ended, at)
             except campaign_db.CampaignUnavailable:
                 pass  # The event is lost, but the report must still update the player's context
+
+
+def _rekey(old_id, new_id, at):
+    try:
+        if campaign_db.rekey(old_id, new_id, at):
+            logging.info(f"REKEY: {old_id} is now {new_id}.")
+        else:
+            logging.warning(f"REKEY: Kept the records of {old_id}, because {new_id} already has records.")
+    except campaign_db.CampaignUnavailable:
+        pass  # No campaign holds records of the character
 
 
 def _minutes(event):

@@ -60,7 +60,7 @@ The plugin reads the game state only when a request needs it. Do not post it on 
 |---|---|
 | `/chat` | The contexts of the target and of the squad member who speaks, the game events, and the changed towns |
 | `/radiant` | The participants, the NPCs near the center, the context of the center, the game events, and the changed towns |
-| `/cull`, `/report` | A report: the player's context, the game events, and the changed towns (`GameReport`). `/report` goes when 50 events wait, when the oldest event waited 60 s, or on `REPORT` from the pipe. |
+| `/cull`, `/report` | A report: the player's context, the game events, and the changed towns (`GameReport`). `/report` goes when 50 events wait, when the oldest event waited 60 s, when a `rekey` event waits, or on `REPORT` from the pipe. |
 | `/squad_rename` | The context of a renamed member of the player's faction (see [Names](#names)) |
 
 - The server keeps the player's context of the latest request (`take_report`). It can be old, so a value that must be current comes with its own request.
@@ -77,6 +77,7 @@ The hooks in `plugin/main.cpp` buffer the game events (`QueueGameEvent`). The se
 | `up` | `setProneState_hook`, other state | The character was knocked out before; holds `isBeingCarried` |
 | `death` | `declareDead_hook` | Each call |
 | `imprisonment` | `setPrisonMode_hook` with `on` | Each call |
+| `rekey` | `addActiveObject_hook`, `addCharacterAt_hook` | A squad change gave a character that already had a handle a new `npc_id`; holds `old` and `new` (see [Characters](#characters)) |
 
 - A party (`EventParty`) holds `id` (the `npc_id`), `template_id`, the name, the faction, and `player`.
 - Each event holds the game time of its hook, read under `g_eventMutex`, so a step back of the game time means a load.
@@ -418,7 +419,7 @@ A chat line that starts with `!` marks its chat thread as an action dialogue ([f
 The server paces the lines of every conversation (`say` in `server/chat/routes.py`). The reply of `/chat` and `/radiant` holds no text. A server thread sends the actions as `NPC_ACTION`, then each line as `NPC_SAY: Name|key: line`, at least `DialogueSpeed` (5 s by default) after the line before it.
 
 - The key is a number that the plugin gives a character for the game session (`HandleKey` in `plugin/game/Context.cpp`). Each character of a request carries its key, and the server sends it back unchanged. The plugin finds the character of a line by its key, and by its name only when the key finds no character.
-- The key stands for the full handle, because characters of other squads can have the same `serial` ([kenshi_internals.md](kenshi_internals.md#character-identity)). A squad change gives the character a new handle, so the key also keeps the character object and its `serial`, and finds the character again by them.
+- The key stands for the full handle, because characters of other squads can have the same `serial` ([kenshi_internals.md](kenshi_internals.md#character-identity)). A squad change gives the character a new handle, and `RekeyCharacter` gives the key that handle (see [Characters](#characters)).
 - One conversation plays at a time, and chat replies queue (`reply_loop`). A radiant conversation holds the stage (`_STAGE`) to its last line.
 - In a radiant conversation, the speaker of each line shows `...` for the last 40% of the delay before the line (`THINK_SHARE`), so the lines seem to come one by one, although one call wrote them all.
 - The actions go first, so an AI state change cannot clear a bubble that is already up.
@@ -485,9 +486,13 @@ The `character` table holds every character of a campaign: canon characters, met
 | Character | `npc_id` |
 |---|---|
 | A unique NPC | `u:` and the string ID of its template |
-| Every other character | `h:`, the `serial` of its handle, `-`, and the string ID of its template |
+| Every other character | `h:` and its whole handle: `index-serial-container-containerSerial` |
 
-- A `u:` ID is the same in every save and campaign, so a canon character binds to it. The `serial` is the only part of a handle that survives a save, a town reload, and a recruit ([kenshi_internals.md](kenshi_internals.md#character-identity)). Characters of other squads can have the same `serial`, so the ID adds the template.
+- A `u:` ID is the same in every save and campaign, so a canon character binds to it.
+- Characters of other squads can have the same `serial`, and two squads of one origin can hold members with the same `serial` and template, so an `h:` ID holds the whole handle. A save, a load, and a town reload keep the whole handle ([kenshi_internals.md](kenshi_internals.md#character-identity)).
+- A squad change gives the character a new handle. After `ActivePlatoon::addActiveObject` (a recruit or a leave) and `ActivePlatoon::addCharacterAt` (a move between the player's squads), `RekeyCharacter` in `plugin/game/Context.cpp` moves the origin caches and the chat key to the new handle, and queues a `rekey` game event. `world_events.take` reads it in order with the other game events, and `campaign_db.rekey` gives every row and every `{npc_id}` mark of a memory the new `npc_id`. It changes nothing when the new `npc_id` already has records.
+- The `rekey` table keeps each re-key with its game time. A cull undoes the re-keys after its game time, newest first, so the records go back to the handles of the loaded save.
+- A character that the game stores keeps the game time of its first save (`game_time`), so a cull deletes the characters met after its game time. A record of the template or of the web app has no game time, and the cull keeps it.
 - The server stores an `npc_id` as the plugin sends it, and builds one only for a canon character (`u:<game_id>`). A generic NPC whose `template_id` is a canon character takes that `npc_id` (`adopt_canon`).
 - The name is only the `Name` key of the profile, so two NPCs with one name keep two rows. In one request, the server keys NPCs by `npc_id`, and each dialogue row stores its speaker's `npc_id` in `speaker`.
 - A `Race`, `Sex`, or `Faction` of `Unknown` takes the value that the plugin reports (`get_character_data`).
@@ -595,7 +600,7 @@ A profile is provisional while it holds `Interactions` (`campaign_db.PROVISIONAL
 | `POST /api/campaign/rumors`, `.../rumors/delete` | Save or delete a rumor |
 | `POST /api/campaign/events/add`, `.../events/delete` | Add a custom event, or delete an event |
 | `POST /api/campaign/memories`, `.../memories/delete` | Edit or delete a memory (see [Conversation memories](#conversation-memories)) |
-| `POST /api/campaign/cull` | Delete the dialogue, events, rumors, thread members, and memories dated after the current game time, except custom events and their rumors. It refuses without a game report (see [Game state](#game-state)). |
+| `POST /api/campaign/cull` | Undo the re-keys, and delete the characters, dialogue, events, rumors, thread members, and memories dated after the current game time, except custom events and their rumors (see [Characters](#characters)). It refuses without a game report (see [Game state](#game-state)). |
 
 - A refused campaign gives status 409. Each edit names the campaign that the page loaded, and the server refuses it for another campaign.
 - A record edit carries the `updated_at` that the page loaded, and the server refuses it when the row changed after that.

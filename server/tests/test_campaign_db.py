@@ -464,7 +464,7 @@ class CullAndRumorTest(CampaignTestCase):
         campaign_db.save_rumor(None, kept, "old")
         campaign_db.save_rumor(None, culled, "new")
 
-        self.assertEqual(campaign_db.cull_after(2, 10, 0), {"dialogue": 1, "rumor": 1, "event": 1})
+        self.assertEqual(campaign_db.cull_after(2, 10, 0), {"dialogue": 1, "rumor": 1, "event": 1, "character": 0})
         self.assertEqual(campaign_db.get_character(GENERIC_ID)["ConversationHistory"], ["[Day 2, 09:59] early", "untimed"])
         self.assertEqual([at for _, at, _ in campaign_db.events()], [2 * 1440 + 600])
         self.assertEqual([rumor["text"] for rumor in campaign_db.rumors()], ["old"])
@@ -503,7 +503,7 @@ class CullAndRumorTest(CampaignTestCase):
             campaign_db.save_rumor(None, event_id, str(event_id))
         self.assertEqual([event_id for event_id, _, _ in campaign_db.events()], [custom, later, earlier])
         self.assertEqual([rumor["event_id"] for rumor in campaign_db.rumors()], [earlier, later, custom])
-        self.assertEqual(campaign_db.cull_after(2, 0, 0), {"dialogue": 0, "rumor": 1, "event": 1})
+        self.assertEqual(campaign_db.cull_after(2, 0, 0), {"dialogue": 0, "rumor": 1, "event": 1, "character": 0})
         self.assertEqual([event_id for event_id, _, _ in campaign_db.events()], [custom, earlier])
         self.assertEqual([rumor["game_time"] for rumor in campaign_db.rumors()], [1440, None])
 
@@ -514,6 +514,62 @@ class CullAndRumorTest(CampaignTestCase):
         self.assertFalse(campaign_db.delete_rumor(rumor["id"]))
         self.assertEqual(campaign_db.rumors(), [])
 
+
+
+class RekeyTest(CampaignTestCase):
+    OLD, NEW, STICK = "h:1-5-2-7", "h:3-5-1-9", "h:10"
+
+    def setUp(self):
+        super().setUp()
+        campaign_db.open_campaign(self.folder, lambda: SEED)
+        campaign_db.upsert_profile(self.STICK, {"Name": "Stick"})
+
+    def records(self):
+        """A profile, a thread with a memory, a line of OLD in the copy of Stick, and a kill of OLD."""
+        campaign_db.upsert_profile(self.OLD, {"Name": "Jorge"})
+        thread_id = campaign_db.join_thread(None, [(self.STICK, "speaker", True), (self.OLD, "speaker", False)], 1440)
+        campaign_db.set_memory(thread_id, "{h:10} met {h:1-5-2-7}.", 1440)
+        campaign_db.append_dialogue(self.STICK, [("[Day 1, 00:00] Jorge: Hm.", self.OLD)], {})
+        campaign_db.add_event("kill", [(self.OLD, "Jorge")], TINFIST, 1440)
+        return thread_id
+
+    def npc_ids(self, thread_id):
+        (memory,) = campaign_db.memories_of(self.STICK)
+        (_, _, event), = campaign_db.events()
+        return {
+            "profile": [c["npc_id"] for c in campaign_db.list_characters() if c["name"] == "Jorge"],
+            "member": [npc_id for npc_id, *_ in campaign_db.thread_members([thread_id])[thread_id] if npc_id != self.STICK],
+            "speaker": [speaker for _, speaker, _ in campaign_db.dialogue(self.STICK)],
+            "memory": memory["memory"],
+            "doer": [doer["id"] for doer in event["doers"]],
+        }
+
+    def test_a_rekey_gives_every_record_of_the_character_the_new_npc_id(self):
+        thread_id = self.records()
+        self.assertTrue(campaign_db.rekey(self.OLD, self.NEW, 2 * 1440))
+        self.assertEqual(self.npc_ids(thread_id), {"profile": [self.NEW], "member": [self.NEW], "speaker": [self.NEW], "memory": "{h:10} met {h:3-5-1-9}.", "doer": [self.NEW]})
+
+    def test_a_rekey_to_an_npc_id_with_records_changes_nothing(self):
+        thread_id = self.records()
+        campaign_db.upsert_profile(self.NEW, {"Name": "Other"})
+        self.assertFalse(campaign_db.rekey(self.OLD, self.NEW, 2 * 1440))
+        self.assertEqual(self.npc_ids(thread_id)["profile"], [self.OLD])
+
+    def test_a_cull_undoes_the_later_rekeys_newest_first(self):
+        thread_id = self.records()
+        campaign_db.rekey(self.OLD, self.NEW, 2 * 1440)
+        campaign_db.rekey(self.NEW, "h:4-6-1-9", 4 * 1440)
+        campaign_db.cull_after(3, 0, 0)
+        self.assertEqual(self.npc_ids(thread_id)["profile"], [self.NEW])
+        campaign_db.cull_after(1, 12, 0)
+        self.assertEqual(self.npc_ids(thread_id), {"profile": [self.OLD], "member": [self.OLD], "speaker": [self.OLD], "memory": "{h:10} met {h:1-5-2-7}.", "doer": [self.OLD]})
+
+    def test_a_cull_deletes_the_characters_first_stored_after_it(self):
+        campaign_db.upsert_profile("h:20", {"Name": "Early"}, 2 * 1440)
+        campaign_db.upsert_profile("h:21", {"Name": "Late"}, 4 * 1440)
+        campaign_db.append_dialogue("h:22", spoken(None, "[Day 4, 08:00] Talked late"), {"Name": "Talked"})
+        self.assertEqual(campaign_db.cull_after(3, 0, 0)["character"], 2)
+        self.assertEqual(sorted(c["name"] for c in campaign_db.list_characters()), ["Beep", "Early", "Stick"])
 
 class AutoRumorTest(CampaignTestCase):
     def setUp(self):
@@ -573,7 +629,7 @@ class AutoRumorTest(CampaignTestCase):
     def test_the_cull_deletes_an_auto_event_with_its_newest_memory(self):
         kept = self.memory(1)
         campaign_db.add_auto_event("One.", [kept, self.memory(3)])
-        self.assertEqual(campaign_db.cull_after(2, 0, 0), {"dialogue": 0, "rumor": 1, "event": 1})
+        self.assertEqual(campaign_db.cull_after(2, 0, 0), {"dialogue": 0, "rumor": 1, "event": 1, "character": 0})
         self.assertEqual(campaign_db.events(), [])
         self.assertEqual([memory["id"] for memory in campaign_db.memories_of(GENERIC_ID)], [kept])
 

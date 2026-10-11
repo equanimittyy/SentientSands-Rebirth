@@ -14,14 +14,13 @@ std::string GetIdentityFaction(Character *npc);
 std::string GetNpcId(Character *npc);
 unsigned int HandleKey(Character *npc);
 Character *KeyedCharacter(unsigned int key);
+void RekeyCharacter(Character *npc, const hand &before);
 void GetCurrentSquad(std::vector<Character *> &members);
 void GetRadiantParticipants(Character *selected,
                             std::vector<Character *> &participants);
 void GetRadiantNpcs(Character *center, std::vector<Character *> &npcs);
 void LogFactionList();
 void LogNpcRole(Character *npc);
-void LogHandleProbe(const std::string &call, Character *npc, const hand &before,
-                    bool always);
 void RunProbe(Character *npc, Character *speaker, const std::string &payload);
 std::string EventParty(Character *npc);
 std::string RoleJson(Character *npc);
