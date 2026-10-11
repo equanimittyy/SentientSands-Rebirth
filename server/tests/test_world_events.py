@@ -305,6 +305,7 @@ class AutoRumorTest(WorldEventsTestCase):
         pool = campaign_db.rumor_pool(2)
         rumors.keep_auto_rumor({"rumor": "Word in Squin is that Longen sells water.", "memories": [2]}, pool, state.ACTIVE_CAMPAIGN)
         self.assertEqual([(event["kind"], event["time"], event["line"], event["rumor"] is not None) for event in world_events.events()], [("auto", "Day 3, 00:00", "From 1 conversation", True)])
+        self.assertEqual(campaign_db.events()[0][2]["threads"], [cited])
         self.assertEqual(self.pool(), [(read, 1)])
 
     def test_an_empty_rumor_counts_each_memory_that_the_pass_read(self):
