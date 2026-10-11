@@ -42,20 +42,21 @@ KENSHI_NAME_POOL = [
 def get_used_names():
     return {name.lower() for name in campaign_db.character_names()}
 
-def name_pool(race, faction, sex):
+def name_pool(race, faction, sex, animal=False):
     """The names that fit the race, else the faction, else the general names, as UWE's name lists split them. A race comes
     first, because a Shek or a hiver of the United Cities keeps the names of its race in UWE. A skeleton takes the general
-    names in any faction for the same reason."""
+    names in any faction for the same reason. An animal takes the animal names, because the game flags the animal races of
+    every mod, and no list could name them all."""
     # The game data names one race with a trailing space, "Deadhive Praetorian "
     race = str(race or "").strip()
-    pool_key = "general" if is_skeleton(race) else (
+    pool_key = "animal" if animal else "general" if is_skeleton(race) else (
         state.NAMES_CONFIG.get("races", {}).get(race) or state.NAMES_CONFIG.get("factions", {}).get(faction) or "general")
     pool = state.NAMES_CONFIG.get("pools", {}).get(pool_key, {})
     return pool.get(sex) or [name for names in pool.values() for name in names] or KENSHI_NAME_POOL
 
-def generate_unique_lore_name(race, faction, sex):
+def generate_unique_lore_name(race, faction, sex, animal=False):
     used = get_used_names()
-    pool = name_pool(race, faction, sex)
+    pool = name_pool(race, faction, sex, animal)
     available = [n for n in pool if n.lower() not in used]
     if not available:
         base = random.choice(pool)
@@ -230,8 +231,8 @@ def sync_name(npc, profile, in_squad):
     so there the profile follows the game name instead."""
     npc_id, game_name = npc["npc_id"], npc_names.name_of(npc)
     name = profile["Name"]
-    if npc_names.unnamed(npc) and name == game_name and not profile.get("Animal"):
-        name = generate_unique_lore_name(profile.get("Race"), profile.get("Faction"), profile.get("Sex"))
+    if npc_names.unnamed(npc) and name == game_name:
+        name = generate_unique_lore_name(profile.get("Race"), profile.get("Faction"), profile.get("Sex"), profile.get("Animal"))
     elif in_squad and not npc_names.unnamed(npc):
         name = game_name
     if name != profile["Name"]:

@@ -44,6 +44,9 @@ class NamePoolTest(unittest.TestCase):
         both = self.pool("general", "Male") + self.pool("general", "Female")
         self.assertEqual(characters.name_pool("Skeleton P4MkII", "United Cities", "Other"), both)
 
+    def test_an_animal_takes_the_animal_names_in_any_race_and_faction(self):
+        self.assertEqual(characters.name_pool("Bonedog (white)", "Bonedogs", "Male", animal=True), self.pool("animal", "Any"))
+
     def test_a_race_with_a_trailing_space_finds_its_pool(self):
         self.assertEqual(characters.name_pool("Deadhive Praetorian ", "Fogmen", "Male"), self.pool("cannibal", "Any"))
 
@@ -72,12 +75,13 @@ class AnimalFlagTest(unittest.TestCase):
             characters.get_character_data("Gurgler", {"npc_id": npc_id, "race": race, "animal": False})
             self.assertEqual(campaign_db.get_character(npc_id)["Animal"], 1, race)
 
-    def test_an_animal_keeps_the_name_of_its_template(self):
+    def test_an_animal_shown_by_its_template_name_gets_a_rolled_name(self):
         npc = {"npc_id": "h:7", "name": "Bone Mutt", "template": "Bone Mutt", "race": "Bone Mutt", "animal": True}
         with mock.patch.object(characters, "send_rename") as rename:
-            self.assertEqual(characters.npc_name(npc), "Bone Mutt")
-        rename.assert_not_called()
-        self.assertEqual(campaign_db.get_character("h:7")["Name"], "Bone Mutt")
+            name = characters.npc_name(npc)
+        self.assertNotEqual(name, "Bone Mutt")
+        rename.assert_called_once_with("h:7", name)
+        self.assertEqual(campaign_db.get_character("h:7")["Name"], name)
 
     def test_a_person_shown_by_its_template_name_gets_a_rolled_name(self):
         npc = {"npc_id": "h:8", "name": "Dust Bandit", "template": "Dust Bandit", "race": "Greenlander", "animal": False}
