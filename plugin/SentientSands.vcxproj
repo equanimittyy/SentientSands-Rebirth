@@ -61,6 +61,7 @@
     <ClCompile Include="main.cpp" />
     <ClCompile Include="ui\ChatUIGlobals.cpp" />
     <ClCompile Include="ui\ChatWindow.cpp" />
+    <ClCompile Include="ui\CheatWindow.cpp" />
     <ClCompile Include="ui\EventsWindow.cpp" />
     <ClCompile Include="ui\JournalWindow.cpp" />
     <ClCompile Include="ui\LauncherWindow.cpp" />
@@ -77,6 +78,7 @@
     <ClInclude Include="ui\ChatUI.h" />
     <ClInclude Include="ui\ChatUIGlobals.h" />
     <ClInclude Include="ui\ChatWindow.h" />
+    <ClInclude Include="ui\CheatWindow.h" />
     <ClInclude Include="ui\EventsWindow.h" />
     <ClInclude Include="ui\JournalWindow.h" />
     <ClInclude Include="ui\LauncherWindow.h" />
