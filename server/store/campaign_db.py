@@ -360,6 +360,13 @@ def thread_members(thread_ids):
     return members
 
 
+def thread_location(thread_id):
+    """The place where the thread started, or None."""
+    with _connect() as conn:
+        row = conn.execute("SELECT location FROM thread WHERE id = ?", (thread_id,)).fetchone()
+    return row[0] if row else None
+
+
 def threads():
     """Each thread that has a line or a memory, newest first, as a dict with its members, the game time of its first
     exchange, the place where it started or None, its memory or None, and the lines of one copy (_thread_lines). A thread

@@ -8,7 +8,7 @@ import time
 
 from flask import Blueprint, jsonify, request
 
-from chat import action_dialogue, background, chat_prompt, offers, radiant, reply_text, retrieval, rumors, scene_text
+from chat import action_dialogue, background, chat_prompt, chat_window, offers, radiant, reply_text, retrieval, rumors, scene_text
 from chat.bio import BIO_PARTS, generate_bio, recorded_history, write_bio
 from chat.characters import get_character_data, npc_name, should_save_profile
 from chat.llm import call_llm
@@ -244,6 +244,13 @@ def answer_offer():
         end_thread()
         logging.info(f"ACTION: The offer of {npc} ended: {answer}.")
     return jsonify({"status": "ok"})
+
+@bp.route('/chat_thread', methods=['POST'])
+def chat_thread():
+    """The open chat thread with the NPC for the chat window. The plugin finds the keys of each member after its "id", so
+    each key must sort after "id", as Flask sorts them."""
+    thread = chat_window.open_thread((request.get_json(silent=True) or {}).get("npc_id"), quiet_seconds())
+    return jsonify({"status": "ok", "open": thread is not None, **(thread or {})})
 
 def merge_live_context(ctx):
     # Merge rather than replace, because a nearby entry lacks fields, such as factionID, that a full context of the same character stored
