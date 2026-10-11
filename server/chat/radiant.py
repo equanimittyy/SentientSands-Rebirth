@@ -9,7 +9,7 @@ from chat.prompts import describe_record
 LENGTHS = (
     ((2, 4), "A remark gets a reply or two, and the talk dies out."),
     ((5, 7), "The talk goes back and forth a few times."),
-    ((8, 12), "The talk catches, and it goes somewhere new before it ends."),
+    ((8, 10), "The talk catches, and it goes somewhere new before it ends."),
 )
 REPLY_SHARE = 0.5
 SPEAKERS = (2, 5)

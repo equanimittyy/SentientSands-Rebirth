@@ -119,7 +119,7 @@ class TurnsTest(unittest.TestCase):
         for seed in range(20):
             length, order = radiant.plan(["10", "14"], random.Random(seed))
             self.assertEqual(int(length.split()[0]), len(order))
-            self.assertTrue(2 <= len(order) <= 12)
+            self.assertTrue(2 <= len(order) <= 10)
 
 
 NAMES = {"10": "Stick", "14": "Jorge"}
