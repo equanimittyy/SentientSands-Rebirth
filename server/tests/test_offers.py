@@ -136,6 +136,10 @@ class BarterTest(unittest.TestCase):
     def test_another_npc_hands_over_only_what_it_carries(self):
         self.assertIsNone(self.barter("[OFFER: GIVE_ITEM: Katana; TAKE_CATS: 3000]", npc={**SHOP, "squad_jobs": []})[0])
 
+    def test_a_barman_whose_job_reads_trading_sells_the_stock(self):
+        barman = {**SHOP, "squad_jobs": [], "is_trader": True}
+        self.assertIsNotNone(self.barter("[OFFER: GIVE_ITEM: Katana; TAKE_CATS: 2400]", npc=barman)[0])
+
     def test_what_the_npc_receives_is_worth_what_it_gives(self):
         # A trader sells at 80% of the price and buys at 60%
         self.assertIsNone(self.barter("[OFFER: GIVE_ITEM: Katana; TAKE_CATS: 2399]")[0])
@@ -158,8 +162,10 @@ class BarterTest(unittest.TestCase):
         self.assertTrue(cats["charity"])
         self.assertEqual(offers.actions(cats), ["[ACTION: ADD_CATS: 50]"])
         self.assertEqual(offers.checks(cats), [])
-        food, _ = self.barter("[OFFER: GIVE_ITEM: 1 rice bowl]", npc=poor)
-        self.assertEqual(offers.actions(food), ["[ACTION: SPAWN_ITEM: Rice Bowl]"])
+        food, _ = self.barter("[OFFER: GIVE_FOOD]", npc=poor)
+        self.assertEqual(offers.actions(food), ["[ACTION: SPAWN_ITEM: Dried Gristle Flaps]"])
+        self.assertIn("only for charity", self.barter("[OFFER: GIVE_FOOD; TAKE_CATS: 10]")[1])
+        self.assertIsNone(self.barter("[OFFER: GIVE_ITEM: 1 Dried Meat]", npc=poor)[0])
         self.assertIsNone(self.barter("[OFFER: GIVE_CATS: 51]", npc=poor)[0])
         self.assertIsNone(self.barter("[OFFER: GIVE_ITEM: 1 Katana]")[0])
         state.CHARITY_DAYS[SHOP["npc_id"]] = 4

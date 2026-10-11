@@ -11,22 +11,22 @@ import itertools
 import math
 import re
 
-from chat import action_dialogue, current_job
+from chat import action_dialogue
 from core import state
 
 OFFER_TAG = re.compile(r"\[\s*OFFER\s*:((?:[^\[\]]|\[[^\[\]]*\])*)\]", re.IGNORECASE)
 # Bare parts count only in capitals, so a spoken "hire" or "release" is no offer
-_PART = r"\b(?:GIVE_CATS|TAKE_CATS|GIVE_ITEM|TAKE_ITEM|JOIN_PARTY|HIRE|FIRST_AID|RELEASE)\b(?:\s*:[^;\[\]\n]*)?"
+_PART = r"\b(?:GIVE_CATS|TAKE_CATS|GIVE_ITEM|TAKE_ITEM|GIVE_FOOD|JOIN_PARTY|HIRE|FIRST_AID|RELEASE)\b(?:\s*:[^;\[\]\n]*)?"
 BARE_OFFER = re.compile(rf"(?:\bOFFER\s*:\s*)?({_PART}(?:\s*;\s*{_PART})*)")
 REFUSE_TAG = re.compile(r"\[\s*REFUSE\s*\]", re.IGNORECASE)
 ATTACK_TAG = re.compile(r"\[\s*ATTACK\s*\]", re.IGNORECASE)
 DEAL_LINE = re.compile(r"\((?:[^()]+ (?:accepted|declined): |[^()]+ (?:attacked|treated|dismissed) )[^()]*\)\s*$")
 
-GIVES = {"RECRUIT": {"JOIN_PARTY"}, "FOLLOW": {"HIRE"}, "HEAL": {"FIRST_AID"}, "LIBERATE": {"RELEASE"}, "THREATEN": {"GIVE_CATS", "GIVE_ITEM"}, "BARTER": {"GIVE_CATS", "GIVE_ITEM"}}
+GIVES = {"RECRUIT": {"JOIN_PARTY"}, "FOLLOW": {"HIRE"}, "HEAL": {"FIRST_AID"}, "LIBERATE": {"RELEASE"}, "THREATEN": {"GIVE_CATS", "GIVE_ITEM"}, "BARTER": {"GIVE_CATS", "GIVE_ITEM", "GIVE_FOOD"}}
 NEEDS = {"RECRUIT": "JOIN_PARTY", "FOLLOW": "HIRE", "HEAL": "FIRST_AID", "LIBERATE": "RELEASE"}
 TAKES = {"RECRUIT": {"TAKE_CATS"}, "FOLLOW": {"TAKE_CATS"}, "HEAL": {"TAKE_CATS"}, "LIBERATE": {"TAKE_CATS"}, "THREATEN": set(), "BARTER": {"TAKE_CATS", "TAKE_ITEM"}}
-# The foods whose base value in the game data is 150 or less
-CHEAP_FOODS = ("Dried Gristle Flaps", "Dried Meat", "Rice Bowl", "Gohan", "Cooked Vegetables")
+# The cheapest food in the game data, at a base value of 40
+CHARITY_FOOD = "Dried Gristle Flaps"
 CHARITY_CATS = 50
 # A gift raises the relation by 1 for each GIFT_WORTH of its worth, so small gifts cannot farm relation
 GIFT_WORTH = 500
@@ -95,10 +95,11 @@ def hours_of(argument):
 
 
 def goods(npc, category):
-    """The items that the NPC can hand over: what it carries, and in a trade also the stock of its shop, because the trade
-    window of a shop shows the items of all its furniture."""
+    """The items that the NPC can hand over: what it carries, and in a trade with a trader also the stock of its shop,
+    because the trade window of a shop shows the items of all its furniture. A barman's job can read Trading instead of
+    Running a shop, so any trader sells the stock that the plugin sends."""
     items = list(npc.get("inventory") or [])
-    if category == "BARTER" and current_job.current_job(npc, False, "") == "Running a shop":
+    if category == "BARTER" and action_dialogue.is_trader(npc):
         items += npc.get("stock") or []
     return items
 
@@ -153,11 +154,9 @@ def charity(gives, npc):
         return None, "the NPC gave charity today"
     if len(gives) == 1 and gives[0][0] == "GIVE_CATS" and gives[0][1] <= CHARITY_CATS:
         return {"category": "BARTER", "gives": [("CATS", gives[0][1])], "takes": [], "charity": True}, None
-    if len(gives) == 1 and gives[0][0] == "GIVE_ITEM" and gives[0][1][0] == 1:
-        food = next((food for food in CHEAP_FOODS if food.lower() == gives[0][1][1].lower()), None)
-        if food:
-            return {"category": "BARTER", "gives": [("ITEM", (1, food))], "takes": [], "charity": True}, None
-    return None, f"charity is at most {CHARITY_CATS} cats or 1 cheap food"
+    if len(gives) == 1 and gives[0][0] == "GIVE_FOOD":
+        return {"category": "BARTER", "gives": [("ITEM", (1, CHARITY_FOOD))], "takes": [], "charity": True}, None
+    return None, f"charity is at most {CHARITY_CATS} cats or GIVE_FOOD"
 
 
 def check(category, parts, npc, speaker, guard=False):
@@ -189,6 +188,8 @@ def check(category, parts, npc, speaker, guard=False):
             parsed.append((name, guard if name == "RELEASE" else None))
     if category == "BARTER" and parsed and all(name in GIVES["BARTER"] for name, _ in parsed):
         return charity(parsed, npc)
+    if any(name == "GIVE_FOOD" for name, _ in parsed):
+        return None, "GIVE_FOOD is only for charity"
     gives, takes = [], []
     for name, value in parsed:
         if name in ("GIVE_ITEM", "TAKE_ITEM"):

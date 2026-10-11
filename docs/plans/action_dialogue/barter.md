@@ -52,18 +52,10 @@ In charity, the NPC gives without receiving anything. Charity costs the NPC noth
 
 Charity has tight limits:
 
-- The NPC gives at most 50 cats, or 1 item of the cheapest food (`ITEM_FOOD` in `deps/KenshiLib/Include/kenshi/Enums.h:224`).
+- The NPC gives at most 50 cats, or 1 Dried Gristle Flaps, the cheapest food in the game data (base value 40, `50568-rebirth.mod`).
 - Each NPC gives charity at most once in each game day. The server keeps the day of the last charity of each NPC in memory, so a restart of the server forgets it.
 
-The cheapest food is the food whose base value in the game data is 150 or less:
-
-| Food | Base value | String ID |
-|---|---|---|
-| Dried Gristle Flaps | 40 | `50568-rebirth.mod` |
-| Dried Meat | 150 | `42334-changes_otto.mod` |
-| Rice Bowl | 150 | `1016-gamedata.base` |
-| Gohan | 150 | `43957-rebirth.mod` |
-| Cooked Vegetables | 150 | `43955-rebirth.mod` |
+For food, the model writes `GIVE_FOOD`, and code picks the food. The prompt names no food, because the model offered a food that the charity rule listed, Dried Meat, as its own stock in a trade.
 
 `GIVE_CATS` takes the cats from the NPC (`plugin/game/GameActions.cpp:730`), so charity needs an action that only adds the cats to the player. `SPAWN_ITEM` already creates an item for the speaker (`plugin/game/GameActions.cpp:1018`).
 
@@ -73,7 +65,7 @@ A gift raises the NPC's profile `Relation` (`change_relation` in `server/store/c
 
 ## 6. Price guide
 
-The prompt opens with a stocktake of the NPC: the name and the count of each item, with no prices. For a shopkeeper, the stocktake also holds the items in all the furniture of its building, because the trade window of the game shows them as its stock ([kenshi_internals.md](../../info/kenshi_internals.md#inventories)). The furniture of the building can hold items that are not stock, for example the personal chest of a guard. The NPC can then sell those items too, and the plan accepts that cost. Each turn, code finds the items that the player's line and the NPC's last reply name, in the inventories of the NPC and the speaker, and it adds each item with its `price` to the turn message. The model thus gets the real price of each item that the deal is about, and it does not invent one.
+The prompt opens with a stocktake of the NPC: the name and the count of each item, with no prices. For a trader in a shop, the stocktake also holds the items in all the furniture of its building, because the trade window of the game shows them as its stock ([kenshi_internals.md](../../info/kenshi_internals.md#inventories)). The furniture of the building can hold items that are not stock, for example the personal chest of a guard. The NPC can then sell those items too, and the plan accepts that cost. Each turn, code finds the items that the player's line and the NPC's last reply name, in the inventories of the NPC and the speaker, and it adds each item with its `price` to the turn message. The model thus gets the real price of each item that the deal is about, and it does not invent one.
 
 One item can have a different `price` on different holders, for example a Standard First Aid Kit was 102 on a barman and 132 in the furniture of the bar ([kenshi_internals.md](../../info/kenshi_internals.md#inventories)). The deal therefore takes the `price` of an item from the stock of the NPC, because that is the price that the NPC sells at. When the stock holds the item at different prices, the deal takes the highest. When the stock does not hold the item, the deal takes the highest `price` of the item in the inventory of the speaker.
 
