@@ -167,6 +167,22 @@ static void OnCheatRenameClick(MyGUI::Widget *sender) {
   ShowCheatCharacter();
 }
 
+// Wear lowers the max health of a part, so each part gets the values of an
+// unworn part before the heal
+static void OnCheatHealClick(MyGUI::Widget *sender) {
+  Character *c = CheatCharacter();
+  if (!c)
+    return;
+  MedicalSystem *medical = c->getMedical();
+  for (auto it = medical->status.begin(); it != medical->status.end(); ++it) {
+    it->second.hitChanceMult = 1.0f;
+    it->second.wearDamage = 0.0f;
+    it->second.juryRigging = 0.0f;
+  }
+  c->healCompletely();
+  Log(LOG_INFO, "CHEAT: Healed " + c->getName());
+}
+
 static void ChangeCats(int sign) {
   Character *payer = Payer();
   int amount = atoi(Trimmed(g_cheatAmount).c_str());
@@ -425,6 +441,8 @@ void ShowCheatUI(Character *chatTarget) {
       AddJournalLineBox(client, 0.09f, 0.12f, 0.21f, "SentientSands_CheatName");
   AddJournalButton(client, "Rename", 0.02f, 0.20f, 0.135f, OnCheatRenameClick,
                    "SentientSands_CheatRenameBtn");
+  AddJournalButton(client, "Heal", 0.165f, 0.20f, 0.135f, OnCheatHealClick,
+                   "SentientSands_CheatHealBtn");
   g_cheatCats =
       AddJournalLine(client, 0.02f, 0.34f, 0.28f, "SentientSands_CheatCats");
   AddJournalLine(client, 0.02f, 0.42f, 0.07f, "SentientSands_CheatAmountLabel")
