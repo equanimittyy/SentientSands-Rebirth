@@ -33,11 +33,13 @@ static MyGUI::EditBox *g_offerReply = nullptr;
 static MyGUI::Button *g_offerAcceptBtn = nullptr;
 static MyGUI::Button *g_offerDeclineBtn = nullptr;
 static MyGUI::Button *g_offerSendBtn = nullptr;
+static MyGUI::Button *g_offerBackBtn = nullptr;
 static std::vector<MyGUI::Widget *> g_offerBoxes;
 
 struct Offer {
   std::string id;
   std::string npcName;
+  std::string text;
   unsigned int npcKey;
   unsigned int speakerKey;
   // A save load gives the same handles to new objects, so a new object behind
@@ -57,6 +59,7 @@ static void CloseOfferUI() {
   g_offerAcceptBtn = nullptr;
   g_offerDeclineBtn = nullptr;
   g_offerSendBtn = nullptr;
+  g_offerBackBtn = nullptr;
   g_offerBoxes.clear();
 }
 
@@ -153,16 +156,21 @@ static void OnOfferAccept(MyGUI::Widget *sender) {
   EndOffer("accept");
 }
 
-static void ShowReplyBox() {
+// The offer and the reply share one window, so Back can bring the offer back
+static void ShowReplyBox(bool shown) {
+  bool barter = !g_offerBoxes.empty();
   for (size_t i = 0; i < g_offerBoxes.size(); ++i)
-    g_offerBoxes[i]->setVisible(false);
-  g_offerText->setVisible(true);
-  g_offerText->setCaption(Utf8ToWide(T("Your reply:")).c_str());
-  g_offerAcceptBtn->setVisible(false);
-  g_offerDeclineBtn->setVisible(false);
-  g_offerReply->setVisible(true);
-  g_offerSendBtn->setVisible(true);
-  MyGUI::InputManager::getInstance().setKeyFocusWidget(g_offerReply);
+    g_offerBoxes[i]->setVisible(!shown);
+  g_offerText->setVisible(shown || !barter);
+  g_offerText->setCaption(
+      Utf8ToWide(shown ? T("Your reply:") : g_offer.text).c_str());
+  g_offerAcceptBtn->setVisible(!shown);
+  g_offerDeclineBtn->setVisible(!shown);
+  g_offerReply->setVisible(shown);
+  g_offerSendBtn->setVisible(shown);
+  g_offerBackBtn->setVisible(shown);
+  if (shown)
+    MyGUI::InputManager::getInstance().setKeyFocusWidget(g_offerReply);
 }
 
 static void SendReply() {
@@ -180,7 +188,8 @@ static void SendReply() {
   SendChatLine(npcName, handleStr, speaker, reply, CurrentChatMode(), answer);
 }
 
-static void OnOfferDecline(MyGUI::Widget *sender) { ShowReplyBox(); }
+static void OnOfferDecline(MyGUI::Widget *sender) { ShowReplyBox(true); }
+static void OnOfferBack(MyGUI::Widget *sender) { ShowReplyBox(false); }
 static void OnOfferSend(MyGUI::Widget *sender) { SendReply(); }
 static void OnOfferReplyAccept(MyGUI::EditBox *sender) { SendReply(); }
 
@@ -189,7 +198,7 @@ static void OnOfferWindowButtonPressed(MyGUI::Window *sender,
   if (name != "close")
     return;
   if (g_offerAcceptBtn->getVisible())
-    ShowReplyBox();
+    ShowReplyBox(true);
   else
     SendReply();
 }
@@ -248,6 +257,7 @@ void ShowOfferUI(const std::string &data) {
   offer.speakerKey = 0;
   keys >> offer.npcKey >> offer.speakerKey;
   offer.npcName = lines[2];
+  offer.text = lines[3];
   std::vector<std::string> mine, theirs;
   for (size_t i = 4; i < lines.size(); ++i) {
     if (lines[i].compare(0, 7, "CHECK: ") == 0)
@@ -307,8 +317,11 @@ void ShowOfferUI(const std::string &data) {
   g_offerAcceptBtn = AddOfferButton(client, "Accept", 0.18f, 0.72f, OnOfferAccept);
   g_offerDeclineBtn =
       AddOfferButton(client, "Decline", 0.57f, 0.72f, OnOfferDecline);
-  g_offerSendBtn = AddOfferButton(client, "Send", 0.375f, 0.72f, OnOfferSend);
+  g_offerSendBtn = AddOfferButton(client, "Send", 0.18f, 0.72f, OnOfferSend);
   g_offerSendBtn->setVisible(false);
+  g_offerBackBtn =
+      AddOfferButton(client, "Back", 0.57f, 0.72f, OnOfferBack);
+  g_offerBackBtn->setVisible(false);
 }
 
 void DropOfferUI() {

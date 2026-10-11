@@ -113,7 +113,8 @@
         "{name}'s offer is gone.": "{name}'s offer is gone.",
         "You are offering:": "You are offering:",
         "They are offering:": "They are offering:",
-        "Nothing": "Nothing"
+        "Nothing": "Nothing",
+        "Back": "Back"
     },
     "Spanish": {
         "Talking to: ": "Hablando con: ",
@@ -229,7 +230,8 @@
         "{name}'s offer is gone.": "La oferta de {name} ya no está en pie.",
         "You are offering:": "Tú ofreces:",
         "They are offering:": "Ellos ofrecen:",
-        "Nothing": "Nada"
+        "Nothing": "Nada",
+        "Back": "Volver"
     },
     "French": {
         "Talking to: ": "Discussion avec : ",
@@ -345,7 +347,8 @@
         "{name}'s offer is gone.": "L'offre de {name} ne tient plus.",
         "You are offering:": "Tu offres :",
         "They are offering:": "Ils offrent :",
-        "Nothing": "Rien"
+        "Nothing": "Rien",
+        "Back": "Retour"
     },
     "Japanese": {
         "Talking to: ": "会話相手: ",
@@ -461,7 +464,8 @@
         "{name}'s offer is gone.": "{name}の申し出は無効になりました。",
         "You are offering:": "あなたが差し出すもの：",
         "They are offering:": "相手が差し出すもの：",
-        "Nothing": "なし"
+        "Nothing": "なし",
+        "Back": "戻る"
     },
     "Russian": {
         "Talking to: ": "Разговор с: ",
@@ -577,6 +581,7 @@
         "{name}'s offer is gone.": "Предложение {name} больше не в силе.",
         "You are offering:": "Вы предлагаете:",
         "They are offering:": "Они предлагают:",
-        "Nothing": "Ничего"
+        "Nothing": "Ничего",
+        "Back": "Назад"
     }
 }
