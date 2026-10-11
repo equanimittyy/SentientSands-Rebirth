@@ -561,7 +561,9 @@ class RekeyTest(CampaignTestCase):
         campaign_db.rekey(self.NEW, "h:4-6-1-9", 4 * 1440)
         campaign_db.cull_after(3, 0, 0)
         self.assertEqual(self.npc_ids(thread_id)["profile"], [self.NEW])
-        campaign_db.cull_after(1, 12, 0)
+        with self.assertLogs(level="INFO") as logs:
+            campaign_db.cull_after(1, 12, 0)
+        self.assertEqual(logs.output, ["INFO:root:REKEY: The cull turned h:3-5-1-9 back into h:1-5-2-7."])
         self.assertEqual(self.npc_ids(thread_id), {"profile": [self.OLD], "member": [self.OLD], "speaker": [self.OLD], "memory": "{h:10} met {h:1-5-2-7}.", "doer": [self.OLD]})
 
     def test_a_cull_deletes_the_characters_first_stored_after_it(self):

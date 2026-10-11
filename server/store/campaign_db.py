@@ -663,8 +663,10 @@ def cull_after(day, hour, minute):
     now = day * 1440 + hour * 60 + minute
     with _connect(write=True) as conn:
         for old_id, new_id in conn.execute("SELECT old_id, new_id FROM rekey WHERE game_time > ? ORDER BY id DESC", (now,)).fetchall():
-            if not _move_records(conn, new_id, old_id):
-                logging.warning(f"CAMPAIGN: The cull keeps the records of {new_id}, because {old_id} already has records.")
+            if _move_records(conn, new_id, old_id):
+                logging.info(f"REKEY: The cull turned {new_id} back into {old_id}.")
+            else:
+                logging.warning(f"REKEY: The cull keeps the records of {new_id}, because {old_id} already has records.")
         conn.execute("DELETE FROM rekey WHERE game_time > ?", (now,))
         touched = {thread_id for (thread_id,) in conn.execute("SELECT id FROM thread WHERE game_time > ?", (now,))}
         culled = {table: conn.execute(f"DELETE FROM {table} WHERE game_time > ?", (now,)).rowcount for table in ("dialogue", "rumor", "event", "character")}

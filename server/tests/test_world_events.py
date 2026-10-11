@@ -213,7 +213,9 @@ class EventTest(WorldEventsTestCase):
         self.assertEqual(campaign_db.rumors(), [])
 
     def test_a_rekey_after_a_kill_in_one_report_gives_the_kill_the_new_npc_id(self):
-        world_events.take([attack(BEEP, KING, at(1, 10)), death(KING, at(1, 11)), rekey(BEEP["id"], "h:9", at(1, 12))])
+        with self.assertLogs(level="INFO") as logs:
+            world_events.take([attack(BEEP, KING, at(1, 10)), death(KING, at(1, 11)), rekey(BEEP["id"], "h:9", at(1, 12))])
+        self.assertIn("INFO:root:REKEY: h:1 is now h:9.", logs.output)
         self.assertEqual(self.events(), [("kill", "h:9", KING["id"])])
 
 
