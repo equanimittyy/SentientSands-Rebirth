@@ -22,6 +22,9 @@
 #pragma comment(linker, "/export:DllInstall=startPlugin")
 #endif
 
+#include <cctype>
+#include <cstdlib>
+#include <cstring>
 #include <string>
 #include <vector>
 #include <windows.h>
@@ -108,729 +111,446 @@ static std::string LeadingCategoryTag(const std::string &text) {
   return "";
 }
 
-// Kenshi engine writes must happen on the main thread, inside hooks.
-void ProcessMessageQueue(GameWorld *thisptr) {
-  std::deque<std::string> messages;
-  if (TryEnterCriticalSection(&g_msgMutex)) {
-    // Swapped out, so the pipe thread can queue the next message while the
-    // game thread runs these
-    messages.swap(g_messageQueue);
-    LeaveCriticalSection(&g_msgMutex);
-    while (!messages.empty()) {
-      std::string msg = messages.front();
-      messages.pop_front();
-      if (LogEnabled(LOG_DEBUG))
-        Log(LOG_DEBUG, "QUEUE: Processing: " + msg);
+static void ApplyConfig(const std::string &data) {
+  size_t colon = data.find(':');
+  if (colon == std::string::npos)
+    return;
+  std::string var = Trim(data.substr(0, colon));
+  std::string val = Trim(data.substr(colon + 1));
+  if (var == "g_enableRadiant") {
+    g_enableRadiant = (val == "1");
+    g_lastRadiantTick = GetTickCount();
+  } else if (var == "g_radiantIntervalSeconds") {
+    g_radiantIntervalSeconds = atoi(val.c_str());
+    g_lastRadiantTick = GetTickCount();
+  } else if (var == "g_whisperRadius") {
+    g_whisperRadius = (float)atof(val.c_str());
+  } else if (var == "g_proximityRadius") {
+    g_proximityRadius = (float)atof(val.c_str());
+  } else if (var == "g_yellRadius") {
+    g_yellRadius = (float)atof(val.c_str());
+  } else if (var == "g_speechBubbleLife") {
+    g_speechBubbleLife = (float)atof(val.c_str());
+  } else if (var == "g_chatHotkey") {
+    SetHotkeyFromString(val);
+    RefreshWelcomeUI();
+    RefreshHelpUI();
+  } else if (var == "g_enableWelcome") {
+    g_enableWelcome = (val == "1");
+  } else if (var == "g_logLevel") {
+    g_logLevel = ParseLogLevel(val);
+  }
+}
 
-      bool isNPCAction = (msg.find("NPC_ACTION: ") == 0);
-      bool isPlayerSay = (msg.find("PLAYER_SAY: ") == 0);
-      bool isNPCSay = (msg.find("NPC_SAY: ") == 0);
-      bool isNotify = (msg.find("NOTIFY:") == 0);
-      bool isCmd = (msg.find("CMD:") == 0);
-      bool isRename = (msg.find("NPC_RENAME: ") == 0);
+// "<command>: <data>". The data stays untrimmed, because a multi-line block in
+// it must arrive as sent
+static void HandleCommand(const std::string &message) {
+  size_t colon = message.find(':');
+  if (colon == std::string::npos)
+    return;
+  std::string command = Trim(message.substr(0, colon));
+  std::string data = message.substr(colon + 1);
+  if (command == "APPLY_TRANSLATION") {
+    LoadUITranslation(data);
+    RefreshLauncherUI();
+    RefreshWelcomeUI();
+    RefreshHelpUI();
+  } else if (command == "POPULATE_LIBRARY") {
+    PopulateLibraryUI(data);
+  } else if (command == "SET_LIBRARY_PROFILE") {
+    SetLibraryProfile(data);
+  } else if (command == "SET_EVENTS_TEXT") {
+    SetEventContent(data);
+  } else if (command == "SET_CONFIG") {
+    ApplyConfig(data);
+  } else if (command == "REFRESH_LIBRARY") {
+    RefreshLibraryUI();
+  } else if (command == "REPORT") {
+    AsyncPostToPython(L"/report", GameReport());
+  } else if (command == "BIO_WRITTEN") {
+    OpenBioEditor(data, "Write failed: ");
+  } else if (command == "BIO_READ") {
+    OpenBioEditor(data, "Load failed: ");
+  } else if (command == "BIO_KEPT") {
+    FinishKeptBio(data);
+  } else if (command == "POPULATE_EVENTS") {
+    PopulateEventsUI(data);
+  } else if (command == "RUMOR_WRITTEN") {
+    OpenRumorEditor(data, "Write failed: ");
+  } else if (command == "RUMOR_READ") {
+    OpenRumorEditor(data, "Load failed: ");
+  } else if (command == "RUMOR_KEPT") {
+    FinishEventChange(data, "Keep failed: ");
+  } else if (command == "EVENT_ADDED") {
+    FinishEventChange(data, "Add failed: ");
+  } else if (command == "EVENT_DELETED") {
+    FinishEventChange(data, "Delete failed: ");
+  } else if (command == "POPULATE_JOURNAL") {
+    PopulateJournalUI(data);
+  } else if (command == "JOURNAL_ENTRY") {
+    SetJournalEntry(data);
+  } else if (command == "JOURNAL_ADDED") {
+    FinishJournalAdd(data);
+  } else if (command == "JOURNAL_SAVED") {
+    FinishJournalSave(data);
+  } else if (command == "JOURNAL_DELETED") {
+    FinishJournalDelete(data);
+  } else if (command == "OFFER") {
+    ShowOfferUI(data);
+  } else if (command == "OFFER_GONE") {
+    DropOfferUI();
+  } else if (command == "HIRE_TERMS") {
+    SetHireTerms(data);
+  } else if (command == "CHAT_HISTORY") {
+    SetChatHistory(data);
+  } else if (command == "BARTER_TURN") {
+    SetBarterTurn(data);
+  } else if (command == "CHEAT_RELATION") {
+    SetCheatRelation(data);
+  } else if (command == "CULLED") {
+    FinishCull(data);
+  }
+}
 
-      hand targetHand = g_talkTargetHand;
-      hand speakerHand = hand();
-      hand actionSpeaker = hand();
+// "<npc_id>|<name>"
+static void RenameNpc(GameWorld *world, const std::string &payload) {
+  size_t sep = payload.find('|');
+  if (sep == std::string::npos || sep + 1 >= payload.size())
+    return;
+  std::string npcId = payload.substr(0, sep);
+  std::string name = payload.substr(sep + 1);
+  const ogre_unordered_set<Character *>::type &chars =
+      world->getCharacterUpdateList();
+  for (auto it = chars.begin(); it != chars.end(); ++it) {
+    Character *c = *it;
+    if (!c || (uintptr_t)c <= 0x1000 || !HasNpcId(c, npcId))
+      continue;
+    std::string newName = ShownName(c, name);
+    std::string oldName = c->getName();
+    if (newName != oldName) {
+      c->setName(newName);
+      Log(LOG_DEBUG, "NAME: Renamed '" + oldName + "' -> '" + newName +
+                         "' (" + npcId + ")");
+    }
+    return;
+  }
+}
 
-      if (isCmd) {
-        size_t firstColon = msg.find(":", 4); // skip "CMD:"
-        if (firstColon != std::string::npos) {
-          std::string command = msg.substr(4, firstColon - 4);
-          std::string data = msg.substr(firstColon + 1);
+static bool TakePrefix(const std::string &text, const char *prefix,
+                       std::string &rest) {
+  size_t length = strlen(prefix);
+  if (text.compare(0, length, prefix) != 0)
+    return false;
+  rest = text.substr(length);
+  return true;
+}
 
-          auto trim = [](std::string &s) {
-            s.erase(0, s.find_first_not_of(" \t\r\n"));
-            s.erase(s.find_last_not_of(" \t\r\n") + 1);
-          };
-          trim(command);
-          // Leave data untrimmed: multiline blocks in it must arrive exactly as sent.
+// A colon past this ends no name, because it is part of the line
+static const size_t SPEAKER_NAME_MAX = 64;
 
-          if (command == "APPLY_TRANSLATION") {
-            LoadUITranslation(data);
-            RefreshLauncherUI();
-            RefreshWelcomeUI();
-            RefreshHelpUI();
-          } else if (command == "POPULATE_LIBRARY") {
-            PopulateLibraryUI(data);
-          } else if (command == "SET_LIBRARY_PROFILE") {
-            SetLibraryProfile(data);
-          } else if (command == "SET_EVENTS_TEXT") {
-            SetEventContent(data);
-          } else if (command == "SET_CONFIG") {
-            size_t colon = data.find(":");
-            if (colon != std::string::npos) {
-              std::string var = data.substr(0, colon);
-              std::string val = data.substr(colon + 1);
-
-              auto trimInternal = [](std::string &s) {
-                s.erase(0, s.find_first_not_of(" \t\r\n"));
-                s.erase(s.find_last_not_of(" \t\r\n") + 1);
-              };
-              trimInternal(var);
-              trimInternal(val);
-
-              if (var == "g_enableRadiant") {
-                g_enableRadiant = (val == "1");
-                g_lastRadiantTick = GetTickCount();
-              } else if (var == "g_radiantIntervalSeconds") {
-                g_radiantIntervalSeconds = atoi(val.c_str());
-                g_lastRadiantTick =
-                    GetTickCount();
-              } else if (var == "g_whisperRadius")
-                g_whisperRadius = (float)atof(val.c_str());
-              else if (var == "g_proximityRadius")
-                g_proximityRadius = (float)atof(val.c_str());
-              else if (var == "g_yellRadius")
-                g_yellRadius = (float)atof(val.c_str());
-              else if (var == "g_speechBubbleLife") {
-                g_speechBubbleLife = (float)atof(val.c_str());
-              } else if (var == "g_chatHotkey") {
-                SetHotkeyFromString(val);
-                RefreshWelcomeUI();
-                RefreshHelpUI();
-              } else if (var == "g_enableWelcome") {
-                g_enableWelcome = (val == "1");
-              } else if (var == "g_logLevel") {
-                g_logLevel = ParseLogLevel(val);
-              }
-            }
-          } else if (command == "REFRESH_LIBRARY") {
-            RefreshLibraryUI();
-          } else if (command == "REPORT") {
-            AsyncPostToPython(L"/report", GameReport());
-          } else if (command == "BIO_WRITTEN") {
-            OpenBioEditor(data, "Write failed: ");
-          } else if (command == "BIO_READ") {
-            OpenBioEditor(data, "Load failed: ");
-          } else if (command == "BIO_KEPT") {
-            FinishKeptBio(data);
-          } else if (command == "POPULATE_EVENTS") {
-            PopulateEventsUI(data);
-          } else if (command == "RUMOR_WRITTEN") {
-            OpenRumorEditor(data, "Write failed: ");
-          } else if (command == "RUMOR_READ") {
-            OpenRumorEditor(data, "Load failed: ");
-          } else if (command == "RUMOR_KEPT") {
-            FinishEventChange(data, "Keep failed: ");
-          } else if (command == "EVENT_ADDED") {
-            FinishEventChange(data, "Add failed: ");
-          } else if (command == "EVENT_DELETED") {
-            FinishEventChange(data, "Delete failed: ");
-          } else if (command == "POPULATE_JOURNAL") {
-            PopulateJournalUI(data);
-          } else if (command == "JOURNAL_ENTRY") {
-            SetJournalEntry(data);
-          } else if (command == "JOURNAL_ADDED") {
-            FinishJournalAdd(data);
-          } else if (command == "JOURNAL_SAVED") {
-            FinishJournalSave(data);
-          } else if (command == "JOURNAL_DELETED") {
-            FinishJournalDelete(data);
-          } else if (command == "OFFER") {
-            ShowOfferUI(data);
-          } else if (command == "OFFER_GONE") {
-            DropOfferUI();
-          } else if (command == "HIRE_TERMS") {
-            SetHireTerms(data);
-          } else if (command == "CHAT_HISTORY") {
-            SetChatHistory(data);
-          } else if (command == "BARTER_TURN") {
-            SetBarterTurn(data);
-          } else if (command == "CHEAT_RELATION") {
-            SetCheatRelation(data);
-          } else if (command == "CULLED") {
-            FinishCull(data);
-          }
-        }
-      } else if (isRename) {
-        // Format: "NPC_RENAME: <npc_id>|<name>"
-        std::string payload = msg.substr(12); // skip "NPC_RENAME: "
-        size_t sep = payload.find('|');
-        if (sep != std::string::npos && sep + 1 < payload.size() && thisptr) {
-          std::string npcId = payload.substr(0, sep);
-          std::string name = payload.substr(sep + 1);
-          const ogre_unordered_set<Character *>::type &chars =
-              thisptr->getCharacterUpdateList();
-          for (auto it = chars.begin(); it != chars.end(); ++it) {
-            Character *c = *it;
-            if (!c || (uintptr_t)c <= 0x1000 || !HasNpcId(c, npcId))
-              continue;
-            std::string newName = ShownName(c, name);
-            std::string oldName = c->getName();
-            if (newName != oldName) {
-              c->setName(newName);
-              Log(LOG_DEBUG, "NAME: Renamed '" + oldName + "' -> '" + newName +
-                                 "' (" + npcId + ")");
-            }
-            break;
-          }
-        }
-      } else if (isNotify) {
-        std::string text = msg.substr(7);
-        EnterCriticalSection(&g_uiMutex);
-        QueuedAction act;
-        act.type = ACT_NOTIFY;
-        act.actor = hand();
-        act.target = hand();
-        act.message = text;
-        act.taskValue = 0;
-        g_uiActionQueue.push_back(act);
-        LeaveCriticalSection(&g_uiMutex);
-      } else if (isPlayerSay || isNPCAction || isNPCSay) {
-        g_lastRadiantTick = GetTickCount();
-
-        if (isPlayerSay) {
-          if (thisptr->player && thisptr->player->playerCharacters.size() > 0) {
-
-            speakerHand = thisptr->player->playerCharacters[0]->getHandle();
-            g_lastChattingPlayerHand = speakerHand;
-
-            size_t nameStart = 12; // length of "PLAYER_SAY: "
-            size_t nameEnd = msg.find(":", nameStart);
-            if (nameEnd != std::string::npos && nameEnd < 64) {
-              std::string pName = msg.substr(nameStart, nameEnd - nameStart);
-              pName.erase(0, pName.find_first_not_of(" \t\r\n"));
-              pName.erase(pName.find_last_not_of(" \t\r\n") + 1);
-
-              bool nameMatched = false;
-              for (size_t ci = 0; ci < thisptr->player->playerCharacters.size();
-                   ++ci) {
-                Character *c = thisptr->player->playerCharacters[ci];
-                if (c && c->getName() == pName) {
-                  speakerHand = c->getHandle();
-                  g_lastChattingPlayerHand = speakerHand;
-                  nameMatched = true;
-                  break;
-                }
-              }
-
-              if (nameMatched) {
-                std::string textOnly = msg.substr(nameEnd + 1);
-                textOnly.erase(0, textOnly.find_first_not_of(" \t\r\n"));
-                msg = "PLAYER_SAY: " + textOnly;
-              }
-            }
-          }
-        }
-
-        if (!targetHand.isValid()) {
-          targetHand = g_lastSelectionHand;
-        }
-
-        bool found = false;
-        bool header_processed = false;
-
-        if (isNPCSay || isNPCAction) {
-          hand fallbackHand = targetHand;
-          // Do not reset targetHand here: that kills bubbles for single-target talk.
-
-          size_t startPos = isNPCSay ? 9 : 12;
-          std::string remainder = msg.substr(startPos);
-          size_t colon = remainder.find(':');
-
-          std::string name = "";
-          unsigned int key = 0;
-
-          if (colon != std::string::npos && colon < 64 && remainder[0] != '[') {
-            header_processed = true;
-            std::string header = remainder.substr(0, colon);
-            name = header;
-            size_t piper = header.find("|");
-            if (piper != std::string::npos) {
-              name = header.substr(0, piper);
-              char *rest = NULL;
-              key = (unsigned int)strtoul(header.c_str() + piper + 1, &rest, 10);
-              Character *spoke =
-                  rest && *rest == '>'
-                      ? KeyedCharacter((unsigned int)strtoul(rest + 1, NULL, 10))
-                      : nullptr;
-              if (spoke)
-                actionSpeaker = spoke->getHandle();
-            }
-
-            std::string nLow = name;
-            std::transform(nLow.begin(), nLow.end(), nLow.begin(), ::tolower);
-
-            Character *bestMatch = KeyedCharacter(key);
-            int bestScore = bestMatch ? 1000 : 0;
-
-            const ogre_unordered_set<Character *>::type &chars =
-                thisptr->getCharacterUpdateList();
-            for (auto it = chars.begin(); bestScore < 1000 && it != chars.end();
-                 ++it) {
-              Character *c = *it;
-              if (!c || (uintptr_t)c < 0x1000)
-                continue;
-
-              int score = 0;
-              std::string cName = c->getName();
-              if (cName == name)
-                score = 500;
-              else {
-                std::string cLow = cName;
-                std::transform(cLow.begin(), cLow.end(), cLow.begin(),
-                               ::tolower);
-                if (cLow == nLow)
-                  score = 400;
-                else if (cLow.find(nLow) == 0)
-                  score = 200;
-                else if (cLow.find(nLow) != std::string::npos)
-                  score = 100;
-              }
-
-              if (score > bestScore) {
-                bestScore = score;
-                bestMatch = c;
-              }
-            }
-
-            if (bestMatch && bestScore > 0) {
-              targetHand = bestMatch->getHandle();
-              found = true;
-            }
-
-            if (!found && thisptr->player &&
-                thisptr->player->playerCharacters.size() > 0) {
-              Character *p = thisptr->player->playerCharacters[0];
-              lektor<RootObject *> results;
-              thisptr->getCharactersWithinSphere(
-                  results, p->getPosition(), 2500.0f, 0.0f, 0.0f, 0x10, 0, p);
-              for (uint32_t i = 0; i < results.size(); ++i) {
-                Character *c = (Character *)results.stuff[i];
-                if (!c || (uintptr_t)c < 0x1000)
-                  continue;
-
-                int score = 0;
-                std::string cName = c->getName();
-                if (cName == name)
-                  score = 500;
-                else {
-                  std::string cLow = cName;
-                  std::transform(cLow.begin(), cLow.end(), cLow.begin(),
-                                 ::tolower);
-                  if (cLow == nLow)
-                    score = 400;
-                  else if (cLow.find(nLow) == 0)
-                    score = 200;
-                  else if (cLow.find(nLow) != std::string::npos)
-                    score = 100;
-                }
-
-                if (score > bestScore) {
-                  bestScore = score;
-                  bestMatch = c;
-                }
-              }
-              if (bestMatch && bestScore > 0) {
-                targetHand = bestMatch->getHandle();
-                found = true;
-              }
-            }
-
-            if (!found && fallbackHand.isValid()) {
-              Character *fc = fallbackHand.getCharacter();
-              if (fc && (uintptr_t)fc > 0x1000) {
-                std::string fcName = fc->getName();
-                std::transform(fcName.begin(), fcName.end(), fcName.begin(),
-                               ::tolower);
-                std::string nLow = name;
-                std::transform(nLow.begin(), nLow.end(), nLow.begin(),
-                               ::tolower);
-
-                if (name.empty() || fcName == nLow ||
-                    fcName.find(nLow) != std::string::npos) {
-                  targetHand = fallbackHand;
-                  found = true;
-                }
-              }
-            }
-          }
-
-          if (found || (header_processed && !found && fallbackHand.isValid())) {
-            msg = (isNPCSay ? "NPC_SAY: " : "NPC_ACTION: ") +
-                  remainder.substr(colon + 1);
-            if (msg.length() > startPos && msg[startPos] == ' ')
-              msg.erase(startPos, 1);
-
-            if (!found && fallbackHand.isValid()) {
-              targetHand = fallbackHand;
-            }
-          } else {
-            Log(LOG_WARN, "QUEUE: Speaker not found: " + name);
-          }
-        }
-      }
-
-      hand firstCharacter =
-          thisptr->player && thisptr->player->playerCharacters.size() > 0
-              ? thisptr->player->playerCharacters[0]->getHandle()
-              : hand();
-      hand itemHolder =
-          actionSpeaker.isValid() ? actionSpeaker : g_lastChattingPlayerHand;
-      hand actionTarget = actionSpeaker.isValid() ? actionSpeaker : firstCharacter;
-
-      if (isNPCAction || isNPCSay) {
-        size_t searchPos = 0;
-        while (true) {
-          size_t startBracket = msg.find("[", searchPos);
-          if (startBracket == std::string::npos)
-            break;
-
-          size_t endBracket = std::string::npos;
-          int depth = 0;
-          for (size_t i = startBracket; i < msg.length(); ++i) {
-            if (msg[i] == '[')
-              depth++;
-            else if (msg[i] == ']') {
-              depth--;
-              if (depth == 0) {
-                endBracket = i;
-                break;
-              }
-            }
-          }
-
-          if (endBracket == std::string::npos)
-            break;
-
-          std::string fullTag =
-              msg.substr(startBracket, endBracket - startBracket + 1);
-          searchPos = endBracket + 1;
-
-          std::string actStr = fullTag;
-
-          auto getPayload = [](const std::string &str,
-                               const std::string &prefix) -> std::string {
-            size_t p = str.find(prefix);
-            if (p == std::string::npos)
-              return "";
-            std::string res = str.substr(p + prefix.length());
-            size_t lnot = res.find_last_not_of(" \t\n\r");
-            if (lnot != std::string::npos) {
-              res.erase(lnot + 1);
-              if (!res.empty() && res.back() == ']')
-                res.pop_back();
-            }
-            size_t f = res.find_first_not_of(" \t\n\r");
-            if (f != std::string::npos)
-              res.erase(0, f);
-            lnot = res.find_last_not_of(" \t\n\r");
-            if (lnot != std::string::npos)
-              res.erase(lnot + 1);
-            return res;
-          };
-
-          if (actStr.find("PROBE:") != std::string::npos) {
-            EnterCriticalSection(&g_uiMutex);
-            QueuedAction act;
-            act.type = ACT_PROBE;
-            act.actor = targetHand;
-            act.target = g_lastChattingPlayerHand;
-            act.message = getPayload(actStr, "PROBE:");
-            g_uiActionQueue.push_back(act);
-            LeaveCriticalSection(&g_uiMutex);
-          } else if (actStr.find("JOIN_PARTY") != std::string::npos) {
-            EnterCriticalSection(&g_uiMutex);
-            QueuedAction act;
-            act.type = ACT_JOIN_PARTY;
-            act.actor = targetHand;
-            g_uiActionQueue.push_back(act);
-            LeaveCriticalSection(&g_uiMutex);
-          } else if (actStr.find("EXPIRE_HIRE") != std::string::npos) {
-            Character *npc = targetHand.getCharacter();
-            if (npc)
-              ExpireHire(npc);
-          } else if (actStr.find("END_HIRE") != std::string::npos) {
-            EnterCriticalSection(&g_uiMutex);
-            QueuedAction act;
-            act.type = ACT_END_HIRE;
-            act.actor = targetHand;
-            g_uiActionQueue.push_back(act);
-            LeaveCriticalSection(&g_uiMutex);
-          } else if (actStr.find("HIRE:") != std::string::npos) {
-            EnterCriticalSection(&g_uiMutex);
-            QueuedAction act;
-            act.type = ACT_HIRE;
-            act.actor = targetHand;
-            act.target = actionTarget;
-            act.taskValue = atoi(getPayload(actStr, "HIRE:").c_str());
-            g_uiActionQueue.push_back(act);
-            LeaveCriticalSection(&g_uiMutex);
-          } else if (actStr.find("FIRST_AID") != std::string::npos) {
-            EnterCriticalSection(&g_uiMutex);
-            QueuedAction act;
-            act.type = ACT_FIRST_AID;
-            act.actor = targetHand;
-            act.target = actionTarget;
-            g_uiActionQueue.push_back(act);
-            LeaveCriticalSection(&g_uiMutex);
-          } else if (actStr.find("ATTACK") != std::string::npos) {
-            EnterCriticalSection(&g_uiMutex);
-            QueuedAction act;
-            act.type = ACT_ATTACK;
-            act.actor = targetHand;
-            act.target = actionTarget;
-            g_uiActionQueue.push_back(act);
-            LeaveCriticalSection(&g_uiMutex);
-          } else if (actStr.find("GIVE_ITEM:") != std::string::npos ||
-                     actStr.find("SELL_ITEM:") != std::string::npos) {
-            bool sell = actStr.find("SELL_ITEM:") != std::string::npos;
-            std::string payload =
-                getPayload(actStr, sell ? "SELL_ITEM:" : "GIVE_ITEM:");
-            int count = 1;
-            size_t colon = std::string::npos;
-            int depth = 0;
-            for (int i = (int)payload.length() - 1; i >= 0; --i) {
-              if (payload[i] == ']')
-                depth++;
-              else if (payload[i] == '[')
-                depth--;
-              else if (payload[i] == ':' && depth == 0) {
-                colon = i;
-                break;
-              }
-            }
-
-            if (colon != std::string::npos) {
-              std::string cStr = payload.substr(colon + 1);
-              cStr.erase(0, cStr.find_first_not_of(" "));
-              cStr.erase(cStr.find_last_not_of(" ") + 1);
-              if (!cStr.empty() && isdigit(cStr[0])) {
-                count = atoi(cStr.c_str());
-                payload = payload.substr(0, colon);
-                payload.erase(payload.find_last_not_of(" ") + 1);
-              }
-            }
-            EnterCriticalSection(&g_uiMutex);
-            QueuedAction act;
-            act.type = sell ? ACT_SELL_ITEM : ACT_GIVE_ITEM;
-            act.actor = targetHand;
-            act.target = itemHolder;
-            act.message = payload;
-            act.taskValue = count;
-            g_uiActionQueue.push_back(act);
-            LeaveCriticalSection(&g_uiMutex);
-          } else if (actStr.find("TAKE_ITEM:") != std::string::npos) {
-            std::string payload = getPayload(actStr, "TAKE_ITEM:");
-            int count = 1;
-            size_t colon = std::string::npos;
-            int depth = 0;
-            for (int i = (int)payload.length() - 1; i >= 0; --i) {
-              if (payload[i] == ']')
-                depth++;
-              else if (payload[i] == '[')
-                depth--;
-              else if (payload[i] == ':' && depth == 0) {
-                colon = i;
-                break;
-              }
-            }
-
-            if (colon != std::string::npos) {
-              std::string cStr = payload.substr(colon + 1);
-              cStr.erase(0, cStr.find_first_not_of(" "));
-              cStr.erase(cStr.find_last_not_of(" ") + 1);
-              if (!cStr.empty() && isdigit(cStr[0])) {
-                count = atoi(cStr.c_str());
-                payload = payload.substr(0, colon);
-                payload.erase(payload.find_last_not_of(" ") + 1);
-              }
-            }
-            EnterCriticalSection(&g_uiMutex);
-            QueuedAction act;
-            act.type = ACT_TAKE_ITEM;
-            act.actor = targetHand;
-            act.target = itemHolder;
-            act.message = payload;
-            act.taskValue = count;
-            g_uiActionQueue.push_back(act);
-            LeaveCriticalSection(&g_uiMutex);
-          } else if (actStr.find("ADD_CATS:") != std::string::npos) {
-            EnterCriticalSection(&g_uiMutex);
-            QueuedAction act;
-            act.type = ACT_ADD_CATS;
-            act.actor = targetHand;
-            act.taskValue = atoi(getPayload(actStr, "ADD_CATS:").c_str());
-            g_uiActionQueue.push_back(act);
-            LeaveCriticalSection(&g_uiMutex);
-          } else if (actStr.find("TAKE_CATS:") != std::string::npos) {
-            std::string amtStr = getPayload(actStr, "TAKE_CATS:");
-            EnterCriticalSection(&g_uiMutex);
-            QueuedAction act;
-            act.type = ACT_TAKE_CATS;
-            act.actor = targetHand;
-            act.target = g_lastChattingPlayerHand;
-            act.taskValue = atoi(amtStr.c_str());
-            g_uiActionQueue.push_back(act);
-            LeaveCriticalSection(&g_uiMutex);
-          } else if (actStr.find("GIVE_CATS:") != std::string::npos) {
-            std::string amtStr = getPayload(actStr, "GIVE_CATS:");
-            EnterCriticalSection(&g_uiMutex);
-            QueuedAction act;
-            act.type = ACT_GIVE_CATS;
-            act.actor = targetHand;
-            act.target = g_lastChattingPlayerHand;
-            act.taskValue = atoi(amtStr.c_str());
-            g_uiActionQueue.push_back(act);
-            LeaveCriticalSection(&g_uiMutex);
-          } else if (actStr.find("SPAWN_ITEM:") != std::string::npos) {
-            std::string payload = getPayload(actStr, "SPAWN_ITEM:");
-            int count = 1;
-            size_t pipePos = payload.find('|');
-            std::string templateSegment = (pipePos != std::string::npos)
-                                              ? payload.substr(0, pipePos)
-                                              : payload;
-
-            size_t colon = std::string::npos;
-            int depth = 0;
-            for (int i = (int)templateSegment.length() - 1; i >= 0; --i) {
-              if (templateSegment[i] == ']')
-                depth++;
-              else if (templateSegment[i] == '[')
-                depth--;
-              else if (templateSegment[i] == ':' && depth == 0) {
-                colon = i;
-                break;
-              }
-            }
-
-            if (colon != std::string::npos) {
-              std::string cStr = templateSegment.substr(colon + 1);
-              cStr.erase(0, cStr.find_first_not_of(" "));
-              cStr.erase(cStr.find_last_not_of(" ") + 1);
-              if (!cStr.empty() && isdigit(cStr[0])) {
-                count = atoi(cStr.c_str());
-                std::string baseTemplate = templateSegment.substr(0, colon);
-                baseTemplate.erase(baseTemplate.find_last_not_of(" ") + 1);
-                if (pipePos != std::string::npos) {
-                  payload = baseTemplate + payload.substr(pipePos);
-                } else {
-                  payload = baseTemplate;
-                }
-              }
-            }
-
-            EnterCriticalSection(&g_uiMutex);
-            QueuedAction act;
-            act.type = ACT_SPAWN_ITEM;
-            act.actor = targetHand;
-            act.target = itemHolder;
-            act.message = payload;
-            act.taskValue = count;
-            g_uiActionQueue.push_back(act);
-            LeaveCriticalSection(&g_uiMutex);
-          } else if (actStr.find("RELEASE_PRISONER") != std::string::npos ||
-                     actStr.find("FREE_PLAYER") != std::string::npos) {
-            EnterCriticalSection(&g_uiMutex);
-            QueuedAction act;
-            act.type = ACT_RELEASE;
-            act.actor = targetHand;
-            act.target = actionTarget;
-            g_uiActionQueue.push_back(act);
-            LeaveCriticalSection(&g_uiMutex);
-          } else if (actStr.find("RAID_TOWN") != std::string::npos) {
-            std::string tName = getPayload(actStr, "RAID_TOWN:");
-            EnterCriticalSection(&g_uiMutex);
-            QueuedAction act;
-            act.type = ACT_SET_TASK;
-            act.actor = targetHand;
-            act.taskValue = RAID_TOWN;
-            act.message = tName;
-            g_uiActionQueue.push_back(act);
-            LeaveCriticalSection(&g_uiMutex);
-          } else if (actStr.find("TRAVEL_TO_TARGET_TOWN") !=
-                     std::string::npos) {
-            std::string tName = getPayload(actStr, "TRAVEL_TO_TARGET_TOWN:");
-            EnterCriticalSection(&g_uiMutex);
-            QueuedAction act;
-            act.type = ACT_SET_TASK;
-            act.actor = targetHand;
-            act.message = tName;
-            act.taskValue = TRAVEL_TO_TARGET_TOWN;
-            g_uiActionQueue.push_back(act);
-            LeaveCriticalSection(&g_uiMutex);
-          }
-        }
-      }
-
-      // Not an else-if: a message that triggers an action must still show its bubble.
-      if (isPlayerSay || isNPCSay || isNPCAction) {
-        std::string bubbleContent =
-            isPlayerSay ? msg.substr(12)
-                        : (isNPCSay ? msg.substr(9)
-                                    : (isNPCAction ? msg.substr(12) : ""));
-
-        if (!bubbleContent.empty()) {
-          if (isPlayerSay && bubbleContent[0] == '/')
-            bubbleContent = "";
-          else if (isNPCSay && bubbleContent.find("[DEBUG]") == 0)
-            bubbleContent = "";
-        }
-
-        if (!bubbleContent.empty() && (isNPCSay || isNPCAction)) {
-          std::string categoryTag =
-              isNPCSay ? LeadingCategoryTag(bubbleContent) : "";
-          bubbleContent.erase(0, categoryTag.size());
-          size_t searchPos = 0;
-          while (true) {
-            size_t aPos = bubbleContent.find("[", searchPos);
-            if (aPos == std::string::npos)
-              break;
-
-            size_t aEnd = std::string::npos;
-            int depth = 0;
-            for (size_t i = aPos; i < bubbleContent.length(); ++i) {
-              if (bubbleContent[i] == '[')
-                depth++;
-              else if (bubbleContent[i] == ']') {
-                depth--;
-                if (depth == 0) {
-                  aEnd = i;
-                  break;
-                }
-              }
-            }
-
-            if (aEnd != std::string::npos) {
-              bubbleContent.erase(aPos, aEnd - aPos + 1);
-            } else {
-              bubbleContent.erase(aPos);
-              break;
-            }
-          }
-          size_t f = bubbleContent.find_first_not_of(" \t\r\n");
-          if (f != std::string::npos)
-            bubbleContent.erase(0, f);
-          else
-            bubbleContent = "";
-
-          size_t l = bubbleContent.find_last_not_of(" \t\r\n");
-          if (l != std::string::npos)
-            bubbleContent.erase(l + 1);
-          if (!categoryTag.empty() && !bubbleContent.empty())
-            bubbleContent = categoryTag + " " + bubbleContent;
-        }
-
-        hand bubbleAnchor = isPlayerSay ? speakerHand : targetHand;
-
-        if (!bubbleContent.empty() && bubbleAnchor.isValid()) {
-          Character *tc = bubbleAnchor.getCharacter();
-          Log(LOG_DEBUG, "QUEUE: Queuing SAY for " +
-                             (tc ? tc->getName() : "Unknown") + ": " +
-                             bubbleContent);
-          EnterCriticalSection(&g_uiMutex);
-          QueuedAction act;
-          act.type = ACT_SAY;
-          act.actor = bubbleAnchor;
-          act.target = targetHand;
-          act.message = bubbleContent;
-          g_uiActionQueue.push_back(act);
-          LeaveCriticalSection(&g_uiMutex);
-        }
+// "<name>: <text>" names the squad member that speaks, else the first one
+// speaks
+static hand TakePlayerSpeaker(GameWorld *world, std::string &text) {
+  Character *first = FirstPlayerCharacter();
+  if (!first)
+    return hand();
+  hand speaker = first->getHandle();
+  size_t nameEnd = text.find(':');
+  if (nameEnd != std::string::npos && nameEnd < SPEAKER_NAME_MAX) {
+    std::string name = Trim(text.substr(0, nameEnd));
+    lektor<Character *> &members = world->player->playerCharacters;
+    for (uint32_t i = 0; i < members.size(); ++i) {
+      if (members[i] && members[i]->getName() == name) {
+        speaker = members[i]->getHandle();
+        text = text.substr(nameEnd + 1);
+        text.erase(0, text.find_first_not_of(" \t\r\n"));
+        break;
       }
     }
   }
+  g_lastChattingPlayerHand = speaker;
+  return speaker;
+}
+
+static int NameScore(Character *c, const std::string &name,
+                     const std::string &lowName) {
+  std::string cName = c->getName();
+  if (cName == name)
+    return 500;
+  std::string cLow = Lower(cName);
+  if (cLow == lowName)
+    return 400;
+  size_t at = cLow.find(lowName);
+  return at == 0 ? 200 : at != std::string::npos ? 100 : 0;
+}
+
+static Character *BestNameMatch(Character *best, int &bestScore,
+                                Character *c, const std::string &name,
+                                const std::string &lowName) {
+  if (!c || (uintptr_t)c < 0x1000)
+    return best;
+  int score = NameScore(c, name, lowName);
+  if (score <= bestScore)
+    return best;
+  bestScore = score;
+  return c;
+}
+
+// The key finds the character, and the name only when the key finds none:
+// first among the characters that the game updates, then near the squad
+static Character *FindSpeaker(GameWorld *world, const std::string &name,
+                              unsigned int key) {
+  Character *best = KeyedCharacter(key);
+  if (best)
+    return best;
+  std::string lowName = Lower(name);
+  int bestScore = 0;
+  const ogre_unordered_set<Character *>::type &chars =
+      world->getCharacterUpdateList();
+  for (auto it = chars.begin(); it != chars.end(); ++it)
+    best = BestNameMatch(best, bestScore, *it, name, lowName);
+  Character *first = FirstPlayerCharacter();
+  if (best || !first)
+    return best;
+  lektor<RootObject *> results;
+  world->getCharactersWithinSphere(results, first->getPosition(), 2500.0f,
+                                   0.0f, 0.0f, 0x10, 0, first);
+  for (uint32_t i = 0; i < results.size(); ++i)
+    best = BestNameMatch(best, bestScore, (Character *)results.stuff[i], name,
+                         lowName);
+  return best;
+}
+
+// Strips the "<name>|<key>><speaker key>:" header of a reply line and points
+// target at its character. A line whose speaker no search finds stays on the
+// chat target
+static std::string TakeSpeaker(GameWorld *world, const std::string &line,
+                               hand &target, hand &actionSpeaker) {
+  size_t colon = line.find(':');
+  if (colon == std::string::npos || colon >= SPEAKER_NAME_MAX ||
+      line[0] == '[')
+    return line;
+  std::string header = line.substr(0, colon);
+  size_t bar = header.find('|');
+  std::string name = header.substr(0, bar);
+  unsigned int key = 0;
+  if (bar != std::string::npos) {
+    char *rest = NULL;
+    key = (unsigned int)strtoul(header.c_str() + bar + 1, &rest, 10);
+    Character *spoke =
+        rest && *rest == '>'
+            ? KeyedCharacter((unsigned int)strtoul(rest + 1, NULL, 10))
+            : nullptr;
+    if (spoke)
+      actionSpeaker = spoke->getHandle();
+  }
+  Character *speaker = FindSpeaker(world, name, key);
+  if (speaker) {
+    target = speaker->getHandle();
+  } else if (!target.isValid()) {
+    Log(LOG_WARN, "QUEUE: Speaker not found: " + name);
+    return line;
+  }
+  std::string text = line.substr(colon + 1);
+  return text.compare(0, 1, " ") == 0 ? text.substr(1) : text;
+}
+
+// The ']' that closes the '[' at open, or npos
+static size_t ClosingBracket(const std::string &text, size_t open) {
+  int depth = 0;
+  for (size_t i = open; i < text.length(); ++i) {
+    if (text[i] == '[')
+      depth++;
+    else if (text[i] == ']' && --depth == 0)
+      return i;
+  }
+  return std::string::npos;
+}
+
+static std::string TagPayload(const std::string &tag, const char *prefix) {
+  size_t at = tag.find(prefix);
+  if (at == std::string::npos)
+    return "";
+  std::string payload = Trim(tag.substr(at + strlen(prefix)));
+  if (!payload.empty() && payload[payload.size() - 1] == ']')
+    payload.erase(payload.size() - 1);
+  return Trim(payload);
+}
+
+// "<name>: <count>", where only the last colon outside brackets ends the name
+static int TakeCount(std::string &payload) {
+  int depth = 0;
+  for (int i = (int)payload.length() - 1; i >= 0; --i) {
+    if (payload[i] == ']') {
+      depth++;
+    } else if (payload[i] == '[') {
+      depth--;
+    } else if (payload[i] == ':' && depth == 0) {
+      std::string count = Trim(payload.substr(i + 1), " ");
+      if (count.empty() || !isdigit((unsigned char)count[0]))
+        return 1;
+      payload = Trim(payload.substr(0, i), " ");
+      return atoi(count.c_str());
+    }
+  }
+  return 1;
+}
+
+static bool Has(const std::string &tag, const char *name) {
+  return tag.find(name) != std::string::npos;
+}
+
+// The tags match by substring, so EXPIRE_HIRE and END_HIRE come before HIRE
+static void QueueTagAction(const std::string &tag, const hand &npc,
+                           const hand &actionSpeaker) {
+  Character *first = FirstPlayerCharacter();
+  hand itemHolder =
+      actionSpeaker.isValid() ? actionSpeaker : g_lastChattingPlayerHand;
+  hand actionTarget = actionSpeaker.isValid() ? actionSpeaker
+                      : first                 ? first->getHandle()
+                                              : hand();
+  if (Has(tag, "PROBE:")) {
+    QueueAction(ACT_PROBE, npc, g_lastChattingPlayerHand,
+                TagPayload(tag, "PROBE:"));
+  } else if (Has(tag, "JOIN_PARTY")) {
+    QueueAction(ACT_JOIN_PARTY, npc);
+  } else if (Has(tag, "EXPIRE_HIRE")) {
+    Character *c = npc.getCharacter();
+    if (c)
+      ExpireHire(c);
+  } else if (Has(tag, "END_HIRE")) {
+    QueueAction(ACT_END_HIRE, npc);
+  } else if (Has(tag, "HIRE:")) {
+    QueueAction(ACT_HIRE, npc, actionTarget, "",
+                atoi(TagPayload(tag, "HIRE:").c_str()));
+  } else if (Has(tag, "FIRST_AID")) {
+    QueueAction(ACT_FIRST_AID, npc, actionTarget);
+  } else if (Has(tag, "ATTACK")) {
+    QueueAction(ACT_ATTACK, npc, actionTarget);
+  } else if (Has(tag, "GIVE_ITEM:") || Has(tag, "SELL_ITEM:")) {
+    bool sell = Has(tag, "SELL_ITEM:");
+    std::string payload = TagPayload(tag, sell ? "SELL_ITEM:" : "GIVE_ITEM:");
+    int count = TakeCount(payload);
+    QueueAction(sell ? ACT_SELL_ITEM : ACT_GIVE_ITEM, npc, itemHolder, payload,
+                count);
+  } else if (Has(tag, "TAKE_ITEM:")) {
+    std::string payload = TagPayload(tag, "TAKE_ITEM:");
+    int count = TakeCount(payload);
+    QueueAction(ACT_TAKE_ITEM, npc, itemHolder, payload, count);
+  } else if (Has(tag, "ADD_CATS:")) {
+    QueueAction(ACT_ADD_CATS, npc, hand(), "",
+                atoi(TagPayload(tag, "ADD_CATS:").c_str()));
+  } else if (Has(tag, "TAKE_CATS:")) {
+    QueueAction(ACT_TAKE_CATS, npc, hand(), "",
+                atoi(TagPayload(tag, "TAKE_CATS:").c_str()));
+  } else if (Has(tag, "GIVE_CATS:")) {
+    QueueAction(ACT_GIVE_CATS, npc, hand(), "",
+                atoi(TagPayload(tag, "GIVE_CATS:").c_str()));
+  } else if (Has(tag, "SPAWN_ITEM:")) {
+    std::string payload = TagPayload(tag, "SPAWN_ITEM:");
+    size_t bar = payload.find('|');
+    std::string name = payload.substr(0, bar);
+    int count = TakeCount(name);
+    QueueAction(ACT_SPAWN_ITEM, npc, itemHolder,
+                bar == std::string::npos ? name : name + payload.substr(bar),
+                count);
+  } else if (Has(tag, "RELEASE_PRISONER") || Has(tag, "FREE_PLAYER")) {
+    QueueAction(ACT_RELEASE, npc, actionTarget);
+  } else if (Has(tag, "RAID_TOWN")) {
+    QueueAction(ACT_SET_TASK, npc, hand(), TagPayload(tag, "RAID_TOWN:"),
+                RAID_TOWN);
+  } else if (Has(tag, "TRAVEL_TO_TARGET_TOWN")) {
+    QueueAction(ACT_SET_TASK, npc, hand(),
+                TagPayload(tag, "TRAVEL_TO_TARGET_TOWN:"),
+                TRAVEL_TO_TARGET_TOWN);
+  }
+}
+
+static void QueueTagActions(const std::string &text, const hand &npc,
+                            const hand &actionSpeaker) {
+  for (size_t open = text.find('['); open != std::string::npos;
+       open = text.find('[', open)) {
+    size_t close = ClosingBracket(text, open);
+    if (close == std::string::npos)
+      break;
+    QueueTagAction(text.substr(open, close - open + 1), npc, actionSpeaker);
+    open = close + 1;
+  }
+}
+
+static std::string StripTags(std::string text) {
+  for (size_t open = text.find('['); open != std::string::npos;
+       open = text.find('[', open)) {
+    size_t close = ClosingBracket(text, open);
+    text.erase(open, close == std::string::npos ? std::string::npos
+                                                : close - open + 1);
+  }
+  return Trim(text);
+}
+
+static std::string NpcBubble(const std::string &text, bool said) {
+  if (said && text.compare(0, 7, "[DEBUG]") == 0)
+    return "";
+  std::string categoryTag = said ? LeadingCategoryTag(text) : "";
+  std::string bubble = StripTags(text.substr(categoryTag.size()));
+  return categoryTag.empty() || bubble.empty() ? bubble
+                                               : categoryTag + " " + bubble;
+}
+
+static void ProcessMessage(GameWorld *world, const std::string &msg) {
+  if (LogEnabled(LOG_DEBUG))
+    Log(LOG_DEBUG, "QUEUE: Processing: " + msg);
+  std::string text;
+  if (TakePrefix(msg, "CMD:", text)) {
+    HandleCommand(text);
+    return;
+  }
+  if (TakePrefix(msg, "NPC_RENAME: ", text)) {
+    RenameNpc(world, text);
+    return;
+  }
+  if (TakePrefix(msg, "NOTIFY:", text)) {
+    QueueAction(ACT_NOTIFY, hand(), hand(), text);
+    return;
+  }
+  bool playerSay = TakePrefix(msg, "PLAYER_SAY: ", text);
+  bool npcSay = !playerSay && TakePrefix(msg, "NPC_SAY: ", text);
+  if (!playerSay && !npcSay && !TakePrefix(msg, "NPC_ACTION: ", text))
+    return;
+  g_lastRadiantTick = GetTickCount();
+
+  hand anchor;
+  std::string bubble;
+  if (playerSay) {
+    anchor = TakePlayerSpeaker(world, text);
+    bubble = text.compare(0, 1, "/") == 0 ? "" : text;
+  } else {
+    anchor = g_talkTargetHand.isValid() ? g_talkTargetHand : g_lastSelectionHand;
+    hand actionSpeaker;
+    text = TakeSpeaker(world, text, anchor, actionSpeaker);
+    QueueTagActions(text, anchor, actionSpeaker);
+    // A line that runs an action still shows its bubble
+    bubble = NpcBubble(text, npcSay);
+  }
+  if (bubble.empty() || !anchor.isValid())
+    return;
+  Character *c = anchor.getCharacter();
+  Log(LOG_DEBUG, "QUEUE: Queuing SAY for " + (c ? c->getName() : "Unknown") +
+                     ": " + bubble);
+  QueueAction(ACT_SAY, anchor, hand(), bubble);
+}
+
+// Kenshi engine writes must happen on the main thread, inside hooks.
+void ProcessMessageQueue(GameWorld *thisptr) {
+  std::deque<std::string> messages;
+  if (!TryEnterCriticalSection(&g_msgMutex))
+    return;
+  // Swapped out, so the pipe thread can queue the next message while the game
+  // thread runs these
+  messages.swap(g_messageQueue);
+  LeaveCriticalSection(&g_msgMutex);
+  for (size_t i = 0; i < messages.size(); ++i)
+    ProcessMessage(thisptr, messages[i]);
 }
 
 void attackingYou_hook(Character *npc, Character *attacker, bool so,
