@@ -587,7 +587,8 @@ def chat():
         said, side, table = f"{player_message}\n{last_reply}", speaker, []
         if barter:
             deal = window.get("deal") or {}
-            table_offer, table_reason, table = offers.on_table(deal, ctx_dict, speaker, mates, player_name, relation)
+            table_offer, table_reason, table, profit = offers.on_table(deal, ctx_dict, speaker, mates, player_name, relation)
+            lean += profit
             # The price guide then gives the price of each item on the table, so a counter-offer can name a fair price
             said += "".join(f"\n{item['name']}" for item in [*(deal.get("give") or []), *(deal.get("take") or [])])
             side = dict(speaker, inventory=offers.pooled(mates))

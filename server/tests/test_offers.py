@@ -5,7 +5,7 @@ import unittest
 ROOT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..")
 sys.path.insert(0, os.path.join(ROOT, "server"))
 
-from chat import offers
+from chat import action_dialogue, offers
 from core import state
 
 NPC = {"money": 300, "inventory": [{"name": "Katana", "count": 1}, {"name": "Bread", "count": 2}, {"name": "Bread", "count": 1}]}
@@ -169,7 +169,7 @@ class BarterTest(unittest.TestCase):
         self.assertIsNotNone(self.barter("[OFFER: GIVE_ITEM: Katana; TAKE_ITEM: Dirty Loincloth]")[0])
 
     def test_the_relation_sets_the_loss_that_the_npc_usually_takes(self):
-        self.assertEqual([offers.loss_share(relation) for relation in (-25, -24, 24, 25, 59, 60)], [0.0, 0.05, 0.05, 0.15, 0.15, 0.3])
+        self.assertEqual([offers.loss_share(relation) for relation in (-60, -59, -25, -24, 24, 25, 59, 60)], [-0.3, -0.2, -0.2, -0.1, -0.1, 0.15, 0.15, 0.3])
 
     def test_the_stock_sets_the_price_at_its_highest(self):
         self.assertEqual(offers.price_of("First Aid Kit", offers.goods(SHOP, "BARTER")), 132)
@@ -251,30 +251,55 @@ class BarterWindowTest(unittest.TestCase):
         self.assertEqual(offers.deal_lines(charity), ["DEAL: CATS npc 50"])
 
     def test_the_turn_message_weighs_the_deal_on_the_table(self):
-        offer, _, lines = offers.on_table(TABLE, SHOP, BUYER, SQUAD, "Zaps")
+        offer, _, lines, lean = offers.on_table({**TABLE, "take_cats": 3220}, SHOP, BUYER, SQUAD, "Zaps")
         self.assertIsNotNone(offer)
-        self.assertEqual(lines, ["On the table, Zaps gives 2,950 cats and 2 Bread, and you give a Katana (Ancient, Refitted Blade).",
-                                 "It keeps your price: you get a worth of 3,030 cats for a worth of 3,000."])
+        self.assertEqual(lines, ["On the table, Zaps gives 3,220 cats and 2 Bread, and you give a Katana (Ancient, Refitted Blade).",
+                                 "It keeps your price: you get a worth of 3,300 cats for a worth of 3,000."])
+        self.assertEqual(lean, [(2, "The deal on the table earns you 300 cats.")])
+
+    def test_a_neutral_npc_wants_a_profit_on_the_table(self):
+        offer, _, lines, lean = offers.on_table(TABLE, SHOP, BUYER, SQUAD, "Zaps")
+        self.assertIsNotNone(offer)
+        self.assertEqual(lines[1], "It keeps your price, but it makes less than the profit that you usually want: you get a worth of 3,030 cats for a worth of 3,000.")
+        self.assertEqual(lean, [])
+        self.assertEqual(offers.on_table(TABLE, SHOP, BUYER, SQUAD, "Zaps", relation=30)[3], [(2, "The deal on the table earns you 30 cats.")])
+
+    def test_a_bigger_profit_on_the_table_leans_harder_to_agree(self):
+        self.assertEqual(offers.on_table({**TABLE, "take_cats": 2920}, SHOP, BUYER, SQUAD, "Zaps", relation=30)[3], [(2, "The deal on the table keeps your price.")])
+        self.assertEqual(offers.on_table({**TABLE, "take_cats": 3670}, SHOP, BUYER, SQUAD, "Zaps")[3], [(3, "The deal on the table earns you 750 cats, a good profit.")])
+        self.assertEqual(offers.on_table({**TABLE, "take_cats": 4420}, SHOP, BUYER, SQUAD, "Zaps")[3], [(4, "The deal on the table earns you 1,500 cats, a big profit.")])
+        self.assertEqual(offers.on_table({"take_cats": 600}, SHOP, BUYER, SQUAD, "Zaps")[3], [(4, "The deal on the table earns you 600 cats, a big profit.")])
+
+    def test_a_big_profit_outweighs_hate_but_a_small_one_does_not(self):
+        hated = action_dialogue.lean("BARTER", SHOP, BUYER, -60)
+        small = offers.on_table(TABLE, SHOP, BUYER, SQUAD, "Zaps", relation=-60)[3]
+        big = offers.on_table({**TABLE, "take_cats": 4420}, SHOP, BUYER, SQUAD, "Zaps", relation=-60)[3]
+        self.assertIn("YOUR THOUGHT: You are inclined to refuse.", offers.facts("BARTER", SHOP, BUYER, "Zaps", hated + small, relation=-60))
+        self.assertIn("YOUR THOUGHT: You are inclined to agree.", offers.facts("BARTER", SHOP, BUYER, "Zaps", hated + big, relation=-60))
 
     def test_the_table_weighs_a_loss_against_the_loss_that_the_npc_usually_takes(self):
-        offer, _, lines = offers.on_table({**TABLE, "take_cats": 2800}, SHOP, BUYER, SQUAD, "Zaps")
+        offer, _, lines, lean = offers.on_table({**TABLE, "take_cats": 2800}, SHOP, BUYER, SQUAD, "Zaps", relation=30)
         self.assertIsNotNone(offer)
         self.assertEqual(lines[1], "It is below your price, inside the loss that you usually take: you get a worth of 2,880 cats for a worth of 3,000.")
-        offer, _, lines = offers.on_table({**TABLE, "take_cats": 2800}, SHOP, BUYER, SQUAD, "Zaps", relation=-25)
-        self.assertIsNotNone(offer)
-        self.assertEqual(lines[1], "It is below your price by more than the loss that you usually take: you get a worth of 2,880 cats for a worth of 3,000.")
+        self.assertEqual(lean, [])
+        for relation in (None, -25):
+            offer, _, lines, lean = offers.on_table({**TABLE, "take_cats": 2800}, SHOP, BUYER, SQUAD, "Zaps", relation=relation)
+            self.assertIsNotNone(offer)
+            self.assertEqual(lines[1], "It is below your price by more than the loss that you usually take: you get a worth of 2,880 cats for a worth of 3,000.")
+            self.assertEqual(lean, [(-2, "The deal on the table loses you 120 cats, more than you usually take.")])
         self.assertIn("- It is below your price", offers.facts("BARTER", SHOP, BUYER, "Zaps", [], table=lines))
 
     def test_a_table_that_breaks_a_hard_limit_cannot_be_agreed(self):
-        offer, reason, lines = offers.on_table({**TABLE, "take": [{"holder": "3", "name": "Bread", "count": 2}]}, SHOP, BUYER, SQUAD, "Zaps")
+        offer, reason, lines, lean = offers.on_table({**TABLE, "take": [{"holder": "3", "name": "Bread", "count": 2}]}, SHOP, BUYER, SQUAD, "Zaps")
         self.assertIsNone(offer)
         self.assertIn("does not hold", reason)
         self.assertEqual(lines[1], "You cannot agree to it as it is.")
+        self.assertEqual(lean, [])
 
     def test_a_gift_charity_and_an_empty_table(self):
         self.assertEqual(offers.on_table({"take_cats": 600}, SHOP, BUYER, SQUAD, "Zaps")[2][1], "It is a gift to you.")
-        self.assertEqual(offers.on_table({"give_cats": 50}, SHOP, BUYER, SQUAD, "Zaps")[2][1], "It is a plea for charity.")
-        self.assertEqual(offers.on_table({}, SHOP, BUYER, SQUAD, "Zaps"), (None, "the table is empty", ["Nothing is on the table yet."]))
+        self.assertEqual(offers.on_table({"give_cats": 50}, SHOP, BUYER, SQUAD, "Zaps")[2:], (["On the table, Zaps gives nothing, and you give 50 cats.", "It is a plea for charity."], []))
+        self.assertEqual(offers.on_table({}, SHOP, BUYER, SQUAD, "Zaps"), (None, "the table is empty", ["Nothing is on the table yet."], []))
 
 
 class BoxTest(unittest.TestCase):
@@ -309,7 +334,14 @@ class FactsTest(unittest.TestCase):
     def test_a_trade_names_the_loss_that_the_npc_usually_takes(self):
         self.assertIn("- As a rule, you take a loss of at most 15% of what you give in a trade, but your character decides.",
                       offers.facts("BARTER", NPC, SPEAKER, "Zaps", [], relation=30))
-        self.assertIn("- As a rule, you take no loss in a trade, but your character decides.", offers.facts("BARTER", NPC, SPEAKER, "Zaps", [], relation=-30))
+        self.assertIn("- As a rule, you want a profit of at least 20% of what you give in a trade, but your character decides.",
+                      offers.facts("BARTER", NPC, SPEAKER, "Zaps", [], relation=-30))
+        self.assertIn("- As a rule, you want a profit of at least 10% of what you give in a trade, but your character decides.",
+                      offers.facts("BARTER", NPC, SPEAKER, "Zaps", []))
+
+    def test_a_trade_names_the_pull_of_a_profit(self):
+        self.assertIn("- A trade that gets you more than you give is a profit: the bigger the profit, the more gladly you take it.",
+                      offers.facts("BARTER", NPC, SPEAKER, "Zaps", []))
 
     def test_a_second_plea_in_a_day_leans_to_refuse_but_a_trade_does_not(self):
         npc = {**NPC, "npc_id": "h:1-beggar", "day": 4}

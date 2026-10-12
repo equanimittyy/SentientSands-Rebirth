@@ -37,8 +37,13 @@ RELEASE_BRIBE = 500
 # window, or a deal would undercut it, and a non-trader pays less for the player's items, because it wants a bigger margin
 SHARES = {True: (1.0, 0.8), False: (1.0, 0.6)}
 # The share of what it gives that an NPC usually loses at most in a trade, by the band of its relation
-# (action_dialogue.relation_bonus). It only guides the model: no check enforces it, so the character decides each loss.
-LOSS_SHARES = {-2: 0.0, -1: 0.0, 0: 0.05, 1: 0.15, 2: 0.3}
+# (action_dialogue.relation_bonus); a negative share is the least profit that it wants. It only guides the model: no
+# check enforces it, so the character decides each deal.
+LOSS_SHARES = {-2: -0.3, -1: -0.2, 0: -0.1, 1: 0.15, 2: 0.3}
+# (least profit share, lean bonus, words), the biggest share first. The model refused profits when the lean held only the
+# relation.
+PROFIT_LEANS = ((0.5, 4, ", a big profit"), (0.25, 3, ", a good profit"), (0.0, 2, ""))
+LOSS_LEAN = -2
 ACCEPT_LINES = {"RECRUIT": "recruit_accept", "FOLLOW": "follow_accept", "HEAL": "heal_start", "LIBERATE": "liberate_accept", "THREATEN": "threaten_accept", "BARTER": "barter_accept"}
 # Keyed by the kinds of ItemKind (plugin/game/Context.cpp). Kenshi files alcohol under narcotics, so a drink is a "drug".
 KIND_WORDS = {
@@ -507,13 +512,22 @@ def table_parts(deal):
     return parts
 
 
+def profit_lean(received, handed):
+    """The (bonus, reason) of a deal on the table at the NPC's price. A gift hands over nothing, so it is a big profit."""
+    profit = max(received - handed, 0)
+    share = profit / handed if handed else math.inf
+    bonus, size = next((bonus, size) for least, bonus, size in PROFIT_LEANS if share >= least)
+    return bonus, f"The deal on the table earns you {profit:,.0f} cats{size}." if profit >= 1 else "The deal on the table keeps your price."
+
+
 def on_table(deal, npc, speaker, squad, player_name, relation=None):
-    """(offer, reason, lines) of the deal on the table of the barter window: the checked offer that [AGREE] takes, or None
-    and the reason, and the lines that describe the deal and its worth in the turn message, so the NPC weighs the deal
-    against the loss that it usually takes."""
+    """(offer, reason, lines, lean) of the deal on the table of the barter window: the checked offer that [AGREE] takes, or
+    None and the reason, the lines that describe the deal and its worth in the turn message, so the NPC weighs the deal
+    against the loss that it usually takes or the profit that it wants, and the (bonus, reason) pairs that the profit or
+    the loss adds to the lean."""
     parts = table_parts(deal)
     if not parts:
-        return None, "the table is empty", ["Nothing is on the table yet."]
+        return None, "the table is empty", ["Nothing is on the table yet."], []
     offer, reason = check("BARTER", parts, npc, speaker, squad)
     gives = [("CATS", count_of(argument)) if name == "GIVE_CATS" else ("ITEM", item_of(argument)) for name, argument, *_ in parts if name.startswith("GIVE")]
     takes = [("CATS", count_of(argument)) if name == "TAKE_CATS" else ("ITEM", item_of(argument)) for name, argument, *_ in parts if name.startswith("TAKE")]
@@ -521,25 +535,32 @@ def on_table(deal, npc, speaker, squad, player_name, relation=None):
     side = dict(speaker, inventory=pooled(squad))
     received, handed = worth(takes, npc, side, "takes"), worth(gives, npc, side, "gives")
     worths = f"you get a worth of {received:,.0f} cats for a worth of {handed:,.0f}"
+    floor = handed * (1 - loss_share(relation))
+    lean = []
     if offer and offer.get("charity"):
         lines.append("It is a plea for charity.")
     elif offer and not offer["gives"]:
         lines.append("It is a gift to you.")
-    elif offer and received + 1e-6 >= handed:
+        lean.append(profit_lean(received, handed))
+    elif offer and received + 1e-6 >= max(handed, floor):
         lines.append(f"It keeps your price: {worths}.")
-    elif offer and received + 1e-6 >= handed * (1 - loss_share(relation)):
+        lean.append(profit_lean(received, handed))
+    elif offer and received + 1e-6 >= floor:
         lines.append(f"It is below your price, inside the loss that you usually take: {worths}.")
+    elif offer and received + 1e-6 >= handed:
+        lines.append(f"It keeps your price, but it makes less than the profit that you usually want: {worths}.")
     elif offer:
         lines.append(f"It is below your price by more than the loss that you usually take: {worths}.")
+        lean.append((LOSS_LEAN, f"The deal on the table loses you {handed - received:,.0f} cats, more than you usually take."))
     else:
         lines.append("You cannot agree to it as it is.")
-    return offer, reason, lines
+    return offer, reason, lines, lean
 
 
 def facts(category, npc, speaker, player_name, lean, said="", table=(), relation=None):
     """The facts of the hard limits and the lean, for the turn message, because they change each turn. said is the text in
     which the price guide of a trade looks for item names, table holds the lines of the deal on the table of the barter
-    window, and relation sets the loss that the NPC usually takes in a trade."""
+    window, and relation sets the loss that the NPC usually takes, or the profit that it wants, in a trade."""
     lines = []
     if category in ("THREATEN", "BARTER"):
         lines.append(f"You have {cats_of(npc):,} cats.")
@@ -552,8 +573,9 @@ def facts(category, npc, speaker, player_name, lean, said="", table=(), relation
             lines.append(f"{player_name} is imprisoned." + (" You are imprisoned too." if npc.get("character_state") == "imprisoned" else ""))
         lines += price_guide(said, npc, speaker, player_name)
         loss = loss_share(relation)
-        lines.append(f"As a rule, you take a loss of at most {loss:.0%} of what you give in a trade, but your character decides." if loss
-                     else "As a rule, you take no loss in a trade, but your character decides.")
+        lines.append(f"As a rule, you take a loss of at most {loss:.0%} of what you give in a trade, but your character decides." if loss > 0
+                     else f"As a rule, you want a profit of at least {-loss:.0%} of what you give in a trade, but your character decides.")
+        lines.append("A trade that gets you more than you give is a profit: the bigger the profit, the more gladly you take it.")
         lines += table
     if category == "HEAL" and speaker.get("needs_repair"):
         lines.append(f"{player_name} has damaged robotic parts, and you repair them with your repair kit." if npc.get("has_repair_kit")

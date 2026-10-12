@@ -46,16 +46,17 @@ Each NPC sells at the full `price`, which is the price in the trade window of th
 
 For example, a trader sells a Katana with a `price` of 3,000 for at least 3,000 cats, and it buys the Katana for at most 2,400 cats.
 
-An NPC can take a loss on a deal when its character would, for example a friend who gives a discount. The turn message gives a guide to the loss that the NPC usually takes at most, as a share of the worth that it gives, by its relation to the player (`offers.LOSS_SHARES`). No check enforces the guide, so the model decides each loss by the character.
+An NPC can take a loss on a deal when its character would, for example a friend who gives a discount. A neutral NPC instead wants a profit, and an NPC that dislikes the player wants a bigger one. The turn message gives a guide to the loss that the NPC usually takes at most, or the profit that it usually wants, as a share of the worth that it gives, by its relation to the player (`offers.LOSS_SHARES`). No check enforces the guide, so the model decides each deal by the character.
 
-| Relation of the NPC | Loss that it usually takes at most |
+| Relation of the NPC | Guide |
 |---|---|
-| -25 or lower | None |
-| -24 to 24 | 5% |
-| 25 to 59 | 15% |
-| 60 or higher | 30% |
+| -60 or lower | A profit of at least 30% |
+| -59 to -25 | A profit of at least 20% |
+| -24 to 24 | A profit of at least 10% |
+| 25 to 59 | A loss of at most 15% |
+| 60 or higher | A loss of at most 30% |
 
-For example, the guide lets a neutral trader sell the Katana for 2,850 cats.
+For example, the guide has a neutral trader sell the Katana for at least 3,300 cats, and it lets a liked trader sell the Katana for 2,550 cats.
 
 ## 4. Charity
 
@@ -90,4 +91,15 @@ The lean ([Outcome](framework.md#outcome)) is how likely the NPC is to take the 
 
 After the NPC gives charity in a game day ([section 4](#4-charity)), the thought gets one more line: the band of a plea for charity, which is the lean -2, for example "If Zaps begs for charity: You are inclined to refuse. You already gave charity today." (`offers.facts`). The turn message comes before the reply, so the server does not know if the player begs or trades, and the -2 thus stays out of the lean of a trade.
 
-The value of the trade reaches the model through the price guide ([section 6](#6-price-guide)) instead.
+In the Barter window, code knows the deal on the table, so the lean also counts the worth of the deal to the NPC ([section 3](#3-hard-limits)) by its profit share: the profit divided by the worth that the NPC gives (`offers.profit_lean`). The model refused deals at a profit when the lean counted only the relation. A deal that keeps the NPC's price and the profit that it wants therefore lifts a neutral NPC to agree, and a bigger profit outweighs a worse relation. A gift costs the NPC nothing, so it counts as a big profit.
+
+| Deal on the table | Lean | Reason in the thought |
+|---|---|---|
+| At the NPC's price and the profit that it wants, with a profit under 25% | +2 | "The deal on the table earns you 300 cats.", or "The deal on the table keeps your price." with no profit |
+| A profit of 25% up to 50% | +3 | "The deal on the table earns you 750 cats, a good profit." |
+| A profit of 50% or more, or a gift | +4 | "The deal on the table earns you 1,500 cats, a big profit." |
+| Below the price, inside the loss that the NPC usually takes | 0 | None |
+| At the price, with less than the profit that the NPC wants | 0 | None |
+| Below the price by more than that loss | -2 | "The deal on the table loses you 120 cats, more than you usually take." |
+
+In a chat trade, the deal is only in the words of the player, so code cannot know its worth. The value of the trade reaches the model through the price guide ([section 6](#6-price-guide)) instead. Each turn message of a trade also states that a trade that gets the NPC more than it gives is a profit, and that the NPC takes a bigger profit more gladly (`offers.facts`).
