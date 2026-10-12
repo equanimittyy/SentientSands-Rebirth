@@ -208,6 +208,29 @@ static const HelpTopic HELP_TOPICS[] = {
                 "armour, and crossbow once for each grade, from the worst "
                 "grade to the best."},
       {"Add Cats and Take Cats", "Add or take the cats of the player."}}},
+    {"Chat commands",
+     {{NULL, "Type a command in the chat window. Except for /help and /cheat, "
+             "a command makes the NPC that you talk to act at once, with no "
+             "deal and no reply from the AI. Use them to test SSR."},
+      {"/help", "Opens this guide."},
+      {"/cheat or /cheats", "Opens the Cheats window."},
+      {"/recruit", "The NPC joins your squad."},
+      {"/liberate", "The NPC releases the speaker from prison."},
+      {"/breakout", "The NPC breaks the speaker out of a cage."},
+      {"/raid [town]", "The NPC goes to raid the town, for example /raid "
+                       "Squin."},
+      {"/travel [town]", "The NPC travels to the town."},
+      {"/follow", "/follow [hours] hires the NPC as a bodyguard for that many "
+                  "hours, /follow [line ID] starts the contract of a dialogue "
+                  "line of the game, and /follow end ends the hire. /follow "
+                  "alone only writes the contract of the NPC to the log."},
+      {"/firstaid", "The NPC treats the wounds of the speaker, or repairs its "
+                    "robotic parts, when it carries the kit. /firstaid job and "
+                    "/firstaid aid try other orders for the repair."},
+      {"/stock", "Writes the stock of the NPC to the log, and changes "
+                 "nothing."},
+      {NULL, "The log lines of /follow, /firstaid, and /stock show only when "
+             "Log level on the Settings tab of the web app is DEBUG."}}},
     {"Troubleshooting",
      {{"The NPC could not respond",
        "On the Models tab of the web app, press Test on your default profile. "
