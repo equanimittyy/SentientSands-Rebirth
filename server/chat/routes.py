@@ -587,7 +587,7 @@ def chat():
     campaign_db.use_memories([memory["id"] for memory in starting] + [hit["record"]["memory"]["id"] for hit in found_memories], campaign_db.game_time(time_prefix))
     if category:
         relation = primary_data.get("Relation")
-        lean = action_dialogue.lean(category, ctx_dict, speaker, relation, nearby)
+        lean = action_dialogue.lean(category, ctx_dict, speaker, relation, nearby, mode)
         last_reply = next((line for line, who, _ in reversed(rows) if who == primary_id), "")
         said, side, table = f"{player_message}\n{last_reply}", speaker, []
         if barter:

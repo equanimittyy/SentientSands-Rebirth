@@ -167,9 +167,10 @@ def relation_bonus(relation):
     return 0
 
 
-def lean(category, npc, speaker, relation, overheard=()):
+def lean(category, npc, speaker, relation, overheard=(), mode="talk"):
     """The (bonus, reason) pairs of the game state for the deal of the category, each bonus + or -. A reason names the
-    speaker as {player}. overheard is the nearby list of the chat request, the characters near the speaker."""
+    speaker as {player}. overheard is the nearby list of the chat request, the characters near the speaker, and mode is
+    its chat mode."""
     if category == "THREATEN":
         return threat_lean(npc, speaker, overheard)
     bonus = relation_bonus(relation)
@@ -180,8 +181,10 @@ def lean(category, npc, speaker, relation, overheard=()):
     elif category == "LIBERATE":
         pairs.append((health == "Crippled", "{player} is crippled."))
     elif category in ("RECRUIT", "FOLLOW"):
+        captive = fellow_captives(npc, speaker)
         pairs += [(npc.get("character_state") == "escaped-slave", "You escaped slavery."),
-                  (fellow_captives(npc, speaker), "{player} is a fellow captive."),
+                  (captive, "{player} is a fellow captive."),
+                  (-3 * (captive and mode != "whisper"), "{player} does not whisper, so your captors can hear."),
                   (-bool(npc.get("unique")), "You are no common drifter."),
                   (-2 * is_guard(npc), "You are a guard."),
                   (-2 * is_trader(npc), "You have a trade to run."),
