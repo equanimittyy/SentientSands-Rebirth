@@ -196,6 +196,10 @@ static const HelpTopic HELP_TOPICS[] = {
       {"Set Stat", "Sets a stat from 0 to 100."},
       {"Set Relation", "Sets how much the character likes your group, from "
                        "-100 to 100."},
+      {"Set Faction", "Sets how much the faction in the list likes your "
+                      "group, from -100 to 100. The list starts on the "
+                      "faction of the character, and you can choose any "
+                      "other faction."},
       {"Spawn", "Gives the character items. The list shows each weapon, "
                 "armour, and crossbow once for each grade, from the worst "
                 "grade to the best."},

@@ -7,6 +7,8 @@
 
 #include <kenshi/CharStats.h>
 #include <kenshi/Character.h>
+#include <kenshi/Faction.h>
+#include <kenshi/FactionRelations.h>
 #include <kenshi/GameData.h>
 #include <kenshi/GameWorld.h>
 #include <kenshi/Platoon.h>
@@ -14,6 +16,7 @@
 #include <kenshi/util/hand.h>
 
 #include <mygui/MyGUI_Button.h>
+#include <mygui/MyGUI_ComboBox.h>
 #include <mygui/MyGUI_Delegate.h>
 #include <mygui/MyGUI_EditBox.h>
 #include <mygui/MyGUI_Gui.h>
@@ -38,6 +41,8 @@ static MyGUI::EditBox *g_cheatAmount = nullptr;
 static MyGUI::TextBox *g_cheatRelation = nullptr;
 static MyGUI::EditBox *g_cheatPoints = nullptr;
 static int g_cheatRelationRequest = 0;
+static MyGUI::ComboBox *g_cheatFactionBox = nullptr;
+static std::vector<std::string> g_cheatFactions;
 static MyGUI::ListBox *g_cheatStatList = nullptr;
 static MyGUI::EditBox *g_cheatLevel = nullptr;
 static MyGUI::ListBox *g_cheatItemList = nullptr;
@@ -135,6 +140,58 @@ void SetCheatRelation(const std::string &data) {
       Utf8ToWide("Relation: " + (relation.empty() ? "?" : relation)).c_str());
 }
 
+static Faction *PlayerFaction() {
+  GameWorld *world = ppWorld ? *ppWorld : NULL;
+  return world && world->player ? world->player->getFaction() : NULL;
+}
+
+static Faction *CheatFaction(size_t index) {
+  GameWorld *world = ppWorld ? *ppWorld : NULL;
+  return world && world->factionMgr && index < g_cheatFactions.size()
+             ? world->factionMgr->getFactionByStringID(g_cheatFactions[index])
+             : NULL;
+}
+
+// The side that the chat context reads, so the line shows what the NPCs know
+static std::string FactionLine(Faction *faction) {
+  Faction *player = PlayerFaction();
+  std::string relation =
+      player && player->relations
+          ? ToString((int)player->relations->getFactionRelation(faction))
+          : "?";
+  return faction->getName() + ": " + relation;
+}
+
+static bool ByFactionName(Faction *a, Faction *b) {
+  return a->getName() < b->getName();
+}
+
+static void FillFactionBox(GameWorld *world) {
+  std::vector<Faction *> factions;
+  const lektor<Faction *> *all =
+      world->factionMgr ? world->factionMgr->getAllFactions() : NULL;
+  for (uint32_t i = 0; all && i < all->count; ++i) {
+    Faction *f = all->stuff[i];
+    if (f && f->data && !f->isThePlayer() && !f->isNotARealFaction())
+      factions.push_back(f);
+  }
+  std::sort(factions.begin(), factions.end(), ByFactionName);
+  g_cheatFactions.clear();
+  g_cheatFactionBox->removeAllItems();
+  for (size_t i = 0; i < factions.size(); ++i) {
+    g_cheatFactions.push_back(factions[i]->data->stringID);
+    g_cheatFactionBox->addItem(Utf8ToWide(FactionLine(factions[i])).c_str());
+  }
+}
+
+static void SelectCheatFaction(Character *c) {
+  Faction *faction = c ? c->getFaction() : NULL;
+  for (size_t i = 0; faction && faction->data && i < g_cheatFactions.size();
+       ++i)
+    if (g_cheatFactions[i] == faction->data->stringID)
+      g_cheatFactionBox->setIndexSelected(i);
+}
+
 static void ShowCheatCharacter() {
   Character *c = CheatCharacter();
   std::string name = c ? c->getName() : "?";
@@ -142,6 +199,7 @@ static void ShowCheatCharacter() {
   g_cheatName->setCaption(Utf8ToWide(c ? name : "").c_str());
   FillStatList();
   RequestCheatRelation("");
+  SelectCheatFaction(c);
 }
 
 static void OnCheatCharacterClick(MyGUI::Widget *sender) {
@@ -200,17 +258,46 @@ static void ChangeCats(int sign) {
 static void OnCheatAddCatsClick(MyGUI::Widget *sender) { ChangeCats(1); }
 static void OnCheatTakeCatsClick(MyGUI::Widget *sender) { ChangeCats(-1); }
 
-static void OnCheatSetRelationClick(MyGUI::Widget *sender) {
-  Character *c = CheatCharacter();
+static bool CheatPoints(int &points) {
   std::string text = Trimmed(g_cheatPoints);
   char *end = NULL;
-  long points = strtol(text.c_str(), &end, 10);
-  if (!c || text.empty() || *end != '\0')
+  long value = strtol(text.c_str(), &end, 10);
+  if (text.empty() || *end != '\0')
+    return false;
+  points = value > 100 ? 100 : value < -100 ? -100 : (int)value;
+  return true;
+}
+
+static void OnCheatSetRelationClick(MyGUI::Widget *sender) {
+  Character *c = CheatCharacter();
+  int points;
+  if (!c || !CheatPoints(points))
     return;
-  points = points > 100 ? 100 : points < -100 ? -100 : points;
   Log(LOG_INFO, "CHEAT: Setting " + c->getName() + "'s relation to " +
-                    ToString((int)points));
-  RequestCheatRelation(ToString((int)points));
+                    ToString(points));
+  RequestCheatRelation(ToString(points));
+}
+
+// From the NPC side: the KEP spawn tool refuses the player as the source
+static void OnCheatSetFactionClick(MyGUI::Widget *sender) {
+  size_t index = g_cheatFactionBox->getIndexSelected();
+  Faction *faction = index == MyGUI::ITEM_NONE ? NULL : CheatFaction(index);
+  Faction *player = PlayerFaction();
+  int points;
+  if (!faction || !faction->relations || !player || !CheatPoints(points))
+    return;
+  faction->relations->setRelation(player, (float)points);
+  Log(LOG_INFO,
+      "CHEAT: Set the relation of " + faction->getName() + " to " +
+          ToString(points) + "; it now reads " +
+          ToString((int)faction->relations->getFactionRelation(player)) +
+          ", and the player faction reads " +
+          (player->relations
+               ? ToString((int)player->relations->getFactionRelation(faction))
+               : std::string("?")));
+  g_cheatFactionBox->setItemNameAt(index,
+                                   Utf8ToWide(FactionLine(faction)).c_str());
+  g_cheatFactionBox->setIndexSelected(index);
 }
 
 static void OnCheatStatSelect(MyGUI::ListBox *sender, size_t index) {
@@ -424,8 +511,9 @@ void ShowCheatUI(Character *chatTarget) {
     if (!CharStats::getStatName((StatsEnumerated)i).empty())
       g_cheatStats.push_back((StatsEnumerated)i);
 
+  // Not "Popup": a click there raises the window over its open faction list
   g_cheatWindow = gui->createWidgetReal<MyGUI::Window>(
-      "Kenshi_WindowCX", 0.1f, 0.1f, 0.8f, 0.8f, MyGUI::Align::Center, "Popup",
+      "Kenshi_WindowCX", 0.1f, 0.1f, 0.8f, 0.8f, MyGUI::Align::Center, "Window",
       "SentientSands_CheatWindow");
   g_cheatWindow->setCaption("Cheats");
   g_cheatWindow->eventWindowButtonPressed +=
@@ -455,12 +543,19 @@ void ShowCheatUI(Character *chatTarget) {
                    OnCheatTakeCatsClick, "SentientSands_CheatTakeCatsBtn");
   g_cheatRelation =
       AddJournalLine(client, 0.02f, 0.64f, 0.28f, "SentientSands_CheatRelation");
-  AddJournalLine(client, 0.02f, 0.72f, 0.07f, "SentientSands_CheatPointsLabel")
+  g_cheatFactionBox = client->createWidgetReal<MyGUI::ComboBox>(
+      "Kenshi_ComboBox", 0.02f, 0.72f, 0.28f, 0.06f,
+      MyGUI::Align::Left | MyGUI::Align::Top, "SentientSands_CheatFaction");
+  g_cheatFactionBox->setComboModeDrop(true);
+  g_cheatFactionBox->setSmoothShow(false);
+  AddJournalLine(client, 0.02f, 0.80f, 0.07f, "SentientSands_CheatPointsLabel")
       ->setCaption("Points");
-  g_cheatPoints = AddJournalLineBox(client, 0.09f, 0.72f, 0.21f,
+  g_cheatPoints = AddJournalLineBox(client, 0.09f, 0.80f, 0.21f,
                                     "SentientSands_CheatPoints");
-  AddJournalButton(client, "Set Relation", 0.02f, 0.80f, 0.135f,
+  AddJournalButton(client, "Set Relation", 0.02f, 0.88f, 0.135f,
                    OnCheatSetRelationClick, "SentientSands_CheatSetRelationBtn");
+  AddJournalButton(client, "Set Faction", 0.165f, 0.88f, 0.135f,
+                   OnCheatSetFactionClick, "SentientSands_CheatSetFactionBtn");
 
   AddJournalLine(client, 0.32f, 0.02f, 0.32f, "SentientSands_CheatStatsLabel")
       ->setCaption("Stats");
@@ -488,6 +583,7 @@ void ShowCheatUI(Character *chatTarget) {
   AddJournalButton(client, "Spawn", 0.66f, 0.88f, 0.135f, OnCheatSpawnClick,
                    "SentientSands_CheatSpawnBtn");
 
+  FillFactionBox(world);
   ShowCheatCharacter();
   ShowCats();
   OnCheatSearchChange(search);

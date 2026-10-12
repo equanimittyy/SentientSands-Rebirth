@@ -361,10 +361,6 @@ def chat():
         elif cmd == "breakout": test_action = "[ACTION: BREAKOUT_PLAYER]"
         elif cmd == "raid": test_action = f"[ACTION: RAID_TOWN: {args}]"
         elif cmd == "travel": test_action = f"[ACTION: TRAVEL_TO_TARGET_TOWN: {args}]"
-        elif cmd == "relations":
-            rparts = args.rsplit(' ', 1)
-            if len(rparts) == 2:
-                test_action = f"[ACTION: FACTION_RELATIONS: {rparts[0].strip()}: {rparts[1].strip()}]"
         elif cmd in ("stock", "firstaid", "follow"):
             if cmd == "follow" and args and not re.fullmatch(r"\d+|end|\d+-\S+", args):
                 return reply("[DEBUG] /follow alone logs the contract of the target. /follow [hours] or /follow [line ID] starts one, and /follow end ends it.")

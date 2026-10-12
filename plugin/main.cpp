@@ -660,28 +660,6 @@ void ProcessMessageQueue(GameWorld *thisptr) {
             act.taskValue = atoi(amtStr.c_str());
             g_uiActionQueue.push_back(act);
             LeaveCriticalSection(&g_uiMutex);
-          } else if (actStr.find("FACTION_RELATIONS:") != std::string::npos) {
-            std::string payload = getPayload(actStr, "FACTION_RELATIONS:");
-            size_t colon = payload.find(':');
-            if (colon != std::string::npos) {
-              std::string fName = payload.substr(0, colon);
-              size_t f = fName.find_first_not_of(" ");
-              if (f != std::string::npos)
-                fName.erase(0, f);
-              size_t l = fName.find_last_not_of(" ");
-              if (l != std::string::npos)
-                fName.erase(l + 1);
-
-              int amount = atoi(payload.substr(colon + 1).c_str());
-              EnterCriticalSection(&g_uiMutex);
-              QueuedAction act;
-              act.type = ACT_FACTION_RELATIONS;
-              act.actor = targetHand;
-              act.message = fName;
-              act.taskValue = amount;
-              g_uiActionQueue.push_back(act);
-              LeaveCriticalSection(&g_uiMutex);
-            }
           } else if (actStr.find("SPAWN_ITEM:") != std::string::npos) {
             std::string payload = getPayload(actStr, "SPAWN_ITEM:");
             int count = 1;

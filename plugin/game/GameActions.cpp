@@ -8,7 +8,6 @@
 #include <kenshi/Character.h>
 #include <kenshi/Dialogue.h>
 #include <kenshi/Faction.h>
-#include <kenshi/FactionRelations.h>
 #include <kenshi/GameData.h>
 #include <kenshi/GameWorld.h>
 #include <kenshi/Inventory.h>
@@ -1012,34 +1011,6 @@ void ExecuteQueuedActions(GameWorld *thisptr, int &inventoryTimer) {
               false);
         } else if (act.type == ACT_PROBE) {
           RunProbe(npc, target, act.message);
-        } else if (act.type == ACT_FACTION_RELATIONS) {
-          if (thisptr->factionMgr) {
-            Faction *targetFaction =
-                thisptr->factionMgr->getFactionByStringID(act.message);
-            if (!targetFaction)
-              targetFaction =
-                  thisptr->factionMgr->getFactionByName(act.message);
-            Faction *playerFaction =
-                thisptr->player ? thisptr->player->getFaction() : nullptr;
-            if (!playerFaction)
-              playerFaction =
-                  thisptr->factionMgr->getFactionByStringID("Nameless_0");
-
-            if (targetFaction && playerFaction) {
-              Log(LOG_INFO, "ACTION: Direct Faction Relation change: " +
-                  act.message + " (" + ToString(act.taskValue) + ")");
-              if (playerFaction->relations)
-                playerFaction->relations->affectRelations(
-                    targetFaction, (float)act.taskValue, 1.0f);
-              if (targetFaction->relations)
-                targetFaction->relations->affectRelations(
-                    playerFaction, (float)act.taskValue, 1.0f);
-              thisptr->showPlayerAMessage_withLog(
-                  "Political clout shift: Relationship with " +
-                      targetFaction->getName() + " modified.",
-                  true);
-            }
-          }
         } else if (act.type == ACT_SPAWN_ITEM) {
           std::string payload = act.message;
 
