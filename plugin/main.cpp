@@ -713,17 +713,6 @@ void ProcessMessageQueue(GameWorld *thisptr) {
             QueuedAction act;
             act.type = ACT_RELEASE;
             act.actor = targetHand;
-            act.taskValue = RELEASE_PRISONER;
-            act.target = actionTarget;
-            g_uiActionQueue.push_back(act);
-            LeaveCriticalSection(&g_uiMutex);
-          } else if (actStr.find("BREAKOUT_PRISONER") != std::string::npos ||
-                     actStr.find("BREAKOUT_PLAYER") != std::string::npos) {
-            EnterCriticalSection(&g_uiMutex);
-            QueuedAction act;
-            act.type = ACT_RELEASE;
-            act.actor = targetHand;
-            act.taskValue = BREAKOUT_PRISONER;
             act.target = actionTarget;
             g_uiActionQueue.push_back(act);
             LeaveCriticalSection(&g_uiMutex);

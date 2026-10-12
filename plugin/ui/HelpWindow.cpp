@@ -220,7 +220,6 @@ static const HelpTopic HELP_TOPICS[] = {
       {"/cheat or /cheats", "Opens the Cheats window."},
       {"/recruit", "The NPC joins your squad."},
       {"/liberate", "The NPC releases the speaker from prison."},
-      {"/breakout", "The NPC breaks the speaker out of a cage."},
       {"/raid [town]", "The NPC goes to raid the town, for example /raid "
                        "Squin."},
       {"/travel [town]", "The NPC travels to the town."},

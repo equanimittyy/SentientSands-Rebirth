@@ -101,10 +101,6 @@ class TextTest(unittest.TestCase):
         release, _ = check("LIBERATE", "[OFFER: RELEASE; TAKE_CATS: 500]", npc=GUARD)
         self.assertEqual(offers.popup_text(release, "Guard", "Zaps"), "Guard offers your release for 500 cats.")
         self.assertEqual(offers.actions(release), ["[ACTION: TAKE_CATS: 500]", "[ACTION: RELEASE_PRISONER]"])
-        caged = {**SPEAKER, "captors": "Holy Nation", "captorsID": "17-gamedata.base"}
-        breakout, _ = check("LIBERATE", "[OFFER: RELEASE; TAKE_CATS: 500]", npc={"factionID": "204-gamedata.base"}, speaker=caged)
-        self.assertEqual(offers.popup_text(breakout, "Drifter", "Zaps"), "Drifter offers to break you out for 500 cats.")
-        self.assertEqual(offers.actions(breakout), ["[ACTION: TAKE_CATS: 500]", "[ACTION: BREAKOUT_PLAYER]"])
 
     def test_the_memory_lines_are_deal_lines(self):
         handover, _ = check("THREATEN", "[OFFER: GIVE_CATS: 200]")
@@ -331,9 +327,6 @@ class FactsTest(unittest.TestCase):
         self.assertIn("- You release Zaps only for a bribe of at least 500 cats.", offers.facts("LIBERATE", GUARD, SPEAKER, "Zaps", []))
         text = offers.facts("LIBERATE", GUARD, {**SPEAKER, "bounty": 2000}, "Zaps", [])
         self.assertIn("- You release Zaps only for a bribe of at least 2,500 cats: the bounty of 2,000 cats on Zaps, and 500 more.", text)
-        caged = {**SPEAKER, "bounty": 2000, "captors": "Holy Nation", "captorsID": "17-gamedata.base"}
-        self.assertIn("- You break Zaps out of a cage of Holy Nation only for a fee of at least 2,500 cats: the bounty of 2,000 cats on Zaps, and 500 more.",
-                      offers.facts("LIBERATE", {"factionID": "204-gamedata.base"}, caged, "Zaps", []))
 
     def test_a_treatment_names_the_repair_only_for_robotic_parts(self):
         self.assertNotIn("DEAL FACTS", offers.facts("HEAL", {"has_first_aid": True}, {"needs_first_aid": True}, "Zaps", []))

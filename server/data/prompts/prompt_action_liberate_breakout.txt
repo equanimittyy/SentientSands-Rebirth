@@ -1,2 +1,0 @@
-REQUEST: {speaker} asks you to break them out of a cage that your faction does not own.
-OFFER: You break {speaker} out only for a fee, never for free. When you agree, put [OFFER: RELEASE; TAKE_CATS: n] after your words, where n is the fee. Example: 900 cats, and I get you out of there. [OFFER: RELEASE; TAKE_CATS: 900]

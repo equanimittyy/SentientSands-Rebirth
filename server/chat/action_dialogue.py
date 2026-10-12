@@ -110,7 +110,7 @@ def plain_chat(category, npc, speaker):
             return "{player} is free already."
         if npc_state == "imprisoned":
             return "You are locked in a cage too, so you cannot free {player}."
-        if not is_guard(npc) and not breaks_out(npc, speaker):
+        if not is_guard(npc):
             return "You are not a guard, so you cannot release {player}."
     elif category in ("RECRUIT", "FOLLOW"):
         verb = "join" if category == "RECRUIT" else "follow"
@@ -131,14 +131,6 @@ def kits(npc, speaker):
 
 def is_guard(npc):
     return current_job.current_job(npc, False, "") in GUARD_JOBS or JAILER_TASK in (npc.get("squad_jobs") or [])
-
-
-def breaks_out(npc, speaker):
-    """Whether the NPC frees the speaker with a breakout instead of a release: only an NPC outside the faction that owns the
-    cage, because an NPC of that faction ignored the breakout order for its own cage. A cage of no known faction allows no
-    breakout."""
-    captors = speaker.get("captorsID")
-    return bool(captors) and npc.get("factionID") != captors
 
 
 def is_trader(npc):
@@ -173,8 +165,7 @@ def lean(category, npc, speaker, relation, overheard=()):
     if category == "HEAL":
         pairs.append(({"Injured": 1, "Crippled": 2}.get(health, 0), f"{{player}} is {str(health).lower()}."))
     elif category == "LIBERATE":
-        pairs += [(health == "Crippled", "{player} is crippled."),
-                  (-bool(npc.get("slave")), "You are a slave.")]
+        pairs.append((health == "Crippled", "{player} is crippled."))
     elif category in ("RECRUIT", "FOLLOW"):
         pairs += [(npc.get("character_state") == "escaped-slave", "You escaped slavery."),
                   (-bool(npc.get("unique")), "You are no common drifter."),

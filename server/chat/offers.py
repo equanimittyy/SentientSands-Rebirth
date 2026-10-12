@@ -281,8 +281,6 @@ def check(category, parts, npc, speaker, squad=None):
     offer = {"category": category, "gives": gives, "takes": takes}
     if sells_stock(npc, category):
         offer["stock"] = True
-    if category == "LIBERATE" and action_dialogue.breaks_out(npc, speaker):
-        offer["breakout"] = True
     if category == "BARTER" and not gives:
         side = dict(speaker, inventory=pooled(squad)) if squad else speaker
         offer["gift"] = min(GIFT_MOST, int(worth(takes, npc, side, "takes") // GIFT_WORTH))
@@ -319,8 +317,6 @@ def deal_text(offer, voice, player):
         return {"popup": f"to follow you for {length}", "offered": f"to follow {player} for {length}", "accepted": f"follows {player} for {length}"}[voice]
     if "FIRST_AID" in kinds:
         return {"popup": "treatment", "offered": f"to treat {player}", "accepted": f"treats {player}"}[voice]
-    if "RELEASE" in kinds and offer.get("breakout"):
-        return {"popup": "to break you out", "offered": f"to break {player} out", "accepted": f"breaks {player} out"}[voice]
     if "RELEASE" in kinds:
         return {"popup": "your release", "offered": f"to release {player}", "accepted": f"releases {player}"}[voice]
     goods = goods_text(offer["gives"])
@@ -381,7 +377,7 @@ def _acts(offer):
         elif kind == "HIRE":
             out.append((None, f"[ACTION: HIRE: {value}]"))
         elif kind == "RELEASE":
-            out.append((None, "[ACTION: BREAKOUT_PLAYER]" if offer.get("breakout") else "[ACTION: RELEASE_PRISONER]"))
+            out.append((None, "[ACTION: RELEASE_PRISONER]"))
         elif kind != "JOIN_PARTY":
             out.append((None, f"[ACTION: {kind}]"))
     return out
@@ -564,9 +560,7 @@ def facts(category, npc, speaker, player_name, lean, said="", table=(), relation
                      else f"{player_name} has damaged robotic parts, but you have no repair kit, so you treat only the flesh wounds.")
     if category == "LIBERATE":
         bounty = speaker.get("bounty") or 0
-        deed, pay = ((f"break {player_name} out of a cage of {speaker.get('captors')}", "a fee") if action_dialogue.breaks_out(npc, speaker)
-                     else (f"release {player_name}", "a bribe"))
-        lines.append(f"You {deed} only for {pay} of at least {release_fee(speaker):,} cats"
+        lines.append(f"You release {player_name} only for a bribe of at least {release_fee(speaker):,} cats"
                      + (f": the bounty of {bounty:,} cats on {player_name}, and {RELEASE_BRIBE} more." if bounty else "."))
     if category == "FOLLOW" and action_dialogue.mercenary_rate(npc):
         lines.append(f"You are a mercenary: you never follow for free, and you charge at least {action_dialogue.mercenary_rate(npc):,} cats for each day.")

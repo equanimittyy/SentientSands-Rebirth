@@ -210,12 +210,6 @@ std::string GetTaskName(TaskType tt) {
     return "FIND_AND_RESCUE";
   case 110:
     return "RELEASE_PRISONER";
-  case 111:
-    return "BREAKOUT_PRISONER";
-  case 185:
-    return "CUT_SHACKLES";
-  case 201:
-    return "PICK_LOCK_ON_SHACKLES";
   default:
     return "TASK_" + ToString((int)tt);
   }
@@ -964,7 +958,7 @@ void ExecuteQueuedActions(GameWorld *thisptr, int &inventoryTimer) {
           float dist = npc->getPosition().distance(target->getPosition());
 
           Log(LOG_INFO,
-              "ACTION: Release/Breakout by " + npc->getName() + " on " +
+              "ACTION: Release by " + npc->getName() + " on " +
                   target->getName() + ". InCage: " + ToString(inCage) +
                   ", Shackled: " + ToString(shackled) +
                   ", Dist: " + ToString(dist));
@@ -986,11 +980,6 @@ void ExecuteQueuedActions(GameWorld *thisptr, int &inventoryTimer) {
 
           if (inCage || shackled) {
             TaskType tt = RELEASE_PRISONER;
-            if (act.taskValue == BREAKOUT_PRISONER) {
-              tt = BREAKOUT_PRISONER;
-              if (shackled && !inCage)
-                tt = PICK_LOCK_ON_SHACKLES;
-            }
 
             Log(LOG_DEBUG, "ACTION: Assigning task: " + GetTaskName(tt) + " (" +
                 ToString((int)tt) + ")");
@@ -1003,12 +992,9 @@ void ExecuteQueuedActions(GameWorld *thisptr, int &inventoryTimer) {
             PendingRelease pending = {HandleKey(target), 0};
             g_releases.push_back(pending);
 
-            thisptr->showPlayerAMessage(npc->getName() +
-                                            (act.taskValue == BREAKOUT_PRISONER
-                                                 ? " is breaking out "
-                                                 : " is releasing ") +
-                                            target->getName() + "!",
-                                        false);
+            thisptr->showPlayerAMessage(
+                npc->getName() + " is releasing " + target->getName() + "!",
+                false);
             didSomething = true;
           }
 

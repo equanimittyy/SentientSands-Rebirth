@@ -101,17 +101,6 @@ class PlainChatTest(unittest.TestCase):
         for slave in ({**prisoner, "slave": True}, {"character_state": "enslaved", "slave": True}):
             self.assertEqual(self.chat("LIBERATE", GUARD, slave), "{player} is a slave, and no one releases a slave.")
 
-    def test_only_an_npc_outside_the_faction_of_the_cage_breaks_a_prisoner_out(self):
-        prisoner = {"character_state": "imprisoned", "captors": "Holy Nation", "captorsID": "17-gamedata.base"}
-        outsider, captor = {"factionID": "204-gamedata.base"}, {"factionID": "17-gamedata.base"}
-        self.assertTrue(ad.breaks_out(outsider, prisoner))
-        self.assertIsNone(self.chat("LIBERATE", outsider, prisoner))
-        self.assertTrue(ad.breaks_out({**GUARD, **outsider}, prisoner))
-        self.assertEqual(self.chat("LIBERATE", captor, prisoner), "You are not a guard, so you cannot release {player}.")
-        self.assertFalse(ad.breaks_out({**GUARD, **captor}, prisoner))
-        self.assertIsNone(self.chat("LIBERATE", {**GUARD, **captor}, prisoner))
-        self.assertFalse(ad.breaks_out(outsider, {"character_state": "imprisoned", "captorsID": ""}))
-
     def test_a_jailer_at_a_bounty_desk_is_a_guard(self):
         desk = {"squad_jobs": ["STAND_AT_SHOPKEEPER_NODE", "STAY_IN_HOME", "FIND_CAGE_AND_PUT_DEADGUY_IN"]}
         self.assertTrue(ad.is_guard(desk))
@@ -158,7 +147,6 @@ class LeanTest(unittest.TestCase):
     def test_a_worse_wound_raises_the_heal_lean(self):
         self.assertEqual(score("HEAL", {}, {"health": "Crippled"}, 25), 3)
         self.assertEqual(score("LIBERATE", {}, {"health": "Crippled"}, 0), 1)
-        self.assertEqual(score("LIBERATE", {"slave": True}, {}, 0), -1)
 
     def test_a_charity_counts_for_its_game_day_but_not_in_the_lean_of_a_trade(self):
         npc = {"npc_id": "h:1-beggar", "day": 4}
