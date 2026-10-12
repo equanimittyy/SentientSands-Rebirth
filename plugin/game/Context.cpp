@@ -390,6 +390,23 @@ static std::string TaskKeys(const lektor<Tasker *> &list) {
   return keys.empty() ? "-" : keys;
 }
 
+static std::string OrdersLine(Character *npc) {
+  OrdersReceiver *orders = npc->getOrdersReciever();
+  if (!orders || (uintptr_t)orders < 0x1000)
+    return "";
+  const TaskMatch &goal = orders->getCurrentGoal();
+  std::string line =
+      " goal=" + (goal.taskData ? ToString((int)goal.key()) : std::string("-"));
+  line += " permajobs=" + TaskKeys(orders->permajobs);
+  line += " squad_jobs=";
+  for (int p = 0; p < 5; ++p)
+    line += (p ? "|" : "") + TaskKeys(orders->squadAIPackage[p]);
+  line += " goals=";
+  for (int p = 0; p < 5; ++p)
+    line += (p ? "|" : "") + TaskKeys(orders->goals[p]);
+  return line;
+}
+
 #define ROLE_TASK(task) {task, #task}
 // The squad jobs that tell what an NPC does, by their TaskType names.
 // server/chat/current_job.py maps them to phrases, and its tests read this list.
@@ -544,19 +561,7 @@ void LogNpcRole(Character *npc) {
     line += " [squad failed]";
   }
   try {
-    OrdersReceiver *orders = npc->getOrdersReciever();
-    if (orders && (uintptr_t)orders > 0x1000) {
-      const TaskMatch &goal = orders->getCurrentGoal();
-      line += " goal=" +
-              (goal.taskData ? ToString((int)goal.key()) : std::string("-"));
-      line += " permajobs=" + TaskKeys(orders->permajobs);
-      line += " squad_jobs=";
-      for (int p = 0; p < 5; ++p)
-        line += (p ? "|" : "") + TaskKeys(orders->squadAIPackage[p]);
-      line += " goals=";
-      for (int p = 0; p < 5; ++p)
-        line += (p ? "|" : "") + TaskKeys(orders->goals[p]);
-    }
+    line += OrdersLine(npc);
     std::string names;
     for (int i = 0; i < npc->getPermajobCount(); ++i)
       names += (i ? "," : "") + npc->getPermajobName(i);
@@ -799,7 +804,8 @@ static void ProbeStock(Character *npc, Character *speaker) {
   }
 }
 
-static void ProbeFirstAid(Character *npc, Character *speaker) {
+static void ProbeFirstAid(Character *npc, Character *speaker,
+                          const std::string &arg) {
   Inventory *inv = npc->getInventory();
   std::string line =
       "name='" + npc->getName() + "' first_aid_item=" +
@@ -821,7 +827,11 @@ static void ProbeFirstAid(Character *npc, Character *speaker) {
                  ToString((int)part->maxHealth());
     }
     GameWorld *world = ppWorld ? *ppWorld : NULL;
-    std::string message = StartTreatment(npc, speaker, firstAid, repair);
+    TaskType robotOrder = arg == "job"   ? JOB_REPAIR_ROBOT
+                          : arg == "aid" ? FIRST_AID_ORDER
+                                         : FIRST_AID_ROBOT;
+    std::string message =
+        StartTreatment(npc, speaker, firstAid, repair, robotOrder);
     if (world)
       world->showPlayerAMessage(message, false);
     line += " speaker='" + speaker->getName() +
@@ -832,6 +842,11 @@ static void ProbeFirstAid(Character *npc, Character *speaker) {
             " first_aid_order=" + (firstAid ? "1" : "0") +
             " repair_order=" + (repair ? "1" : "0") + " dist=" +
             ToString(npc->getPosition().distance(speaker->getPosition()));
+  }
+  try {
+    line += OrdersLine(npc);
+  } catch (...) {
+    line += " [tasks failed]";
   }
   Log(LOG_DEBUG, "FIRSTAID_PROBE: " + line);
 }
@@ -879,7 +894,7 @@ void RunProbe(Character *npc, Character *speaker, const std::string &payload) {
   if (name == "stock")
     ProbeStock(npc, speaker);
   else if (name == "firstaid")
-    ProbeFirstAid(npc, speaker);
+    ProbeFirstAid(npc, speaker, arg);
   else if (name == "hire")
     ProbeHire(npc, speaker, arg);
 }

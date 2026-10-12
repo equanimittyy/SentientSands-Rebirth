@@ -516,7 +516,7 @@ void WatchFights(GameWorld *world) {
 
 // A half-robot needs both kits, so the repair queues behind the first aid
 std::string StartTreatment(Character *medic, Character *patient,
-                           bool &firstAid, bool &repair) {
+                           bool &firstAid, bool &repair, TaskType robotOrder) {
   bool needsFirstAid, needsRepair;
   TreatmentNeeds(patient, needsFirstAid, needsRepair);
   Inventory *inv = medic->getInventory();
@@ -535,7 +535,7 @@ std::string StartTreatment(Character *medic, Character *patient,
     medic->addOrder(nullptr, FIRST_AID_ORDER, (RootObject *)patient, false,
                     true, patient->getPosition());
   if (repair)
-    medic->addOrder(nullptr, FIRST_AID_ROBOT, (RootObject *)patient, firstAid,
+    medic->addOrder(nullptr, robotOrder, (RootObject *)patient, firstAid,
                     !firstAid, patient->getPosition());
   medic->reThinkCurrentAIAction();
   return medic->getName() + " is treating " + patient->getName() + ".";
