@@ -14,7 +14,7 @@ extern std::string g_chatTargetHandleStr;
 extern std::string g_chatTargetNameStr;
 extern size_t g_lastChatModeIndex;
 
-void CreateChatUI(const std::string &npcName, const std::string &handleStr);
+void CreateChatUI(Character *npc);
 void CloseChatUI();
 // False when the line waits for an offer or for the reply to an action line
 bool SendChatLine(const std::string &npcName, const std::string &handleStr,

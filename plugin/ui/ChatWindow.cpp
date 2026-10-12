@@ -43,6 +43,9 @@ std::vector<hand> g_chatSpeakers;
 size_t g_chatSpeakerIndex = 0;
 // In memory only, so a new game session starts on the first squad member
 unsigned int g_lastSpeakerKey = 0;
+MyGUI::Button *g_chatTargetBtn = nullptr;
+std::vector<hand> g_chatTargets;
+size_t g_chatTargetIndex = 0;
 std::string g_chatTargetHandleStr = "";
 std::string g_chatTargetNameStr = "";
 size_t g_lastChatModeIndex = 1;
@@ -70,6 +73,7 @@ void CloseChatUI() {
       g_chatModeBtns[i] = nullptr;
     g_chatLabel = nullptr;
     g_chatSpeakerBtn = nullptr;
+    g_chatTargetBtn = nullptr;
     g_chatThreadHeader = nullptr;
     g_chatHistoryText = nullptr;
     g_chatBarterBtn = nullptr;
@@ -226,19 +230,23 @@ void OnChatSendClick(MyGUI::Widget *sender) {
   std::string handleStr = g_chatTargetHandleStr;
   GameWorld *world = *ppWorld;
 
+  Character *target =
+      KeyedCharacter((unsigned int)strtoul(handleStr.c_str(), NULL, 10));
   Character *speaker = nullptr;
   if (g_chatSpeakerIndex < g_chatSpeakers.size())
     speaker = g_chatSpeakers[g_chatSpeakerIndex].getCharacter();
-  if (!speaker && world && world->player &&
-      world->player->playerCharacters.size() > 0)
-    speaker = world->player->playerCharacters[0];
+  if (!speaker && world && world->player) {
+    lektor<Character *> &characters = world->player->playerCharacters;
+    for (uint32_t i = 0; !speaker && i < characters.size(); ++i)
+      if (characters[i] != target)
+        speaker = characters[i];
+  }
   if (speaker)
     g_lastSpeakerKey = HandleKey(speaker);
 
   if (text == "/cheat" || text == "/cheats") {
     CloseChatUI();
-    ShowCheatUI(
-        KeyedCharacter((unsigned int)strtoul(handleStr.c_str(), NULL, 10)));
+    ShowCheatUI(target);
     return;
   }
 
@@ -501,6 +509,50 @@ void OnChatSpeakerClick(MyGUI::Widget *sender) {
   ShowChatSpeaker();
 }
 
+static void FillChatSpeakers(unsigned int preferredKey) {
+  unsigned int targetKey =
+      (unsigned int)strtoul(g_chatTargetHandleStr.c_str(), NULL, 10);
+  std::vector<Character *> squad;
+  GetCurrentSquad(squad);
+  g_chatSpeakers.clear();
+  g_chatSpeakerIndex = 0;
+  for (size_t i = 0; i < squad.size(); ++i) {
+    unsigned int key = HandleKey(squad[i]);
+    if (key == targetKey)
+      continue;
+    if (key == preferredKey)
+      g_chatSpeakerIndex = g_chatSpeakers.size();
+    g_chatSpeakers.push_back(squad[i]->getHandle());
+  }
+}
+
+static void ShowChatTarget() {
+  Character *target = g_chatTargets[g_chatTargetIndex].getCharacter();
+  g_talkTargetHand = g_chatTargets[g_chatTargetIndex];
+  g_chatTargetNameStr = target ? target->getName() : "?";
+  g_chatTargetHandleStr = target ? ToString(HandleKey(target)) : "";
+  g_chatWindow->setCaption(
+      Utf8ToWide(T("Talking to: ") + g_chatTargetNameStr).c_str());
+  g_chatTargetBtn->setCaption(Utf8ToWide(g_chatTargetNameStr).c_str());
+
+  Character *speaker = g_chatSpeakerIndex < g_chatSpeakers.size()
+                           ? g_chatSpeakers[g_chatSpeakerIndex].getCharacter()
+                           : nullptr;
+  FillChatSpeakers(speaker ? HandleKey(speaker) : g_lastSpeakerKey);
+  g_chatSpeakerBtn->setVisible(!g_chatSpeakers.empty());
+  if (!g_chatSpeakers.empty())
+    ShowChatSpeaker();
+
+  g_chatBarterBtn->setVisible(false);
+  g_chatHistoryText->setOnlyText("");
+  RequestChatHistory();
+}
+
+static void OnChatTargetClick(MyGUI::Widget *sender) {
+  g_chatTargetIndex = (g_chatTargetIndex + 1) % g_chatTargets.size();
+  ShowChatTarget();
+}
+
 static void AddChatHistory(MyGUI::Widget *client, float top, float height) {
   g_chatHistoryText = client->createWidgetReal<MyGUI::EditBox>(
       "Kenshi_WordWrap", 0.05f, top, 0.9f, height,
@@ -521,8 +573,6 @@ static void BuildChatWindow(MyGUI::Gui *gui) {
       "Kenshi_WindowCX", 0.1875f, 0.4f - panel, 0.625f,
       CHAT_INPUT_HEIGHT + panel, MyGUI::Align::Center, "Window",
       "SentientSands_ChatWindow");
-  g_chatWindow->setCaption(
-      Utf8ToWide(T("Talking to: ") + g_chatTargetNameStr).c_str());
   g_chatWindow->eventWindowButtonPressed +=
       MyGUI::newDelegate(OnChatWindowButtonPressed);
   MyGUI::Widget *client = g_chatWindow->getClientWidget();
@@ -541,23 +591,25 @@ static void BuildChatWindow(MyGUI::Gui *gui) {
   g_chatThreadHeader->setTextAlign(MyGUI::Align::Left | MyGUI::Align::VCenter);
   g_chatThreadHeader->setTextColour(MyGUI::Colour(1.0f, 0.9f, 0.5f));
   AddChatHistory(client, header, top - header);
-  RequestChatHistory();
 
   g_chatLabel = client->createWidgetReal<MyGUI::TextBox>(
-      "Kenshi_TextboxStandardText", 0.40f, top + 0.05f * rows, 0.55f,
+      "Kenshi_TextboxStandardText", 0.40f, top + 0.05f * rows, 0.37f,
       0.2f * rows, MyGUI::Align::Top | MyGUI::Align::HStretch,
       "SentientSands_ChatLabel");
-  g_chatLabel->setCaption(
-      Utf8ToWide(T("Message for ") + g_chatTargetNameStr + ":").c_str());
+  g_chatLabel->setTextAlign(MyGUI::Align::Right | MyGUI::Align::VCenter);
+  g_chatLabel->setCaption(Utf8ToWide(T("Message for ")).c_str());
 
-  if (!g_chatSpeakers.empty()) {
-    g_chatSpeakerBtn = client->createWidgetReal<MyGUI::Button>(
-        "Kenshi_Button1", 0.05f, top + 0.05f * rows, 0.165f, 0.22f * rows,
-        MyGUI::Align::Top | MyGUI::Align::Left, "SentientSands_ChatSpeakerBtn");
-    g_chatSpeakerBtn->eventMouseButtonClick +=
-        MyGUI::newDelegate(OnChatSpeakerClick);
-    ShowChatSpeaker();
-  }
+  g_chatSpeakerBtn = client->createWidgetReal<MyGUI::Button>(
+      "Kenshi_Button1", 0.05f, top + 0.05f * rows, 0.165f, 0.22f * rows,
+      MyGUI::Align::Top | MyGUI::Align::Left, "SentientSands_ChatSpeakerBtn");
+  g_chatSpeakerBtn->eventMouseButtonClick +=
+      MyGUI::newDelegate(OnChatSpeakerClick);
+
+  g_chatTargetBtn = client->createWidgetReal<MyGUI::Button>(
+      "Kenshi_Button1", 0.785f, top + 0.05f * rows, 0.165f, 0.22f * rows,
+      MyGUI::Align::Top | MyGUI::Align::Right, "SentientSands_ChatTargetBtn");
+  g_chatTargetBtn->eventMouseButtonClick +=
+      MyGUI::newDelegate(OnChatTargetClick);
 
   g_chatBarterBtn = client->createWidgetReal<MyGUI::Button>(
       "Kenshi_Button1", 0.23f, top + 0.05f * rows, 0.15f, 0.22f * rows,
@@ -616,32 +668,41 @@ static void BuildChatWindow(MyGUI::Gui *gui) {
   radiantBtn->eventMouseButtonClick += MyGUI::newDelegate(OnRadiantClick);
 }
 
-void CreateChatUI(const std::string &npcName, const std::string &handleStr) {
+void CreateChatUI(Character *npc) {
   MyGUI::Gui *gui = MyGUI::Gui::getInstancePtr();
-  if (!gui)
+  GameWorld *world = *ppWorld;
+  if (!gui || !world || !world->player)
     return;
   if (g_chatWindow)
     CloseChatUI();
 
-  g_chatTargetNameStr = npcName;
-  g_chatTargetHandleStr = handleStr;
-  g_chatJustOpened = true;
-
-  unsigned int targetKey = (unsigned int)strtoul(handleStr.c_str(), NULL, 10);
   std::vector<Character *> squad;
   GetCurrentSquad(squad);
-  g_chatSpeakers.clear();
-  g_chatSpeakerIndex = 0;
-  for (size_t i = 0; i < squad.size(); ++i) {
-    unsigned int key = HandleKey(squad[i]);
-    if (key == targetKey)
+  g_chatTargets.clear();
+  if (npc)
+    g_chatTargets.push_back(npc->getHandle());
+  lektor<Character *> &characters = world->player->playerCharacters;
+  // A lone character would talk to itself
+  for (uint32_t i = 0; characters.size() > 1 && i < characters.size(); ++i) {
+    Character *c = characters[i];
+    if (!c)
       continue;
-    if (key == g_lastSpeakerKey)
-      g_chatSpeakerIndex = g_chatSpeakers.size();
-    g_chatSpeakers.push_back(squad[i]->getHandle());
+    for (size_t j = 0; j < squad.size(); ++j) {
+      if (c->getPosition().distance(squad[j]->getPosition()) <
+          g_proximityRadius) {
+        g_chatTargets.push_back(c->getHandle());
+        break;
+      }
+    }
   }
+  if (g_chatTargets.empty())
+    return;
 
+  g_chatTargetIndex = 0;
+  g_chatSpeakers.clear();
+  g_chatJustOpened = true;
   BuildChatWindow(gui);
+  ShowChatTarget();
 }
 
 void OnModeButtonClick(MyGUI::Widget *sender) {

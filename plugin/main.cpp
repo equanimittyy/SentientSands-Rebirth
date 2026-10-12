@@ -983,6 +983,10 @@ static std::string RadiantJson(const std::vector<Character *> &characters,
   return json + "]";
 }
 
+static bool InPlayerFaction(Character *c) {
+  return c->getFaction() && c->getFaction()->isThePlayer();
+}
+
 void playerUpdate_hook(PlayerInterface *thisptr) {
   if (playerUpdate_orig)
     playerUpdate_orig(thisptr);
@@ -1089,25 +1093,27 @@ void playerUpdate_hook(PlayerInterface *thisptr) {
   MyGUI::Widget *keyFocus = input ? input->getKeyFocusWidget() : nullptr;
   bool typing = keyFocus && keyFocus->isType<MyGUI::EditBox>();
 
+  static hand lastNpc;
+  if (sel && (uintptr_t)sel > 0x1000 && !InPlayerFaction(sel))
+    lastNpc = sel->getHandle();
+
   if (!typing && (GetAsyncKeyState(g_chatHotkey) & 0x8000) && !g_chatWindow &&
       !g_libraryWindow && !g_barterWindow) {
     static DWORD lastTalkTick = 0;
     if (GetTickCount() - lastTalkTick > 500) {
       lastTalkTick = GetTickCount();
-      if (sel && (uintptr_t)sel > 0x1000) {
-        g_talkTargetHand = sel->getHandle();
-
-        // End vanilla dialogue, or it runs alongside the AI chat ("double dialogue").
-        if (sel->dialogue && (uintptr_t)sel->dialogue > 0x1000) {
-          try {
-            sel->dialogue->endDialogue(true);
-            sel->dialogue->setInDialog(false);
-          } catch (...) {
-          }
+      Character *npc = lastNpc.getCharacter();
+      if (npc && InPlayerFaction(npc))
+        npc = nullptr;
+      // End vanilla dialogue, or it runs alongside the AI chat ("double dialogue").
+      if (npc && npc->dialogue && (uintptr_t)npc->dialogue > 0x1000) {
+        try {
+          npc->dialogue->endDialogue(true);
+          npc->dialogue->setInDialog(false);
+        } catch (...) {
         }
-
-        CreateChatUI(sel->getName(), ToString(HandleKey(sel)));
       }
+      CreateChatUI(npc);
     }
   }
 

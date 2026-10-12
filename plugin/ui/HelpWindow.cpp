@@ -43,12 +43,16 @@ static const HelpTopic HELP_TOPICS[] = {
       {"Help", "Choose a topic on the left, or press Next to read the topics "
                "in order."}}},
     {"Talk to an NPC",
-     {{NULL, "Select an NPC and press the chat key, [ {key} ]. You can also "
-             "talk to your squad members, except the first character of your "
-             "squad. You can change the chat key on the Settings tab of the "
-             "web app."},
-      {"Speaker", "To speak as another squad member, press the button with the "
-                  "name of the speaker until it shows that member."},
+     {{NULL, "Select an NPC and press the chat key, [ {key} ]. The chat goes "
+             "to the last NPC that you selected, even when you select a squad "
+             "member after it. You can change the chat key on the Settings tab "
+             "of the web app."},
+      {"Target", "To talk to one of your characters within the Talk range of "
+                 "your squad, press the button on the right, with the name of "
+                 "the NPC, until it shows that character."},
+      {"Speaker", "To speak as another squad member, press the button on the "
+                  "left, with the name of the speaker, until it shows that "
+                  "member."},
       {"Whisper", "Only the NPC hears it."},
       {"Talk", "The NPCs within the Talk range hear it."},
       {"Yell", "The NPCs within the Yell range hear it. Up to 3 of them can "
@@ -210,7 +214,7 @@ static const HelpTopic HELP_TOPICS[] = {
        "If the test fails, check the API key and the Model ID."},
       {"The chat key does nothing",
        "Select an NPC first, and close the Dialogue Library and the Barter "
-       "window. The first character of your squad cannot be a chat target."},
+       "window."},
       {"The server is not running", "Press Restart Server in the SSR HUB."},
       {"Replies are slow with a local model",
        "See Local models on the Tutorial tab of the web app."},
