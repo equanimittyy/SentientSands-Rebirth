@@ -38,9 +38,12 @@ int g_chatHotkey = VK_OEM_5; // '\' by default
 std::string g_chatHotkeyStr = "\\";
 std::map<std::string, std::string> g_uiTranslation;
 
+// Under the lock, because the reply threads read the strings while the game
+// thread swaps in a new language
 std::string T(const std::string &key) {
+  EnterCriticalSection(&g_stateMutex);
   auto it = g_uiTranslation.find(key);
-  if (it != g_uiTranslation.end())
-    return it->second;
-  return key;
+  std::string text = it != g_uiTranslation.end() ? it->second : key;
+  LeaveCriticalSection(&g_stateMutex);
+  return text;
 }

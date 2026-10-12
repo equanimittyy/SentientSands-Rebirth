@@ -264,7 +264,7 @@ void LoadUITranslation(const std::string &json) {
   if (uiTransJson.empty())
     return;
 
-  g_uiTranslation.clear();
+  std::map<std::string, std::string> table;
   size_t pos = 1;
   while (pos < uiTransJson.length() - 1) {
     size_t q1 = uiTransJson.find('"', pos);
@@ -287,9 +287,12 @@ void LoadUITranslation(const std::string &json) {
       break;
     std::string val = uiTransJson.substr(v1 + 1, v2 - v1 - 1);
 
-    g_uiTranslation[UnescapeJSON(key)] = UnescapeJSON(val);
+    table[UnescapeJSON(key)] = UnescapeJSON(val);
     pos = v2 + 1;
   }
+  EnterCriticalSection(&g_stateMutex);
+  g_uiTranslation.swap(table);
+  LeaveCriticalSection(&g_stateMutex);
 }
 
 void LoadPluginConfig() {
