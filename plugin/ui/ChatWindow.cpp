@@ -511,7 +511,9 @@ void OnChatSpeakerClick(MyGUI::Widget *sender) {
 }
 
 void SelectChatSpeaker(const hand &member) {
-  for (size_t i = 0; g_chatWindow && i < g_chatSpeakers.size(); ++i) {
+  if (!g_chatWindow || member == g_chatTargets[g_chatTargetIndex])
+    return;
+  for (size_t i = 0; i < g_chatSpeakers.size(); ++i) {
     if (g_chatSpeakers[i] == member) {
       g_chatSpeakerIndex = i;
       ShowChatSpeaker();
@@ -521,17 +523,12 @@ void SelectChatSpeaker(const hand &member) {
 }
 
 static void FillChatSpeakers(unsigned int preferredKey) {
-  unsigned int targetKey =
-      (unsigned int)strtoul(g_chatTargetHandleStr.c_str(), NULL, 10);
   std::vector<Character *> squad;
   GetCurrentSquad(squad);
   g_chatSpeakers.clear();
   g_chatSpeakerIndex = 0;
   for (size_t i = 0; i < squad.size(); ++i) {
-    unsigned int key = HandleKey(squad[i]);
-    if (key == targetKey)
-      continue;
-    if (key == preferredKey)
+    if (HandleKey(squad[i]) == preferredKey)
       g_chatSpeakerIndex = g_chatSpeakers.size();
     g_chatSpeakers.push_back(squad[i]->getHandle());
   }
@@ -722,6 +719,17 @@ void CreateChatUI(Character *npc) {
   BuildChatWindow(gui);
   ShowChatTarget();
   SelectChatSpeaker(world->player->selectedCharacter);
+  // Only a button press may make a character talk to itself
+  if (!g_chatSpeakers.empty() &&
+      g_chatSpeakers[g_chatSpeakerIndex] == g_chatTargets[g_chatTargetIndex]) {
+    if (g_chatSpeakers.size() > 1) {
+      OnChatSpeakerClick(NULL);
+    } else {
+      // The send then picks another player character
+      g_chatSpeakers.clear();
+      g_chatSpeakerBtn->setVisible(false);
+    }
+  }
 }
 
 void OnModeButtonClick(MyGUI::Widget *sender) {
