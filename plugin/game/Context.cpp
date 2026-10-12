@@ -496,8 +496,8 @@ std::string RoleJson(Character *npc) {
     trader = npc->isATrader() && active && (uintptr_t)active > 0x1000 &&
              active->squadleader == npc;
     // A hire or escort contract makes an NPC follow the player without a recruit
-    Blackboard *board = npc->getBlackboard();
-    follower = board && (uintptr_t)board > 0x1000 && board->hasContractJob();
+    Blackboard *board = BoardOf(npc);
+    follower = board && board->hasContractJob();
     OrdersReceiver *orders = npc->getOrdersReciever();
     if (orders && (uintptr_t)orders > 0x1000) {
       for (int p = 0; p < 5; ++p) {
@@ -578,8 +578,8 @@ void LogNpcRole(Character *npc) {
               " leader=" + (active->squadleader == npc ? "1" : "0");
     // Name only: AIPackage.h, which packageData needs, redefines the
     // BlackboardSignalFunctions enum from Blackboard.h (C2011).
-    Blackboard *board = npc->getBlackboard();
-    if (board && (uintptr_t)board > 0x1000)
+    Blackboard *board = BoardOf(npc);
+    if (board)
       line += " package='" + board->getCurrentAIPackageName() + "'" +
               " contract=" + (board->hasContractJob() ? "1" : "0");
   } catch (...) {
@@ -879,8 +879,8 @@ static void ProbeFirstAid(Character *npc, Character *speaker,
 static void ProbeHire(Character *npc, Character *speaker,
                       const std::string &arg) {
   GameWorld *world = ppWorld ? *ppWorld : NULL;
-  Blackboard *board = npc->getBlackboard();
-  if (!world || !board || (uintptr_t)board < 0x1000)
+  Blackboard *board = BoardOf(npc);
+  if (!world || !board)
     return;
   std::string action = "log";
   if (arg == "end") {
@@ -892,8 +892,7 @@ static void ProbeHire(Character *npc, Character *speaker,
       board->setContractJob(line, speaker->getHandle());
     action = line ? "line " + DataLabel(line) : "no_line";
   } else if (!arg.empty() && speaker) {
-    // The Bodyguard package, which the game's hire dialogues give with hours
-    GameData *bodyguard = world->gamedata.getData("5090-gamedata.base");
+    GameData *bodyguard = BodyguardPackage();
     if (bodyguard)
       board->_setContractJob(bodyguard, atoi(arg.c_str()),
                              speaker->getHandle());
@@ -1509,6 +1508,16 @@ Character *FirstPlayerCharacter() {
   return world && world->player && world->player->playerCharacters.size() > 0
              ? world->player->playerCharacters[0]
              : nullptr;
+}
+
+Blackboard *BoardOf(Character *c) {
+  Blackboard *board = c->getBlackboard();
+  return board && (uintptr_t)board > 0x1000 ? board : nullptr;
+}
+
+GameData *BodyguardPackage() {
+  GameWorld *world = ppWorld ? *ppWorld : nullptr;
+  return world ? world->gamedata.getData("5090-gamedata.base") : nullptr;
 }
 
 int MoneyOf(Character *c) {

@@ -50,8 +50,8 @@ static Hire g_renewal;
 static bool g_renewPaused = false;
 
 static bool Hired(Character *c, double &expiry) {
-  Blackboard *board = c->getBlackboard();
-  if (!board || (uintptr_t)board < 0x1000 || !board->hasContractJob())
+  Blackboard *board = BoardOf(c);
+  if (!board || !board->hasContractJob())
     return false;
   expiry = board->getContractExpiryTime().getTotalHours();
   return true;

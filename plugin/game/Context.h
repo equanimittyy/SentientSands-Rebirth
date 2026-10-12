@@ -2,7 +2,9 @@
 #include <string>
 #include <vector>
 
+class Blackboard;
 class Character;
+class GameData;
 class Item;
 class TownBase;
 class hand;
@@ -34,6 +36,9 @@ std::string TakeGameEvents();
 std::string ChangedTowns();
 TownBase *FindTown(const std::string &name);
 Character *FirstPlayerCharacter();
+Blackboard *BoardOf(Character *c);
+// The Bodyguard package, which the game's hire dialogues give with hours
+GameData *BodyguardPackage();
 int MoneyOf(Character *c);
 bool InPlayerFaction(Character *c);
 std::string GameReport();

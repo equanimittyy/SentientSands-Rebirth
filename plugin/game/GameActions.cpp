@@ -413,443 +413,430 @@ static bool HeldBack(Character *npc, const std::string &action) {
   return true;
 }
 
-void ExecuteQueuedActions(GameWorld *thisptr) {
-  std::deque<QueuedAction> localQueue;
-  if (TryEnterCriticalSection(&g_uiMutex)) {
-    localQueue = g_uiActionQueue;
-    g_uiActionQueue.clear();
-    LeaveCriticalSection(&g_uiMutex);
+static void DoSay(GameWorld *world, const QueuedAction &act, Character *npc) {
+  Log(LOG_DEBUG, "ACTION: SAY [" + npc->getName() + "]: " + act.message +
+                     (npc->isPlayerCharacter() ? " (PC)" : " (NPC)"));
+  KeepTwoBubbles(act.actor);
+  if (!g_shortPayers.empty())
+    g_shortPayers.erase(HandleKey(npc));
+  // No endDialogue/setInDialog(false): they clear AI goals, killing the task just queued
+  npc->sayALine(act.message, true);
+  if (!npc->dialogue || (uintptr_t)npc->dialogue < 0x1000) {
+    npc->say(act.message);
+    return;
   }
+  // Scaled by game speed, else bubbles vanish too fast at high speeds.
+  // Both timers are set so the engine honors the duration.
+  float speed = world->getFrameSpeedMultiplier();
+  float duration = g_speechBubbleLife * (speed < 1.0f ? 1.0f : speed);
+  npc->dialogue->speechTextTimer = duration;
+  npc->dialogue->speechTextTimer_forced = duration;
+}
 
-  for (size_t actIdx = 0; actIdx < localQueue.size(); ++actIdx) {
+static void DoAttack(GameWorld *world, Character *npc, Character *target) {
+  StartFight(npc, target);
+  npc->attackTarget(target);
+  npc->addGoal(MELEE_ATTACK, (RootObjectBase *)target);
+  npc->reThinkCurrentAIAction();
+  world->showPlayerAMessage(npc->getName() + " is attacking!", false);
+}
+
+static void DoJoinParty(GameWorld *world, Character *npc) {
+  if (!world->player)
+    return;
+  // A hired follower joins for good, so its contract must not run out
+  Blackboard *board = BoardOf(npc);
+  if (board && board->hasContractJob())
+    board->endContractJob();
+  world->player->recruit(npc, false);
+  world->playNotification("ui_cat_change");
+  world->showPlayerAMessage_withLog(npc->getName() + " joined your squad.",
+                                    true);
+}
+
+static void DoSetTask(GameWorld *world, const QueuedAction &act,
+                      Character *npc) {
+  Log(LOG_INFO, "ACTION: Setting task for " + npc->getName() + ": " +
+                    ToString(act.taskValue));
+  // No endDialogue here: it kills the speech bubble the NPC just displayed
+
+  // Passive/Hold standing orders can block the new task
+  npc->setStandingOrder(MessageForB::M_SET_ORDER_PASSIVE, false);
+  npc->setStandingOrder(MessageForB::M_SET_ORDER_HOLD, false);
+  npc->clearAllAIGoals();
+
+  TaskType tt = (TaskType)act.taskValue;
+  TownBase *town = nullptr;
+  if (!act.message.empty()) {
+    std::string tName = Trim(act.message, " \t\r\n\"'");
+    town = FindTown(tName);
+    if (town)
+      Log(LOG_DEBUG, "ACTION: Found town match: " + town->getName());
+    else
+      Log(LOG_WARN, "ACTION: Town '" + tName + "' not found!");
+  }
+  npc->addJob(tt, town, false, true, npc->getPosition());
+  world->showPlayerAMessage(
+      npc->getName() + " is now executing: " + TaskName(tt), false);
+  npc->addGoal(tt, town);
+  npc->reThinkCurrentAIAction();
+}
+
+static Item *CarriedItem(Character *holder, const std::string &lowerName) {
+  return FindNamedItem(holder, lowerName);
+}
+
+static Item *CarriedOrStockItem(Character *holder,
+                                const std::string &lowerName) {
+  return FindNamedItem(holder, lowerName, true);
+}
+
+// Rescans per stack, because removals reorder the inventory. Returns how many
+// moved.
+static int MoveNamed(Character *from, Character *to,
+                     const std::string &lowerName, int count,
+                     Item *(*find)(Character *, const std::string &)) {
+  int moved = 0;
+  while (moved < count) {
+    Item *found = find(from, lowerName);
+    if (!found)
+      break;
+    int stack = MoveItems(from, found, count - moved, to);
+    if (stack == 0) {
+      Log(LOG_WARN, "ACTION: Could not move " + found->getName() + " from " +
+                        from->getName() + ".");
+      break;
+    }
+    moved += stack;
+  }
+  return moved;
+}
+
+static void DoTakeItem(GameWorld *world, const QueuedAction &act,
+                       Character *npc, Character *target) {
+  Character *player = target ? target : FirstPlayerCharacter();
+  if (!player)
+    return;
+  std::string name = Trim(act.message, " \t\r\n\"'");
+  int count = act.taskValue < 1 ? 1 : act.taskValue;
+  int taken = MoveNamed(player, npc, Lower(name), count, CarriedItem);
+  if (taken < count) {
+    g_shortPayers.insert(HandleKey(npc));
+    Log(LOG_WARN, "ACTION: Transaction failed: " + npc->getName() +
+                      " wanted " + ToString(count) + "x '" + name +
+                      "' but only found " + ToString(taken));
+  }
+  if (taken > 0) {
+    world->showPlayerAMessage_withLog(
+        npc->getName() + " took " + (taken > 1 ? ToString(taken) + "x " : "") +
+            name + " from you.",
+        true);
+    npc->reThinkCurrentAIAction();
+  }
+}
+
+static void DoGiveItem(GameWorld *world, const QueuedAction &act,
+                       Character *npc, Character *target) {
+  bool sell = act.type == ACT_SELL_ITEM;
+  if (HeldBack(npc, sell ? "SELL_ITEM" : "GIVE_ITEM"))
+    return;
+  Character *player = target ? target : FirstPlayerCharacter();
+  if (!player)
+    return;
+  std::string name = Trim(act.message, " \t\r\n\"'");
+  int count = act.taskValue < 1 ? 1 : act.taskValue;
+  // A trader in a shop sells its stock and keeps what it carries
+  int given = MoveNamed(npc, player, Lower(name), count,
+                        sell ? FindStockItem : CarriedOrStockItem);
+  if (given < count)
+    Log(LOG_WARN, "ACTION: NPC " + npc->getName() + " only had " +
+                      ToString(given) + " of " + ToString(count) + "x '" +
+                      name + "'");
+  if (given > 0) {
+    world->showPlayerAMessage_withLog(
+        npc->getName() + " gave you " +
+            (given > 1 ? ToString(given) + "x " : "") + name,
+        true);
+    npc->reThinkCurrentAIAction();
+  }
+}
+
+// Charity (ADD_CATS) costs the NPC nothing, so its cats come from no purse
+static void DoGiveCats(GameWorld *world, const QueuedAction &act,
+                       Character *npc) {
+  bool fromNpc = act.type == ACT_GIVE_CATS;
+  Character *payee = FirstPlayerCharacter();
+  if (!payee || act.taskValue < 1 || (fromNpc && HeldBack(npc, "GIVE_CATS")))
+    return;
+  payee->takeMoney(-act.taskValue);
+  // A player-faction NPC shares the purse, so the transfer would be a no-op
+  if (fromNpc && !InPlayerFaction(npc))
+    npc->takeMoney(act.taskValue);
+  world->showPlayerAMessage_withLog(
+      "Gained " + ToString(act.taskValue) + " cats.", true);
+}
+
+static void DoTakeCats(GameWorld *world, const QueuedAction &act,
+                       Character *npc, const std::deque<QueuedAction> &batch) {
+  Character *payer = FirstPlayerCharacter();
+  if (!payer)
+    return;
+  int purse = MoneyOf(payer);
+  int amount = act.taskValue;
+  bool fellShort = amount > purse;
+  if (fellShort) {
+    amount = purse;
+    g_shortPayers.insert(HandleKey(npc));
+  }
+  if (amount < 0)
+    amount = 0;
+  Log(LOG_INFO, "ACTION: Taking " + ToString(amount) +
+                    " cats from the player (Requested: " +
+                    ToString(act.taskValue) + ", Bank: " + ToString(purse) +
+                    ")");
+  payer->takeMoney(amount);
+
+  // Don't pay a recruit from this batch: the fee would land back in the player's pocket
+  bool beingRecruited = false;
+  for (size_t i = 0; i < batch.size() && !beingRecruited; ++i)
+    beingRecruited =
+        batch[i].type == ACT_JOIN_PARTY && batch[i].actor == act.actor;
+  if (!beingRecruited && !InPlayerFaction(npc))
+    npc->takeMoney(-amount);
+  else
+    Log(LOG_DEBUG, "ACTION: Recruitment fee or sign-on bonus. Money spent "
+                   "but not given to recruit pocket.");
+
+  if (amount > 0)
+    world->showPlayerAMessage_withLog("Lost " + ToString(amount) + " cats.",
+                                      true);
+  if (fellShort)
+    world->showPlayerAMessage(
+        npc->getName() + " looks annoyed. \"That's not what we agreed on!\"",
+        true);
+}
+
+static void DoRelease(GameWorld *world, Character *npc, Character *target) {
+  if (HeldBack(npc, "RELEASE"))
+    return;
+  bool lockedUp = IsLockedUp(target);
+  float dist = npc->getPosition().distance(target->getPosition());
+  Log(LOG_INFO, "ACTION: Release by " + npc->getName() + " on " +
+                    target->getName() + ". Locked up: " + ToString(lockedUp) +
+                    ", Dist: " + ToString(dist));
+
+  // Free directly when close: for recruits/friends the engine cancels the release task
+  bool freed = dist < 4.0f && lockedUp;
+  if (freed) {
+    Log(LOG_DEBUG, "ACTION: Proximity force-release triggered.");
+    FreePrisoner(world, target);
+  }
+  bool didSomething = freed;
+  if (npc->isCarryingSomething && npc->carryingObject == target->getHandle()) {
+    Log(LOG_DEBUG, "ACTION: NPC is carrying target. Dropping.");
+    npc->dropCarriedObject(false, false);
+    didSomething = true;
+  }
+  if (lockedUp && !freed) {
+    Log(LOG_DEBUG, "ACTION: Assigning task: " + TaskName(RELEASE_PRISONER));
+    // addOrder overrides at once, unlike addJob; clear=true halts background AI (staying home)
+    npc->clearAllAIGoals();
+    npc->addOrder(nullptr, RELEASE_PRISONER, (RootObject *)target, false, true,
+                  target->getPosition());
+    npc->reThinkCurrentAIAction();
+    PendingRelease pending = {HandleKey(target), 0};
+    g_releases.push_back(pending);
+    world->showPlayerAMessage(
+        npc->getName() + " is releasing " + target->getName() + "!", false);
+    didSomething = true;
+  }
+  if (!didSomething && !npc->isPlayerCharacter()) {
+    Log(LOG_DEBUG, "ACTION: Target already free. Clearing NPC goals.");
+    npc->clearAllAIGoals();
+    npc->reThinkCurrentAIAction();
+  }
+}
+
+static void DoHire(GameWorld *world, const QueuedAction &act, Character *npc,
+                   Character *target) {
+  Blackboard *board = BoardOf(npc);
+  GameData *bodyguard = BodyguardPackage();
+  if (HeldBack(npc, "HIRE") || !board || !bodyguard)
+    return;
+  // A renewal finds the old contract still running, and
+  // _setContractJob is tested only on an NPC without a contract
+  if (board->hasContractJob())
+    board->endContractJob();
+  board->_setContractJob(bodyguard, act.taskValue, target->getHandle());
+  world->showPlayerAMessage_withLog(npc->getName() + " follows you for " +
+                                        ToString(act.taskValue) + " hours.",
+                                    true);
+}
+
+static void DoEndHire(GameWorld *world, Character *npc) {
+  Blackboard *board = BoardOf(npc);
+  if (!board || !board->hasContractJob())
+    return;
+  board->endContractJob();
+  world->showPlayerAMessage_withLog(npc->getName() + " no longer follows you.",
+                                    true);
+}
+
+static void DoFirstAid(GameWorld *world, Character *npc, Character *target) {
+  if (HeldBack(npc, "FIRST_AID"))
+    return;
+  bool firstAid, repair;
+  std::string message = StartTreatment(npc, target, firstAid, repair);
+  Log(LOG_DEBUG, "ACTION: " + message + " first_aid_order=" +
+                     (firstAid ? "1" : "0") +
+                     " repair_order=" + (repair ? "1" : "0"));
+  world->showPlayerAMessage(message, false);
+}
+
+static void DoSpawnItem(GameWorld *world, const QueuedAction &act,
+                        Character *target) {
+  // "<record name>|<label>": the Cheats window also names its record, and the
+  // server names only the food of a charity
+  size_t pipe = act.message.find('|');
+  std::string templateName = act.message.substr(0, pipe);
+  std::string label =
+      pipe == std::string::npos ? std::string() : act.message.substr(pipe + 1);
+  GameData *gd = act.itemData ? act.itemData : FindItemData(world, templateName);
+  if (!gd) {
+    Log(LOG_WARN, "ACTION: Could not find template for: " + templateName);
+    world->showPlayerAMessage(
+        "Error: Item template '" + templateName + "' not found.", true);
+    return;
+  }
+  Character *p = target ? target : FirstPlayerCharacter();
+  if (!p) {
+    Log(LOG_WARN, "ACTION: No character found to give item to.");
+    return;
+  }
+  GameData *gradeData = act.itemModel ? act.itemModel : GearGrade(world, gd);
+  int count = act.taskValue < 1 ? 1 : act.taskValue;
+  int spawnedCount = 0;
+  for (int c = 0; c < count; c++) {
+    Item *item = CreateItem(world, gd, act.itemMaker, gradeData, act.itemLevel);
+    if (!item) {
+      Log(LOG_ERROR, "ACTION: Resolved " + gd->name +
+                         " but Factory failed to createItem! (Grade: " +
+                         (gradeData ? gradeData->name : "NULL") + ", Maker: " +
+                         (act.itemMaker ? act.itemMaker->name : "NULL") + ")");
+      continue;
+    }
+    item->quantity = 1;
+    item->quality = 1.0f;
+    item->chargesLeft = item->originalFullChargeAmount;
+    if (item->chargesLeft <= 0.0f)
+      item->chargesLeft = 1.0f;
+    item->setProperOwner(p->getHandle());
+    item->visible = true;
+    item->isTradeItem = true;
+    if (!item->container && p->container) {
+      item->container = p->container;
+      p->container->addActiveObject(item);
+    }
+    if (p->giveItem(item, true, false)) {
+      spawnedCount++;
+      Log(LOG_INFO, "ACTION: Successfully spawned and gave " + gd->name +
+                        " to " + p->getName());
+    } else {
+      Log(LOG_WARN, "ACTION: Resolved " + gd->name +
+                        " but giveItem failed (inventory full?) for " +
+                        p->getName());
+    }
+  }
+  if (spawnedCount == 0)
+    return;
+  if (p->getInventory()) {
+    p->getInventory()->autoArrange();
+    p->getInventory()->refreshGui();
+  }
+  world->addPortraitUpdate(p->getHandle());
+  world->showPlayerAMessage_withLog(
+      "Received " + (spawnedCount > 1 ? ToString(spawnedCount) + "x " : "") +
+          (label.empty() ? gd->name : label),
+      true);
+}
+
+static void RunAction(GameWorld *world, const QueuedAction &act,
+                      Character *npc, Character *target,
+                      const std::deque<QueuedAction> &batch) {
+  switch (act.type) {
+  case ACT_SAY:
+    DoSay(world, act, npc);
+    break;
+  case ACT_ATTACK:
+    if (target)
+      DoAttack(world, npc, target);
+    break;
+  case ACT_JOIN_PARTY:
+    DoJoinParty(world, npc);
+    break;
+  case ACT_SET_TASK:
+    DoSetTask(world, act, npc);
+    break;
+  case ACT_TAKE_ITEM:
+    DoTakeItem(world, act, npc, target);
+    break;
+  case ACT_GIVE_ITEM:
+  case ACT_SELL_ITEM:
+    DoGiveItem(world, act, npc, target);
+    break;
+  case ACT_GIVE_CATS:
+  case ACT_ADD_CATS:
+    DoGiveCats(world, act, npc);
+    break;
+  case ACT_TAKE_CATS:
+    DoTakeCats(world, act, npc, batch);
+    break;
+  case ACT_RELEASE:
+    if (target)
+      DoRelease(world, npc, target);
+    break;
+  case ACT_HIRE:
+    if (target)
+      DoHire(world, act, npc, target);
+    break;
+  case ACT_END_HIRE:
+    DoEndHire(world, npc);
+    break;
+  case ACT_FIRST_AID:
+    if (target)
+      DoFirstAid(world, npc, target);
+    break;
+  case ACT_PROBE:
+    RunProbe(npc, target, act.message);
+    break;
+  case ACT_SPAWN_ITEM:
+    DoSpawnItem(world, act, target);
+    break;
+  default:
+    break;
+  }
+}
+
+void ExecuteQueuedActions(GameWorld *world) {
+  std::deque<QueuedAction> batch;
+  if (!TryEnterCriticalSection(&g_uiMutex))
+    return;
+  batch.swap(g_uiActionQueue);
+  LeaveCriticalSection(&g_uiMutex);
+
+  for (size_t i = 0; i < batch.size(); ++i) {
+    const QueuedAction &act = batch[i];
+    if (act.type == ACT_NOTIFY) {
+      world->showPlayerAMessage(act.message, true);
+      continue;
+    }
+    Character *npc = act.actor.getCharacter();
+    if (!npc)
+      continue;
     try {
-      const QueuedAction &act = localQueue[actIdx];
-      Character *npc = act.actor.getCharacter();
-      Character *target = act.target.getCharacter();
-
-      if (act.type == ACT_NOTIFY) {
-        thisptr->showPlayerAMessage(act.message, true);
-      } else if (act.type == ACT_SAY && npc) {
-        bool isPC = npc->isPlayerCharacter();
-        Log(LOG_DEBUG, "ACTION: SAY [" + npc->getName() + "]: " + act.message +
-            (isPC ? " (PC)" : " (NPC)"));
-        KeepTwoBubbles(act.actor);
-        if (!g_shortPayers.empty())
-          g_shortPayers.erase(HandleKey(npc));
-        try {
-          // No endDialogue/setInDialog(false): they clear AI goals, killing the task just queued
-          npc->sayALine(act.message, true);
-
-          // Scaled by game speed, else bubbles vanish too fast at high speeds.
-          // Both timers are set so the engine honors the duration.
-          if (npc->dialogue && (uintptr_t)npc->dialogue > 0x1000) {
-            float speed = thisptr->getFrameSpeedMultiplier();
-            if (speed < 1.0f)
-              speed = 1.0f;
-            float duration = g_speechBubbleLife * speed;
-            npc->dialogue->speechTextTimer = duration;
-            npc->dialogue->speechTextTimer_forced = duration;
-          } else {
-            npc->say(act.message);
-          }
-
-        } catch (...) {
-          Log(LOG_ERROR, "ACTION: SAY: Exception during sayALine/say");
-        }
-      } else if (npc) {
-        if (act.type == ACT_ATTACK && target) {
-          StartFight(npc, target);
-          npc->attackTarget(target);
-          npc->addGoal(MELEE_ATTACK, (RootObjectBase *)target);
-          npc->reThinkCurrentAIAction();
-          thisptr->showPlayerAMessage(npc->getName() + " is attacking!", false);
-        } else if (act.type == ACT_JOIN_PARTY && thisptr->player) {
-          // A hired follower joins for good, so its contract must not run out
-          Blackboard *board = npc->getBlackboard();
-          if (board && (uintptr_t)board > 0x1000 && board->hasContractJob())
-            board->endContractJob();
-          thisptr->player->recruit(npc, false);
-          thisptr->playNotification("ui_cat_change");
-          thisptr->showPlayerAMessage_withLog(
-              npc->getName() + " joined your squad.", true);
-        } else if (act.type == ACT_SET_TASK) {
-          Log(LOG_INFO, "ACTION: Setting task for " + npc->getName() + ": " +
-              ToString(act.taskValue));
-
-          // No endDialogue here: it kills the speech bubble the NPC just displayed
-
-          // Passive/Hold standing orders can block the new task
-          npc->setStandingOrder((MessageForB::StandingOrder)13 /* PASSIVE */,
-                                false);
-          npc->setStandingOrder((MessageForB::StandingOrder)12 /* HOLD */,
-                                false);
-
-          npc->clearAllAIGoals();
-
-          TaskType tt = (TaskType)act.taskValue;
-          RootObject *taskTarget = NULL;
-
-          if (!act.message.empty()) {
-            std::string tName = Trim(act.message, " \t\r\n\"'");
-
-            Log(LOG_DEBUG, "ACTION: Resolving town target for " + ToString(tt) +
-                ": '" + tName + "'");
-
-            TownBase *town = FindTown(tName);
-            taskTarget = town;
-            if (town)
-              Log(LOG_DEBUG, "ACTION: Found town match: " + town->getName());
-            else
-              Log(LOG_WARN, "ACTION: Town '" + tName + "' not found!");
-          }
-
-          Log(LOG_DEBUG,
-              "ACTION: Final Dispatch -> Task: " + ToString((int)tt) +
-                  " (" + TaskName(tt) + "), Target: " +
-                  (taskTarget ? ((RootObjectBase *)taskTarget)->getName()
-                              : "NULL"));
-
-          npc->addJob(tt, taskTarget, false, true, npc->getPosition());
-          thisptr->showPlayerAMessage(
-              npc->getName() + " is now executing: " + TaskName(tt), false);
-
-          npc->addGoal(tt, (RootObjectBase *)taskTarget);
-          npc->reThinkCurrentAIAction();
-        } else if (act.type == ACT_TAKE_ITEM) {
-          Character *player = target ? target : FirstPlayerCharacter();
-          if (player) {
-            std::string targetName = Trim(act.message, " \t\r\n\"'");
-            std::string lowerTarget = Lower(targetName);
-
-            int count = act.taskValue;
-            if (count < 1)
-              count = 1;
-            int taken = 0;
-
-            Log(LOG_INFO,
-                "ACTION: NPC " + npc->getName() + " attempting to take " +
-                    ToString(count) + "x '" + targetName + "'");
-
-            // Rescan per stack: removals reorder the inventory
-            while (taken < count) {
-              Item *found = FindNamedItem(player, lowerTarget);
-              if (!found)
-                break;
-              int moved = MoveItems(player, found, count - taken, npc);
-              if (moved == 0) {
-                Log(LOG_WARN, "ACTION: NPC " + npc->getName() +
-                                  " could not take " + found->getName() + ".");
-                break;
-              }
-              taken += moved;
-            }
-
-            if (taken < count) {
-              g_shortPayers.insert(HandleKey(npc));
-              Log(LOG_WARN, "ACTION: Transaction failed: " + npc->getName() + " wanted " + ToString(count) + " but only found " + ToString(taken));
-            }
-
-            if (taken > 0) {
-              std::string msg = npc->getName() + " took " +
-                                (taken > 1 ? ToString(taken) + "x " : "") +
-                                targetName + " from you.";
-              thisptr->showPlayerAMessage_withLog(msg, true);
-              npc->reThinkCurrentAIAction();
-            } else {
-              Log(LOG_WARN, "ACTION: NPC " + npc->getName() +
-                  " found NO items matching '" + targetName + "' on player.");
-            }
-          }
-        } else if (act.type == ACT_GIVE_ITEM || act.type == ACT_SELL_ITEM) {
-          if (HeldBack(npc, act.type == ACT_SELL_ITEM ? "SELL_ITEM" : "GIVE_ITEM"))
-            continue;
-          std::string originalTargetName = Trim(act.message, " \t\r\n\"'");
-          std::string targetName = Lower(originalTargetName);
-
-          int count = act.taskValue;
-          if (count < 1)
-            count = 1;
-          int given = 0;
-
-          Character *player = target ? target : FirstPlayerCharacter();
-          if (player) {
-            while (given < count) {
-              // A trader in a shop sells its stock and keeps what it carries
-              Item *found = act.type == ACT_SELL_ITEM
-                                ? FindStockItem(npc, targetName)
-                                : FindNamedItem(npc, targetName, true);
-              if (!found)
-                break;
-              int moved = MoveItems(npc, found, count - given, player);
-              if (moved == 0) {
-                Log(LOG_WARN, "ACTION: Failed to detach " + found->getName() +
-                                  " from " + npc->getName() + "'s inventory.");
-                break;
-              }
-              Log(LOG_DEBUG, "ACTION: Gave " + ToString(moved) + "x " +
-                                 found->getName());
-              given += moved;
-            }
-
-            if (given < count)
-              Log(LOG_WARN, "ACTION: NPC " + npc->getName() + " only had " +
-                                ToString(given) + " of " + ToString(count) +
-                                "x '" + originalTargetName + "'");
-
-            if (given > 0) {
-              std::string msg =
-                  npc->getName() + " gave you " +
-                  (given > 1 ? ToString(given) + "x " : "") +
-                  originalTargetName;
-              thisptr->showPlayerAMessage_withLog(msg, true);
-              npc->reThinkCurrentAIAction();
-            }
-          }
-        } else if (act.type == ACT_GIVE_CATS) {
-          if (HeldBack(npc, "GIVE_CATS"))
-            continue;
-          Character *payee = FirstPlayerCharacter();
-          if (payee) {
-            int amt = act.taskValue;
-            if (amt > 0) {
-              payee->takeMoney(-amt);
-
-              // Skip player-faction characters: the transfer would be a no-op
-              if (!InPlayerFaction(npc))
-                npc->takeMoney(amt);
-
-              thisptr->showPlayerAMessage_withLog(
-                  "Gained " + ToString(amt) + " cats.", true);
-            }
-          }
-        } else if (act.type == ACT_TAKE_CATS) {
-          Character *p = FirstPlayerCharacter();
-          if (p) {
-            int targetAmt = act.taskValue;
-            int pMoney = MoneyOf(p);
-
-            int amt = targetAmt;
-            bool fellShort = amt > pMoney;
-            if (fellShort) {
-              amt = pMoney;
-              g_shortPayers.insert(HandleKey(npc));
-            }
-            if (amt < 1) {
-              amt = 0;
-            }
-
-            Log(LOG_INFO, "ACTION: Taking " + ToString(amt) +
-                              " cats from the player (Requested: " +
-                              ToString(targetAmt) +
-                              ", Bank: " + ToString(pMoney) + ")");
-            p->takeMoney(amt);
-
-            // Don't pay a recruit from this batch: the fee would land back in the player's pocket
-            bool beingRecruited = false;
-            for (size_t i = 0; i < localQueue.size(); ++i) {
-              if (localQueue[i].type == ACT_JOIN_PARTY &&
-                  localQueue[i].actor == act.actor) {
-                beingRecruited = true;
-                break;
-              }
-            }
-
-            if (!beingRecruited && !InPlayerFaction(npc)) {
-              npc->takeMoney(-amt);
-            } else {
-              Log(LOG_DEBUG,
-                  "ACTION: Recruitment fee or sign-on bonus. Money spent "
-                      "but not given to recruit pocket.");
-            }
-
-            thisptr->showPlayerAMessage_withLog(
-                "Lost " + ToString(amt) + " cats.", true);
-
-            if (fellShort) {
-              thisptr->showPlayerAMessage(
-                  npc->getName() +
-                      " looks annoyed. \"That's not what we agreed on!\"",
-                  true);
-            }
-          }
-        } else if (act.type == ACT_RELEASE && target) {
-          if (HeldBack(npc, "RELEASE"))
-            continue;
-          bool inCage = (target->inSomething == IN_PRISON);
-          bool shackled = target->isChained || target->isChainedMode();
-          float dist = npc->getPosition().distance(target->getPosition());
-
-          Log(LOG_INFO,
-              "ACTION: Release by " + npc->getName() + " on " +
-                  target->getName() + ". InCage: " + ToString(inCage) +
-                  ", Shackled: " + ToString(shackled) +
-                  ", Dist: " + ToString(dist));
-
-          // Free directly when close: for recruits/friends the engine cancels the release task
-          bool freed = dist < 4.0f && (inCage || shackled);
-          if (freed) {
-            Log(LOG_DEBUG, "ACTION: Proximity force-release triggered.");
-            FreePrisoner(thisptr, target);
-          }
-
-          bool didSomething = freed;
-
-          if (npc->isCarryingSomething &&
-              npc->carryingObject == target->getHandle()) {
-            Log(LOG_DEBUG, "ACTION: NPC is carrying target. Dropping.");
-            npc->dropCarriedObject(false, false);
-            didSomething = true;
-          }
-
-          if ((inCage || shackled) && !freed) {
-            TaskType tt = RELEASE_PRISONER;
-
-            Log(LOG_DEBUG, "ACTION: Assigning task: " + TaskName(tt) + " (" +
-                ToString((int)tt) + ")");
-
-            // addOrder overrides at once, unlike addJob; clear=true halts background AI (staying home)
-            npc->clearAllAIGoals();
-            npc->addOrder(nullptr, tt, (RootObject *)target, false, true,
-                          target->getPosition());
-            npc->reThinkCurrentAIAction();
-            PendingRelease pending = {HandleKey(target), 0};
-            g_releases.push_back(pending);
-
-            thisptr->showPlayerAMessage(
-                npc->getName() + " is releasing " + target->getName() + "!",
-                false);
-            didSomething = true;
-          }
-
-          if (!didSomething && !npc->isPlayerCharacter()) {
-            Log(LOG_DEBUG, "ACTION: Target already free. Clearing NPC goals.");
-            npc->clearAllAIGoals();
-            npc->reThinkCurrentAIAction();
-          }
-        } else if (act.type == ACT_HIRE && target) {
-          if (HeldBack(npc, "HIRE"))
-            continue;
-          Blackboard *board = npc->getBlackboard();
-          GameData *bodyguard = thisptr->gamedata.getData("5090-gamedata.base");
-          if (board && (uintptr_t)board > 0x1000 && bodyguard) {
-            // A renewal finds the old contract still running, and
-            // _setContractJob is tested only on an NPC without a contract
-            if (board->hasContractJob())
-              board->endContractJob();
-            // The game's hire dialogues give the Bodyguard package with hours
-            board->_setContractJob(bodyguard, act.taskValue, target->getHandle());
-            thisptr->showPlayerAMessage_withLog(
-                npc->getName() + " follows you for " + ToString(act.taskValue) +
-                    " hours.",
-                true);
-          }
-        } else if (act.type == ACT_ADD_CATS) {
-          // Charity costs the NPC nothing, so the cats come from no purse
-          Character *payee = FirstPlayerCharacter();
-          if (payee && act.taskValue > 0) {
-            payee->takeMoney(-act.taskValue);
-            thisptr->showPlayerAMessage_withLog(
-                "Gained " + ToString(act.taskValue) + " cats.", true);
-          }
-        } else if (act.type == ACT_END_HIRE) {
-          Blackboard *board = npc->getBlackboard();
-          if (board && (uintptr_t)board > 0x1000 && board->hasContractJob()) {
-            board->endContractJob();
-            thisptr->showPlayerAMessage_withLog(
-                npc->getName() + " no longer follows you.", true);
-          }
-        } else if (act.type == ACT_FIRST_AID && target) {
-          if (HeldBack(npc, "FIRST_AID"))
-            continue;
-          bool firstAid, repair;
-          std::string message = StartTreatment(npc, target, firstAid, repair);
-          Log(LOG_DEBUG, "ACTION: " + message + " first_aid_order=" +
-                             (firstAid ? "1" : "0") +
-                             " repair_order=" + (repair ? "1" : "0"));
-          thisptr->showPlayerAMessage(message, false);
-        } else if (act.type == ACT_PROBE) {
-          RunProbe(npc, target, act.message);
-        } else if (act.type == ACT_SPAWN_ITEM) {
-          // "<record name>|<label>": the Cheats window also names its record,
-          // and the server names only the food of a charity
-          size_t pipe = act.message.find('|');
-          std::string templateName = act.message.substr(0, pipe);
-          std::string label = pipe == std::string::npos
-                                  ? std::string()
-                                  : act.message.substr(pipe + 1);
-          GameData *gd = act.itemData ? act.itemData
-                                      : FindItemData(thisptr, templateName);
-          if (!gd) {
-            Log(LOG_WARN,
-                "ACTION: Could not find template for: " + templateName);
-            thisptr->showPlayerAMessage(
-                "Error: Item template '" + templateName + "' not found.", true);
-            continue;
-          }
-          Character *p = target ? target : FirstPlayerCharacter();
-          if (!p) {
-            Log(LOG_WARN, "ACTION: No character found to give item to.");
-            continue;
-          }
-          GameData *gradeData =
-              act.itemModel ? act.itemModel : GearGrade(thisptr, gd);
-          int count = act.taskValue < 1 ? 1 : act.taskValue;
-          int spawnedCount = 0;
-          for (int c = 0; c < count; c++) {
-            Item *item =
-                CreateItem(thisptr, gd, act.itemMaker, gradeData, act.itemLevel);
-            if (!item) {
-              Log(LOG_ERROR, "ACTION: Resolved " + gd->name +
-                                 " but Factory failed to createItem! (Grade: " +
-                                 (gradeData ? gradeData->name : "NULL") +
-                                 ", Maker: " +
-                                 (act.itemMaker ? act.itemMaker->name : "NULL") +
-                                 ")");
-              continue;
-            }
-            item->quantity = 1;
-            item->quality = 1.0f;
-            item->chargesLeft = item->originalFullChargeAmount;
-            if (item->chargesLeft <= 0.0f)
-              item->chargesLeft = 1.0f;
-
-            item->setProperOwner(p->getHandle());
-            item->visible = true;
-            item->isTradeItem = true;
-
-            if (!item->container && p->container) {
-              item->container = p->container;
-              p->container->addActiveObject(item);
-            }
-
-            if (p->giveItem(item, true, false)) {
-              spawnedCount++;
-              Log(LOG_INFO, "ACTION: Successfully spawned and gave " +
-                                gd->name + " to " + p->getName());
-            } else {
-              Log(LOG_WARN, "ACTION: Resolved " + gd->name +
-                                " but giveItem failed (inventory full?) for " +
-                                p->getName());
-            }
-          }
-
-          if (spawnedCount > 0) {
-            if (p->getInventory()) {
-              p->getInventory()->autoArrange();
-              p->getInventory()->refreshGui();
-            }
-            thisptr->addPortraitUpdate(p->getHandle());
-            thisptr->showPlayerAMessage_withLog(
-                "Received " +
-                    (spawnedCount > 1 ? ToString(spawnedCount) + "x " : "") +
-                    (label.empty() ? gd->name : label),
-                true);
-          }
-        }
-      }
+      RunAction(world, act, npc, act.target.getCharacter(), batch);
     } catch (...) {
-      Log(LOG_ERROR, "ACTION: Exception during action index " +
-          ToString((int)actIdx));
+      Log(LOG_ERROR, "ACTION: Exception during action index " + ToString((int)i));
     }
   }
 }
