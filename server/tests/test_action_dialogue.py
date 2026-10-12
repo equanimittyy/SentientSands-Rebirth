@@ -113,6 +113,25 @@ class PlainChatTest(unittest.TestCase):
             self.assertEqual(self.chat(category, {"is_leader": True, "faction": "Holy Nation"}), "You lead Holy Nation and will not leave it.")
             self.assertIsNone(self.chat(category))
 
+    def test_a_captive_of_the_same_faction_can_join_or_follow(self):
+        caged = {"character_state": "imprisoned", "captor": "17-gamedata.base"}
+        shackled = {"character_state": "enslaved", "captor": "17-gamedata.base"}
+        for category in ("RECRUIT", "FOLLOW"):
+            self.assertIsNone(self.chat(category, caged, shackled))
+            self.assertEqual(self.chat(category, {**caged, "is_leader": True, "faction": "Slave Traders"}, shackled),
+                             "You lead Slave Traders and will not leave it.")
+        self.assertEqual(self.chat("RECRUIT", {**caged, "captor": "5-gamedata.base"}, shackled), "{player} is enslaved, so you cannot join {player}.")
+        self.assertEqual(self.chat("RECRUIT", {"character_state": "enslaved", "captor": ""}, {"character_state": "enslaved", "captor": ""}),
+                         "{player} is enslaved, so you cannot join {player}.")
+
+    def test_a_fellow_captive_joins_instead_of_following(self):
+        shackled = {"character_state": "enslaved", "captor": "17-gamedata.base"}
+        self.assertEqual(ad.runs_as("FOLLOW", shackled, shackled), "RECRUIT")
+        self.assertEqual(ad.runs_as("FOLLOW", {**shackled, "captor": "5-gamedata.base"}, shackled), "FOLLOW")
+        self.assertEqual(ad.runs_as("FOLLOW", {}, {}), "FOLLOW")
+        self.assertEqual(ad.runs_as("BARTER", shackled, shackled), "BARTER")
+        self.assertIsNone(ad.runs_as(None, shackled, shackled))
+
 
 class ClassifyTest(unittest.TestCase):
     def test_the_list_leaves_out_only_a_blocked_category(self):

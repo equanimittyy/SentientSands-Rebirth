@@ -324,6 +324,16 @@ static std::string FactionID(Faction *faction) {
   return FactionName(faction);
 }
 
+// A captive keeps its own faction, so the cage or the slave owner names the
+// captor
+static std::string CaptorID(const hand &captor) {
+  RootObjectBase *object = captor.getRootObjectBase();
+  if (!object || (uintptr_t)object < 0x1000)
+    return "";
+  Faction *faction = object->getFaction() ? object->getFaction() : object->owner;
+  return faction && (uintptr_t)faction > 0x1000 ? FactionID(faction) : "";
+}
+
 std::string EventParty(Character *npc) {
   Faction *faction = CharacterFaction(npc);
   return "{\"id\": \"" + EscapeJSON(GetNpcId(npc)) + "\", \"template_id\": \"" +
@@ -1079,6 +1089,7 @@ std::string GetDetailedContext(Character *npc, const std::string &type) {
   }
 
   std::string charState = "normal";
+  std::string captor;
   bool isDead = false;
   bool isUnconcious = false;
   try {
@@ -1091,6 +1102,7 @@ std::string GetDetailedContext(Character *npc, const std::string &type) {
         charState = "unconscious";
       } else if (npc->inSomething == IN_PRISON) {
         charState = "imprisoned";
+        captor = CaptorID(npc->inWhat);
       } else {
         try {
           SlaveStateEnum slaveState = npc->isSlave();
@@ -1098,6 +1110,8 @@ std::string GetDetailedContext(Character *npc, const std::string &type) {
           if (slaveState != NOT_SLAVE) {
             // Slave status but unchained means escaped
             charState = chained ? "enslaved" : "escaped-slave";
+            if (chained)
+              captor = CaptorID(npc->getMySlaveOwner());
           }
         } catch (...) {
         }
@@ -1106,6 +1120,7 @@ std::string GetDetailedContext(Character *npc, const std::string &type) {
   } catch (...) {
   }
   json += "\"character_state\": \"" + charState + "\",";
+  json += "\"captor\": \"" + EscapeJSON(captor) + "\",";
   json += "\"health\": \"" + GetHealthStatus(npc) + "\",";
 
   bool slave = false;

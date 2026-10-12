@@ -92,7 +92,7 @@ A line of a category goes to plain chat when the game state fails a gate of the 
 | THREATEN | The speaker is `imprisoned` ([threaten.md](threaten.md#2-gate)). | Zaps is locked in a cage, so you do not take the threat seriously. |
 | HEAL | The speaker has no wound, the NPC carries no first aid item, or the NPC is `imprisoned` ([heal.md](heal.md#2-deal)). | Zaps has no wounds to treat. |
 | LIBERATE | The speaker is a slave or is not `imprisoned`, or the NPC is `imprisoned` or is not a guard ([liberate.md](liberate.md#2-deal)). | You are not a guard, so you cannot release Zaps. |
-| RECRUIT, FOLLOW | The speaker or the NPC is `imprisoned` or `enslaved`, or the NPC leads its faction ([recruit.md](recruit.md#2-gate)). | You lead Holy Nation Outlaws and will not leave it. |
+| RECRUIT, FOLLOW | The speaker or the NPC is `imprisoned` or `enslaved`, except for fellow captives of the same faction, or the NPC leads its faction ([recruit.md](recruit.md#2-gate)). | You lead Holy Nation Outlaws and will not leave it. |
 
 A named mark goes to plain chat at once, and a classify call goes to plain chat after it chose the category. A line that goes to plain chat does not continue an open action dialogue, but the action dialogue stays open for the next line.
 

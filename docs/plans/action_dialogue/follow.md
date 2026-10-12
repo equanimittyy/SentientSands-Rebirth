@@ -10,6 +10,8 @@ FOLLOW reuses the game's mercenary hire: the NPC follows the squad under a hire 
 
 FOLLOW uses the [gate](recruit.md#2-gate), the [hard limits](recruit.md#4-hard-limits), and the [lean](recruit.md#5-lean) of RECRUIT. Its lean is how likely the NPC is to follow.
 
+A FOLLOW line to a [fellow captive](recruit.md#fellow-captives) runs as RECRUIT (`action_dialogue.runs_as`), because a hired follower stays out of the player's control, so the player could not lead it out. The reply starts with the RECRUIT tag, and the offer is a join.
+
 An offer of FOLLOW holds the length of the hire, for example "Drifter offers to follow you for 2 days for 4,000 cats.".
 
 The action dialogue ends when the NPC refuses ([Refusal](recruit.md#refusal)), or when the player accepts an offer.

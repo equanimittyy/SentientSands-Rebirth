@@ -446,6 +446,7 @@ def chat():
         player_message = text
     elif action and not chat_reason:
         category = action["category"]
+    category = action_dialogue.runs_as(category, ctx_dict, speaker)
     npc_party = (primary_id, primary_npc, context, npc_in_faction)
     speaker_party = (speaker_id, player_name, json.dumps(speaker), True)
     location = scene_text.location_name(speaker or state.PLAYER_CONTEXT)

@@ -114,13 +114,26 @@ def plain_chat(category, npc, speaker):
             return "You are not a guard, so you cannot release {player}."
     elif category in ("RECRUIT", "FOLLOW"):
         verb = "join" if category == "RECRUIT" else "follow"
-        if speaker_state in ("imprisoned", "enslaved"):
-            return f"{{player}} is {speaker_state}, so you cannot {verb} {{player}}."
-        if npc_state in ("imprisoned", "enslaved"):
-            return f"You are {npc_state}, so you cannot {verb} {{player}}."
+        if not fellow_captives(npc, speaker):
+            if speaker_state in ("imprisoned", "enslaved"):
+                return f"{{player}} is {speaker_state}, so you cannot {verb} {{player}}."
+            if npc_state in ("imprisoned", "enslaved"):
+                return f"You are {npc_state}, so you cannot {verb} {{player}}."
         if npc.get("is_leader"):
             return f"You lead {npc.get('faction') or 'your faction'} and will not leave it."
     return None
+
+
+def fellow_captives(npc, speaker):
+    """One faction holds both the speaker and the NPC, in a cage or in shackles. The plugin sends a captor only for a
+    captive (CaptorID in plugin/game/Context.cpp)."""
+    return bool(speaker.get("captor")) and speaker.get("captor") == npc.get("captor")
+
+
+def runs_as(category, npc, speaker):
+    """The category that a line of the category runs as. A fellow captive joins instead of following, because a hired
+    follower stays out of the player's control, so the player could not lead it out."""
+    return "RECRUIT" if category == "FOLLOW" and fellow_captives(npc, speaker) else category
 
 
 def kits(npc, speaker):

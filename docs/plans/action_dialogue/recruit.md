@@ -8,10 +8,18 @@ In a RECRUIT action dialogue, the player asks the NPC to join the squad. The pla
 
 RECRUIT needs all of these, and a line that fails one goes to plain chat with the reason ([Plain chat](framework.md#plain-chat)):
 
-- Neither the speaker nor the NPC is `imprisoned` or `enslaved` (`character_state` in `plugin/game/Context.cpp:675`), because a caged or shackled speaker cannot recruit, and the player must free a caged or shackled NPC first.
+- Neither the speaker nor the NPC is `imprisoned` or `enslaved` (`character_state` in `plugin/game/Context.cpp:1104`), because a caged or shackled speaker cannot recruit, and the player must free a caged or shackled NPC first. Fellow captives are the exception ([Fellow captives](#fellow-captives)).
 - The NPC is not the leader of its faction (`is_leader`), because the faction would lose its leader in the world.
 
 A marked line to an NPC that is already in the player faction goes to plain chat ([Plain chat](framework.md#plain-chat)). A temporary follower can join, and its hire then becomes a permanent join.
+
+### Fellow captives
+
+A captive can recruit a fellow captive of the same faction, so that they can escape together. The speaker and the NPC pass the first gate when the captor of each is the same faction (`action_dialogue.fellow_captives`). Each one can be in a cage or in shackles, because a slave camp also puts its slaves into cages.
+
+The plugin sends the captor as `captor`, the faction ID of the owner of the cage or of the slave owner of a shackled slave (`CaptorID` in `plugin/game/Context.cpp:329`). A captive keeps its own faction, so its `faction` does not name the captor. A character that is not in a cage and not in shackles has an empty `captor`, and so does a captive whose captor the plugin cannot read.
+
+The leader gate still holds for a fellow captive.
 
 ## 3. Answers
 
