@@ -156,7 +156,7 @@ void ProcessMessageQueue(GameWorld *thisptr) {
           } else if (command == "SET_LIBRARY_PROFILE") {
             SetLibraryProfile(data);
           } else if (command == "SET_EVENTS_TEXT") {
-            SetEventsText(data);
+            SetEventContent(data);
           } else if (command == "SET_CONFIG") {
             size_t colon = data.find(":");
             if (colon != std::string::npos) {

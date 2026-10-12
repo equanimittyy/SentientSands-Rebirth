@@ -33,6 +33,10 @@ std::vector<std::string> g_eventsAllRumors;
 int g_eventsKind = 0;
 std::string g_eventsCampaign;
 std::string g_eventsSelectId;
+// The arrow keys move the selection faster than the server answers, so the
+// replies can come back out of order
+static int g_eventsListRequest = 0;
+static int g_eventsContentRequest = 0;
 
 MyGUI::Window *g_rumorWindow = nullptr;
 MyGUI::EditBox *g_rumorBox = nullptr;
@@ -63,6 +67,8 @@ void CloseRumorUI() {
 
 void CloseEventsUI() {
   CloseRumorUI();
+  g_eventsListRequest++;
+  g_eventsContentRequest++;
   if (g_eventsWindow) {
     if (MyGUI::Gui::getInstancePtr())
       MyGUI::Gui::getInstancePtr()->destroyWidget(g_eventsWindow);
@@ -133,14 +139,21 @@ void OnEventsKindClick(MyGUI::Widget *sender) {
   ApplyEventsFilter(SelectedEventId());
 }
 
+static void RequestEventsList() {
+  PostForGameThread(L"/events", "", "POPULATE_EVENTS",
+                    ToString(++g_eventsListRequest));
+}
+
 void PopulateEventsUI(const std::string &data) {
-  if (!g_eventsList)
+  std::string reply;
+  if (!g_eventsList || !TakeTaggedReply(data, g_eventsListRequest, reply) ||
+      GetJsonValue(reply, "status") != "ok")
     return;
   std::string keepId =
       g_eventsSelectId.empty() ? SelectedEventId() : g_eventsSelectId;
   g_eventsSelectId.clear();
-  g_eventsCampaign = GetJsonValue(data, "campaign");
-  std::string events = GetJsonValue(data, "events");
+  g_eventsCampaign = GetJsonValue(reply, "campaign");
+  std::string events = GetJsonValue(reply, "events");
   g_eventsAllIds.clear();
   g_eventsAllTitles.clear();
   g_eventsAllTexts.clear();
@@ -165,13 +178,10 @@ void PopulateEventsUI(const std::string &data) {
   ApplyEventsFilter(keepId);
 }
 
-void SetEventsText(const std::string &data) {
+static void SetEventsText(const std::string &text) {
   if (!g_eventsText)
     return;
-  Log(LOG_DEBUG, "EVENTS_WINDOW: Received " + ToString((int)data.length()) +
-                     " bytes");
-  size_t start = (data.length() > 0 && data[0] == ' ') ? 1 : 0;
-  std::stringstream ss(data.substr(start));
+  std::stringstream ss(text);
   std::string line;
   g_eventsText->removeAllItems();
   while (std::getline(ss, line)) {
@@ -179,15 +189,19 @@ void SetEventsText(const std::string &data) {
   }
 }
 
+// A gone event comes back with an error status and its own text
+void SetEventContent(const std::string &data) {
+  std::string reply;
+  if (!TakeTaggedReply(data, g_eventsContentRequest, reply))
+    return;
+  std::string text = GetJsonValue(reply, "text");
+  SetEventsText(text.empty() ? FailureText("Load failed: ", reply) : text);
+}
+
 void ShowEventContent(const std::string &id) {
-  if (g_eventsText) {
-    g_eventsText->removeAllItems();
-    g_eventsText->addItem(Utf8ToWide(T("Loading the event...")).c_str());
-  }
-  EventTask *t = new EventTask();
-  t->id = id;
-  t->json = "{\"id\":\"" + EscapeJSON(id) + "\"}";
-  StartThread(EventsContentThread, t);
+  SetEventsText(T("Loading the event..."));
+  PostForGameThread(L"/events/content", "{\"id\":\"" + EscapeJSON(id) + "\"}",
+                    "SET_EVENTS_TEXT", ToString(++g_eventsContentRequest));
 }
 
 void OnEventsSelect(MyGUI::ListBox *sender, size_t index) {
@@ -196,27 +210,6 @@ void OnEventsSelect(MyGUI::ListBox *sender, size_t index) {
   if (index >= g_eventsStorageIds.size())
     return;
   ShowEventContent(g_eventsStorageIds[index]);
-}
-
-DWORD WINAPI EventsContentThread(LPVOID lpParam) {
-  EventTask *t = (EventTask *)lpParam;
-  Log(LOG_DEBUG, "EVENTS_WINDOW: Fetching content for event " + t->id);
-  std::string response = PostToPythonWithResponse(L"/events/content", t->json);
-  if (!response.empty()) {
-    std::string content = GetJsonValue(response, "text");
-    if (!content.empty())
-      QueueMessage("CMD: SET_EVENTS_TEXT: " + content);
-  }
-  delete t;
-  return 0;
-}
-
-DWORD WINAPI EventsResponseThread(LPVOID lpParam) {
-  Log(LOG_DEBUG, "EVENTS_WINDOW: Fetching events list...");
-  std::string response = PostToPythonWithResponse(L"/events", "");
-  if (GetJsonValue(response, "status") == "ok")
-    QueueMessage("CMD: POPULATE_EVENTS: " + response);
-  return 0;
 }
 
 void SetRumorStatus(const std::string &text) {
@@ -430,7 +423,7 @@ void FinishEventChange(const std::string &data, const std::string &failureKey) {
     g_eventsKind = 0;
   }
   g_eventsSelectId = g_rumorEvent;
-  StartThread(EventsResponseThread, NULL);
+  RequestEventsList();
   ShowEventContent(g_rumorEvent);
 }
 
@@ -562,7 +555,7 @@ void CreateEventsUI() {
       "SentientSands_EventsText");
   g_eventsText->addItem(Utf8ToWide(T("Select an event to view details.")).c_str());
 
-  StartThread(EventsResponseThread, NULL);
+  RequestEventsList();
 }
 
 } // namespace UI

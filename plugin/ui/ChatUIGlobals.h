@@ -35,11 +35,6 @@ struct ChatTask {
   std::string offerAnswer;
 };
 
-struct EventTask {
-  std::string id;
-  std::string json;
-};
-
 extern bool g_welcomeShown;
 extern bool g_enableWelcome;
 extern MyGUI::Button *g_welcomeCheckbox;
