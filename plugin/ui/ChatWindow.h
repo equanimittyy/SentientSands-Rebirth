@@ -17,7 +17,7 @@ extern size_t g_lastChatModeIndex;
 
 void CreateChatUI(Character *npc);
 void CloseChatUI();
-// False when the line waits for an offer or for the reply to an action line
+// False when the line goes nowhere
 bool SendChatLine(const std::string &npcName, const std::string &handleStr,
                   Character *speaker, const std::string &text,
                   const std::string &mode, const std::string &offerAnswer,

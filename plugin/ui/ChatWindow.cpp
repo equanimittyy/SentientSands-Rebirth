@@ -92,6 +92,16 @@ static void NotifyChatStatus(const std::string &key,
   LeaveCriticalSection(&g_msgMutex);
 }
 
+// A refused line still answers its offer, or the server would hold the offer
+// and refuse each later line
+static bool RefuseLine(const std::string &key, const std::string &name,
+                       const std::string &offerAnswer) {
+  NotifyChatStatus(key, name);
+  if (!offerAnswer.empty())
+    AsyncPostToPython(L"/offer", offerAnswer);
+  return false;
+}
+
 static bool IsAsciiLetter(char c) {
   return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z');
 }
@@ -277,8 +287,7 @@ bool SendChatLine(const std::string &npcName, const std::string &handleStr,
   bool said = text.compare(0, 1, "/") != 0;
   if (!downName.empty() && said) {
     CloseChatUI();
-    NotifyChatStatus("{name} is unconscious.", downName);
-    return false;
+    return RefuseLine("{name} is unconscious.", downName, offerAnswer);
   }
   bool marked = IsActionMark(text);
   float range = mode == "whisper" ? g_whisperRadius : g_proximityRadius;
@@ -299,21 +308,16 @@ bool SendChatLine(const std::string &npcName, const std::string &handleStr,
   LeaveCriticalSection(&g_msgMutex);
   CloseChatUI();
   if (!offerName.empty()) {
-    NotifyChatStatus("Answer {name}'s offer first.", offerName);
     // The pipe drops a message when it finds no instance in time, so the
     // server sends the popup again, or says that it holds no offer
     if (!g_offerWindow)
       AsyncPostToPython(L"/offer", "{\"answer\": \"show\"}");
-    return false;
+    return RefuseLine("Answer {name}'s offer first.", offerName, offerAnswer);
   }
-  if (!pendingName.empty()) {
-    NotifyChatStatus("{name} is still thinking.", pendingName);
-    return false;
-  }
-  if (tooFar) {
-    NotifyChatStatus("{name} is too far away.", npcName);
-    return false;
-  }
+  if (!pendingName.empty())
+    return RefuseLine("{name} is still thinking.", pendingName, offerAnswer);
+  if (tooFar)
+    return RefuseLine("{name} is too far away.", npcName, offerAnswer);
 
   EnterCriticalSection(&g_msgMutex);
   // Names the speaker, so its bubble and the NPC's actions go to that squad
