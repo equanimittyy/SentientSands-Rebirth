@@ -995,7 +995,7 @@ void playerUpdate_hook(PlayerInterface *thisptr) {
       CreateWelcomeUI();
       CreateLauncherUI();
     }
-    CreateThread(NULL, 0, WelcomeResponseThread, NULL, 0, NULL);
+    StartThread(WelcomeResponseThread, NULL);
     g_welcomeShown = true;
   }
 
@@ -1079,7 +1079,7 @@ void playerUpdate_hook(PlayerInterface *thisptr) {
                 GetDetailedContext(center, "player") +
                 ", \"events\": " + TakeGameEvents() +
                 ", \"changed_towns\": " + ChangedTowns() + "}");
-            CreateThread(NULL, 0, RadiantPollThread, pJson, 0, NULL);
+            StartThread(RadiantPollThread, pJson);
           }
         }
       }
@@ -1150,7 +1150,7 @@ DWORD WINAPI MainThread(LPVOID lpParam) {
     return 1;
   ppSharedKing =
       (SharedKing **)GetProcAddress(hLib, "?shou@@3PEAVSharedKing@@EA");
-  CreateThread(NULL, 0, PipeThread, NULL, 0, NULL);
+  StartThread(PipeThread, NULL);
   LoadPluginConfig();
   StartPythonServer(g_openWebPanelOnStart);
   return 0;
@@ -1234,7 +1234,7 @@ extern "C" __declspec(dllexport) void startPlugin() {
                        (void *)addCharacterAt_hook,
                        (void **)&addCharacterAt_orig);
 
-  CreateThread(NULL, 0, MainThread, NULL, 0, NULL);
+  StartThread(MainThread, NULL);
 }
 
 BOOL APIENTRY DllMain(HMODULE hModule, DWORD ul_reason_for_call,

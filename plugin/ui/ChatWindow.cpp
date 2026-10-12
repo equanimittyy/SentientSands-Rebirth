@@ -444,7 +444,7 @@ bool SendChatLine(const std::string &npcName, const std::string &handleStr,
   task->yell = mode == "yell";
   task->barter = !barterJson.empty();
   task->offerAnswer = offerAnswer;
-  CreateThread(NULL, 0, ChatResponseThread, task, 0, NULL);
+  StartThread(ChatResponseThread, task);
   return true;
 }
 
@@ -496,7 +496,7 @@ static void RequestChatHistory() {
   t->json = "{\"npc_id\":\"" +
             EscapeJSON(target ? GetNpcId(target) : std::string()) + "\"}";
   t->request = ++g_chatHistoryRequest;
-  CreateThread(NULL, 0, ChatHistoryThread, t, 0, NULL);
+  StartThread(ChatHistoryThread, t);
 }
 
 void SetChatHistory(const std::string &data) {

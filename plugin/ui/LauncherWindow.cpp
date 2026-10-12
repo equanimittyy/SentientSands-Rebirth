@@ -73,7 +73,7 @@ DWORD WINAPI CullThread(LPVOID lpParam) {
 
 void OnCullConfirmClick(MyGUI::Widget *sender) {
   CloseCullUI();
-  CreateThread(NULL, 0, CullThread, new std::string(GameReport()), 0, NULL);
+  StartThread(CullThread, new std::string(GameReport()));
 }
 
 void OnCullCancelClick(MyGUI::Widget *sender) { CloseCullUI(); }

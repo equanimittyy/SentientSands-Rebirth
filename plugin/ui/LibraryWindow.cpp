@@ -66,12 +66,12 @@ void CloseLibraryUI() {
 
 void OnLibrarySortLatest(MyGUI::Widget *sender) {
   g_librarySortMode = "latest";
-  CreateThread(NULL, 0, LibraryListThread, NULL, 0, NULL);
+  StartThread(LibraryListThread, NULL);
 }
 
 void OnLibrarySortAZ(MyGUI::Widget *sender) {
   g_librarySortMode = "alphabetical";
-  CreateThread(NULL, 0, LibraryListThread, NULL, 0, NULL);
+  StartThread(LibraryListThread, NULL);
 }
 
 void OnLibraryFavoriteClick(MyGUI::Widget *sender) {
@@ -90,12 +90,12 @@ void OnLibraryFavoriteClick(MyGUI::Widget *sender) {
       LibraryTask *lt = (LibraryTask *)lpParam;
       PostToPythonWithResponse(L"/favorite", lt->json);
       delete lt;
-      CreateThread(NULL, 0, LibraryListThread, NULL, 0, NULL);
+      StartThread(LibraryListThread, NULL);
       return 0;
     }
   };
 
-  CreateThread(NULL, 0, FavHelper::ThreadProc, t, 0, NULL);
+  StartThread(FavHelper::ThreadProc, t);
 }
 
 static const char *BIO_PARTS[] = {"Personality", "Backstory", "SpeechQuirks"};
@@ -176,7 +176,7 @@ void StartBioRequest(const wchar_t *endpoint, const std::string &json,
   t->endpoint = endpoint;
   t->json = json;
   t->command = command;
-  CreateThread(NULL, 0, BioThread, t, 0, NULL);
+  StartThread(BioThread, t);
 }
 
 bool TakeBioReply(const std::string &data, std::string &reply) {
@@ -583,7 +583,7 @@ void StartLibraryHistory(const std::string &npcName, const std::string &sid) {
   t->npcName = npcName;
   t->json = "{\"npc\":\"" + EscapeJSON(sid) + "\"}";
   t->request = ++g_libraryRequest;
-  CreateThread(NULL, 0, LibraryHistoryThread, t, 0, NULL);
+  StartThread(LibraryHistoryThread, t);
 }
 
 void OnLibraryNPCSelect(MyGUI::ListBox *sender, size_t index) {
@@ -660,7 +660,7 @@ DWORD WINAPI LibraryHistoryThread(LPVOID lpParam) {
 void RefreshLibraryUI() {
   if (!g_libraryList)
     return;
-  CreateThread(NULL, 0, LibraryListThread, NULL, 0, NULL);
+  StartThread(LibraryListThread, NULL);
   size_t index = g_libraryList->getIndexSelected();
   if (index >= g_libraryStorageIds.size())
     return;
@@ -785,7 +785,7 @@ void CreateLibraryUI() {
   g_libraryText->setFontHeight(18);
   SetLibraryText(T("Select an NPC from the list to view their profile."));
 
-  CreateThread(NULL, 0, LibraryListThread, NULL, 0, NULL);
+  StartThread(LibraryListThread, NULL);
 }
 
 } // namespace UI

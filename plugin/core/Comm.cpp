@@ -143,6 +143,12 @@ std::string PostToPythonWithResponse(const std::wstring &endpoint,
   return responseBody;
 }
 
+void StartThread(LPTHREAD_START_ROUTINE start, LPVOID arg) {
+  HANDLE thread = CreateThread(NULL, 0, start, arg, 0, NULL);
+  if (thread)
+    CloseHandle(thread);
+}
+
 struct HttpTask {
   std::wstring endpoint;
   std::string data;
@@ -160,7 +166,7 @@ void AsyncPostToPython(const std::wstring &endpoint,
   HttpTask *task = new HttpTask();
   task->endpoint = endpoint;
   task->data = jsonData;
-  CreateThread(NULL, 0, AsyncHttpThread, task, 0, NULL);
+  StartThread(AsyncHttpThread, task);
 }
 
 DWORD WINAPI RadiantPollThread(LPVOID lpParam) {

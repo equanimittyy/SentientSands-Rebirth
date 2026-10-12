@@ -97,7 +97,7 @@ static void AskTerms(Character *c, double expiry) {
   t->ask = hire.ask;
   t->json = "{\"npc_id\": \"" + EscapeJSON(GetNpcId(c)) + "\", \"npc\": \"" +
             EscapeJSON(c->getName()) + "\"}";
-  CreateThread(NULL, 0, HireTermsThread, t, 0, NULL);
+  StartThread(HireTermsThread, t);
 }
 
 static void ScanHires(GameWorld *world) {

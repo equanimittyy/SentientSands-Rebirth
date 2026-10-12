@@ -63,7 +63,7 @@ void StartJournalRequest(const wchar_t *endpoint, const std::string &json,
   t->json = json;
   t->command = command;
   t->tag = tag;
-  CreateThread(NULL, 0, JournalThread, t, 0, NULL);
+  StartThread(JournalThread, t);
 }
 
 bool SplitJournalReply(const std::string &data, std::string &tag,

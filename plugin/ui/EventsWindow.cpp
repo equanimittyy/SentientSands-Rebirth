@@ -194,7 +194,7 @@ void ShowEventContent(const std::string &id) {
   EventTask *t = new EventTask();
   t->id = id;
   t->json = "{\"id\":\"" + EscapeJSON(id) + "\"}";
-  CreateThread(NULL, 0, EventsContentThread, t, 0, NULL);
+  StartThread(EventsContentThread, t);
 }
 
 void OnEventsSelect(MyGUI::ListBox *sender, size_t index) {
@@ -260,7 +260,7 @@ void StartRumorRequest(const wchar_t *endpoint, const std::string &json,
   t->endpoint = endpoint;
   t->json = json;
   t->command = command;
-  CreateThread(NULL, 0, RumorThread, t, 0, NULL);
+  StartThread(RumorThread, t);
 }
 
 bool TakeRumorReply(const std::string &data, std::string &reply) {
@@ -472,7 +472,7 @@ void FinishEventChange(const std::string &data, const std::string &failureKey) {
     g_eventsKind = 0;
   }
   g_eventsSelectId = g_rumorEvent;
-  CreateThread(NULL, 0, EventsResponseThread, NULL, 0, NULL);
+  StartThread(EventsResponseThread, NULL);
   ShowEventContent(g_rumorEvent);
 }
 
@@ -604,7 +604,7 @@ void CreateEventsUI() {
       "SentientSands_EventsText");
   g_eventsText->addItem(Utf8ToWide(T("Select an event to view details.")).c_str());
 
-  CreateThread(NULL, 0, EventsResponseThread, NULL, 0, NULL);
+  StartThread(EventsResponseThread, NULL);
 }
 
 } // namespace UI
