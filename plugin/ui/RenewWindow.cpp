@@ -41,6 +41,7 @@ struct Hire {
   int hours;
   int fee;
   std::string text;
+  bool due;
 };
 static std::vector<Hire> g_hires;
 static unsigned int g_lastAsk = 0;
@@ -85,6 +86,7 @@ static void AskTerms(Character *c, double expiry) {
   hire.ask = ++g_lastAsk;
   hire.hours = 0;
   hire.fee = 0;
+  hire.due = false;
   for (size_t i = 0; i < g_hires.size(); ++i)
     if (g_hires[i].key == hire.key) {
       g_hires.erase(g_hires.begin() + i);
@@ -113,6 +115,22 @@ static void ScanHires(GameWorld *world) {
     if (!known)
       AskTerms(c, expiry);
   }
+}
+
+// The hire may still wait for its terms, so the popup opens when they arrive
+void ExpireHire(Character *npc) {
+  double expiry;
+  if (!Hired(npc, expiry))
+    return;
+  unsigned int key = HandleKey(npc);
+  for (size_t i = 0; i < g_hires.size(); ++i)
+    if (g_hires[i].key == key && g_hires[i].npc == npc &&
+        g_hires[i].expiry == expiry) {
+      g_hires[i].due = true;
+      return;
+    }
+  AskTerms(npc, expiry);
+  g_hires.back().due = true;
 }
 
 // The data holds the ask, the hours, and the fee on its first line, and the
@@ -275,7 +293,8 @@ void WatchHires(GameWorld *world) {
       g_hires.erase(g_hires.begin() + i);
       continue;
     }
-    if (g_hires[i].hours > 0 && now >= expiry - HIRE_MARGIN_HOURS) {
+    if (g_hires[i].hours > 0 &&
+        (g_hires[i].due || now >= expiry - HIRE_MARGIN_HOURS)) {
       Hire hire = g_hires[i];
       g_hires.erase(g_hires.begin() + i);
       ShowRenewUI(world, hire);

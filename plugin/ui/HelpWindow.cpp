@@ -232,8 +232,9 @@ static const HelpTopic HELP_TOPICS[] = {
       {"/travel [town]", "The NPC travels to the town."},
       {"/follow", "/follow [hours] hires the NPC as a bodyguard for that many "
                   "hours, /follow [line ID] starts the contract of a dialogue "
-                  "line of the game, and /follow end ends the hire. /follow "
-                  "alone only writes the contract of the NPC to the log."},
+                  "line of the game, and /follow end makes the hire run out "
+                  "now, as when its time ends. /follow alone only writes the "
+                  "contract of the NPC to the log."},
       {"/firstaid", "The NPC treats the wounds of the speaker, or repairs its "
                     "robotic parts, when it carries the kit. /firstaid job and "
                     "/firstaid aid try other orders for the repair."},

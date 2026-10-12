@@ -383,12 +383,15 @@ def chat():
         elif cmd == "travel": test_action = f"[ACTION: TRAVEL_TO_TARGET_TOWN: {args}]"
         elif cmd in ("stock", "firstaid", "follow"):
             if cmd == "follow" and args and not re.fullmatch(r"\d+|end|\d+-\S+", args):
-                return reply("[DEBUG] /follow alone logs the contract of the target. /follow [hours] or /follow [line ID] starts one, and /follow end ends it.")
+                return reply("[DEBUG] /follow alone logs the contract of the target. /follow [hours] or /follow [line ID] starts one, and /follow end runs it out.")
             if cmd == "follow" and args:
                 npc_id = context_dict(data.get('context', '')).get('npc_id')
                 # Only a hire of hours has terms that a renewal repeats
                 if args.isdigit():
                     campaign_db.set_hire(npc_id, int(args), 0)
+                elif args == "end" and campaign_db.hire(npc_id):
+                    logging.info("CHAT: Test command follow -> [ACTION: EXPIRE_HIRE]")
+                    return reply("[DEBUG] Executing test command: follow expiry", actions=["[ACTION: EXPIRE_HIRE]"])
                 else:
                     campaign_db.end_hire(npc_id)
             probe = f"[ACTION: PROBE: {'hire' if cmd == 'follow' else cmd}{': ' + args if args else ''}]"

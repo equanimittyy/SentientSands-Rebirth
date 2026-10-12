@@ -530,6 +530,10 @@ void ProcessMessageQueue(GameWorld *thisptr) {
             act.actor = targetHand;
             g_uiActionQueue.push_back(act);
             LeaveCriticalSection(&g_uiMutex);
+          } else if (actStr.find("EXPIRE_HIRE") != std::string::npos) {
+            Character *npc = targetHand.getCharacter();
+            if (npc)
+              ExpireHire(npc);
           } else if (actStr.find("END_HIRE") != std::string::npos) {
             EnterCriticalSection(&g_uiMutex);
             QueuedAction act;

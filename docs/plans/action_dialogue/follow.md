@@ -41,4 +41,6 @@ When a hire of FOLLOW runs out, a popup asks the player to renew it on the same 
 - Decline, or the close button of the popup, ends the hire.
 - A hire of the game's own dialogues has no terms on the server, so it expires as in the game.
 
-An accepted FOLLOW deal and `/follow [hours]` store the terms, with no fee for `/follow`. DISMISS, a declined renewal, `/follow end`, and `/follow [line ID]` delete them. A renewal keeps them, so each renewal repeats the first deal.
+An accepted FOLLOW deal and `/follow [hours]` store the terms, with no fee for `/follow`. DISMISS, a declined renewal, and `/follow [line ID]` delete them. A renewal keeps them, so each renewal repeats the first deal.
+
+`/follow end` makes a hire with terms run out at once, as its expiry would, so a test of the popup does not wait for the expiry. It ends a hire without terms at once.
