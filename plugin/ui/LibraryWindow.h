@@ -28,8 +28,6 @@ MyGUI::EditBox *AddBioEditBox(MyGUI::Widget *client, float top, float height,
 void OnLibraryNPCSelect(MyGUI::ListBox *sender, size_t index);
 void OnLibraryWindowButtonPressed(MyGUI::Window *sender,
                                   const std::string &name);
-DWORD WINAPI LibraryListThread(LPVOID lpParam);
-DWORD WINAPI LibraryHistoryThread(LPVOID lpParam);
 
 } // namespace UI
 } // namespace SentientSands

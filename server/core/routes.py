@@ -403,7 +403,6 @@ def list_characters():
         {"display": c["name"] or c["npc_id"], "sid": c["npc_id"], "updated_at": c["updated_at"], "is_fav": c["favorite"]}
         for c in campaign_db.list_characters() if not c["only_overheard"] and (c["has_dialogue"] or c["origin"] != "seed")
     ]
-    favorites = [n["sid"] for n in final_list if n["is_fav"]]
 
     if sort_mode == "latest":
         final_list.sort(key=lambda x: x["updated_at"], reverse=True)
@@ -412,16 +411,9 @@ def list_characters():
 
     favs = [n for n in final_list if n["is_fav"]]
     others = [n for n in final_list if not n["is_fav"]]
-    
-    sorted_npcs = favs + others
-    
-    names = [f"{n['display']}|{n['sid']}" for n in sorted_npcs]
-    
     return jsonify({
         "status": "ok",
-        "characters": ",".join(names),
-        "names": ",".join(names),
-        "favorites": favorites
+        "characters": [{"name": n["display"], "sid": n["sid"], "fav": n["is_fav"]} for n in favs + others],
     })
 
 @bp.route('/favorite', methods=['POST'])

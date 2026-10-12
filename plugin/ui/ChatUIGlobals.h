@@ -35,12 +35,6 @@ struct ChatTask {
   std::string offerAnswer;
 };
 
-struct LibraryTask {
-  std::string npcName;
-  std::string json;
-  int request;
-};
-
 struct EventTask {
   std::string id;
   std::string json;

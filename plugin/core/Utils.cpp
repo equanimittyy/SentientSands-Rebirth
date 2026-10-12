@@ -254,6 +254,42 @@ std::string GetJsonValue(const std::string &json, const std::string &key) {
   return "";
 }
 
+static void AddArrayItem(std::vector<std::string> &items,
+                         const std::string &array, size_t start, size_t end) {
+  size_t first = array.find_first_not_of(" \t\r\n", start);
+  size_t last = array.find_last_not_of(" \t\r\n", end - 1);
+  if (first < end && last != std::string::npos && last >= first)
+    items.push_back(array.substr(first, last - first + 1));
+}
+
+std::vector<std::string> JsonArrayItems(const std::string &array) {
+  std::vector<std::string> items;
+  int depth = 0;
+  bool inString = false;
+  size_t start = 0;
+  for (size_t i = 0; i < array.length(); ++i) {
+    char c = array[i];
+    if (inString) {
+      if (c == '\\')
+        ++i;
+      else if (c == '"')
+        inString = false;
+    } else if (c == '"') {
+      inString = true;
+    } else if (c == '[' || c == '{') {
+      if (depth++ == 0)
+        start = i + 1;
+    } else if (c == ']' || c == '}') {
+      if (--depth == 0)
+        AddArrayItem(items, array, start, i);
+    } else if (c == ',' && depth == 1) {
+      AddArrayItem(items, array, start, i);
+      start = i + 1;
+    }
+  }
+  return items;
+}
+
 static bool CharEqualIgnoreCase(char a, char b) {
   return tolower((unsigned char)a) == tolower((unsigned char)b);
 }

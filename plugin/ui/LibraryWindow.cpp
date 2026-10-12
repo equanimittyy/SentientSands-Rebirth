@@ -2,8 +2,6 @@
 #include "../core/Comm.h"
 #include "../core/Globals.h"
 #include "../core/Utils.h"
-#include <algorithm>
-#include <cstdlib>
 #include <mygui/MyGUI_Button.h>
 #include <mygui/MyGUI_Delegate.h>
 #include <mygui/MyGUI_Gui.h>
@@ -26,11 +24,16 @@ MyGUI::Button *g_libraryBioBtn = nullptr;
 MyGUI::EditBox *g_librarySearch = nullptr;
 
 std::vector<std::string> g_libraryStorageIds;
-std::vector<std::string> g_libraryAllNames;
-std::vector<std::string> g_libraryAllSids;
 std::string g_librarySortMode = "alphabetical";
-std::vector<std::string> g_libraryFavorites;
 int g_libraryRequest = 0;
+
+struct LibraryRow {
+  std::string name;
+  std::string sid;
+  bool fav;
+};
+static std::vector<LibraryRow> g_libraryRows;
+static int g_libraryListRequest = 0;
 
 static const int LIBRARY_FACT_COUNT = 9;
 static const char *LIBRARY_FACT_KEYS[] = {"race",     "faction", "sex",
@@ -43,6 +46,7 @@ MyGUI::TextBox *g_libraryFacts[LIBRARY_FACT_COUNT] = {nullptr};
 
 void CloseLibraryUI() {
   g_libraryRequest++;
+  g_libraryListRequest++;
   if (g_libraryWindow) {
     if (MyGUI::Gui::getInstancePtr())
       MyGUI::Gui::getInstancePtr()->destroyWidget(g_libraryWindow);
@@ -58,44 +62,37 @@ void CloseLibraryUI() {
     g_libraryBioBtn = nullptr;
     g_librarySearch = nullptr;
     g_libraryStorageIds.clear();
-    g_libraryAllNames.clear();
-    g_libraryAllSids.clear();
-    g_libraryFavorites.clear();
+    g_libraryRows.clear();
   }
+}
+
+static std::string SelectedLibrarySid() {
+  size_t index =
+      g_libraryList ? g_libraryList->getIndexSelected() : MyGUI::ITEM_NONE;
+  return index < g_libraryStorageIds.size() ? g_libraryStorageIds[index] : "";
+}
+
+static void RequestLibraryList() {
+  PostForGameThread(L"/characters",
+                    "{\"sort\":\"" + g_librarySortMode + "\"}",
+                    "POPULATE_LIBRARY", ToString(++g_libraryListRequest));
 }
 
 void OnLibrarySortLatest(MyGUI::Widget *sender) {
   g_librarySortMode = "latest";
-  StartThread(LibraryListThread, NULL);
+  RequestLibraryList();
 }
 
 void OnLibrarySortAZ(MyGUI::Widget *sender) {
   g_librarySortMode = "alphabetical";
-  StartThread(LibraryListThread, NULL);
+  RequestLibraryList();
 }
 
 void OnLibraryFavoriteClick(MyGUI::Widget *sender) {
-  size_t index = g_libraryList->getIndexSelected();
-  if (index == MyGUI::ITEM_NONE)
-    return;
-
-  std::string sid = g_libraryStorageIds[index];
-
-  LibraryTask *t = new LibraryTask();
-  t->npcName = g_libraryList->getItemNameAt(index);
-  t->json = "{\"sid\":\"" + EscapeJSON(sid) + "\"}";
-
-  struct FavHelper {
-    static DWORD WINAPI ThreadProc(LPVOID lpParam) {
-      LibraryTask *lt = (LibraryTask *)lpParam;
-      PostToPythonWithResponse(L"/favorite", lt->json);
-      delete lt;
-      StartThread(LibraryListThread, NULL);
-      return 0;
-    }
-  };
-
-  StartThread(FavHelper::ThreadProc, t);
+  std::string sid = SelectedLibrarySid();
+  if (!sid.empty())
+    PostForGameThread(L"/favorite", "{\"sid\":\"" + EscapeJSON(sid) + "\"}",
+                      "REFRESH_LIBRARY", "");
 }
 
 static const char *BIO_PARTS[] = {"Personality", "Backstory", "SpeechQuirks"};
@@ -389,131 +386,57 @@ void OnLibraryEditBioClick(MyGUI::Widget *sender) {
                   "BIO_READ");
 }
 
+// setIndexSelected fires no change event, so a reload also refreshes the
+// caption
+static void ShowFavCaption() {
+  std::string sid = SelectedLibrarySid();
+  bool fav = false;
+  for (size_t i = 0; i < g_libraryRows.size(); i++)
+    if (g_libraryRows[i].sid == sid)
+      fav = g_libraryRows[i].fav;
+  g_libraryFavBtn->setCaption(
+      Utf8ToWide(T(sid.empty() ? "Fav Toggle" : fav ? "Fav: [YES]" : "Fav: [NO]"))
+          .c_str());
+}
+
 void ApplyLibraryFilter(const std::string &keepSid) {
   g_libraryList->removeAllItems();
   g_libraryStorageIds.clear();
   std::string query =
       g_librarySearch ? g_librarySearch->getOnlyText().asUTF8() : "";
-  for (size_t i = 0; i < g_libraryAllSids.size(); i++) {
-    const std::string &name = g_libraryAllNames[i];
-    const std::string &sid = g_libraryAllSids[i];
-    if (!ContainsIgnoreCase(name, query))
+  for (size_t i = 0; i < g_libraryRows.size(); i++) {
+    const LibraryRow &row = g_libraryRows[i];
+    if (!ContainsIgnoreCase(row.name, query))
       continue;
-    bool isFav = std::find(g_libraryFavorites.begin(), g_libraryFavorites.end(),
-                           sid) != g_libraryFavorites.end();
-    g_libraryList->addItem(Utf8ToWide(isFav ? "[*] " + name : name).c_str());
-    g_libraryStorageIds.push_back(sid);
-    if (sid == keepSid)
+    g_libraryList->addItem(
+        Utf8ToWide(row.fav ? "[*] " + row.name : row.name).c_str());
+    g_libraryStorageIds.push_back(row.sid);
+    if (row.sid == keepSid)
       g_libraryList->setIndexSelected(g_libraryStorageIds.size() - 1);
   }
+  ShowFavCaption();
 }
 
 void OnLibrarySearchChange(MyGUI::EditBox *sender) {
-  size_t index = g_libraryList->getIndexSelected();
-  ApplyLibraryFilter(index < g_libraryStorageIds.size()
-                         ? g_libraryStorageIds[index]
-                         : "");
+  ApplyLibraryFilter(SelectedLibrarySid());
 }
 
-void PopulateLibraryUI(const std::string &dataInput) {
-  if (!g_libraryList)
+void PopulateLibraryUI(const std::string &data) {
+  std::string reply;
+  if (!g_libraryList || !TakeTaggedReply(data, g_libraryListRequest, reply) ||
+      GetJsonValue(reply, "status") != "ok")
     return;
-
-  size_t selIndex = g_libraryList->getIndexSelected();
-  std::string selSid = "";
-  if (selIndex != MyGUI::ITEM_NONE && selIndex < g_libraryStorageIds.size()) {
-    selSid = g_libraryStorageIds[selIndex];
+  std::vector<std::string> items =
+      JsonArrayItems(GetJsonValue(reply, "characters"));
+  g_libraryRows.clear();
+  for (size_t i = 0; i < items.size(); i++) {
+    LibraryRow row;
+    row.name = GetJsonValue(items[i], "name");
+    row.sid = GetJsonValue(items[i], "sid");
+    row.fav = GetJsonValue(items[i], "fav") == "true";
+    g_libraryRows.push_back(row);
   }
-
-  g_libraryAllNames.clear();
-  g_libraryAllSids.clear();
-  g_libraryFavorites.clear();
-
-  std::string data = dataInput;
-  std::string favsPart = "";
-  size_t mainPipe = std::string::npos;
-  // "name|sid,...|[favs]": entries contain '|' too, so split at the last '|' followed by '['
-  for (int i = (int)strlen(data.c_str()) - 1; i >= 0; i--) {
-    if (data[i] == '|') {
-      if (data.find('[', i) != std::string::npos) {
-        mainPipe = (size_t)i;
-        break;
-      }
-    }
-  }
-  if (mainPipe != std::string::npos &&
-      data.find("[", mainPipe) != std::string::npos) {
-    favsPart = data.substr(mainPipe + 1);
-    data = data.substr(0, mainPipe);
-  }
-
-  if (!favsPart.empty()) {
-    size_t cur = 0, next;
-    while ((next = favsPart.find("\"", cur)) != std::string::npos) {
-      size_t end = favsPart.find("\"", next + 1);
-      if (end == std::string::npos)
-        break;
-      g_libraryFavorites.push_back(favsPart.substr(next + 1, end - next - 1));
-      cur = end + 1;
-    }
-  }
-
-  if (!data.empty() && data[0] == '[')
-    data = data.substr(1);
-  if (!data.empty() && data[data.length() - 1] == ']')
-    data = data.substr(0, data.length() - 1);
-
-  auto trim = [](std::string &s) {
-    s.erase(0, s.find_first_not_of(" \t\r\n"));
-    s.erase(s.find_last_not_of(" \t\r\n") + 1);
-  };
-
-  if (!data.empty()) {
-    size_t cur = 0, next;
-    while ((next = data.find(",", cur)) != std::string::npos) {
-      std::string entry = data.substr(cur, next - cur);
-      trim(entry);
-      if (!entry.empty()) {
-        if (entry[0] == '"')
-          entry = entry.substr(1);
-        if (entry[entry.length() - 1] == '"')
-          entry = entry.substr(0, entry.length() - 1);
-
-        size_t pipePos = entry.find("|");
-        std::string sid = entry;
-        std::string display = entry;
-        if (pipePos != std::string::npos) {
-          display = entry.substr(0, pipePos);
-          sid = entry.substr(pipePos + 1);
-        }
-
-        g_libraryAllNames.push_back(display);
-        g_libraryAllSids.push_back(sid);
-      }
-      cur = next + 1;
-    }
-    std::string last = data.substr(cur);
-    trim(last);
-    if (!last.empty()) {
-      if (last[0] == '"')
-        last = last.substr(1);
-      if (last[last.length() - 1] == '"')
-        last = last.substr(0, last.length() - 1);
-
-      size_t pipePos = last.find("|");
-      std::string sid = last;
-      std::string display = last;
-      if (pipePos != std::string::npos) {
-        display = last.substr(0, pipePos);
-        sid = last.substr(pipePos + 1);
-      }
-
-      g_libraryAllNames.push_back(display);
-      g_libraryAllSids.push_back(sid);
-    }
-  }
-
-  ApplyLibraryFilter(selSid);
+  ApplyLibraryFilter(SelectedLibrarySid());
 }
 
 void SetLibraryText(const std::string &text) {
@@ -538,46 +461,30 @@ void ShowLibraryProfile(const std::string &json) {
 // The player can pick another NPC, or close the window, while a request runs,
 // and the replies can come back out of order
 void SetLibraryProfile(const std::string &data) {
-  size_t sep = data.find('|');
-  if (sep == std::string::npos || atoi(data.c_str()) != g_libraryRequest)
+  std::string reply;
+  if (!TakeTaggedReply(data, g_libraryRequest, reply))
     return;
-  ShowLibraryProfile(data.substr(sep + 1));
+  if (GetJsonValue(reply, "status") != "ok") {
+    SetLibraryText(FailureText("Load failed: ", reply));
+    return;
+  }
+  ShowLibraryProfile(reply);
 }
 
-void StartLibraryHistory(const std::string &npcName, const std::string &sid) {
-  LibraryTask *t = new LibraryTask();
-  t->npcName = npcName;
-  t->json = "{\"npc\":\"" + EscapeJSON(sid) + "\"}";
-  t->request = ++g_libraryRequest;
-  StartThread(LibraryHistoryThread, t);
+// The server keys profiles by npc_id, and two NPCs can share a display name
+static void StartLibraryHistory(const std::string &sid) {
+  PostForGameThread(L"/history", "{\"npc\":\"" + EscapeJSON(sid) + "\"}",
+                    "SET_LIBRARY_PROFILE", ToString(++g_libraryRequest));
 }
 
 void OnLibraryNPCSelect(MyGUI::ListBox *sender, size_t index) {
-  if (index == MyGUI::ITEM_NONE)
+  if (index >= g_libraryStorageIds.size())
     return;
-  std::string displayName = sender->getItemNameAt(index);
-
-  // The server keys profiles by npc_id, and two NPCs can share a display name
-  std::string storageId = displayName;
-  if (index < g_libraryStorageIds.size()) {
-    storageId = g_libraryStorageIds[index];
-  }
-
-  if (g_libraryFavBtn) {
-    bool isFav = false;
-    for (size_t f = 0; f < g_libraryFavorites.size(); f++) {
-      if (g_libraryFavorites[f] == storageId) {
-        isFav = true;
-        break;
-      }
-    }
-    g_libraryFavBtn->setCaption(
-        Utf8ToWide(isFav ? T("Fav: [YES]") : T("Fav: [NO]")).c_str());
-  }
-
+  ShowFavCaption();
   ShowLibraryProfile("");
-  SetLibraryText(T("Loading profile for ") + displayName + "...");
-  StartLibraryHistory(displayName, storageId);
+  SetLibraryText(T("Loading profile for ") +
+                 sender->getItemNameAt(index).asUTF8() + "...");
+  StartLibraryHistory(g_libraryStorageIds[index]);
 }
 
 void OnLibraryWindowButtonPressed(MyGUI::Window *sender,
@@ -586,45 +493,13 @@ void OnLibraryWindowButtonPressed(MyGUI::Window *sender,
     CloseLibraryUI();
 }
 
-DWORD WINAPI LibraryListThread(LPVOID lpParam) {
-  Log(LOG_DEBUG, "LIBRARY: Fetching characters (Sort: " + g_librarySortMode +
-                     ")...");
-  std::string json = "{\"sort\":\"" + g_librarySortMode + "\"}";
-  std::string response = PostToPythonWithResponse(L"/characters", json);
-  if (!response.empty()) {
-    std::string chars = GetJsonValue(response, "names");
-    if (chars.empty())
-      chars = GetJsonValue(response, "characters");
-
-    if (!chars.empty())
-      QueueMessage("CMD: POPULATE_LIBRARY: " + chars + "|" +
-                   GetJsonValue(response, "favorites"));
-  }
-  return 0;
-}
-
-DWORD WINAPI LibraryHistoryThread(LPVOID lpParam) {
-  LibraryTask *t = (LibraryTask *)lpParam;
-  Log(LOG_DEBUG, "LIBRARY: Fetching history for " + t->npcName);
-  std::string response = PostToPythonWithResponse(L"/history", t->json);
-  Log(LOG_DEBUG,
-      "LIBRARY: Received " + ToString((int)response.length()) + " bytes");
-  if (!GetJsonValue(response, "text").empty())
-    QueueMessage("CMD: SET_LIBRARY_PROFILE: " + ToString(t->request) + "|" +
-                 response);
-  delete t;
-  return 0;
-}
-
 void RefreshLibraryUI() {
   if (!g_libraryList)
     return;
-  StartThread(LibraryListThread, NULL);
-  size_t index = g_libraryList->getIndexSelected();
-  if (index >= g_libraryStorageIds.size())
-    return;
-  StartLibraryHistory(g_libraryList->getItemNameAt(index).asUTF8(),
-                      g_libraryStorageIds[index]);
+  RequestLibraryList();
+  std::string sid = SelectedLibrarySid();
+  if (!sid.empty())
+    StartLibraryHistory(sid);
 }
 
 void AddLibraryFact(MyGUI::Widget *client, int i) {
@@ -744,7 +619,7 @@ void CreateLibraryUI() {
   g_libraryText->setFontHeight(18);
   SetLibraryText(T("Select an NPC from the list to view their profile."));
 
-  StartThread(LibraryListThread, NULL);
+  RequestLibraryList();
 }
 
 } // namespace UI
