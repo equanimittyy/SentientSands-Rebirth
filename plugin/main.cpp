@@ -224,6 +224,8 @@ void ProcessMessageQueue(GameWorld *thisptr) {
             ShowOfferUI(data);
           } else if (command == "OFFER_GONE") {
             DropOfferUI();
+          } else if (command == "HIRE_TERMS") {
+            SetHireTerms(data);
           } else if (command == "CHAT_HISTORY") {
             SetChatHistory(data);
           } else if (command == "BARTER_TURN") {
@@ -1013,6 +1015,7 @@ void playerUpdate_hook(PlayerInterface *thisptr) {
     static int invTimer = 0;
     ExecuteQueuedActions(world, invTimer);
     WatchOffer();
+    WatchHires(world);
     WatchReleases(world);
     WatchFights(world);
     WatchTreatments(world);

@@ -68,14 +68,14 @@ static void CloseOfferUI() {
   g_offerBoxes.clear();
 }
 
-static void NotifyText(const std::string &text) {
+void NotifyText(const std::string &text) {
   EnterCriticalSection(&g_msgMutex);
   g_messageQueue.push_back("NOTIFY: " + text);
   LeaveCriticalSection(&g_msgMutex);
 }
 
-static std::string Fill(std::string text, const std::string &slot,
-                        const std::string &value) {
+std::string Fill(std::string text, const std::string &slot,
+                 const std::string &value) {
   size_t at = text.find(slot);
   if (at != std::string::npos)
     text.replace(at, slot.size(), value);

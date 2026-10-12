@@ -79,14 +79,6 @@ static bool g_barterWaiting = false;
 static std::map<std::string, int> g_npcPrices;
 static std::map<std::string, int> g_squadPrices;
 
-static std::string Fill(std::string text, const std::string &slot,
-                        const std::string &value) {
-  size_t at = text.find(slot);
-  if (at != std::string::npos)
-    text.replace(at, slot.size(), value);
-  return text;
-}
-
 static void SetCaption(MyGUI::TextBox *widget, const std::string &text) {
   widget->setCaption(Utf8ToWide(text).c_str());
 }

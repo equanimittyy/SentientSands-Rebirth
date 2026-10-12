@@ -102,6 +102,16 @@ class TextTest(unittest.TestCase):
         self.assertEqual(offers.popup_text(release, "Guard", "Zaps"), "Guard offers your release for 500 cats.")
         self.assertEqual(offers.actions(release), ["[ACTION: TAKE_CATS: 500]", "[ACTION: RELEASE_PRISONER]"])
 
+    def test_a_hire_keeps_its_terms_for_the_renewal(self):
+        hire, _ = check("FOLLOW", "[OFFER: HIRE: 2 days; TAKE_CATS: 400]")
+        self.assertEqual(offers.hire_terms(hire), (48, 400))
+        free, _ = check("FOLLOW", "[OFFER: HIRE: 6 hours]")
+        self.assertEqual(offers.hire_terms(free), (6, 0))
+        recruit, _ = check("RECRUIT", "[OFFER: JOIN_PARTY; TAKE_CATS: 800]")
+        self.assertIsNone(offers.hire_terms(recruit))
+        self.assertEqual(offers.renewal_text("Drifter", 48, 4000), "Drifter offers to renew following you for 2 days for 4,000 cats.")
+        self.assertEqual(offers.renewal_text("Drifter", 6, 0), "Drifter offers to renew following you for 6 hours.")
+
     def test_the_memory_lines_are_deal_lines(self):
         handover, _ = check("THREATEN", "[OFFER: GIVE_CATS: 200]")
         accepted = offers.accepted_line(handover, "Bandit", "Zaps")

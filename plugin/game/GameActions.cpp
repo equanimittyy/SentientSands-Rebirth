@@ -1007,6 +1007,10 @@ void ExecuteQueuedActions(GameWorld *thisptr, int &inventoryTimer) {
           Blackboard *board = npc->getBlackboard();
           GameData *bodyguard = thisptr->gamedata.getData("5090-gamedata.base");
           if (board && (uintptr_t)board > 0x1000 && bodyguard) {
+            // A renewal finds the old contract still running, and
+            // _setContractJob is tested only on an NPC without a contract
+            if (board->hasContractJob())
+              board->endContractJob();
             // The game's hire dialogues give the Bodyguard package with hours
             board->_setContractJob(bodyguard, act.taskValue, target->getHandle());
             thisptr->showPlayerAMessage_withLog(

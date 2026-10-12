@@ -335,6 +335,16 @@ def popup_text(offer, npc, player):
     return f"{npc} offers {deal_text(offer, 'popup', player)}{f' for {paid}' if paid else ''}."
 
 
+def hire_terms(offer):
+    """(hours, fee) of a hire, or None for a deal without one."""
+    hours = sum(value for kind, value in offer["gives"] if kind == "HIRE")
+    return (hours, sum(value for kind, value in offer["takes"] if kind == "CATS")) if hours else None
+
+
+def renewal_text(npc, hours, fee):
+    return f"{npc} offers to renew following you for {length_text(hours)}{f' for {fee:,} cats' if fee else ''}."
+
+
 def accepted_line(offer, npc, player):
     paid = goods_text(offer["takes"])
     if not offer["gives"]:

@@ -15,7 +15,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 DB_NAME = "campaign.db"
-SCHEMA_VERSION = 21
+SCHEMA_VERSION = 22
 DIALOGUE_BLOCK = 20
 # A memory that this many passes read and did not cite leaves the auto rumor pool, so dull memories do not fill each prompt
 RUMOR_PASSES = 6
@@ -117,6 +117,11 @@ CREATE TABLE entity (
   origin     TEXT NOT NULL DEFAULT 'campaign',
   updated_at TEXT NOT NULL,
   UNIQUE (category, ext_id)
+);
+CREATE TABLE hire (
+  npc_id TEXT PRIMARY KEY,
+  hours  INTEGER NOT NULL,
+  fee    INTEGER NOT NULL
 );
 INSERT INTO meta (key, value) VALUES ('schema_version', '{SCHEMA_VERSION}');
 """
@@ -603,6 +608,23 @@ def toggle_favorite(npc_id):
             return None
         conn.execute("UPDATE character SET favorite = ? WHERE id = ?", (int(not row[1]), row[0]))
         return not row[1]
+
+
+def set_hire(npc_id, hours, fee):
+    with _connect(write=True) as conn:
+        conn.execute("INSERT OR REPLACE INTO hire (npc_id, hours, fee) VALUES (?, ?, ?)", (npc_id, hours, fee))
+
+
+def hire(npc_id):
+    """(hours, fee) of the hire, or None."""
+    with _connect() as conn:
+        row = conn.execute("SELECT hours, fee FROM hire WHERE npc_id = ?", (npc_id,)).fetchone()
+    return tuple(row) if row else None
+
+
+def end_hire(npc_id):
+    with _connect(write=True) as conn:
+        conn.execute("DELETE FROM hire WHERE npc_id = ?", (npc_id,))
 
 
 def add_event(kind, doers, victim, game_time):

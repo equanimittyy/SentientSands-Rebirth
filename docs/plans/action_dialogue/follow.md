@@ -32,3 +32,13 @@ A mercenary never follows for free: its fee is at least the daily rate of its fa
 | Black Dog | 2,500 cats | `Black dog random extortion` (`47469-Dialogue.mod`): 1 day for 2,500 |
 
 The Cannibal Hunters sell only the `contract Mercenary outpost guard`, in which the hired squad guards an outpost and does not follow, so they are not mercenaries of FOLLOW.
+
+## 4. Renewal
+
+When a hire of FOLLOW runs out, a popup asks the player to renew it on the same terms: the length and the fee of the last deal. The game ends a contract at its expiry, so the popup opens 0.1 game hours before the expiry, and it pauses the game until the player answers.
+
+- Accept takes the fee and starts a new contract of the same length, with no LLM call. The NPC follows the squad member that is nearest to it, because the plugin does not read the giver of the old contract. When the player has fewer cats than the fee, the hire ends.
+- Decline, or the close button of the popup, ends the hire.
+- A hire of the game's own dialogues has no terms on the server, so it expires as in the game.
+
+An accepted FOLLOW deal and `/follow [hours]` store the terms, with no fee for `/follow`. DISMISS, a declined renewal, `/follow end`, and `/follow [line ID]` delete them. A renewal keeps them, so each renewal repeats the first deal.

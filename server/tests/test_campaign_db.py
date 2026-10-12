@@ -230,6 +230,14 @@ class CharacterTest(CampaignTestCase):
         self.assertEqual((character["Name"], character["ConversationHistory"]), ("Bop", ["hello"]))
         self.assertTrue({c["npc_id"]: c["favorite"] for c in campaign_db.list_characters()}[GENERIC_ID])
 
+    def test_a_hire_keeps_its_last_terms_until_it_ends(self):
+        self.assertIsNone(campaign_db.hire(GENERIC_ID))
+        campaign_db.set_hire(GENERIC_ID, 24, 2000)
+        campaign_db.set_hire(GENERIC_ID, 48, 4000)
+        self.assertEqual(campaign_db.hire(GENERIC_ID), (48, 4000))
+        campaign_db.end_hire(GENERIC_ID)
+        self.assertIsNone(campaign_db.hire(GENERIC_ID))
+
     def test_toggle_favorite(self):
         campaign_db.upsert_profile(GENERIC_ID, BEEP)
         self.assertTrue(campaign_db.toggle_favorite(GENERIC_ID))

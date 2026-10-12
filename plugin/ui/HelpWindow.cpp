@@ -84,7 +84,8 @@ static const HelpTopic HELP_TOPICS[] = {
              "robotic parts, paid or free."},
       {"!l", "Ask for a release from prison or slavery, paid or free."},
       {"!r", "Ask the NPC to join your squad for good."},
-      {"!f", "Ask the NPC to come along, or hire it for a while."},
+      {"!f", "Ask the NPC to come along, or hire it for a while. When the "
+             "hire runs out, a popup asks if you renew it on the same terms."},
       {"!d", "Tell a hired follower to leave."},
       {"!end", "Ends the deal."},
       {"Offer", "When the NPC makes an offer, a popup opens. Press Accept to "

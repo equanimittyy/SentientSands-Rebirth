@@ -10,6 +10,7 @@
 #include "LauncherWindow.h"
 #include "LibraryWindow.h"
 #include "OfferWindow.h"
+#include "RenewWindow.h"
 #include "WelcomeWindow.h"
 
 

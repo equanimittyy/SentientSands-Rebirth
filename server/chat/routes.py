@@ -264,6 +264,9 @@ def answer_offer():
     offer, npc, player = held["offer"], held["npc"], held["player"]
     if answer == "accept":
         record_deal(held["thread"], offers.accepted_line(offer, npc, player), held["parties"], held["location"])
+        terms = offers.hire_terms(offer)
+        if terms:
+            campaign_db.set_hire(held["npc_id"], *terms)
         end_thread()
         voice = held["voice"]
         play_lines([f"{voice}: {action_dialogue.end_line(offers.ACCEPT_LINES[offer['category']])}"], offers.voiced(offer, voice))
@@ -284,6 +287,24 @@ def answer_offer():
     else:
         end_thread()
         logging.info(f"ACTION: The offer of {npc} ended: {answer}.")
+    return jsonify({"status": "ok"})
+
+@bp.route('/hire_terms', methods=['POST'])
+def hire_terms():
+    """The terms of the hire of the NPC, with the text of its renewal popup. A hire of the game's own dialogues has no terms,
+    and it expires as in the game."""
+    data = request.json or {}
+    terms = campaign_db.hire(data.get("npc_id"))
+    if not terms:
+        return jsonify({"status": "none"})
+    hours, fee = terms
+    return jsonify({"status": "ok", "hours": hours, "fee": fee, "text": offers.renewal_text(data.get("npc"), hours, fee)})
+
+@bp.route('/hire_end', methods=['POST'])
+def hire_end():
+    data = request.json or {}
+    campaign_db.end_hire(data.get("npc_id"))
+    logging.info(f"ACTION: The hire of {data.get('npc')} ended.")
     return jsonify({"status": "ok"})
 
 @bp.route('/chat_thread', methods=['POST'])
@@ -363,6 +384,13 @@ def chat():
         elif cmd in ("stock", "firstaid", "follow"):
             if cmd == "follow" and args and not re.fullmatch(r"\d+|end|\d+-\S+", args):
                 return reply("[DEBUG] /follow alone logs the contract of the target. /follow [hours] or /follow [line ID] starts one, and /follow end ends it.")
+            if cmd == "follow" and args:
+                npc_id = context_dict(data.get('context', '')).get('npc_id')
+                # Only a hire of hours has terms that a renewal repeats
+                if args.isdigit():
+                    campaign_db.set_hire(npc_id, int(args), 0)
+                else:
+                    campaign_db.end_hire(npc_id)
             probe = f"[ACTION: PROBE: {'hire' if cmd == 'follow' else cmd}{': ' + args if args else ''}]"
             logging.info(f"CHAT: Test command {cmd} -> {probe}")
             # The plugin also runs a tag in a spoken line, so an echo of the tag would run the probe twice
@@ -454,6 +482,7 @@ def chat():
         # The NPC never refuses, so a dismissal needs no call
         end_thread()
         record_deal(current_thread, f"({player_name} dismissed {primary_npc}.)", [npc_party, speaker_party], location, (mode, "dismiss"))
+        campaign_db.end_hire(primary_id)
         logging.info(f"ACTION: {player_name} dismissed {primary_npc}.")
         return reply(action_dialogue.end_line("dismiss_end"), actions=["[ACTION: END_HIRE]"])
 
