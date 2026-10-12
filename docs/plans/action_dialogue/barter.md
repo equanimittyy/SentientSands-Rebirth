@@ -41,10 +41,10 @@ Each NPC sells at the full `price`, which is the price in the trade window of th
 
 | NPC | Sell share | Buy share |
 |---|---|---|
-| A trader: its Current Job (`current_job` in `server/chat/current_job.py:41`) is `Trading`, `Running a shop`, or `Travelling as a trader` | 100% | 60% |
-| Any other NPC | 100% | 40% |
+| A trader: its Current Job (`current_job` in `server/chat/current_job.py:41`) is `Trading`, `Running a shop`, or `Travelling as a trader` | 100% | 80% |
+| Any other NPC | 100% | 60% |
 
-For example, a trader sells a Katana with a `price` of 3,000 for at least 3,000 cats, and it buys the Katana for at most 1,800 cats.
+For example, a trader sells a Katana with a `price` of 3,000 for at least 3,000 cats, and it buys the Katana for at most 2,400 cats.
 
 ## 4. Charity
 

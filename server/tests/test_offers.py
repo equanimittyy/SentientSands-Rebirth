@@ -158,7 +158,7 @@ class BarterTest(unittest.TestCase):
         self.assertIsNotNone(self.barter("[OFFER: GIVE_ITEM: Katana; TAKE_CATS: 3000]", npc=barman)[0])
 
     def test_what_the_npc_receives_is_worth_what_it_gives(self):
-        # A trader sells at the full price and buys at 60%
+        # A trader sells at the full price and buys at 80%
         self.assertIsNone(self.barter("[OFFER: GIVE_ITEM: Katana; TAKE_CATS: 2999]")[0])
         self.assertIn("worth", self.barter("[OFFER: GIVE_ITEM: Katana; TAKE_ITEM: Dirty Loincloth]")[1])
         swap, _ = self.barter("[OFFER: GIVE_ITEM: Katana; TAKE_ITEM: Chain Shirt]")
@@ -200,7 +200,7 @@ class BarterTest(unittest.TestCase):
         self.assertEqual(offers.stocktake(SHOP), "YOUR GOODS: 1 Katana (Ancient, Refitted Blade), 2 First Aid Kit.")
         guide = offers.price_guide("How much for the katana? I could sell my chain shirt.", SHOP, BUYER, "Zaps")
         self.assertEqual(guide, ["You have 1 Katana (Ancient, Refitted Blade): you sell each for at least 3,000 cats.",
-                                 "Zaps has 1 Chain Shirt (High): you pay at most 12,000 cats each."])
+                                 "Zaps has 1 Chain Shirt (High): you pay at most 16,000 cats each."])
 
     def test_a_word_of_the_name_or_a_kind_word_asks_for_an_item(self):
         bar = {**SHOP, "inventory": [], "stock": [{"name": "Water", "count": 3, "price": 10, "kind": "food"},
@@ -248,14 +248,14 @@ class BarterWindowTest(unittest.TestCase):
         offer, _, lines = offers.on_table(TABLE, SHOP, BUYER, SQUAD, "Zaps")
         self.assertIsNotNone(offer)
         self.assertEqual(lines, ["On the table, Zaps gives 2,950 cats and 2 Bread, and you give a Katana (Ancient, Refitted Blade).",
-                                 "It keeps your price: you get a worth of 3,010 cats for a worth of 3,000."])
+                                 "It keeps your price: you get a worth of 3,030 cats for a worth of 3,000."])
 
     def test_a_deal_below_the_price_cannot_be_agreed(self):
         cheap = {**TABLE, "take_cats": 100}
         offer, reason, lines = offers.on_table(cheap, SHOP, BUYER, SQUAD, "Zaps")
         self.assertIsNone(offer)
         self.assertIn("worth", reason)
-        self.assertEqual(lines[1], "It is below your price: you get a worth of 160 cats for a worth of 3,000, so you cannot agree to it as it is.")
+        self.assertEqual(lines[1], "It is below your price: you get a worth of 180 cats for a worth of 3,000, so you cannot agree to it as it is.")
         self.assertIn("- It is below your price", offers.facts("BARTER", SHOP, BUYER, "Zaps", [], table=lines))
 
     def test_a_gift_charity_and_an_empty_table(self):

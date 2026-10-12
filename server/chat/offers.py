@@ -35,7 +35,7 @@ GIFT_MOST = 10
 RELEASE_BRIBE = 500
 # (sell share, buy share) of the price for a trader and for any other NPC. Each sells at the price of the game's trade
 # window, or a deal would undercut it, and a non-trader pays less for the player's items, because it wants a bigger margin
-SHARES = {True: (1.0, 0.6), False: (1.0, 0.4)}
+SHARES = {True: (1.0, 0.8), False: (1.0, 0.6)}
 ACCEPT_LINES = {"RECRUIT": "recruit_accept", "FOLLOW": "follow_accept", "HEAL": "heal_start", "LIBERATE": "liberate_accept", "THREATEN": "threaten_accept", "BARTER": "barter_accept"}
 # Keyed by the kinds of ItemKind (plugin/game/Context.cpp). Kenshi files alcohol under narcotics, so a drink is a "drug".
 KIND_WORDS = {
