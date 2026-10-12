@@ -413,7 +413,7 @@ A plain chat line in Yell mode can get up to 3 replies, one after another, from 
 - Each later line joins the chat thread when it shows, and its speaker becomes a speaker of the thread. A failed call or a campaign switch ends the yell, and the lines so far stay.
 - All plain yells share one chat thread, with the key `(None, "yell")`, so the NPCs that answered one yell are favoured at the next.
 - A reader that neither spoke a line nor was spoken to gets the line as `(Overheard)` with its addressee (`chat_prompt.heard_line`).
-- The plugin sends `animal` in each `nearby` entry (`SendChatLine` in `plugin/ui/ChatWindow.cpp`), so neither an answer nor an overheard copy goes to an animal.
+- The plugin sends `animal` in each `nearby` entry (`PartyFields` in `plugin/game/Context.cpp`), so neither an answer nor an overheard copy goes to an animal.
 
 ## Talking to itself
 

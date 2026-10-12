@@ -14,7 +14,6 @@
 #include <kenshi/GameWorld.h>
 #include <kenshi/Kenshi.h>
 #include <kenshi/PlayerInterface.h>
-#include <kenshi/RaceData.h>
 #include <kenshi/RootObject.h>
 #include <kenshi/RootObjectBase.h>
 #include <kenshi/util/hand.h>
@@ -324,72 +323,22 @@ bool SendChatLine(const std::string &npcName, const std::string &handleStr,
     searchRadius = g_yellRadius;
 
   if (world && speaker) {
-    Character *player = speaker;
     const auto &chars = world->getCharacterUpdateList();
     for (auto it = chars.begin(); it != chars.end(); ++it) {
       Character *other = *it;
-      if (other && (uintptr_t)other > 0x1000 && other != player &&
-          other != targetNpc) {
-        float dist = player->getPosition().distance(other->getPosition());
-        if (dist < searchRadius) {
-          LogNpcRole(other);
-          std::string o_name = other->getName();
-          unsigned int o_key = HandleKey(other);
-          std::string o_npcId = GetNpcId(other);
-          npcsJson +=
-              ", \"" + EscapeJSON(o_name) + "|" + ToString(o_key) + "\"";
-
-          RaceData *race =
-              other->getRace() ? other->getRace() : other->myRace;
-          std::string raceName = "Unknown";
-          if (race && (uintptr_t)race > 0x1000) {
-            if (race->data && !race->data->name.empty())
-              raceName = race->data->name;
-            else if (race->data && !race->data->stringID.empty())
-              raceName = race->data->stringID;
-          }
-
-          Faction *faction =
-              other->getFaction() ? other->getFaction() : other->owner;
-          std::string factionName = "Neutral";
-          if (faction && (uintptr_t)faction > 0x1000) {
-            std::string fn = faction->getName();
-            if (!fn.empty() && fn != "Unknown")
-              factionName = fn;
-            else if (faction->data && !faction->data->name.empty())
-              factionName = faction->data->name;
-            else if (faction->data && !faction->data->stringID.empty())
-              factionName = faction->data->stringID;
-          }
-
-          std::string o_gender = other->isFemale() ? "female" : "male";
-
-          if (!nearbyFullJson.empty())
-            nearbyFullJson += ",";
-          nearbyFullJson += "{\"name\":\"" + EscapeJSON(other->getName()) +
-                            "\", \"id\":\"" + ToString(o_key) +
-                            "\", \"npc_id\":\"" + EscapeJSON(o_npcId) +
-                            "\", \"race\":\"" + EscapeJSON(raceName) +
-                            "\", \"animal\":" +
-                            (other->isAnimal() ? "true" : "false") +
-                            ", \"faction\":\"" + EscapeJSON(factionName) +
-                            "\", \"gender\":\"" + EscapeJSON(o_gender) +
-                            "\", \"template\":\"" +
-                            EscapeJSON(other->data ? other->data->name
-                                                   : std::string()) +
-                            "\", \"template_id\":\"" +
-                            EscapeJSON(other->data ? other->data->stringID
-                                                   : std::string()) +
-                            "\", \"unique\":" +
-                            (other->isUnique() ? "true" : "false") +
-                            ", \"in_player_faction\":" +
-                            (faction && faction->isThePlayer() ? "true"
-                                                               : "false") +
-                            ", " + RoleJson(other) + ", " +
-                            ProfileJson(other) +
-                            ", \"dist\":" + ToString((int)dist) + "}";
-        }
-      }
+      if (!other || (uintptr_t)other < 0x1000 || other == speaker ||
+          other == targetNpc)
+        continue;
+      float dist = speaker->getPosition().distance(other->getPosition());
+      if (dist >= searchRadius)
+        continue;
+      LogNpcRole(other);
+      npcsJson += ", \"" + EscapeJSON(other->getName()) + "|" +
+                  ToString(HandleKey(other)) + "\"";
+      nearbyFullJson += (nearbyFullJson.empty() ? "{" : ", {") +
+                        PartyFields(other) + ", \"faction\": \"" +
+                        EscapeJSON(FactionName(CharacterFaction(other))) +
+                        "\", \"dist\": " + ToString((int)dist) + "}";
     }
   }
 

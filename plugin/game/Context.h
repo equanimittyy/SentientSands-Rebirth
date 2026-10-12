@@ -4,6 +4,7 @@
 
 class Blackboard;
 class Character;
+class Faction;
 class GameData;
 class Item;
 class TownBase;
@@ -31,6 +32,11 @@ void RunProbe(Character *npc, Character *speaker, const std::string &payload);
 std::string EventParty(Character *npc);
 std::string RoleJson(Character *npc);
 std::string ProfileJson(Character *npc);
+std::string PartyFields(Character *c);
+std::string RaceName(Character *npc);
+Faction *CharacterFaction(Character *npc);
+std::string FactionName(Faction *faction);
+std::string GenderOf(Character *npc);
 std::string GetVisibleEquipment(Character *npc);
 std::string TakeGameEvents();
 std::string ChangedTowns();

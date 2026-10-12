@@ -10,7 +10,6 @@
 #include <kenshi/FactionRelations.h>
 #include <kenshi/GameData.h>
 #include <kenshi/GameWorld.h>
-#include <kenshi/InstanceID.h>
 #include <kenshi/Inventory.h>
 #include <kenshi/Item.h>
 #include <kenshi/MedicalSystem.h>
@@ -286,7 +285,7 @@ void RekeyCharacter(Character *npc, const hand &before) {
       "REKEY: '" + npc->getName() + "' " + oldId + " is now " + newId);
 }
 
-static std::string RaceName(Character *npc) {
+std::string RaceName(Character *npc) {
   RaceData *race = npc->getRace() ? npc->getRace() : npc->myRace;
   if (race && (uintptr_t)race > 0x1000 && race->data) {
     if (!race->data->name.empty())
@@ -297,12 +296,13 @@ static std::string RaceName(Character *npc) {
   return "Unknown";
 }
 
-static Faction *CharacterFaction(Character *npc) {
+Faction *CharacterFaction(Character *npc) {
   Faction *faction = npc->getFaction() ? npc->getFaction() : npc->owner;
   return faction && (uintptr_t)faction > 0x1000 ? faction : nullptr;
 }
 
-static std::string FactionName(Faction *faction) {
+// Modded factions often have no name, so the string ID stands in
+std::string FactionName(Faction *faction) {
   if (!faction)
     return "Neutral";
   std::string name = faction->getName();
@@ -310,7 +310,15 @@ static std::string FactionName(Faction *faction) {
     return name;
   if (faction->data && !faction->data->name.empty())
     return faction->data->name;
+  if (faction->data && !faction->data->stringID.empty())
+    return faction->data->stringID;
   return "Neutral";
+}
+
+std::string GenderOf(Character *npc) {
+  if (npc->sex == "female" || npc->sex == "male")
+    return npc->sex;
+  return npc->isFemale() ? "female" : "male";
 }
 
 static std::string FactionID(Faction *faction) {
@@ -514,24 +522,45 @@ std::string RoleJson(Character *npc) {
          ",\"squad_jobs\":[" + jobs + "]";
 }
 
+static Building *BuildingOf(Character *npc) {
+  const hand &building = npc->isIndoors();
+  return building.isValid() ? building.getBuilding() : nullptr;
+}
+
+static std::string BuildingName(Character *npc) {
+  Building *building = BuildingOf(npc);
+  return building ? building->getName() : "Unknown";
+}
+
 std::string ProfileJson(Character *npc) {
-  std::string building = "Unknown";
-  const hand &buildingHandle = npc->isIndoors();
-  if (buildingHandle.isValid()) {
-    Building *b = buildingHandle.getBuilding();
-    if (b)
-      building = b->getName();
-  }
   std::string json = "\"health\":\"" + EscapeJSON(GetHealthStatus(npc)) +
                      "\",\"origin_faction\":\"" +
                      EscapeJSON(GetIdentityFaction(npc)) +
-                     "\",\"building_name\":\"" + EscapeJSON(building) +
+                     "\",\"building_name\":\"" + EscapeJSON(BuildingName(npc)) +
                      "\",\"environment\":{";
   TownBase *town = npc->getCurrentTownLocation();
   if (town)
     json += "\"town_name\":\"" +
             EscapeJSON(((RootObjectBase *)town)->getName()) + "\",";
   return json + "\"zone_name\":\"" + EscapeJSON(ZoneName()) + "\"}";
+}
+
+// The fields that the nearby entry of a chat and a radiant entry share, so
+// each caller adds its own
+std::string PartyFields(Character *c) {
+  Faction *faction = CharacterFaction(c);
+  return "\"name\": \"" + EscapeJSON(c->getName()) +
+         "\", \"id\": " + ToString(HandleKey(c)) + ", \"npc_id\": \"" +
+         EscapeJSON(GetNpcId(c)) + "\", \"race\": \"" +
+         EscapeJSON(RaceName(c)) + "\", \"animal\": " + JsonBool(c->isAnimal()) +
+         ", \"gender\": \"" + GenderOf(c) + "\", \"template\": \"" +
+         EscapeJSON(c->data ? c->data->name : std::string()) +
+         "\", \"template_id\": \"" +
+         EscapeJSON(c->data ? c->data->stringID : std::string()) +
+         "\", \"unique\": " + JsonBool(c->isUnique()) +
+         ", \"in_player_faction\": " +
+         JsonBool(faction && faction->isThePlayer()) + ", " + RoleJson(c) +
+         ", " + ProfileJson(c);
 }
 
 // Probe: the role and task data of a character, logged again when it changes.
@@ -651,7 +680,7 @@ std::string ItemLabel(Item *item) {
 }
 
 void GetShopItems(Character *npc, std::vector<Item *> &out) {
-  Building *building = npc->isIndoors().getBuilding();
+  Building *building = BuildingOf(npc);
   if (!building)
     return;
   lektor<Building *> furniture;
@@ -765,7 +794,7 @@ static void LogFurniture(const std::string &list,
 }
 
 static void ProbeStock(Character *npc, Character *speaker) {
-  Building *building = npc->isIndoors().getBuilding();
+  Building *building = BuildingOf(npc);
   std::string place = "none";
   if (building)
     place = "'" + ((RootObjectBase *)building)->getName() + "' " +
@@ -1014,365 +1043,219 @@ std::string GetIdentityFaction(Character *npc) {
   return name;
 }
 
-std::string GetDetailedContext(Character *npc, const std::string &type) {
-  if (!npc || (uintptr_t)npc < 0x1000 || !ppWorld || !(*ppWorld))
-    return "{}";
-
-  std::string json = "{";
-  json += "\"type\": \"" + type + "\",";
-  if (ppWorld && *ppWorld) {
-    TimeOfDay tod = (*ppWorld)->getTimeStamp_inGameHours();
-    int day = (int)tod.getTotalDays();
-    int hour = (int)fmod(tod.getTotalHours(), 24.0);
-    int minute = (int)fmod(tod.getTotalMinutes(), 60.0);
-
-    json += "\"day\": " + ToString(day) + ",";
-    json += "\"hour\": " + ToString(hour) + ",";
-    json += "\"minute\": " + ToString(minute) + ",";
-  }
-
-  std::string charState = "normal";
+static std::string StateFields(Character *npc) {
+  std::string state = "normal";
   std::string captor;
-  bool isDead = false;
-  bool isUnconcious = false;
-  isDead = npc->isDead();
-  if (isDead) {
-    charState = "dead";
-  } else {
-    isUnconcious = npc->isUnconcious();
-    if (isUnconcious) {
-      charState = "unconscious";
-    } else if (npc->inSomething == IN_PRISON) {
-      charState = "imprisoned";
-      captor = CaptorID(npc->inWhat);
-    } else {
-      SlaveStateEnum slaveState = npc->isSlave();
-      bool chained = npc->isChainedMode();
-      if (slaveState != NOT_SLAVE) {
-        // Slave status but unchained means escaped
-        charState = chained ? "enslaved" : "escaped-slave";
-        if (chained)
-          captor = CaptorID(npc->getMySlaveOwner());
-      }
-    }
+  if (npc->isDead()) {
+    state = "dead";
+  } else if (npc->isUnconcious()) {
+    state = "unconscious";
+  } else if (npc->inSomething == IN_PRISON) {
+    state = "imprisoned";
+    captor = CaptorID(npc->inWhat);
+  } else if (npc->isSlave() != NOT_SLAVE) {
+    bool chained = npc->isChainedMode();
+    state = chained ? "enslaved" : "escaped-slave";
+    if (chained)
+      captor = CaptorID(npc->getMySlaveOwner());
   }
-  json += "\"character_state\": \"" + charState + "\",";
-  json += "\"captor\": \"" + EscapeJSON(captor) + "\",";
-  json += "\"health\": \"" + GetHealthStatus(npc) + "\",";
-
-  bool slave = false;
-  bool firstAid = false;
-  bool repairKit = false;
-  bool needsFirstAid = false;
-  bool needsRepair = false;
-  int bounty = 0;
-  slave = npc->isSlave() != 0;
-  bounty = npc->crimes.getTotalBounty();
-  Inventory *inv = npc->getInventory();
-  firstAid = inv && inv->hasItemFunction(ITEM_FIRSTAID);
-  repairKit = inv && inv->hasItemFunction(ITEM_ROBOTREPAIR);
+  bool needsFirstAid, needsRepair;
   TreatmentNeeds(npc, needsFirstAid, needsRepair);
-  json += "\"slave\": " + std::string(slave ? "true" : "false") + ",";
-  json += "\"bounty\": " + ToString(bounty) + ",";
-  json += "\"has_first_aid\": " + std::string(firstAid ? "true" : "false") +
-          ",";
-  json += "\"has_repair_kit\": " +
-          std::string(repairKit ? "true" : "false") + ",";
-  json += "\"needs_first_aid\": " +
-          std::string(needsFirstAid ? "true" : "false") + ",";
-  json += "\"needs_repair\": " + std::string(needsRepair ? "true" : "false") +
-          ",";
+  Inventory *inv = npc->getInventory();
+  return "\"character_state\": \"" + state + "\", \"captor\": \"" +
+         EscapeJSON(captor) + "\", \"health\": \"" + GetHealthStatus(npc) +
+         "\", \"slave\": " + JsonBool(npc->isSlave() != 0) +
+         ", \"bounty\": " + ToString(npc->crimes.getTotalBounty()) +
+         ", \"has_first_aid\": " +
+         JsonBool(inv && inv->hasItemFunction(ITEM_FIRSTAID)) +
+         ", \"has_repair_kit\": " +
+         JsonBool(inv && inv->hasItemFunction(ITEM_ROBOTREPAIR)) +
+         ", \"needs_first_aid\": " + JsonBool(needsFirstAid) +
+         ", \"needs_repair\": " + JsonBool(needsRepair);
+}
 
-  std::string name = "Unknown";
-  name = npc->getName();
-  if (name.empty() || name == "Unknown Entity" || name == "Unknown") {
-    if (!npc->displayName.empty())
-      name = npc->displayName;
-    else if (npc->data && !npc->data->name.empty())
-      name = npc->data->name;
+static std::string ContextName(Character *npc) {
+  std::string name = npc->getName();
+  if (!name.empty() && name != "Unknown Entity" && name != "Unknown")
+    return name;
+  if (!npc->displayName.empty())
+    return npc->displayName;
+  if (npc->data && !npc->data->name.empty())
+    return npc->data->name;
+  return name;
+}
+
+static std::string JobNames(Character *npc) {
+  std::string jobs;
+  for (int i = 0; i < npc->getPermajobCount(); ++i) {
+    std::string job = npc->getPermajobName(i);
+    if (!job.empty())
+      jobs += (jobs.empty() ? "" : ", ") + job;
   }
-  json += "\"name\": \"" + EscapeJSON(name) + "\",";
-  json += "\"template\": \"" +
-          EscapeJSON(npc->data ? npc->data->name : std::string()) + "\",";
-  json += "\"template_id\": \"" +
-          EscapeJSON(npc->data ? npc->data->stringID : std::string()) + "\",";
-  json += "\"unique\": " + std::string(npc->isUnique() ? "true" : "false") +
-          ",";
+  return jobs.empty() ? "None" : jobs;
+}
 
-  InstanceID *iid = npc->getInstanceID();
-  if (iid && !iid->uid.empty()) {
-    json += "\"id\": \"" + EscapeJSON(iid->uid) + "\",";
-  } else {
-    json += "\"id\": \"hand_" + ToString(npc->getHandle().serial) + "\",";
-  }
+static bool LeadsFaction(Character *npc, Faction *faction) {
+  hand leader;
+  return faction && faction->data && (uintptr_t)faction->data > 0x1000 &&
+         faction->data->getHandle(leader, "leader") && leader.isValid() &&
+         leader == npc->getHandle();
+}
 
-  json += "\"race\": \"" + EscapeJSON(RaceName(npc)) + "\",";
-  json += "\"animal\": " + std::string(npc->isAnimal() ? "true" : "false") +
-          ",";
-
-  std::string gender = "male";
-  gender = npc->isFemale() ? "female" : "male";
-  if (npc->sex == "female" || npc->sex == "male")
-    gender = npc->sex;
-  json += "\"gender\": \"" + gender + "\",";
-
+static std::string IdentityFields(GameWorld *world, Character *npc) {
   Faction *faction = CharacterFaction(npc);
-  std::string factionName = FactionName(faction);
-  json += "\"faction\": \"" + EscapeJSON(factionName) + "\",";
-  json += "\"factionID\": \"" + EscapeJSON(FactionID(faction)) + "\",";
+  std::string json =
+      "\"name\": \"" + EscapeJSON(ContextName(npc)) + "\", \"template\": \"" +
+      EscapeJSON(npc->data ? npc->data->name : std::string()) +
+      "\", \"template_id\": \"" +
+      EscapeJSON(npc->data ? npc->data->stringID : std::string()) +
+      "\", \"unique\": " + JsonBool(npc->isUnique()) + ", \"race\": \"" +
+      EscapeJSON(RaceName(npc)) + "\", \"animal\": " +
+      JsonBool(npc->isAnimal()) + ", \"gender\": \"" + GenderOf(npc) +
+      "\", \"faction\": \"" + EscapeJSON(FactionName(faction)) +
+      "\", \"factionID\": \"" + EscapeJSON(FactionID(faction)) +
+      "\", \"job\": \"" + EscapeJSON(JobNames(npc)) +
+      "\", \"origin_faction\": \"" + EscapeJSON(GetIdentityFaction(npc)) +
+      "\", \"npc_id\": \"" + EscapeJSON(GetNpcId(npc)) + "\", ";
+  Faction *playerFaction = world->player ? world->player->getFaction() : nullptr;
+  if (faction && playerFaction && playerFaction->relations)
+    json += "\"relation\": " +
+            ToString((int)playerFaction->relations->getFactionRelation(faction)) +
+            ", ";
+  return json + RoleJson(npc) +
+         ", \"is_leader\": " + JsonBool(LeadsFaction(npc, faction));
+}
 
-  std::string job = "None";
-  int jobCount = npc->getPermajobCount();
-  if (jobCount > 0) {
-    job = "";
-    for (int i = 0; i < jobCount; ++i) {
-      std::string jName = npc->getPermajobName(i);
-      if (!jName.empty()) {
-        if (!job.empty())
-          job += ", ";
-        job += jName;
-      }
-    }
-    if (job.empty())
-      job = "None";
+// Only the faction of each character in sight, which the threat count of an
+// action dialogue reads. A sighting outside the player faction keeps the
+// origin faction of the character, so a later recruit still has it
+static std::string NearbyFactions(GameWorld *world, Character *npc) {
+  lektor<RootObject *> results;
+  world->getCharactersWithinSphere(results, npc->getPosition(), g_visionRange,
+                                   0.0f, 0.0f, 16, 0, npc);
+  Character *first = FirstPlayerCharacter();
+  std::string json = "[";
+  for (uint32_t i = 0; i < results.size(); ++i) {
+    Character *other = (Character *)results.stuff[i];
+    if (!other || (uintptr_t)other < 0x1000 || other == first)
+      continue;
+    Faction *faction = CharacterFaction(other);
+    std::string name = FactionName(faction);
+    if (faction && !faction->isThePlayer())
+      g_originFactions.insert(std::make_pair(GetNpcId(other), name));
+    json += (json.size() > 1 ? ", " : "") + std::string("{\"faction\": \"") +
+            EscapeJSON(name) + "\"}";
   }
-  json += "\"job\": \"" + EscapeJSON(job) + "\",";
+  return json + "]";
+}
 
-  std::string identityFaction = GetIdentityFaction(npc);
-  json += "\"origin_faction\": \"" + EscapeJSON(identityFaction) + "\",";
+static std::string SquadNames(GameWorld *world) {
+  std::string json = "[";
+  lektor<Character *> &members = world->player->playerCharacters;
+  for (uint32_t i = 0; i < members.size(); ++i)
+    json += std::string(i ? ", " : "") + "\"" +
+            EscapeJSON(members[i]->getName()) + "\"";
+  return json + "]";
+}
 
-  json += "\"npc_id\": \"" + EscapeJSON(GetNpcId(npc)) + "\",";
+static std::string LimbFields(const std::string &name,
+                              MedicalSystem::HealthPartStatus *part) {
+  return "\"" + name + "\": " + ToString(part ? (int)part->flesh : 100) +
+         ", \"" + name +
+         "_max\": " + ToString(part ? (int)part->maxHealth() : 100);
+}
 
-  if (ppWorld && *ppWorld && (*ppWorld)->player &&
-      (*ppWorld)->player->getFaction() && faction) {
-    Faction *playerFaction = (*ppWorld)->player->getFaction();
-    if (playerFaction->relations) {
-      float rel = playerFaction->relations->getFactionRelation(faction);
-      json += "\"relation\": " + ToString((int)rel) + ",";
-    }
-  }
+static std::string MedicalJson(MedicalSystem *med) {
+  // hunger is a deficit (0 full, 300 starving); fed is food still being digested
+  float hunger = (300.0f - med->hunger) + med->fed;
+  return "{\"blood\": " + ToString((int)med->blood) +
+         ", \"max_blood\": " + ToString((int)med->getMaxBlood()) +
+         ", \"blood_rate\": " + ToString(med->currentBleedRate) +
+         ", \"hunger\": " + ToString((int)(hunger < 0 ? 0 : hunger)) +
+         ", \"is_unconscious\": " + JsonBool(med->unconcious) +
+         ", \"limbs\": {" + LimbFields("head", med->getPart(0)) + ", " +
+         LimbFields("stomach", med->getPart(1)) + ", " +
+         LimbFields("left_arm", med->leftArm) + ", " +
+         LimbFields("right_arm", med->rightArm) + ", " +
+         LimbFields("left_leg", med->leftLeg) + ", " +
+         LimbFields("right_leg", med->rightLeg) + "}}";
+}
 
-  json += RoleJson(npc) + ",";
-
-  bool isLeader = false;
-  if (faction && (uintptr_t)faction > 0x1000 && faction->data &&
-      (uintptr_t)faction->data > 0x1000) {
-    hand lHand;
-    if (faction->data->getHandle(lHand, "leader") && lHand.isValid()) {
-      if (lHand == npc->getHandle())
-        isLeader = true;
-    }
-  }
-  json += "\"is_leader\": " + std::string(isLeader ? "true" : "false") + ",";
-
-  bool indoors = false;
-  std::string buildingName = "Unknown";
-  bool inAShop = false;
-  const hand &buildingHandle = npc->isIndoors();
-  if (buildingHandle.isValid()) {
-    indoors = true;
-    Building *b = buildingHandle.getBuilding();
-    if (b) {
-      buildingName = b->getName();
-      if (b->isAShop() || b->designation == BD_SHOP ||
-          b->designation == BD_BAR) {
-        inAShop = true;
-      }
-    }
-  }
-
-  json += "\"indoors\": " + std::string(indoors ? "true" : "false") + ",";
-  json += "\"in_shop\": " + std::string(inAShop ? "true" : "false") + ",";
-  json += "\"building_name\": \"" + EscapeJSON(buildingName) + "\",";
-
-  if (ppWorld && *ppWorld) {
-    lektor<RootObject *> results;
-    (*ppWorld)->getCharactersWithinSphere(
-        results, npc->getPosition(), g_visionRange, 0.0f, 0.0f, 16, 0, npc);
-    json += "\"nearby\": [";
-    for (uint32_t i = 0; i < results.size(); ++i) {
-      Character *other = (Character *)results.stuff[i];
-      if (other && (uintptr_t)other > 0x1000) {
-        if (other == FirstPlayerCharacter())
-          continue;
-
-        if (json.back() == '}')
-          json += ",";
-
-        std::string o_name = other->getName();
-
-        RaceData *o_race = other->getRace() ? other->getRace() : other->myRace;
-        std::string o_rn = "Unknown";
-        if (o_race && (uintptr_t)o_race > 0x1000) {
-          if (o_race->data && !o_race->data->name.empty())
-            o_rn = o_race->data->name;
-          else if (o_race->data && !o_race->data->stringID.empty())
-            o_rn = o_race->data->stringID;
-        }
-
-        Faction *o_fact =
-            other->getFaction() ? other->getFaction() : other->owner;
-        std::string o_fn = "Neutral";
-        if (o_fact && (uintptr_t)o_fact > 0x1000) {
-          std::string fn = o_fact->getName();
-          if (!fn.empty() && fn != "Unknown")
-            o_fn = fn;
-          else if (o_fact->data && !o_fact->data->name.empty())
-            o_fn = o_fact->data->name;
-          else if (o_fact->data && !o_fact->data->stringID.empty())
-            o_fn = o_fact->data->stringID;
-        }
-
-        std::string o_gender = other->isFemale() ? "female" : "male";
-        float dist = npc->getPosition().distance(other->getPosition());
-
-        std::string o_npcId = GetNpcId(other);
-
-        if (o_fact && !o_fact->isThePlayer())
-          g_originFactions.insert(std::make_pair(o_npcId, o_fn));
-
-        std::string o_health = GetHealthStatus(other);
-        std::string o_equip = GetVisibleEquipment(other);
-
-        json += "{\"name\":\"" + EscapeJSON(o_name) + "\",";
-        json += "\"race\":\"" + EscapeJSON(o_rn) + "\",";
-        json += "\"animal\":" +
-                std::string(other->isAnimal() ? "true" : "false") + ",";
-        json += "\"faction\":\"" + EscapeJSON(o_fn) + "\",";
-        json += "\"gender\":\"" + EscapeJSON(o_gender) + "\",";
-        json += "\"health\":\"" + EscapeJSON(o_health) + "\",";
-        json += "\"equipment\":\"" + EscapeJSON(o_equip) + "\",";
-        json += "\"npc_id\":\"" + EscapeJSON(o_npcId) + "\",";
-        json += "\"dist\":" + ToString(dist) + "}";
-      }
-    }
-    json += "],";
-  }
-
-  json += "\"money\": " + ToString(MoneyOf(npc)) + ",";
-
-  if (type == "player" && ppWorld && *ppWorld && (*ppWorld)->player) {
-    json += "\"squad\": [";
-    for (uint32_t i = 0; i < (*ppWorld)->player->playerCharacters.size(); ++i) {
-      if (i > 0)
-        json += ",";
-      json += "\"" +
-              EscapeJSON((*ppWorld)->player->playerCharacters[i]->getName()) +
-              "\"";
-    }
-    json += "],";
-  }
-
-  CharStats *stats = npc->getStats();
-  if (stats) {
-    json += "\"stats\": {";
-    json += "\"strength\": " + ToString((int)stats->_strength) + ",";
-    json += "\"dexterity\": " + ToString((int)stats->_dexterity) + ",";
-    json += "\"toughness\": " + ToString((int)stats->_toughness) + ",";
-    json += "\"perception\": " + ToString((int)stats->perception) + ",";
-    json += "\"melee_attack\": " +
-            ToString((int)stats->getStat(STAT_MELEE_ATTACK, false)) + ",";
-    json += "\"melee_defence\": " +
-            ToString((int)stats->getStat(STAT_MELEE_DEFENCE, false)) + ",";
-    json += "\"athletics\": " +
-            ToString((int)stats->getStat(STAT_ATHLETICS, false));
-    json += "},";
-  }
-
-  MedicalSystem *med = npc->getMedical();
-  if (med) {
-    json += "\"medical\": {";
-    json += "\"blood\": " + ToString((int)med->blood) + ",";
-    json += "\"max_blood\": " + ToString((int)med->getMaxBlood()) + ",";
-    json += "\"blood_rate\": " + ToString(med->currentBleedRate) + ",";
-    // hunger is a deficit (0 full, 300 starving); fed is food still being digested
-    float hungerVal = (300.0f - med->hunger) + med->fed;
-    if (hungerVal < 0)
-      hungerVal = 0;
-    json += "\"hunger\": " + ToString((int)hungerVal) + ",";
-    json += "\"is_unconscious\": " +
-            std::string(med->unconcious ? "true" : "false") + ",";
-    json += "\"limbs\": {";
-    auto addPart = [&](const std::string &name,
-                       MedicalSystem::HealthPartStatus *p) {
-      json += "\"" + name + "\": " + ToString(p ? (int)p->flesh : 100) + ",";
-      json += "\"" + name +
-              "_max\": " + ToString(p ? (int)p->maxHealth() : 100) + ",";
-    };
-    addPart("head", med->getPart(0));
-    addPart("stomach", med->getPart(1));
-    addPart("left_arm", med->leftArm);
-    addPart("right_arm", med->rightArm);
-    addPart("left_leg", med->leftLeg);
-    addPart("right_leg", med->rightLeg);
-    if (json.back() == ',')
-      json.pop_back();
-    json += "}";
-    json += "},";
-  }
-
-  json += "\"environment\": {";
-  json += "\"indoors\": " +
-          std::string(npc->isIndoors().isValid() ? "true" : "false") + ",";
-  json += "\"in_town\": " +
-          std::string(npc->amInsideTownWalls() ? "true" : "false") + ",";
+static std::string EnvironmentJson(Character *npc) {
+  std::string json = "{\"indoors\": " + JsonBool(npc->isIndoors().isValid()) +
+                     ", \"in_town\": " + JsonBool(npc->amInsideTownWalls());
   TownBase *town = npc->getCurrentTownLocation();
   if (town)
-    json += "\"town_name\": \"" +
-            EscapeJSON(((RootObjectBase *)town)->getName()) + "\",";
+    json += ", \"town_name\": \"" + EscapeJSON(town->getName()) + "\"";
   std::string zone = ZoneName();
   if (!zone.empty())
-    json += "\"zone_name\": \"" + EscapeJSON(zone) + "\",";
-  json += "\"weather\": " + ToString((int)npc->getCurrentWeatherAffectStatus());
-  json += "},";
+    json += ", \"zone_name\": \"" + EscapeJSON(zone) + "\"";
+  return json + ", \"weather\": " +
+         ToString((int)npc->getCurrentWeatherAffectStatus()) + "}";
+}
 
-  json += "\"inventory\": ";
+template <class Tag>
+static std::string TagList(Character *npc, Character *other, int count) {
+  std::string list;
+  for (int i = 1; i < count; ++i)
+    if (npc->getCharacterMemoryTag(other, (Tag)i))
+      list += (list.empty() ? "" : ",") + ToString(i);
+  return "[" + list + "]";
+}
+
+std::string GetDetailedContext(Character *npc, const std::string &type) {
+  GameWorld *world = ppWorld ? *ppWorld : nullptr;
+  if (!npc || (uintptr_t)npc < 0x1000 || !world)
+    return "{}";
+  bool player = type == "player";
+  Building *building = BuildingOf(npc);
+  bool inShop = building && (building->isAShop() ||
+                             building->designation == BD_SHOP ||
+                             building->designation == BD_BAR);
+  std::string json =
+      "{" + StateFields(npc) + GameTimeFields() + ", " +
+      IdentityFields(world, npc) + ", \"in_shop\": " + JsonBool(inShop) +
+      ", \"building_name\": \"" + EscapeJSON(BuildingName(npc)) +
+      "\", \"nearby\": " + NearbyFactions(world, npc) +
+      ", \"money\": " + ToString(MoneyOf(npc));
+  if (player && world->player)
+    json += ", \"squad\": " + SquadNames(world);
+  CharStats *stats = npc->getStats();
+  if (stats)
+    json += ", \"stats\": {\"melee_attack\": " +
+            ToString((int)stats->getStat(STAT_MELEE_ATTACK, false)) +
+            ", \"melee_defence\": " +
+            ToString((int)stats->getStat(STAT_MELEE_DEFENCE, false)) + "}";
+  MedicalSystem *med = npc->getMedical();
+  if (med)
+    json += ", \"medical\": " + MedicalJson(med);
+  json += ", \"environment\": " + EnvironmentJson(npc);
+
   if (GetCurrentThreadId() == g_mainThreadId) {
-    std::vector<Item *> allItems;
-    GetAllCharacterItems(npc, allItems);
-    json += ItemsJson(allItems) + ",";
+    std::vector<Item *> items;
+    GetAllCharacterItems(npc, items);
+    json += ", \"inventory\": " + ItemsJson(items);
     // The trade window of a shop shows the items of all its furniture as its
     // stock
-    if (type != "player" && inAShop) {
+    if (!player && inShop) {
       std::vector<Item *> stock;
       GetShopItems(npc, stock);
-      json += "\"stock\": " + ItemsJson(stock) + ",";
+      json += ", \"stock\": " + ItemsJson(stock);
     }
   } else {
-    json += "[],";
+    json += ", \"inventory\": []";
   }
 
-  Character *player = FirstPlayerCharacter();
-  if (player) {
-    json += "\"memories\": { \"short_term\": [";
-    bool first = true;
-    for (int i = 1; i < 8; ++i) {
-      if (npc->getCharacterMemoryTag(player,
-                                     (CharacterPerceptionTags_ShortTerm)i)) {
-        if (!first)
-          json += ",";
-        json += ToString(i);
-        first = false;
-      }
-    }
-    json += "], \"long_term\": [";
-    first = true;
-    for (int i = 1; i < 17; ++i) {
-      if (npc->getCharacterMemoryTag(player,
-                                     (CharacterPerceptionTags_LongTerm)i)) {
-        if (!first)
-          json += ",";
-        json += ToString(i);
-        first = false;
-      }
-    }
-    json += "] }";
-  } else {
-    json += "\"memories\": {}";
-  }
-
-  json += "}";
-  return json;
+  Character *first = FirstPlayerCharacter();
+  json += ", \"memories\": ";
+  if (first)
+    json += "{\"short_term\": " +
+            TagList<CharacterPerceptionTags_ShortTerm>(npc, first, 8) +
+            ", \"long_term\": " +
+            TagList<CharacterPerceptionTags_LongTerm>(npc, first, 17) + "}";
+  else
+    json += "{}";
+  return json + "}";
 }
 
 // Empties the buffer, because the server records each event that it gets

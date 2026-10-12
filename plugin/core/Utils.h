@@ -11,6 +11,7 @@ LogLevel ParseLogLevel(const std::string &text);
 std::string ToString(int val);
 std::string ToString(unsigned int val);
 std::string ToString(float val);
+std::string JsonBool(bool value);
 std::string EscapeJSON(const std::string &s);
 std::string UnescapeJSON(const std::string &s);
 std::wstring Utf8ToWide(const std::string &str);

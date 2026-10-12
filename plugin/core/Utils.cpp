@@ -92,6 +92,7 @@ template <typename T> std::string ToStringT(T val) {
 std::string ToString(int val) { return ToStringT(val); }
 std::string ToString(unsigned int val) { return ToStringT(val); }
 std::string ToString(float val) { return ToStringT(val); }
+std::string JsonBool(bool value) { return value ? "true" : "false"; }
 
 std::string EscapeJSON(const std::string &s) {
   static const char HEX[] = "0123456789abcdef";

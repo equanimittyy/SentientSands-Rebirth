@@ -644,58 +644,21 @@ void addCharacterAt_hook(ActivePlatoon *p, RootObject *o, int index) {
   RekeyCharacter(c, before);
 }
 
-static std::string RadiantJson(const std::vector<Character *> &characters,
-                               bool inPlayerFaction) {
+static std::string RadiantJson(const std::vector<Character *> &characters) {
   std::string json = "[";
   for (size_t i = 0; i < characters.size(); ++i) {
     Character *other = characters[i];
-    if (i > 0)
-      json += ",";
-
-    RaceData *o_race = other->getRace() ? other->getRace() : other->myRace;
-    std::string o_rn = "Unknown";
-    if (o_race && (uintptr_t)o_race > 0x1000) {
-      if (o_race->data && !o_race->data->name.empty())
-        o_rn = o_race->data->name;
-      else if (o_race->data && !o_race->data->stringID.empty())
-        o_rn = o_race->data->stringID;
-    }
-
     LogNpcRole(other);
-    std::string identityFaction = GetIdentityFaction(other);
-    json += "{\"name\":\"" + EscapeJSON(other->getName()) + "\",";
-    json += "\"id\":" + ToString(HandleKey(other)) + ",";
-    json += "\"npc_id\":\"" + EscapeJSON(GetNpcId(other)) + "\",";
-    json += "\"race\":\"" + EscapeJSON(o_rn) + "\",";
-    json += "\"animal\":false,";
-    json += "\"gender\":\"" +
-            std::string(other->isFemale() ? "female" : "male") + "\",";
-    json += "\"template\":\"" +
-            EscapeJSON(other->data ? other->data->name : std::string()) +
-            "\",";
-    json += "\"template_id\":\"" +
-            EscapeJSON(other->data ? other->data->stringID : std::string()) +
-            "\",";
-    json += "\"unique\":" +
-            std::string(other->isUnique() ? "true" : "false") + ",";
-    json += "\"in_player_faction\":" +
-            std::string(inPlayerFaction ? "true" : "false") + ",";
     ActivePlatoon *active = other->getPlatoon();
-    json += "\"squad\":\"" +
+    json += std::string(i ? "," : "") + "{" + PartyFields(other) +
+            ", \"squad\": \"" +
             EscapeJSON(active && active->me ? active->me->getHandle().toString()
                                             : std::string()) +
-            "\",";
-    json += RoleJson(other) + ",";
-    json += ProfileJson(other) + ",";
-    json += "\"equipment\":\"" + EscapeJSON(GetVisibleEquipment(other)) +
-            "\",";
-    json += "\"faction\":\"" + EscapeJSON(identityFaction) + "\"}";
+            "\", \"equipment\": \"" + EscapeJSON(GetVisibleEquipment(other)) +
+            "\", \"faction\": \"" + EscapeJSON(GetIdentityFaction(other)) +
+            "\"}";
   }
   return json + "]";
-}
-
-static bool InPlayerFaction(Character *c) {
-  return c->getFaction() && c->getFaction()->isThePlayer();
 }
 
 void playerUpdate_hook(PlayerInterface *thisptr) {
@@ -780,8 +743,8 @@ void playerUpdate_hook(PlayerInterface *thisptr) {
             squad.clear();
           if (!squad.empty() || !npcs.empty()) {
             std::string *pJson = new std::string(
-                "{\"participants\": " + RadiantJson(squad, true) +
-                ", \"npcs\": " + RadiantJson(npcs, false) +
+                "{\"participants\": " + RadiantJson(squad) +
+                ", \"npcs\": " + RadiantJson(npcs) +
                 ", \"player_context\": " +
                 GetDetailedContext(center, "player") +
                 ", \"events\": " + TakeGameEvents() +
