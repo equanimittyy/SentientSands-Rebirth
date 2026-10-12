@@ -713,13 +713,9 @@ void playerUpdate_hook(PlayerInterface *thisptr) {
     g_welcomeShown = true;
   }
 
-  Character *sel = nullptr;
-  try {
-    sel = thisptr->selectedObject.getCharacter();
-    if (!sel)
-      sel = thisptr->selectedCharacter.getCharacter();
-  } catch (...) {
-  }
+  Character *sel = thisptr->selectedObject.getCharacter();
+  if (!sel)
+    sel = thisptr->selectedCharacter.getCharacter();
 
   std::vector<hand> renamed;
   EnterCriticalSection(&g_stateMutex);
@@ -831,11 +827,8 @@ void playerUpdate_hook(PlayerInterface *thisptr) {
         npc = nullptr;
       // End vanilla dialogue, or it runs alongside the AI chat ("double dialogue").
       if (npc && npc->dialogue && (uintptr_t)npc->dialogue > 0x1000) {
-        try {
-          npc->dialogue->endDialogue(true);
-          npc->dialogue->setInDialog(false);
-        } catch (...) {
-        }
+        npc->dialogue->endDialogue(true);
+        npc->dialogue->setInDialog(false);
       }
       CreateChatUI(npc);
     }

@@ -376,15 +376,9 @@ static void WatchTreatments(DWORD step) {
     }
     Character *medic = KeyedCharacter(g_treatments[i].key);
     if (medic) {
-      std::string line = "FIRSTAID_PROBE: name='" + medic->getName() +
-                         "' after=" +
-                         ToString((int)(TREATMENT_CHECK_MS / 1000)) + "s";
-      try {
-        line += OrdersLine(medic);
-      } catch (...) {
-        line += " [tasks failed]";
-      }
-      Log(LOG_DEBUG, line);
+      Log(LOG_DEBUG, "FIRSTAID_PROBE: name='" + medic->getName() + "' after=" +
+                         ToString((int)(TREATMENT_CHECK_MS / 1000)) + "s" +
+                         OrdersLine(medic));
     }
     g_treatments.erase(g_treatments.begin() + i);
   }
@@ -831,6 +825,8 @@ void ExecuteQueuedActions(GameWorld *world) {
     Character *npc = act.actor.getCharacter();
     if (!npc)
       continue;
+    // Catches only a C++ exception, such as one from Ogre when the factory
+    // loads an item, so one failed action does not end the game
     try {
       RunAction(world, act, npc, act.target.getCharacter(), batch);
     } catch (...) {

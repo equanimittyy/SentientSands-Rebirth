@@ -154,14 +154,8 @@ static void NotePrices(Character *c, bool stock,
   for (size_t i = 0; i < items.size(); ++i) {
     if (!items[i] || items[i]->itemFunction == ITEM_MONEY)
       continue;
-    int price = 0;
-    try {
-      price = items[i]->getValueSingle(false);
-    } catch (...) {
-      price = 0;
-    }
     int &best = prices[ItemLabel(items[i])];
-    best = std::max(best, price);
+    best = std::max(best, items[i]->getValueSingle(false));
   }
 }
 

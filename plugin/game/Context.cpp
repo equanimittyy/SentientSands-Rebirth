@@ -287,11 +287,7 @@ void RekeyCharacter(Character *npc, const hand &before) {
 }
 
 static std::string RaceName(Character *npc) {
-  RaceData *race = nullptr;
-  try {
-    race = npc->getRace() ? npc->getRace() : npc->myRace;
-  } catch (...) {
-  }
+  RaceData *race = npc->getRace() ? npc->getRace() : npc->myRace;
   if (race && (uintptr_t)race > 0x1000 && race->data) {
     if (!race->data->name.empty())
       return race->data->name;
@@ -302,11 +298,7 @@ static std::string RaceName(Character *npc) {
 }
 
 static Faction *CharacterFaction(Character *npc) {
-  Faction *faction = nullptr;
-  try {
-    faction = npc->getFaction() ? npc->getFaction() : npc->owner;
-  } catch (...) {
-  }
+  Faction *faction = npc->getFaction() ? npc->getFaction() : npc->owner;
   return faction && (uintptr_t)faction > 0x1000 ? faction : nullptr;
 }
 
@@ -490,35 +482,32 @@ std::string RoleJson(Character *npc) {
   bool trader = false;
   bool follower = false;
   std::string jobs;
-  try {
-    // isATrader covers the whole trader squad, guards too; the trader leads it
-    ActivePlatoon *active = npc->getPlatoon();
-    trader = npc->isATrader() && active && (uintptr_t)active > 0x1000 &&
-             active->squadleader == npc;
-    // A hire or escort contract makes an NPC follow the player without a recruit
-    Blackboard *board = BoardOf(npc);
-    follower = board && board->hasContractJob();
-    OrdersReceiver *orders = npc->getOrdersReciever();
-    if (orders && (uintptr_t)orders > 0x1000) {
-      for (int p = 0; p < 5; ++p) {
-        const lektor<Tasker *> &list = orders->squadAIPackage[p];
-        for (uint32_t i = 0; i < list.count; ++i) {
-          Tasker *task = list.stuff[i];
-          if (!task || (uintptr_t)task < 0x1000 || !task->taskData)
-            continue;
-          TaskType type = task->key();
-          for (size_t r = 0; r < sizeof(ROLE_TASKS) / sizeof(ROLE_TASKS[0]);
-               ++r) {
-            if (ROLE_TASKS[r].type == type) {
-              jobs += std::string(jobs.empty() ? "" : ",") + "\"" +
-                      ROLE_TASKS[r].name + "\"";
-              break;
-            }
+  // isATrader covers the whole trader squad, guards too; the trader leads it
+  ActivePlatoon *active = npc->getPlatoon();
+  trader = npc->isATrader() && active && (uintptr_t)active > 0x1000 &&
+           active->squadleader == npc;
+  // A hire or escort contract makes an NPC follow the player without a recruit
+  Blackboard *board = BoardOf(npc);
+  follower = board && board->hasContractJob();
+  OrdersReceiver *orders = npc->getOrdersReciever();
+  if (orders && (uintptr_t)orders > 0x1000) {
+    for (int p = 0; p < 5; ++p) {
+      const lektor<Tasker *> &list = orders->squadAIPackage[p];
+      for (uint32_t i = 0; i < list.count; ++i) {
+        Tasker *task = list.stuff[i];
+        if (!task || (uintptr_t)task < 0x1000 || !task->taskData)
+          continue;
+        TaskType type = task->key();
+        for (size_t r = 0; r < sizeof(ROLE_TASKS) / sizeof(ROLE_TASKS[0]);
+             ++r) {
+          if (ROLE_TASKS[r].type == type) {
+            jobs += std::string(jobs.empty() ? "" : ",") + "\"" +
+                    ROLE_TASKS[r].name + "\"";
+            break;
           }
         }
       }
     }
-  } catch (...) {
   }
   return std::string("\"is_trader\":") + (trader ? "true" : "false") +
          ",\"temporary_follower\":" + (follower ? "true" : "false") +
@@ -552,48 +541,36 @@ void LogNpcRole(Character *npc) {
   if (!LogEnabled(LOG_DEBUG) || !npc || (uintptr_t)npc < 0x1000)
     return;
   std::string line;
-  try {
-    line += "template=" + DataLabel(npc->data);
-    if (npc->data) {
-      auto npcClass = npc->data->idata.find("NPC class");
-      if (npcClass != npc->data->idata.end())
-        line += " class=" + ToString(npcClass->second);
-    }
-    StateBroadcastData *state = npc->getStateBroadcast();
-    if (state && (uintptr_t)state > 0x1000)
-      line += " live_type=" + ToString((int)state->NPCType);
-    Faction *faction = npc->getFaction();
-    if (faction && (uintptr_t)faction > 0x1000)
-      line += " faction='" + faction->getName() + "'";
-  } catch (...) {
-    line += " [identity failed]";
+  line += "template=" + DataLabel(npc->data);
+  if (npc->data) {
+    auto npcClass = npc->data->idata.find("NPC class");
+    if (npcClass != npc->data->idata.end())
+      line += " class=" + ToString(npcClass->second);
   }
-  try {
-    ActivePlatoon *active = npc->getPlatoon();
-    Platoon *platoon =
-        active && (uintptr_t)active > 0x1000 ? active->me : NULL;
-    if (platoon && (uintptr_t)platoon > 0x1000)
-      line += " squad=" + DataLabel(platoon->squadTemplate) +
-              " squad_type=" + ToString((int)platoon->squadType) +
-              " leader=" + (active->squadleader == npc ? "1" : "0");
-    // Name only: AIPackage.h, which packageData needs, redefines the
-    // BlackboardSignalFunctions enum from Blackboard.h (C2011).
-    Blackboard *board = BoardOf(npc);
-    if (board)
-      line += " package='" + board->getCurrentAIPackageName() + "'" +
-              " contract=" + (board->hasContractJob() ? "1" : "0");
-  } catch (...) {
-    line += " [squad failed]";
-  }
-  try {
-    line += OrdersLine(npc);
-    std::string names;
-    for (int i = 0; i < npc->getPermajobCount(); ++i)
-      names += (i ? "," : "") + npc->getPermajobName(i);
-    line += " permajob_names='" + names + "'";
-  } catch (...) {
-    line += " [tasks failed]";
-  }
+  StateBroadcastData *state = npc->getStateBroadcast();
+  if (state && (uintptr_t)state > 0x1000)
+    line += " live_type=" + ToString((int)state->NPCType);
+  Faction *faction = npc->getFaction();
+  if (faction && (uintptr_t)faction > 0x1000)
+    line += " faction='" + faction->getName() + "'";
+  ActivePlatoon *active = npc->getPlatoon();
+  Platoon *platoon =
+      active && (uintptr_t)active > 0x1000 ? active->me : NULL;
+  if (platoon && (uintptr_t)platoon > 0x1000)
+    line += " squad=" + DataLabel(platoon->squadTemplate) +
+            " squad_type=" + ToString((int)platoon->squadType) +
+            " leader=" + (active->squadleader == npc ? "1" : "0");
+  // Name only: AIPackage.h, which packageData needs, redefines the
+  // BlackboardSignalFunctions enum from Blackboard.h (C2011).
+  Blackboard *board = BoardOf(npc);
+  if (board)
+    line += " package='" + board->getCurrentAIPackageName() + "'" +
+            " contract=" + (board->hasContractJob() ? "1" : "0");
+  line += OrdersLine(npc);
+  std::string names;
+  for (int i = 0; i < npc->getPermajobCount(); ++i)
+    names += (i ? "," : "") + npc->getPermajobName(i);
+  line += " permajob_names='" + names + "'";
   unsigned int serial = npc->getHandle().serial;
   if (logged[serial] == line)
     return;
@@ -733,12 +710,7 @@ std::string ItemsJson(const std::vector<Item *> &items) {
     // took them for the purse
     if (!items[i] || items[i]->itemFunction == ITEM_MONEY)
       continue;
-    int price = 0;
-    try {
-      price = items[i]->getValueSingle(false);
-    } catch (...) {
-      price = 0;
-    }
+    int price = items[i]->getValueSingle(false);
     if (json.size() > 1)
       json += ",";
     json += "{\"name\": \"" + EscapeJSON(ItemLabel(items[i])) +
@@ -868,11 +840,7 @@ static void ProbeFirstAid(Character *npc, Character *speaker,
             " repair_order=" + (repair ? "1" : "0") + " dist=" +
             ToString(npc->getPosition().distance(speaker->getPosition()));
   }
-  try {
-    line += OrdersLine(npc);
-  } catch (...) {
-    line += " [tasks failed]";
-  }
+  line += OrdersLine(npc);
   Log(LOG_DEBUG, "FIRSTAID_PROBE: " + line);
 }
 
@@ -942,11 +910,7 @@ void GetCurrentSquad(std::vector<Character *> &members) {
 static bool CanTalk(Character *c) {
   if (!c || (uintptr_t)c < 0x1000)
     return false;
-  try {
-    return !c->isDead() && !c->isUnconcious() && !c->isAnimal();
-  } catch (...) {
-    return false;
-  }
+  return !c->isDead() && !c->isUnconcious() && !c->isAnimal();
 }
 
 // The center is a character that the player watches, so the speech bubbles show
@@ -1071,32 +1035,26 @@ std::string GetDetailedContext(Character *npc, const std::string &type) {
   std::string captor;
   bool isDead = false;
   bool isUnconcious = false;
-  try {
-    isDead = npc->isDead();
-    if (isDead) {
-      charState = "dead";
+  isDead = npc->isDead();
+  if (isDead) {
+    charState = "dead";
+  } else {
+    isUnconcious = npc->isUnconcious();
+    if (isUnconcious) {
+      charState = "unconscious";
+    } else if (npc->inSomething == IN_PRISON) {
+      charState = "imprisoned";
+      captor = CaptorID(npc->inWhat);
     } else {
-      isUnconcious = npc->isUnconcious();
-      if (isUnconcious) {
-        charState = "unconscious";
-      } else if (npc->inSomething == IN_PRISON) {
-        charState = "imprisoned";
-        captor = CaptorID(npc->inWhat);
-      } else {
-        try {
-          SlaveStateEnum slaveState = npc->isSlave();
-          bool chained = npc->isChainedMode();
-          if (slaveState != NOT_SLAVE) {
-            // Slave status but unchained means escaped
-            charState = chained ? "enslaved" : "escaped-slave";
-            if (chained)
-              captor = CaptorID(npc->getMySlaveOwner());
-          }
-        } catch (...) {
-        }
+      SlaveStateEnum slaveState = npc->isSlave();
+      bool chained = npc->isChainedMode();
+      if (slaveState != NOT_SLAVE) {
+        // Slave status but unchained means escaped
+        charState = chained ? "enslaved" : "escaped-slave";
+        if (chained)
+          captor = CaptorID(npc->getMySlaveOwner());
       }
     }
-  } catch (...) {
   }
   json += "\"character_state\": \"" + charState + "\",";
   json += "\"captor\": \"" + EscapeJSON(captor) + "\",";
@@ -1108,15 +1066,12 @@ std::string GetDetailedContext(Character *npc, const std::string &type) {
   bool needsFirstAid = false;
   bool needsRepair = false;
   int bounty = 0;
-  try {
-    slave = npc->isSlave() != 0;
-    bounty = npc->crimes.getTotalBounty();
-    Inventory *inv = npc->getInventory();
-    firstAid = inv && inv->hasItemFunction(ITEM_FIRSTAID);
-    repairKit = inv && inv->hasItemFunction(ITEM_ROBOTREPAIR);
-    TreatmentNeeds(npc, needsFirstAid, needsRepair);
-  } catch (...) {
-  }
+  slave = npc->isSlave() != 0;
+  bounty = npc->crimes.getTotalBounty();
+  Inventory *inv = npc->getInventory();
+  firstAid = inv && inv->hasItemFunction(ITEM_FIRSTAID);
+  repairKit = inv && inv->hasItemFunction(ITEM_ROBOTREPAIR);
+  TreatmentNeeds(npc, needsFirstAid, needsRepair);
   json += "\"slave\": " + std::string(slave ? "true" : "false") + ",";
   json += "\"bounty\": " + ToString(bounty) + ",";
   json += "\"has_first_aid\": " + std::string(firstAid ? "true" : "false") +
@@ -1129,15 +1084,12 @@ std::string GetDetailedContext(Character *npc, const std::string &type) {
           ",";
 
   std::string name = "Unknown";
-  try {
-    name = npc->getName();
-    if (name.empty() || name == "Unknown Entity" || name == "Unknown") {
-      if (!npc->displayName.empty())
-        name = npc->displayName;
-      else if (npc->data && !npc->data->name.empty())
-        name = npc->data->name;
-    }
-  } catch (...) {
+  name = npc->getName();
+  if (name.empty() || name == "Unknown Entity" || name == "Unknown") {
+    if (!npc->displayName.empty())
+      name = npc->displayName;
+    else if (npc->data && !npc->data->name.empty())
+      name = npc->data->name;
   }
   json += "\"name\": \"" + EscapeJSON(name) + "\",";
   json += "\"template\": \"" +
@@ -1159,10 +1111,7 @@ std::string GetDetailedContext(Character *npc, const std::string &type) {
           ",";
 
   std::string gender = "male";
-  try {
-    gender = npc->isFemale() ? "female" : "male";
-  } catch (...) {
-  }
+  gender = npc->isFemale() ? "female" : "male";
   if (npc->sex == "female" || npc->sex == "male")
     gender = npc->sex;
   json += "\"gender\": \"" + gender + "\",";
@@ -1173,22 +1122,19 @@ std::string GetDetailedContext(Character *npc, const std::string &type) {
   json += "\"factionID\": \"" + EscapeJSON(FactionID(faction)) + "\",";
 
   std::string job = "None";
-  try {
-    int jobCount = npc->getPermajobCount();
-    if (jobCount > 0) {
-      job = "";
-      for (int i = 0; i < jobCount; ++i) {
-        std::string jName = npc->getPermajobName(i);
-        if (!jName.empty()) {
-          if (!job.empty())
-            job += ", ";
-          job += jName;
-        }
+  int jobCount = npc->getPermajobCount();
+  if (jobCount > 0) {
+    job = "";
+    for (int i = 0; i < jobCount; ++i) {
+      std::string jName = npc->getPermajobName(i);
+      if (!jName.empty()) {
+        if (!job.empty())
+          job += ", ";
+        job += jName;
       }
-      if (job.empty())
-        job = "None";
     }
-  } catch (...) {
+    if (job.empty())
+      job = "None";
   }
   json += "\"job\": \"" + EscapeJSON(job) + "\",";
 
