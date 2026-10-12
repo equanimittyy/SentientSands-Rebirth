@@ -266,8 +266,20 @@ bool SendChatLine(const std::string &npcName, const std::string &handleStr,
                   const std::string &barterJson) {
   GameWorld *world = *ppWorld;
   std::string playerName = speaker ? speaker->getName() : "Drifter";
-  bool marked = IsActionMark(text);
   unsigned int targetKey = (unsigned int)strtoul(handleStr.c_str(), NULL, 10);
+  Character *targetNpc = KeyedCharacter(targetKey);
+  std::string downName;
+  if (speaker && speaker->isUnconcious())
+    downName = playerName;
+  else if (targetNpc && targetNpc->isUnconcious())
+    downName = npcName;
+  // A test command is never said, so it still reaches the server
+  if (!downName.empty() && text.compare(0, 1, "/") != 0) {
+    CloseChatUI();
+    NotifyChatStatus("{name} is unconscious.", downName);
+    return false;
+  }
+  bool marked = IsActionMark(text);
   EnterCriticalSection(&g_msgMutex);
   std::string pendingName = g_actionPendingName;
   std::string offerName = g_offerPendingName;
@@ -311,7 +323,6 @@ bool SendChatLine(const std::string &npcName, const std::string &handleStr,
   else if (mode == "yell")
     searchRadius = g_yellRadius;
 
-  Character *targetNpc = KeyedCharacter(targetKey);
   if (world && speaker) {
     try {
       Character *player = speaker;
