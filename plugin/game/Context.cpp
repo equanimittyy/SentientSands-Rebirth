@@ -221,6 +221,9 @@ struct KeyedCharacterEntry {
 
 // Without a lock, because only the game thread keys or looks up a character
 static std::vector<KeyedCharacterEntry> g_keyed;
+// The faction of a character before the player recruited it, by npc_id. The
+// game thread alone uses it, as g_keyed
+static std::map<std::string, std::string> g_originFactions;
 
 // A squad change gives a character a new handle, and RekeyCharacter gives the
 // key that handle, so a key outlives the change
@@ -271,9 +274,11 @@ void RekeyCharacter(Character *npc, const hand &before) {
     if (g_keyed[i].character == npc &&
         g_keyed[i].handle.serial == before.serial)
       g_keyed[i].handle = npc->getHandle();
-  if (g_originFactions.count(oldId)) {
-    g_originFactions[newId] = g_originFactions[oldId];
-    g_originFactions.erase(oldId);
+  std::map<std::string, std::string>::iterator origin =
+      g_originFactions.find(oldId);
+  if (origin != g_originFactions.end()) {
+    g_originFactions[newId] = origin->second;
+    g_originFactions.erase(origin);
   }
   QueueGameEvent("rekey", "\"old\": \"" + EscapeJSON(oldId) +
                               "\", \"new\": \"" + EscapeJSON(newId) + "\"");
@@ -1008,67 +1013,42 @@ void GetRadiantNpcs(Character *center, std::vector<Character *> &npcs) {
     npcs.push_back(nearby[i].second);
 }
 
+// The faction that the template of a recruit names, outside the player faction
+static Faction *TemplateFaction(Character *npc) {
+  GameWorld *world = ppWorld ? *ppWorld : nullptr;
+  GameData *data = npc->getGameData();
+  if (!world || !world->factionMgr || !data)
+    return nullptr;
+  const Ogre::vector<GameDataReference>::type *refs =
+      data->getReferenceListIfExists("faction");
+  Faction *faction = refs && !refs->empty()
+                         ? world->factionMgr->getFactionByStringID(refs->at(0).sid)
+                         : nullptr;
+  return faction && !faction->isThePlayer() ? faction : nullptr;
+}
+
+// Each sighting outside the player faction keeps the faction, because the game
+// forgets it at a recruit
 std::string GetIdentityFaction(Character *npc) {
   if (!npc || (uintptr_t)npc < 0x1000)
     return "Neutral";
-
-  Faction *faction = nullptr;
-  try {
-    faction = npc->getFaction() ? npc->getFaction() : npc->owner;
-  } catch (...) {
-  }
-
-  std::string factionName = "Neutral";
-  if (faction && (uintptr_t)faction > 0x1000) {
-    factionName = faction->getName();
-    if (factionName.empty() || factionName == "Unknown") {
-      if (faction->data && !faction->data->name.empty())
-        factionName = faction->data->name;
-    }
-  }
-
-  std::string identityFaction = factionName;
   std::string npcId = GetNpcId(npc);
-
-  std::string cached = "";
-  EnterCriticalSection(&g_stateMutex);
-  if (g_originFactions.count(npcId)) {
-    cached = g_originFactions[npcId];
-  }
-  LeaveCriticalSection(&g_stateMutex);
-
-  if (!cached.empty()) {
-    return cached;
-  }
-
+  std::map<std::string, std::string>::iterator cached =
+      g_originFactions.find(npcId);
+  if (cached != g_originFactions.end())
+    return cached->second;
+  Faction *faction = CharacterFaction(npc);
   if (faction && faction->isThePlayer()) {
-    GameData *characterData = npc->getGameData();
-    if (characterData && ppWorld && *ppWorld && (*ppWorld)->factionMgr) {
-      const Ogre::vector<GameDataReference>::type *refs =
-          characterData->getReferenceListIfExists("faction");
-      if (refs && !refs->empty()) {
-        Faction *refFaction =
-            (*ppWorld)->factionMgr->getFactionByStringID(refs->at(0).sid);
-        if (refFaction && !refFaction->isThePlayer()) {
-          identityFaction = refFaction->getName();
-          g_originFactions[npcId] = identityFaction;
-          return identityFaction;
-        }
-      }
-    }
+    Faction *origin = TemplateFaction(npc);
     // Player faction names change when the squad is renamed, so use a stable label
-    if (identityFaction == factionName || identityFaction == "Nameless") {
-      identityFaction = "Drifters";
-    }
-  } else {
-    if (!factionName.empty() && factionName != "Unknown" &&
-        factionName != "Neutral") {
-      EnterCriticalSection(&g_stateMutex);
-      g_originFactions[npcId] = factionName;
-      LeaveCriticalSection(&g_stateMutex);
-    }
+    if (!origin)
+      return "Drifters";
+    return g_originFactions[npcId] = origin->getName();
   }
-  return identityFaction;
+  std::string name = FactionName(faction);
+  if (name != "Neutral")
+    g_originFactions[npcId] = name;
+  return name;
 }
 
 std::string GetDetailedContext(Character *npc, const std::string &type) {
@@ -1306,11 +1286,8 @@ std::string GetDetailedContext(Character *npc, const std::string &type) {
 
         std::string o_npcId = GetNpcId(other);
 
-        EnterCriticalSection(&g_stateMutex);
-        if (!g_originFactions.count(o_npcId) && o_fact &&
-            !o_fact->isThePlayer())
-          g_originFactions[o_npcId] = o_fn;
-        LeaveCriticalSection(&g_stateMutex);
+        if (o_fact && !o_fact->isThePlayer())
+          g_originFactions.insert(std::make_pair(o_npcId, o_fn));
 
         std::string o_health = GetHealthStatus(other);
         std::string o_equip = GetVisibleEquipment(other);

@@ -367,10 +367,6 @@ bool SendChatLine(const std::string &npcName, const std::string &handleStr,
                 factionName = faction->data->stringID;
             }
 
-            if (!g_originFactions.count(o_npcId) && faction &&
-                !faction->isThePlayer())
-              g_originFactions[o_npcId] = factionName;
-
             std::string o_gender = other->isFemale() ? "female" : "male";
 
             if (!nearbyFullJson.empty())
