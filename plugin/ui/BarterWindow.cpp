@@ -385,8 +385,8 @@ static std::string LotsJson(const std::vector<Lot> &lots) {
   return json + "]";
 }
 
-// The server checks the deal against the inventory of each squad mate, so a
-// counter-offer can also take an item of any of them
+// The server checks each item against the inventory of its holder, and the
+// price guide covers the items of all the squad mates
 static std::string BarterJson() {
   Deal deal = TableDeal();
   std::string squad = "[";
