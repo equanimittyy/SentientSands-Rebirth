@@ -820,7 +820,10 @@ static void ProbeFirstAid(Character *npc, Character *speaker) {
                  "+" + ToString((int)part->bandaging) + "/" +
                  ToString((int)part->maxHealth());
     }
-    StartTreatment(npc, speaker, firstAid, repair);
+    GameWorld *world = ppWorld ? *ppWorld : NULL;
+    std::string message = StartTreatment(npc, speaker, firstAid, repair);
+    if (world)
+      world->showPlayerAMessage(message, false);
     line += " speaker='" + speaker->getName() +
             "' health=" + GetHealthStatus(speaker) +
             " robot_race=" + (race && race->robot ? "1" : "0") + " parts=" +

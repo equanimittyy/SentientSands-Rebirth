@@ -515,15 +515,21 @@ void WatchFights(GameWorld *world) {
 }
 
 // A half-robot needs both kits, so the repair queues behind the first aid
-void StartTreatment(Character *medic, Character *patient, bool &firstAid,
-                    bool &repair) {
+std::string StartTreatment(Character *medic, Character *patient,
+                           bool &firstAid, bool &repair) {
   bool needsFirstAid, needsRepair;
   TreatmentNeeds(patient, needsFirstAid, needsRepair);
   Inventory *inv = medic->getInventory();
   firstAid = needsFirstAid && inv && inv->hasItemFunction(ITEM_FIRSTAID);
   repair = needsRepair && inv && inv->hasItemFunction(ITEM_ROBOTREPAIR);
+  if (!needsFirstAid && !needsRepair)
+    return patient->getName() + " needs no treatment.";
   if (!firstAid && !repair)
-    return;
+    return medic->getName() + " has no " +
+           (needsFirstAid && needsRepair ? "first aid kit or repair kit"
+            : needsFirstAid              ? "first aid kit"
+                                         : "repair kit") +
+           ".";
   medic->clearAllAIGoals();
   if (firstAid)
     medic->addOrder(nullptr, FIRST_AID_ORDER, (RootObject *)patient, false,
@@ -532,6 +538,7 @@ void StartTreatment(Character *medic, Character *patient, bool &firstAid,
     medic->addOrder(nullptr, FIRST_AID_ROBOT, (RootObject *)patient, firstAid,
                     !firstAid, patient->getPosition());
   medic->reThinkCurrentAIAction();
+  return medic->getName() + " is treating " + patient->getName() + ".";
 }
 
 void ExecuteQueuedActions(GameWorld *thisptr, int &inventoryTimer) {
@@ -1001,14 +1008,8 @@ void ExecuteQueuedActions(GameWorld *thisptr, int &inventoryTimer) {
           }
         } else if (act.type == ACT_FIRST_AID && target) {
           bool firstAid, repair;
-          StartTreatment(npc, target, firstAid, repair);
           thisptr->showPlayerAMessage(
-              npc->getName() +
-                  (firstAid || repair ? " is treating " + target->getName()
-                                      : " has no kit for the wounds of " +
-                                            target->getName()) +
-                  ".",
-              false);
+              StartTreatment(npc, target, firstAid, repair), false);
         } else if (act.type == ACT_PROBE) {
           RunProbe(npc, target, act.message);
         } else if (act.type == ACT_SPAWN_ITEM) {

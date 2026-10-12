@@ -88,7 +88,7 @@ Some questions of the plans need data from the game. The plugin writes probe lin
 | `FIRSTAID_PROBE` | At each `/firstaid` test command of the chat | `ProbeFirstAid` | Which kits the chat target carries, which body parts of the speaker are robotic or wounded (`R` or `F`, then the flesh, the bandage, and the maximum of each part), and whether `FIRST_AID_ORDER` and `FIRST_AID_ROBOT` make the chat target treat and repair the speaker |
 | `HIRE_PROBE` | At each `/follow` test command of the chat | `ProbeHire` | Which call starts a hire contract with an expiry time, and which call ends it |
 
-`/stock` changes nothing. `/firstaid` starts the treatment of a HEAL deal on the speaker (`StartTreatment` in `plugin/game/GameActions.cpp`). `/follow [hours]` gives the chat target the `Bodyguard` contract for that many hours, `/follow [line ID]` starts the contract of a dialogue line of the game, `/follow end` ends the contract, and `/follow` alone only logs.
+`/stock` changes nothing. `/firstaid` starts the treatment of a HEAL deal on the speaker (`StartTreatment` in `plugin/game/GameActions.cpp`), and shows the game message of that deal: the treatment, the missing kit, or that the speaker needs no treatment. `/follow [hours]` gives the chat target the `Bodyguard` contract for that many hours, `/follow [line ID]` starts the contract of a dialogue line of the game, `/follow end` ends the contract, and `/follow` alone only logs.
 
 [kenshi_internals.md](kenshi_internals.md) records the answers of the in-game tests.
 
