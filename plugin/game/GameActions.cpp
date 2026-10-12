@@ -20,6 +20,7 @@
 #include <kenshi/util/YesNoMaybe.h>
 #include <kenshi/util/hand.h>
 #include <ogre/OgreColourValue.h>
+#include <set>
 #include <vector>
 
 void PerformLeaveSquad(Character *npc, GameWorld *world,
@@ -571,6 +572,19 @@ void WatchTreatments(GameWorld *world) {
   }
 }
 
+// The server sends each action of a deal as its own pipe message, so the
+// actions can arrive over several frames. A payment that fell short therefore
+// holds back the NPC's side until the NPC's next line
+static std::set<unsigned int> g_shortPayers;
+
+static bool HeldBack(Character *npc, const std::string &action) {
+  if (!g_shortPayers.count(HandleKey(npc)))
+    return false;
+  Log(LOG_INFO, "ACTION: Skipping " + action + " of " + npc->getName() +
+                    ", because the payment fell short");
+  return true;
+}
+
 void ExecuteQueuedActions(GameWorld *thisptr, int &inventoryTimer) {
   std::deque<QueuedAction> localQueue;
   if (TryEnterCriticalSection(&g_uiMutex)) {
@@ -578,9 +592,6 @@ void ExecuteQueuedActions(GameWorld *thisptr, int &inventoryTimer) {
     g_uiActionQueue.clear();
     LeaveCriticalSection(&g_uiMutex);
   }
-
-  bool transactionFailed = false;
-  std::string failureReason = "";
 
   for (size_t actIdx = 0; actIdx < localQueue.size(); ++actIdx) {
     try {
@@ -595,6 +606,8 @@ void ExecuteQueuedActions(GameWorld *thisptr, int &inventoryTimer) {
         Log(LOG_DEBUG, "ACTION: SAY [" + npc->getName() + "]: " + act.message +
             (isPC ? " (PC)" : " (NPC)"));
         KeepTwoBubbles(act.actor);
+        if (!g_shortPayers.empty())
+          g_shortPayers.erase(HandleKey(npc));
         try {
           // No endDialogue/setInDialog(false): they clear AI goals, killing the task just queued
           npc->sayALine(act.message, true);
@@ -735,8 +748,7 @@ void ExecuteQueuedActions(GameWorld *thisptr, int &inventoryTimer) {
             }
 
             if (taken < count) {
-              transactionFailed = true;
-              failureReason = "Not enough items.";
+              g_shortPayers.insert(HandleKey(npc));
               Log(LOG_WARN, "ACTION: Transaction failed: " + npc->getName() + " wanted " + ToString(count) + " but only found " + ToString(taken));
             }
 
@@ -753,10 +765,8 @@ void ExecuteQueuedActions(GameWorld *thisptr, int &inventoryTimer) {
             }
           }
         } else if (act.type == ACT_GIVE_ITEM || act.type == ACT_SELL_ITEM) {
-          if (transactionFailed) {
-            Log(LOG_INFO, "ACTION: Skipping GIVE_ITEM due to previous transaction failure (" + failureReason + ")");
+          if (HeldBack(npc, act.type == ACT_SELL_ITEM ? "SELL_ITEM" : "GIVE_ITEM"))
             continue;
-          }
           std::string targetName = act.message;
           size_t fnot = targetName.find_first_not_of(" \t\n\r\"'");
           if (fnot != std::string::npos) {
@@ -816,10 +826,8 @@ void ExecuteQueuedActions(GameWorld *thisptr, int &inventoryTimer) {
             }
           }
         } else if (act.type == ACT_GIVE_CATS) {
-          if (transactionFailed) {
-            Log(LOG_INFO, "ACTION: Skipping GIVE_CATS due to previous transaction failure (" + failureReason + ")");
+          if (HeldBack(npc, "GIVE_CATS"))
             continue;
-          }
           if (thisptr->player &&
                    thisptr->player->playerCharacters.size() > 0) {
             int amt = act.taskValue;
@@ -849,10 +857,10 @@ void ExecuteQueuedActions(GameWorld *thisptr, int &inventoryTimer) {
               pMoney = p->getOwnerships()->getMoney();
 
             int amt = targetAmt;
-            if (amt > pMoney) {
+            bool fellShort = amt > pMoney;
+            if (fellShort) {
               amt = pMoney;
-              transactionFailed = true;
-              failureReason = "Not enough cats.";
+              g_shortPayers.insert(HandleKey(npc));
             }
             if (amt < 1) {
               amt = 0;
@@ -888,7 +896,7 @@ void ExecuteQueuedActions(GameWorld *thisptr, int &inventoryTimer) {
             thisptr->showPlayerAMessage_withLog(
                 "Lost " + ToString(amt) + " cats.", true);
 
-            if (transactionFailed) {
+            if (fellShort) {
               thisptr->showPlayerAMessage(
                   npc->getName() +
                       " looks annoyed. \"That's not what we agreed on!\"",
@@ -896,6 +904,8 @@ void ExecuteQueuedActions(GameWorld *thisptr, int &inventoryTimer) {
             }
           }
         } else if (act.type == ACT_RELEASE && target) {
+          if (HeldBack(npc, "RELEASE"))
+            continue;
           bool inCage = (target->inSomething == IN_PRISON);
           bool shackled = target->isChained || target->isChainedMode();
           float dist = npc->getPosition().distance(target->getPosition());
@@ -948,6 +958,8 @@ void ExecuteQueuedActions(GameWorld *thisptr, int &inventoryTimer) {
             npc->reThinkCurrentAIAction();
           }
         } else if (act.type == ACT_HIRE && target) {
+          if (HeldBack(npc, "HIRE"))
+            continue;
           Blackboard *board = npc->getBlackboard();
           GameData *bodyguard = thisptr->gamedata.getData("5090-gamedata.base");
           if (board && (uintptr_t)board > 0x1000 && bodyguard) {
@@ -978,6 +990,8 @@ void ExecuteQueuedActions(GameWorld *thisptr, int &inventoryTimer) {
                 npc->getName() + " no longer follows you.", true);
           }
         } else if (act.type == ACT_FIRST_AID && target) {
+          if (HeldBack(npc, "FIRST_AID"))
+            continue;
           bool firstAid, repair;
           std::string message = StartTreatment(npc, target, firstAid, repair);
           Log(LOG_DEBUG, "ACTION: " + message + " first_aid_order=" +
