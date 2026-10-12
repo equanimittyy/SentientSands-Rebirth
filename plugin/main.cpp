@@ -1097,6 +1097,13 @@ void playerUpdate_hook(PlayerInterface *thisptr) {
   if (sel && (uintptr_t)sel > 0x1000 && !InPlayerFaction(sel))
     lastNpc = sel->getHandle();
 
+  // Only a change moves the speaker, so the speaker button still cycles
+  static hand lastSelected;
+  if (thisptr->selectedCharacter != lastSelected) {
+    lastSelected = thisptr->selectedCharacter;
+    SelectChatSpeaker(lastSelected);
+  }
+
   if (!typing && (GetAsyncKeyState(g_chatHotkey) & 0x8000) && !g_chatWindow &&
       !g_libraryWindow && !g_barterWindow) {
     static DWORD lastTalkTick = 0;

@@ -50,9 +50,10 @@ static const HelpTopic HELP_TOPICS[] = {
       {"Target", "To talk to one of your characters within the Talk range of "
                  "your squad, press the button on the right, with the name of "
                  "the NPC, until it shows that character."},
-      {"Speaker", "To speak as another squad member, press the button on the "
-                  "left, with the name of the speaker, until it shows that "
-                  "member."},
+      {"Speaker", "You speak as the squad member that you select. To speak "
+                  "as another squad member, select that member, or press the "
+                  "button on the left, with the name of the speaker, until it "
+                  "shows that member."},
       {"Whisper", "Only the NPC hears it."},
       {"Talk", "The NPCs within the Talk range hear it."},
       {"Yell", "The NPCs within the Yell range hear it. Up to 3 of them can "

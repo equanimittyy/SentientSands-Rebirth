@@ -2,6 +2,7 @@
 #include "ChatUIGlobals.h"
 
 class Character;
+class hand;
 
 namespace SentientSands {
 namespace UI {
@@ -31,6 +32,7 @@ void OnChatInputAccept(MyGUI::EditBox *sender);
 void OnChatSendClick(MyGUI::Widget *sender);
 void OnChatCancelClick(MyGUI::Widget *sender);
 void OnChatSpeakerClick(MyGUI::Widget *sender);
+void SelectChatSpeaker(const hand &member);
 void OnModeButtonClick(MyGUI::Widget *sender);
 void UpdateModeButtons();
 void OnRadiantClick(MyGUI::Widget *sender);

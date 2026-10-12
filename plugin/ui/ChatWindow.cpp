@@ -509,6 +509,16 @@ void OnChatSpeakerClick(MyGUI::Widget *sender) {
   ShowChatSpeaker();
 }
 
+void SelectChatSpeaker(const hand &member) {
+  for (size_t i = 0; g_chatWindow && i < g_chatSpeakers.size(); ++i) {
+    if (g_chatSpeakers[i] == member) {
+      g_chatSpeakerIndex = i;
+      ShowChatSpeaker();
+      return;
+    }
+  }
+}
+
 static void FillChatSpeakers(unsigned int preferredKey) {
   unsigned int targetKey =
       (unsigned int)strtoul(g_chatTargetHandleStr.c_str(), NULL, 10);
@@ -703,6 +713,7 @@ void CreateChatUI(Character *npc) {
   g_chatJustOpened = true;
   BuildChatWindow(gui);
   ShowChatTarget();
+  SelectChatSpeaker(world->player->selectedCharacter);
 }
 
 void OnModeButtonClick(MyGUI::Widget *sender) {
