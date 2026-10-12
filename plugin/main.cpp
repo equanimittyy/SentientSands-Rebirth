@@ -713,7 +713,7 @@ void ProcessMessageQueue(GameWorld *thisptr) {
             QueuedAction act;
             act.type = ACT_RELEASE;
             act.actor = targetHand;
-            act.taskValue = 110; // RELEASE_PRISONER
+            act.taskValue = RELEASE_PRISONER;
             act.target = actionTarget;
             g_uiActionQueue.push_back(act);
             LeaveCriticalSection(&g_uiMutex);
@@ -723,7 +723,7 @@ void ProcessMessageQueue(GameWorld *thisptr) {
             QueuedAction act;
             act.type = ACT_RELEASE;
             act.actor = targetHand;
-            act.taskValue = 111; // BREAKOUT_PRISONER
+            act.taskValue = BREAKOUT_PRISONER;
             act.target = actionTarget;
             g_uiActionQueue.push_back(act);
             LeaveCriticalSection(&g_uiMutex);
@@ -733,7 +733,7 @@ void ProcessMessageQueue(GameWorld *thisptr) {
             QueuedAction act;
             act.type = ACT_SET_TASK;
             act.actor = targetHand;
-            act.taskValue = 23; // ATTACK_TOWN
+            act.taskValue = ATTACK_TOWN;
             act.message = tName;
             g_uiActionQueue.push_back(act);
             LeaveCriticalSection(&g_uiMutex);
@@ -743,7 +743,7 @@ void ProcessMessageQueue(GameWorld *thisptr) {
             QueuedAction act;
             act.type = ACT_SET_TASK;
             act.actor = targetHand;
-            act.taskValue = 18; // RAID_TOWN
+            act.taskValue = RAID_TOWN;
             act.message = tName;
             g_uiActionQueue.push_back(act);
             LeaveCriticalSection(&g_uiMutex);
@@ -755,7 +755,7 @@ void ProcessMessageQueue(GameWorld *thisptr) {
             act.type = ACT_SET_TASK;
             act.actor = targetHand;
             act.message = tName;
-            act.taskValue = 53; // TRAVEL_TO_TARGET_TOWN
+            act.taskValue = TRAVEL_TO_TARGET_TOWN;
             g_uiActionQueue.push_back(act);
             LeaveCriticalSection(&g_uiMutex);
           }
@@ -1026,6 +1026,7 @@ void playerUpdate_hook(PlayerInterface *thisptr) {
     WatchOffer();
     WatchReleases(world);
     WatchFights(world);
+    WatchTreatments(world);
 
     for (size_t i = 0; i < renamed.size(); ++i) {
       Character *c = renamed[i].getCharacter();

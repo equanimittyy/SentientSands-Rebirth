@@ -393,10 +393,10 @@ static std::string DataLabel(GameData *data) {
   return data->stringID + " '" + data->name + "'";
 }
 
-static std::string TaskKeys(const lektor<Tasker *> &list) {
+template <class Tasks> static std::string TaskKeys(const Tasks &list) {
   std::string keys;
-  for (uint32_t i = 0; i < list.count; ++i) {
-    Tasker *task = list.stuff[i];
+  for (auto it = list.begin(); it != list.end(); ++it) {
+    Tasker *task = *it;
     if (!task || (uintptr_t)task < 0x1000 || !task->taskData)
       continue;
     if (!keys.empty())
@@ -406,13 +406,15 @@ static std::string TaskKeys(const lektor<Tasker *> &list) {
   return keys.empty() ? "-" : keys;
 }
 
-static std::string OrdersLine(Character *npc) {
+std::string OrdersLine(Character *npc) {
   OrdersReceiver *orders = npc->getOrdersReciever();
   if (!orders || (uintptr_t)orders < 0x1000)
     return "";
   const TaskMatch &goal = orders->getCurrentGoal();
   std::string line =
       " goal=" + (goal.taskData ? ToString((int)goal.key()) : std::string("-"));
+  line += " orders=" + TaskKeys(orders->orders.list);
+  line += " jobs=" + TaskKeys(orders->jobs);
   line += " permajobs=" + TaskKeys(orders->permajobs);
   line += " squad_jobs=";
   for (int p = 0; p < 5; ++p)
@@ -1103,7 +1105,7 @@ std::string GetDetailedContext(Character *npc, const std::string &type) {
         try {
           SlaveStateEnum slaveState = npc->isSlave();
           bool chained = npc->isChainedMode();
-          if (slaveState != 0) { // 0 == not a slave
+          if (slaveState != NOT_SLAVE) {
             // Slave status but unchained means escaped
             charState = chained ? "enslaved" : "escaped-slave";
           }

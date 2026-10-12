@@ -514,6 +514,15 @@ void WatchFights(GameWorld *world) {
   }
 }
 
+// The AI picks its goal frames later, so a read at the order shows no goal
+static const DWORD TREATMENT_CHECK_MS = 5000;
+
+struct PendingTreatment {
+  unsigned int key;
+  DWORD waited;
+};
+static std::vector<PendingTreatment> g_treatments;
+
 // A half-robot needs both kits, so the repair queues behind the first aid
 std::string StartTreatment(Character *medic, Character *patient,
                            bool &firstAid, bool &repair, TaskType robotOrder) {
@@ -538,7 +547,34 @@ std::string StartTreatment(Character *medic, Character *patient,
     medic->addOrder(nullptr, robotOrder, (RootObject *)patient, firstAid,
                     !firstAid, patient->getPosition());
   medic->reThinkCurrentAIAction();
+  PendingTreatment check = {HandleKey(medic), 0};
+  g_treatments.push_back(check);
   return medic->getName() + " is treating " + patient->getName() + ".";
+}
+
+void WatchTreatments(GameWorld *world) {
+  static DWORD last = GetTickCount();
+  DWORD step = UnpausedStep(world, last);
+  for (size_t i = 0; i < g_treatments.size();) {
+    g_treatments[i].waited += step;
+    if (g_treatments[i].waited < TREATMENT_CHECK_MS) {
+      ++i;
+      continue;
+    }
+    Character *medic = KeyedCharacter(g_treatments[i].key);
+    if (medic) {
+      std::string line = "FIRSTAID_PROBE: name='" + medic->getName() +
+                         "' after=" +
+                         ToString((int)(TREATMENT_CHECK_MS / 1000)) + "s";
+      try {
+        line += OrdersLine(medic);
+      } catch (...) {
+        line += " [tasks failed]";
+      }
+      Log(LOG_DEBUG, line);
+    }
+    g_treatments.erase(g_treatments.begin() + i);
+  }
 }
 
 void ExecuteQueuedActions(GameWorld *thisptr, int &inventoryTimer) {
@@ -864,6 +900,7 @@ void ExecuteQueuedActions(GameWorld *thisptr, int &inventoryTimer) {
             }
           }
         } else if (act.type == ACT_TAKE_CATS) {
+          // The player's cats are one purse, so any player character pays
           Character *p =
               (thisptr->player && thisptr->player->playerCharacters.size() > 0)
                   ? thisptr->player->playerCharacters[0]
@@ -884,9 +921,10 @@ void ExecuteQueuedActions(GameWorld *thisptr, int &inventoryTimer) {
               amt = 0;
             }
 
-            Log(LOG_INFO, "ACTION: Taking " + ToString(amt) + " cats from " +
-                p->getName() + " (Requested: " + ToString(targetAmt) +
-                ", Bank: " + ToString(pMoney) + ")");
+            Log(LOG_INFO, "ACTION: Taking " + ToString(amt) +
+                              " cats from the player (Requested: " +
+                              ToString(targetAmt) +
+                              ", Bank: " + ToString(pMoney) + ")");
             p->takeMoney(amt);
 
             // Don't pay a recruit from this batch: the fee would land back in the player's pocket
@@ -921,8 +959,7 @@ void ExecuteQueuedActions(GameWorld *thisptr, int &inventoryTimer) {
             }
           }
         } else if (act.type == ACT_RELEASE && target) {
-          // IN_PRISON is enum value 2
-          bool inCage = (target->inSomething == 2);
+          bool inCage = (target->inSomething == IN_PRISON);
           bool shackled = target->isChained || target->isChainedMode();
           float dist = npc->getPosition().distance(target->getPosition());
 
@@ -948,11 +985,11 @@ void ExecuteQueuedActions(GameWorld *thisptr, int &inventoryTimer) {
           }
 
           if (inCage || shackled) {
-            TaskType tt = RELEASE_PRISONER; // 110
-            if (act.taskValue == 111) {
-              tt = BREAKOUT_PRISONER; // 111
+            TaskType tt = RELEASE_PRISONER;
+            if (act.taskValue == BREAKOUT_PRISONER) {
+              tt = BREAKOUT_PRISONER;
               if (shackled && !inCage)
-                tt = (TaskType)201; // PICK_LOCK_ON_SHACKLES
+                tt = PICK_LOCK_ON_SHACKLES;
             }
 
             Log(LOG_DEBUG, "ACTION: Assigning task: " + GetTaskName(tt) + " (" +
@@ -967,7 +1004,7 @@ void ExecuteQueuedActions(GameWorld *thisptr, int &inventoryTimer) {
             g_releases.push_back(pending);
 
             thisptr->showPlayerAMessage(npc->getName() +
-                                            (act.taskValue == 111
+                                            (act.taskValue == BREAKOUT_PRISONER
                                                  ? " is breaking out "
                                                  : " is releasing ") +
                                             target->getName() + "!",
@@ -1008,8 +1045,11 @@ void ExecuteQueuedActions(GameWorld *thisptr, int &inventoryTimer) {
           }
         } else if (act.type == ACT_FIRST_AID && target) {
           bool firstAid, repair;
-          thisptr->showPlayerAMessage(
-              StartTreatment(npc, target, firstAid, repair), false);
+          std::string message = StartTreatment(npc, target, firstAid, repair);
+          Log(LOG_DEBUG, "ACTION: " + message + " first_aid_order=" +
+                             (firstAid ? "1" : "0") +
+                             " repair_order=" + (repair ? "1" : "0"));
+          thisptr->showPlayerAMessage(message, false);
         } else if (act.type == ACT_PROBE) {
           RunProbe(npc, target, act.message);
         } else if (act.type == ACT_SPAWN_ITEM) {

@@ -16,3 +16,4 @@ std::string StartTreatment(Character *medic, Character *patient,
                            TaskType robotOrder = FIRST_AID_ROBOT);
 void WatchReleases(GameWorld *world);
 void WatchFights(GameWorld *world);
+void WatchTreatments(GameWorld *world);
