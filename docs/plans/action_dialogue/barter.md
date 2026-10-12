@@ -53,10 +53,10 @@ An NPC can take a loss on a deal when its character would, for example a friend 
 | -60 or lower | A profit of at least 30% |
 | -59 to -25 | A profit of at least 20% |
 | -24 to 24 | A profit of at least 10% |
-| 25 to 59 | A loss of at most 15% |
-| 60 or higher | A loss of at most 30% |
+| 25 to 59 | A loss of at most 10% |
+| 60 or higher | A loss of at most 20% |
 
-For example, the guide has a neutral trader sell the Katana for at least 3,300 cats, and it lets a liked trader sell the Katana for 2,550 cats.
+For example, the guide has a neutral trader sell the Katana for at least 3,300 cats, and it lets a liked trader sell the Katana for 2,700 cats.
 
 ## 4. Charity
 

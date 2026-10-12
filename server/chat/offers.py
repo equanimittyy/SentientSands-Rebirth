@@ -39,7 +39,7 @@ SHARES = {True: (1.0, 0.8), False: (1.0, 0.6)}
 # The share of what it gives that an NPC usually loses at most in a trade, by the band of its relation
 # (action_dialogue.relation_bonus); a negative share is the least profit that it wants. It only guides the model: no
 # check enforces it, so the character decides each deal.
-LOSS_SHARES = {-2: -0.3, -1: -0.2, 0: -0.1, 1: 0.15, 2: 0.3}
+LOSS_SHARES = {-2: -0.3, -1: -0.2, 0: -0.1, 1: 0.1, 2: 0.2}
 # (least profit share, lean bonus, words), the biggest share first. The model refused profits when the lean held only the
 # relation.
 PROFIT_LEANS = ((0.5, 4, ", a big profit"), (0.25, 3, ", a good profit"), (0.0, 2, ""))

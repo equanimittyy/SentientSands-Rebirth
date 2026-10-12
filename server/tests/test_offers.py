@@ -169,7 +169,7 @@ class BarterTest(unittest.TestCase):
         self.assertIsNotNone(self.barter("[OFFER: GIVE_ITEM: Katana; TAKE_ITEM: Dirty Loincloth]")[0])
 
     def test_the_relation_sets_the_loss_that_the_npc_usually_takes(self):
-        self.assertEqual([offers.loss_share(relation) for relation in (-60, -59, -25, -24, 24, 25, 59, 60)], [-0.3, -0.2, -0.2, -0.1, -0.1, 0.15, 0.15, 0.3])
+        self.assertEqual([offers.loss_share(relation) for relation in (-60, -59, -25, -24, 24, 25, 59, 60)], [-0.3, -0.2, -0.2, -0.1, -0.1, 0.1, 0.1, 0.2])
 
     def test_the_stock_sets_the_price_at_its_highest(self):
         self.assertEqual(offers.price_of("First Aid Kit", offers.goods(SHOP, "BARTER")), 132)
@@ -332,7 +332,7 @@ class FactsTest(unittest.TestCase):
         self.assertIn("- As charity, you give at most 50 cats.", offers.facts("BARTER", NPC, SPEAKER, "Zaps", []))
 
     def test_a_trade_names_the_loss_that_the_npc_usually_takes(self):
-        self.assertIn("- As a rule, you take a loss of at most 15% of what you give in a trade, but your character decides.",
+        self.assertIn("- As a rule, you take a loss of at most 10% of what you give in a trade, but your character decides.",
                       offers.facts("BARTER", NPC, SPEAKER, "Zaps", [], relation=30))
         self.assertIn("- As a rule, you want a profit of at least 20% of what you give in a trade, but your character decides.",
                       offers.facts("BARTER", NPC, SPEAKER, "Zaps", [], relation=-30))
