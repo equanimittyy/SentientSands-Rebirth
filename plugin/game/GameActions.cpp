@@ -515,6 +515,26 @@ void WatchFights(GameWorld *world) {
   }
 }
 
+// A half-robot needs both kits, so the repair queues behind the first aid
+void StartTreatment(Character *medic, Character *patient, bool &firstAid,
+                    bool &repair) {
+  bool needsFirstAid, needsRepair;
+  TreatmentNeeds(patient, needsFirstAid, needsRepair);
+  Inventory *inv = medic->getInventory();
+  firstAid = needsFirstAid && inv && inv->hasItemFunction(ITEM_FIRSTAID);
+  repair = needsRepair && inv && inv->hasItemFunction(ITEM_ROBOTREPAIR);
+  if (!firstAid && !repair)
+    return;
+  medic->clearAllAIGoals();
+  if (firstAid)
+    medic->addOrder(nullptr, FIRST_AID_ORDER, (RootObject *)patient, false,
+                    true, patient->getPosition());
+  if (repair)
+    medic->addOrder(nullptr, FIRST_AID_ROBOT, (RootObject *)patient, firstAid,
+                    !firstAid, patient->getPosition());
+  medic->reThinkCurrentAIAction();
+}
+
 void ExecuteQueuedActions(GameWorld *thisptr, int &inventoryTimer) {
   std::deque<QueuedAction> localQueue;
   if (TryEnterCriticalSection(&g_uiMutex)) {
@@ -1117,12 +1137,15 @@ void ExecuteQueuedActions(GameWorld *thisptr, int &inventoryTimer) {
                 npc->getName() + " no longer follows you.", true);
           }
         } else if (act.type == ACT_FIRST_AID && target) {
-          npc->clearAllAIGoals();
-          npc->addOrder(nullptr, FIRST_AID_ORDER, (RootObject *)target, false,
-                        true, target->getPosition());
-          npc->reThinkCurrentAIAction();
+          bool firstAid, repair;
+          StartTreatment(npc, target, firstAid, repair);
           thisptr->showPlayerAMessage(
-              npc->getName() + " is treating " + target->getName() + ".", false);
+              npc->getName() +
+                  (firstAid || repair ? " is treating " + target->getName()
+                                      : " has no kit for the wounds of " +
+                                            target->getName()) +
+                  ".",
+              false);
         } else if (act.type == ACT_PROBE) {
           RunProbe(npc, target, act.message);
         } else if (act.type == ACT_FACTION_RELATIONS) {

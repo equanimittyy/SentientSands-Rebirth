@@ -17,7 +17,7 @@ from core.paths import DEFAULTS_DIR
 CATEGORIES = [
     ("t", "threaten", "THREATEN", "A threat or demand"),
     ("b", "barter", "BARTER", "A request to buy, sell, or swap items, a gift, or a plea for charity"),
-    ("h", "heal", "HEAL", "A request to treat wounds, paid or free"),
+    ("h", "heal", "HEAL", "A request to treat wounds or repair robotic parts, paid or free"),
     ("l", "liberate", "LIBERATE", "A request to be freed from prison or slavery, paid or free"),
     ("r", "recruit", "RECRUIT", "A request to join the squad for good, as a new member"),
     ("f", "follow", "FOLLOW", 'A request to come along or be hired for a while, such as "follow me"'),
@@ -35,6 +35,7 @@ REFUSED_LEAN = "You are inclined to refuse."
 RELATION_REASONS = {2: "You like {player}'s group a lot.", 1: "You like {player}'s group.", -1: "You dislike {player}'s group.",
                     -2: "You hate {player}'s group."}
 END_LINES_PATH = f"{DEFAULTS_DIR}/action_end_lines.json"
+KITS = (("first aid kit", "needs_first_aid", "has_first_aid"), ("repair kit", "needs_repair", "has_repair_kit"))
 _WORD = re.compile(r"[^\W\d_]+")
 
 
@@ -95,10 +96,11 @@ def plain_chat(category, npc, speaker):
     if category == "THREATEN" and speaker_state == "imprisoned":
         return "{player} is locked in a cage, so you do not take the threat seriously."
     if category == "HEAL":
-        if not wounded(speaker):
+        needed = [kit for kit, need, _ in KITS if speaker.get(need)]
+        if not needed:
             return "{player} has no wounds to treat."
-        if not npc.get("has_first_aid"):
-            return "You have no first aid kit."
+        if not kits(npc, speaker):
+            return f"You have no {' or '.join(needed)}."
         if npc_state == "imprisoned":
             return "You are locked in a cage, so you cannot treat {player}."
     elif category == "LIBERATE":
@@ -121,11 +123,10 @@ def plain_chat(category, npc, speaker):
     return None
 
 
-def wounded(ctx):
-    """A body part below its full health, so a slight wound counts too: the Injured of health needs a part below 70%."""
-    limbs = (ctx.get("medical") or {}).get("limbs") or {}
-    hurt = any(hp < limbs.get(f"{part}_max", hp) for part, hp in limbs.items() if not part.endswith("_max"))
-    return hurt or ctx.get("health") in ("Injured", "Crippled")
+def kits(npc, speaker):
+    """The kits of the NPC that fit the wounds of the speaker. The plugin reads the needs per body part (TreatmentNeeds in
+    plugin/game/Context.cpp), because a character with robotic limbs can need both kits."""
+    return [kit for kit, need, has in KITS if speaker.get(need) and npc.get(has)]
 
 
 def is_guard(npc):

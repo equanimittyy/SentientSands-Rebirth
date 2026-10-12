@@ -310,6 +310,14 @@ class FactsTest(unittest.TestCase):
         text = offers.facts("LIBERATE", GUARD, {**SPEAKER, "bounty": 2000}, "Zaps", [])
         self.assertIn("- You release Zaps only for a bribe of at least 2,500 cats: the bounty of 2,000 cats on Zaps, and 500 more.", text)
 
+    def test_a_treatment_names_the_repair_only_for_robotic_parts(self):
+        self.assertNotIn("DEAL FACTS", offers.facts("HEAL", {"has_first_aid": True}, {"needs_first_aid": True}, "Zaps", []))
+        robot = {"needs_first_aid": True, "needs_repair": True}
+        self.assertIn("- Zaps has damaged robotic parts, and you repair them with your repair kit.",
+                      offers.facts("HEAL", {"has_repair_kit": True}, robot, "Zaps", []))
+        self.assertIn("- Zaps has damaged robotic parts, but you have no repair kit, so you treat only the flesh wounds.",
+                      offers.facts("HEAL", {"has_first_aid": True}, robot, "Zaps", []))
+
     def test_a_mercenary_names_its_rate(self):
         self.assertIn("at least 2,500 cats for each day", offers.facts("FOLLOW", {**NPC, "faction": "Black Dog"}, SPEAKER, "Zaps", []))
 

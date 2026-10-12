@@ -11,6 +11,7 @@ void GetShopItems(Character *npc, std::vector<Item *> &out);
 std::string ItemLabel(Item *item);
 std::string ItemsJson(const std::vector<Item *> &items);
 std::string GetDetailedContext(Character *npc, const std::string &type = "npc");
+void TreatmentNeeds(Character *patient, bool &firstAid, bool &repair);
 std::string GetIdentityFaction(Character *npc);
 std::string GetNpcId(Character *npc);
 unsigned int HandleKey(Character *npc);

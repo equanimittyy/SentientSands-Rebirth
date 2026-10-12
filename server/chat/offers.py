@@ -544,6 +544,9 @@ def facts(category, npc, speaker, player_name, lean, said="", table=()):
             lines.append(f"{player_name} is imprisoned." + (" You are imprisoned too." if npc.get("character_state") == "imprisoned" else ""))
         lines += price_guide(said, npc, speaker, player_name)
         lines += table
+    if category == "HEAL" and speaker.get("needs_repair"):
+        lines.append(f"{player_name} has damaged robotic parts, and you repair them with your repair kit." if npc.get("has_repair_kit")
+                     else f"{player_name} has damaged robotic parts, but you have no repair kit, so you treat only the flesh wounds.")
     if category == "LIBERATE":
         bounty = speaker.get("bounty") or 0
         lines.append(f"You release {player_name} only for a bribe of at least {release_fee(speaker):,} cats"

@@ -69,7 +69,8 @@ static const HelpTopic HELP_TOPICS[] = {
                         "example: ! Can you patch me up?"},
       {"!t", "Threaten the NPC, or make a demand."},
       {"!b", "Buy, sell, or swap items, give a gift, or ask for charity."},
-      {"!h", "Ask for the treatment of your wounds, paid or free."},
+      {"!h", "Ask for the treatment of your wounds, or the repair of your "
+             "robotic parts, paid or free."},
       {"!l", "Ask for a release from prison or slavery, paid or free."},
       {"!r", "Ask the NPC to join your squad for good."},
       {"!f", "Ask the NPC to come along, or hire it for a while."},

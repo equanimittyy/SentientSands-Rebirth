@@ -1,6 +1,7 @@
 #include "Context.h"
 #include "../core/Globals.h"
 #include "../core/Utils.h"
+#include "GameActions.h"
 #include <core/Functions.h>
 #include <kenshi/Building/Building.h>
 #include <kenshi/CharStats.h>
@@ -150,6 +151,26 @@ static std::string GetHealthStatus(Character *npc) {
   if (injured)
     return "Injured";
   return "Healthy";
+}
+
+// A bandaged wound needs no kit, because the game counts the bandage as healed
+// when it picks a patient for first aid
+void TreatmentNeeds(Character *patient, bool &firstAid, bool &repair) {
+  firstAid = repair = false;
+  MedicalSystem *med = patient->getMedical();
+  if (!med || (uintptr_t)med < 0x1000)
+    return;
+  RaceData *race = patient->getRace() ? patient->getRace() : patient->myRace;
+  bool robotBody = race && race->robot;
+  for (uint32_t i = 0; i < med->anatomy.size(); ++i) {
+    MedicalSystem::HealthPartStatus *part = med->anatomy[i];
+    if (!part || part->flesh + part->bandaging >= part->maxHealth())
+      continue;
+    if (robotBody || part->robotLimb)
+      repair = true;
+    else
+      firstAid = true;
+  }
 }
 
 std::string GetVisibleEquipment(Character *npc) {
@@ -786,15 +807,32 @@ static void ProbeFirstAid(Character *npc, Character *speaker) {
   Inventory *inv = npc->getInventory();
   std::string line =
       "name='" + npc->getName() + "' first_aid_item=" +
-      (inv && inv->hasItemFunction(ITEM_FIRSTAID) ? "1" : "0");
+      (inv && inv->hasItemFunction(ITEM_FIRSTAID) ? "1" : "0") +
+      " repair_kit=" +
+      (inv && inv->hasItemFunction(ITEM_ROBOTREPAIR) ? "1" : "0");
   if (speaker) {
+    bool needsFirstAid, needsRepair, firstAid, repair;
+    TreatmentNeeds(speaker, needsFirstAid, needsRepair);
+    RaceData *race = speaker->getRace() ? speaker->getRace() : speaker->myRace;
+    std::string parts;
+    MedicalSystem *med = speaker->getMedical();
+    for (uint32_t i = 0; med && i < med->anatomy.size(); ++i) {
+      MedicalSystem::HealthPartStatus *part = med->anatomy[i];
+      if (part)
+        parts += std::string(parts.empty() ? "" : ",") +
+                 (part->robotLimb ? "R" : "F") + ToString((int)part->flesh) +
+                 "+" + ToString((int)part->bandaging) + "/" +
+                 ToString((int)part->maxHealth());
+    }
+    StartTreatment(npc, speaker, firstAid, repair);
     line += " speaker='" + speaker->getName() +
-            "' health=" + GetHealthStatus(speaker) + " dist=" +
+            "' health=" + GetHealthStatus(speaker) +
+            " robot_race=" + (race && race->robot ? "1" : "0") + " parts=" +
+            parts + " needs_first_aid=" + (needsFirstAid ? "1" : "0") +
+            " needs_repair=" + (needsRepair ? "1" : "0") +
+            " first_aid_order=" + (firstAid ? "1" : "0") +
+            " repair_order=" + (repair ? "1" : "0") + " dist=" +
             ToString(npc->getPosition().distance(speaker->getPosition()));
-    npc->clearAllAIGoals();
-    npc->addOrder(nullptr, FIRST_AID_ORDER, (RootObject *)speaker, false, true,
-                  speaker->getPosition());
-    npc->reThinkCurrentAIAction();
   }
   Log(LOG_DEBUG, "FIRSTAID_PROBE: " + line);
 }
@@ -1048,17 +1086,28 @@ std::string GetDetailedContext(Character *npc, const std::string &type) {
 
   bool slave = false;
   bool firstAid = false;
+  bool repairKit = false;
+  bool needsFirstAid = false;
+  bool needsRepair = false;
   int bounty = 0;
   try {
     slave = npc->isSlave() != 0;
     bounty = npc->crimes.getTotalBounty();
     Inventory *inv = npc->getInventory();
     firstAid = inv && inv->hasItemFunction(ITEM_FIRSTAID);
+    repairKit = inv && inv->hasItemFunction(ITEM_ROBOTREPAIR);
+    TreatmentNeeds(npc, needsFirstAid, needsRepair);
   } catch (...) {
   }
   json += "\"slave\": " + std::string(slave ? "true" : "false") + ",";
   json += "\"bounty\": " + ToString(bounty) + ",";
   json += "\"has_first_aid\": " + std::string(firstAid ? "true" : "false") +
+          ",";
+  json += "\"has_repair_kit\": " +
+          std::string(repairKit ? "true" : "false") + ",";
+  json += "\"needs_first_aid\": " +
+          std::string(needsFirstAid ? "true" : "false") + ",";
+  json += "\"needs_repair\": " + std::string(needsRepair ? "true" : "false") +
           ",";
 
   std::string name = "Unknown";

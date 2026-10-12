@@ -77,17 +77,20 @@ class PlainChatTest(unittest.TestCase):
 
     def test_heal_needs_wounds_a_kit_and_a_free_npc(self):
         kit = {"has_first_aid": True}
-        self.assertEqual(self.chat("HEAL", kit, {"health": "Healthy"}), "{player} has no wounds to treat.")
-        self.assertEqual(self.chat("HEAL", {}, {"health": "Injured"}), "You have no first aid kit.")
-        self.assertIsNotNone(self.chat("HEAL", {**kit, "character_state": "imprisoned"}, {"health": "Crippled"}))
-        self.assertIsNone(self.chat("HEAL", kit, {"health": "Injured"}))
+        flesh = {"needs_first_aid": True}
+        self.assertEqual(self.chat("HEAL", kit, {"health": "Injured"}), "{player} has no wounds to treat.")
+        self.assertEqual(self.chat("HEAL", {}, flesh), "You have no first aid kit.")
+        self.assertIsNotNone(self.chat("HEAL", {**kit, "character_state": "imprisoned"}, flesh))
+        self.assertIsNone(self.chat("HEAL", kit, flesh))
 
-    def test_a_slight_wound_counts_for_heal(self):
-        kit = {"has_first_aid": True}
-        slight = {"health": "Healthy", "medical": {"limbs": {"head": 100, "head_max": 100, "left_arm": 90, "left_arm_max": 100}}}
-        whole = {"health": "Healthy", "medical": {"limbs": {"head": 100, "head_max": 100, "left_arm": 100, "left_arm_max": 100}}}
-        self.assertIsNone(self.chat("HEAL", kit, slight))
-        self.assertIsNotNone(self.chat("HEAL", kit, whole))
+    def test_heal_needs_a_kit_for_one_of_the_wounds(self):
+        repair = {"has_repair_kit": True}
+        both = {"needs_first_aid": True, "needs_repair": True}
+        self.assertEqual(self.chat("HEAL", {"has_first_aid": True}, {"needs_repair": True}), "You have no repair kit.")
+        self.assertEqual(self.chat("HEAL", {}, both), "You have no first aid kit or repair kit.")
+        self.assertIsNone(self.chat("HEAL", repair, {"needs_repair": True}))
+        self.assertIsNone(self.chat("HEAL", repair, both))
+        self.assertEqual(ad.kits({"has_first_aid": True, **repair}, both), ["first aid kit", "repair kit"])
 
     def test_only_a_free_guard_releases_a_prisoner_who_is_no_slave(self):
         prisoner = {"character_state": "imprisoned"}
@@ -117,7 +120,7 @@ class ClassifyTest(unittest.TestCase):
 
     def test_the_list_is_numbered_and_ends_in_the_escape_hatch(self):
         self.assertEqual(ad.choice_list(["THREATEN", "BARTER", "HEAL"]), "1. A threat or demand\n2. A request to buy, sell, or swap items, a gift, or a plea for charity\n"
-                         "3. A request to treat wounds, paid or free\n4. None of these")
+                         "3. A request to treat wounds or repair robotic parts, paid or free\n4. None of these")
 
     def test_the_number_maps_back_to_its_category(self):
         listed = ["THREATEN", "BARTER", "HEAL"]
