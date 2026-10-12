@@ -945,12 +945,13 @@ void ExecuteQueuedActions(GameWorld *thisptr, int &inventoryTimer) {
                   ", Dist: " + ToString(dist));
 
           // Free directly when close: for recruits/friends the engine cancels the release task
-          if (dist < 4.0f && (inCage || shackled)) {
+          bool freed = dist < 4.0f && (inCage || shackled);
+          if (freed) {
             Log(LOG_DEBUG, "ACTION: Proximity force-release triggered.");
             FreePrisoner(thisptr, target);
           }
 
-          bool didSomething = false;
+          bool didSomething = freed;
 
           if (npc->isCarryingSomething &&
               npc->carryingObject == target->getHandle()) {
@@ -959,7 +960,7 @@ void ExecuteQueuedActions(GameWorld *thisptr, int &inventoryTimer) {
             didSomething = true;
           }
 
-          if (inCage || shackled) {
+          if ((inCage || shackled) && !freed) {
             TaskType tt = RELEASE_PRISONER;
 
             Log(LOG_DEBUG, "ACTION: Assigning task: " + GetTaskName(tt) + " (" +
