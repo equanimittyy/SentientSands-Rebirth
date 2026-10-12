@@ -15,7 +15,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 DB_NAME = "campaign.db"
-SCHEMA_VERSION = 20
+SCHEMA_VERSION = 21
 DIALOGUE_BLOCK = 20
 # A memory that this many passes read and did not cite leaves the auto rumor pool, so dull memories do not fill each prompt
 RUMOR_PASSES = 6
@@ -55,7 +55,8 @@ CREATE TABLE thread (
   memory       TEXT,
   rumor_passes INTEGER NOT NULL DEFAULT 0,
   exchanges    INTEGER NOT NULL DEFAULT 0,
-  used_at      INTEGER
+  used_at      INTEGER,
+  kind         TEXT NOT NULL DEFAULT '[]'
 );
 CREATE TABLE thread_member (
   thread_id         INTEGER NOT NULL REFERENCES thread(id) ON DELETE CASCADE,
@@ -369,15 +370,21 @@ def append_dialogue(npc_id, lines, profile, thread_id=None):
         )
 
 
-def join_thread(thread_id, members, joined_at, location=None, exchange=True):
+def join_thread(thread_id, members, joined_at, location=None, exchange=True, kinds=()):
     """Adds members, (npc_id, role, in_player_faction) triples, to the thread, or to a new thread at location when thread_id
     is None or names a deleted thread. A member keeps the game time and the faction of its first join, and an overhearer
     becomes a speaker when it speaks. The thread takes joined_at as the game time of its newest exchange, and counts one
-    more chat exchange unless exchange is False, as for a radiant conversation. Returns the thread ID."""
+    more chat exchange unless exchange is False, as for a radiant conversation. The thread keeps each of kinds, such as
+    the mode and the action category, once, in the order of its first join. Returns the thread ID."""
     with _connect(write=True) as conn:
-        if thread_id is None or not conn.execute("SELECT 1 FROM thread WHERE id = ?", (thread_id,)).fetchone():
+        row = conn.execute("SELECT kind FROM thread WHERE id = ?", (thread_id,)).fetchone()
+        if not row:
             thread_id = conn.execute("INSERT INTO thread (location) VALUES (?)", (location,)).lastrowid
-        conn.execute("UPDATE thread SET game_time = COALESCE(?, game_time), exchanges = exchanges + ? WHERE id = ?", (joined_at, int(exchange), thread_id))
+        kind = json.loads(row[0]) if row else []
+        kind += [new for new in kinds if new not in kind]
+        conn.execute(
+            "UPDATE thread SET game_time = COALESCE(?, game_time), exchanges = exchanges + ?, kind = ? WHERE id = ?", (joined_at, int(exchange), json.dumps(kind), thread_id)
+        )
         conn.executemany(
             "INSERT INTO thread_member (thread_id, npc_id, role, game_time, in_player_faction) VALUES (?, ?, ?, ?, ?)"
             " ON CONFLICT (thread_id, npc_id) DO UPDATE SET role = excluded.role WHERE excluded.role = 'speaker'",

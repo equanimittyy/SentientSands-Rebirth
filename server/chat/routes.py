@@ -188,7 +188,7 @@ def remember_radiant(conversation, spoken):
     names, participants, time_prefix = conversation["names"], conversation["participants"], conversation["time_prefix"]
     spoke = {key for key, _ in spoken}
     members = [(npc['npc_id'], "speaker" if key in spoke else "overheard", not conversation["npc_talk"]) for key, npc in participants.items()]
-    thread_id = campaign_db.join_thread(None, members, campaign_db.game_time(time_prefix), conversation["place"], exchange=False)
+    thread_id = campaign_db.join_thread(None, members, campaign_db.game_time(time_prefix), conversation["place"], exchange=False, kinds=("radiant",))
     stored = [(f"{time_prefix}{names[key]}: {text}", participants[key]['npc_id']) for key, text in spoken]
     for key, npc in participants.items():
         campaign_db.append_dialogue(npc['npc_id'], stored, conversation["profiles"][key], thread_id)
@@ -233,11 +233,11 @@ def thread_of(thread_key, speaker_id):
         return None, None
     return live.get("id"), action
 
-def record_deal(thread_id, line, parties, location):
+def record_deal(thread_id, line, parties, location, kinds=()):
     """Writes the line of a deal into the chat thread of each party, (npc_id, name, context, in_player_faction), as an
     exchange, so that a chat thread that ends in a deal is not deleted as a thread of one exchange. Returns the thread ID."""
     time_prefix = get_current_time_prefix()
-    thread_id = campaign_db.join_thread(thread_id, [(npc_id, "speaker", in_faction) for npc_id, _, _, in_faction in parties], campaign_db.game_time(time_prefix), location)
+    thread_id = campaign_db.join_thread(thread_id, [(npc_id, "speaker", in_faction) for npc_id, _, _, in_faction in parties], campaign_db.game_time(time_prefix), location, kinds=kinds)
     for npc_id, name, context, _ in parties:
         campaign_db.append_dialogue(npc_id, [(f"{time_prefix}{line}", None)], get_character_data(name, context), thread_id)
     return thread_id
@@ -489,7 +489,7 @@ def chat():
     if category == "DISMISS":
         # The NPC never refuses, so a dismissal needs no call
         end_thread()
-        record_deal(current_thread, f"({player_name} dismissed {primary_npc}.)", [npc_party, speaker_party], location)
+        record_deal(current_thread, f"({player_name} dismissed {primary_npc}.)", [npc_party, speaker_party], location, (mode, "dismiss"))
         logging.info(f"ACTION: {player_name} dismissed {primary_npc}.")
         return reply(action_dialogue.end_line("dismiss_end"), actions=["[ACTION: END_HIRE]"])
 
@@ -707,7 +707,8 @@ def chat():
         thread_id = None
         if primary_id:
             members = [(npc_id, "speaker" if npc_id in (primary_id, speaker_id) else "overheard", in_squad.get(npc_id, False)) for npc_id, _, _ in copies]
-            thread_id = campaign_db.join_thread(current_thread, members, campaign_db.game_time(time_prefix), scene_text.location_name(speaker or state.PLAYER_CONTEXT))
+            thread_id = campaign_db.join_thread(current_thread, members, campaign_db.game_time(time_prefix), scene_text.location_name(speaker or state.PLAYER_CONTEXT),
+                                                kinds=(mode, category.lower()) if category else (mode,))
             state.CURRENT_THREAD.update(key=thread_key, id=thread_id, replied=time.monotonic(),
                                         action={"category": category, "speaker": speaker_id, "stock": offers.sells_stock(ctx_dict, category)} if category else None)
             if closing:

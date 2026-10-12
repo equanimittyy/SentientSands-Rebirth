@@ -1,3 +1,4 @@
+import json
 import os
 import sqlite3
 import sys
@@ -438,6 +439,16 @@ class ThreadTest(CampaignTestCase):
         self.assertTrue(campaign_db.delete_memory(remembered))
         self.assertEqual([thread["id"] for thread in campaign_db.threads()], [pending])
         self.assertEqual((campaign_db.thread_members([remembered]), campaign_db.thread_partners(self.STICK)), ({}, [GENERIC_ID]))
+
+    def test_a_thread_keeps_each_kind_once_in_the_order_of_its_first_join(self):
+        members = [(self.STICK, "speaker", True), (GENERIC_ID, "speaker", False)]
+        thread_id = campaign_db.join_thread(None, members, None, kinds=("talk",))
+        for kinds in (("talk", "barter"), ("talk", "threaten"), ("talk", "barter"), ()):
+            campaign_db.join_thread(thread_id, members, None, kinds=kinds)
+        conn = sqlite3.connect(os.path.join(self.folder, campaign_db.DB_NAME))
+        kind = conn.execute("SELECT kind FROM thread WHERE id = ?", (thread_id,)).fetchone()[0]
+        conn.close()
+        self.assertEqual(json.loads(kind), ["talk", "barter", "threaten"])
 
     def test_a_chat_counts_each_exchange_and_a_radiant_conversation_none(self):
         chat = self.exchange(None, "[Day 3, 14:05]")
