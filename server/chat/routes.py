@@ -579,16 +579,17 @@ def chat():
     )
     campaign_db.use_memories([memory["id"] for memory in starting] + [hit["record"]["memory"]["id"] for hit in found_memories], campaign_db.game_time(time_prefix))
     if category:
-        lean = action_dialogue.lean(category, ctx_dict, speaker, primary_data.get("Relation"), nearby)
+        relation = primary_data.get("Relation")
+        lean = action_dialogue.lean(category, ctx_dict, speaker, relation, nearby)
         last_reply = next((line for line, who, _ in reversed(rows) if who == primary_id), "")
         said, side, table = f"{player_message}\n{last_reply}", speaker, []
         if barter:
             deal = window.get("deal") or {}
-            table_offer, table_reason, table = offers.on_table(deal, ctx_dict, speaker, mates, player_name)
+            table_offer, table_reason, table = offers.on_table(deal, ctx_dict, speaker, mates, player_name, relation)
             # The price guide then gives the price of each item on the table, so a counter-offer can name a fair price
             said += "".join(f"\n{item['name']}" for item in [*(deal.get("give") or []), *(deal.get("take") or [])])
             side = dict(speaker, inventory=offers.pooled(mates))
-        background_block = offers.facts(category, ctx_dict, side, player_name, lean, said, table) + "\n\n" + background_block
+        background_block = offers.facts(category, ctx_dict, side, player_name, lean, said, table, relation) + "\n\n" + background_block
     elif chat_reason:
         background_block = f"YOUR THOUGHT: {chat_reason}\n\n{background_block}"
     turn = fill_prompt("prompt_chat_turn.txt", background=background_block, player_line=full_player_entry, final_instruction=final_instruction).strip()
@@ -626,7 +627,7 @@ def chat():
             elif offers.read(content) is not None:
                 logging.info(f"ACTION: Ignored the offer of {primary_npc} in the barter window: {offers.offer_text(content)}")
         elif category and offers.read(content) is not None:
-            offer, unkept = offers.check(category, offers.read(content), ctx_dict, speaker)
+            offer, unkept = offers.check(category, offers.read(content), ctx_dict, speaker, relation=relation)
             if not offer:
                 logging.info(f"ACTION: Dropped the offer of {primary_npc}, because {unkept}: {offers.offer_text(content)}")
                 outcome = "unkept"

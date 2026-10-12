@@ -135,8 +135,8 @@ class BarterTest(unittest.TestCase):
     def tearDown(self):
         state.CHARITY_DAYS.clear()
 
-    def barter(self, tag, npc=SHOP, speaker=BUYER):
-        return offers.check("BARTER", offers.read(tag), npc, speaker)
+    def barter(self, tag, npc=SHOP, speaker=BUYER, relation=None):
+        return offers.check("BARTER", offers.read(tag), npc, speaker, relation=relation)
 
     def test_a_shopkeeper_sells_the_stock_of_its_shop(self):
         offer, reason = self.barter("[OFFER: GIVE_ITEM: Katana; TAKE_CATS: 3000]")
@@ -159,10 +159,19 @@ class BarterTest(unittest.TestCase):
 
     def test_what_the_npc_receives_is_worth_what_it_gives(self):
         # A trader sells at the full price and buys at 80%
-        self.assertIsNone(self.barter("[OFFER: GIVE_ITEM: Katana; TAKE_CATS: 2999]")[0])
+        self.assertIsNone(self.barter("[OFFER: GIVE_ITEM: Katana; TAKE_CATS: 2999]", relation=-30)[0])
         self.assertIn("worth", self.barter("[OFFER: GIVE_ITEM: Katana; TAKE_ITEM: Dirty Loincloth]")[1])
         swap, _ = self.barter("[OFFER: GIVE_ITEM: Katana; TAKE_ITEM: Chain Shirt]")
         self.assertIsNotNone(swap)
+
+    def test_the_relation_sets_the_loss_that_a_trade_may_give_the_npc(self):
+        sale = "[OFFER: GIVE_ITEM: Katana; TAKE_CATS: {}]"
+        self.assertIsNotNone(self.barter(sale.format(2850))[0])
+        self.assertIn("a loss of more than 5%", self.barter(sale.format(2849))[1])
+        self.assertIsNone(self.barter(sale.format(2550), relation=24)[0])
+        self.assertIsNotNone(self.barter(sale.format(2550), relation=25)[0])
+        self.assertIsNotNone(self.barter(sale.format(2100), relation=60)[0])
+        self.assertIsNone(self.barter(sale.format(2099), relation=60)[0])
 
     def test_the_stock_sets_the_price_at_its_highest(self):
         self.assertEqual(offers.price_of("First Aid Kit", offers.goods(SHOP, "BARTER")), 132)
@@ -255,8 +264,14 @@ class BarterWindowTest(unittest.TestCase):
         offer, reason, lines = offers.on_table(cheap, SHOP, BUYER, SQUAD, "Zaps")
         self.assertIsNone(offer)
         self.assertIn("worth", reason)
-        self.assertEqual(lines[1], "It is below your price: you get a worth of 180 cats for a worth of 3,000, so you cannot agree to it as it is.")
+        self.assertEqual(lines[1], "It is below your price by more than you may lose: you get a worth of 180 cats for a worth of 3,000, so you cannot agree to it as it is.")
         self.assertIn("- It is below your price", offers.facts("BARTER", SHOP, BUYER, "Zaps", [], table=lines))
+
+    def test_a_deal_inside_the_loss_that_the_npc_may_take_can_be_agreed(self):
+        offer, _, lines = offers.on_table({**TABLE, "take_cats": 2800}, SHOP, BUYER, SQUAD, "Zaps")
+        self.assertIsNotNone(offer)
+        self.assertEqual(lines[1], "It is below your price, inside the loss that you may take: you get a worth of 2,880 cats for a worth of 3,000.")
+        self.assertIsNone(offers.on_table({**TABLE, "take_cats": 2800}, SHOP, BUYER, SQUAD, "Zaps", relation=-25)[0])
 
     def test_a_gift_charity_and_an_empty_table(self):
         self.assertEqual(offers.on_table({"take_cats": 600}, SHOP, BUYER, SQUAD, "Zaps")[2][1], "It is a gift to you.")
@@ -292,6 +307,11 @@ class FactsTest(unittest.TestCase):
 
     def test_a_trade_names_the_cap_of_charity(self):
         self.assertIn("- As charity, you give at most 50 cats.", offers.facts("BARTER", NPC, SPEAKER, "Zaps", []))
+
+    def test_a_trade_names_the_loss_that_the_npc_may_take(self):
+        self.assertIn("- You may take a loss of at most 15% of what you give in a trade, if your character would.",
+                      offers.facts("BARTER", NPC, SPEAKER, "Zaps", [], relation=30))
+        self.assertIn("- You take no loss in a trade.", offers.facts("BARTER", NPC, SPEAKER, "Zaps", [], relation=-30))
 
     def test_a_second_plea_in_a_day_leans_to_refuse_but_a_trade_does_not(self):
         npc = {**NPC, "npc_id": "h:1-beggar", "day": 4}
