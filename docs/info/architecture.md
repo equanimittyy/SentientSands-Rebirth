@@ -388,6 +388,14 @@ An NPC radiant conversation takes the place of a talk of the player's characters
 - For an NPC, only a knockout counts as a fight, because the game events hold only the attacks of the player's faction (see [Game events](#game-events)).
 - The name of an NPC comes from `npc_name`, as in a chat, and the thread stores each NPC as a member outside the player's faction.
 
+## Chat range
+
+The plugin sends a chat line only when the target stands within `TalkRadius` of the speaker (`SendChatLine` in `plugin/ui/ChatWindow.cpp`). Otherwise the chat window shows "{name} is too far away." and the line goes nowhere.
+
+- A plain yell is the exception, because it goes to each NPC within `YellRadius`, not only to the target (see [Yells](#yells)).
+- An action dialogue in Yell mode needs the target within `TalkRadius`, because its offer belongs to one NPC.
+- A test command, a line that starts with `/`, skips the check, because no character says it.
+
 ## Yells
 
 A plain chat line in Yell mode can get up to 3 replies, one after another, from the NPCs that hear it (`chat` in `server/chat/routes.py`). An action dialogue in Yell mode gets one reply from its NPC, because an offer and a judgment belong to one NPC.
