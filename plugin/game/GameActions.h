@@ -6,9 +6,7 @@
 class Character;
 class GameWorld;
 
-void PerformLeaveSquad(Character *npc, GameWorld *world,
-                       const std::string &originFaction);
-void ExecuteQueuedActions(GameWorld *thisptr, int &inventoryTimer);
+void ExecuteQueuedActions(GameWorld *thisptr);
 // robotOrder lets /firstaid try another order, because FIRST_AID_ROBOT made a
 // medic with a repair kit do nothing for a Skeleton
 std::string StartTreatment(Character *medic, Character *patient,

@@ -23,196 +23,16 @@
 #include <set>
 #include <vector>
 
-void PerformLeaveSquad(Character *npc, GameWorld *world,
-                       const std::string &originFaction) {
-  if (!npc || !world)
-    return;
-
-  std::string factionPart = originFaction;
-  std::string platoonPart = "";
-  size_t pipePos = originFaction.find('|');
-  if (pipePos != std::string::npos) {
-    factionPart = originFaction.substr(0, pipePos);
-    platoonPart = originFaction.substr(pipePos + 1);
-  }
-
-  Log(LOG_INFO, "ACTION: Dismissing " + npc->getName() + " (Target Faction: " +
-      factionPart + ", Target Platoon: " + platoonPart + ")");
-
-  if (world->player) {
-    world->player->unselectPlayerCharacter(npc);
-    lektor<Character *> &pc = world->player->playerCharacters;
-    for (uint32_t i = 0; i < pc.size(); ++i) {
-      if (pc.stuff[i] == npc) {
-        for (uint32_t j = i; j < pc.size() - 1; ++j)
-          pc.stuff[j] = pc.stuff[j + 1];
-        pc.count--;
-        Log(LOG_DEBUG, "ACTION: Removed " + npc->getName() +
-            " from playerCharacters list.");
-        break;
-      }
-    }
-  }
-
-  if (world->factionMgr) {
-    FactionManager *fm = world->factionMgr;
-
-    Faction *namedFaction = NULL;
-    if (!factionPart.empty() && factionPart != "Unknown")
-      namedFaction = fm->getFactionByName(factionPart);
-    // A profile made after recruitment names the player's own faction
-    bool useNamedFaction = namedFaction && !namedFaction->isThePlayer();
-
-    std::string targetFactionName = "Drifters";
-    if (useNamedFaction) {
-      targetFactionName = factionPart;
-    } else if (g_originFactions.count(GetNpcId(npc))) {
-      targetFactionName = g_originFactions[GetNpcId(npc)];
-    }
-
-    Faction *targetFaction = fm->getFactionByName(targetFactionName);
-
-    if ((!useNamedFaction || targetFactionName == "Drifters") &&
-        npc->getGameData()) {
-      GameData *characterData = npc->getGameData();
-      const Ogre::vector<GameDataReference>::type *refs =
-          characterData->getReferenceListIfExists("faction");
-      if (refs && !refs->empty()) {
-        Faction *refFaction = fm->getFactionByStringID(refs->at(0).sid);
-        if (refFaction && !refFaction->isThePlayer()) {
-          targetFaction = refFaction;
-          targetFactionName = targetFaction->getName();
-        }
-      }
-    }
-
-    if (!targetFaction || targetFaction->isThePlayer() ||
-        targetFaction->isNotARealFaction()) {
-      targetFactionName = "Drifters";
-      targetFaction = fm->getFactionByName("Drifters");
-    }
-
-    if (!targetFaction || targetFaction->isThePlayer()) {
-      targetFaction = NULL;
-      const lektor<Faction *> *all = fm->getAllFactions();
-      if (all) {
-        for (uint32_t i = 0; i < all->count; ++i) {
-          Faction *f = all->stuff[i];
-          if (f && !f->isThePlayer() && !f->isNotARealFaction()) {
-            targetFaction = f;
-            if (f->getName() == targetFactionName)
-              break;
-          }
-        }
-      }
-    }
-
-    if (targetFaction) {
-      Log(LOG_DEBUG, "ACTION: Moving character to target faction: " +
-          targetFaction->getName());
-
-      ActivePlatoon *ap = NULL;
-
-      if (!platoonPart.empty()) {
-        const lektor<Platoon *> *activePlats =
-            targetFaction->getActivePlatoons();
-        if (activePlats) {
-          for (uint32_t i = 0; i < activePlats->count; ++i) {
-            Platoon *p = activePlats->stuff[i];
-            if (p && (p->stringID == platoonPart ||
-                      p->getPlatoonStringID() == platoonPart)) {
-              ap = p->getActivePlatoon();
-              if (ap) {
-                Log(LOG_DEBUG, "ACTION: Found existing active platoon: " +
-                    platoonPart);
-                break;
-              }
-            }
-          }
-        }
-      }
-
-      if (!ap) {
-        Platoon *newPlat = targetFaction->createNewEmptyActivePlatoon(
-            NULL, true, npc->getPosition());
-        if (newPlat) {
-          ap = newPlat->getActivePlatoon();
-          Log(LOG_DEBUG, "ACTION: Created new platoon for dismissal.");
-        }
-      }
-
-      if (ap) {
-        npc->setFaction(targetFaction, ap);
-
-        if (ap->getSquadSize() == 1 || !ap->getSquadLeader()) {
-          ap->setSquadLeader(npc);
-        }
-
-        // Squad members run on player AI; reinstall the NPC AI
-        npc->setupAI();
-        npc->setupPlatoonAI();
-
-        // Recruits often lose their home town, so adopt the current one
-        TownBase *currentTown = npc->getCurrentTownLocation();
-        if (currentTown) {
-          Ownerships *own = npc->getOwnerships();
-          if (own)
-            own->setHomeTown(currentTown, SQ_RESIDENT);
-        }
-
-        npc->reThinkCurrentAIAction();
-      } else {
-        Log(LOG_ERROR, "ACTION: Could not create or find a platoon for "
-            "dismissal!");
-      }
-    }
-  }
-}
-
-std::string GetTaskName(TaskType tt) {
-  switch ((int)tt) {
-  case 1:
-    return "MOVE_ON_FREE_WILL";
-  case 4:
-    return "MELEE_ATTACK";
-  case 14:
-    return "IDLE";
-  case 15:
-    return "WANDER_TOWN";
-  case 18:
+static std::string TaskName(TaskType task) {
+  switch (task) {
+  case RAID_TOWN:
     return "RAID_TOWN";
-  case 19:
-    return "GO_HOMEBUILDING";
-  case 20:
-    return "STAND_AT_SHOPKEEPER_NODE";
-  case 23:
-    return "ATTACK_TOWN";
-  case 24:
-    return "WANDERER";
-  case 35:
-    return "RUN_AWAY";
-  case 36:
-    return "PATROL_TOWN";
-  case 44:
-    return "FOLLOW_PLAYER_ORDER";
-  case 46:
-    return "CHASE";
-  case 53:
+  case TRAVEL_TO_TARGET_TOWN:
     return "TRAVEL_TO_TARGET_TOWN";
-  case 55:
-    return "BODYGUARD";
-  case 57:
-    return "JOB_REPAIR_ROBOT";
-  case 58:
-    return "JOB_MEDIC";
-  case 67:
-    return "MOVE_ON_FREE_WILL_FAST";
-  case 105:
-    return "FIND_AND_RESCUE";
-  case 110:
+  case RELEASE_PRISONER:
     return "RELEASE_PRISONER";
   default:
-    return "TASK_" + ToString((int)tt);
+    return "TASK_" + ToString((int)task);
   }
 }
 
@@ -282,49 +102,62 @@ static int MoveItems(Character *holder, Item *item, int count,
 }
 
 // For a weapon, createItem takes the manufacturer first and the weapon third;
-// the weapon first makes it return null. The player's own manufacturer would
-// mark a picked weapon as homemade.
+// the weapon first makes it return null
 static Item *CreateItem(GameWorld *world, GameData *data, GameData *maker,
                         GameData *grade, int level) {
   if (data->type != WEAPON)
     return world->theFactory->createItem(data, hand(), NULL, grade, level,
                                          NULL);
   if (!grade) {
-    boost::unordered::unordered_map<std::string, GameData *>::iterator it;
-    for (it = world->gamedata.gamedataSID.begin();
-         it != world->gamedata.gamedataSID.end(); ++it) {
-      GameData *check = it->second;
-      if (!check || check->type != WEAPON_MANUFACTURER ||
-          check->stringID == "PLAYER_WEAPONS")
-        continue;
-      const Ogre::vector<GameDataReference>::type *weapons =
-          check->getReferenceListIfExists("weapon types");
-      const Ogre::vector<GameDataReference>::type *models =
-          check->getReferenceListIfExists("weapon models");
-      if (!weapons || !models)
-        continue;
-      bool makes = false;
-      for (size_t w = 0; !makes && w < weapons->size(); ++w)
-        makes = weapons->at(w).sid == data->stringID;
-      for (size_t m = 0; makes && m < models->size(); ++m) {
-        GameData *model = world->gamedata.getData(models->at(m).sid);
-        int modelLevel = models->at(m).values.value[0];
-        if (model && modelLevel >= 1 && (!grade || modelLevel < level)) {
-          maker = check;
-          grade = model;
-          level = modelLevel;
-        }
-      }
-    }
-    if (!grade) {
-      Log(LOG_WARN, "ACTION: No manufacturer makes " + data->name);
-      return NULL;
-    }
-    Log(LOG_DEBUG, "ACTION: Picked grade " + grade->name + " by " +
-                       maker->name + " for " + data->name);
+    Log(LOG_WARN, "ACTION: No grade for the weapon " + data->name);
+    return NULL;
   }
   return world->theFactory->createItem(maker, hand(), data, grade, level,
                                        NULL);
+}
+
+static GameData *FindItemData(GameWorld *world, const std::string &name) {
+  static const itemType TYPES[] = {ITEM,      WEAPON,           ARMOUR,  CROSSBOW,
+                                   BLUEPRINT, LIMB_REPLACEMENT, MAP_ITEM};
+  GameDataManager *sources[] = {&world->leveldata, &world->gamedata};
+  for (int s = 0; s < 2; ++s)
+    for (size_t t = 0; t < sizeof(TYPES) / sizeof(TYPES[0]); ++t) {
+      GameData *found = sources[s]->getDataByName(name, TYPES[t]);
+      if (found)
+        return found;
+    }
+  return nullptr;
+}
+
+// The Cheats window gives an armour or a crossbow a level but no grade
+static GameData *GearGrade(GameWorld *world, GameData *gd) {
+  if (gd->type != ARMOUR && gd->type != CROSSBOW)
+    return nullptr;
+  int gradeType = gd->type == ARMOUR ? MATERIAL_SPECS_CLOTHING : 0;
+  static const char *REFS[] = {"material", "model", "mesh"};
+  for (int r = 0; r < 3; ++r) {
+    const Ogre::vector<GameDataReference>::type *refs =
+        gd->getReferenceListIfExists(REFS[r]);
+    GameData *grade =
+        refs && !refs->empty() ? world->gamedata.getData(refs->at(0).sid)
+                               : nullptr;
+    if (grade && (!gradeType || grade->type == gradeType))
+      return grade;
+  }
+  GameData *first = nullptr;
+  boost::unordered::unordered_map<std::string, GameData *>::iterator it;
+  for (it = world->gamedata.gamedataSID.begin();
+       it != world->gamedata.gamedataSID.end(); ++it) {
+    GameData *check = it->second;
+    if (!check || (gradeType && check->type != gradeType))
+      continue;
+    if (check->name.find("Standard") != std::string::npos ||
+        check->name.find("Catun") != std::string::npos)
+      return check;
+    if (!first)
+      first = check;
+  }
+  return first;
 }
 
 static hand g_newestBubble;
@@ -585,7 +418,7 @@ static bool HeldBack(Character *npc, const std::string &action) {
   return true;
 }
 
-void ExecuteQueuedActions(GameWorld *thisptr, int &inventoryTimer) {
+void ExecuteQueuedActions(GameWorld *thisptr) {
   std::deque<QueuedAction> localQueue;
   if (TryEnterCriticalSection(&g_uiMutex)) {
     localQueue = g_uiActionQueue;
@@ -630,10 +463,6 @@ void ExecuteQueuedActions(GameWorld *thisptr, int &inventoryTimer) {
         }
       } else if (npc) {
         if (act.type == ACT_ATTACK && target) {
-          if (npc->getFaction() && npc->getFaction()->isThePlayer()) {
-            PerformLeaveSquad(npc, thisptr, "");
-            npc->clearAllAIGoals();
-          }
           StartFight(npc, target);
           npc->attackTarget(target);
           npc->addGoal(MELEE_ATTACK, (RootObjectBase *)target);
@@ -686,21 +515,15 @@ void ExecuteQueuedActions(GameWorld *thisptr, int &inventoryTimer) {
               Log(LOG_WARN, "ACTION: Town '" + tName + "' not found!");
           }
 
-          if (tt == ATTACK_TOWN && !taskTarget) {
-            TownBase *town = npc->getCurrentTownLocation();
-            if (town)
-              taskTarget = (RootObject *)town;
-          }
-
           Log(LOG_DEBUG,
               "ACTION: Final Dispatch -> Task: " + ToString((int)tt) +
-                  " (" + GetTaskName(tt) + "), Target: " +
+                  " (" + TaskName(tt) + "), Target: " +
                   (taskTarget ? ((RootObjectBase *)taskTarget)->getName()
                               : "NULL"));
 
           npc->addJob(tt, taskTarget, false, true, npc->getPosition());
           thisptr->showPlayerAMessage(
-              npc->getName() + " is now executing: " + GetTaskName(tt), false);
+              npc->getName() + " is now executing: " + TaskName(tt), false);
 
           npc->addGoal(tt, (RootObjectBase *)taskTarget);
           npc->reThinkCurrentAIAction();
@@ -758,7 +581,6 @@ void ExecuteQueuedActions(GameWorld *thisptr, int &inventoryTimer) {
                                 targetName + " from you.";
               thisptr->showPlayerAMessage_withLog(msg, true);
               npc->reThinkCurrentAIAction();
-              inventoryTimer = 999;
             } else {
               Log(LOG_WARN, "ACTION: NPC " + npc->getName() +
                   " found NO items matching '" + targetName + "' on player.");
@@ -822,7 +644,6 @@ void ExecuteQueuedActions(GameWorld *thisptr, int &inventoryTimer) {
                   originalTargetName;
               thisptr->showPlayerAMessage_withLog(msg, true);
               npc->reThinkCurrentAIAction();
-              inventoryTimer = 999;
             }
           }
         } else if (act.type == ACT_GIVE_CATS) {
@@ -935,7 +756,7 @@ void ExecuteQueuedActions(GameWorld *thisptr, int &inventoryTimer) {
           if ((inCage || shackled) && !freed) {
             TaskType tt = RELEASE_PRISONER;
 
-            Log(LOG_DEBUG, "ACTION: Assigning task: " + GetTaskName(tt) + " (" +
+            Log(LOG_DEBUG, "ACTION: Assigning task: " + TaskName(tt) + " (" +
                 ToString((int)tt) + ")");
 
             // addOrder overrides at once, unlike addJob; clear=true halts background AI (staying home)
@@ -1001,282 +822,85 @@ void ExecuteQueuedActions(GameWorld *thisptr, int &inventoryTimer) {
         } else if (act.type == ACT_PROBE) {
           RunProbe(npc, target, act.message);
         } else if (act.type == ACT_SPAWN_ITEM) {
-          std::string payload = act.message;
-
-          // LLM replies and test commands sometimes repeat the SPAWN_ITEM: prefix
-          if (payload.find("SPAWN_ITEM:") == 0) {
-            payload = payload.substr(11);
-            size_t first = payload.find_first_not_of(" \t\r\n");
-            if (first != std::string::npos)
-              payload = payload.substr(first);
-          }
-
-          std::string templateName, itemName;
-          size_t pipe1 = payload.find('|');
-          if (pipe1 != std::string::npos) {
-            templateName = payload.substr(0, pipe1);
-            size_t pipe2 = payload.find('|', pipe1 + 1);
-            if (pipe2 != std::string::npos) {
-              itemName = payload.substr(pipe1 + 1, pipe2 - pipe1 - 1);
-            } else {
-              itemName = payload.substr(pipe1 + 1);
-            }
-          } else {
-            templateName = payload;
-          }
-
-          auto trim = [](std::string &s) {
-            size_t first = s.find_first_not_of(" \t\n\r\"'");
-            if (first == std::string::npos) {
-              s = "";
-              return;
-            }
-            s.erase(0, first);
-            size_t last = s.find_last_not_of(" \t\n\r\"'");
-            if (last != std::string::npos)
-              s.erase(last + 1);
-
-            for (size_t i = 0; i < s.length(); ++i) {
-              if (s[i] == '\r' || s[i] == '\n' || s[i] == '\t')
-                s[i] = ' ';
-            }
-            size_t p = s.find("  ");
-            while (p != std::string::npos) {
-              s.erase(p, 1);
-              p = s.find("  ");
-            }
-          };
-          trim(templateName);
-          trim(itemName);
-
-          itemType types[] = {ITEM,      WEAPON,           ARMOUR,  CROSSBOW,
-                              BLUEPRINT, LIMB_REPLACEMENT, MAP_ITEM};
-          GameData *gd = act.itemData;
-
-          auto findInSource = [&](GameDataManager &dm,
-                                  const std::string &name) -> GameData * {
-            for (int i = 0; i < 7; i++) {
-              GameData *found = dm.getDataByName(name, types[i]);
-              if (found)
-                return found;
-            }
-            std::string lowerName = name;
-            std::transform(lowerName.begin(), lowerName.end(),
-                           lowerName.begin(), ::tolower);
-            boost::unordered::unordered_map<std::string, GameData *>::iterator
-                it;
-            for (it = dm.gamedataSID.begin(); it != dm.gamedataSID.end();
-                 ++it) {
-              GameData *check = it->second;
-              if (check && !check->name.empty()) {
-                std::string lowerCheck = check->name;
-                std::transform(lowerCheck.begin(), lowerCheck.end(),
-                               lowerCheck.begin(), ::tolower);
-                if (lowerCheck == lowerName) {
-                  for (int t = 0; t < 7; t++) {
-                    if (check->type == types[t])
-                      return check;
-                  }
-                }
-              }
-            }
-            return (GameData *)nullptr;
-          };
-
-          if (!gd)
-            gd = findInSource(thisptr->leveldata, templateName);
-          if (!gd)
-            gd = findInSource(thisptr->gamedata, templateName);
-
+          // "<record name>|<label>": the Cheats window also names its record,
+          // and the server names only the food of a charity
+          size_t pipe = act.message.find('|');
+          std::string templateName = act.message.substr(0, pipe);
+          std::string label = pipe == std::string::npos
+                                  ? std::string()
+                                  : act.message.substr(pipe + 1);
+          GameData *gd = act.itemData ? act.itemData
+                                      : FindItemData(thisptr, templateName);
           if (!gd) {
-            std::string plural = templateName + "s";
-            gd = findInSource(thisptr->leveldata, plural);
-            if (!gd)
-              gd = findInSource(thisptr->gamedata, plural);
-          }
-
-          if (!gd) {
-            std::string lowerTemplate = templateName;
-            std::transform(lowerTemplate.begin(), lowerTemplate.end(),
-                           lowerTemplate.begin(), ::tolower);
-            boost::unordered::unordered_map<std::string, GameData *>::iterator
-                it;
-            for (it = thisptr->gamedata.gamedataSID.begin();
-                 it != thisptr->gamedata.gamedataSID.end(); ++it) {
-              GameData *check = it->second;
-              if (check && !check->name.empty()) {
-                std::string lowerName = check->name;
-                std::transform(lowerName.begin(), lowerName.end(),
-                               lowerName.begin(), ::tolower);
-                if (lowerName.find(lowerTemplate) != std::string::npos) {
-                  for (int t = 0; t < 7; t++) {
-                    if (check->type == types[t]) {
-                      gd = check;
-                      break;
-                    }
-                  }
-                  if (gd)
-                    break;
-                }
-              }
-            }
-          }
-
-          if (gd) {
-            Log(LOG_DEBUG,
-                "ACTION: Resolved " + templateName + " to " + gd->name +
-                    " (Type: " + ToString(gd->type) + ")");
-
-            Character *p = act.target.getCharacter();
-            if (!p || (uintptr_t)p < 0x1000) {
-              if (thisptr->player &&
-                  thisptr->player->playerCharacters.size() > 0)
-                p = thisptr->player->playerCharacters[0];
-            }
-
-            if (p) {
-              int count = act.taskValue;
-              if (count < 1)
-                count = 1;
-              int spawnedCount = 0;
-
-              for (int c = 0; c < count; c++) {
-                Log(LOG_DEBUG, "ACTION: Spawning " + gd->name + " (" +
-                    ToString(c + 1) + "/" + ToString(count) + ") for " +
-                    p->getName());
-
-                GameData *gradeData = act.itemModel;
-
-                if (!gradeData &&
-                    (gd->type == ARMOUR || gd->type == CROSSBOW)) {
-                  auto getRef = [&](const std::string &refName) -> GameData * {
-                    const Ogre::vector<GameDataReference>::type *refs =
-                        gd->getReferenceListIfExists(refName);
-                    if (refs && !refs->empty()) {
-                      GameData *r = thisptr->gamedata.getData(refs->at(0).sid);
-                      if (r) {
-                        Log(LOG_DEBUG, "ACTION: Found " + refName + " ref: " +
-                            r->name + " (Type: " + ToString(r->type) + ")");
-                      }
-                      return r;
-                    }
-                    return nullptr;
-                  };
-
-                  int gradeType =
-                      gd->type == ARMOUR ? MATERIAL_SPECS_CLOTHING : 0;
-
-                  gradeData = getRef("material");
-                  if (!gradeData ||
-                      (gradeType && gradeData->type != gradeType))
-                    gradeData = getRef("model");
-                  if (!gradeData ||
-                      (gradeType && gradeData->type != gradeType))
-                    gradeData = getRef("mesh");
-
-                  if (!gradeData ||
-                      (gradeType && gradeData->type != gradeType)) {
-                    GameData *firstGrade = nullptr;
-                    boost::unordered::unordered_map<std::string,
-                                                    GameData *>::iterator it;
-
-                    for (it = thisptr->gamedata.gamedataSID.begin();
-                         it != thisptr->gamedata.gamedataSID.end(); ++it) {
-                      GameData *check = it->second;
-                      if (!check)
-                        continue;
-
-                      if (!gradeType || check->type == gradeType) {
-                        if (!firstGrade)
-                          firstGrade = check;
-                        if (check->name.find("Standard") != std::string::npos ||
-                            check->name.find("Catun") != std::string::npos) {
-                          gradeData = check;
-                          break;
-                        }
-                      }
-                    }
-
-                    if (!gradeData)
-                      gradeData = firstGrade;
-                  }
-                }
-
-                Item *item = CreateItem(thisptr, gd, act.itemMaker, gradeData,
-                                        act.itemLevel);
-                if (item) {
-                  item->quantity = 1;
-                  item->quality = 1.0f;
-                  item->chargesLeft = item->originalFullChargeAmount;
-                  if (item->chargesLeft <= 0.0f)
-                    item->chargesLeft = 1.0f;
-
-                  item->setProperOwner(p->getHandle());
-                  item->visible = true;
-                  item->isTradeItem = true;
-
-                  if (!item->container && p->container) {
-                    item->container = p->container;
-                    p->container->addActiveObject(item);
-                  }
-
-                  bool success = p->giveItem(item, true, false);
-                  if (success) {
-                    spawnedCount++;
-                    Log(LOG_INFO, "ACTION: Successfully spawned and gave " +
-                        gd->name + " to " + p->getName());
-                  } else {
-                    Log(LOG_WARN, "ACTION: Resolved " + gd->name +
-                        " but giveItem failed (inventory full?) for " +
-                        p->getName());
-                  }
-                } else {
-                  Log(LOG_ERROR, "ACTION: Resolved " + gd->name +
-                      " but Factory failed to createItem! (Grade: " +
-                      (gradeData ? gradeData->name : "NULL") + ", Maker: " +
-                      (act.itemMaker ? act.itemMaker->name : "NULL") + ")");
-                }
-              }
-
-              if (spawnedCount > 0) {
-                if (p->getInventory()) {
-                  p->getInventory()->autoArrange();
-                  p->getInventory()->refreshGui();
-                }
-                thisptr->addPortraitUpdate(p->getHandle());
-                thisptr->showPlayerAMessage_withLog(
-                    "Received " +
-                        (spawnedCount > 1 ? ToString(spawnedCount) + "x "
-                                          : "") +
-                        (itemName.empty() ? gd->name : itemName),
-                    true);
-                inventoryTimer = 999;
-              }
-            } else {
-              Log(LOG_WARN, "ACTION: No character found to give item to.");
-              Ogre::Vector3 dropPos = (npc && (uintptr_t)npc > 0x1000)
-                                          ? npc->getPosition()
-                                          : Ogre::Vector3::ZERO;
-              dropPos.y += 2.0f;
-
-              Log(LOG_WARN,
-                  "ACTION: No player character found, dropping item at "
-                      "NPC/Origin.");
-
-              Item *item = CreateItem(thisptr, gd, NULL, NULL, 1);
-              if (item) {
-                item->quantity = 1;
-                item->activate(true, dropPos, Ogre::Quaternion::IDENTITY, false,
-                               YesNoMaybe::NO, true);
-                thisptr->showPlayerAMessage_withLog(
-                    "Item dropped nearby: " + templateName, true);
-              }
-            }
-          } else {
             Log(LOG_WARN,
                 "ACTION: Could not find template for: " + templateName);
             thisptr->showPlayerAMessage(
                 "Error: Item template '" + templateName + "' not found.", true);
+            continue;
+          }
+          Character *p =
+              target ? target
+                     : (thisptr->player &&
+                                thisptr->player->playerCharacters.size() > 0
+                            ? thisptr->player->playerCharacters[0]
+                            : nullptr);
+          if (!p) {
+            Log(LOG_WARN, "ACTION: No character found to give item to.");
+            continue;
+          }
+          GameData *gradeData =
+              act.itemModel ? act.itemModel : GearGrade(thisptr, gd);
+          int count = act.taskValue < 1 ? 1 : act.taskValue;
+          int spawnedCount = 0;
+          for (int c = 0; c < count; c++) {
+            Item *item =
+                CreateItem(thisptr, gd, act.itemMaker, gradeData, act.itemLevel);
+            if (!item) {
+              Log(LOG_ERROR, "ACTION: Resolved " + gd->name +
+                                 " but Factory failed to createItem! (Grade: " +
+                                 (gradeData ? gradeData->name : "NULL") +
+                                 ", Maker: " +
+                                 (act.itemMaker ? act.itemMaker->name : "NULL") +
+                                 ")");
+              continue;
+            }
+            item->quantity = 1;
+            item->quality = 1.0f;
+            item->chargesLeft = item->originalFullChargeAmount;
+            if (item->chargesLeft <= 0.0f)
+              item->chargesLeft = 1.0f;
+
+            item->setProperOwner(p->getHandle());
+            item->visible = true;
+            item->isTradeItem = true;
+
+            if (!item->container && p->container) {
+              item->container = p->container;
+              p->container->addActiveObject(item);
+            }
+
+            if (p->giveItem(item, true, false)) {
+              spawnedCount++;
+              Log(LOG_INFO, "ACTION: Successfully spawned and gave " +
+                                gd->name + " to " + p->getName());
+            } else {
+              Log(LOG_WARN, "ACTION: Resolved " + gd->name +
+                                " but giveItem failed (inventory full?) for " +
+                                p->getName());
+            }
+          }
+
+          if (spawnedCount > 0) {
+            if (p->getInventory()) {
+              p->getInventory()->autoArrange();
+              p->getInventory()->refreshGui();
+            }
+            thisptr->addPortraitUpdate(p->getHandle());
+            thisptr->showPlayerAMessage_withLog(
+                "Received " +
+                    (spawnedCount > 1 ? ToString(spawnedCount) + "x " : "") +
+                    (label.empty() ? gd->name : label),
+                true);
           }
         }
       }

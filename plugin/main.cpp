@@ -565,8 +565,7 @@ void ProcessMessageQueue(GameWorld *thisptr) {
             act.target = actionTarget;
             g_uiActionQueue.push_back(act);
             LeaveCriticalSection(&g_uiMutex);
-          } else if (actStr.find("ATTACK") != std::string::npos &&
-                     actStr.find("TOWN") == std::string::npos) {
+          } else if (actStr.find("ATTACK") != std::string::npos) {
             EnterCriticalSection(&g_uiMutex);
             QueuedAction act;
             act.type = ACT_ATTACK;
@@ -721,24 +720,13 @@ void ProcessMessageQueue(GameWorld *thisptr) {
             act.taskValue = count;
             g_uiActionQueue.push_back(act);
             LeaveCriticalSection(&g_uiMutex);
-          } else if (actStr.find("RELEASE_PLAYER") != std::string::npos ||
-                     actStr.find("RELEASE_PRISONER") != std::string::npos ||
+          } else if (actStr.find("RELEASE_PRISONER") != std::string::npos ||
                      actStr.find("FREE_PLAYER") != std::string::npos) {
             EnterCriticalSection(&g_uiMutex);
             QueuedAction act;
             act.type = ACT_RELEASE;
             act.actor = targetHand;
             act.target = actionTarget;
-            g_uiActionQueue.push_back(act);
-            LeaveCriticalSection(&g_uiMutex);
-          } else if (actStr.find("ATTACK_TOWN") != std::string::npos) {
-            std::string tName = getPayload(actStr, "ATTACK_TOWN:");
-            EnterCriticalSection(&g_uiMutex);
-            QueuedAction act;
-            act.type = ACT_SET_TASK;
-            act.actor = targetHand;
-            act.taskValue = ATTACK_TOWN;
-            act.message = tName;
             g_uiActionQueue.push_back(act);
             LeaveCriticalSection(&g_uiMutex);
           } else if (actStr.find("RAID_TOWN") != std::string::npos) {
@@ -1024,8 +1012,7 @@ void playerUpdate_hook(PlayerInterface *thisptr) {
   GameWorld *world = *ppWorld;
   if (world) {
     ProcessMessageQueue(world);
-    static int invTimer = 0;
-    ExecuteQueuedActions(world, invTimer);
+    ExecuteQueuedActions(world);
     WatchOffer();
     WatchHires(world);
     WatchReleases(world);
