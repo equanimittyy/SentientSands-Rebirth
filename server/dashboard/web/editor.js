@@ -31,7 +31,7 @@ const TIERS = { global: "Global", limited: "Limited", secret: "Secret" };
 // Mirrors DEFAULTS in server/chat/knowledge.py.
 const DEFAULT_TIERS = { character: "limited", locations: "limited", regions: "limited" };
 const KNOWLEDGE_HELP = "Who can know this entry.\nGlobal: every NPC.\nLimited: NPCs whose faction, race, home, or travels link to it.\nSecret: only the characters, factions, and races in Known by.";
-const KNOWN_BY_HELP = "The characters, factions, and races that know this entry. A member of a faction knows it, and so does a character that comes from the faction. Type to search, then choose from the list.";
+const KNOWN_BY_HELP = "The characters, factions, and races that know this entry. A faction covers its members and the characters from it.";
 const KNOWER_KINDS = { character: "character", faction: "faction", races: "race" };
 const TEMPLATE_PARTS = ["manifest", "overview", "history"];
 const SOURCES = [["campaign", "Campaign Canon"], ["template", "Templates", "(Advanced)"]];
@@ -436,12 +436,12 @@ function characterForm(form, path, record) {
       source === "campaign" ? field("Current Faction", el("span", {}, record.current_faction || "Unknown"), null, "The faction that the game reports for the character. It shows after you select the character or talk near it while the game runs.") : null,
       source === "campaign" ? field("Status", el("span", {}, record.status || "Unknown"), null, "The health of the character, such as Injured or Unconscious. It shows after you talk to or near the character while the game runs.") : null,
       field("Original Faction", el("span", {}, form.details.OriginFaction || "Unknown"), null, "The faction that the character comes from."),
-      source === "campaign" ? field("Animal", el("span", {}, { 1: "Yes", 0: "No" }[form.details.Animal] ?? "Unknown"), null, "Whether the character is an animal, such as a bonedog or a goat. An animal answers only with an action or a sound, never with words. The game decides it, and a Fishman always counts as an animal.") : null,
+      source === "campaign" ? field("Animal", el("span", {}, { 1: "Yes", 0: "No" }[form.details.Animal] ?? "Unknown"), null, "Whether the character counts as an animal, such as a goat or a Fishman. An animal never answers with words.") : null,
       source === "campaign" ? field("Unique", el("span", {}, record.id ? (isUnique(record) ? "Yes" : "No") : "Unknown"), null, "Whether the game marks the character as unique, such as Tinfist.") : null,
-      isProvisional(record) ? field("Chats", el("span", {}, chatCount(form.details[PROVISIONAL])), null, "How many times you talked to the character. Its personality, backstory, and speech are rolled, not written. When the count reaches Chats before a bio on the Settings page, the LLM writes its full bio.") : null,
-      source === "campaign" ? field("Current Job", el("span", {}, form.details.CurrentJob || "Unknown"), null, "What the character does in the game, for example Guarding a building. It updates each time the character chats or takes part in a radiant conversation.") : null,
+      isProvisional(record) ? field("Chats", el("span", {}, chatCount(form.details[PROVISIONAL])), null, "How many times you talked to the character. At Chats before a bio on the Settings page, the LLM writes its full bio.") : null,
+      source === "campaign" ? field("Current Job", el("span", {}, form.details.CurrentJob || "Unknown"), null, "What the character does in the game, for example Guarding a building. It updates each time the character talks.") : null,
       source === "campaign" ? field("Current Location", el("span", {}, form.details.CurrentLocation || "Unknown"), null, "Where the character was when you last talked to it, for example Bar, The Hub, or Wilderness, Vain.") : null,
-      source === "campaign" ? field("Visited", el("span", { title: record.visited?.join(", ") ?? "" }, visitedText(record.visited ?? [])), null, "The towns and regions where the character talked or heard a chat, newest first, except the lands of its original faction. The character knows the local lore of these places from its travels.") : null,
+      source === "campaign" ? field("Visited", el("span", { title: record.visited?.join(", ") ?? "" }, visitedText(record.visited ?? [])), null, "The places away from home where the character talked or heard a chat, newest first. It knows their local lore.") : null,
       source === "campaign" ? field("Events", el("span", {}, record.events?.join(", ") || "Unknown"), null, "The unique characters that the character killed or captured as a member of your squad.") : null),
   ];
 }
@@ -926,7 +926,7 @@ function renderTestSearch() {
     el("form", { className: "add", onsubmit: runTestSearch },
       field("Line", line),
       ...(source === "campaign" ? [
-        field("Talk to", characterPicker("npc", characters, "Nobody (lore only)", "Character to talk to"), null, "The character that hears the line. The search then also finds its memories and the older rumors, finds only the entries that it can know, marks the entries that it learned only on its travels away from its home, and skips the entries of its factions, which it knows from its chat prompt. Without one, the search finds only lore, in every entry."),
+        field("Talk to", characterPicker("npc", characters, "Nobody (lore only)", "Character to talk to"), null, "The character that hears the line. The search then adds its memories and rumors, and keeps only the entries that it can know."),
         field("Speak as", characterPicker("speaker", characters.filter(inPlayerFaction), "Nobody", "Squad member who speaks"), null, "The squad member who says the line. The search skips the entry of its race, which the NPC sees already."),
       ] : []),
       el("button", { type: "submit" }, "Search")),
