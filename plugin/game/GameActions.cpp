@@ -272,9 +272,10 @@ static int MoveItems(Character *holder, Item *item, int count,
   bool split = moved < item->quantity;
   if (item->isEquipped)
     holder->unequipItem(item->inventorySection, item);
-  Inventory *inv = item->getInventory();
-  if (!inv)
-    inv = holder->getInventory();
+  // Item::getInventory is the content of a container item, not the inventory
+  // that holds the item, such as the furniture of a shop
+  RootObject *owner = item->getInventoryWeAreIn().getRootObject();
+  Inventory *inv = owner ? owner->getInventory() : holder->getInventory();
   Item *detached =
       inv ? inv->removeItemDontDestroy_returnsItem(item, moved, split) : nullptr;
   if (!detached)
