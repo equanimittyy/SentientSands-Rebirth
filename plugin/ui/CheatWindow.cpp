@@ -123,7 +123,7 @@ static void RequestCheatRelation(const std::string &relation) {
   g_cheatRelation->setCaption("Relation: ...");
   if (!c)
     return;
-  StartJournalRequest(
+  PostForGameThread(
       L"/relation",
       "{\"context\": " + GetDetailedContext(c) +
           (relation.empty() ? "" : ", \"relation\": " + relation) + "}",
@@ -131,9 +131,8 @@ static void RequestCheatRelation(const std::string &relation) {
 }
 
 void SetCheatRelation(const std::string &data) {
-  std::string tag, reply;
-  if (!g_cheatWindow || !SplitJournalReply(data, tag, reply) ||
-      atoi(tag.c_str()) != g_cheatRelationRequest)
+  std::string reply;
+  if (!g_cheatWindow || !TakeTaggedReply(data, g_cheatRelationRequest, reply))
     return;
   std::string relation = GetJsonValue(reply, "relation");
   g_cheatRelation->setCaption(

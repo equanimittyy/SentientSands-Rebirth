@@ -239,6 +239,8 @@ void ProcessMessageQueue(GameWorld *thisptr) {
             SetBarterTurn(data);
           } else if (command == "CHEAT_RELATION") {
             SetCheatRelation(data);
+          } else if (command == "CULLED") {
+            FinishCull(data);
           }
         }
       } else if (isRename) {

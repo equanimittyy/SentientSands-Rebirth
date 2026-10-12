@@ -114,13 +114,6 @@ std::string g_bioSid;
 std::string g_bioName;
 std::string g_bioCampaign;
 
-struct BioTask {
-  int request;
-  std::wstring endpoint;
-  std::string json;
-  std::string command;
-};
-
 // The player can close the window, or open it for another NPC, while a
 // request runs, so each close makes the pending reply stale.
 void CloseBioUI() {
@@ -155,42 +148,15 @@ void SetBioStatus(const std::string &text) {
     g_bioStatus->setCaption(Utf8ToWide(text).c_str());
 }
 
-DWORD WINAPI BioThread(LPVOID lpParam) {
-  BioTask *t = (BioTask *)lpParam;
-  std::string response = PostToPythonWithResponse(t->endpoint, t->json);
-  std::string pipeMsg =
-      "CMD: " + t->command + ": " + ToString(t->request) + "|" + response;
-  EnterCriticalSection(&g_msgMutex);
-  g_messageQueue.push_back(pipeMsg);
-  LeaveCriticalSection(&g_msgMutex);
-  delete t;
-  return 0;
-}
-
 void StartBioRequest(const wchar_t *endpoint, const std::string &json,
                      const std::string &command) {
   if (g_bioConfirmBtn)
     g_bioConfirmBtn->setEnabled(false);
-  BioTask *t = new BioTask();
-  t->request = g_bioRequest;
-  t->endpoint = endpoint;
-  t->json = json;
-  t->command = command;
-  StartThread(BioThread, t);
-}
-
-bool TakeBioReply(const std::string &data, std::string &reply) {
-  size_t sep = data.find('|');
-  if (sep == std::string::npos || atoi(data.c_str()) != g_bioRequest)
-    return false;
-  reply = data.substr(sep + 1);
-  return true;
+  PostForGameThread(endpoint, json, command, ToString(g_bioRequest));
 }
 
 void ShowBioFailure(const std::string &prefixKey, const std::string &reply) {
-  std::string error = GetJsonValue(reply, "message");
-  std::string text =
-      T(prefixKey) + (error.empty() ? T("Unknown error") : error);
+  std::string text = FailureText(prefixKey, reply);
   // Edit Bio opens no window until the stored texts arrive
   if (!g_bioWindow) {
     SetLibraryText(text);
@@ -379,7 +345,7 @@ void CreateBioEditUI(const std::string &reply) {
 
 void OpenBioEditor(const std::string &data, const std::string &failureKey) {
   std::string reply;
-  if (!TakeBioReply(data, reply))
+  if (!TakeTaggedReply(data, g_bioRequest, reply))
     return;
   if (GetJsonValue(reply, "status") != "ok") {
     ShowBioFailure(failureKey, reply);
@@ -391,7 +357,7 @@ void OpenBioEditor(const std::string &data, const std::string &failureKey) {
 
 void FinishKeptBio(const std::string &data) {
   std::string reply;
-  if (!TakeBioReply(data, reply))
+  if (!TakeTaggedReply(data, g_bioRequest, reply))
     return;
   if (GetJsonValue(reply, "status") != "ok") {
     ShowBioFailure("Keep failed: ", reply);
@@ -630,13 +596,9 @@ DWORD WINAPI LibraryListThread(LPVOID lpParam) {
     if (chars.empty())
       chars = GetJsonValue(response, "characters");
 
-    if (!chars.empty()) {
-      std::string favs = GetJsonValue(response, "favorites");
-      std::string pipeMsg = "CMD: POPULATE_LIBRARY: " + chars + "|" + favs;
-      EnterCriticalSection(&g_msgMutex);
-      g_messageQueue.push_back(pipeMsg);
-      LeaveCriticalSection(&g_msgMutex);
-    }
+    if (!chars.empty())
+      QueueMessage("CMD: POPULATE_LIBRARY: " + chars + "|" +
+                   GetJsonValue(response, "favorites"));
   }
   return 0;
 }
@@ -647,12 +609,9 @@ DWORD WINAPI LibraryHistoryThread(LPVOID lpParam) {
   std::string response = PostToPythonWithResponse(L"/history", t->json);
   Log(LOG_DEBUG,
       "LIBRARY: Received " + ToString((int)response.length()) + " bytes");
-  if (!GetJsonValue(response, "text").empty()) {
-    EnterCriticalSection(&g_msgMutex);
-    g_messageQueue.push_back("CMD: SET_LIBRARY_PROFILE: " +
-                             ToString(t->request) + "|" + response);
-    LeaveCriticalSection(&g_msgMutex);
-  }
+  if (!GetJsonValue(response, "text").empty())
+    QueueMessage("CMD: SET_LIBRARY_PROFILE: " + ToString(t->request) + "|" +
+                 response);
   delete t;
   return 0;
 }

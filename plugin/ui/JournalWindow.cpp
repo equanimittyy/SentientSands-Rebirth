@@ -36,55 +36,6 @@ std::string g_journalSavedTitle;
 std::string g_journalSavedText;
 std::string g_journalDeleteId;
 
-struct JournalTask {
-  std::wstring endpoint;
-  std::string json;
-  std::string command;
-  std::string tag;
-};
-
-DWORD WINAPI JournalThread(LPVOID lpParam) {
-  JournalTask *t = (JournalTask *)lpParam;
-  std::string response = PostToPythonWithResponse(t->endpoint, t->json);
-  std::string pipeMsg = "CMD: " + t->command + ": " + t->tag + "|" + response;
-  EnterCriticalSection(&g_msgMutex);
-  g_messageQueue.push_back(pipeMsg);
-  LeaveCriticalSection(&g_msgMutex);
-  delete t;
-  return 0;
-}
-
-// The tag goes back with the reply: a request number, which drops a reply
-// that a newer request made stale, or the ID of the entry that a write named
-void StartJournalRequest(const wchar_t *endpoint, const std::string &json,
-                         const std::string &command, const std::string &tag) {
-  JournalTask *t = new JournalTask();
-  t->endpoint = endpoint;
-  t->json = json;
-  t->command = command;
-  t->tag = tag;
-  StartThread(JournalThread, t);
-}
-
-bool SplitJournalReply(const std::string &data, std::string &tag,
-                       std::string &reply) {
-  size_t start = data.find_first_not_of(' ');
-  size_t sep = data.find('|');
-  if (start == std::string::npos || sep == std::string::npos)
-    return false;
-  tag = data.substr(start, sep - start);
-  reply = data.substr(sep + 1);
-  return true;
-}
-
-std::string JournalFailure(const std::string &prefixKey,
-                           const std::string &reply) {
-  std::string error = GetJsonValue(reply, "message");
-  if (error.empty())
-    error = GetJsonValue(reply, "error");
-  return T(prefixKey) + (error.empty() ? T("Unknown error") : error);
-}
-
 void SetJournalStatus(const std::string &text) {
   if (g_journalStatus)
     g_journalStatus->setCaption(Utf8ToWide(text).c_str());
@@ -109,7 +60,7 @@ void RequestJournalPage(int page) {
   g_journalPage = page;
   std::string query =
       g_journalSearch ? g_journalSearch->getOnlyText().asUTF8() : "";
-  StartJournalRequest(L"/journal",
+  PostForGameThread(L"/journal",
                       "{\"page\":" + ToString(page) + ",\"query\":\"" +
                           EscapeJSON(query) + "\"}",
                       "POPULATE_JOURNAL", ToString(++g_journalListRequest));
@@ -117,11 +68,11 @@ void RequestJournalPage(int page) {
 
 void PopulateJournalUI(const std::string &data) {
   std::string tag, reply;
-  if (!g_journalList || !SplitJournalReply(data, tag, reply) ||
+  if (!g_journalList || !SplitTaggedReply(data, tag, reply) ||
       atoi(tag.c_str()) != g_journalListRequest)
     return;
   if (GetJsonValue(reply, "status") != "ok") {
-    SetJournalStatus(JournalFailure("Load failed: ", reply));
+    SetJournalStatus(FailureText("Load failed: ", reply));
     return;
   }
   g_journalCampaign = GetJsonValue(reply, "campaign");
@@ -156,18 +107,18 @@ void LoadJournalEntry(const std::string &id) {
   g_journalEntryId = "";
   ShowJournalEntry("", "", "");
   SetJournalStatus(T("Loading the entry..."));
-  StartJournalRequest(L"/journal/read",
+  PostForGameThread(L"/journal/read",
                       "{\"id\":\"" + EscapeJSON(id) + "\"}", "JOURNAL_ENTRY",
                       ToString(++g_journalEntryRequest));
 }
 
 void SetJournalEntry(const std::string &data) {
   std::string tag, reply;
-  if (!g_journalWindow || !SplitJournalReply(data, tag, reply) ||
+  if (!g_journalWindow || !SplitTaggedReply(data, tag, reply) ||
       atoi(tag.c_str()) != g_journalEntryRequest)
     return;
   if (GetJsonValue(reply, "status") != "ok") {
-    SetJournalStatus(JournalFailure("Load failed: ", reply));
+    SetJournalStatus(FailureText("Load failed: ", reply));
     return;
   }
   g_journalEntryId = g_journalSelectedId;
@@ -181,7 +132,7 @@ void SaveJournalEntry() {
   std::string text = g_journalText->getOnlyText().asUTF8();
   g_journalSavedTitle = title;
   g_journalSavedText = text;
-  StartJournalRequest(L"/journal/save",
+  PostForGameThread(L"/journal/save",
                       "{\"campaign\":\"" + EscapeJSON(g_journalCampaign) +
                           "\",\"id\":\"" + EscapeJSON(g_journalEntryId) +
                           "\",\"title\":\"" + EscapeJSON(title) +
@@ -199,7 +150,7 @@ void SaveJournalIfChanged() {
 
 void FinishJournalSave(const std::string &data) {
   std::string id, reply;
-  if (!SplitJournalReply(data, id, reply))
+  if (!SplitTaggedReply(data, id, reply))
     return;
   bool saved = GetJsonValue(reply, "status") == "ok";
   if (!g_journalWindow) {
@@ -209,7 +160,7 @@ void FinishJournalSave(const std::string &data) {
     return;
   }
   if (!saved) {
-    SetJournalStatus(JournalFailure("Save failed: ", reply));
+    SetJournalStatus(FailureText("Save failed: ", reply));
     return;
   }
   if (id == g_journalEntryId)
@@ -248,7 +199,7 @@ void OnJournalNextClick(MyGUI::Widget *sender) {
 void OnJournalNewClick(MyGUI::Widget *sender) {
   SaveJournalIfChanged();
   SetJournalStatus("");
-  StartJournalRequest(L"/journal/add",
+  PostForGameThread(L"/journal/add",
                       "{\"campaign\":\"" + EscapeJSON(g_journalCampaign) +
                           "\"" + GameTimeFields() + "}",
                       "JOURNAL_ADDED", "");
@@ -256,10 +207,10 @@ void OnJournalNewClick(MyGUI::Widget *sender) {
 
 void FinishJournalAdd(const std::string &data) {
   std::string tag, reply;
-  if (!g_journalWindow || !SplitJournalReply(data, tag, reply))
+  if (!g_journalWindow || !SplitTaggedReply(data, tag, reply))
     return;
   if (GetJsonValue(reply, "status") != "ok") {
-    SetJournalStatus(JournalFailure("Add failed: ", reply));
+    SetJournalStatus(FailureText("Add failed: ", reply));
     return;
   }
   // The search could hide the new entry
@@ -279,7 +230,7 @@ void CloseJournalDeleteUI() {
 void OnJournalDeleteConfirmClick(MyGUI::Widget *sender) {
   CloseJournalDeleteUI();
   SetJournalStatus("");
-  StartJournalRequest(L"/journal/delete",
+  PostForGameThread(L"/journal/delete",
                       "{\"campaign\":\"" + EscapeJSON(g_journalCampaign) +
                           "\",\"id\":\"" + EscapeJSON(g_journalDeleteId) +
                           "\"}",
@@ -355,10 +306,10 @@ void OnJournalDeleteClick(MyGUI::Widget *sender) {
 
 void FinishJournalDelete(const std::string &data) {
   std::string id, reply;
-  if (!g_journalWindow || !SplitJournalReply(data, id, reply))
+  if (!g_journalWindow || !SplitTaggedReply(data, id, reply))
     return;
   if (GetJsonValue(reply, "status") != "ok") {
-    SetJournalStatus(JournalFailure("Delete failed: ", reply));
+    SetJournalStatus(FailureText("Delete failed: ", reply));
     return;
   }
   if (id == g_journalSelectedId) {

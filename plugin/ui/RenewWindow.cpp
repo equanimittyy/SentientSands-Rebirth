@@ -21,7 +21,7 @@
 #include <mygui/MyGUI_Gui.h>
 #include <mygui/MyGUI_Window.h>
 
-#include <sstream>
+#include <cstdlib>
 #include <vector>
 
 namespace SentientSands {
@@ -50,26 +50,6 @@ static MyGUI::Window *g_renewWindow = nullptr;
 static Hire g_renewal;
 static bool g_renewPaused = false;
 
-struct HireAsk {
-  unsigned int ask;
-  std::string json;
-};
-
-static DWORD WINAPI HireTermsThread(LPVOID lpParam) {
-  HireAsk *t = (HireAsk *)lpParam;
-  std::string response = PostToPythonWithResponse(L"/hire_terms", t->json);
-  if (GetJsonValue(response, "status") == "ok") {
-    EnterCriticalSection(&g_msgMutex);
-    g_messageQueue.push_back("CMD: HIRE_TERMS: " + ToString(t->ask) + " " +
-                             GetJsonValue(response, "hours") + " " +
-                             GetJsonValue(response, "fee") + "\n" +
-                             GetJsonValue(response, "text"));
-    LeaveCriticalSection(&g_msgMutex);
-  }
-  delete t;
-  return 0;
-}
-
 static bool Hired(Character *c, double &expiry) {
   Blackboard *board = c->getBlackboard();
   if (!board || (uintptr_t)board < 0x1000 || !board->hasContractJob())
@@ -93,11 +73,10 @@ static void AskTerms(Character *c, double expiry) {
       break;
     }
   g_hires.push_back(hire);
-  HireAsk *t = new HireAsk();
-  t->ask = hire.ask;
-  t->json = "{\"npc_id\": \"" + EscapeJSON(GetNpcId(c)) + "\", \"npc\": \"" +
-            EscapeJSON(c->getName()) + "\"}";
-  StartThread(HireTermsThread, t);
+  PostForGameThread(L"/hire_terms",
+                    "{\"npc_id\": \"" + EscapeJSON(GetNpcId(c)) +
+                        "\", \"npc\": \"" + EscapeJSON(c->getName()) + "\"}",
+                    "HIRE_TERMS", ToString(hire.ask));
 }
 
 static void ScanHires(GameWorld *world) {
@@ -133,20 +112,17 @@ void ExpireHire(Character *npc) {
   g_hires.back().due = true;
 }
 
-// The data holds the ask, the hours, and the fee on its first line, and the
-// text of the popup on its second
 void SetHireTerms(const std::string &data) {
-  std::istringstream in(data);
-  unsigned int ask = 0;
-  Hire terms;
-  in >> ask >> terms.hours >> terms.fee;
-  in.ignore(1);
-  std::getline(in, terms.text);
+  std::string tag, reply;
+  if (!SplitTaggedReply(data, tag, reply) ||
+      GetJsonValue(reply, "status") != "ok")
+    return;
+  unsigned int ask = (unsigned int)strtoul(tag.c_str(), NULL, 10);
   for (size_t i = 0; i < g_hires.size(); ++i)
     if (g_hires[i].ask == ask) {
-      g_hires[i].hours = terms.hours;
-      g_hires[i].fee = terms.fee;
-      g_hires[i].text = terms.text;
+      g_hires[i].hours = atoi(GetJsonValue(reply, "hours").c_str());
+      g_hires[i].fee = atoi(GetJsonValue(reply, "fee").c_str());
+      g_hires[i].text = GetJsonValue(reply, "text");
     }
 }
 

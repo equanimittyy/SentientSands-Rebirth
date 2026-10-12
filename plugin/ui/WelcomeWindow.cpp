@@ -48,10 +48,7 @@ DWORD WINAPI WelcomeResponseThread(LPVOID lpParam) {
     return 0;
   }
 
-  std::string pipeMsg = "CMD: APPLY_TRANSLATION: " + response;
-  EnterCriticalSection(&g_msgMutex);
-  g_messageQueue.push_back(pipeMsg);
-  LeaveCriticalSection(&g_msgMutex);
+  QueueMessage("CMD: APPLY_TRANSLATION: " + response);
 
   return 0;
 }

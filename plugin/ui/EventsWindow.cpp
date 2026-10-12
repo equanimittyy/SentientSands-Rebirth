@@ -47,13 +47,6 @@ std::string g_rumorCampaign;
 std::string g_rumorKind;
 std::string g_rumorId;
 
-struct RumorTask {
-  int request;
-  std::wstring endpoint;
-  std::string json;
-  std::string command;
-};
-
 // The player can close the window, or open it for another event, while a
 // request runs, so each close makes the pending reply stale
 void CloseRumorUI() {
@@ -211,12 +204,8 @@ DWORD WINAPI EventsContentThread(LPVOID lpParam) {
   std::string response = PostToPythonWithResponse(L"/events/content", t->json);
   if (!response.empty()) {
     std::string content = GetJsonValue(response, "text");
-    if (!content.empty()) {
-      std::string pipeMsg = "CMD: SET_EVENTS_TEXT: " + content;
-      EnterCriticalSection(&g_msgMutex);
-      g_messageQueue.push_back(pipeMsg);
-      LeaveCriticalSection(&g_msgMutex);
-    }
+    if (!content.empty())
+      QueueMessage("CMD: SET_EVENTS_TEXT: " + content);
   }
   delete t;
   return 0;
@@ -225,12 +214,8 @@ DWORD WINAPI EventsContentThread(LPVOID lpParam) {
 DWORD WINAPI EventsResponseThread(LPVOID lpParam) {
   Log(LOG_DEBUG, "EVENTS_WINDOW: Fetching events list...");
   std::string response = PostToPythonWithResponse(L"/events", "");
-  if (GetJsonValue(response, "status") == "ok") {
-    std::string pipeMsg = "CMD: POPULATE_EVENTS: " + response;
-    EnterCriticalSection(&g_msgMutex);
-    g_messageQueue.push_back(pipeMsg);
-    LeaveCriticalSection(&g_msgMutex);
-  }
+  if (GetJsonValue(response, "status") == "ok")
+    QueueMessage("CMD: POPULATE_EVENTS: " + response);
   return 0;
 }
 
@@ -239,42 +224,15 @@ void SetRumorStatus(const std::string &text) {
     g_rumorStatus->setCaption(Utf8ToWide(text).c_str());
 }
 
-DWORD WINAPI RumorThread(LPVOID lpParam) {
-  RumorTask *t = (RumorTask *)lpParam;
-  std::string response = PostToPythonWithResponse(t->endpoint, t->json);
-  std::string pipeMsg =
-      "CMD: " + t->command + ": " + ToString(t->request) + "|" + response;
-  EnterCriticalSection(&g_msgMutex);
-  g_messageQueue.push_back(pipeMsg);
-  LeaveCriticalSection(&g_msgMutex);
-  delete t;
-  return 0;
-}
-
 void StartRumorRequest(const wchar_t *endpoint, const std::string &json,
                        const std::string &command) {
   if (g_rumorConfirmBtn)
     g_rumorConfirmBtn->setEnabled(false);
-  RumorTask *t = new RumorTask();
-  t->request = g_rumorRequest;
-  t->endpoint = endpoint;
-  t->json = json;
-  t->command = command;
-  StartThread(RumorThread, t);
-}
-
-bool TakeRumorReply(const std::string &data, std::string &reply) {
-  size_t sep = data.find('|');
-  if (sep == std::string::npos || atoi(data.c_str()) != g_rumorRequest)
-    return false;
-  reply = data.substr(sep + 1);
-  return true;
+  PostForGameThread(endpoint, json, command, ToString(g_rumorRequest));
 }
 
 void ShowRumorFailure(const std::string &prefixKey, const std::string &reply) {
-  std::string error = GetJsonValue(reply, "message");
-  std::string text =
-      T(prefixKey) + (error.empty() ? T("Unknown error") : error);
+  std::string text = FailureText(prefixKey, reply);
   // Edit Rumor opens no window until the stored text arrives
   if (!g_rumorWindow) {
     SetEventsText(text);
@@ -443,7 +401,7 @@ void CreateEventDeleteUI() {
 
 void OpenRumorEditor(const std::string &data, const std::string &failureKey) {
   std::string reply;
-  if (!TakeRumorReply(data, reply))
+  if (!TakeTaggedReply(data, g_rumorRequest, reply))
     return;
   if (GetJsonValue(reply, "status") != "ok") {
     ShowRumorFailure(failureKey, reply);
@@ -455,7 +413,7 @@ void OpenRumorEditor(const std::string &data, const std::string &failureKey) {
 
 void FinishEventChange(const std::string &data, const std::string &failureKey) {
   std::string reply;
-  if (!TakeRumorReply(data, reply))
+  if (!TakeTaggedReply(data, g_rumorRequest, reply))
     return;
   if (GetJsonValue(reply, "status") != "ok") {
     ShowRumorFailure(failureKey, reply);

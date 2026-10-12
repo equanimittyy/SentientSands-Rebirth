@@ -1,6 +1,7 @@
 #include "Comm.h"
 #include "Globals.h"
 #include "Utils.h"
+#include <cstdlib>
 #include <winhttp.h>
 
 DWORD WINAPI PipeThread(LPVOID lpParam) {
@@ -29,11 +30,8 @@ DWORD WINAPI PipeThread(LPVOID lpParam) {
         buffer[bytesRead] = '\0';
         fullMsg += buffer;
       }
-      if (!fullMsg.empty()) {
-        EnterCriticalSection(&g_msgMutex);
-        g_messageQueue.push_back(fullMsg);
-        LeaveCriticalSection(&g_msgMutex);
-      }
+      if (!fullMsg.empty())
+        QueueMessage(fullMsg);
     }
 
     DisconnectNamedPipe(hPipe);
@@ -147,6 +145,61 @@ void StartThread(LPTHREAD_START_ROUTINE start, LPVOID arg) {
   HANDLE thread = CreateThread(NULL, 0, start, arg, 0, NULL);
   if (thread)
     CloseHandle(thread);
+}
+
+void QueueMessage(const std::string &message) {
+  EnterCriticalSection(&g_msgMutex);
+  g_messageQueue.push_back(message);
+  LeaveCriticalSection(&g_msgMutex);
+}
+
+struct TaggedPost {
+  std::wstring endpoint;
+  std::string json;
+  std::string command;
+  std::string tag;
+};
+
+static DWORD WINAPI TaggedPostThread(LPVOID lpParam) {
+  TaggedPost *t = (TaggedPost *)lpParam;
+  std::string response = PostToPythonWithResponse(t->endpoint, t->json);
+  QueueMessage("CMD: " + t->command + ": " + t->tag + "|" + response);
+  delete t;
+  return 0;
+}
+
+void PostForGameThread(const std::wstring &endpoint, const std::string &json,
+                       const std::string &command, const std::string &tag) {
+  TaggedPost *t = new TaggedPost();
+  t->endpoint = endpoint;
+  t->json = json;
+  t->command = command;
+  t->tag = tag;
+  StartThread(TaggedPostThread, t);
+}
+
+bool SplitTaggedReply(const std::string &data, std::string &tag,
+                      std::string &reply) {
+  size_t start = data.find_first_not_of(' ');
+  size_t sep = data.find('|');
+  if (start == std::string::npos || sep == std::string::npos)
+    return false;
+  tag = data.substr(start, sep - start);
+  reply = data.substr(sep + 1);
+  return true;
+}
+
+bool TakeTaggedReply(const std::string &data, int request, std::string &reply) {
+  std::string tag;
+  return SplitTaggedReply(data, tag, reply) && atoi(tag.c_str()) == request;
+}
+
+std::string FailureText(const std::string &prefixKey,
+                        const std::string &reply) {
+  std::string error = GetJsonValue(reply, "message");
+  if (error.empty())
+    error = GetJsonValue(reply, "error");
+  return T(prefixKey) + (error.empty() ? T("Unknown error") : error);
 }
 
 struct HttpTask {

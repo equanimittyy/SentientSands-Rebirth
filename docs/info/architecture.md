@@ -50,7 +50,7 @@ SentientSandsRebirth/
 
 ## Threading
 
-Background threads never change game objects or MyGUI widgets. They push messages onto `g_messageQueue` under `g_msgMutex` (`plugin/core/Globals.h`), and `playerUpdate_hook` drains the queue on the game thread (`ProcessMessageQueue`). The drain takes the whole queue under the lock and runs the messages after it, so the pipe thread never waits for the game work of a message, and `send_to_pipe` does not drop a message for lack of a pipe instance. A message that the game thread queues during the drain runs on the next frame. New code that makes results off the game thread must use this queue.
+Background threads never change game objects or MyGUI widgets. They push messages onto `g_messageQueue` with `QueueMessage` (`plugin/core/Comm.cpp`), and a request whose reply changes a window goes through `PostForGameThread`, which queues the reply as a `CMD:` message with a tag. `playerUpdate_hook` drains the queue on the game thread (`ProcessMessageQueue`). The drain takes the whole queue under the lock and runs the messages after it, so the pipe thread never waits for the game work of a message, and `send_to_pipe` does not drop a message for lack of a pipe instance. A message that the game thread queues during the drain runs on the next frame. New code that makes results off the game thread must use this queue.
 
 ## Game state
 

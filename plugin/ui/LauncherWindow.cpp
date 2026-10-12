@@ -46,34 +46,26 @@ void CloseCullUI() {
   }
 }
 
-DWORD WINAPI CullThread(LPVOID lpParam) {
-  std::string *report = (std::string *)lpParam;
-  Log(LOG_INFO, "LAUNCHER: Requesting cull of future data...");
-  std::string response = PostToPythonWithResponse(L"/cull", *report);
-  delete report;
-  std::string text;
-  if (GetJsonValue(response, "status") == "ok") {
-    text = T("Culled the data dated after: ") +
-           GetJsonValue(response, "time") + ". " + T("Dialogue lines: ") +
-           GetJsonValue(response, "dialogue") + ", " + T("events: ") +
-           GetJsonValue(response, "event") + ", " + T("rumors: ") +
-           GetJsonValue(response, "rumor") + ", " + T("profiles: ") +
-           GetJsonValue(response, "character") + ".";
-  } else {
-    std::string error = GetJsonValue(response, "message");
-    if (error.empty())
-      error = GetJsonValue(response, "error");
-    text = T("Cull failed: ") + (error.empty() ? T("Unknown error") : error);
+void FinishCull(const std::string &data) {
+  std::string tag, reply;
+  if (!SplitTaggedReply(data, tag, reply))
+    return;
+  if (GetJsonValue(reply, "status") != "ok") {
+    QueueMessage("NOTIFY: " + FailureText("Cull failed: ", reply));
+    return;
   }
-  EnterCriticalSection(&g_msgMutex);
-  g_messageQueue.push_back("NOTIFY: " + text);
-  LeaveCriticalSection(&g_msgMutex);
-  return 0;
+  QueueMessage("NOTIFY: " + T("Culled the data dated after: ") +
+               GetJsonValue(reply, "time") + ". " + T("Dialogue lines: ") +
+               GetJsonValue(reply, "dialogue") + ", " + T("events: ") +
+               GetJsonValue(reply, "event") + ", " + T("rumors: ") +
+               GetJsonValue(reply, "rumor") + ", " + T("profiles: ") +
+               GetJsonValue(reply, "character") + ".");
 }
 
 void OnCullConfirmClick(MyGUI::Widget *sender) {
   CloseCullUI();
-  StartThread(CullThread, new std::string(GameReport()));
+  Log(LOG_INFO, "LAUNCHER: Requesting cull of future data...");
+  PostForGameThread(L"/cull", GameReport(), "CULLED", "");
 }
 
 void OnCullCancelClick(MyGUI::Widget *sender) { CloseCullUI(); }

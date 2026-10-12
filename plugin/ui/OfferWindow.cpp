@@ -68,11 +68,7 @@ static void CloseOfferUI() {
   g_offerBoxes.clear();
 }
 
-void NotifyText(const std::string &text) {
-  EnterCriticalSection(&g_msgMutex);
-  g_messageQueue.push_back("NOTIFY: " + text);
-  LeaveCriticalSection(&g_msgMutex);
-}
+void NotifyText(const std::string &text) { QueueMessage("NOTIFY: " + text); }
 
 std::string Fill(std::string text, const std::string &slot,
                  const std::string &value) {

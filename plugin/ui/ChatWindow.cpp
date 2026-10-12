@@ -87,9 +87,7 @@ static void NotifyChatStatus(const std::string &key,
   size_t nameSlot = text.find("{name}");
   if (nameSlot != std::string::npos)
     text.replace(nameSlot, 6, npcName);
-  EnterCriticalSection(&g_msgMutex);
-  g_messageQueue.push_back("NOTIFY: " + text);
-  LeaveCriticalSection(&g_msgMutex);
+  QueueMessage("NOTIFY: " + text);
 }
 
 // A refused line still answers its offer, or the server would hold the offer
@@ -146,10 +144,7 @@ DWORD WINAPI ChatResponseThread(LPVOID lpParam) {
   // NPC
   if (!t->yell) {
     NotifyChatStatus("{name} is thinking...", t->npcName);
-    EnterCriticalSection(&g_msgMutex);
-    g_messageQueue.push_back("NPC_SAY: " + t->npcName + "|" + t->handleStr +
-                             ": ...");
-    LeaveCriticalSection(&g_msgMutex);
+    QueueMessage("NPC_SAY: " + t->npcName + "|" + t->handleStr + ": ...");
   }
 
   std::string response = PostToPythonWithResponse(L"/chat", t->json);
@@ -164,11 +159,8 @@ DWORD WINAPI ChatResponseThread(LPVOID lpParam) {
         t->npcName);
     // The barter window waits for its turn, which the server sends only with
     // a reply
-    if (t->barter) {
-      EnterCriticalSection(&g_msgMutex);
-      g_messageQueue.push_back("CMD: BARTER_TURN: error");
-      LeaveCriticalSection(&g_msgMutex);
-    }
+    if (t->barter)
+      QueueMessage("CMD: BARTER_TURN: error");
     delete t;
     return 0;
   }
@@ -319,14 +311,11 @@ bool SendChatLine(const std::string &npcName, const std::string &handleStr,
   if (tooFar)
     return RefuseLine("{name} is too far away.", npcName, offerAnswer);
 
-  EnterCriticalSection(&g_msgMutex);
   // Names the speaker, so its bubble and the NPC's actions go to that squad
   // member. A line of only a mark, such as !end, shows no bubble but still
   // names the speaker
-  g_messageQueue.push_back(
-      "PLAYER_SAY: " + (speaker ? playerName + ": " : std::string()) +
-      (marked ? WithoutActionMark(text) : text));
-  LeaveCriticalSection(&g_msgMutex);
+  QueueMessage("PLAYER_SAY: " + (speaker ? playerName + ": " : std::string()) +
+               (marked ? WithoutActionMark(text) : text));
 
   std::string primaryId = npcName + "|" + handleStr;
   std::string npcsJson = "\"" + EscapeJSON(primaryId) + "\"";
@@ -467,22 +456,6 @@ void OnChatWindowButtonPressed(MyGUI::Window *sender, const std::string &name) {
     CloseChatUI();
 }
 
-struct ChatHistoryTask {
-  std::string json;
-  int request;
-};
-
-DWORD WINAPI ChatHistoryThread(LPVOID lpParam) {
-  ChatHistoryTask *t = (ChatHistoryTask *)lpParam;
-  std::string response = PostToPythonWithResponse(L"/chat_thread", t->json);
-  EnterCriticalSection(&g_msgMutex);
-  g_messageQueue.push_back("CMD: CHAT_HISTORY: " + ToString(t->request) + "|" +
-                           response);
-  LeaveCriticalSection(&g_msgMutex);
-  delete t;
-  return 0;
-}
-
 static void SetChatThreadHeader(const std::string &text) {
   g_chatThreadHeader->setCaption(
       MyGUI::TextIterator::toTagsString(Utf8ToWide(text)));
@@ -492,19 +465,18 @@ static void RequestChatHistory() {
   SetChatThreadHeader(T("Loading the conversation..."));
   Character *target = KeyedCharacter(
       (unsigned int)strtoul(g_chatTargetHandleStr.c_str(), NULL, 10));
-  ChatHistoryTask *t = new ChatHistoryTask();
-  t->json = "{\"npc_id\":\"" +
-            EscapeJSON(target ? GetNpcId(target) : std::string()) + "\"}";
-  t->request = ++g_chatHistoryRequest;
-  StartThread(ChatHistoryThread, t);
+  PostForGameThread(L"/chat_thread",
+                    "{\"npc_id\":\"" +
+                        EscapeJSON(target ? GetNpcId(target) : std::string()) +
+                        "\"}",
+                    "CHAT_HISTORY", ToString(++g_chatHistoryRequest));
 }
 
 void SetChatHistory(const std::string &data) {
-  size_t sep = data.find('|');
-  if (!g_chatThreadHeader || sep == std::string::npos ||
-      atoi(data.c_str()) != g_chatHistoryRequest)
+  std::string reply;
+  if (!g_chatThreadHeader ||
+      !TakeTaggedReply(data, g_chatHistoryRequest, reply))
     return;
-  std::string reply = data.substr(sep + 1);
   if (GetJsonValue(reply, "status") != "ok") {
     SetChatThreadHeader(T("Could not load the conversation."));
     return;
