@@ -13,7 +13,7 @@ void DropOfferUI();
 void WatchOffer();
 void AcceptOffer();
 std::string DeclineOffer();
-bool MoveOfferToBarter(unsigned int npcKey);
+bool OfferHeldFor(unsigned int npcKey);
 int MoneyOf(Character *c);
 
 } // namespace UI

@@ -565,9 +565,8 @@ def chat():
         system_prompt = build_system_prompt()
         if category:
             goods = {"stock": offers.stocktake(ctx_dict)} if category == "BARTER" else {}
-            wanted = fill_prompt(f"prompt_action_{category.lower()}.txt", speaker=player_name, **goods)
-            if barter:
-                wanted += "\n" + fill_prompt("prompt_action_barter_table.txt", speaker=player_name)
+            # The request of the barter window names no offer tag, because only the player sets a deal that the window can accept
+            wanted = fill_prompt("prompt_action_barter_table.txt" if barter else f"prompt_action_{category.lower()}.txt", speaker=player_name, **goods)
             system_prompt += "\n\n" + fill_prompt("prompt_action_rules.txt", request=wanted)
         final_instruction = f"Reply as {primary_npc}{', quietly' if mode == 'whisper' else ''}. End with [JUDGMENT: n]."
 
@@ -653,18 +652,22 @@ def chat():
             outcome = "attack"
         elif category in ("RECRUIT", "FOLLOW") and offers.refused(content):
             outcome = "refused"
+        elif barter:
+            # A counter-offer stays in the words of the NPC: a deal of the model took the place of the player's table
+            if offers.agreed(content):
+                offer = table_offer
+                if not offer:
+                    logging.info(f"ACTION: Dropped the agreement of {primary_npc} to the deal on the table, because {table_reason}.")
+                outcome = "offer" if offer else "unkept"
+            elif offers.read(content) is not None:
+                logging.info(f"ACTION: Ignored the offer of {primary_npc} in the barter window: {offers.offer_text(content)}")
         elif category and offers.read(content) is not None:
-            offer, unkept = offers.check(category, offers.read(content), ctx_dict, speaker, mates)
+            offer, unkept = offers.check(category, offers.read(content), ctx_dict, speaker)
             if not offer:
                 logging.info(f"ACTION: Dropped the offer of {primary_npc}, because {unkept}: {offers.offer_text(content)}")
                 outcome = "unkept"
             else:
                 outcome = "free" if category == "HEAL" and not offer["takes"] else "offer"
-        elif barter and offers.agreed(content):
-            offer = table_offer
-            if not offer:
-                logging.info(f"ACTION: Dropped the agreement of {primary_npc} to the deal on the table, because {table_reason}.")
-            outcome = "offer" if offer else "unkept"
         # A valid offer keeps the action dialogue open until the player answers it
         closing = bool(category) and (outcome in ("attack", "refused", "free") or (outcome != "offer" and action_dialogue.ended(content)))
         offered = offers.offer_text(content) if category else None
@@ -724,7 +727,7 @@ def chat():
             popup = offers.popup_text(offer, primary_npc, player_name)
             offer_id = offers.hold(offer, npc=primary_npc, player=player_name, voice=voice(), thread=thread_id, parties=[npc_party, speaker_party],
                                    location=location, npc_id=primary_id, day=ctx_dict.get("day"))
-            state.PENDING_OFFER["command"] = offers.command(offer_id, offer, primary_npc, target_key, speaker_key, popup)
+            state.PENDING_OFFER["command"] = offers.command(offer_id, offer, primary_npc, target_key, speaker_key, popup, barter)
             after = [state.PENDING_OFFER["command"]]
             logging.info(f"ACTION: {popup}")
 

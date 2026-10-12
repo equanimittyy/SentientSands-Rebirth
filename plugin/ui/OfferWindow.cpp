@@ -259,8 +259,8 @@ static void AddOfferBox(MyGUI::Widget *client, const char *labelKey,
 
 // The data holds, one to a line, the offer ID, the keys of the NPC and the
 // speaker, the name of the NPC, the text of the popup, the CHECK lines, and the
-// BOX lines of a barter offer, which shows in two boxes instead of the text,
-// and its DEAL lines, which an open barter window loads instead
+// BOX lines of a barter offer, which shows in two boxes instead of the text.
+// An agreement in the barter window adds DEAL lines, and the window shows it
 void ShowOfferUI(const std::string &data) {
   std::vector<std::string> lines;
   std::istringstream in(data);
@@ -355,11 +355,8 @@ void ShowOfferUI(const std::string &data) {
 
 void DropOfferUI() { ForgetOffer(); }
 
-bool MoveOfferToBarter(unsigned int npcKey) {
-  if (g_offer.id.empty() || g_offer.npcKey != npcKey)
-    return false;
-  CloseOfferUI();
-  return ShowBarterOffer(g_offer.npcKey, g_offer.speakerKey, g_offer.deal);
+bool OfferHeldFor(unsigned int npcKey) {
+  return !g_offer.id.empty() && g_offer.npcKey == npcKey;
 }
 
 // A knocked-out or dead character cannot make or take a deal

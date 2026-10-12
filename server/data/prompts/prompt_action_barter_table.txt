@@ -1,1 +1,3 @@
-TABLE: {speaker} lays a deal on the table, and DEAL FACTS show it. To take that deal as it is, put [AGREE] after your words. To ask for a different deal, put an offer tag with the whole deal that you want instead. When you only talk or refuse, put neither.
+REQUEST: {speaker} wants to trade with you: to buy or sell an item, to swap items, to give you a gift, or to ask you for charity. {speaker} can haggle over the price.
+TABLE: {speaker} lays a deal on the table, and DEAL FACTS show it. When you take that deal as it is, put [AGREE] after your words. When you want a different deal, say what you want, and {speaker} can change the table.
+{stock}

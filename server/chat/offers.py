@@ -199,8 +199,7 @@ def check(category, parts, npc, speaker, squad=None):
     """(offer, None) for an offer that keeps the hard limits, or (None, reason). An offer holds the parts that the NPC gives
     and the parts that the player gives, as (kind, value) pairs: CATS with a count, ITEM with (count, name), HIRE with the
     hours, and JOIN_PARTY, FIRST_AID, or RELEASE with None. squad holds the key and the inventory of each squad mate of the
-    barter window, speaker first: an item of the player's side can then come from any of them, its ITEM value gets the key
-    of its holder, and a TAKE_ITEM part can name the holder as a third element."""
+    barter window: each TAKE_ITEM part names its holder as a third element, and its ITEM value gets the key of the holder."""
     if category not in GIVES:
         return None, f"{category} makes no offers"
     holders = [(str(mate.get("key")), mate.get("inventory") or []) for mate in squad] if squad else [(None, speaker.get("inventory") or [])]
@@ -419,10 +418,11 @@ def boxes(offer):
     return lines
 
 
-def command(offer_id, offer, npc, npc_key, speaker_key, text):
+def command(offer_id, offer, npc, npc_key, speaker_key, text, window=False):
     """The pipe command that opens the popup: the ID, the keys of the NPC and the speaker, the name of the NPC, the text of
-    the popup, the CHECK lines, and the BOX and DEAL lines of a trade, one to a line."""
-    shown = boxes(offer) + deal_lines(offer) if offer["category"] == "BARTER" else []
+    the popup, the CHECK lines, and the BOX lines of a trade, one to a line. An agreement in the barter window adds the DEAL
+    lines, so the window loads only a deal of its own table."""
+    shown = boxes(offer) + (deal_lines(offer) if window else []) if offer["category"] == "BARTER" else []
     return "CMD: OFFER: " + "\n".join([str(offer_id), f"{npc_key} {speaker_key}", npc, text, *checks(offer), *shown])
 
 

@@ -420,8 +420,10 @@ static void SendBarterLine() {
   CapPlayerCats();
   std::string json = BarterJson();
   // The server keeps the offer until the answer, and drops a line that comes
-  // before it
-  std::string answer = g_offerHeld ? DeclineOffer() : std::string();
+  // before it. An offer in the popup came from the model, and a send of the
+  // table declines it as well
+  std::string answer =
+      OfferHeldFor(g_barterNpcKey) ? DeclineOffer() : std::string();
   // The mark keeps the line in the BARTER dialogue even after the dialogue
   // ended, as a new !b line would
   if (!SendChatLine(g_barterNpcName, g_barterHandle,
@@ -633,15 +635,14 @@ void ShowBarterUI(const std::string &npcName, const std::string &handleStr,
 
   BuildBarterWindow(gui);
   SetBarterHistory(GetJsonValue(thread, "lines"));
-  if (!MoveOfferToBarter(g_barterNpcKey))
-    RefreshBarterLists();
+  RefreshBarterLists();
 }
 
 // The lines hold the cats of a side, or an item with its holder: npc, player
 // for the speaker, or the key of a squad mate
 bool ShowBarterOffer(unsigned int npcKey, unsigned int speakerKey,
                      const std::vector<std::string> &deal) {
-  if (!g_barterWindow || npcKey != g_barterNpcKey)
+  if (!g_barterWindow || npcKey != g_barterNpcKey || deal.empty())
     return false;
   Deal loaded;
   loaded.cats[PLAYER_SIDE] = loaded.cats[NPC_SIDE] = 0;
