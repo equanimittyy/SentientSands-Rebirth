@@ -1514,6 +1514,25 @@ std::string ChangedTowns() {
   return json + "]";
 }
 
+TownBase *FindTown(const std::string &name) {
+  SharedKing *shared = ppSharedKing ? *ppSharedKing : nullptr;
+  if (!shared || !shared->townList || name.empty())
+    return nullptr;
+  TownBase *partial = nullptr;
+  lektor<RootObject *> &towns = shared->townList->getAllTowns();
+  for (uint32_t i = 0; i < towns.size(); ++i) {
+    TownBase *town = (TownBase *)towns[i];
+    std::string townName = town ? town->getName() : std::string();
+    if (!town || !ContainsIgnoreCase(townName, name))
+      continue;
+    if (townName.size() == name.size())
+      return town;
+    if (!partial)
+      partial = town;
+  }
+  return partial;
+}
+
 std::string GameReport() {
   std::string player = "{}";
   GameWorld *world = ppWorld ? *ppWorld : nullptr;

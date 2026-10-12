@@ -665,31 +665,12 @@ void ExecuteQueuedActions(GameWorld *thisptr, int &inventoryTimer) {
             Log(LOG_DEBUG, "ACTION: Resolving town target for " + ToString(tt) +
                 ": '" + tName + "'");
 
-            std::string tLow = tName;
-            std::transform(tLow.begin(), tLow.end(), tLow.begin(), ::tolower);
-
-            lektor<RootObject *> resultTowns;
-            (*ppWorld)->getObjectsWithinSphere(resultTowns, npc->getPosition(),
-                                               10000000.0f, TOWN, 500, NULL);
-            for (uint32_t i = 0; i < resultTowns.size(); ++i) {
-              TownBase *tb = (TownBase *)resultTowns[i];
-              if (tb) {
-                std::string tbName = ((RootObjectBase *)tb)->getName();
-                std::transform(tbName.begin(), tbName.end(), tbName.begin(),
-                               ::tolower);
-
-                if (tbName == tLow || tbName.find(tLow) != std::string::npos) {
-                  taskTarget = (RootObject *)tb;
-                  Log(LOG_DEBUG, "ACTION: Found town match: " +
-                      ((RootObjectBase *)tb)->getName());
-                  break;
-                }
-              }
-            }
-            if (!taskTarget) {
-              Log(LOG_WARN, "ACTION: Town '" + tName +
-                  "' not found in 10M units!");
-            }
+            TownBase *town = FindTown(tName);
+            taskTarget = town;
+            if (town)
+              Log(LOG_DEBUG, "ACTION: Found town match: " + town->getName());
+            else
+              Log(LOG_WARN, "ACTION: Town '" + tName + "' not found!");
           }
 
           if (tt == ATTACK_TOWN && !taskTarget) {

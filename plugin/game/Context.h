@@ -4,6 +4,7 @@
 
 class Character;
 class Item;
+class TownBase;
 class hand;
 
 void GetAllCharacterItems(Character *npc, std::vector<Item *> &outItems);
@@ -31,5 +32,6 @@ std::string ProfileJson(Character *npc);
 std::string GetVisibleEquipment(Character *npc);
 std::string TakeGameEvents();
 std::string ChangedTowns();
+TownBase *FindTown(const std::string &name);
 std::string GameReport();
 std::string GameTimeFields();
