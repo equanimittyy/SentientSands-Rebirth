@@ -26,7 +26,6 @@
 #include <mygui/MyGUI_Window.h>
 
 #include <algorithm>
-#include <cmath>
 #include <cstdlib>
 #include <map>
 #include <sstream>
@@ -75,7 +74,6 @@ static bool g_barterStock = false;
 static std::vector<hand> g_barterSquad;
 static size_t g_barterPick = 0;
 static bool g_barterWaiting = false;
-static float g_barterShares[2] = {0.0f, 0.0f};
 // The NPC's goods set the price of an item that both sides hold, at its
 // highest (offers.price_of)
 static std::map<std::string, int> g_npcPrices;
@@ -222,27 +220,24 @@ static int PriceOf(const std::string &label) {
   return price != g_squadPrices.end() ? price->second : 0;
 }
 
-static double Worth(const std::vector<Lot> &lots, float share) {
-  double total = 0.0;
+static int Worth(const std::vector<Lot> &lots) {
+  int total = 0;
   for (size_t i = 0; i < lots.size(); ++i)
-    total += lots[i].count * PriceOf(lots[i].label) * share;
+    total += lots[i].count * PriceOf(lots[i].label);
   return total;
 }
 
-// The server refuses a deal at a loss to the NPC, except charity, so the
-// estimate rounds down as that check does
+// At the full price, so the player sees how much the NPC fleeces them. The NPC
+// weighs the deal at its shares instead (offers.worth)
 static void UpdateEstimate() {
   Deal deal = TableDeal();
-  double profit =
-      deal.cats[PLAYER_SIDE] +
-      Worth(deal.lots[PLAYER_SIDE], g_barterShares[PLAYER_SIDE]) -
-      deal.cats[NPC_SIDE] - Worth(deal.lots[NPC_SIDE], g_barterShares[NPC_SIDE]);
-  int shown = (int)std::floor(profit);
-  std::string text = T(shown >= 0 ? "{name}'s estimated profit: {count} cats"
-                                  : "{name}'s estimated loss: {count} cats");
+  int profit = deal.cats[PLAYER_SIDE] + Worth(deal.lots[PLAYER_SIDE]) -
+               deal.cats[NPC_SIDE] - Worth(deal.lots[NPC_SIDE]);
+  std::string text = T(profit >= 0 ? "{name}'s estimated profit: {count} cats"
+                                   : "{name}'s estimated loss: {count} cats");
   SetCaption(g_barterEstimate,
              Fill(Fill(text, "{name}", g_barterNpcName), "{count}",
-                  ToString(shown >= 0 ? shown : -shown)));
+                  ToString(profit >= 0 ? profit : -profit)));
 }
 
 // The NPC agreed only to the deal that it saw, so an edit takes Accept away
@@ -611,10 +606,6 @@ void ShowBarterUI(const std::string &npcName, const std::string &handleStr,
   g_barterNpcKey = (unsigned int)strtoul(handleStr.c_str(), NULL, 10);
   g_barterMode = GetJsonValue(thread, "mode");
   g_barterStock = GetJsonValue(thread, "stock").find("true") == 0;
-  g_barterShares[PLAYER_SIDE] =
-      (float)atof(GetJsonValue(thread, "buy_share").c_str());
-  g_barterShares[NPC_SIDE] =
-      (float)atof(GetJsonValue(thread, "sell_share").c_str());
   g_deal = Deal();
   g_deal.cats[PLAYER_SIDE] = g_deal.cats[NPC_SIDE] = 0;
   g_offerHeld = false;

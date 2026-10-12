@@ -2,7 +2,6 @@
 
 import time
 
-from chat import offers
 from core import state
 from store import campaign_db
 
@@ -30,8 +29,7 @@ def open_thread(npc_id, quiet):
         "lines": thread_lines(npc_id, thread_id),
     }
     if action:
-        sell, buy = offers.SHARES[action["trader"]]
-        thread.update(speaker=action["speaker"], stock=action["stock"], sell_share=sell, buy_share=buy)
+        thread.update(speaker=action["speaker"], stock=action["stock"])
     return thread
 
 
