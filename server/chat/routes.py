@@ -627,14 +627,16 @@ def chat():
             elif offers.read(content) is not None:
                 logging.info(f"ACTION: Ignored the offer of {primary_npc} in the barter window: {offers.offer_text(content)}")
         elif category and offers.read(content) is not None:
-            offer, unkept = offers.check(category, offers.read(content), ctx_dict, speaker, relation=relation)
+            offer, unkept = offers.check(category, offers.read(content), ctx_dict, speaker)
             if not offer:
                 logging.info(f"ACTION: Dropped the offer of {primary_npc}, because {unkept}: {offers.offer_text(content)}")
                 outcome = "unkept"
             else:
                 outcome = "free" if category == "HEAL" and not offer["takes"] else "offer"
-        # A valid offer keeps the action dialogue open until the player answers it
-        closing = bool(category) and (outcome in ("attack", "refused", "free") or (outcome != "offer" and action_dialogue.ended(content)))
+        # A valid offer keeps the action dialogue open until the player answers it. An NPC that offers a deal leaves only on
+        # the deal, and an accepted deal ends the thread anyway, so an [END] next to an offer or [AGREE] never closes it.
+        dealt = offers.agreed(content) or offers.read(content) is not None
+        closing = bool(category) and (outcome in ("attack", "refused", "free") or (not dealt and action_dialogue.ended(content)))
         offered = offers.offer_text(content) if category else None
         if offered:
             content = content.replace(offered, "")

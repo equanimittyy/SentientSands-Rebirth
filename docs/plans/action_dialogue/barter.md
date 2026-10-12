@@ -29,7 +29,7 @@ Each box lists the cats first, and then each item with its count, the biggest co
 
 Each side gives only the cats that it has and the items that it carries, except in charity ([section 4](#4-charity)). A trader in a shop gives only the items of its stock ([section 6](#6-price-guide)). For the player, these are the cats of the player faction and the items of the speaker.
 
-Each deal except charity holds this rule: what the NPC receives is worth at least what it gives, less the loss that its relation allows. The worth of each part of the deal:
+The worth of a deal is no hard limit. The turn message gives what each side is worth to the NPC, and the model weighs it, so the NPC can agree to a deal at a loss. The worth of each part of the deal:
 
 | Part | Worth |
 |---|---|
@@ -46,16 +46,16 @@ Each NPC sells at the full `price`, which is the price in the trade window of th
 
 For example, a trader sells a Katana with a `price` of 3,000 for at least 3,000 cats, and it buys the Katana for at most 2,400 cats.
 
-An NPC can take a loss on a deal when its character would, for example a friend who gives a discount. The relation of the NPC to the player caps the loss as a share of the worth that the NPC gives (`offers.LOSS_SHARES`), and the turn message states the cap. The model chooses the loss inside the cap, and the cap stops a small model that agrees to anything from giving goods away.
+An NPC can take a loss on a deal when its character would, for example a friend who gives a discount. The turn message gives a guide to the loss that the NPC usually takes at most, as a share of the worth that it gives, by its relation to the player (`offers.LOSS_SHARES`). No check enforces the guide, so the model decides each loss by the character.
 
-| Relation of the NPC | Loss that it may take |
+| Relation of the NPC | Loss that it usually takes at most |
 |---|---|
 | -25 or lower | None |
 | -24 to 24 | 5% |
 | 25 to 59 | 15% |
 | 60 or higher | 30% |
 
-For example, a neutral trader can sell the Katana for 2,850 cats, but not for 2,849.
+For example, the guide lets a neutral trader sell the Katana for 2,850 cats.
 
 ## 4. Charity
 

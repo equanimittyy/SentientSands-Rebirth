@@ -36,8 +36,8 @@ RELEASE_BRIBE = 500
 # (sell share, buy share) of the price for a trader and for any other NPC. Each sells at the price of the game's trade
 # window, or a deal would undercut it, and a non-trader pays less for the player's items, because it wants a bigger margin
 SHARES = {True: (1.0, 0.8), False: (1.0, 0.6)}
-# The share of what it gives that an NPC may lose in a trade, by the band of its relation (action_dialogue.relation_bonus).
-# The model chooses a loss by the character, and the cap stops a small model that agrees to anything from giving goods away.
+# The share of what it gives that an NPC usually loses at most in a trade, by the band of its relation
+# (action_dialogue.relation_bonus). It only guides the model: no check enforces it, so the character decides each loss.
 LOSS_SHARES = {-2: 0.0, -1: 0.0, 0: 0.05, 1: 0.15, 2: 0.3}
 ACCEPT_LINES = {"RECRUIT": "recruit_accept", "FOLLOW": "follow_accept", "HEAL": "heal_start", "LIBERATE": "liberate_accept", "THREATEN": "threaten_accept", "BARTER": "barter_accept"}
 # Keyed by the kinds of ItemKind (plugin/game/Context.cpp). Kenshi files alcohol under narcotics, so a drink is a "drug".
@@ -204,12 +204,11 @@ def pooled(squad):
     return [item for mate in squad for item in mate.get("inventory") or []]
 
 
-def check(category, parts, npc, speaker, squad=None, relation=None):
+def check(category, parts, npc, speaker, squad=None):
     """(offer, None) for an offer that keeps the hard limits, or (None, reason). An offer holds the parts that the NPC gives
     and the parts that the player gives, as (kind, value) pairs: CATS with a count, ITEM with (count, name), HIRE with the
     hours, and JOIN_PARTY, FIRST_AID, or RELEASE with None. squad holds the key and the inventory of each squad mate of the
-    barter window: each TAKE_ITEM part names its holder as a third element, and its ITEM value gets the key of the holder.
-    relation is the NPC's relation to the player, which sets the loss that a trade may give the NPC."""
+    barter window: each TAKE_ITEM part names its holder as a third element, and its ITEM value gets the key of the holder."""
     if category not in GIVES:
         return None, f"{category} makes no offers"
     holders = [(str(mate.get("key")), mate.get("inventory") or []) for mate in squad] if squad else [(None, speaker.get("inventory") or [])]
@@ -280,14 +279,9 @@ def check(category, parts, npc, speaker, squad=None, relation=None):
     offer = {"category": category, "gives": gives, "takes": takes}
     if sells_stock(npc, category):
         offer["stock"] = True
-    if category == "BARTER":
+    if category == "BARTER" and not gives:
         side = dict(speaker, inventory=pooled(squad)) if squad else speaker
-        received, handed = worth(takes, npc, side, "takes"), worth(gives, npc, side, "gives")
-        loss = loss_share(relation)
-        if received + 1e-6 < handed * (1 - loss):
-            return None, f"the NPC would receive a worth of {received:.0f} for {handed:.0f}, a loss of more than {loss:.0%}"
-        if not gives:
-            offer["gift"] = min(GIFT_MOST, int(received // GIFT_WORTH))
+        offer["gift"] = min(GIFT_MOST, int(worth(takes, npc, side, "takes") // GIFT_WORTH))
     return offer, None
 
 
@@ -489,8 +483,8 @@ def asked(items, said):
 
 def price_guide(said, npc, speaker, player_name):
     """The count and the price of each item that the text asks for, in the goods of the NPC or of the speaker, at the share
-    that the worth rule allows, so the model gives a price that the check keeps instead of inventing one. A kind word such
-    as "food" can ask for a whole shop, so each side gives at most PRICE_LINES items."""
+    of the NPC, so the model gives the real price instead of inventing one. A kind word such as "food" can ask for a whole
+    shop, so each side gives at most PRICE_LINES items."""
     sell, buy = shares(npc)
     stock = goods(npc, "BARTER")
     carried = speaker.get("inventory") or []
@@ -513,27 +507,28 @@ def table_parts(deal):
 
 def on_table(deal, npc, speaker, squad, player_name, relation=None):
     """(offer, reason, lines) of the deal on the table of the barter window: the checked offer that [AGREE] takes, or None
-    and the reason, and the lines that describe the deal and its worth in the turn message, so the NPC agrees only to a
-    deal inside the loss that it may take."""
+    and the reason, and the lines that describe the deal and its worth in the turn message, so the NPC weighs the deal
+    against the loss that it usually takes."""
     parts = table_parts(deal)
     if not parts:
         return None, "the table is empty", ["Nothing is on the table yet."]
-    offer, reason = check("BARTER", parts, npc, speaker, squad, relation)
+    offer, reason = check("BARTER", parts, npc, speaker, squad)
     gives = [("CATS", count_of(argument)) if name == "GIVE_CATS" else ("ITEM", item_of(argument)) for name, argument, *_ in parts if name.startswith("GIVE")]
     takes = [("CATS", count_of(argument)) if name == "TAKE_CATS" else ("ITEM", item_of(argument)) for name, argument, *_ in parts if name.startswith("TAKE")]
     lines = [f"On the table, {player_name} gives {goods_text(takes) or 'nothing'}, and you give {goods_text(gives) or 'nothing'}."]
     side = dict(speaker, inventory=pooled(squad))
     received, handed = worth(takes, npc, side, "takes"), worth(gives, npc, side, "gives")
+    worths = f"you get a worth of {received:,.0f} cats for a worth of {handed:,.0f}"
     if offer and offer.get("charity"):
         lines.append("It is a plea for charity.")
     elif offer and not offer["gives"]:
         lines.append("It is a gift to you.")
     elif offer and received + 1e-6 >= handed:
-        lines.append(f"It keeps your price: you get a worth of {received:,.0f} cats for a worth of {handed:,.0f}.")
+        lines.append(f"It keeps your price: {worths}.")
+    elif offer and received + 1e-6 >= handed * (1 - loss_share(relation)):
+        lines.append(f"It is below your price, inside the loss that you usually take: {worths}.")
     elif offer:
-        lines.append(f"It is below your price, inside the loss that you may take: you get a worth of {received:,.0f} cats for a worth of {handed:,.0f}.")
-    elif takes and received + 1e-6 < handed:
-        lines.append(f"It is below your price by more than you may lose: you get a worth of {received:,.0f} cats for a worth of {handed:,.0f}, so you cannot agree to it as it is.")
+        lines.append(f"It is below your price by more than the loss that you usually take: {worths}.")
     else:
         lines.append("You cannot agree to it as it is.")
     return offer, reason, lines
@@ -542,7 +537,7 @@ def on_table(deal, npc, speaker, squad, player_name, relation=None):
 def facts(category, npc, speaker, player_name, lean, said="", table=(), relation=None):
     """The facts of the hard limits and the lean, for the turn message, because they change each turn. said is the text in
     which the price guide of a trade looks for item names, table holds the lines of the deal on the table of the barter
-    window, and relation sets the loss that a trade may give the NPC."""
+    window, and relation sets the loss that the NPC usually takes in a trade."""
     lines = []
     if category in ("THREATEN", "BARTER"):
         lines.append(f"You have {cats_of(npc):,} cats.")
@@ -555,8 +550,8 @@ def facts(category, npc, speaker, player_name, lean, said="", table=(), relation
             lines.append(f"{player_name} is imprisoned." + (" You are imprisoned too." if npc.get("character_state") == "imprisoned" else ""))
         lines += price_guide(said, npc, speaker, player_name)
         loss = loss_share(relation)
-        lines.append(f"You may take a loss of at most {loss:.0%} of what you give in a trade, if your character would." if loss
-                     else "You take no loss in a trade.")
+        lines.append(f"As a rule, you take a loss of at most {loss:.0%} of what you give in a trade, but your character decides." if loss
+                     else "As a rule, you take no loss in a trade, but your character decides.")
         lines += table
     if category == "HEAL" and speaker.get("needs_repair"):
         lines.append(f"{player_name} has damaged robotic parts, and you repair them with your repair kit." if npc.get("has_repair_kit")
