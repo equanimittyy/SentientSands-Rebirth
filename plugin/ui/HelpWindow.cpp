@@ -56,7 +56,9 @@ static const HelpTopic HELP_TOPICS[] = {
                   "as another squad member, select that member, or press the "
                   "button on the left, with the name of the speaker, until it "
                   "shows that member. To make a character talk to itself, "
-                  "press the buttons until both show that character."},
+                  "press the buttons until both show that character. This "
+                  "works with Talk and Whisper. With Yell, the character "
+                  "yells at everyone."},
       {"Whisper", "Only the NPC hears it."},
       {"Talk", "The NPCs within the Talk range hear it."},
       {"Yell", "The NPCs within the Yell range hear it. Up to 3 of them can "
