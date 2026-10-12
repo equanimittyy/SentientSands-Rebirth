@@ -169,8 +169,8 @@ def lean(category, npc, speaker, relation, overheard=()):
     elif category in ("RECRUIT", "FOLLOW"):
         pairs += [(npc.get("character_state") == "escaped-slave", "You escaped slavery."),
                   (-bool(npc.get("unique")), "You are no common drifter."),
-                  (-is_guard(npc), "You are a guard."),
-                  (-is_trader(npc), "You have a trade to run."),
+                  (-2 * is_guard(npc), "You are a guard."),
+                  (-2 * is_trader(npc), "You have a trade to run."),
                   (-(category == "FOLLOW" and not mercenary_rate(npc)), "You have no reason to follow {player}.")]
     return [(int(bonus), reason) for bonus, reason in pairs if bonus]
 

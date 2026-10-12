@@ -157,8 +157,9 @@ class LeanTest(unittest.TestCase):
         self.assertFalse(ad.gave_charity_today({**npc, "day": 5}))
         self.assertEqual(ad.lean("BARTER", npc, {}, 0), [])
 
-    def test_a_guard_or_a_unique_npc_joins_less_readily(self):
-        self.assertEqual(score("RECRUIT", {"unique": True, **GUARD}, {}, 0), -2)
+    def test_a_guard_a_trader_or_a_unique_npc_joins_less_readily(self):
+        self.assertEqual(score("RECRUIT", {"unique": True, **GUARD}, {}, 0), -3)
+        self.assertEqual(score("FOLLOW", {"is_trader": True}, {}, 0), -3)
         self.assertEqual(score("RECRUIT", {"character_state": "escaped-slave"}, {}, 0), 1)
 
     def test_a_npc_that_is_no_mercenary_is_wary_of_following(self):
@@ -175,7 +176,7 @@ class LeanTest(unittest.TestCase):
 
     def test_the_thought_gives_the_band_and_its_reasons(self):
         lean = ad.lean("RECRUIT", {"character_state": "escaped-slave", **GUARD}, {}, -30)
-        self.assertEqual(ad.thought(lean, "Zaps"), "You could go either way.\n- Reasons to agree: You escaped slavery.\n"
+        self.assertEqual(ad.thought(lean, "Zaps"), "You are inclined to refuse.\n- Reasons to agree: You escaped slavery.\n"
                          "- Reasons to refuse: You dislike Zaps's group. You are a guard.")
         self.assertEqual(ad.thought([], "Zaps"), "You could go either way.")
 
