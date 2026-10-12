@@ -745,16 +745,6 @@ void ProcessMessageQueue(GameWorld *thisptr) {
             act.taskValue = count;
             g_uiActionQueue.push_back(act);
             LeaveCriticalSection(&g_uiMutex);
-          } else if (actStr.find("FOLLOW_PLAYER") != std::string::npos) {
-            EnterCriticalSection(&g_uiMutex);
-            QueuedAction act;
-            act.type = ACT_SET_TASK;
-            act.actor = targetHand;
-            if (thisptr->player && thisptr->player->playerCharacters.size() > 0)
-              act.target = thisptr->player->playerCharacters[0]->getHandle();
-            act.taskValue = 44; // FOLLOW_PLAYER_ORDER
-            g_uiActionQueue.push_back(act);
-            LeaveCriticalSection(&g_uiMutex);
           } else if (actStr.find("IDLE") != std::string::npos &&
                      actStr.find("TASK:") == std::string::npos) {
             EnterCriticalSection(&g_uiMutex);

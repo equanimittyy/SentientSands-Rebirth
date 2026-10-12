@@ -358,20 +358,17 @@ def chat():
         test_action = None
         if cmd == "help" or cmd == "commands":
             help_text = "[DEBUG] Available test commands:\n" + \
-                        "/take, /attack, /follow, /idle, /patrol, /join, /leave, /free, /breakout,\n" + \
+                        "/idle, /patrol, /recruit, /leave, /liberate, /breakout,\n" + \
                         "/move, /movefast, /home, /shop, /raid [Town], /travel [Town], /medic, /rescue, /repair,\n" + \
-                        "/notify [msg], /give_cats [n], /take_cats [n], /drop [item],\n" + \
-                        "/take_item [item], /spawn [Templ|Name|Desc], /relations [Fact] [n], /task [TASK],\n" + \
-                        "/stock, /firstaid, /hire [hours|end|line ID]"
+                        "/notify [msg], /drop [item], /relations [Fact] [n], /task [TASK],\n" + \
+                        "/stock, /firstaid, /follow [hours|end|line ID]"
             return reply(*help_text.split("\n"))
             
-        if cmd == "attack": test_action = "[ATTACK]"
-        elif cmd == "follow": test_action = "[ACTION: FOLLOW_PLAYER]"
-        elif cmd == "idle": test_action = "[ACTION: IDLE]"
+        if cmd == "idle": test_action = "[ACTION: IDLE]"
         elif cmd == "patrol": test_action = "[ACTION: PATROL_TOWN]"
-        elif cmd == "join": test_action = "[ACTION: JOIN_PARTY]"
+        elif cmd == "recruit": test_action = "[ACTION: JOIN_PARTY]"
         elif cmd == "leave": test_action = "[ACTION: LEAVE]"
-        elif cmd == "free": test_action = "[ACTION: FREE_PLAYER]"
+        elif cmd == "liberate": test_action = "[ACTION: FREE_PLAYER]"
         elif cmd == "breakout": test_action = "[ACTION: BREAKOUT_PLAYER]"
         elif cmd == "move": test_action = "[ACTION: MOVE_ON_FREE_WILL]"
         elif cmd == "movefast": test_action = "[ACTION: MOVE_ON_FREE_WILL_FAST]"
@@ -383,27 +380,16 @@ def chat():
         elif cmd == "rescue": test_action = "[ACTION: FIND_AND_RESCUE]"
         elif cmd == "repair": test_action = "[ACTION: JOB_REPAIR_ROBOT]"
         elif cmd == "notify": test_action = f"[ACTION: NOTIFY: {args}]"
-        elif cmd == "give_cats": test_action = f"[ACTION: GIVE_CATS: {args}]"
-        elif cmd == "take_cats": test_action = f"[ACTION: TAKE_CATS: {args}]"
-        elif cmd == "take_item": test_action = f"[ACTION: TAKE_ITEM: {args}]"
-        elif cmd == "take":
-            inv = state.PLAYER_CONTEXT.get("inventory", [])
-            if inv:
-                item_name = inv[0].get("name", "Unknown Item")
-                test_action = f"[ACTION: TAKE_ITEM: {item_name}]"
-            else:
-                return reply("[DEBUG] Error: Player inventory is empty or unknown.")
         elif cmd == "drop": test_action = f"[ACTION: DROP_ITEM: {args}]"
-        elif cmd == "spawn": test_action = f"[ACTION: SPAWN_ITEM: {args}]"
         elif cmd == "relations":
             rparts = args.rsplit(' ', 1)
             if len(rparts) == 2:
                 test_action = f"[ACTION: FACTION_RELATIONS: {rparts[0].strip()}: {rparts[1].strip()}]"
         elif cmd == "task": test_action = f"[TASK: {args.upper()}]"
-        elif cmd in ("stock", "firstaid", "hire"):
-            if cmd == "hire" and args and not re.fullmatch(r"\d+|end|\d+-\S+", args):
-                return reply("[DEBUG] /hire alone logs the contract of the target. /hire [hours] or /hire [line ID] starts one, and /hire end ends it.")
-            probe = f"[ACTION: PROBE: {cmd}{': ' + args if args else ''}]"
+        elif cmd in ("stock", "firstaid", "follow"):
+            if cmd == "follow" and args and not re.fullmatch(r"\d+|end|\d+-\S+", args):
+                return reply("[DEBUG] /follow alone logs the contract of the target. /follow [hours] or /follow [line ID] starts one, and /follow end ends it.")
+            probe = f"[ACTION: PROBE: {'hire' if cmd == 'follow' else cmd}{': ' + args if args else ''}]"
             logging.info(f"CHAT: Test command {cmd} -> {probe}")
             # The plugin also runs a tag in a spoken line, so an echo of the tag would run the probe twice
             return reply(f"[DEBUG] Executing test command: {cmd} probe", actions=[probe])
