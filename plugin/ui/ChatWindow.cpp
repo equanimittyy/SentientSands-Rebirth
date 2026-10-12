@@ -172,7 +172,7 @@ DWORD WINAPI ChatResponseThread(LPVOID lpParam) {
 }
 
 void OnChatInputChange(MyGUI::EditBox *sender) {
-  std::string text = sender->getCaption().asUTF8();
+  std::string text = sender->getOnlyText().asUTF8();
 
   if (g_chatJustOpened) {
     if (text.length() > 0) {
@@ -201,7 +201,7 @@ void OnChatInputChange(MyGUI::EditBox *sender) {
     while (!text.empty() && (text.back() == '\n' || text.back() == '\r'))
       text.pop_back();
 
-    sender->setCaption(text);
+    sender->setOnlyText(Utf8ToWide(text).c_str());
     OnChatSendClick(sender);
   }
 }
@@ -222,7 +222,7 @@ std::string CurrentChatMode() {
 void OnChatSendClick(MyGUI::Widget *sender) {
   if (!g_chatInput)
     return;
-  std::string text = g_chatInput->getCaption().asUTF8();
+  std::string text = g_chatInput->getOnlyText().asUTF8();
   if (text.empty()) {
     CloseChatUI();
     return;

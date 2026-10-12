@@ -195,7 +195,7 @@ static void ShowReplyBox(bool shown) {
 }
 
 static void SendReply() {
-  std::string reply = g_offerReply->getCaption().asUTF8();
+  std::string reply = g_offerReply->getOnlyText().asUTF8();
   reply.erase(0, reply.find_first_not_of(" \t\r\n"));
   reply.erase(reply.find_last_not_of(" \t\r\n") + 1);
   if (reply.empty())

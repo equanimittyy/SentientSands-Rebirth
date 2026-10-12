@@ -178,7 +178,7 @@ static std::vector<Lot> Left(const std::vector<Lot> &held,
 }
 
 static int CatsIn(MyGUI::EditBox *box) {
-  return std::max(0, atoi(box->getCaption().asUTF8().c_str()));
+  return std::max(0, atoi(box->getOnlyText().asUTF8().c_str()));
 }
 
 static Deal TableDeal() {
@@ -403,7 +403,7 @@ static std::string BarterJson() {
 static void SendBarterLine() {
   if (g_barterWaiting)
     return;
-  std::string text = g_barterInput->getCaption().asUTF8();
+  std::string text = g_barterInput->getOnlyText().asUTF8();
   text.erase(0, text.find_first_not_of(" \t\r\n"));
   text.erase(text.find_last_not_of(" \t\r\n") + 1);
   if (text.empty())

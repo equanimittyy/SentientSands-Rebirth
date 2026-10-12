@@ -72,8 +72,9 @@ static std::string Lower(std::string text) {
   return text;
 }
 
+// getOnlyText, because getCaption doubles a typed # as MyGUI's colour escape
 static std::string Trimmed(MyGUI::EditBox *box) {
-  std::string text = box->getCaption().asUTF8();
+  std::string text = box->getOnlyText().asUTF8();
   text.erase(0, text.find_first_not_of(" \t\r\n"));
   text.erase(text.find_last_not_of(" \t\r\n") + 1);
   return text;
@@ -195,7 +196,7 @@ static void ShowCheatCharacter() {
   Character *c = CheatCharacter();
   std::string name = c ? c->getName() : "?";
   g_cheatCharacterBtn->setCaption(Utf8ToWide(name).c_str());
-  g_cheatName->setCaption(Utf8ToWide(c ? name : "").c_str());
+  g_cheatName->setOnlyText(Utf8ToWide(c ? name : "").c_str());
   FillStatList();
   RequestCheatRelation("");
   SelectCheatFaction(c);
@@ -435,7 +436,7 @@ static void FindCheatItems(GameWorld *world) {
 }
 
 static void OnCheatSearchChange(MyGUI::EditBox *sender) {
-  std::string wanted = Lower(sender->getCaption().asUTF8());
+  std::string wanted = Lower(sender->getOnlyText().asUTF8());
   g_cheatItemList->removeAllItems();
   g_cheatShown.clear();
   for (size_t i = 0; i < g_cheatItems.size(); ++i) {
