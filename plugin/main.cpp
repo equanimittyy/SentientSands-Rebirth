@@ -145,6 +145,7 @@ void ProcessMessageQueue(GameWorld *thisptr) {
             LoadUITranslation(data);
             RefreshLauncherUI();
             RefreshWelcomeUI();
+            RefreshHelpUI();
           } else if (command == "POPULATE_LIBRARY") {
             PopulateLibraryUI(data);
           } else if (command == "SET_LIBRARY_PROFILE") {
@@ -180,6 +181,7 @@ void ProcessMessageQueue(GameWorld *thisptr) {
               } else if (var == "g_chatHotkey") {
                 SetHotkeyFromString(val);
                 RefreshWelcomeUI();
+                RefreshHelpUI();
               } else if (var == "g_enableWelcome") {
                 g_enableWelcome = (val == "1");
               } else if (var == "g_logLevel") {

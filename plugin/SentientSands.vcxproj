@@ -64,6 +64,7 @@
     <ClCompile Include="ui\ChatWindow.cpp" />
     <ClCompile Include="ui\CheatWindow.cpp" />
     <ClCompile Include="ui\EventsWindow.cpp" />
+    <ClCompile Include="ui\HelpWindow.cpp" />
     <ClCompile Include="ui\JournalWindow.cpp" />
     <ClCompile Include="ui\LauncherWindow.cpp" />
     <ClCompile Include="ui\LibraryWindow.cpp" />
@@ -82,6 +83,7 @@
     <ClInclude Include="ui\ChatWindow.h" />
     <ClInclude Include="ui\CheatWindow.h" />
     <ClInclude Include="ui\EventsWindow.h" />
+    <ClInclude Include="ui\HelpWindow.h" />
     <ClInclude Include="ui\JournalWindow.h" />
     <ClInclude Include="ui\LauncherWindow.h" />
     <ClInclude Include="ui\LibraryWindow.h" />

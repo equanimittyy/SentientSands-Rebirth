@@ -157,6 +157,7 @@ The server serves `server/dashboard/web/` at `/` and `/web/<file>`: plain HTML, 
 - The web app polls `GET /context` every 3 s (`poll` in `app.js`). Without an answer, it shows a banner and disables Save, so unsaved changes survive a server restart. The reply also holds the active campaign and `writes`, a count of database commits and successful POSTs (`count_write_requests`); a change refreshes each loaded page, unless a request runs, a dialog is open, or the player types.
 - Each tab holds `GET /web_panel/presence` open, so the server can count the open tabs.
 - The Tutorial links to YouTube for the setup of other services, such as Player2 or Ollama, so SSR does not keep their steps up to date.
+- The Help window of the SSR HUB (`plugin/ui/HelpWindow.cpp`) shows the topics of the Tutorial that concern the game. Each topic has a card with the same title and text on the Tutorial tab, so a change to one needs the same change to the other. `server/tests/test_tutorial.py` checks the titles.
 - A refresh (`refreshers` in `app.js`) keeps the unsaved parts of a page. An Editor record keeps the version that the page loaded, so its save still fails as stale. Models keeps the whole page, because Save writes the whole configuration.
 
 The Editor:

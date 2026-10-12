@@ -6,7 +6,7 @@
 #include "LibraryWindow.h"
 #include "../core/Utils.h"
 #include "../game/Context.h"
-#include "WelcomeWindow.h"
+#include "HelpWindow.h"
 #include <shellapi.h>
 #include <mygui/MyGUI_Button.h>
 #include <mygui/MyGUI_Delegate.h>
@@ -31,7 +31,7 @@ void CloseLauncherUI() {
 void OnLauncherLibraryClick(MyGUI::Widget *sender) { CreateLibraryUI(); }
 void OnLauncherEventsClick(MyGUI::Widget *sender) { CreateEventsUI(); }
 void OnLauncherJournalClick(MyGUI::Widget *sender) { CreateJournalUI(); }
-void OnLauncherWelcomeClick(MyGUI::Widget *sender) { CreateWelcomeUI(); }
+void OnLauncherHelpClick(MyGUI::Widget *sender) { CreateHelpUI(); }
 void OnLauncherWebPanelClick(MyGUI::Widget *sender) {
   ShellExecuteA(NULL, "open", "http://127.0.0.1:5000/", NULL, NULL,
                 SW_SHOWNORMAL);
@@ -208,12 +208,12 @@ void CreateLauncherUI() {
       MyGUI::newDelegate(OnLauncherRestartClick);
   yPos += yDelta;
 
-  MyGUI::Button *welBtn = client->createWidgetReal<MyGUI::Button>(
+  MyGUI::Button *helpBtn = client->createWidgetReal<MyGUI::Button>(
       "Kenshi_Button1", 0.05f, yPos, 0.9f, bH,
       MyGUI::Align::Top | MyGUI::Align::HStretch,
-      "SentientSands_LauncherWelBtn");
-  welBtn->setCaption(Utf8ToWide(T("Welcome Popup")).c_str());
-  welBtn->eventMouseButtonClick += MyGUI::newDelegate(OnLauncherWelcomeClick);
+      "SentientSands_LauncherHelpBtn");
+  helpBtn->setCaption(Utf8ToWide(T("Help")).c_str());
+  helpBtn->eventMouseButtonClick += MyGUI::newDelegate(OnLauncherHelpClick);
 }
 
 void RefreshLauncherUI() {
@@ -233,7 +233,7 @@ void RefreshLauncherUI() {
                         {"SentientSands_LauncherJournalBtn", "Journal"},
                         {"SentientSands_LauncherWebBtn", "Open Web App"},
                         {"SentientSands_LauncherRestartBtn", "Restart Server"},
-                        {"SentientSands_LauncherWelBtn", "Welcome Popup"},
+                        {"SentientSands_LauncherHelpBtn", "Help"},
                         {"SentientSands_LauncherCullBtn", "Cull Future Data"}};
 
   for (int i = 0; i < sizeof(items) / sizeof(items[0]); ++i) {
