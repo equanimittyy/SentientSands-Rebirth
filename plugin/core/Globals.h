@@ -81,7 +81,8 @@ enum ActionType {
   ACT_HIRE,
   ACT_END_HIRE,
   ACT_FIRST_AID,
-  ACT_ADD_CATS
+  ACT_ADD_CATS,
+  ACT_SELL_ITEM
 };
 
 struct GameEvent {

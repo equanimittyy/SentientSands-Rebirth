@@ -247,6 +247,12 @@ static Item *FindInItems(const std::vector<Item *> &items,
   return named ? named : partial;
 }
 
+static Item *FindStockItem(Character *holder, const std::string &lowerName) {
+  std::vector<Item *> stock;
+  GetShopItems(holder, stock);
+  return FindInItems(stock, lowerName);
+}
+
 // A shopkeeper also sells the stock in the furniture of its shop
 static Item *FindNamedItem(Character *holder, const std::string &lowerName,
                            bool withShop = false) {
@@ -255,9 +261,7 @@ static Item *FindNamedItem(Character *holder, const std::string &lowerName,
   Item *found = FindInItems(items, lowerName);
   if (found || !withShop)
     return found;
-  std::vector<Item *> stock;
-  GetShopItems(holder, stock);
-  return FindInItems(stock, lowerName);
+  return FindStockItem(holder, lowerName);
 }
 
 // Moves at most count of the stack, so a deal for 2 Bread never hands over a
@@ -846,7 +850,7 @@ void ExecuteQueuedActions(GameWorld *thisptr, int &inventoryTimer) {
                   " found NO items matching '" + targetName + "' on player.");
             }
           }
-        } else if (act.type == ACT_GIVE_ITEM) {
+        } else if (act.type == ACT_GIVE_ITEM || act.type == ACT_SELL_ITEM) {
           if (transactionFailed) {
             Log(LOG_INFO, "ACTION: Skipping GIVE_ITEM due to previous transaction failure (" + failureReason + ")");
             continue;
@@ -877,7 +881,10 @@ void ExecuteQueuedActions(GameWorld *thisptr, int &inventoryTimer) {
 
           if (player) {
             while (given < count) {
-              Item *found = FindNamedItem(npc, targetName, true);
+              // A trader in a shop sells its stock and keeps what it carries
+              Item *found = act.type == ACT_SELL_ITEM
+                                ? FindStockItem(npc, targetName)
+                                : FindNamedItem(npc, targetName, true);
               if (!found)
                 break;
               int moved = MoveItems(npc, found, count - given, player);

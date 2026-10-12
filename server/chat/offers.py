@@ -123,14 +123,16 @@ def hours_of(argument):
     return int(length.group(1)) * (1 if length.group(2).startswith("h") else 24)
 
 
+def sells_stock(npc, category):
+    """A trader in a shop trades only the stock of its shop, the items of all its furniture, because the trade window of a
+    shop shows them, and keeps what it carries. The plugin sends stock for each NPC in a shop, and a barman's job can read
+    Trading instead of Running a shop, so any trader in a shop sells the stock."""
+    return category == "BARTER" and "stock" in npc and action_dialogue.is_trader(npc)
+
+
 def goods(npc, category):
-    """The items that the NPC can hand over: what it carries, and in a trade with a trader also the stock of its shop,
-    because the trade window of a shop shows the items of all its furniture. A barman's job can read Trading instead of
-    Running a shop, so any trader sells the stock that the plugin sends."""
-    items = list(npc.get("inventory") or [])
-    if category == "BARTER" and action_dialogue.is_trader(npc):
-        items += npc.get("stock") or []
-    return items
+    """The items that the NPC can hand over: the stock of a trader in a shop, else what the NPC carries."""
+    return list((npc["stock"] if sells_stock(npc, category) else npc.get("inventory")) or [])
 
 
 def held(items, name):
@@ -268,6 +270,8 @@ def check(category, parts, npc, speaker, squad=None):
     if any(kind == "RELEASE" for kind, _ in gives) and paid < fee:
         return None, f"a release costs a bribe of at least {fee} cats"
     offer = {"category": category, "gives": gives, "takes": takes}
+    if sells_stock(npc, category):
+        offer["stock"] = True
     if category == "BARTER":
         side = dict(speaker, inventory=pooled(squad)) if squad else speaker
         received, handed = worth(takes, npc, side, "takes"), worth(gives, npc, side, "gives")
@@ -349,7 +353,8 @@ def voiced(offer, voice):
 def _acts(offer):
     """(holder, action) of each plugin action of the deal, the holder None for the speaker. A join goes first, because the
     plugin pays no fee to a member of the player faction, and the fee would land back in the player's purse. The player's
-    side goes next, because the plugin skips the NPC's handover after a payment that fell short."""
+    side goes next, because the plugin skips the NPC's handover after a payment that fell short. A sale from the stock is
+    SELL_ITEM, which the plugin takes only from the furniture, so a trader never hands over an item that it carries."""
     if offer.get("charity"):
         kind, value = offer["gives"][0]
         return [(None, f"[ACTION: ADD_CATS: {value}]" if kind == "CATS" else f"[ACTION: SPAWN_ITEM: {value[1]}]")]
@@ -363,7 +368,7 @@ def _acts(offer):
         if kind == "CATS":
             out.append((None, f"[ACTION: GIVE_CATS: {value}]"))
         elif kind == "ITEM":
-            out.append((None, f"[ACTION: GIVE_ITEM: {value[1]}: {value[0]}]"))
+            out.append((None, f"[ACTION: {'SELL_ITEM' if offer.get('stock') else 'GIVE_ITEM'}: {value[1]}: {value[0]}]"))
         elif kind == "HIRE":
             out.append((None, f"[ACTION: HIRE: {value}]"))
         elif kind == "RELEASE":

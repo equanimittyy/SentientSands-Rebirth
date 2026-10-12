@@ -71,7 +71,7 @@ static std::string g_barterHandle;
 static std::string g_barterMode;
 static unsigned int g_barterNpcKey = 0;
 static unsigned int g_barterSpeakerKey = 0;
-static bool g_barterTrader = false;
+static bool g_barterStock = false;
 static std::vector<hand> g_barterSquad;
 static size_t g_barterPick = 0;
 static bool g_barterWaiting = false;
@@ -133,15 +133,21 @@ static bool LotBefore(const Lot &a, const Lot &b) {
   return a.holder != b.holder ? a.holder < b.holder : a.label < b.label;
 }
 
+// A trader in a shop trades only the stock of its shop (offers.sells_stock)
+static void GoodsOf(Character *c, bool stock, std::vector<Item *> &items) {
+  if (stock)
+    GetShopItems(c, items);
+  else
+    GetAllCharacterItems(c, items);
+}
+
 static std::vector<Lot> Holdings(Character *c, unsigned int holder,
-                                 bool shop) {
+                                 bool stock) {
   std::vector<Lot> lots;
   if (!c)
     return lots;
   std::vector<Item *> items;
-  GetAllCharacterItems(c, items);
-  if (shop)
-    GetShopItems(c, items);
+  GoodsOf(c, stock, items);
   for (size_t i = 0; i < items.size(); ++i)
     if (items[i] && items[i]->itemFunction != ITEM_MONEY)
       AddLot(lots, holder, ItemLabel(items[i]), items[i]->quantity);
@@ -149,14 +155,12 @@ static std::vector<Lot> Holdings(Character *c, unsigned int holder,
   return lots;
 }
 
-static void NotePrices(Character *c, bool shop,
+static void NotePrices(Character *c, bool stock,
                        std::map<std::string, int> &prices) {
   if (!c)
     return;
   std::vector<Item *> items;
-  GetAllCharacterItems(c, items);
-  if (shop)
-    GetShopItems(c, items);
+  GoodsOf(c, stock, items);
   for (size_t i = 0; i < items.size(); ++i) {
     if (!items[i] || items[i]->itemFunction == ITEM_MONEY)
       continue;
@@ -283,7 +287,7 @@ static void RefreshBarterLists() {
   Character *mate = Picked();
   g_npcPrices.clear();
   g_squadPrices.clear();
-  NotePrices(npc, g_barterTrader, g_npcPrices);
+  NotePrices(npc, g_barterStock, g_npcPrices);
   for (size_t i = 0; i < g_barterSquad.size(); ++i)
     NotePrices(g_barterSquad[i].getCharacter(), false, g_squadPrices);
   unsigned int mateKey = mate ? HandleKey(mate) : 0;
@@ -293,7 +297,7 @@ static void RefreshBarterLists() {
   FillList(MINE, g_deal.lots[PLAYER_SIDE], true);
   FillList(THEIRS, g_deal.lots[NPC_SIDE], false);
   FillList(STOCK,
-           Left(Holdings(npc, 0, g_barterTrader), g_deal.lots[NPC_SIDE]),
+           Left(Holdings(npc, 0, g_barterStock), g_deal.lots[NPC_SIDE]),
            false);
   Character *payer = Payer();
   SetCaption(g_barterPurses[PLAYER_SIDE],
@@ -606,7 +610,7 @@ void ShowBarterUI(const std::string &npcName, const std::string &handleStr,
   g_barterHandle = handleStr;
   g_barterNpcKey = (unsigned int)strtoul(handleStr.c_str(), NULL, 10);
   g_barterMode = GetJsonValue(thread, "mode");
-  g_barterTrader = GetJsonValue(thread, "trader").find("true") == 0;
+  g_barterStock = GetJsonValue(thread, "stock").find("true") == 0;
   g_barterShares[PLAYER_SIDE] =
       (float)atof(GetJsonValue(thread, "buy_share").c_str());
   g_barterShares[NPC_SIDE] =

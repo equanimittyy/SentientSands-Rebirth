@@ -31,7 +31,7 @@ def open_thread(npc_id, quiet):
     }
     if action:
         sell, buy = offers.SHARES[action["trader"]]
-        thread.update(speaker=action["speaker"], trader=action["trader"], sell_share=sell, buy_share=buy)
+        thread.update(speaker=action["speaker"], stock=action["stock"], sell_share=sell, buy_share=buy)
     return thread
 
 

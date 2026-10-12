@@ -27,7 +27,7 @@ Each box lists the cats first, and then each item with its count, the biggest co
 
 ## 3. Hard limits
 
-Each side gives only the cats that it has and the items that it carries, except in charity ([section 4](#4-charity)). For the player, these are the cats of the player faction and the items of the speaker.
+Each side gives only the cats that it has and the items that it carries, except in charity ([section 4](#4-charity)). A trader in a shop gives only the items of its stock ([section 6](#6-price-guide)). For the player, these are the cats of the player faction and the items of the speaker.
 
 Each deal except charity holds this rule: what the NPC receives is worth at least what it gives. The worth of each part of the deal:
 
@@ -67,7 +67,7 @@ A gift raises the NPC's profile `Relation` (`change_relation` in `server/store/c
 
 ## 6. Price guide
 
-The prompt opens with a stocktake of the NPC: the name and the count of each item, with no prices. For a trader in a shop, the stocktake also holds the items in all the furniture of its building, because the trade window of the game shows them as its stock ([kenshi_internals.md](../../info/kenshi_internals.md#inventories)). The furniture of the building can hold items that are not stock, for example the personal chest of a guard. The NPC can then sell those items too, and the plan accepts that cost. Each turn, code finds the items that the player's line and the NPC's last reply ask for, in the inventories of the NPC and the speaker, and it adds each item with its count and its `price` to the turn message, at most 10 items for each side. A line asks for an item by a word of its name, for example "water" for Water Jug, or by a word for its kind, for example "food", or "drink" for alcohol, which the game data files under narcotics. The model thus gets the real price of each item that the deal is about, and it does not invent one.
+The prompt opens with a stocktake of the NPC: the name and the count of each item, with no prices. For a trader in a shop, the stocktake holds only the items in all the furniture of its building, because the trade window of the game shows them as its stock, and the trader keeps what it carries ([kenshi_internals.md](../../info/kenshi_internals.md#inventories)). The furniture of the building can hold items that are not stock, for example the personal chest of a guard. The NPC can then sell those items too, and the plan accepts that cost. Each turn, code finds the items that the player's line and the NPC's last reply ask for, in the inventories of the NPC and the speaker, and it adds each item with its count and its `price` to the turn message, at most 10 items for each side. A line asks for an item by a word of its name, for example "water" for Water Jug, or by a word for its kind, for example "food", or "drink" for alcohol, which the game data files under narcotics. The model thus gets the real price of each item that the deal is about, and it does not invent one.
 
 One item can have a different `price` on different holders, for example a Standard First Aid Kit was 102 on a barman and 132 in the furniture of the bar ([kenshi_internals.md](../../info/kenshi_internals.md#inventories)). The deal therefore takes the `price` of an item from the stock of the NPC, because that is the price that the NPC sells at. When the stock holds the item at different prices, the deal takes the highest. When the stock does not hold the item, the deal takes the highest `price` of the item in the inventory of the speaker.
 

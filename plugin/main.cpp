@@ -557,8 +557,11 @@ void ProcessMessageQueue(GameWorld *thisptr) {
             act.target = actionTarget;
             g_uiActionQueue.push_back(act);
             LeaveCriticalSection(&g_uiMutex);
-          } else if (actStr.find("GIVE_ITEM:") != std::string::npos) {
-            std::string payload = getPayload(actStr, "GIVE_ITEM:");
+          } else if (actStr.find("GIVE_ITEM:") != std::string::npos ||
+                     actStr.find("SELL_ITEM:") != std::string::npos) {
+            bool sell = actStr.find("SELL_ITEM:") != std::string::npos;
+            std::string payload =
+                getPayload(actStr, sell ? "SELL_ITEM:" : "GIVE_ITEM:");
             int count = 1;
             size_t colon = std::string::npos;
             int depth = 0;
@@ -585,7 +588,7 @@ void ProcessMessageQueue(GameWorld *thisptr) {
             }
             EnterCriticalSection(&g_uiMutex);
             QueuedAction act;
-            act.type = ACT_GIVE_ITEM;
+            act.type = sell ? ACT_SELL_ITEM : ACT_GIVE_ITEM;
             act.actor = targetHand;
             act.target = itemHolder;
             act.message = payload;

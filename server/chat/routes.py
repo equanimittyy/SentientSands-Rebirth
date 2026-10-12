@@ -706,7 +706,8 @@ def chat():
             members = [(npc_id, "speaker" if npc_id in (primary_id, speaker_id) else "overheard", in_squad.get(npc_id, False)) for npc_id, _, _ in copies]
             thread_id = campaign_db.join_thread(current_thread, members, campaign_db.game_time(time_prefix), scene_text.location_name(speaker or state.PLAYER_CONTEXT))
             state.CURRENT_THREAD.update(key=thread_key, id=thread_id, replied=time.monotonic(),
-                                        action={"category": category, "speaker": speaker_id, "trader": action_dialogue.is_trader(ctx_dict)} if category else None)
+                                        action={"category": category, "speaker": speaker_id, "trader": action_dialogue.is_trader(ctx_dict),
+                                                "stock": offers.sells_stock(ctx_dict, category)} if category else None)
             if closing:
                 state.CURRENT_THREAD.clear()
         for npc_id, name, new_lines in copies:
