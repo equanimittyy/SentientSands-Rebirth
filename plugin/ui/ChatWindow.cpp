@@ -83,11 +83,7 @@ void CloseChatUI() {
 
 static void NotifyChatStatus(const std::string &key,
                              const std::string &npcName) {
-  std::string text = T(key);
-  size_t nameSlot = text.find("{name}");
-  if (nameSlot != std::string::npos)
-    text.replace(nameSlot, 6, npcName);
-  QueueMessage("NOTIFY: " + text);
+  NotifyText(Fill(T(key), "{name}", npcName));
 }
 
 // A refused line still answers its offer, or the server would hold the offer

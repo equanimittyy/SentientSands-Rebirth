@@ -24,3 +24,4 @@ bool SplitTaggedReply(const std::string &data, std::string &tag,
 // False for a reply that a newer request made stale
 bool TakeTaggedReply(const std::string &data, int request, std::string &reply);
 std::string FailureText(const std::string &prefixKey, const std::string &reply);
+void NotifyText(const std::string &text);

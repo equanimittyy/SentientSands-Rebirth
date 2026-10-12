@@ -202,6 +202,8 @@ std::string FailureText(const std::string &prefixKey,
   return T(prefixKey) + (error.empty() ? T("Unknown error") : error);
 }
 
+void NotifyText(const std::string &text) { QueueMessage("NOTIFY: " + text); }
+
 struct HttpTask {
   std::wstring endpoint;
   std::string data;

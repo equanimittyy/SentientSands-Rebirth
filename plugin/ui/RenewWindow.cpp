@@ -8,7 +8,6 @@
 #include "../core/Globals.h"
 #include "../core/Utils.h"
 #include "../game/Context.h"
-#include "OfferWindow.h"
 
 #include <kenshi/AI/Blackboard.h>
 #include <kenshi/Character.h>
@@ -143,19 +142,6 @@ static Character *NearestMember(GameWorld *world, Character *npc) {
   return nearest;
 }
 
-static void QueueAction(ActionType type, Character *npc, Character *target,
-                        int value) {
-  QueuedAction act;
-  act.type = type;
-  act.actor = npc->getHandle();
-  if (target)
-    act.target = target->getHandle();
-  act.taskValue = value;
-  EnterCriticalSection(&g_uiMutex);
-  g_uiActionQueue.push_back(act);
-  LeaveCriticalSection(&g_uiMutex);
-}
-
 static void CloseRenewUI() {
   if (g_renewWindow && MyGUI::Gui::getInstancePtr())
     MyGUI::Gui::getInstancePtr()->destroyWidget(g_renewWindow);
@@ -167,7 +153,7 @@ static void CloseRenewUI() {
 }
 
 static void EndHire(Character *npc) {
-  QueueAction(ACT_END_HIRE, npc, nullptr, 0);
+  QueueAction(ACT_END_HIRE, npc->getHandle());
   AsyncPostToPython(L"/hire_end", "{\"npc_id\": \"" +
                                       EscapeJSON(GetNpcId(npc)) +
                                       "\", \"npc\": \"" +
@@ -180,9 +166,7 @@ static void OnRenewAccept(MyGUI::Widget *sender) {
   CloseRenewUI();
   if (!world || !world->player || !npc || npc != g_renewal.npc)
     return;
-  Character *payer = world->player->playerCharacters.size() > 0
-                         ? world->player->playerCharacters[0]
-                         : nullptr;
+  Character *payer = FirstPlayerCharacter();
   if (!payer || MoneyOf(payer) < g_renewal.fee) {
     NotifyText(Fill(T("You no longer have {what}."), "{what}",
                     ToString(g_renewal.fee) + " cats"));
@@ -190,8 +174,10 @@ static void OnRenewAccept(MyGUI::Widget *sender) {
     return;
   }
   if (g_renewal.fee > 0)
-    QueueAction(ACT_TAKE_CATS, npc, nullptr, g_renewal.fee);
-  QueueAction(ACT_HIRE, npc, NearestMember(world, npc), g_renewal.hours);
+    QueueAction(ACT_TAKE_CATS, npc->getHandle(), hand(), "", g_renewal.fee);
+  Character *member = NearestMember(world, npc);
+  QueueAction(ACT_HIRE, npc->getHandle(), member ? member->getHandle() : hand(),
+              "", g_renewal.hours);
 }
 
 static void OnRenewDecline(MyGUI::Widget *sender) {

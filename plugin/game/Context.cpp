@@ -1248,11 +1248,8 @@ std::string GetDetailedContext(Character *npc, const std::string &type) {
     for (uint32_t i = 0; i < results.size(); ++i) {
       Character *other = (Character *)results.stuff[i];
       if (other && (uintptr_t)other > 0x1000) {
-        if ((*ppWorld)->player &&
-            (*ppWorld)->player->playerCharacters.size() > 0) {
-          if (other == (*ppWorld)->player->playerCharacters[0])
-            continue;
-        }
+        if (other == FirstPlayerCharacter())
+          continue;
 
         if (json.back() == '}')
           json += ",";
@@ -1307,10 +1304,7 @@ std::string GetDetailedContext(Character *npc, const std::string &type) {
     json += "],";
   }
 
-  int money = npc->getMoney();
-  if (money <= 0 && npc->getOwnerships())
-    money = npc->getOwnerships()->getMoney();
-  json += "\"money\": " + ToString(money) + ",";
+  json += "\"money\": " + ToString(MoneyOf(npc)) + ",";
 
   if (type == "player" && ppWorld && *ppWorld && (*ppWorld)->player) {
     json += "\"squad\": [";
@@ -1403,9 +1397,8 @@ std::string GetDetailedContext(Character *npc, const std::string &type) {
     json += "[],";
   }
 
-  if (ppWorld && *ppWorld && (*ppWorld)->player &&
-      (*ppWorld)->player->playerCharacters.size() > 0) {
-    Character *player = (*ppWorld)->player->playerCharacters[0];
+  Character *player = FirstPlayerCharacter();
+  if (player) {
     json += "\"memories\": { \"short_term\": [";
     bool first = true;
     for (int i = 1; i < 8; ++i) {
@@ -1510,11 +1503,29 @@ TownBase *FindTown(const std::string &name) {
   return partial;
 }
 
-std::string GameReport() {
-  std::string player = "{}";
+// The cats belong to the whole player faction, so this character pays
+Character *FirstPlayerCharacter() {
   GameWorld *world = ppWorld ? *ppWorld : nullptr;
-  if (world && world->player && world->player->playerCharacters.size() > 0)
-    player = GetDetailedContext(world->player->playerCharacters[0], "player");
+  return world && world->player && world->player->playerCharacters.size() > 0
+             ? world->player->playerCharacters[0]
+             : nullptr;
+}
+
+int MoneyOf(Character *c) {
+  int money = c->getMoney();
+  if (money <= 0 && c->getOwnerships())
+    money = c->getOwnerships()->getMoney();
+  return money;
+}
+
+bool InPlayerFaction(Character *c) {
+  Faction *faction = c->getFaction();
+  return faction && faction->isThePlayer();
+}
+
+std::string GameReport() {
+  Character *first = FirstPlayerCharacter();
+  std::string player = first ? GetDetailedContext(first, "player") : "{}";
   return "{\"player\": " + player + ", \"events\": " + TakeGameEvents() +
          ", \"changed_towns\": " + ChangedTowns() + "}";
 }

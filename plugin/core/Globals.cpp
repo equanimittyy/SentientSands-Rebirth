@@ -33,6 +33,23 @@ CRITICAL_SECTION g_eventMutex;
 std::deque<QueuedAction> g_uiActionQueue;
 CRITICAL_SECTION g_uiMutex;
 
+void QueueAction(const QueuedAction &act) {
+  EnterCriticalSection(&g_uiMutex);
+  g_uiActionQueue.push_back(act);
+  LeaveCriticalSection(&g_uiMutex);
+}
+
+void QueueAction(ActionType type, const hand &actor, const hand &target,
+                 const std::string &message, int value) {
+  QueuedAction act;
+  act.type = type;
+  act.actor = actor;
+  act.target = target;
+  act.message = message;
+  act.taskValue = value;
+  QueueAction(act);
+}
+
 int g_chatHotkey = VK_OEM_5; // '\' by default
 std::string g_chatHotkeyStr = "\\";
 std::map<std::string, std::string> g_uiTranslation;

@@ -36,11 +36,6 @@ static std::string TaskName(TaskType task) {
   }
 }
 
-static std::string LowerText(std::string text) {
-  std::transform(text.begin(), text.end(), text.begin(), ::tolower);
-  return text;
-}
-
 // The label with the grade first, then the exact name, so that a deal for
 // Bread never hands over a Bread Loaf
 static Item *FindInItems(const std::vector<Item *> &items,
@@ -50,9 +45,9 @@ static Item *FindInItems(const std::vector<Item *> &items,
   for (size_t i = 0; i < items.size(); ++i) {
     if (!items[i])
       continue;
-    if (LowerText(ItemLabel(items[i])) == lowerName)
+    if (Lower(ItemLabel(items[i])) == lowerName)
       return items[i];
-    std::string name = LowerText(items[i]->getName());
+    std::string name = Lower(items[i]->getName());
     if (!named && name == lowerName)
       named = items[i];
     if (!partial && name.find(lowerName) != std::string::npos)
@@ -495,14 +490,7 @@ void ExecuteQueuedActions(GameWorld *thisptr) {
           RootObject *taskTarget = NULL;
 
           if (!act.message.empty()) {
-            std::string tName = act.message;
-            size_t fnot = tName.find_first_not_of(" \t\n\r\"'");
-            if (fnot != std::string::npos) {
-              tName.erase(0, fnot);
-              size_t lnot = tName.find_last_not_of(" \t\n\r\"'");
-              if (lnot != std::string::npos)
-                tName.erase(lnot + 1);
-            }
+            std::string tName = Trim(act.message, " \t\r\n\"'");
 
             Log(LOG_DEBUG, "ACTION: Resolving town target for " + ToString(tt) +
                 ": '" + tName + "'");
@@ -528,24 +516,10 @@ void ExecuteQueuedActions(GameWorld *thisptr) {
           npc->addGoal(tt, (RootObjectBase *)taskTarget);
           npc->reThinkCurrentAIAction();
         } else if (act.type == ACT_TAKE_ITEM) {
-          Character *player =
-              target ? target
-                     : (thisptr->player &&
-                                thisptr->player->playerCharacters.size() > 0
-                            ? thisptr->player->playerCharacters[0]
-                            : nullptr);
+          Character *player = target ? target : FirstPlayerCharacter();
           if (player) {
-            std::string targetName = act.message;
-            size_t fnot = targetName.find_first_not_of(" \t\n\r\"'");
-            if (fnot != std::string::npos) {
-              targetName.erase(0, fnot);
-              size_t lnot = targetName.find_last_not_of(" \t\n\r\"'");
-              if (lnot != std::string::npos)
-                targetName.erase(lnot + 1);
-            }
-            std::string lowerTarget = targetName;
-            std::transform(lowerTarget.begin(), lowerTarget.end(),
-                           lowerTarget.begin(), ::tolower);
+            std::string targetName = Trim(act.message, " \t\r\n\"'");
+            std::string lowerTarget = Lower(targetName);
 
             int count = act.taskValue;
             if (count < 1)
@@ -589,30 +563,15 @@ void ExecuteQueuedActions(GameWorld *thisptr) {
         } else if (act.type == ACT_GIVE_ITEM || act.type == ACT_SELL_ITEM) {
           if (HeldBack(npc, act.type == ACT_SELL_ITEM ? "SELL_ITEM" : "GIVE_ITEM"))
             continue;
-          std::string targetName = act.message;
-          size_t fnot = targetName.find_first_not_of(" \t\n\r\"'");
-          if (fnot != std::string::npos) {
-            targetName.erase(0, fnot);
-            size_t lnot = targetName.find_last_not_of(" \t\n\r\"'");
-            if (lnot != std::string::npos)
-              targetName.erase(lnot + 1);
-          }
-          std::string originalTargetName = targetName;
-          std::transform(targetName.begin(), targetName.end(),
-                         targetName.begin(), ::tolower);
+          std::string originalTargetName = Trim(act.message, " \t\r\n\"'");
+          std::string targetName = Lower(originalTargetName);
 
           int count = act.taskValue;
           if (count < 1)
             count = 1;
           int given = 0;
 
-          Character *player =
-              target ? target
-                     : (thisptr->player &&
-                                thisptr->player->playerCharacters.size() > 0
-                            ? thisptr->player->playerCharacters[0]
-                            : nullptr);
-
+          Character *player = target ? target : FirstPlayerCharacter();
           if (player) {
             while (given < count) {
               // A trader in a shop sells its stock and keeps what it carries
@@ -649,16 +608,14 @@ void ExecuteQueuedActions(GameWorld *thisptr) {
         } else if (act.type == ACT_GIVE_CATS) {
           if (HeldBack(npc, "GIVE_CATS"))
             continue;
-          if (thisptr->player &&
-                   thisptr->player->playerCharacters.size() > 0) {
+          Character *payee = FirstPlayerCharacter();
+          if (payee) {
             int amt = act.taskValue;
             if (amt > 0) {
-              thisptr->player->playerCharacters[0]->takeMoney(-amt);
+              payee->takeMoney(-amt);
 
               // Skip player-faction characters: the transfer would be a no-op
-              bool alreadyPlayer =
-                  (npc->getFaction() && npc->getFaction()->isThePlayer());
-              if (!alreadyPlayer)
+              if (!InPlayerFaction(npc))
                 npc->takeMoney(amt);
 
               thisptr->showPlayerAMessage_withLog(
@@ -666,16 +623,10 @@ void ExecuteQueuedActions(GameWorld *thisptr) {
             }
           }
         } else if (act.type == ACT_TAKE_CATS) {
-          // The player's cats are one purse, so any player character pays
-          Character *p =
-              (thisptr->player && thisptr->player->playerCharacters.size() > 0)
-                  ? thisptr->player->playerCharacters[0]
-                  : nullptr;
+          Character *p = FirstPlayerCharacter();
           if (p) {
             int targetAmt = act.taskValue;
-            int pMoney = p->getMoney();
-            if (pMoney <= 0 && p->getOwnerships())
-              pMoney = p->getOwnerships()->getMoney();
+            int pMoney = MoneyOf(p);
 
             int amt = targetAmt;
             bool fellShort = amt > pMoney;
@@ -703,10 +654,7 @@ void ExecuteQueuedActions(GameWorld *thisptr) {
               }
             }
 
-            bool alreadyPlayer =
-                (npc->getFaction() && npc->getFaction()->isThePlayer());
-
-            if (!beingRecruited && !alreadyPlayer) {
+            if (!beingRecruited && !InPlayerFaction(npc)) {
               npc->takeMoney(-amt);
             } else {
               Log(LOG_DEBUG,
@@ -797,9 +745,9 @@ void ExecuteQueuedActions(GameWorld *thisptr) {
           }
         } else if (act.type == ACT_ADD_CATS) {
           // Charity costs the NPC nothing, so the cats come from no purse
-          if (thisptr->player && thisptr->player->playerCharacters.size() > 0 &&
-              act.taskValue > 0) {
-            thisptr->player->playerCharacters[0]->takeMoney(-act.taskValue);
+          Character *payee = FirstPlayerCharacter();
+          if (payee && act.taskValue > 0) {
+            payee->takeMoney(-act.taskValue);
             thisptr->showPlayerAMessage_withLog(
                 "Gained " + ToString(act.taskValue) + " cats.", true);
           }
@@ -838,12 +786,7 @@ void ExecuteQueuedActions(GameWorld *thisptr) {
                 "Error: Item template '" + templateName + "' not found.", true);
             continue;
           }
-          Character *p =
-              target ? target
-                     : (thisptr->player &&
-                                thisptr->player->playerCharacters.size() > 0
-                            ? thisptr->player->playerCharacters[0]
-                            : nullptr);
+          Character *p = target ? target : FirstPlayerCharacter();
           if (!p) {
             Log(LOG_WARN, "ACTION: No character found to give item to.");
             continue;

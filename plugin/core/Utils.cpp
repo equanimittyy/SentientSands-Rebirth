@@ -301,6 +301,28 @@ bool ContainsIgnoreCase(const std::string &text, const std::string &query) {
                      CharEqualIgnoreCase) != text.end();
 }
 
+static char LowerChar(char c) { return (char)tolower((unsigned char)c); }
+
+std::string Lower(std::string text) {
+  std::transform(text.begin(), text.end(), text.begin(), LowerChar);
+  return text;
+}
+
+std::string Trim(const std::string &text, const char *chars) {
+  size_t first = text.find_first_not_of(chars);
+  if (first == std::string::npos)
+    return "";
+  return text.substr(first, text.find_last_not_of(chars) - first + 1);
+}
+
+std::string Fill(std::string text, const std::string &slot,
+                 const std::string &value) {
+  size_t at = text.find(slot);
+  if (at != std::string::npos)
+    text.replace(at, slot.size(), value);
+  return text;
+}
+
 void SetHotkeyFromString(const std::string &keyStr) {
   g_chatHotkeyStr = keyStr;
   if (keyStr == "\\")

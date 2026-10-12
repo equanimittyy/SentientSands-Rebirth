@@ -103,3 +103,7 @@ struct QueuedAction {
 
 extern std::deque<QueuedAction> g_uiActionQueue;
 extern CRITICAL_SECTION g_uiMutex;
+// The game thread runs a queued action in its next frame
+void QueueAction(const QueuedAction &act);
+void QueueAction(ActionType type, const hand &actor, const hand &target = hand(),
+                 const std::string &message = std::string(), int value = 0);

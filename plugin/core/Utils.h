@@ -18,6 +18,11 @@ std::string GetJsonValue(const std::string &json, const std::string &key);
 // The elements of a JSON array, each as its own JSON text
 std::vector<std::string> JsonArrayItems(const std::string &array);
 bool ContainsIgnoreCase(const std::string &text, const std::string &query);
+// Folds ASCII only, as ContainsIgnoreCase does
+std::string Lower(std::string text);
+std::string Trim(const std::string &text, const char *chars = " \t\r\n");
+std::string Fill(std::string text, const std::string &slot,
+                 const std::string &value);
 void LoadPluginConfig();
 void SetHotkeyFromString(const std::string &keyStr);
 void LoadUITranslation(const std::string &json);

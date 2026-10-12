@@ -250,13 +250,6 @@ static std::string HolderName(unsigned int holder) {
   return c ? c->getName() : "?";
 }
 
-static Character *Payer() {
-  GameWorld *world = *ppWorld;
-  return world && world->player && world->player->playerCharacters.size() > 0
-             ? world->player->playerCharacters[0]
-             : nullptr;
-}
-
 static void FillList(int list, const std::vector<Lot> &lots, bool named) {
   MyGUI::ListBox *box = g_barterLists[list];
   box->removeAllItems();
@@ -286,7 +279,7 @@ static void RefreshBarterLists() {
   FillList(STOCK,
            Left(Holdings(npc, 0, g_barterStock), g_deal.lots[NPC_SIDE]),
            false);
-  Character *payer = Payer();
+  Character *payer = FirstPlayerCharacter();
   SetCaption(g_barterPurses[PLAYER_SIDE],
              Fill(T("Purse: {count} cats"), "{count}",
                   ToString(payer ? MoneyOf(payer) : 0)));
@@ -324,7 +317,7 @@ static void OnBarterListAccept(MyGUI::ListBox *sender, size_t index) {
 
 // The NPC side has no cap, because charity creates its cats
 static void CapPlayerCats() {
-  Character *payer = Payer();
+  Character *payer = FirstPlayerCharacter();
   int purse = payer ? MoneyOf(payer) : 0;
   if (CatsIn(g_barterCats[PLAYER_SIDE]) > purse)
     SetCaption(g_barterCats[PLAYER_SIDE], ToString(purse));
@@ -403,9 +396,7 @@ static std::string BarterJson() {
 static void SendBarterLine() {
   if (g_barterWaiting)
     return;
-  std::string text = g_barterInput->getOnlyText().asUTF8();
-  text.erase(0, text.find_first_not_of(" \t\r\n"));
-  text.erase(text.find_last_not_of(" \t\r\n") + 1);
+  std::string text = Trim(g_barterInput->getOnlyText().asUTF8());
   if (text.empty())
     text = T("How about this deal?");
   CapPlayerCats();

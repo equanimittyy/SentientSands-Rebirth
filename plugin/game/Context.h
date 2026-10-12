@@ -33,5 +33,8 @@ std::string GetVisibleEquipment(Character *npc);
 std::string TakeGameEvents();
 std::string ChangedTowns();
 TownBase *FindTown(const std::string &name);
+Character *FirstPlayerCharacter();
+int MoneyOf(Character *c);
+bool InPlayerFaction(Character *c);
 std::string GameReport();
 std::string GameTimeFields();

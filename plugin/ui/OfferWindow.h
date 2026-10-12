@@ -14,10 +14,6 @@ void WatchOffer();
 void AcceptOffer();
 std::string DeclineOffer();
 bool OfferHeldFor(unsigned int npcKey);
-int MoneyOf(Character *c);
-void NotifyText(const std::string &text);
-std::string Fill(std::string text, const std::string &slot,
-                 const std::string &value);
 
 } // namespace UI
 } // namespace SentientSands

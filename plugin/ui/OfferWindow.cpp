@@ -21,7 +21,6 @@
 #include <mygui/MyGUI_TextBox.h>
 #include <mygui/MyGUI_Window.h>
 
-#include <algorithm>
 #include <cstdlib>
 #include <sstream>
 #include <vector>
@@ -68,21 +67,6 @@ static void CloseOfferUI() {
   g_offerBoxes.clear();
 }
 
-void NotifyText(const std::string &text) { QueueMessage("NOTIFY: " + text); }
-
-std::string Fill(std::string text, const std::string &slot,
-                 const std::string &value) {
-  size_t at = text.find(slot);
-  if (at != std::string::npos)
-    text.replace(at, slot.size(), value);
-  return text;
-}
-
-static std::string Lower(std::string text) {
-  std::transform(text.begin(), text.end(), text.begin(), ::tolower);
-  return text;
-}
-
 static std::string AnswerJson(const std::string &answer) {
   return "{\"id\": \"" + EscapeJSON(g_offer.id) + "\", \"answer\": \"" +
          answer + "\", \"npc\": \"" + EscapeJSON(g_offer.npcName) + "\"}";
@@ -98,13 +82,6 @@ static void ForgetOffer() {
 static void EndOffer(const std::string &answer) {
   AsyncPostToPython(L"/offer", AnswerJson(answer));
   ForgetOffer();
-}
-
-int MoneyOf(Character *c) {
-  int money = c->getMoney();
-  if (money <= 0 && c->getOwnerships())
-    money = c->getOwnerships()->getMoney();
-  return money;
 }
 
 // The NPC also sells the stock in the furniture of its shop
@@ -125,12 +102,9 @@ static int CountItems(Character *c, const std::string &name, bool withShop) {
 // lost its part of the deal by the time the player accepts. An item of a squad
 // mate names the key of its holder instead of player
 static std::string Shortfall(Character *npc, Character *speaker) {
-  GameWorld *world = *ppWorld;
-  // The cats belong to the whole player faction, as TAKE_CATS reads them
-  Character *payer = world && world->player &&
-                             world->player->playerCharacters.size() > 0
-                         ? world->player->playerCharacters[0]
-                         : speaker;
+  Character *payer = FirstPlayerCharacter();
+  if (!payer)
+    payer = speaker;
   for (size_t i = 0; i < g_offer.checks.size(); ++i) {
     std::istringstream in(g_offer.checks[i]);
     std::string kind, side, name;
@@ -195,9 +169,7 @@ static void ShowReplyBox(bool shown) {
 }
 
 static void SendReply() {
-  std::string reply = g_offerReply->getOnlyText().asUTF8();
-  reply.erase(0, reply.find_first_not_of(" \t\r\n"));
-  reply.erase(reply.find_last_not_of(" \t\r\n") + 1);
+  std::string reply = Trim(g_offerReply->getOnlyText().asUTF8());
   if (reply.empty())
     reply = T("No.");
   std::string answer = AnswerJson("decline");
@@ -262,9 +234,7 @@ void ShowOfferUI(const std::string &data) {
   std::istringstream in(data);
   std::string line;
   while (std::getline(in, line)) {
-    line.erase(0, line.find_first_not_of(" \t\r"));
-    line.erase(line.find_last_not_of(" \t\r") + 1);
-    lines.push_back(line);
+    lines.push_back(Trim(line, " \t\r"));
   }
   MyGUI::Gui *gui = MyGUI::Gui::getInstancePtr();
   if (lines.size() < 4 || !gui || (!g_offer.id.empty() && g_offer.id == lines[0]))

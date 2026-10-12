@@ -67,17 +67,9 @@ static void CloseCheatUI() {
   g_cheatWindow = nullptr;
 }
 
-static std::string Lower(std::string text) {
-  std::transform(text.begin(), text.end(), text.begin(), ::tolower);
-  return text;
-}
-
 // getOnlyText, because getCaption doubles a typed # as MyGUI's colour escape
 static std::string Trimmed(MyGUI::EditBox *box) {
-  std::string text = box->getOnlyText().asUTF8();
-  text.erase(0, text.find_first_not_of(" \t\r\n"));
-  text.erase(text.find_last_not_of(" \t\r\n") + 1);
-  return text;
+  return Trim(box->getOnlyText().asUTF8());
 }
 
 static Character *CheatCharacter() {
@@ -86,23 +78,8 @@ static Character *CheatCharacter() {
              : g_cheatCharacters[g_cheatCharacterIndex].getCharacter();
 }
 
-// The cats belong to the whole player faction, as TAKE_CATS reads them
-static Character *Payer() {
-  GameWorld *world = ppWorld ? *ppWorld : NULL;
-  return world && world->player && world->player->playerCharacters.size() > 0
-             ? world->player->playerCharacters[0]
-             : NULL;
-}
-
-static int MoneyOf(Character *c) {
-  int money = c->getMoney();
-  if (money <= 0 && c->getOwnerships())
-    money = c->getOwnerships()->getMoney();
-  return money;
-}
-
 static void ShowCats() {
-  Character *payer = Payer();
+  Character *payer = FirstPlayerCharacter();
   g_cheatCats->setCaption(
       "Player cats: " + (payer ? ToString(MoneyOf(payer)) : std::string("?")));
 }
@@ -242,7 +219,7 @@ static void OnCheatHealClick(MyGUI::Widget *sender) {
 }
 
 static void ChangeCats(int sign) {
-  Character *payer = Payer();
+  Character *payer = FirstPlayerCharacter();
   int amount = atoi(Trimmed(g_cheatAmount).c_str());
   if (!payer || amount < 1)
     return;
@@ -436,11 +413,11 @@ static void FindCheatItems(GameWorld *world) {
 }
 
 static void OnCheatSearchChange(MyGUI::EditBox *sender) {
-  std::string wanted = Lower(sender->getOnlyText().asUTF8());
+  std::string wanted = sender->getOnlyText().asUTF8();
   g_cheatItemList->removeAllItems();
   g_cheatShown.clear();
   for (size_t i = 0; i < g_cheatItems.size(); ++i) {
-    if (Lower(g_cheatItems[i].label).find(wanted) == std::string::npos)
+    if (!ContainsIgnoreCase(g_cheatItems[i].label, wanted))
       continue;
     g_cheatShown.push_back(i);
     g_cheatItemList->addItem(Utf8ToWide(g_cheatItems[i].label).c_str());
@@ -465,9 +442,7 @@ static void OnCheatSpawnClick(MyGUI::Widget *sender) {
   act.taskValue = atoi(Trimmed(g_cheatCount).c_str());
   if (act.taskValue < 1)
     act.taskValue = 1;
-  EnterCriticalSection(&g_uiMutex);
-  g_uiActionQueue.push_back(act);
-  LeaveCriticalSection(&g_uiMutex);
+  QueueAction(act);
   Log(LOG_INFO, "CHEAT: Spawning " + ToString(act.taskValue) + " " +
                     item.label + " for " + c->getName());
 }

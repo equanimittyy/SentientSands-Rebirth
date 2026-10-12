@@ -270,11 +270,9 @@ static int g_helpTopic = 0;
 // The text goes through setCaption for its colour tags, so a # of a
 // translation must be escaped
 static std::wstring HelpText(const char *key) {
-  std::string text = T(key);
-  size_t slot = text.find("{key}");
-  if (slot != std::string::npos)
-    text.replace(slot, 5, g_chatHotkeyStr);
-  return MyGUI::TextIterator::toTagsString(Utf8ToWide(text)).asWStr();
+  return MyGUI::TextIterator::toTagsString(
+             Utf8ToWide(Fill(T(key), "{key}", g_chatHotkeyStr)))
+      .asWStr();
 }
 
 static void ShowHelpTopic(int topic) {
