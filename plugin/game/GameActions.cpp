@@ -591,28 +591,6 @@ void ExecuteQueuedActions(GameWorld *thisptr, int &inventoryTimer) {
           npc->reThinkCurrentAIAction();
           thisptr->showPlayerAMessage(npc->getName() + " is attacking!", false);
         } else if (act.type == ACT_JOIN_PARTY && thisptr->player) {
-          // Saved before recruiting so dismissal can restore the original jobs and home
-          std::string npcId = GetNpcId(npc);
-          OriginState state;
-
-          Ownerships *own = npc->getOwnerships();
-          if (own) {
-            state.homeTown =
-                own->_homeTown ? own->_homeTown->getHandle() : hand();
-            state.homeBuilding = own->_homeBuilding;
-          }
-
-          int jobCount = npc->getPermajobCount();
-          for (int i = 0; i < jobCount; ++i) {
-            OriginJob oj;
-            oj.type = npc->getPermajob(i);
-            // No target saved: restore uses the home building for shopkeeper jobs
-            oj.target = hand();
-            oj.location = npc->getPosition();
-            state.jobs.push_back(oj);
-          }
-          g_originJobs[npcId] = state;
-
           // A hired follower joins for good, so its contract must not run out
           Blackboard *board = npc->getBlackboard();
           if (board && (uintptr_t)board > 0x1000 && board->hasContractJob())
@@ -621,62 +599,9 @@ void ExecuteQueuedActions(GameWorld *thisptr, int &inventoryTimer) {
           thisptr->playNotification("ui_cat_change");
           thisptr->showPlayerAMessage_withLog(
               npc->getName() + " joined your squad.", true);
-        } else if (act.type == ACT_LEAVE) {
-          npc->clearPermajobs();
-          npc->clearAllAIGoals();
-          PerformLeaveSquad(npc, thisptr, act.message);
-
-          std::string npcId = GetNpcId(npc);
-          if (g_originJobs.count(npcId)) {
-            const OriginState &state = g_originJobs[npcId];
-
-            Ownerships *own = npc->getOwnerships();
-            if (own) {
-              TownBase *town = state.homeTown.getTown();
-              if (town)
-                own->setHomeTown(town, npc->getPlatoon()->me->squadType);
-              if (state.homeBuilding.isValid())
-                own->setHomeBuilding(state.homeBuilding,
-                                     npc->getPlatoon()->me->squadType);
-            }
-
-            for (size_t i = 0; i < state.jobs.size(); ++i) {
-              RootObject *subject = state.jobs[i].target.getRootObject();
-
-              if (!subject && state.jobs[i].type == STAND_AT_SHOPKEEPER_NODE) {
-                subject = (RootObject *)state.homeBuilding.getBuilding();
-              }
-
-              npc->addJob(state.jobs[i].type, subject, false, true,
-                          state.jobs[i].location);
-            }
-          }
-
-          // Passive/Hold standing orders can stop the dismissed NPC from moving
-          npc->setStandingOrder((MessageForB::StandingOrder)13 /* PASSIVE */,
-                                false);
-          npc->setStandingOrder((MessageForB::StandingOrder)12 /* HOLD */,
-                                false);
-
-          if (npc->getPermajobCount() == 0) {
-            TownBase *town = npc->getCurrentTownLocation();
-            if (town) {
-              npc->addJob(WANDER_TOWN, (RootObject *)town, false, false,
-                          npc->getPosition());
-              npc->addGoal(WANDER_TOWN, (RootObjectBase *)town);
-            } else {
-              npc->addJob(WANDERER, NULL, false, false, npc->getPosition());
-              npc->addGoal(WANDERER, NULL);
-            }
-          }
-          npc->reThinkCurrentAIAction();
-          thisptr->showPlayerAMessage_withLog(
-              npc->getName() + " left your squad.", true);
-
         } else if (act.type == ACT_SET_TASK) {
           Log(LOG_INFO, "ACTION: Setting task for " + npc->getName() + ": " +
-              ToString(act.taskValue) +
-              (target ? " (Target: " + target->getName() + ")" : ""));
+              ToString(act.taskValue));
 
           // No endDialogue here: it kills the speech bubble the NPC just displayed
 
@@ -689,11 +614,9 @@ void ExecuteQueuedActions(GameWorld *thisptr, int &inventoryTimer) {
           npc->clearAllAIGoals();
 
           TaskType tt = (TaskType)act.taskValue;
-          RootObject *taskTarget = (RootObject *)target;
+          RootObject *taskTarget = NULL;
 
-          if ((tt == TRAVEL_TO_TARGET_TOWN || tt == ATTACK_TOWN ||
-               (int)tt == 18) &&
-              !act.message.empty()) {
+          if (!act.message.empty()) {
             std::string tName = act.message;
             size_t fnot = tName.find_first_not_of(" \t\n\r\"'");
             if (fnot != std::string::npos) {
@@ -733,83 +656,24 @@ void ExecuteQueuedActions(GameWorld *thisptr, int &inventoryTimer) {
             }
           }
 
-          if ((tt == PATROL_TOWN || tt == WANDER_TOWN || tt == ATTACK_TOWN ||
-               tt == GO_HOMEBUILDING || tt == STAND_AT_SHOPKEEPER_NODE) &&
-              !taskTarget) {
+          if (tt == ATTACK_TOWN && !taskTarget) {
             TownBase *town = npc->getCurrentTownLocation();
             if (town)
               taskTarget = (RootObject *)town;
-          } else if (tt == IDLE || tt == WANDERER || tt == RUN_AWAY ||
-                     tt == MOVE_ON_FREE_WILL || tt == MOVE_ON_FREE_WILL_FAST) {
-            // A player target makes these tasks walk the NPC into the player
-            taskTarget = NULL;
           }
-
-          bool isPermanent =
-              (tt == TRAVEL_TO_TARGET_TOWN || tt == ATTACK_TOWN ||
-               (int)tt == 18 || // RAID_TOWN
-               tt == PATROL_TOWN || tt == WANDER_TOWN ||
-               tt == GO_HOMEBUILDING || tt == STAND_AT_SHOPKEEPER_NODE ||
-               tt == JOB_MEDIC || tt == JOB_REPAIR_ROBOT ||
-               tt == FIND_AND_RESCUE || tt == FOLLOW_PLAYER_ORDER ||
-               tt == BODYGUARD);
 
           Log(LOG_DEBUG,
               "ACTION: Final Dispatch -> Task: " + ToString((int)tt) +
                   " (" + GetTaskName(tt) + "), Target: " +
                   (taskTarget ? ((RootObjectBase *)taskTarget)->getName()
-                              : "NULL") +
-                  ", Permanent: " + (isPermanent ? "YES" : "NO"));
+                              : "NULL"));
 
-          if (tt == JOB_MEDIC || tt == FIND_AND_RESCUE ||
-              tt == JOB_REPAIR_ROBOT) {
-            // addJob with shift=false prepends, so the last job added becomes top priority
-            npc->addJob(FIND_AND_RESCUE, taskTarget, false, true,
-                        npc->getPosition());
-            npc->addJob(JOB_MEDIC, taskTarget, false, true, npc->getPosition());
-            if (tt == JOB_REPAIR_ROBOT) {
-              npc->addJob(JOB_REPAIR_ROBOT, taskTarget, false, true,
-                          npc->getPosition());
-            }
-            thisptr->showPlayerAMessage(
-                npc->getName() + " is now in caregiver mode (Medic & Rescue).",
-                false);
-          } else {
-            npc->addJob(tt, taskTarget, false, isPermanent, npc->getPosition());
-            thisptr->showPlayerAMessage(
-                npc->getName() + " is now executing: " + GetTaskName(tt),
-                false);
-          }
+          npc->addJob(tt, taskTarget, false, true, npc->getPosition());
+          thisptr->showPlayerAMessage(
+              npc->getName() + " is now executing: " + GetTaskName(tt), false);
 
           npc->addGoal(tt, (RootObjectBase *)taskTarget);
           npc->reThinkCurrentAIAction();
-        } else if (act.type == ACT_DROP_ITEM) {
-          std::vector<Item *> items;
-          GetAllCharacterItems(npc, items);
-          std::string targetName = act.message;
-          size_t fnot = targetName.find_first_not_of(" \t\n\r\"'");
-          if (fnot != std::string::npos) {
-            targetName.erase(0, fnot);
-            size_t lnot = targetName.find_last_not_of(" \t\n\r\"'");
-            if (lnot != std::string::npos)
-              targetName.erase(lnot + 1);
-          }
-          std::transform(targetName.begin(), targetName.end(),
-                         targetName.begin(), ::tolower);
-
-          for (uint32_t i = 0; i < items.size(); ++i) {
-            std::string itemName = items[i]->getName();
-            std::transform(itemName.begin(), itemName.end(), itemName.begin(),
-                           ::tolower);
-            if (itemName.find(targetName) != std::string::npos) {
-              Log(LOG_INFO, "ACTION: Dropping item: " + items[i]->getName());
-              npc->dropItem(items[i]);
-              thisptr->showPlayerAMessage_withLog(
-                  npc->getName() + " dropped " + items[i]->getName(), true);
-              npc->reThinkCurrentAIAction();
-              break;
-            }
-          }
         } else if (act.type == ACT_TAKE_ITEM) {
           Character *player =
               target ? target

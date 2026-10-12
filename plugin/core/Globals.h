@@ -17,18 +17,6 @@ class Vector3;
 #include <kenshi/util/hand.h>
 #include <ogre/OgreVector3.h>
 
-struct OriginJob {
-  TaskType type;
-  hand target;
-  Ogre::Vector3 location;
-};
-
-struct OriginState {
-  std::vector<OriginJob> jobs;
-  hand homeTown;
-  hand homeBuilding;
-};
-
 extern GameWorld **ppWorld;
 extern SharedKing **ppSharedKing;
 extern CRITICAL_SECTION g_LogMutex;
@@ -38,7 +26,6 @@ extern hand g_talkTargetHand;
 extern DWORD g_mainThreadId;
 extern DWORD g_lastRadiantTick;
 extern std::map<std::string, std::string> g_originFactions;
-extern std::map<std::string, OriginState> g_originJobs;
 
 extern float g_proximityRadius;
 extern float g_yellRadius;
@@ -68,9 +55,7 @@ enum ActionType {
   ACT_JOIN_PARTY,
   ACT_SET_TASK,
   ACT_NOTIFY,
-  ACT_DROP_ITEM,
   ACT_GIVE_ITEM,
-  ACT_LEAVE,
   ACT_GIVE_CATS,
   ACT_TAKE_CATS,
   ACT_FACTION_RELATIONS,

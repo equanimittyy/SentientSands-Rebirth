@@ -632,15 +632,6 @@ void ProcessMessageQueue(GameWorld *thisptr) {
             act.taskValue = count;
             g_uiActionQueue.push_back(act);
             LeaveCriticalSection(&g_uiMutex);
-          } else if (actStr.find("DROP_ITEM:") != std::string::npos) {
-            std::string iName = getPayload(actStr, "DROP_ITEM:");
-            EnterCriticalSection(&g_uiMutex);
-            QueuedAction act;
-            act.type = ACT_DROP_ITEM;
-            act.actor = targetHand;
-            act.message = iName;
-            g_uiActionQueue.push_back(act);
-            LeaveCriticalSection(&g_uiMutex);
           } else if (actStr.find("ADD_CATS:") != std::string::npos) {
             EnterCriticalSection(&g_uiMutex);
             QueuedAction act;
@@ -667,14 +658,6 @@ void ProcessMessageQueue(GameWorld *thisptr) {
             act.actor = targetHand;
             act.target = g_lastChattingPlayerHand;
             act.taskValue = atoi(amtStr.c_str());
-            g_uiActionQueue.push_back(act);
-            LeaveCriticalSection(&g_uiMutex);
-          } else if (actStr.find("LEAVE") != std::string::npos) {
-            EnterCriticalSection(&g_uiMutex);
-            QueuedAction act;
-            act.type = ACT_LEAVE;
-            act.actor = targetHand;
-            act.message = getPayload(actStr, "LEAVE:");
             g_uiActionQueue.push_back(act);
             LeaveCriticalSection(&g_uiMutex);
           } else if (actStr.find("FACTION_RELATIONS:") != std::string::npos) {
@@ -745,24 +728,6 @@ void ProcessMessageQueue(GameWorld *thisptr) {
             act.taskValue = count;
             g_uiActionQueue.push_back(act);
             LeaveCriticalSection(&g_uiMutex);
-          } else if (actStr.find("IDLE") != std::string::npos &&
-                     actStr.find("TASK:") == std::string::npos) {
-            EnterCriticalSection(&g_uiMutex);
-            QueuedAction act;
-            act.type = ACT_SET_TASK;
-            act.actor = targetHand;
-            act.taskValue = 14; // IDLE
-            g_uiActionQueue.push_back(act);
-            LeaveCriticalSection(&g_uiMutex);
-          } else if (actStr.find("PATROL_TOWN") != std::string::npos &&
-                     actStr.find("TASK:") == std::string::npos) {
-            EnterCriticalSection(&g_uiMutex);
-            QueuedAction act;
-            act.type = ACT_SET_TASK;
-            act.actor = targetHand;
-            act.taskValue = 36; // PATROL_TOWN
-            g_uiActionQueue.push_back(act);
-            LeaveCriticalSection(&g_uiMutex);
           } else if (actStr.find("RELEASE_PLAYER") != std::string::npos ||
                      actStr.find("RELEASE_PRISONER") != std::string::npos ||
                      actStr.find("FREE_PLAYER") != std::string::npos) {
@@ -782,40 +747,6 @@ void ProcessMessageQueue(GameWorld *thisptr) {
             act.actor = targetHand;
             act.taskValue = 111; // BREAKOUT_PRISONER
             act.target = actionTarget;
-            g_uiActionQueue.push_back(act);
-            LeaveCriticalSection(&g_uiMutex);
-          } else if (actStr.find("MOVE_ON_FREE_WILL_FAST") !=
-                     std::string::npos) {
-            EnterCriticalSection(&g_uiMutex);
-            QueuedAction act;
-            act.type = ACT_SET_TASK;
-            act.actor = targetHand;
-            act.taskValue = 67; // MOVE_ON_FREE_WILL_FAST
-            g_uiActionQueue.push_back(act);
-            LeaveCriticalSection(&g_uiMutex);
-          } else if (actStr.find("MOVE_ON_FREE_WILL") != std::string::npos) {
-            EnterCriticalSection(&g_uiMutex);
-            QueuedAction act;
-            act.type = ACT_SET_TASK;
-            act.actor = targetHand;
-            act.taskValue = 1; // MOVE_ON_FREE_WILL
-            g_uiActionQueue.push_back(act);
-            LeaveCriticalSection(&g_uiMutex);
-          } else if (actStr.find("GO_HOMEBUILDING") != std::string::npos) {
-            EnterCriticalSection(&g_uiMutex);
-            QueuedAction act;
-            act.type = ACT_SET_TASK;
-            act.actor = targetHand;
-            act.taskValue = 19; // GO_HOMEBUILDING
-            g_uiActionQueue.push_back(act);
-            LeaveCriticalSection(&g_uiMutex);
-          } else if (actStr.find("STAND_AT_SHOPKEEPER_NODE") !=
-                     std::string::npos) {
-            EnterCriticalSection(&g_uiMutex);
-            QueuedAction act;
-            act.type = ACT_SET_TASK;
-            act.actor = targetHand;
-            act.taskValue = 20; // STAND_AT_SHOPKEEPER_NODE
             g_uiActionQueue.push_back(act);
             LeaveCriticalSection(&g_uiMutex);
           } else if (actStr.find("ATTACK_TOWN") != std::string::npos) {
@@ -847,81 +778,6 @@ void ProcessMessageQueue(GameWorld *thisptr) {
             act.actor = targetHand;
             act.message = tName;
             act.taskValue = 53; // TRAVEL_TO_TARGET_TOWN
-            g_uiActionQueue.push_back(act);
-            LeaveCriticalSection(&g_uiMutex);
-          } else if (actStr.find("JOB_MEDIC") != std::string::npos) {
-            EnterCriticalSection(&g_uiMutex);
-            QueuedAction act;
-            act.type = ACT_SET_TASK;
-            act.actor = targetHand;
-            act.taskValue = 58; // JOB_MEDIC
-            g_uiActionQueue.push_back(act);
-            LeaveCriticalSection(&g_uiMutex);
-          } else if (actStr.find("FIND_AND_RESCUE") != std::string::npos) {
-            EnterCriticalSection(&g_uiMutex);
-            QueuedAction act;
-            act.type = ACT_SET_TASK;
-            act.actor = targetHand;
-            act.taskValue = 105; // FIND_AND_RESCUE
-            g_uiActionQueue.push_back(act);
-            LeaveCriticalSection(&g_uiMutex);
-          } else if (actStr.find("JOB_REPAIR_ROBOT") != std::string::npos) {
-            EnterCriticalSection(&g_uiMutex);
-            QueuedAction act;
-            act.type = ACT_SET_TASK;
-            act.actor = targetHand;
-            act.taskValue = 57; // JOB_REPAIR_ROBOT
-            g_uiActionQueue.push_back(act);
-            LeaveCriticalSection(&g_uiMutex);
-          } else if (actStr.find("TASK:") != std::string::npos) {
-            std::string tName = getPayload(actStr, "TASK:");
-            EnterCriticalSection(&g_uiMutex);
-            QueuedAction act;
-            act.type = ACT_SET_TASK;
-            act.actor = targetHand;
-
-            if (thisptr->player && thisptr->player->playerCharacters.size() > 0)
-              act.target = thisptr->player->playerCharacters[0]->getHandle();
-
-            act.taskValue = 24; // WANDERER
-            if (tName == "IDLE")
-              act.taskValue = 14;
-            else if (tName == "PATROL_TOWN")
-              act.taskValue = 36;
-            else if (tName == "RUN_AWAY")
-              act.taskValue = 35;
-            else if (tName == "FOLLOW_PLAYER_ORDER")
-              act.taskValue = 44;
-            else if (tName == "CHASE")
-              act.taskValue = 46;
-            else if (tName == "MOVE_ON_FREE_WILL")
-              act.taskValue = 1;
-            else if (tName == "MELEE_ATTACK") {
-              act.taskValue = 4;
-            } else if (tName == "RELEASE_PRISONER") {
-              act.taskValue = 110;
-            } else if (tName == "BREAKOUT_PRISONER") {
-              act.taskValue = 111;
-            } else if (tName == "MOVE_ON_FREE_WILL_FAST") {
-              act.taskValue = 67;
-            } else if (tName == "GO_HOMEBUILDING") {
-              act.taskValue = 19;
-            } else if (tName == "STAND_AT_SHOPKEEPER_NODE") {
-              act.taskValue = 20;
-            } else if (tName == "ATTACK_TOWN") {
-              act.taskValue = 23;
-            } else if (tName == "RAID_TOWN") {
-              act.taskValue = 18;
-            } else if (tName == "TRAVEL_TO_TARGET_TOWN") {
-              act.taskValue = 53;
-            } else if (tName == "JOB_MEDIC") {
-              act.taskValue = 58;
-            } else if (tName == "FIND_AND_RESCUE") {
-              act.taskValue = 105;
-            } else if (tName == "JOB_REPAIR_ROBOT") {
-              act.taskValue = 57;
-            }
-
             g_uiActionQueue.push_back(act);
             LeaveCriticalSection(&g_uiMutex);
           }

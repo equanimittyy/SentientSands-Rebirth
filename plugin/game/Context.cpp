@@ -275,10 +275,6 @@ void RekeyCharacter(Character *npc, const hand &before) {
     g_originFactions[newId] = g_originFactions[oldId];
     g_originFactions.erase(oldId);
   }
-  if (g_originJobs.count(oldId)) {
-    g_originJobs[newId] = g_originJobs[oldId];
-    g_originJobs.erase(oldId);
-  }
   QueueGameEvent("rekey", "\"old\": \"" + EscapeJSON(oldId) +
                               "\", \"new\": \"" + EscapeJSON(newId) + "\"");
   Log(LOG_INFO,

@@ -1,6 +1,7 @@
 #include "ChatWindow.h"
 #include "BarterWindow.h"
 #include "CheatWindow.h"
+#include "HelpWindow.h"
 #include "OfferWindow.h"
 #include "../core/Comm.h"
 #include "../game/Context.h"
@@ -238,6 +239,12 @@ void OnChatSendClick(MyGUI::Widget *sender) {
     CloseChatUI();
     ShowCheatUI(
         KeyedCharacter((unsigned int)strtoul(handleStr.c_str(), NULL, 10)));
+    return;
+  }
+
+  if (text == "/help") {
+    CloseChatUI();
+    CreateHelpUI();
     return;
   }
 

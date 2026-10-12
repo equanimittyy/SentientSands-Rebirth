@@ -356,36 +356,15 @@ def chat():
         args = cmd_parts[1].strip() if len(cmd_parts) > 1 else ""
         
         test_action = None
-        if cmd == "help" or cmd == "commands":
-            help_text = "[DEBUG] Available test commands:\n" + \
-                        "/idle, /patrol, /recruit, /leave, /liberate, /breakout,\n" + \
-                        "/move, /movefast, /home, /shop, /raid [Town], /travel [Town], /medic, /rescue, /repair,\n" + \
-                        "/notify [msg], /drop [item], /relations [Fact] [n], /task [TASK],\n" + \
-                        "/stock, /firstaid, /follow [hours|end|line ID]"
-            return reply(*help_text.split("\n"))
-            
-        if cmd == "idle": test_action = "[ACTION: IDLE]"
-        elif cmd == "patrol": test_action = "[ACTION: PATROL_TOWN]"
-        elif cmd == "recruit": test_action = "[ACTION: JOIN_PARTY]"
-        elif cmd == "leave": test_action = "[ACTION: LEAVE]"
+        if cmd == "recruit": test_action = "[ACTION: JOIN_PARTY]"
         elif cmd == "liberate": test_action = "[ACTION: FREE_PLAYER]"
         elif cmd == "breakout": test_action = "[ACTION: BREAKOUT_PLAYER]"
-        elif cmd == "move": test_action = "[ACTION: MOVE_ON_FREE_WILL]"
-        elif cmd == "movefast": test_action = "[ACTION: MOVE_ON_FREE_WILL_FAST]"
-        elif cmd == "home": test_action = "[ACTION: GO_HOMEBUILDING]"
-        elif cmd == "shop": test_action = "[ACTION: STAND_AT_SHOPKEEPER_NODE]"
         elif cmd == "raid": test_action = f"[ACTION: RAID_TOWN: {args}]"
         elif cmd == "travel": test_action = f"[ACTION: TRAVEL_TO_TARGET_TOWN: {args}]"
-        elif cmd == "medic": test_action = "[ACTION: JOB_MEDIC]"
-        elif cmd == "rescue": test_action = "[ACTION: FIND_AND_RESCUE]"
-        elif cmd == "repair": test_action = "[ACTION: JOB_REPAIR_ROBOT]"
-        elif cmd == "notify": test_action = f"[ACTION: NOTIFY: {args}]"
-        elif cmd == "drop": test_action = f"[ACTION: DROP_ITEM: {args}]"
         elif cmd == "relations":
             rparts = args.rsplit(' ', 1)
             if len(rparts) == 2:
                 test_action = f"[ACTION: FACTION_RELATIONS: {rparts[0].strip()}: {rparts[1].strip()}]"
-        elif cmd == "task": test_action = f"[TASK: {args.upper()}]"
         elif cmd in ("stock", "firstaid", "follow"):
             if cmd == "follow" and args and not re.fullmatch(r"\d+|end|\d+-\S+", args):
                 return reply("[DEBUG] /follow alone logs the contract of the target. /follow [hours] or /follow [line ID] starts one, and /follow end ends it.")

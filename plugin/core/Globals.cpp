@@ -9,7 +9,6 @@ hand g_talkTargetHand;
 DWORD g_mainThreadId = 0;
 DWORD g_lastRadiantTick = 0;
 std::map<std::string, std::string> g_originFactions;
-std::map<std::string, OriginState> g_originJobs;
 std::string g_modRoot = "";
 HMODULE g_hModule = nullptr;
 
