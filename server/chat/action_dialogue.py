@@ -181,6 +181,7 @@ def lean(category, npc, speaker, relation, overheard=()):
         pairs.append((health == "Crippled", "{player} is crippled."))
     elif category in ("RECRUIT", "FOLLOW"):
         pairs += [(npc.get("character_state") == "escaped-slave", "You escaped slavery."),
+                  (fellow_captives(npc, speaker), "{player} is a fellow captive."),
                   (-bool(npc.get("unique")), "You are no common drifter."),
                   (-2 * is_guard(npc), "You are a guard."),
                   (-2 * is_trader(npc), "You have a trade to run."),

@@ -53,6 +53,7 @@ The lean ([Outcome](framework.md#outcome)) is how likely the NPC is to join. It 
 | Fact | Bonus |
 |---|---|
 | The NPC's `character_state` is `escaped-slave` | +1 |
+| The speaker and the NPC are [fellow captives](#fellow-captives) | +1 |
 | The NPC is unique (`unique`) | -1 |
 | The NPC is a guard ([Outcome](framework.md#outcome)) | -2 |
 | The NPC's Current Job is `Trading`, `Running a shop`, or `Travelling as a trader` | -2 |

@@ -181,6 +181,11 @@ class LeanTest(unittest.TestCase):
         self.assertEqual(score("FOLLOW", {"is_trader": True}, {}, 0), -3)
         self.assertEqual(score("RECRUIT", {"character_state": "escaped-slave"}, {}, 0), 1)
 
+    def test_a_fellow_captive_joins_more_readily(self):
+        shackled = {"character_state": "enslaved", "captor": "17-gamedata.base"}
+        self.assertEqual(ad.lean("RECRUIT", shackled, shackled, 0), [(1, "{player} is a fellow captive.")])
+        self.assertEqual(score("RECRUIT", {**shackled, "captor": "5-gamedata.base"}, shackled, 0), 0)
+
     def test_a_npc_that_is_no_mercenary_is_wary_of_following(self):
         self.assertEqual(score("FOLLOW", {}, {}, 0), -1)
         self.assertEqual(score("FOLLOW", {"faction": "Tech Hunters"}, {}, 0), 0)
