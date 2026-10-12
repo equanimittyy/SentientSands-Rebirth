@@ -735,9 +735,7 @@ void playerUpdate_hook(PlayerInterface *thisptr) {
     ExecuteQueuedActions(world);
     WatchOffer();
     WatchHires(world);
-    WatchReleases(world);
-    WatchFights(world);
-    WatchTreatments(world);
+    WatchActions(world);
 
     for (size_t i = 0; i < renamed.size(); ++i) {
       Character *c = renamed[i].getCharacter();

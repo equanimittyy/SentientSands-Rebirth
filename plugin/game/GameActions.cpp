@@ -205,15 +205,13 @@ static DWORD UnpausedStep(GameWorld *world, DWORD &last) {
   return step;
 }
 
-struct PendingRelease {
+struct Pending {
   unsigned int key; // A key outlives the new handle of a squad change
   DWORD waited;
 };
-static std::vector<PendingRelease> g_releases;
+static std::vector<Pending> g_releases;
 
-void WatchReleases(GameWorld *world) {
-  static DWORD last = GetTickCount();
-  DWORD step = UnpausedStep(world, last);
+static void WatchReleases(GameWorld *world, DWORD step) {
   for (size_t i = 0; i < g_releases.size();) {
     Character *target = KeyedCharacter(g_releases[i].key);
     if (!target || !IsLockedUp(target)) {
@@ -308,9 +306,7 @@ static void StartFight(Character *npc, Character *speaker) {
   g_fights.push_back(fight);
 }
 
-void WatchFights(GameWorld *world) {
-  static DWORD last = GetTickCount();
-  DWORD step = UnpausedStep(world, last);
+static void WatchFights(DWORD step) {
   for (size_t i = 0; i < g_fights.size();) {
     std::vector<Character *> npcs, players;
     Members(g_fights[i].npcs, npcs);
@@ -340,11 +336,7 @@ void WatchFights(GameWorld *world) {
 // The AI picks its goal frames later, so a read at the order shows no goal
 static const DWORD TREATMENT_CHECK_MS = 5000;
 
-struct PendingTreatment {
-  unsigned int key;
-  DWORD waited;
-};
-static std::vector<PendingTreatment> g_treatments;
+static std::vector<Pending> g_treatments;
 
 // A half-robot needs both kits, so the repair queues behind the first aid
 std::string StartTreatment(Character *medic, Character *patient,
@@ -370,14 +362,12 @@ std::string StartTreatment(Character *medic, Character *patient,
     medic->addOrder(nullptr, robotOrder, (RootObject *)patient, firstAid,
                     !firstAid, patient->getPosition());
   medic->reThinkCurrentAIAction();
-  PendingTreatment check = {HandleKey(medic), 0};
+  Pending check = {HandleKey(medic), 0};
   g_treatments.push_back(check);
   return medic->getName() + " is treating " + patient->getName() + ".";
 }
 
-void WatchTreatments(GameWorld *world) {
-  static DWORD last = GetTickCount();
-  DWORD step = UnpausedStep(world, last);
+static void WatchTreatments(DWORD step) {
   for (size_t i = 0; i < g_treatments.size();) {
     g_treatments[i].waited += step;
     if (g_treatments[i].waited < TREATMENT_CHECK_MS) {
@@ -398,6 +388,14 @@ void WatchTreatments(GameWorld *world) {
     }
     g_treatments.erase(g_treatments.begin() + i);
   }
+}
+
+void WatchActions(GameWorld *world) {
+  static DWORD last = GetTickCount();
+  DWORD step = UnpausedStep(world, last);
+  WatchReleases(world, step);
+  WatchFights(step);
+  WatchTreatments(step);
 }
 
 // The server sends each action of a deal as its own pipe message, so the
@@ -644,7 +642,7 @@ static void DoRelease(GameWorld *world, Character *npc, Character *target) {
     npc->addOrder(nullptr, RELEASE_PRISONER, (RootObject *)target, false, true,
                   target->getPosition());
     npc->reThinkCurrentAIAction();
-    PendingRelease pending = {HandleKey(target), 0};
+    Pending pending = {HandleKey(target), 0};
     g_releases.push_back(pending);
     world->showPlayerAMessage(
         npc->getName() + " is releasing " + target->getName() + "!", false);
