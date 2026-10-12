@@ -800,48 +800,10 @@ void ExecuteQueuedActions(GameWorld *thisptr, int &inventoryTimer) {
               given += moved;
             }
 
-            if (given < count) {
+            if (given < count)
               Log(LOG_WARN, "ACTION: NPC " + npc->getName() + " only had " +
-                  ToString(given) + " of '" + originalTargetName +
-                  "'. Fallback to SPAWN for remaining " +
-                  ToString(count - given));
-              itemType types[] = {ITEM,     WEAPON,    ARMOUR,
-                                  CROSSBOW, BLUEPRINT, LIMB_REPLACEMENT,
-                                  MAP_ITEM};
-              GameData *gd = nullptr;
-              for (int t = 0; t < 7; t++) {
-                gd = thisptr->leveldata.getDataByName(originalTargetName,
-                                                      types[t]);
-                if (!gd)
-                  gd = thisptr->gamedata.getDataByName(originalTargetName,
-                                                       types[t]);
-                if (gd)
-                  break;
-              }
-
-              if (gd) {
-                int toSpawn = count - given;
-                for (int s = 0; s < toSpawn; s++) {
-                  std::string uniqueID =
-                      originalTargetName + "_AI_" +
-                      ToString((unsigned int)GetTickCount()) + "_" +
-                      ToString(s);
-                  GameData *newGd = thisptr->savedata.createNewData(
-                      gd->type, uniqueID, gd->name);
-                  if (newGd) {
-                    newGd->updateFrom(gd, true);
-                    Item *spawned = CreateItem(thisptr, gd, NULL, NULL, 0);
-                    if (spawned) {
-                      spawned->quantity = 1;
-                      spawned->setProperOwner(player->getHandle());
-                      bool success = player->giveItem(spawned, true, false);
-                      if (success)
-                        given++;
-                    }
-                  }
-                }
-              }
-            }
+                                ToString(given) + " of " + ToString(count) +
+                                "x '" + originalTargetName + "'");
 
             if (given > 0) {
               std::string msg =
