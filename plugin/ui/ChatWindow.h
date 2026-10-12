@@ -33,6 +33,7 @@ void OnChatSendClick(MyGUI::Widget *sender);
 void OnChatCancelClick(MyGUI::Widget *sender);
 void OnChatSpeakerClick(MyGUI::Widget *sender);
 void SelectChatSpeaker(const hand &member);
+void ForgetChatTarget();
 void OnModeButtonClick(MyGUI::Widget *sender);
 void UpdateModeButtons();
 void OnRadiantClick(MyGUI::Widget *sender);

@@ -49,7 +49,9 @@ static const HelpTopic HELP_TOPICS[] = {
              "of the web app."},
       {"Target", "To talk to one of your characters within the Talk range of "
                  "your squad, press the button on the right, with the name of "
-                 "the NPC, until it shows that character."},
+                 "the NPC, until it shows that character. The chat stays on "
+                 "that character until you select an NPC or press the button "
+                 "again."},
       {"Speaker", "You speak as the squad member that you select. To speak "
                   "as another squad member, select that member, or press the "
                   "button on the left, with the name of the speaker, until it "

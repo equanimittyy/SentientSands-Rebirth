@@ -46,6 +46,7 @@ unsigned int g_lastSpeakerKey = 0;
 MyGUI::Button *g_chatTargetBtn = nullptr;
 std::vector<hand> g_chatTargets;
 size_t g_chatTargetIndex = 0;
+static hand g_chosenChatTarget;
 std::string g_chatTargetHandleStr = "";
 std::string g_chatTargetNameStr = "";
 size_t g_lastChatModeIndex = 1;
@@ -560,8 +561,11 @@ static void ShowChatTarget() {
 
 static void OnChatTargetClick(MyGUI::Widget *sender) {
   g_chatTargetIndex = (g_chatTargetIndex + 1) % g_chatTargets.size();
+  g_chosenChatTarget = g_chatTargets[g_chatTargetIndex];
   ShowChatTarget();
 }
+
+void ForgetChatTarget() { g_chosenChatTarget = hand(); }
 
 static void AddChatHistory(MyGUI::Widget *client, float top, float height) {
   g_chatHistoryText = client->createWidgetReal<MyGUI::EditBox>(
@@ -709,6 +713,10 @@ void CreateChatUI(Character *npc) {
     return;
 
   g_chatTargetIndex = 0;
+  for (size_t i = 0; i < g_chatTargets.size(); ++i) {
+    if (g_chatTargets[i] == g_chosenChatTarget)
+      g_chatTargetIndex = i;
+  }
   g_chatSpeakers.clear();
   g_chatJustOpened = true;
   BuildChatWindow(gui);

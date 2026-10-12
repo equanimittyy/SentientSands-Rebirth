@@ -1095,8 +1095,15 @@ void playerUpdate_hook(PlayerInterface *thisptr) {
   bool typing = keyFocus && keyFocus->isType<MyGUI::EditBox>();
 
   static hand lastNpc;
-  if (sel && (uintptr_t)sel > 0x1000 && !InPlayerFaction(sel))
-    lastNpc = sel->getHandle();
+  static hand lastPick;
+  hand pick = sel && (uintptr_t)sel > 0x1000 ? sel->getHandle() : hand();
+  if (sel && (uintptr_t)sel > 0x1000 && !InPlayerFaction(sel)) {
+    // Each frame sees the NPC that stays selected, which would undo the button
+    if (pick != lastPick)
+      ForgetChatTarget();
+    lastNpc = pick;
+  }
+  lastPick = pick;
 
   // Only a change moves the speaker, so the speaker button still cycles
   static hand lastSelected;
