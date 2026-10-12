@@ -530,6 +530,7 @@ def chat():
             # The request of the barter window names no offer tag, because only the player sets a deal that the window can accept
             request_prompt = ("prompt_action_barter_table.txt" if barter
                               else "prompt_action_liberate_breakout.txt" if category == "LIBERATE" and action_dialogue.breaks_out(ctx_dict, speaker)
+                              else "prompt_action_follow_mercenary.txt" if category == "FOLLOW" and action_dialogue.mercenary_rate(ctx_dict)
                               else f"prompt_action_{category.lower()}.txt")
             wanted = fill_prompt(request_prompt, speaker=player_name, **goods)
             action_rules = fill_prompt("prompt_action_rules.txt", request=wanted)

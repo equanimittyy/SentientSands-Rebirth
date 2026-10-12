@@ -73,6 +73,13 @@ class CheckTest(unittest.TestCase):
         rich = {**SPEAKER, "money": 5000}
         self.assertIsNotNone(check("FOLLOW", "[OFFER: HIRE: 2 days; TAKE_CATS: 4000]", npc=merc, speaker=rich)[0])
         self.assertIsNotNone(check("FOLLOW", "[OFFER: HIRE: 6 hours; TAKE_CATS: 500]", npc=merc)[0])
+        self.assertIsNone(check("FOLLOW", "[OFFER: HIRE: 1 day; TAKE_CATS: 0]", npc=merc)[0])
+
+    def test_a_part_of_0_cats_is_no_cats(self):
+        hire, _ = check("FOLLOW", "[OFFER: HIRE: 1 day; TAKE_CATS: 0]")
+        self.assertEqual((hire["gives"], hire["takes"]), ([("HIRE", 24)], []))
+        self.assertIsNone(check("FOLLOW", "[OFFER: HIRE: 1 day; TAKE_CATS]")[0])
+        self.assertIsNone(check("BARTER", "[OFFER: TAKE_CATS: 0]")[0])
 
     def test_a_release_costs_a_bribe_on_top_of_the_bounty(self):
         self.assertIsNone(check("LIBERATE", "[OFFER: RELEASE]", npc=GUARD)[0])
@@ -338,6 +345,7 @@ class FactsTest(unittest.TestCase):
 
     def test_a_mercenary_names_its_rate(self):
         self.assertIn("at least 2,500 cats for each day", offers.facts("FOLLOW", {**NPC, "faction": "Black Dog"}, SPEAKER, "Zaps", []))
+        self.assertNotIn("DEAL FACTS", offers.facts("FOLLOW", NPC, SPEAKER, "Zaps", []))
 
 
 if __name__ == "__main__":

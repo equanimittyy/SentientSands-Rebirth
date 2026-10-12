@@ -176,6 +176,7 @@ class LeanTest(unittest.TestCase):
     def test_a_npc_that_is_no_mercenary_is_wary_of_following(self):
         self.assertEqual(score("FOLLOW", {}, {}, 0), -1)
         self.assertEqual(score("FOLLOW", {"faction": "Tech Hunters"}, {}, 0), 0)
+        self.assertEqual(ad.thought(ad.lean("FOLLOW", {}, {}, 0), "Zaps"), "You could go either way.\n- Reasons to refuse: You have no reason to follow Zaps.")
 
     def test_a_threat_counts_strength_and_numbers(self):
         strong = {"stats": {"melee_attack": 40, "melee_defence": 40}, "faction": "Nameless", "name": "Zaps", "squad": ["Zaps", "Zip"]}

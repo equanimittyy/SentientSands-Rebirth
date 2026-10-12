@@ -217,10 +217,12 @@ def check(category, parts, npc, speaker, squad=None):
         if name not in GIVES[category] | TAKES[category]:
             return None, f"{name} is not a part of a {category} deal"
         if name in ("GIVE_CATS", "TAKE_CATS"):
-            count = count_of(argument)
-            if count < 1:
+            if not re.search(r"\d", argument):
                 return None, f"{name} has no count"
-            parsed.append((name, count))
+            count = count_of(argument)
+            # A model that agrees to a deal for free can still write TAKE_CATS: 0
+            if count:
+                parsed.append((name, count))
         elif name in ("GIVE_ITEM", "TAKE_ITEM"):
             count, item = item_of(argument)
             if count < 1:
@@ -566,10 +568,8 @@ def facts(category, npc, speaker, player_name, lean, said="", table=(), relation
                      else (f"release {player_name}", "a bribe"))
         lines.append(f"You {deed} only for {pay} of at least {release_fee(speaker):,} cats"
                      + (f": the bounty of {bounty:,} cats on {player_name}, and {RELEASE_BRIBE} more." if bounty else "."))
-    if category == "FOLLOW":
-        rate = action_dialogue.mercenary_rate(npc)
-        lines.append(f"You are a mercenary: you never follow for free, and you charge at least {rate:,} cats for each day." if rate
-                     else "You are no mercenary, so you ask no fee to follow.")
+    if category == "FOLLOW" and action_dialogue.mercenary_rate(npc):
+        lines.append(f"You are a mercenary: you never follow for free, and you charge at least {action_dialogue.mercenary_rate(npc):,} cats for each day.")
     deal = "DEAL FACTS:\n" + "\n".join(f"- {line}" for line in lines) + "\n\n" if lines else ""
     thought = action_dialogue.thought(lean, player_name)
     # The turn message comes before the reply, so the server cannot tell a plea from a trade, and a plea gets its own band

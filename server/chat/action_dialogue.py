@@ -180,7 +180,7 @@ def lean(category, npc, speaker, relation, overheard=()):
                   (-bool(npc.get("unique")), "You are no common drifter."),
                   (-is_guard(npc), "You are a guard."),
                   (-is_trader(npc), "You have a trade to run."),
-                  (-(category == "FOLLOW" and not mercenary_rate(npc)), "You are no mercenary.")]
+                  (-(category == "FOLLOW" and not mercenary_rate(npc)), "You have no reason to follow {player}.")]
     return [(int(bonus), reason) for bonus, reason in pairs if bonus]
 
 
