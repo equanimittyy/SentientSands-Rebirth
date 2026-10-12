@@ -94,9 +94,10 @@ std::string ToString(unsigned int val) { return ToStringT(val); }
 std::string ToString(float val) { return ToStringT(val); }
 
 std::string EscapeJSON(const std::string &s) {
-  std::string res = "";
+  static const char HEX[] = "0123456789abcdef";
+  std::string res;
   for (size_t i = 0; i < s.length(); ++i) {
-    char c = s[i];
+    unsigned char c = (unsigned char)s[i];
     if (c == '\"')
       res += "\\\"";
     else if (c == '\\')
@@ -105,69 +106,106 @@ std::string EscapeJSON(const std::string &s) {
       res += "\\n";
     else if (c == '\r')
       res += "\\r";
-    else
-      res += c;
+    else if (c == '\t')
+      res += "\\t";
+    else if (c < 0x20) {
+      // Python's json rejects a raw control character in a string
+      res += "\\u00";
+      res += HEX[c >> 4];
+      res += HEX[c & 15];
+    } else
+      res += s[i];
   }
   return res;
 }
 
-std::string UnescapeJSON(const std::string &s) {
-  std::string res = "";
-  for (size_t i = 0; i < s.length(); ++i) {
-    if (s[i] == '\\' && i + 1 < s.length()) {
-      if (s[i + 1] == 'n') {
-        res += '\n';
-        i++;
-      } else if (s[i + 1] == 'r') {
-        res += '\r';
-        i++;
-      } else if (s[i + 1] == '\"') {
-        res += '\"';
-        i++;
-      } else if (s[i + 1] == '\\') {
-        res += '\\';
-        i++;
-      } else if (s[i + 1] == 'u' && i + 5 < s.length()) {
-        unsigned int cp = 0;
-        bool valid = true;
-        for (int j = 0; j < 4; ++j) {
-          char c = s[i + 2 + j];
-          cp <<= 4;
-          if (c >= '0' && c <= '9')
-            cp += (c - '0');
-          else if (c >= 'a' && c <= 'f')
-            cp += (10 + c - 'a');
-          else if (c >= 'A' && c <= 'F')
-            cp += (10 + c - 'A');
-          else {
-            valid = false;
-            break;
-          }
-        }
+static bool ReadHex4(const std::string &s, size_t at, unsigned int &value) {
+  if (at + 4 > s.length())
+    return false;
+  value = 0;
+  for (size_t j = at; j < at + 4; ++j) {
+    char c = s[j];
+    value <<= 4;
+    if (c >= '0' && c <= '9')
+      value += c - '0';
+    else if (c >= 'a' && c <= 'f')
+      value += 10 + c - 'a';
+    else if (c >= 'A' && c <= 'F')
+      value += 10 + c - 'A';
+    else
+      return false;
+  }
+  return true;
+}
 
-        if (valid) {
-          if (cp <= 0x7F) {
-            res += (char)cp;
-          } else if (cp <= 0x7FF) {
-            res += (char)(0xC0 | ((cp >> 6) & 0x1F));
-            res += (char)(0x80 | (cp & 0x3F));
-          } else {
-            res += (char)(0xE0 | ((cp >> 12) & 0x0F));
-            res += (char)(0x80 | ((cp >> 6) & 0x3F));
-            res += (char)(0x80 | (cp & 0x3F));
-          }
-          i += 5; // skip uXXXX
-        } else {
-          res += s[i];
-        }
-      } else {
-        res += s[i];
-      }
-    } else {
+static void AppendUtf8(std::string &out, unsigned int cp) {
+  if (cp <= 0x7F) {
+    out += (char)cp;
+  } else if (cp <= 0x7FF) {
+    out += (char)(0xC0 | (cp >> 6));
+    out += (char)(0x80 | (cp & 0x3F));
+  } else if (cp <= 0xFFFF) {
+    out += (char)(0xE0 | (cp >> 12));
+    out += (char)(0x80 | ((cp >> 6) & 0x3F));
+    out += (char)(0x80 | (cp & 0x3F));
+  } else {
+    out += (char)(0xF0 | (cp >> 18));
+    out += (char)(0x80 | ((cp >> 12) & 0x3F));
+    out += (char)(0x80 | ((cp >> 6) & 0x3F));
+    out += (char)(0x80 | (cp & 0x3F));
+  }
+}
+
+std::string UnescapeJSON(const std::string &s) {
+  std::string res;
+  for (size_t i = 0; i < s.length(); ++i) {
+    if (s[i] != '\\' || i + 1 == s.length()) {
       res += s[i];
+      continue;
+    }
+    char e = s[++i];
+    unsigned int cp, low;
+    if (e == 'n')
+      res += '\n';
+    else if (e == 'r')
+      res += '\r';
+    else if (e == 't')
+      res += '\t';
+    else if (e == 'b')
+      res += '\b';
+    else if (e == 'f')
+      res += '\f';
+    else if (e == '"' || e == '\\' || e == '/')
+      res += e;
+    else if (e == 'u' && ReadHex4(s, i + 1, cp)) {
+      i += 4;
+      // Flask escapes a character outside the BMP as a surrogate pair
+      if (cp >= 0xD800 && cp <= 0xDBFF && s.compare(i + 1, 2, "\\u") == 0 &&
+          ReadHex4(s, i + 3, low) && low >= 0xDC00 && low <= 0xDFFF) {
+        cp = 0x10000 + ((cp - 0xD800) << 10) + (low - 0xDC00);
+        i += 6;
+      }
+      AppendUtf8(res, cp);
+    } else {
+      res += '\\';
+      res += e;
     }
   }
   return res;
+}
+
+// Past the closing quote of the string that opens at quote, or npos
+static size_t ReadJsonString(const std::string &json, size_t quote,
+                             std::string &out) {
+  for (size_t i = quote + 1; i < json.length(); ++i) {
+    if (json[i] == '\\') {
+      ++i;
+    } else if (json[i] == '"') {
+      out = UnescapeJSON(json.substr(quote + 1, i - quote - 1));
+      return i + 1;
+    }
+  }
+  return std::string::npos;
 }
 
 std::string GetJsonValue(const std::string &json, const std::string &key) {
@@ -182,19 +220,8 @@ std::string GetJsonValue(const std::string &json, const std::string &key) {
     return "";
 
   if (json[valStart] == '\"') {
-    valStart++;
-    std::string res = "";
-    for (size_t i = valStart; i < json.length(); ++i) {
-      if (json[i] == '\\' && i + 1 < json.length()) {
-        res += json[i];
-        res += json[i + 1];
-        i++;
-      } else if (json[i] == '\"') {
-        return UnescapeJSON(res);
-      } else {
-        res += json[i];
-      }
-    }
+    std::string res;
+    return ReadJsonString(json, valStart, res) == std::string::npos ? "" : res;
   } else if (json[valStart] == '[' || json[valStart] == '{') {
     char open = json[valStart];
     char close = (open == '[') ? ']' : '}';
@@ -202,16 +229,17 @@ std::string GetJsonValue(const std::string &json, const std::string &key) {
     bool inString = false;
     size_t i = valStart;
     for (; i < json.length(); i++) {
-      if (json[i] == '"' && (i == 0 || json[i - 1] != '\\')) {
-        inString = !inString;
-      } else if (!inString) {
-        if (json[i] == open)
-          bracketCount++;
-        else if (json[i] == close) {
-          bracketCount--;
-          if (bracketCount == 0)
-            break;
-        }
+      if (inString) {
+        if (json[i] == '\\')
+          i++;
+        else if (json[i] == '"')
+          inString = false;
+      } else if (json[i] == '"') {
+        inString = true;
+      } else if (json[i] == open) {
+        bracketCount++;
+      } else if (json[i] == close && --bracketCount == 0) {
+        break;
       }
     }
     if (i < json.length() && json[i] == close) {
@@ -265,31 +293,13 @@ void LoadUITranslation(const std::string &json) {
     return;
 
   std::map<std::string, std::string> table;
-  size_t pos = 1;
-  while (pos < uiTransJson.length() - 1) {
-    size_t q1 = uiTransJson.find('"', pos);
-    if (q1 == std::string::npos)
-      break;
-    size_t q2 = uiTransJson.find('"', q1 + 1);
-    if (q2 == std::string::npos)
-      break;
-    std::string key = uiTransJson.substr(q1 + 1, q2 - q1 - 1);
-
-    size_t colon = uiTransJson.find(':', q2);
-    if (colon == std::string::npos)
-      break;
-
-    size_t v1 = uiTransJson.find('"', colon);
-    if (v1 == std::string::npos)
-      break;
-    size_t v2 = uiTransJson.find('"', v1 + 1);
-    if (v2 == std::string::npos)
-      break;
-    std::string val = uiTransJson.substr(v1 + 1, v2 - v1 - 1);
-
-    table[UnescapeJSON(key)] = UnescapeJSON(val);
-    pos = v2 + 1;
-  }
+  size_t pos = 0;
+  std::string key, val;
+  while ((pos = uiTransJson.find('"', pos)) != std::string::npos &&
+         (pos = ReadJsonString(uiTransJson, pos, key)) != std::string::npos &&
+         (pos = uiTransJson.find('"', pos)) != std::string::npos &&
+         (pos = ReadJsonString(uiTransJson, pos, val)) != std::string::npos)
+    table[key] = val;
   EnterCriticalSection(&g_stateMutex);
   g_uiTranslation.swap(table);
   LeaveCriticalSection(&g_stateMutex);
