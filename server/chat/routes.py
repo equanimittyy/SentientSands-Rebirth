@@ -528,7 +528,10 @@ def chat():
         if category:
             goods = {"stock": offers.stocktake(ctx_dict)} if category == "BARTER" else {}
             # The request of the barter window names no offer tag, because only the player sets a deal that the window can accept
-            wanted = fill_prompt("prompt_action_barter_table.txt" if barter else f"prompt_action_{category.lower()}.txt", speaker=player_name, **goods)
+            request_prompt = ("prompt_action_barter_table.txt" if barter
+                              else "prompt_action_liberate_breakout.txt" if category == "LIBERATE" and action_dialogue.breaks_out(ctx_dict, speaker)
+                              else f"prompt_action_{category.lower()}.txt")
+            wanted = fill_prompt(request_prompt, speaker=player_name, **goods)
             action_rules = fill_prompt("prompt_action_rules.txt", request=wanted)
         final_instruction = f"Reply as {primary_npc}{', quietly' if mode == 'whisper' else ''}. End with [JUDGMENT: n]."
 

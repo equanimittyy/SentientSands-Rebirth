@@ -316,6 +316,22 @@ static std::string FactionName(Faction *faction) {
   return "Neutral";
 }
 
+static std::string FactionID(Faction *faction) {
+  if (!faction)
+    return "Neutral";
+  if (faction->data && !faction->data->stringID.empty())
+    return faction->data->stringID;
+  return FactionName(faction);
+}
+
+static Faction *CageFaction(Character *prisoner) {
+  RootObjectBase *cage = prisoner->inWhat.getRootObjectBase();
+  if (!cage || (uintptr_t)cage < 0x1000)
+    return nullptr;
+  Faction *faction = cage->getFaction();
+  return faction && (uintptr_t)faction > 0x1000 ? faction : nullptr;
+}
+
 std::string EventParty(Character *npc) {
   Faction *faction = CharacterFaction(npc);
   return "{\"id\": \"" + EscapeJSON(GetNpcId(npc)) + "\", \"template_id\": \"" +
@@ -1069,6 +1085,7 @@ std::string GetDetailedContext(Character *npc, const std::string &type) {
   }
 
   std::string charState = "normal";
+  Faction *captors = nullptr;
   bool isDead = false;
   bool isUnconcious = false;
   try {
@@ -1081,6 +1098,7 @@ std::string GetDetailedContext(Character *npc, const std::string &type) {
         charState = "unconscious";
       } else if (npc->inSomething == IN_PRISON) {
         charState = "imprisoned";
+        captors = CageFaction(npc);
       } else {
         try {
           SlaveStateEnum slaveState = npc->isSlave();
@@ -1096,6 +1114,10 @@ std::string GetDetailedContext(Character *npc, const std::string &type) {
   } catch (...) {
   }
   json += "\"character_state\": \"" + charState + "\",";
+  json += "\"captors\": \"" +
+          EscapeJSON(captors ? FactionName(captors) : std::string()) + "\",";
+  json += "\"captorsID\": \"" +
+          EscapeJSON(captors ? FactionID(captors) : std::string()) + "\",";
   json += "\"health\": \"" + GetHealthStatus(npc) + "\",";
 
   bool slave = false;
@@ -1165,15 +1187,8 @@ std::string GetDetailedContext(Character *npc, const std::string &type) {
 
   Faction *faction = CharacterFaction(npc);
   std::string factionName = FactionName(faction);
-  std::string factionID = "Neutral";
-  if (faction) {
-    if (faction->data && !faction->data->stringID.empty())
-      factionID = faction->data->stringID;
-    else
-      factionID = factionName;
-  }
   json += "\"faction\": \"" + EscapeJSON(factionName) + "\",";
-  json += "\"factionID\": \"" + EscapeJSON(factionID) + "\",";
+  json += "\"factionID\": \"" + EscapeJSON(FactionID(faction)) + "\",";
 
   std::string job = "None";
   try {
