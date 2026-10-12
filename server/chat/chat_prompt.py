@@ -50,7 +50,8 @@ def heard_line(time_prefix, reader, speaker, addressee, text, mode_tag=""):
     as itself."""
     if reader in (speaker[0], addressee[0]):
         return f"{time_prefix}{mode_tag}{speaker[1]}: {text}"
-    return f"{time_prefix}(Overheard) {mode_tag}{speaker[1]} to {addressee[1]}: {text}"
+    addressed = "themself" if speaker[0] and speaker[0] == addressee[0] else addressee[1]
+    return f"{time_prefix}(Overheard) {mode_tag}{speaker[1]} to {addressed}: {text}"
 
 
 def _overheard(line):

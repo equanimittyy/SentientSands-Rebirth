@@ -28,6 +28,9 @@ class SpokenTest(unittest.TestCase):
         self.assertEqual(spoken("Beep: Beep agrees."), "Beep agrees.")
         self.assertEqual(spoken("**Beep**: Beep agrees."), "Beep agrees.")
 
+    def test_the_own_label_goes_when_the_npc_also_spoke_the_line(self):
+        self.assertEqual(reply_text.spoken("Beep: Beep answers Beep.", OWN, OTHERS | OWN), "Beep answers Beep.")
+
     def test_a_label_of_no_known_name_stays(self):
         self.assertEqual(spoken("Listen: Beep knows a secret."), "Listen: Beep knows a secret.")
 

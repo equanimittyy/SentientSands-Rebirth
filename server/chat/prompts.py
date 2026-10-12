@@ -49,7 +49,7 @@ def describe_race(race):
     entry = find_race(race)
     return describe_record(entry) if entry else f"{race}: The campaign has no entry for this race."
 
-def npc_scene(context, profile, player_name, met, companions, partners, player_stats):
+def npc_scene(context, profile, player_name, met, companions, partners, player_stats, self_talk=False):
     faction = context.get("faction") or context.get("Faction", "Unknown")
     player_faction = state.PLAYER_CONTEXT.get("faction", "Nameless")
     in_player_faction = is_player_faction(faction, context.get("factionID"))
@@ -59,7 +59,8 @@ def npc_scene(context, profile, player_name, met, companions, partners, player_s
     faction_description = "" if in_player_faction else record.get("description", "")
     return scene_text.npc_text(context, profile, player_name, player_faction, met=met,
                                major=major, in_player_faction=in_player_faction, feels_hunger=not is_skeleton(profile.get("Race", "")),
-                               faction_description=faction_description, companions=companions, partners=partners, player_stats=player_stats)
+                               faction_description=faction_description, companions=companions, partners=partners, player_stats=player_stats,
+                               self_talk=self_talk)
 
 def load_prompt_component(filename):
     text = prompt_store.load(filename, PROMPTS_DIR, USER_PROMPTS_DIR)
@@ -132,7 +133,7 @@ def build_system_prompt(reply_rules=True):
     )
     return prompt.strip()
 
-def scene_values(player, player_name):
+def scene_values(player, player_name, self_talk=False):
     rumors = [(rumor["game_time"], rumor["text"]) for rumor in campaign_db.rumors()[-PROMPT_RUMORS:]]
     race = player.get("race", "Unknown")
     race_entry = find_race(race)
@@ -142,7 +143,8 @@ def scene_values(player, player_name):
     return {
         "location": " ".join(part for part in (scene_text.location_text(environment), (location or {}).get("change")) if part),
         "rumors": scene_text.rumors_text(rumors, state.PLAYER_CONTEXT.get("day")),
-        "player": scene_text.player_text(
+        # The NPC section already describes an NPC that talks to itself
+        "player": "" if self_talk else scene_text.player_text(
             player_name, race, reported_sex(race, player.get("gender", "Unknown")),
             race_entry.get("description", "") if race_entry else "",
             player.get("medical") or {}, not is_skeleton(race),

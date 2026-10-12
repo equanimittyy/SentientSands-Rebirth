@@ -3,7 +3,7 @@ Task: Distil the conversation below into the memory that each person who was the
 
 RULES:
 - LENGTH: At most 50 words of plain text in at most three sentences, with no heading and no list. A short conversation gets a shorter memory.
-- WHO: Name who spoke with whom, and call each speaker by name.
+- WHO: Name who spoke with whom, and call each speaker by name. If only one person spoke, that person talked to themself.
 - GIST: Tell what came of the conversation: what was traded, agreed, refused, promised, or threatened; the names, places, and numbers that a speaker gave; and what stayed open at the end. When a speaker refused, mocked, or took offence at something, say what it was in the words that were said. Never soften a crude word.
 - NO RECOUNT: Never retell the lines one by one or in their order, and never write "then". Merge the lines into what came of them.
 - QUOTE: Quote at most one line, in its exact words in double quotes, and at most 15 words of it. Quote only a line that a person repeats days later, such as an insult, a threat, a vow, or a strange claim. Never quote a routine line, such as a price. If no line stood out, quote nothing. Words in double quotes that only name a thing are not this quote.

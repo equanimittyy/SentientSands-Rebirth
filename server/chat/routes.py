@@ -397,8 +397,11 @@ def chat():
     if speaker_id:
         merge_live_context(speaker)
         npc_name(speaker)
-    # Not the speaker, so the squad members that take turns with the NPC share one thread and one memory
-    thread_key = (primary_id, mode)
+    # A yell at the speaker itself is a yell at everyone
+    self_talk = bool(speaker_id) and speaker_id == primary_id and mode != "yell"
+    # Not the speaker, so the squad members that take turns with the NPC share one thread and one memory. Talk with itself
+    # stays apart, or the memory would take the words of the NPC to itself as words to a squad member.
+    thread_key = (primary_id, mode, "self") if self_talk else (primary_id, mode)
     with state.THREAD_LOCK:
         current_thread, action = thread_of(thread_key, speaker_id)
         state.restart_quiet_clock()
@@ -517,11 +520,12 @@ def chat():
     mates = window.get("squad") if barter else None
 
     # A rule that rated the player's politeness let a scornful NPC warm up with each apology
-    judgment = "JUDGMENT: End every reply with [JUDGMENT: n], the change that the player's line makes to how you feel about the player, from -5 (it angers, frightens, hurts, or offends you) to 5 (it pleases you); 0 is no change. Judge by your personality, not by how polite the line is."
+    judgment = "" if self_talk else "JUDGMENT: End every reply with [JUDGMENT: n], the change that the player's line makes to how you feel about the player, from -5 (it angers, frightens, hurts, or offends you) to 5 (it pleases you); 0 is no change. Judge by your personality, not by how polite the line is."
+    judged_end = "" if self_talk else " End with [JUDGMENT: n]."
     action_rules = ""
     if animal:
         system_prompt = fill_prompt("prompt_animal_system.txt", language_instruction=language_instruction())
-        final_instruction = f"Reply as {primary_npc} with one action or sound in asterisks, and no words. End with [JUDGMENT: n]."
+        final_instruction = f"Reply as {primary_npc} with one action or sound in asterisks, and no words.{judged_end}"
     else:
         system_prompt = build_system_prompt()
         if category:
@@ -532,7 +536,7 @@ def chat():
                               else f"prompt_action_{category.lower()}.txt")
             wanted = fill_prompt(request_prompt, speaker=player_name, **goods)
             action_rules = fill_prompt("prompt_action_rules.txt", request=wanted)
-        final_instruction = f"Reply as {primary_npc}{', quietly' if mode == 'whisper' else ''}. End with [JUDGMENT: n]."
+        final_instruction = f"{'Answer yourself' if self_talk else 'Reply'} as {primary_npc}{', quietly' if mode == 'whisper' else ''}.{judged_end}"
 
     mode_tag = {"whisper": "(Whispered) ", "yell": "(Yelled) "}.get(mode, "")
     time_prefix = get_current_time_prefix()
@@ -555,9 +559,9 @@ def chat():
         player = speaker or state.PLAYER_CONTEXT
         scene = fill_prompt(
             "prompt_chat_scene.txt",
-            **scene_values(player, player_name),
+            **scene_values(player, player_name, self_talk),
             npc=npc_scene(ctx_dict or primary_data, primary_data, player_name, met, [names[i] for i in others if i not in partners and names.get(i) in squad],
-                          [names[i] for i in partners if names.get(i) in squad], player.get("stats") or {}),
+                          [names[i] for i in partners if names.get(i) in squad], player.get("stats") or {}, self_talk),
         )
         state.CONVERSATION_SCENE.clear()
         state.CONVERSATION_SCENE[conversation] = scene
@@ -614,7 +618,8 @@ def chat():
     
     if content:
         judged = re.search(r'\[[^\]]*JUDGMENT\D*?(-?\d+)[^\]]*\]', content, re.IGNORECASE)
-        judgment_value = max(-5, min(5, int(judged.group(1)))) if judged else 0
+        # The prompt of an NPC that talks to itself asks for no judgment, but a model can still write one
+        judgment_value = max(-5, min(5, int(judged.group(1)))) if judged and not self_talk else 0
         outcome, offer = None, None
         if category == "THREATEN" and offers.attacked(content):
             outcome = "attack"

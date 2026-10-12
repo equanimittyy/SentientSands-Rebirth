@@ -143,11 +143,13 @@ def overheard_note(listeners, partners):
 
 
 def memory_header(partners, listeners, overheard):
-    """partners are the other speakers of the conversation, and listeners its overhearers of the player's faction."""
+    """partners are the other speakers of the conversation, and listeners its overhearers of the player's faction. No
+    partners means that the NPC talked to itself."""
     if overheard:
         return f"You overheard {_join(partners)}."
     heard = f" {_join(listeners)} heard it." if listeners else ""
-    return f"You spoke with {_join(partners)}.{heard}"
+    spoke = f"You spoke with {_join(partners)}." if partners else "You talked to yourself."
+    return f"{spoke}{heard}"
 
 
 def conversation_label(partners, listeners, overheard):
@@ -170,7 +172,8 @@ def _conversation(partners, listeners, overheard):
     if overheard:
         return f"overheard conversation of {_join(partners)}"
     heard = f", heard by {_join(listeners)}" if listeners else ""
-    return f"conversation with {_join(partners)}{heard}"
+    talk = f"conversation with {_join(partners)}" if partners else "talk with oneself"
+    return f"{talk}{heard}"
 
 
 def hunger_text(subject, food_level):
@@ -308,18 +311,19 @@ def player_text(name, race, sex, race_description, medical, feels_hunger, factio
     ])
 
 
-def npc_text(context, profile, player_name, player_faction, *, met, major, in_player_faction, feels_hunger, faction_description="", companions=(), partners=(), player_stats=None):
+def npc_text(context, profile, player_name, player_faction, *, met, major, in_player_faction, feels_hunger, faction_description="", companions=(), partners=(), player_stats=None, self_talk=False):
     """context is the live context of the NPC, or its profile when the game has sent none. companions and partners are the
-    names of relation_text, and player_stats the stats of the squad member who talks."""
+    names of relation_text, and player_stats the stats of the squad member who talks. With self_talk the NPC is that squad
+    member, so each sentence that sets the squad member apart from the NPC goes."""
     faction = context.get("faction") or context.get("Faction") or ""
     old_faction = profile.get("Faction")
     task = context.get("job") or ""
     medical = context.get("medical") or {}
     stats = context.get("stats") or {}
-    memories = context.get("memories") or {}
+    memories = {} if self_talk else context.get("memories") or {}
     state = context.get("character_state", "normal")
     sentences = [
-        relation_text(player_name, player_faction, profile.get("Relation", 0), met, companions, partners),
+        "You are talking to yourself." if self_talk else relation_text(player_name, player_faction, profile.get("Relation", 0), met, companions, partners),
         state_text("You", state),
     ]
     if _known(faction) and faction != old_faction:
@@ -333,7 +337,8 @@ def npc_text(context, profile, player_name, player_faction, *, met, major, in_pl
     if context.get("is_leader") and _known(faction):
         sentences.append(f"You lead {faction}.")
     if in_player_faction:
-        sentences.append(f"You travel in {player_name}'s squad, and {player_name} leads it.")
+        if not self_talk:
+            sentences.append(f"You travel in {player_name}'s squad, and {player_name} leads it.")
     else:
         if context.get("relation") is not None and _known(faction):
             stance = _scale(_number(context["relation"]), FACTION_STANCE)
@@ -347,7 +352,7 @@ def npc_text(context, profile, player_name, player_faction, *, met, major, in_pl
         if medical.get("is_unconscious") and state != "unconscious":
             sentences.append(state_text("You", "unconscious"))
     sentences.append(building_text(context, trader))
-    sentences += [combat_text(stats), strength_text(player_name, stats, player_stats or {})]
+    sentences += [combat_text(stats), "" if self_talk else strength_text(player_name, stats, player_stats or {})]
     if "money" in context:
         sentences.append(_scale(_number(context["money"]), MONEY))
     for table, key in ((SHORT_TERM_MEMORIES, "short_term"), (LONG_TERM_MEMORIES, "long_term")):

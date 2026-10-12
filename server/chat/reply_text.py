@@ -16,9 +16,9 @@ _LABEL = re.compile(r"^([^:]{1,63}):\s*")
 
 
 def spoken(content, own_names, other_names):
-    """The lines of the reply as one line, or "" when none is left. The names are lowercase, and other_names holds none of
-    own_names. The own label goes from its line. A line labeled with another name ends the reply, because the lines after
-    it answer words that the model made up for someone else."""
+    """The lines of the reply as one line, or "" when none is left. The names are lowercase. The own label goes from its
+    line, also when other_names holds it, because an NPC that talks to itself is its own speaker. A line labeled with
+    another name ends the reply, because the lines after it answer words that the model made up for someone else."""
     content = _BRACKETS.sub("", content).strip().replace('"', '').strip()
     kept = []
     for line in content.split("\n"):
@@ -32,11 +32,11 @@ def spoken(content, own_names, other_names):
         label = _LABEL.match(line)
         if label:
             name = label.group(1).strip().strip("*").lower()
-            if name in other_names:
-                logging.debug(f"REPLY: Cut the reply at a line voiced as {name}")
-                break
             if name in own_names:
                 line = line[label.end():]
+            elif name in other_names:
+                logging.debug(f"REPLY: Cut the reply at a line voiced as {name}")
+                break
         if line:
             kept.append(line)
     # The plugin shows each line as its own speech bubble, so one reply is one line

@@ -47,9 +47,15 @@ class ScaleTest(unittest.TestCase):
         self.assertEqual(scene_text.memory_header(["Stick"], [], False), "You spoke with Stick.")
         self.assertEqual(scene_text.memory_header(["Stick", "Jorge"], [], True), "You overheard Stick and Jorge.")
 
+    def test_the_memory_header_of_an_npc_that_talked_to_itself(self):
+        self.assertEqual(scene_text.memory_header([], [], False), "You talked to yourself.")
+        self.assertEqual(scene_text.memory_header([], ["Izumi"], False), "You talked to yourself. Izumi heard it.")
+
     def test_the_library_labels_do_not_speak_to_the_npc(self):
         self.assertEqual(scene_text.conversation_label(["Stick"], ["Izumi"], False), "Conversation with Stick, heard by Izumi")
         self.assertEqual(scene_text.memory_label(["Stick", "Jorge"], [], True), "Memory of an overheard conversation of Stick and Jorge")
+        self.assertEqual(scene_text.conversation_label([], ["Izumi"], False), "Talk with oneself, heard by Izumi")
+        self.assertEqual(scene_text.memory_label([], [], False), "Memory of a talk with oneself")
 
     def test_the_faction_stance_bands(self):
         stances = {value: scene_text._scale(value, scene_text.FACTION_STANCE) for value in (-30, -29, -10, -9, 9, 10, 49, 50)}
@@ -182,6 +188,12 @@ class SentenceTest(unittest.TestCase):
         text = scene_text.npc_text({"faction": "Nameless", "relation": 100}, {"Faction": "Nameless"}, "Drifter", "Nameless", met=True, major=False, in_player_faction=True, feels_hunger=True)
         self.assertIn("You travel in Drifter's squad, and Drifter leads it.", text)
         self.assertNotIn("Your faction", text)
+
+    def test_a_squad_member_that_talks_to_itself_meets_no_one(self):
+        context = {"faction": "Nameless", "stats": {"melee_attack": 40}, "memories": {"long_term": [2]}, "environment": {"indoors": True}}
+        text = scene_text.npc_text(context, {"Faction": "Nameless", "Relation": 30}, "Drifter", "Nameless", met=False, major=False, in_player_faction=True, feels_hunger=True,
+                                   companions=["Stick"], player_stats={"melee_attack": 5}, self_talk=True)
+        self.assertEqual(text, "You:\nYou are talking to yourself. You are indoors. You are a seasoned fighter.")
 
     def test_location(self):
         self.assertEqual(scene_text.location_text({"town_name": "Blister Hill"}), "You are in Blister Hill.")

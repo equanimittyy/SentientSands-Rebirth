@@ -71,6 +71,11 @@ class HeardLineTest(unittest.TestCase):
         self.assertEqual(chat_prompt.heard_line("[Day 3, 14:05] ", "h:11", self.STICK, self.JORGE, "Hey!", "(Yelled) "), "[Day 3, 14:05] (Overheard) (Yelled) Stick to Jorge: Hey!")
         self.assertEqual(chat_prompt.heard_line("", "h:11", self.JORGE, self.STICK, "Hm."), "(Overheard) Jorge to Stick: Hm.")
 
+    def test_a_reader_overhears_an_npc_that_talks_to_itself(self):
+        self.assertEqual(chat_prompt.heard_line("", "h:11", self.STICK, self.STICK, "Hm."), "(Overheard) Stick to themself: Hm.")
+        self.assertEqual(chat_prompt.heard_line("", "h:10", self.STICK, self.STICK, "Hm."), "Stick: Hm.")
+        self.assertEqual(chat_prompt.heard_line("", "h:11", (None, "Stick"), (None, "everyone"), "Hey!"), "(Overheard) Stick to everyone: Hey!")
+
 
 class HistoryTurnsTest(unittest.TestCase):
     def test_the_npc_lines_are_assistant_turns_without_time_or_name(self):
