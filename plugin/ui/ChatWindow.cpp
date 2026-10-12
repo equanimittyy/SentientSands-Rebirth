@@ -1,4 +1,5 @@
 #include "ChatWindow.h"
+#include "BarterWindow.h"
 #include "CheatWindow.h"
 #include "OfferWindow.h"
 #include "../core/Comm.h"
@@ -51,6 +52,8 @@ unsigned int g_actionNpcKey = 0;
 std::string g_offerPendingName;
 MyGUI::TextBox *g_chatThreadHeader = nullptr;
 MyGUI::EditBox *g_chatHistoryText = nullptr;
+MyGUI::Button *g_chatBarterBtn = nullptr;
+std::string g_chatBarterThread;
 int g_chatHistoryRequest = 0;
 const float CHAT_INPUT_HEIGHT = 0.18f;
 const float CHAT_HEADER_HEIGHT = 0.035f;
@@ -68,6 +71,7 @@ void CloseChatUI() {
     g_chatSpeakerBtn = nullptr;
     g_chatThreadHeader = nullptr;
     g_chatHistoryText = nullptr;
+    g_chatBarterBtn = nullptr;
   }
 }
 
@@ -142,6 +146,13 @@ DWORD WINAPI ChatResponseThread(LPVOID lpParam) {
     NotifyChatStatus(
         "{name} could not respond. (Something went wrong, is SSR configured?)",
         t->npcName);
+    // The barter window waits for its turn, which the server sends only with
+    // a reply
+    if (t->barter) {
+      EnterCriticalSection(&g_msgMutex);
+      g_messageQueue.push_back("CMD: BARTER_TURN: error");
+      LeaveCriticalSection(&g_msgMutex);
+    }
     delete t;
     return 0;
   }
@@ -233,9 +244,10 @@ void OnChatSendClick(MyGUI::Widget *sender) {
   SendChatLine(npcName, handleStr, speaker, text, mode, "");
 }
 
-void SendChatLine(const std::string &npcName, const std::string &handleStr,
+bool SendChatLine(const std::string &npcName, const std::string &handleStr,
                   Character *speaker, const std::string &text,
-                  const std::string &mode, const std::string &offerAnswer) {
+                  const std::string &mode, const std::string &offerAnswer,
+                  const std::string &barterJson) {
   GameWorld *world = *ppWorld;
   std::string playerName = speaker ? speaker->getName() : "Drifter";
   bool marked = IsActionMark(text);
@@ -257,11 +269,11 @@ void SendChatLine(const std::string &npcName, const std::string &handleStr,
     // server sends the popup again, or says that it holds no offer
     if (!g_offerWindow)
       AsyncPostToPython(L"/offer", "{\"answer\": \"show\"}");
-    return;
+    return false;
   }
   if (!pendingName.empty()) {
     NotifyChatStatus("{name} is still thinking.", pendingName);
-    return;
+    return false;
   }
 
   EnterCriticalSection(&g_msgMutex);
@@ -379,7 +391,8 @@ void SendChatLine(const std::string &npcName, const std::string &handleStr,
       ", \"speaker\": " + speakerContext + ", \"speaker_key\": \"" +
       (speaker ? ToString(HandleKey(speaker)) : std::string()) + "\"" +
       ", \"events\": " + TakeGameEvents() +
-      ", \"changed_towns\": " + ChangedTowns() + "}";
+      ", \"changed_towns\": " + ChangedTowns() +
+      (barterJson.empty() ? "" : ", \"barter\": " + barterJson) + "}";
 
   ChatTask *task = new ChatTask();
   task->json = json;
@@ -387,11 +400,21 @@ void SendChatLine(const std::string &npcName, const std::string &handleStr,
   task->handleStr = handleStr;
   task->action = actionLine;
   task->yell = mode == "yell";
+  task->barter = !barterJson.empty();
   task->offerAnswer = offerAnswer;
   CreateThread(NULL, 0, ChatResponseThread, task, 0, NULL);
+  return true;
 }
 
 void OnChatCancelClick(MyGUI::Widget *sender) { CloseChatUI(); }
+
+static void OnChatBarterClick(MyGUI::Widget *sender) {
+  std::string npcName = g_chatTargetNameStr;
+  std::string handleStr = g_chatTargetHandleStr;
+  std::string thread = g_chatBarterThread;
+  CloseChatUI();
+  ShowBarterUI(npcName, handleStr, thread);
+}
 void OnRadiantClick(MyGUI::Widget *sender) {
   g_triggerRadiant = true;
   CloseChatUI();
@@ -450,6 +473,10 @@ void SetChatHistory(const std::string &data) {
   }
   SetChatThreadHeader(GetJsonValue(reply, "type") + ": " +
                       GetJsonValue(reply, "title"));
+  if (GetJsonValue(reply, "type") == "Barter") {
+    g_chatBarterThread = reply;
+    g_chatBarterBtn->setVisible(true);
+  }
   g_chatHistoryText->setOnlyText(
       Utf8ToWide(GetJsonValue(reply, "lines")).c_str());
   // The view follows the cursor, so the newest line shows
@@ -524,6 +551,14 @@ static void BuildChatWindow(MyGUI::Gui *gui) {
         MyGUI::newDelegate(OnChatSpeakerClick);
     ShowChatSpeaker();
   }
+
+  g_chatBarterBtn = client->createWidgetReal<MyGUI::Button>(
+      "Kenshi_Button1", 0.23f, top + 0.05f * rows, 0.15f, 0.22f * rows,
+      MyGUI::Align::Top | MyGUI::Align::Left, "SentientSands_ChatBarterBtn");
+  g_chatBarterBtn->setCaption(Utf8ToWide(T("Barter")).c_str());
+  g_chatBarterBtn->eventMouseButtonClick +=
+      MyGUI::newDelegate(OnChatBarterClick);
+  g_chatBarterBtn->setVisible(false);
 
   g_chatInput = client->createWidgetReal<MyGUI::EditBox>(
       "Kenshi_EditBox", 0.05f, top + 0.35f * rows, 0.9f, 0.25f * rows,

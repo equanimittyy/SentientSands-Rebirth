@@ -1,6 +1,8 @@
 #pragma once
 #include "ChatUIGlobals.h"
 
+class Character;
+
 namespace SentientSands {
 namespace UI {
 
@@ -9,6 +11,10 @@ extern MyGUI::Window *g_offerWindow;
 void ShowOfferUI(const std::string &data);
 void DropOfferUI();
 void WatchOffer();
+void AcceptOffer();
+std::string DeclineOffer();
+bool MoveOfferToBarter(unsigned int npcKey);
+int MoneyOf(Character *c);
 
 } // namespace UI
 } // namespace SentientSands

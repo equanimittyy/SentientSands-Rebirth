@@ -26,6 +26,7 @@ const PROMPT_INFO = {
   "prompt_action_classify.txt": { group: "Action dialogue", title: "Request pick", blurb: "Picks the kind of request of a line that starts with ! and a space, such as \"! Hand over your cats\", from a numbered list. The list leaves out each kind that the game state rules out." },
   "prompt_action_threaten.txt": { group: "Action dialogue", title: "Threaten request", blurb: "What the player wants in a threaten action dialogue (!t), the offer tag of a handover, and the tag of a fight." },
   "prompt_action_barter.txt": { group: "Action dialogue", title: "Barter request", blurb: "What the player wants in a barter action dialogue (!b)." },
+  "prompt_action_barter_table.txt": { group: "Action dialogue", title: "Barter window", blurb: "Added after the barter request for each line that you send from the Barter window: the tag with which the NPC takes the deal that you put on the table." },
   "prompt_action_heal.txt": { group: "Action dialogue", title: "Heal request", blurb: "What the player wants in a heal action dialogue (!h), and the offer tag of a treatment." },
   "prompt_action_liberate.txt": { group: "Action dialogue", title: "Liberate request", blurb: "What the player wants in a liberate action dialogue (!l), and the offer tag of a release." },
   "prompt_action_recruit.txt": { group: "Action dialogue", title: "Recruit request", blurb: "What the player wants in a recruit action dialogue (!r), the offer tag of a join, and the tag of a refusal." },

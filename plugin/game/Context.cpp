@@ -679,7 +679,7 @@ static const char *ItemKind(Item *item) {
   }
 }
 
-static std::string ItemsJson(const std::vector<Item *> &items) {
+std::string ItemsJson(const std::vector<Item *> &items) {
   std::string json = "[";
   for (uint32_t i = 0; i < items.size(); ++i) {
     // NPCs carry loose cats as items apart from their purse, and the model

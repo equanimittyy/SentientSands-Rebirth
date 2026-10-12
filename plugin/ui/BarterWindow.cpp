@@ -1,0 +1,713 @@
+// The player lays the deal from real items, so the model never writes a deal
+// that the game must run. The held offer stays in OfferWindow.cpp, so Accept,
+// its checks, and the knockout watch work as for the popup.
+#include "BarterWindow.h"
+#include "../core/Comm.h"
+#include "../core/Globals.h"
+#include "../core/Utils.h"
+#include "../game/Context.h"
+#include "ChatWindow.h"
+#include "OfferWindow.h"
+
+#include <kenshi/Character.h>
+#include <kenshi/GameWorld.h>
+#include <kenshi/Item.h>
+#include <kenshi/PlayerInterface.h>
+#include <kenshi/util/hand.h>
+
+#include <mygui/MyGUI_Button.h>
+#include <mygui/MyGUI_Delegate.h>
+#include <mygui/MyGUI_EditBox.h>
+#include <mygui/MyGUI_Gui.h>
+#include <mygui/MyGUI_InputManager.h>
+#include <mygui/MyGUI_ListBox.h>
+#include <mygui/MyGUI_TextBox.h>
+#include <mygui/MyGUI_TextIterator.h>
+#include <mygui/MyGUI_Window.h>
+
+#include <algorithm>
+#include <cmath>
+#include <cstdlib>
+#include <map>
+#include <sstream>
+#include <vector>
+
+namespace SentientSands {
+namespace UI {
+
+MyGUI::Window *g_barterWindow = nullptr;
+static MyGUI::EditBox *g_barterHistory = nullptr;
+static MyGUI::EditBox *g_barterInput = nullptr;
+static MyGUI::EditBox *g_barterCats[2] = {nullptr, nullptr};
+static MyGUI::ListBox *g_barterLists[4] = {nullptr, nullptr, nullptr, nullptr};
+static MyGUI::Button *g_barterPickBtn = nullptr;
+static MyGUI::Button *g_barterSendBtn = nullptr;
+static MyGUI::Button *g_barterAcceptBtn = nullptr;
+static MyGUI::TextBox *g_barterPurses[2] = {nullptr, nullptr};
+static MyGUI::TextBox *g_barterStatus = nullptr;
+static MyGUI::TextBox *g_barterEstimate = nullptr;
+
+enum { INVENTORY, MINE, THEIRS, STOCK };
+enum { PLAYER_SIDE, NPC_SIDE };
+
+// The NPC holds its side with the key 0, which no character gets
+struct Lot {
+  unsigned int holder;
+  std::string label;
+  int count;
+};
+
+struct Deal {
+  int cats[2];
+  std::vector<Lot> lots[2];
+};
+
+static Deal g_deal;
+static Deal g_agreed;
+static bool g_offerHeld = false;
+static std::vector<Lot> g_shown[4];
+static std::string g_barterNpcName;
+static std::string g_barterHandle;
+static std::string g_barterMode;
+static unsigned int g_barterNpcKey = 0;
+static unsigned int g_barterSpeakerKey = 0;
+static bool g_barterTrader = false;
+static std::vector<hand> g_barterSquad;
+static size_t g_barterPick = 0;
+static bool g_barterWaiting = false;
+static float g_barterShares[2] = {0.0f, 0.0f};
+// The NPC's goods set the price of an item that both sides hold, at its
+// highest (offers.price_of)
+static std::map<std::string, int> g_npcPrices;
+static std::map<std::string, int> g_squadPrices;
+
+static std::string Fill(std::string text, const std::string &slot,
+                        const std::string &value) {
+  size_t at = text.find(slot);
+  if (at != std::string::npos)
+    text.replace(at, slot.size(), value);
+  return text;
+}
+
+static void SetCaption(MyGUI::TextBox *widget, const std::string &text) {
+  widget->setCaption(Utf8ToWide(text).c_str());
+}
+
+static void SetStatus(const std::string &key) {
+  SetCaption(g_barterStatus, Fill(T(key), "{name}", g_barterNpcName));
+}
+
+static int LotCount(const std::vector<Lot> &lots, unsigned int holder,
+                    const std::string &label) {
+  for (size_t i = 0; i < lots.size(); ++i)
+    if (lots[i].holder == holder && lots[i].label == label)
+      return lots[i].count;
+  return 0;
+}
+
+static void AddLot(std::vector<Lot> &lots, unsigned int holder,
+                   const std::string &label, int count) {
+  for (size_t i = 0; i < lots.size(); ++i) {
+    if (lots[i].holder == holder && lots[i].label == label) {
+      lots[i].count += count;
+      return;
+    }
+  }
+  Lot lot = {holder, label, count};
+  lots.push_back(lot);
+}
+
+static void TakeLot(std::vector<Lot> &lots, unsigned int holder,
+                    const std::string &label, int count) {
+  for (size_t i = 0; i < lots.size(); ++i) {
+    if (lots[i].holder == holder && lots[i].label == label) {
+      lots[i].count -= count;
+      if (lots[i].count <= 0)
+        lots.erase(lots.begin() + i);
+      return;
+    }
+  }
+}
+
+static bool LotBefore(const Lot &a, const Lot &b) {
+  return a.holder != b.holder ? a.holder < b.holder : a.label < b.label;
+}
+
+static std::vector<Lot> Holdings(Character *c, unsigned int holder,
+                                 bool shop) {
+  std::vector<Lot> lots;
+  if (!c)
+    return lots;
+  std::vector<Item *> items;
+  GetAllCharacterItems(c, items);
+  if (shop)
+    GetShopItems(c, items);
+  for (size_t i = 0; i < items.size(); ++i)
+    if (items[i] && items[i]->itemFunction != ITEM_MONEY)
+      AddLot(lots, holder, ItemLabel(items[i]), items[i]->quantity);
+  std::sort(lots.begin(), lots.end(), LotBefore);
+  return lots;
+}
+
+static void NotePrices(Character *c, bool shop,
+                       std::map<std::string, int> &prices) {
+  if (!c)
+    return;
+  std::vector<Item *> items;
+  GetAllCharacterItems(c, items);
+  if (shop)
+    GetShopItems(c, items);
+  for (size_t i = 0; i < items.size(); ++i) {
+    if (!items[i] || items[i]->itemFunction == ITEM_MONEY)
+      continue;
+    int price = 0;
+    try {
+      price = items[i]->getValueSingle(false);
+    } catch (...) {
+      price = 0;
+    }
+    int &best = prices[ItemLabel(items[i])];
+    best = std::max(best, price);
+  }
+}
+
+static std::vector<Lot> Left(const std::vector<Lot> &held,
+                             const std::vector<Lot> &offered) {
+  std::vector<Lot> left;
+  for (size_t i = 0; i < held.size(); ++i) {
+    Lot lot = held[i];
+    lot.count -= LotCount(offered, lot.holder, lot.label);
+    if (lot.count > 0)
+      left.push_back(lot);
+  }
+  return left;
+}
+
+static int CatsIn(MyGUI::EditBox *box) {
+  return std::max(0, atoi(box->getCaption().asUTF8().c_str()));
+}
+
+static Deal TableDeal() {
+  Deal deal = g_deal;
+  deal.cats[PLAYER_SIDE] = CatsIn(g_barterCats[PLAYER_SIDE]);
+  deal.cats[NPC_SIDE] = CatsIn(g_barterCats[NPC_SIDE]);
+  return deal;
+}
+
+static bool SameDeal(Deal a, Deal b) {
+  for (int side = 0; side < 2; ++side) {
+    std::sort(a.lots[side].begin(), a.lots[side].end(), LotBefore);
+    std::sort(b.lots[side].begin(), b.lots[side].end(), LotBefore);
+    if (a.cats[side] != b.cats[side] ||
+        a.lots[side].size() != b.lots[side].size())
+      return false;
+    for (size_t i = 0; i < a.lots[side].size(); ++i)
+      if (a.lots[side][i].holder != b.lots[side][i].holder ||
+          a.lots[side][i].label != b.lots[side][i].label ||
+          a.lots[side][i].count != b.lots[side][i].count)
+        return false;
+  }
+  return true;
+}
+
+static int PriceOf(const std::string &label) {
+  std::map<std::string, int>::const_iterator price = g_npcPrices.find(label);
+  if (price != g_npcPrices.end())
+    return price->second;
+  price = g_squadPrices.find(label);
+  return price != g_squadPrices.end() ? price->second : 0;
+}
+
+static double Worth(const std::vector<Lot> &lots, float share) {
+  double total = 0.0;
+  for (size_t i = 0; i < lots.size(); ++i)
+    total += lots[i].count * PriceOf(lots[i].label) * share;
+  return total;
+}
+
+// The server refuses a deal at a loss to the NPC, except charity, so the
+// estimate rounds down as that check does
+static void UpdateEstimate() {
+  Deal deal = TableDeal();
+  double profit =
+      deal.cats[PLAYER_SIDE] +
+      Worth(deal.lots[PLAYER_SIDE], g_barterShares[PLAYER_SIDE]) -
+      deal.cats[NPC_SIDE] - Worth(deal.lots[NPC_SIDE], g_barterShares[NPC_SIDE]);
+  int shown = (int)std::floor(profit);
+  std::string text = T(shown >= 0 ? "{name}'s estimated profit: {count} cats"
+                                  : "{name}'s estimated loss: {count} cats");
+  SetCaption(g_barterEstimate,
+             Fill(Fill(text, "{name}", g_barterNpcName), "{count}",
+                  ToString(shown >= 0 ? shown : -shown)));
+}
+
+// The NPC agreed only to the deal that it saw, so an edit takes Accept away
+static void UpdateAccept() {
+  g_barterAcceptBtn->setEnabled(g_offerHeld && !g_barterWaiting &&
+                                SameDeal(TableDeal(), g_agreed));
+  UpdateEstimate();
+}
+
+static Character *Picked() {
+  return g_barterPick < g_barterSquad.size()
+             ? g_barterSquad[g_barterPick].getCharacter()
+             : nullptr;
+}
+
+static std::string HolderName(unsigned int holder) {
+  Character *c = KeyedCharacter(holder);
+  return c ? c->getName() : "?";
+}
+
+static Character *Payer() {
+  GameWorld *world = *ppWorld;
+  return world && world->player && world->player->playerCharacters.size() > 0
+             ? world->player->playerCharacters[0]
+             : nullptr;
+}
+
+static void FillList(int list, const std::vector<Lot> &lots, bool named) {
+  MyGUI::ListBox *box = g_barterLists[list];
+  box->removeAllItems();
+  for (size_t i = 0; i < lots.size(); ++i) {
+    std::string row = ToString(lots[i].count) + " " + lots[i].label;
+    if (named)
+      row = HolderName(lots[i].holder) + ": " + row;
+    box->addItem(MyGUI::TextIterator::toTagsString(Utf8ToWide(row)));
+  }
+  g_shown[list] = lots;
+}
+
+static void RefreshBarterLists() {
+  Character *npc = KeyedCharacter(g_barterNpcKey);
+  Character *mate = Picked();
+  g_npcPrices.clear();
+  g_squadPrices.clear();
+  NotePrices(npc, g_barterTrader, g_npcPrices);
+  for (size_t i = 0; i < g_barterSquad.size(); ++i)
+    NotePrices(g_barterSquad[i].getCharacter(), false, g_squadPrices);
+  unsigned int mateKey = mate ? HandleKey(mate) : 0;
+  FillList(INVENTORY,
+           Left(Holdings(mate, mateKey, false), g_deal.lots[PLAYER_SIDE]),
+           false);
+  FillList(MINE, g_deal.lots[PLAYER_SIDE], true);
+  FillList(THEIRS, g_deal.lots[NPC_SIDE], false);
+  FillList(STOCK,
+           Left(Holdings(npc, 0, g_barterTrader), g_deal.lots[NPC_SIDE]),
+           false);
+  Character *payer = Payer();
+  SetCaption(g_barterPurses[PLAYER_SIDE],
+             Fill(T("Purse: {count} cats"), "{count}",
+                  ToString(payer ? MoneyOf(payer) : 0)));
+  SetCaption(g_barterPurses[NPC_SIDE],
+             Fill(T("Purse: {count} cats"), "{count}",
+                  ToString(npc ? MoneyOf(npc) : 0)));
+  if (mate)
+    SetCaption(g_barterPickBtn, mate->getName());
+  UpdateAccept();
+}
+
+static void MoveLot(int list, size_t index) {
+  if (index >= g_shown[list].size())
+    return;
+  Lot lot = g_shown[list][index];
+  int count =
+      MyGUI::InputManager::getInstance().isShiftPressed() ? lot.count : 1;
+  int side = list == INVENTORY || list == MINE ? PLAYER_SIDE : NPC_SIDE;
+  if (list == INVENTORY || list == STOCK)
+    AddLot(g_deal.lots[side], lot.holder, lot.label, count);
+  else
+    TakeLot(g_deal.lots[side], lot.holder, lot.label, count);
+  RefreshBarterLists();
+  // A refill scrolls to the top, and a long stock would lose its place
+  size_t rows = g_barterLists[list]->getItemCount();
+  if (rows > 0)
+    g_barterLists[list]->beginToItemAt(std::min(index, rows - 1));
+}
+
+static void OnBarterListAccept(MyGUI::ListBox *sender, size_t index) {
+  for (int i = 0; i < 4; ++i)
+    if (sender == g_barterLists[i])
+      MoveLot(i, index);
+}
+
+// The NPC side has no cap, because charity creates its cats
+static void CapPlayerCats() {
+  Character *payer = Payer();
+  int purse = payer ? MoneyOf(payer) : 0;
+  if (CatsIn(g_barterCats[PLAYER_SIDE]) > purse)
+    SetCaption(g_barterCats[PLAYER_SIDE], ToString(purse));
+}
+
+static void OnBarterCatsChange(MyGUI::EditBox *sender) {
+  if (sender == g_barterCats[PLAYER_SIDE])
+    CapPlayerCats();
+  UpdateAccept();
+}
+
+static void OnBarterPickClick(MyGUI::Widget *sender) {
+  if (g_barterSquad.empty())
+    return;
+  g_barterPick = (g_barterPick + 1) % g_barterSquad.size();
+  RefreshBarterLists();
+}
+
+static void SetBarterHistory(const std::string &lines) {
+  g_barterHistory->setOnlyText(Utf8ToWide(lines).c_str());
+  g_barterHistory->setTextCursor(g_barterHistory->getTextLength());
+}
+
+static void CloseBarterUI() {
+  if (g_barterWindow && MyGUI::Gui::getInstancePtr())
+    MyGUI::Gui::getInstancePtr()->destroyWidget(g_barterWindow);
+  g_barterWindow = nullptr;
+  g_barterHistory = nullptr;
+  g_barterInput = nullptr;
+  g_barterPickBtn = nullptr;
+  g_barterSendBtn = nullptr;
+  g_barterAcceptBtn = nullptr;
+  g_barterStatus = nullptr;
+  g_barterEstimate = nullptr;
+  for (int i = 0; i < 4; ++i)
+    g_barterLists[i] = nullptr;
+  for (int i = 0; i < 2; ++i) {
+    g_barterCats[i] = nullptr;
+    g_barterPurses[i] = nullptr;
+  }
+}
+
+static std::string LotsJson(const std::vector<Lot> &lots) {
+  std::string json = "[";
+  for (size_t i = 0; i < lots.size(); ++i)
+    json += std::string(i ? "," : "") + "{\"holder\": \"" +
+            ToString(lots[i].holder) + "\", \"name\": \"" +
+            EscapeJSON(lots[i].label) +
+            "\", \"count\": " + ToString(lots[i].count) + "}";
+  return json + "]";
+}
+
+// The server checks the deal against the inventory of each squad mate, so a
+// counter-offer can also take an item of any of them
+static std::string BarterJson() {
+  Deal deal = TableDeal();
+  std::string squad = "[";
+  for (size_t i = 0; i < g_barterSquad.size(); ++i) {
+    Character *mate = g_barterSquad[i].getCharacter();
+    if (!mate)
+      continue;
+    std::vector<Item *> items;
+    GetAllCharacterItems(mate, items);
+    squad += std::string(squad.size() > 1 ? "," : "") + "{\"key\": \"" +
+             ToString(HandleKey(mate)) + "\", \"name\": \"" +
+             EscapeJSON(mate->getName()) +
+             "\", \"inventory\": " + ItemsJson(items) + "}";
+  }
+  return "{\"deal\": {\"take_cats\": " + ToString(deal.cats[PLAYER_SIDE]) +
+         ", \"give_cats\": " + ToString(deal.cats[NPC_SIDE]) +
+         ", \"take\": " + LotsJson(deal.lots[PLAYER_SIDE]) +
+         ", \"give\": " + LotsJson(deal.lots[NPC_SIDE]) +
+         "}, \"squad\": " + squad + "]}";
+}
+
+static void SendBarterLine() {
+  if (g_barterWaiting)
+    return;
+  std::string text = g_barterInput->getCaption().asUTF8();
+  text.erase(0, text.find_first_not_of(" \t\r\n"));
+  text.erase(text.find_last_not_of(" \t\r\n") + 1);
+  if (text.empty())
+    text = T("How about this deal?");
+  CapPlayerCats();
+  std::string json = BarterJson();
+  // The server keeps the offer until the answer, and drops a line that comes
+  // before it
+  std::string answer = g_offerHeld ? DeclineOffer() : std::string();
+  // The mark keeps the line in the BARTER dialogue even after the dialogue
+  // ended, as a new !b line would
+  if (!SendChatLine(g_barterNpcName, g_barterHandle,
+                    KeyedCharacter(g_barterSpeakerKey), "!b " + text,
+                    g_barterMode, answer, json))
+    return;
+  g_barterInput->setCaption("");
+  g_barterWaiting = true;
+  g_barterSendBtn->setEnabled(false);
+  SetStatus("{name} is thinking...");
+  UpdateAccept();
+}
+
+static void OnBarterSend(MyGUI::Widget *sender) { SendBarterLine(); }
+static void OnBarterInputAccept(MyGUI::EditBox *sender) { SendBarterLine(); }
+
+static void OnBarterAccept(MyGUI::Widget *sender) {
+  if (!g_offerHeld)
+    return;
+  AcceptOffer();
+  CloseBarterUI();
+}
+
+// The NPC hears that the player walked away from a deal that it agreed to
+static void OnBarterClose(MyGUI::Widget *sender) {
+  if (g_offerHeld)
+    AsyncPostToPython(L"/offer", DeclineOffer());
+  CloseBarterUI();
+}
+
+static void OnBarterWindowButtonPressed(MyGUI::Window *sender,
+                                        const std::string &name) {
+  if (name == "close")
+    OnBarterClose(sender);
+}
+
+static MyGUI::TextBox *AddBarterText(MyGUI::Widget *client, float left,
+                                     float top, float width, float height,
+                                     const std::string &text,
+                                     const std::string &name) {
+  MyGUI::TextBox *box = client->createWidgetReal<MyGUI::TextBox>(
+      "Kenshi_TextboxStandardText", left, top, width, height,
+      MyGUI::Align::Top | MyGUI::Align::Left, name);
+  SetCaption(box, text);
+  return box;
+}
+
+static MyGUI::Button *AddBarterButton(MyGUI::Widget *client, float left,
+                                      float top, float width,
+                                      const std::string &key,
+                                      const std::string &name,
+                                      void (*onClick)(MyGUI::Widget *)) {
+  MyGUI::Button *button = client->createWidgetReal<MyGUI::Button>(
+      "Kenshi_Button1", left, top, width, 0.06f,
+      MyGUI::Align::Top | MyGUI::Align::Left, name);
+  SetCaption(button, T(key));
+  button->eventMouseButtonClick += MyGUI::newDelegate(onClick);
+  return button;
+}
+
+static MyGUI::EditBox *AddBarterEdit(MyGUI::Widget *client, float left,
+                                     float top, float width,
+                                     const std::string &name) {
+  MyGUI::EditBox *box = client->createWidgetReal<MyGUI::EditBox>(
+      "Kenshi_EditBox", left, top, width, 0.05f,
+      MyGUI::Align::Top | MyGUI::Align::Left, name);
+  box->setEditMultiLine(false);
+  box->setFontHeight(18);
+  return box;
+}
+
+static void BuildBarterWindow(MyGUI::Gui *gui) {
+  g_barterWindow = gui->createWidgetReal<MyGUI::Window>(
+      "Kenshi_WindowCX", 0.15f, 0.08f, 0.7f, 0.84f, MyGUI::Align::Center,
+      "Window", "SentientSands_BarterWindow");
+  SetCaption(g_barterWindow,
+             Fill(T("Barter with {name}"), "{name}", g_barterNpcName));
+  g_barterWindow->eventWindowButtonPressed +=
+      MyGUI::newDelegate(OnBarterWindowButtonPressed);
+  MyGUI::Widget *client = g_barterWindow->getClientWidget();
+
+  g_barterHistory = client->createWidgetReal<MyGUI::EditBox>(
+      "Kenshi_WordWrap", 0.03f, 0.02f, 0.94f, 0.22f,
+      MyGUI::Align::Top | MyGUI::Align::HStretch,
+      "SentientSands_BarterHistory");
+  g_barterHistory->setEditMultiLine(true);
+  g_barterHistory->setEditWordWrap(true);
+  g_barterHistory->setEditReadOnly(true);
+  g_barterHistory->setVisibleVScroll(true);
+  // The default cap of 2048 characters would cut the newest lines
+  g_barterHistory->setMaxTextLength(262144);
+  g_barterHistory->setTextAlign(MyGUI::Align::Left | MyGUI::Align::Top);
+  g_barterHistory->setFontHeight(18);
+
+  // A button goes to the next squad mate, because a drop-down list opens
+  // under the window (kenshi_gotchas.md)
+  g_barterPickBtn = AddBarterButton(client, 0.03f, 0.26f, 0.21f, "?",
+                                    "SentientSands_BarterPick",
+                                    OnBarterPickClick);
+  g_barterPurses[PLAYER_SIDE] = AddBarterText(
+      client, 0.26f, 0.27f, 0.21f, 0.04f, "", "SentientSands_BarterPurse");
+  g_barterPurses[NPC_SIDE] = AddBarterText(
+      client, 0.53f, 0.27f, 0.44f, 0.04f, "", "SentientSands_BarterNpcPurse");
+
+  const char *headers[] = {"Inventory", "You offer", "They offer", "Stock"};
+  const float lefts[] = {0.03f, 0.26f, 0.53f, 0.76f};
+  for (int i = 0; i < 4; ++i) {
+    float left = lefts[i];
+    AddBarterText(client, left, 0.33f, 0.21f, 0.04f, T(headers[i]),
+                  "SentientSands_BarterHeader" + ToString(i));
+    g_barterLists[i] = client->createWidgetReal<MyGUI::ListBox>(
+        "Kenshi_ListBox", left, 0.37f, 0.21f, 0.25f,
+        MyGUI::Align::Top | MyGUI::Align::Left,
+        "SentientSands_BarterList" + ToString(i));
+    g_barterLists[i]->eventListSelectAccept +=
+        MyGUI::newDelegate(OnBarterListAccept);
+  }
+
+  AddBarterText(client, 0.03f, 0.635f, 0.21f, 0.04f, T("Cats:"),
+                "SentientSands_BarterCatsLabel");
+  AddBarterText(client, 0.76f, 0.635f, 0.21f, 0.04f, T("Cats:"),
+                "SentientSands_BarterNpcCatsLabel");
+  g_barterCats[PLAYER_SIDE] =
+      AddBarterEdit(client, 0.26f, 0.63f, 0.21f, "SentientSands_BarterCats");
+  g_barterCats[NPC_SIDE] = AddBarterEdit(client, 0.53f, 0.63f, 0.21f,
+                                         "SentientSands_BarterNpcCats");
+  for (int i = 0; i < 2; ++i) {
+    g_barterCats[i]->setCaption("0");
+    g_barterCats[i]->eventEditTextChange +=
+        MyGUI::newDelegate(OnBarterCatsChange);
+  }
+  g_barterEstimate = AddBarterText(client, 0.03f, 0.69f, 0.94f, 0.04f, "",
+                                   "SentientSands_BarterEstimate");
+  AddBarterText(client, 0.03f, 0.73f, 0.94f, 0.04f,
+                T("Double-click moves one item. Shift and double-click moves "
+                  "the stack."),
+                "SentientSands_BarterHint");
+
+  AddBarterText(client, 0.03f, 0.785f, 0.2f, 0.04f,
+                T("Message for ") + g_barterNpcName + ":",
+                "SentientSands_BarterInputLabel");
+  g_barterInput =
+      AddBarterEdit(client, 0.24f, 0.78f, 0.55f, "SentientSands_BarterInput");
+  g_barterInput->eventEditSelectAccept +=
+      MyGUI::newDelegate(OnBarterInputAccept);
+  g_barterSendBtn = AddBarterButton(client, 0.8f, 0.775f, 0.17f, "Send",
+                                    "SentientSands_BarterSend", OnBarterSend);
+  g_barterStatus = AddBarterText(client, 0.03f, 0.845f, 0.94f, 0.04f, "",
+                                 "SentientSands_BarterStatus");
+  g_barterStatus->setTextColour(MyGUI::Colour(1.0f, 0.9f, 0.5f));
+
+  AddBarterButton(client, 0.03f, 0.9f, 0.2f, "Close",
+                  "SentientSands_BarterClose", OnBarterClose);
+  g_barterAcceptBtn =
+      AddBarterButton(client, 0.77f, 0.9f, 0.2f, "Accept",
+                      "SentientSands_BarterAccept", OnBarterAccept);
+  MyGUI::InputManager::getInstance().setKeyFocusWidget(g_barterInput);
+}
+
+static Character *PlayerCharacter(const std::string &npcId) {
+  GameWorld *world = *ppWorld;
+  if (!world || !world->player)
+    return nullptr;
+  lektor<Character *> &characters = world->player->playerCharacters;
+  for (uint32_t i = 0; i < characters.size(); ++i)
+    if (characters[i] && GetNpcId(characters[i]) == npcId)
+      return characters[i];
+  return nullptr;
+}
+
+// thread is the reply of /chat_thread: the window speaks as the speaker of
+// the action dialogue, in its mode, or its line would start a new thread
+void ShowBarterUI(const std::string &npcName, const std::string &handleStr,
+                  const std::string &thread) {
+  MyGUI::Gui *gui = MyGUI::Gui::getInstancePtr();
+  if (!gui)
+    return;
+  CloseBarterUI();
+  g_barterNpcName = npcName;
+  g_barterHandle = handleStr;
+  g_barterNpcKey = (unsigned int)strtoul(handleStr.c_str(), NULL, 10);
+  g_barterMode = GetJsonValue(thread, "mode");
+  g_barterTrader = GetJsonValue(thread, "trader").find("true") == 0;
+  g_barterShares[PLAYER_SIDE] =
+      (float)atof(GetJsonValue(thread, "buy_share").c_str());
+  g_barterShares[NPC_SIDE] =
+      (float)atof(GetJsonValue(thread, "sell_share").c_str());
+  g_deal = Deal();
+  g_deal.cats[PLAYER_SIDE] = g_deal.cats[NPC_SIDE] = 0;
+  g_offerHeld = false;
+  g_barterWaiting = false;
+
+  Character *speaker = PlayerCharacter(GetJsonValue(thread, "speaker"));
+  Character *npc = KeyedCharacter(g_barterNpcKey);
+  std::vector<Character *> squad;
+  GetCurrentSquad(squad);
+  g_barterSquad.clear();
+  g_barterPick = 0;
+  if (speaker)
+    g_barterSquad.push_back(speaker->getHandle());
+  // Only a squad mate in talk range of the NPC can hand it an item
+  for (size_t i = 0; i < squad.size(); ++i)
+    if (npc && squad[i] != speaker && squad[i] != npc &&
+        npc->getPosition().distance(squad[i]->getPosition()) <
+            g_proximityRadius)
+      g_barterSquad.push_back(squad[i]->getHandle());
+  Character *first = Picked();
+  g_barterSpeakerKey = first ? HandleKey(first) : 0;
+
+  BuildBarterWindow(gui);
+  SetBarterHistory(GetJsonValue(thread, "lines"));
+  if (!MoveOfferToBarter(g_barterNpcKey))
+    RefreshBarterLists();
+}
+
+// The lines hold the cats of a side, or an item with its holder: npc, player
+// for the speaker, or the key of a squad mate
+bool ShowBarterOffer(unsigned int npcKey, unsigned int speakerKey,
+                     const std::vector<std::string> &deal) {
+  if (!g_barterWindow || npcKey != g_barterNpcKey)
+    return false;
+  Deal loaded;
+  loaded.cats[PLAYER_SIDE] = loaded.cats[NPC_SIDE] = 0;
+  for (size_t i = 0; i < deal.size(); ++i) {
+    std::istringstream in(deal[i]);
+    std::string kind, holder, label;
+    int count = 0;
+    if (deal[i].compare(0, 5, "CATS ") == 0) {
+      in >> kind >> holder >> count;
+      loaded.cats[holder == "npc" ? NPC_SIDE : PLAYER_SIDE] = count;
+      continue;
+    }
+    in >> kind >> holder >> count;
+    std::getline(in, label);
+    label.erase(0, label.find_first_not_of(' '));
+    if (holder == "npc")
+      AddLot(loaded.lots[NPC_SIDE], 0, label, count);
+    else
+      AddLot(loaded.lots[PLAYER_SIDE],
+             holder == "player"
+                 ? speakerKey
+                 : (unsigned int)strtoul(holder.c_str(), NULL, 10),
+             label, count);
+  }
+  g_deal = loaded;
+  g_agreed = loaded;
+  g_offerHeld = true;
+  for (int side = 0; side < 2; ++side)
+    SetCaption(g_barterCats[side], ToString(loaded.cats[side]));
+  RefreshBarterLists();
+  SetStatus("{name} agrees to this deal.");
+  return true;
+}
+
+void BarterOfferGone() {
+  g_offerHeld = false;
+  if (g_barterWindow)
+    UpdateAccept();
+}
+
+// The first line is 1 while the action dialogue stays open, 0 after it ended,
+// or error when the server gave no reply. The thread lines follow it
+void SetBarterTurn(const std::string &data) {
+  if (!g_barterWindow)
+    return;
+  size_t eol = data.find('\n');
+  std::string flag = data.substr(0, eol);
+  flag.erase(0, flag.find_first_not_of(" \t\r"));
+  flag.erase(flag.find_last_not_of(" \t\r") + 1);
+  std::string lines =
+      eol == std::string::npos ? std::string() : data.substr(eol + 1);
+  if (!lines.empty())
+    SetBarterHistory(lines);
+  g_barterWaiting = false;
+  g_barterSendBtn->setEnabled(true);
+  if (g_offerHeld)
+    SetStatus("{name} agrees to this deal.");
+  else if (flag == "1")
+    SetStatus("");
+  else if (flag == "0")
+    SetStatus("{name} ended the trade.");
+  else
+    SetStatus(
+        "{name} could not respond. (Something went wrong, is SSR configured?)");
+  RefreshBarterLists();
+}
+
+} // namespace UI
+} // namespace SentientSands

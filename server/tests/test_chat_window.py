@@ -45,13 +45,22 @@ class OpenThreadTest(unittest.TestCase):
         self.assertEqual(chat_window.open_thread(JORGE, QUIET), {
             "title": "Stick, Jorge, and 1 more | The Hub",
             "type": "Chat",
+            "mode": "talk",
             "lines": "\n".join(["[Day 3, 14:05] Stick: Hello.", "[Day 3, 14:05] Jorge: Hm.", "[Day 3, 14:05] Ruka: And me.", "[Day 3, 14:05] Jorge: Hm."]),
         })
 
-    def test_an_action_dialogue_names_its_category(self):
-        self.chat(None, STICK, "Stick: Sell me bread.", action={"category": "BARTER", "speaker": STICK})
+    def test_an_action_dialogue_names_its_category_and_whom_the_barter_window_speaks_as(self):
+        self.chat(None, STICK, "Stick: Sell me bread.", action={"category": "BARTER", "speaker": STICK, "trader": True})
         thread = chat_window.open_thread(JORGE, QUIET)
         self.assertEqual((thread["title"], thread["type"]), ("Stick and Jorge | The Hub", "Barter"))
+        self.assertEqual((thread["mode"], thread["speaker"], thread["trader"]), ("talk", STICK, True))
+        self.assertEqual((thread["sell_share"], thread["buy_share"]), (0.8, 0.6))
+
+    def test_the_lines_of_a_thread_stay_after_it_ends(self):
+        thread_id = self.chat(None, STICK, "Stick: Sell me bread.")
+        state.CURRENT_THREAD.clear()
+        self.chat(None, STICK, "Stick: Another day.")
+        self.assertEqual(chat_window.thread_lines(JORGE, thread_id), "[Day 3, 14:05] Stick: Sell me bread.\n[Day 3, 14:05] Jorge: Hm.")
 
     def test_the_yell_thread_is_open_for_each_of_its_members_only(self):
         self.chat(None, STICK, "(Yelled) Stick: Hey!", listeners=[IZUMI])

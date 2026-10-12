@@ -4,7 +4,7 @@
 
 In a BARTER action dialogue, the player trades items with the NPC: the player buys or sells an item, swaps items, gives an item or cats for nothing, or asks the NPC for charity. The player can haggle over the price. A gift is a trade at no price, and the NPC is glad to take it. The player opens it with `!b` or `!barter`. [framework.md](framework.md) holds the rules that all categories share.
 
-A trade is between the speaker and the NPC only. The cats of the player belong to the whole player faction, so a deal can spend all of them. The items belong to each player character, so only the items that the speaker carries can trade, and the items of the other squad members stay out.
+A trade is between the speaker and the NPC only. The cats of the player belong to the whole player faction, so a deal can spend all of them. The items belong to each player character, so only the items that the speaker carries can trade, and the items of the other squad members stay out. The Barter window is the exception: its deal can hold the items of each squad member ([architecture.md](../../info/architecture.md#barter-window)).
 
 ## 2. Deals
 
@@ -14,9 +14,9 @@ A prisoner can trade too, for example to ask a guard for bread. When the speaker
 
 The action dialogue ends when the player accepts an offer.
 
-### Barter window
+### Offer boxes
 
-An offer of BARTER shows in a barter window instead of the popup line of [Offer](framework.md#offer). The window has two boxes side by side, "You are offering:" and "They are offering:", and the buttons Accept and Decline at the bottom. The buttons work as in [Offer](framework.md#offer).
+An offer of BARTER shows in two boxes of the popup instead of the popup line of [Offer](framework.md#offer). The boxes stand side by side, "You are offering:" and "They are offering:", and the buttons Accept and Decline are at the bottom. The buttons work as in [Offer](framework.md#offer).
 
 | You are offering: | They are offering: |
 |---|---|

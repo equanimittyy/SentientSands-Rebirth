@@ -1,5 +1,6 @@
 #pragma once
 
+#include "BarterWindow.h"
 #include "ChatUIGlobals.h"
 #include "ChatWindow.h"
 #include "CheatWindow.h"

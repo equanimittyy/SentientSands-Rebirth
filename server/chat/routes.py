@@ -266,7 +266,7 @@ def answer_offer():
         record_deal(held["thread"], offers.accepted_line(offer, npc, player), held["parties"], held["location"])
         end_thread()
         voice = held["voice"]
-        play_lines([f"{voice}: {action_dialogue.end_line(offers.ACCEPT_LINES[offer['category']])}"], [f"{voice}: {action}" for action in offers.actions(offer)])
+        play_lines([f"{voice}: {action_dialogue.end_line(offers.ACCEPT_LINES[offer['category']])}"], offers.voiced(offer, voice))
         logging.info(f"ACTION: {player} accepted: {offers.popup_text(offer, npc, player)}")
         if offer.get("charity"):
             state.CHARITY_DAYS[held["npc_id"]] = held["day"]
@@ -323,6 +323,8 @@ def chat():
     npcs = [register(n) for n in raw_npcs]
     target_key = raw_npcs[0].partition('|')[2] if raw_npcs else ""
     speaker_key = str(data.get('speaker_key') or "")
+    window = data.get('barter')
+    primary_id = thread_id = None
 
     def voice():
         # The plugin takes the text before a first colon as the speaker. It finds the NPC by the handle key after the bar,
@@ -330,7 +332,9 @@ def chat():
         return f"{primary_npc}|{target_key}{f'>{speaker_key}' if speaker_key else ''}"
 
     def reply(*texts, actions=(), action_open=False, after=(), then=None):
-        play_lines([f"{voice()}: {text}" for text in texts], [f"{voice()}: {action}" for action in actions], after, then)
+        # After the lines, so the barter window shows them once they are said
+        turn = [f"CMD: BARTER_TURN: {int(action_open)}\n{chat_window.thread_lines(primary_id, thread_id) if thread_id else ''}"] if window else []
+        play_lines([f"{voice()}: {text}" for text in texts], [f"{voice()}: {action}" for action in actions], [*after, *turn], then)
         # The plugin takes no new line while the reply to a line of an open action dialogue is pending, or while an offer waits
         return jsonify({"status": "ok", "action_dialogue": action_open, "offer": bool(after)})
     
@@ -438,6 +442,7 @@ def chat():
     with state.THREAD_LOCK:
         current_thread, action = thread_of(thread_key, speaker_id)
         state.restart_quiet_clock()
+    thread_id = current_thread
     if state.PENDING_OFFER:
         notify(f"Answer {state.PENDING_OFFER['npc']}'s offer first.")
         send_to_pipe(state.PENDING_OFFER["command"])
@@ -548,6 +553,8 @@ def chat():
     logging.info(f"CHAT: {mode} with {primary_npc} ({len(listeners) - 1} others hear it)...")
 
     animal = primary_data.get("Animal")
+    barter = window is not None and category == "BARTER"
+    mates = window.get("squad") if barter else None
 
     # A rule that rated the player's politeness let a scornful NPC warm up with each apology
     judgment = "JUDGMENT: End every reply with [JUDGMENT: n], the change that the player's line makes to how you feel about the player, from -5 (it angers, frightens, hurts, or offends you) to 5 (it pleases you); 0 is no change. Judge by your personality, not by how polite the line is."
@@ -559,6 +566,8 @@ def chat():
         if category:
             goods = {"stock": offers.stocktake(ctx_dict)} if category == "BARTER" else {}
             wanted = fill_prompt(f"prompt_action_{category.lower()}.txt", speaker=player_name, **goods)
+            if barter:
+                wanted += "\n" + fill_prompt("prompt_action_barter_table.txt", speaker=player_name)
             system_prompt += "\n\n" + fill_prompt("prompt_action_rules.txt", request=wanted)
         final_instruction = f"Reply as {primary_npc}{', quietly' if mode == 'whisper' else ''}. End with [JUDGMENT: n]."
 
@@ -609,7 +618,14 @@ def chat():
     if category:
         lean = action_dialogue.lean(category, ctx_dict, speaker, primary_data.get("Relation"), nearby)
         last_reply = next((line for line, who, _ in reversed(rows) if who == primary_id), "")
-        background_block = offers.facts(category, ctx_dict, speaker, player_name, lean, f"{player_message}\n{last_reply}") + "\n\n" + background_block
+        said, side, table = f"{player_message}\n{last_reply}", speaker, []
+        if barter:
+            deal = window.get("deal") or {}
+            table_offer, table_reason, table = offers.on_table(deal, ctx_dict, speaker, mates, player_name)
+            # The price guide then gives the price of each item on the table, so a counter-offer can name a fair price
+            said += "".join(f"\n{item['name']}" for item in [*(deal.get("give") or []), *(deal.get("take") or [])])
+            side = dict(speaker, inventory=offers.pooled(mates))
+        background_block = offers.facts(category, ctx_dict, side, player_name, lean, said, table) + "\n\n" + background_block
     elif chat_reason:
         background_block = f"YOUR THOUGHT: {chat_reason}\n\n{background_block}"
     turn = fill_prompt("prompt_chat_turn.txt", background=background_block, player_line=full_player_entry, final_instruction=final_instruction).strip()
@@ -638,12 +654,17 @@ def chat():
         elif category in ("RECRUIT", "FOLLOW") and offers.refused(content):
             outcome = "refused"
         elif category and offers.read(content) is not None:
-            offer, unkept = offers.check(category, offers.read(content), ctx_dict, speaker)
+            offer, unkept = offers.check(category, offers.read(content), ctx_dict, speaker, mates)
             if not offer:
                 logging.info(f"ACTION: Dropped the offer of {primary_npc}, because {unkept}: {offers.offer_text(content)}")
                 outcome = "unkept"
             else:
                 outcome = "free" if category == "HEAL" and not offer["takes"] else "offer"
+        elif barter and offers.agreed(content):
+            offer = table_offer
+            if not offer:
+                logging.info(f"ACTION: Dropped the agreement of {primary_npc} to the deal on the table, because {table_reason}.")
+            outcome = "offer" if offer else "unkept"
         # A valid offer keeps the action dialogue open until the player answers it
         closing = bool(category) and (outcome in ("attack", "refused", "free") or (outcome != "offer" and action_dialogue.ended(content)))
         offered = offers.offer_text(content) if category else None
@@ -681,7 +702,8 @@ def chat():
         if primary_id:
             members = [(npc_id, "speaker" if npc_id in (primary_id, speaker_id) else "overheard", in_squad.get(npc_id, False)) for npc_id, _, _ in copies]
             thread_id = campaign_db.join_thread(current_thread, members, campaign_db.game_time(time_prefix), scene_text.location_name(speaker or state.PLAYER_CONTEXT))
-            state.CURRENT_THREAD.update(key=thread_key, id=thread_id, replied=time.monotonic(), action={"category": category, "speaker": speaker_id} if category else None)
+            state.CURRENT_THREAD.update(key=thread_key, id=thread_id, replied=time.monotonic(),
+                                        action={"category": category, "speaker": speaker_id, "trader": action_dialogue.is_trader(ctx_dict)} if category else None)
             if closing:
                 state.CURRENT_THREAD.clear()
         for npc_id, name, new_lines in copies:

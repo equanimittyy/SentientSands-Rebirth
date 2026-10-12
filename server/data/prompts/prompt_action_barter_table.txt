@@ -1,0 +1,1 @@
+TABLE: {speaker} lays a deal on the table, and DEAL FACTS show it. To take that deal as it is, put [AGREE] after your words. To ask for a different deal, put an offer tag with the whole deal that you want instead. When you only talk or refuse, put neither.

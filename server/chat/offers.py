@@ -20,6 +20,7 @@ _PART = r"\b(?:GIVE_CATS|TAKE_CATS|GIVE_ITEM|TAKE_ITEM|GIVE_FOOD|JOIN_PARTY|HIRE
 BARE_OFFER = re.compile(rf"(?:\bOFFER\s*:\s*)?({_PART}(?:\s*;\s*{_PART})*)")
 REFUSE_TAG = re.compile(r"\[\s*REFUSE\s*\]", re.IGNORECASE)
 ATTACK_TAG = re.compile(r"\[\s*ATTACK\s*\]", re.IGNORECASE)
+AGREE_TAG = re.compile(r"\[\s*AGREE\s*\]", re.IGNORECASE)
 DEAL_LINE = re.compile(r"\((?:[^()]+ (?:accepted|declined): |[^()]+ (?:attacked|treated|dismissed) )[^()]*\)\s*$")
 
 GIVES = {"RECRUIT": {"JOIN_PARTY"}, "FOLLOW": {"HIRE"}, "HEAL": {"FIRST_AID"}, "LIBERATE": {"RELEASE"}, "THREATEN": {"GIVE_CATS", "GIVE_ITEM"}, "BARTER": {"GIVE_CATS", "GIVE_ITEM", "GIVE_FOOD"}}
@@ -32,6 +33,8 @@ CHARITY_CATS = 50
 GIFT_WORTH = 500
 GIFT_MOST = 10
 RELEASE_BRIBE = 500
+# (sell share, buy share) of the price for a trader and for any other NPC, which wants a bigger margin
+SHARES = {True: (0.8, 0.6), False: (1.0, 0.4)}
 ACCEPT_LINES = {"RECRUIT": "recruit_accept", "FOLLOW": "follow_accept", "HEAL": "heal_start", "LIBERATE": "liberate_accept", "THREATEN": "threaten_accept", "BARTER": "barter_accept"}
 # Keyed by the kinds of ItemKind (plugin/game/Context.cpp). Kenshi files alcohol under narcotics, so a drink is a "drug".
 KIND_WORDS = {
@@ -86,6 +89,10 @@ def refused(content):
 
 def attacked(content):
     return bool(ATTACK_TAG.search(content or ""))
+
+
+def agreed(content):
+    return bool(AGREE_TAG.search(content or ""))
 
 
 def cats_of(ctx):
@@ -149,8 +156,7 @@ def price_of(label, *holdings):
 
 
 def shares(npc):
-    """(sell share, buy share) of the price: a non-trader wants a bigger margin."""
-    return (0.8, 0.6) if action_dialogue.is_trader(npc) else (1.0, 0.4)
+    return SHARES[action_dialogue.is_trader(npc)]
 
 
 def worth(parts, npc, speaker, side):
@@ -163,7 +169,7 @@ def worth(parts, npc, speaker, side):
         if kind == "CATS":
             total += value
         elif kind == "ITEM":
-            count, label = value
+            count, label = value[:2]
             total += count * (price_of(label, stock) * sell if side == "gives" else price_of(label, stock, speaker.get("inventory") or []) * buy)
     return total
 
@@ -183,14 +189,22 @@ def release_fee(speaker):
     return RELEASE_BRIBE + (speaker.get("bounty") or 0)
 
 
-def check(category, parts, npc, speaker):
+def pooled(squad):
+    """The items of all the squad mates of the barter window, which price the player's side of a trade."""
+    return [item for mate in squad for item in mate.get("inventory") or []]
+
+
+def check(category, parts, npc, speaker, squad=None):
     """(offer, None) for an offer that keeps the hard limits, or (None, reason). An offer holds the parts that the NPC gives
     and the parts that the player gives, as (kind, value) pairs: CATS with a count, ITEM with (count, name), HIRE with the
-    hours, and JOIN_PARTY, FIRST_AID, or RELEASE with None."""
+    hours, and JOIN_PARTY, FIRST_AID, or RELEASE with None. squad holds the key and the inventory of each squad mate of the
+    barter window, speaker first: an item of the player's side can then come from any of them, its ITEM value gets the key
+    of its holder, and a TAKE_ITEM part can name the holder as a third element."""
     if category not in GIVES:
         return None, f"{category} makes no offers"
+    holders = [(str(mate.get("key")), mate.get("inventory") or []) for mate in squad] if squad else [(None, speaker.get("inventory") or [])]
     parsed = []
-    for name, argument in parts:
+    for name, argument, *holder in parts:
         if name not in GIVES[category] | TAKES[category]:
             return None, f"{name} is not a part of a {category} deal"
         if name in ("GIVE_CATS", "TAKE_CATS"):
@@ -202,7 +216,7 @@ def check(category, parts, npc, speaker):
             count, item = item_of(argument)
             if count < 1:
                 return None, f"{name} has no count"
-            parsed.append((name, (count, item)))
+            parsed.append((name, (count, item, holder[0] if holder else None)))
         elif name == "HIRE":
             hours = hours_of(argument)
             if hours < 1:
@@ -216,12 +230,21 @@ def check(category, parts, npc, speaker):
         return None, "GIVE_FOOD is only for charity"
     gives, takes = [], []
     for name, value in parsed:
-        if name in ("GIVE_ITEM", "TAKE_ITEM"):
-            count, item = value
-            found, has = held(goods(npc, category) if name == "GIVE_ITEM" else speaker.get("inventory") or [], item)
+        if name == "GIVE_ITEM":
+            count, item, _ = value
+            found, has = held(goods(npc, category), item)
             if not found or has < count:
-                return None, f"{'the NPC' if name == 'GIVE_ITEM' else 'the speaker'} does not hold {count} {item}"
-            (gives if name == "GIVE_ITEM" else takes).append(("ITEM", (count, found)))
+                return None, f"the NPC does not hold {count} {item}"
+            gives.append(("ITEM", (count, found)))
+        elif name == "TAKE_ITEM":
+            count, item, wanted = value
+            for key, items in holders:
+                found, has = held(items, item)
+                if wanted in (None, key) and found and has >= count:
+                    break
+            else:
+                return None, f"the speaker does not hold {count} {item}"
+            takes.append(("ITEM", (count, found, key) if key else (count, found)))
         elif name in ("GIVE_CATS", "TAKE_CATS"):
             (gives if name == "GIVE_CATS" else takes).append(("CATS", value))
         else:
@@ -246,7 +269,8 @@ def check(category, parts, npc, speaker):
         return None, f"a release costs a bribe of at least {fee} cats"
     offer = {"category": category, "gives": gives, "takes": takes}
     if category == "BARTER":
-        received, handed = worth(takes, npc, speaker, "takes"), worth(gives, npc, speaker, "gives")
+        side = dict(speaker, inventory=pooled(squad)) if squad else speaker
+        received, handed = worth(takes, npc, side, "takes"), worth(gives, npc, side, "gives")
         if received + 1e-6 < handed:
             return None, f"the NPC would receive a worth of {received:.0f} for {handed:.0f}"
         if not gives:
@@ -266,7 +290,7 @@ def goods_text(parts):
         if kind == "CATS":
             words.append(f"{value:,} cats")
         elif kind == "ITEM":
-            count, name = value
+            count, name = value[:2]
             words.append(f"{count} {name}" if count > 1 else f"{'an' if name[:1].lower() in 'aeiou' else 'a'} {name}")
     if len(words) < 2:
         return "".join(words)
@@ -312,27 +336,46 @@ def declined_line(offer, npc, player):
 
 
 def actions(offer):
-    """The plugin actions of the deal. A join goes first, because the plugin pays no fee to a member of the player faction,
-    and the fee would land back in the player's purse. The player's side goes next, because the plugin skips the NPC's
-    handover after a payment that fell short."""
+    return [action for _, action in _acts(offer)]
+
+
+def voiced(offer, voice):
+    """The actions of the deal, each with the voice that the plugin acts on. An item of a squad mate leaves that squad mate,
+    so its key takes the place of the speaker's key after the >."""
+    npc = voice.partition(">")[0]
+    return [f"{npc}>{holder}: {action}" if holder else f"{voice}: {action}" for holder, action in _acts(offer)]
+
+
+def _acts(offer):
+    """(holder, action) of each plugin action of the deal, the holder None for the speaker. A join goes first, because the
+    plugin pays no fee to a member of the player faction, and the fee would land back in the player's purse. The player's
+    side goes next, because the plugin skips the NPC's handover after a payment that fell short."""
     if offer.get("charity"):
         kind, value = offer["gives"][0]
-        return [f"[ACTION: ADD_CATS: {value}]" if kind == "CATS" else f"[ACTION: SPAWN_ITEM: {value[1]}]"]
-    out = ["[ACTION: JOIN_PARTY]" for kind, _ in offer["gives"] if kind == "JOIN_PARTY"]
+        return [(None, f"[ACTION: ADD_CATS: {value}]" if kind == "CATS" else f"[ACTION: SPAWN_ITEM: {value[1]}]")]
+    out = [(None, "[ACTION: JOIN_PARTY]") for kind, _ in offer["gives"] if kind == "JOIN_PARTY"]
     for kind, value in offer["takes"]:
-        out.append(f"[ACTION: TAKE_CATS: {value}]" if kind == "CATS" else f"[ACTION: TAKE_ITEM: {value[1]}: {value[0]}]")
+        if kind == "CATS":
+            out.append((None, f"[ACTION: TAKE_CATS: {value}]"))
+        else:
+            out.append((value[2] if len(value) > 2 else None, f"[ACTION: TAKE_ITEM: {value[1]}: {value[0]}]"))
     for kind, value in offer["gives"]:
         if kind == "CATS":
-            out.append(f"[ACTION: GIVE_CATS: {value}]")
+            out.append((None, f"[ACTION: GIVE_CATS: {value}]"))
         elif kind == "ITEM":
-            out.append(f"[ACTION: GIVE_ITEM: {value[1]}: {value[0]}]")
+            out.append((None, f"[ACTION: GIVE_ITEM: {value[1]}: {value[0]}]"))
         elif kind == "HIRE":
-            out.append(f"[ACTION: HIRE: {value}]")
+            out.append((None, f"[ACTION: HIRE: {value}]"))
         elif kind == "RELEASE":
-            out.append("[ACTION: RELEASE_PRISONER]")
+            out.append((None, "[ACTION: RELEASE_PRISONER]"))
         elif kind != "JOIN_PARTY":
-            out.append(f"[ACTION: {kind}]")
+            out.append((None, f"[ACTION: {kind}]"))
     return out
+
+
+def holder_of(value, side):
+    """The holder of an item in the CHECK and DEAL lines: npc, player for the speaker, or the key of a squad mate."""
+    return value[2] if len(value) > 2 else side
 
 
 def checks(offer):
@@ -344,7 +387,19 @@ def checks(offer):
         total = sum(value for kind, value in parts if kind == "CATS")
         if total:
             lines.append(f"CHECK: CATS {side} {total}")
-        lines += [f"CHECK: ITEM {side} {value[0]} {value[1]}" for kind, value in parts if kind == "ITEM"]
+        lines += [f"CHECK: ITEM {holder_of(value, side)} {value[0]} {value[1]}" for kind, value in parts if kind == "ITEM"]
+    return lines
+
+
+def deal_lines(offer):
+    """The DEAL lines of a trade, which the barter window loads into its lists. Unlike the CHECK lines, they hold charity
+    too, which the NPC need not hold."""
+    lines = []
+    for side, parts in (("player", offer["takes"]), ("npc", offer["gives"])):
+        total = sum(value for kind, value in parts if kind == "CATS")
+        if total:
+            lines.append(f"DEAL: CATS {side} {total}")
+        lines += [f"DEAL: ITEM {holder_of(value, side)} {value[0]} {value[1]}" for kind, value in parts if kind == "ITEM"]
     return lines
 
 
@@ -355,7 +410,7 @@ def box_order(part):
 
 
 def boxes(offer):
-    """The BOX lines of a trade, which the plugin shows in the two boxes of the barter window."""
+    """The BOX lines of a trade, which the plugin shows in the two boxes of the offer popup."""
     lines = []
     for side, parts in (("player", offer["takes"]), ("npc", offer["gives"])):
         ordered = sorted(parts, key=box_order)
@@ -365,8 +420,8 @@ def boxes(offer):
 
 def command(offer_id, offer, npc, npc_key, speaker_key, text):
     """The pipe command that opens the popup: the ID, the keys of the NPC and the speaker, the name of the NPC, the text of
-    the popup, the CHECK lines, and the BOX lines of a trade, one to a line."""
-    shown = boxes(offer) if offer["category"] == "BARTER" else []
+    the popup, the CHECK lines, and the BOX and DEAL lines of a trade, one to a line."""
+    shown = boxes(offer) + deal_lines(offer) if offer["category"] == "BARTER" else []
     return "CMD: OFFER: " + "\n".join([str(offer_id), f"{npc_key} {speaker_key}", npc, text, *checks(offer), *shown])
 
 
@@ -432,9 +487,45 @@ def price_guide(said, npc, speaker, player_name):
     return lines
 
 
-def facts(category, npc, speaker, player_name, lean, said=""):
+def table_parts(deal):
+    """The offer parts of the deal on the table of the barter window. An item of the player's side names its holder."""
+    parts = [("GIVE_CATS", str(deal["give_cats"]))] if int(deal.get("give_cats") or 0) > 0 else []
+    parts += [("GIVE_ITEM", f"{item['count']} {item['name']}") for item in deal.get("give") or []]
+    parts += [("TAKE_CATS", str(deal["take_cats"]))] if int(deal.get("take_cats") or 0) > 0 else []
+    parts += [("TAKE_ITEM", f"{item['count']} {item['name']}", str(item.get("holder"))) for item in deal.get("take") or []]
+    return parts
+
+
+def on_table(deal, npc, speaker, squad, player_name):
+    """(offer, reason, lines) of the deal on the table of the barter window: the checked offer that [AGREE] takes, or None
+    and the reason, and the lines that describe the deal and its worth in the turn message, so the NPC agrees only to a
+    deal that keeps its price."""
+    parts = table_parts(deal)
+    if not parts:
+        return None, "the table is empty", ["Nothing is on the table yet."]
+    offer, reason = check("BARTER", parts, npc, speaker, squad)
+    gives = [("CATS", count_of(argument)) if name == "GIVE_CATS" else ("ITEM", item_of(argument)) for name, argument, *_ in parts if name.startswith("GIVE")]
+    takes = [("CATS", count_of(argument)) if name == "TAKE_CATS" else ("ITEM", item_of(argument)) for name, argument, *_ in parts if name.startswith("TAKE")]
+    lines = [f"On the table, {player_name} gives {goods_text(takes) or 'nothing'}, and you give {goods_text(gives) or 'nothing'}."]
+    side = dict(speaker, inventory=pooled(squad))
+    received, handed = worth(takes, npc, side, "takes"), worth(gives, npc, side, "gives")
+    if offer and offer.get("charity"):
+        lines.append("It is a plea for charity.")
+    elif offer and not offer["gives"]:
+        lines.append("It is a gift to you.")
+    elif offer:
+        lines.append(f"It keeps your price: you get a worth of {received:,.0f} cats for a worth of {handed:,.0f}.")
+    elif takes and received + 1e-6 < handed:
+        lines.append(f"It is below your price: you get a worth of {received:,.0f} cats for a worth of {handed:,.0f}, so you cannot agree to it as it is.")
+    else:
+        lines.append("You cannot agree to it as it is.")
+    return offer, reason, lines
+
+
+def facts(category, npc, speaker, player_name, lean, said="", table=()):
     """The facts of the hard limits and the lean, for the turn message, because they change each turn. said is the text in
-    which the price guide of a trade looks for item names."""
+    which the price guide of a trade looks for item names, and table holds the lines of the deal on the table of the barter
+    window."""
     lines = []
     if category in ("THREATEN", "BARTER"):
         lines.append(f"You have {cats_of(npc):,} cats.")
@@ -446,6 +537,7 @@ def facts(category, npc, speaker, player_name, lean, said=""):
         if speaker.get("character_state") == "imprisoned":
             lines.append(f"{player_name} is imprisoned." + (" You are imprisoned too." if npc.get("character_state") == "imprisoned" else ""))
         lines += price_guide(said, npc, speaker, player_name)
+        lines += table
     if category == "LIBERATE":
         bounty = speaker.get("bounty") or 0
         lines.append(f"You release {player_name} only for a bribe of at least {release_fee(speaker):,} cats"

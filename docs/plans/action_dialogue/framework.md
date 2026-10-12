@@ -161,7 +161,7 @@ The server checks the offer against the hard limits, and it drops and logs an of
 
 The plugin shows the offer in a popup with the buttons Accept and Decline. The server writes the text of the popup from the checked offer, never from the words of the model, so the popup always shows the real deal. The text is "X offers A for B": X is the NPC, A is what the NPC gives, and B is what the player gives. When the player gives nothing, the text has no "for B". For example, "Bandit offers 200 cats and a Katana.".
 
-BARTER shows its offers in a barter window instead ([barter.md](barter.md#barter-window)), because a trade can list many cats and items on both sides. The other categories need no full transaction window, so they keep the one line.
+BARTER shows its offers in two boxes instead ([barter.md](barter.md#offer-boxes)), because a trade can list many cats and items on both sides. The other categories need no full transaction window, so they keep the one line.
 
 | Answer | Result |
 |---|---|

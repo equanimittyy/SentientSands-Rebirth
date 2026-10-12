@@ -224,6 +224,8 @@ void ProcessMessageQueue(GameWorld *thisptr) {
             DropOfferUI();
           } else if (command == "CHAT_HISTORY") {
             SetChatHistory(data);
+          } else if (command == "BARTER_TURN") {
+            SetBarterTurn(data);
           } else if (command == "CHEAT_RELATION") {
             SetCheatRelation(data);
           }
@@ -1259,7 +1261,7 @@ void playerUpdate_hook(PlayerInterface *thisptr) {
   bool typing = keyFocus && keyFocus->isType<MyGUI::EditBox>();
 
   if (!typing && (GetAsyncKeyState(g_chatHotkey) & 0x8000) && !g_chatWindow &&
-      !g_libraryWindow) {
+      !g_libraryWindow && !g_barterWindow) {
     static DWORD lastTalkTick = 0;
     if (GetTickCount() - lastTalkTick > 500) {
       lastTalkTick = GetTickCount();

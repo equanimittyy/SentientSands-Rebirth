@@ -3,6 +3,7 @@
 #include "../core/Globals.h"
 #include "../core/Utils.h"
 #include "../game/Context.h"
+#include "BarterWindow.h"
 #include "ChatWindow.h"
 
 #include <kenshi/Character.h>
@@ -21,6 +22,7 @@
 #include <mygui/MyGUI_Window.h>
 
 #include <algorithm>
+#include <cstdlib>
 #include <sstream>
 #include <vector>
 
@@ -47,7 +49,10 @@ struct Offer {
   Character *npc;
   Character *speaker;
   std::vector<std::string> checks;
+  std::vector<std::string> deal;
 };
+// The barter window can hold the offer instead of the popup, so the ID marks a
+// held offer
 static Offer g_offer;
 
 static void CloseOfferUI() {
@@ -87,13 +92,19 @@ static std::string AnswerJson(const std::string &answer) {
          answer + "\", \"npc\": \"" + EscapeJSON(g_offer.npcName) + "\"}";
 }
 
-static void EndOffer(const std::string &answer) {
-  AsyncPostToPython(L"/offer", AnswerJson(answer));
+static void ForgetOffer() {
   CloseOfferUI();
   SetOfferPending("");
+  g_offer.id.clear();
+  BarterOfferGone();
 }
 
-static int MoneyOf(Character *c) {
+static void EndOffer(const std::string &answer) {
+  AsyncPostToPython(L"/offer", AnswerJson(answer));
+  ForgetOffer();
+}
+
+int MoneyOf(Character *c) {
   int money = c->getMoney();
   if (money <= 0 && c->getOwnerships())
     money = c->getOwnerships()->getMoney();
@@ -115,7 +126,8 @@ static int CountItems(Character *c, const std::string &name, bool withShop) {
 }
 
 // The game does not pause while an offer waits, so a side can have spent or
-// lost its part of the deal by the time the player accepts
+// lost its part of the deal by the time the player accepts. An item of a squad
+// mate names the key of its holder instead of player
 static std::string Shortfall(Character *npc, Character *speaker) {
   GameWorld *world = *ppWorld;
   // The cats belong to the whole player faction, as TAKE_CATS reads them
@@ -130,9 +142,14 @@ static std::string Shortfall(Character *npc, Character *speaker) {
     in >> kind >> side >> count;
     std::getline(in, name);
     name.erase(0, name.find_first_not_of(' '));
-    bool player = side == "player";
+    bool player = side != "npc";
+    Character *holder =
+        side == "player" ? speaker
+        : side == "npc"  ? npc
+                         : KeyedCharacter((unsigned int)strtoul(side.c_str(), NULL, 10));
     int have = kind == "CATS" ? MoneyOf(player ? payer : npc)
-                              : CountItems(player ? speaker : npc, name, !player);
+               : holder       ? CountItems(holder, name, !player)
+                              : 0;
     if (have >= count)
       continue;
     std::string what = ToString(count) + (kind == "CATS" ? " cats" : " " + name);
@@ -144,7 +161,7 @@ static std::string Shortfall(Character *npc, Character *speaker) {
   return "";
 }
 
-static void OnOfferAccept(MyGUI::Widget *sender) {
+void AcceptOffer() {
   Character *npc = KeyedCharacter(g_offer.npcKey);
   Character *speaker = KeyedCharacter(g_offer.speakerKey);
   std::string reason = npc && speaker ? Shortfall(npc, speaker) : "";
@@ -155,6 +172,14 @@ static void OnOfferAccept(MyGUI::Widget *sender) {
   }
   EndOffer("accept");
 }
+
+std::string DeclineOffer() {
+  std::string answer = AnswerJson("decline");
+  ForgetOffer();
+  return answer;
+}
+
+static void OnOfferAccept(MyGUI::Widget *sender) { AcceptOffer(); }
 
 // The offer and the reply share one window, so Back can bring the offer back
 static void ShowReplyBox(bool shown) {
@@ -183,8 +208,7 @@ static void SendReply() {
   std::string npcName = g_offer.npcName;
   std::string handleStr = ToString(g_offer.npcKey);
   Character *speaker = KeyedCharacter(g_offer.speakerKey);
-  CloseOfferUI();
-  SetOfferPending("");
+  ForgetOffer();
   SendChatLine(npcName, handleStr, speaker, reply, CurrentChatMode(), answer);
 }
 
@@ -235,7 +259,8 @@ static void AddOfferBox(MyGUI::Widget *client, const char *labelKey,
 
 // The data holds, one to a line, the offer ID, the keys of the NPC and the
 // speaker, the name of the NPC, the text of the popup, the CHECK lines, and the
-// BOX lines of a barter offer, which shows in two boxes instead of the text
+// BOX lines of a barter offer, which shows in two boxes instead of the text,
+// and its DEAL lines, which an open barter window loads instead
 void ShowOfferUI(const std::string &data) {
   std::vector<std::string> lines;
   std::istringstream in(data);
@@ -246,7 +271,7 @@ void ShowOfferUI(const std::string &data) {
     lines.push_back(line);
   }
   MyGUI::Gui *gui = MyGUI::Gui::getInstancePtr();
-  if (lines.size() < 4 || !gui || (g_offerWindow && g_offer.id == lines[0]))
+  if (lines.size() < 4 || !gui || (!g_offer.id.empty() && g_offer.id == lines[0]))
     return;
   CloseOfferUI();
 
@@ -266,6 +291,8 @@ void ShowOfferUI(const std::string &data) {
       mine.push_back(lines[i].substr(12));
     else if (lines[i].compare(0, 9, "BOX: npc ") == 0)
       theirs.push_back(lines[i].substr(9));
+    else if (lines[i].compare(0, 6, "DEAL: ") == 0)
+      offer.deal.push_back(lines[i].substr(6));
   }
   bool barter = !mine.empty() || !theirs.empty();
   offer.npc = KeyedCharacter(offer.npcKey);
@@ -276,6 +303,8 @@ void ShowOfferUI(const std::string &data) {
     EndOffer("cancel");
     return;
   }
+  if (ShowBarterOffer(offer.npcKey, offer.speakerKey, offer.deal))
+    return;
 
   g_offerWindow = gui->createWidgetReal<MyGUI::Window>(
       "Kenshi_WindowCX", 0.3f, barter ? 0.3f : 0.36f, 0.4f,
@@ -324,14 +353,18 @@ void ShowOfferUI(const std::string &data) {
   g_offerBackBtn->setVisible(false);
 }
 
-void DropOfferUI() {
+void DropOfferUI() { ForgetOffer(); }
+
+bool MoveOfferToBarter(unsigned int npcKey) {
+  if (g_offer.id.empty() || g_offer.npcKey != npcKey)
+    return false;
   CloseOfferUI();
-  SetOfferPending("");
+  return ShowBarterOffer(g_offer.npcKey, g_offer.speakerKey, g_offer.deal);
 }
 
 // A knocked-out or dead character cannot make or take a deal
 void WatchOffer() {
-  if (!g_offerWindow)
+  if (g_offer.id.empty())
     return;
   Character *npc = KeyedCharacter(g_offer.npcKey);
   Character *speaker = KeyedCharacter(g_offer.speakerKey);
