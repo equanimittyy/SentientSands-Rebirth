@@ -12,6 +12,7 @@ std::map<std::string, std::string> g_originFactions;
 std::string g_modRoot = "";
 HMODULE g_hModule = nullptr;
 
+float g_whisperRadius = 25.0f;
 float g_proximityRadius = 50.0f;
 float g_yellRadius = 100.0f;
 float g_visionRange = 100.0f;

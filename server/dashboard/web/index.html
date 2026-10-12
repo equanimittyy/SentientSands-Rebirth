@@ -77,7 +77,8 @@
           <legend>Conversations</legend>
           <label class="check"><input type="checkbox" name="enable_radiant"> <b>Radiant conversations</b></label>
           <div class="columns">
-            <label><span class="label-text">Talk range<span class="help" tabindex="0">?<span class="tip">NPCs within this distance hear what you say in talk mode. You can whisper or talk only to an NPC within this distance of the speaker. A radiant conversation takes your characters within this distance of the selected one.</span></span></span> <input type="number" name="radii.talk" min="1" required></label>
+            <label><span class="label-text">Whisper range<span class="help" tabindex="0">?<span class="tip">You can whisper only to an NPC within this distance of the speaker.</span></span></span> <input type="number" name="radii.whisper" min="1" required></label>
+            <label><span class="label-text">Talk range<span class="help" tabindex="0">?<span class="tip">NPCs within this distance hear what you say in talk mode. You can talk only to an NPC within this distance of the speaker. A radiant conversation takes your characters within this distance of the selected one.</span></span></span> <input type="number" name="radii.talk" min="1" required></label>
             <label><span class="label-text">Yell range<span class="help" tabindex="0">?<span class="tip">NPCs within this distance hear a yell, and up to 3 of them can answer. It also sets the reach of an NPC radiant conversation.</span></span></span> <input type="number" name="radii.yell" min="1" required></label>
             <label><span class="label-text">Conversation timeout (min)<span class="help" tabindex="0">?<span class="tip">A conversation ends after this long without a chat. SSR then compacts dialogue into memories and rumors from events.</span></span></span> <input type="number" name="conversation_timeout_minutes" min="1" required></label>
             <label><span class="label-text">Radiant chat timer (min)<span class="help" tabindex="0">?<span class="tip">The time between two radiant conversations. Paused time does not count.</span></span></span> <input type="number" name="radiant_chat_minutes" min="1" required></label>
@@ -178,7 +179,7 @@
             <li>Press the chat key, <b>\</b> by default. You can change it on the <a href="#settings">Settings</a> tab.</li>
             <li>To talk to one of your characters within the Talk range of your squad, press the button on the right, with the name of the NPC, until it shows that character. The chat stays on that character until you select an NPC or press the button again.</li>
             <li>You speak as the squad member that you select. To speak as another squad member, select that member, or press the button on the left, with the name of the speaker, until it shows that member. To make a character talk to itself, press the buttons until both show that character. This works with Talk and Whisper. With Yell, the character yells at everyone.</li>
-            <li>Choose <b>Whisper</b>, <b>Talk</b>, or <b>Yell</b>. Only the NPC hears a whisper. NPCs within the <b>Talk range</b> or the <b>Yell range</b> hear the other two. To whisper or talk, the NPC must stand within the <b>Talk range</b> of the speaker. Up to 3 NPCs within the <b>Yell range</b> can answer a yell, one after another.</li>
+            <li>Choose <b>Whisper</b>, <b>Talk</b>, or <b>Yell</b>. Only the NPC hears a whisper. NPCs within the <b>Talk range</b> or the <b>Yell range</b> hear the other two. To whisper, the NPC must stand within the <b>Whisper range</b> of the speaker, and to talk, within the <b>Talk range</b>. Up to 3 NPCs within the <b>Yell range</b> can answer a yell, one after another.</li>
             <li>Type your line and press <b>Enter</b>. The NPC replies in a speech bubble.</li>
             <li>Above the input, the chat window shows the type of the current conversation, such as Chat or Barter, with its speakers and its place, and below them its lines.</li>
             <li>To close the chat window, press <b>Enter</b> on an empty line, or press <b>Cancel</b>.</li>
@@ -235,7 +236,7 @@
             <li><code>!end</code>: ends the deal.</li>
           </ul>
           <p>When the NPC makes an offer, a popup opens. Press <b>Accept</b> to carry out the deal, or press <b>Decline</b> and type your reply. Answer the offer before you say another line.</p>
-          <p>You can type the full word instead of the letter, for example <code>!barter</code>. Your next lines without <code>!</code> stay in the same deal. Animals and the members of your faction make no deals. A deal needs the NPC within the <b>Talk range</b> of the speaker, also in Yell mode.</p>
+          <p>You can type the full word instead of the letter, for example <code>!barter</code>. Your next lines without <code>!</code> stay in the same deal. Animals and the members of your faction make no deals. A deal in Yell mode needs the NPC within the <b>Talk range</b> of the speaker.</p>
         </details>
         <details class="card" name="tutorial">
           <summary><strong>The Barter window</strong></summary>

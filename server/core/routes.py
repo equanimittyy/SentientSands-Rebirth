@@ -234,8 +234,11 @@ def settings_endpoint():
 
     radii = data.get("radii")
     if radii:
+        w = radii.get("whisper")
         t = radii.get("talk")
         y = radii.get("yell")
+        if w is not None:
+            send_to_pipe(f"SET_CONFIG: g_whisperRadius: {w}")
         if t is not None:
             send_to_pipe(f"SET_CONFIG: g_proximityRadius: {t}")
         if y is not None:

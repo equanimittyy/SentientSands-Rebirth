@@ -281,17 +281,17 @@ bool SendChatLine(const std::string &npcName, const std::string &handleStr,
     return false;
   }
   bool marked = IsActionMark(text);
-  bool beyondTalkRange =
+  float range = mode == "whisper" ? g_whisperRadius : g_proximityRadius;
+  bool beyondRange =
       said && speaker && targetNpc &&
-      speaker->getPosition().distance(targetNpc->getPosition()) >=
-          g_proximityRadius;
+      speaker->getPosition().distance(targetNpc->getPosition()) >= range;
   EnterCriticalSection(&g_msgMutex);
   std::string pendingName = g_actionPendingName;
   std::string offerName = g_offerPendingName;
   bool actionLine =
       marked || (g_actionNpcKey != 0 && targetKey == g_actionNpcKey);
   // A plain yell goes to each NPC in Yell range, not only to its target
-  bool tooFar = beyondTalkRange && (mode != "yell" || actionLine);
+  bool tooFar = beyondRange && (mode != "yell" || actionLine);
   // A second line could bring a second offer, so an action dialogue line
   // holds every chat until its reply arrives
   if (!tooFar && pendingName.empty() && offerName.empty() && actionLine)

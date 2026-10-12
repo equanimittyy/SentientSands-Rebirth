@@ -17,6 +17,7 @@ INI_KEY_MAP = {
     "radiant_chat_minutes": "RadiantChatMinutes",
     "npc_radiant_chance": "NpcRadiantChance",
     "radiant_rumor_minutes": "RadiantRumorMinutes",
+    "whisper_radius": "WhisperRadius",
     "talk_radius": "TalkRadius",
     "yell_radius": "YellRadius",
     "enable_welcome": "EnableWelcomePopup",
@@ -64,6 +65,7 @@ SETTINGS_DEFAULTS = {
     "radiant_chat_minutes": 10,
     "npc_radiant_chance": 50,
     "radiant_rumor_minutes": 30,
+    "whisper_radius": 25,
     "talk_radius": 50,
     "yell_radius": 100,
     "enable_welcome": True,
@@ -113,6 +115,7 @@ def save_settings(new_settings):
     flat_changes = {}
     for k, v in new_settings.items():
         if k == "radii" and isinstance(v, dict):
+            if "whisper" in v: flat_changes["whisper_radius"] = v["whisper"]
             if "talk" in v: flat_changes["talk_radius"] = v["talk"]
             if "yell" in v: flat_changes["yell_radius"] = v["yell"]
         else:
@@ -131,6 +134,7 @@ def settings_page_values(settings):
         "dialogue_speed": settings["dialogue_speed_seconds"],
         "bubble_life": settings["bubble_life"],
         "radii": {
+            "whisper": settings["whisper_radius"],
             "talk": settings["talk_radius"],
             "yell": settings["yell_radius"]
         },
@@ -153,6 +157,7 @@ def push_settings_to_plugin():
     for var, value in (
         ("g_enableRadiant", "1" if settings["enable_radiant"] else "0"),
         ("g_radiantIntervalSeconds", settings["radiant_chat_minutes"] * 60),
+        ("g_whisperRadius", settings["whisper_radius"]),
         ("g_proximityRadius", settings["talk_radius"]),
         ("g_yellRadius", settings["yell_radius"]),
         ("g_chatHotkey", settings["chat_hotkey"]),

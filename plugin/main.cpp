@@ -172,7 +172,9 @@ void ProcessMessageQueue(GameWorld *thisptr) {
                 g_radiantIntervalSeconds = atoi(val.c_str());
                 g_lastRadiantTick =
                     GetTickCount();
-              } else if (var == "g_proximityRadius")
+              } else if (var == "g_whisperRadius")
+                g_whisperRadius = (float)atof(val.c_str());
+              else if (var == "g_proximityRadius")
                 g_proximityRadius = (float)atof(val.c_str());
               else if (var == "g_yellRadius")
                 g_yellRadius = (float)atof(val.c_str());

@@ -300,6 +300,8 @@ void LoadPluginConfig() {
                            iniPath.c_str());
   SetHotkeyFromString(hotkeyBuf);
 
+  g_whisperRadius = (float)GetPrivateProfileIntA("Settings", "WhisperRadius",
+                                                 25, iniPath.c_str());
   g_proximityRadius = (float)GetPrivateProfileIntA("Settings", "TalkRadius",
                                                    50, iniPath.c_str());
   g_yellRadius = (float)GetPrivateProfileIntA("Settings", "YellRadius", 100,

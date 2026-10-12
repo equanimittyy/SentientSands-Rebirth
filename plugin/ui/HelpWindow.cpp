@@ -46,8 +46,9 @@ static const HelpTopic HELP_TOPICS[] = {
      {{NULL, "Select an NPC and press the chat key, [ {key} ]. The chat goes "
              "to the last NPC that you selected, even when you select a squad "
              "member after it. You can change the chat key on the Settings tab "
-             "of the web app. To whisper or talk, the NPC must stand within "
-             "the Talk range of the speaker."},
+             "of the web app. To whisper, the NPC must stand within the "
+             "Whisper range of the speaker, and to talk, within the Talk "
+             "range."},
       {"Target", "To talk to one of your characters within the Talk range of "
                  "your squad, press the button on the right, with the name of "
                  "the NPC, until it shows that character. The chat stays on "
@@ -94,8 +95,8 @@ static const HelpTopic HELP_TOPICS[] = {
       {NULL, "You can type the full word instead of the letter, for example "
              "!barter. Your next lines without ! stay in the same deal. "
              "Animals and the members of your faction make no deals. A deal "
-             "needs the NPC within the Talk range of the speaker, also in "
-             "Yell mode."}}},
+             "in Yell mode needs the NPC within the Talk range of the "
+             "speaker."}}},
     {"The Barter window",
      {{NULL, "During a barter (!b), the chat window shows a Barter button. It "
              "opens a window in which you build the deal from real items and "

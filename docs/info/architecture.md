@@ -390,7 +390,7 @@ An NPC radiant conversation takes the place of a talk of the player's characters
 
 ## Chat range
 
-The plugin sends a chat line only when the target stands within `TalkRadius` of the speaker (`SendChatLine` in `plugin/ui/ChatWindow.cpp`). Otherwise the chat window shows "{name} is too far away." and the line goes nowhere.
+The plugin sends a chat line only when the target stands within range of the speaker: `WhisperRadius` for a whisper, else `TalkRadius` (`SendChatLine` in `plugin/ui/ChatWindow.cpp`). Otherwise the chat window shows "{name} is too far away." and the line goes nowhere.
 
 - A plain yell is the exception, because it goes to each NPC within `YellRadius`, not only to the target (see [Yells](#yells)).
 - An action dialogue in Yell mode needs the target within `TalkRadius`, because its offer belongs to one NPC.

@@ -27,6 +27,7 @@ extern DWORD g_mainThreadId;
 extern DWORD g_lastRadiantTick;
 extern std::map<std::string, std::string> g_originFactions;
 
+extern float g_whisperRadius;
 extern float g_proximityRadius;
 extern float g_yellRadius;
 extern float g_visionRange;
