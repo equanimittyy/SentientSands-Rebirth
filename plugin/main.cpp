@@ -110,10 +110,15 @@ static std::string LeadingCategoryTag(const std::string &text) {
 
 // Kenshi engine writes must happen on the main thread, inside hooks.
 void ProcessMessageQueue(GameWorld *thisptr) {
+  std::deque<std::string> messages;
   if (TryEnterCriticalSection(&g_msgMutex)) {
-    while (!g_messageQueue.empty()) {
-      std::string msg = g_messageQueue.front();
-      g_messageQueue.pop_front();
+    // Swapped out, so the pipe thread can queue the next message while the
+    // game thread runs these
+    messages.swap(g_messageQueue);
+    LeaveCriticalSection(&g_msgMutex);
+    while (!messages.empty()) {
+      std::string msg = messages.front();
+      messages.pop_front();
       if (LogEnabled(LOG_DEBUG))
         Log(LOG_DEBUG, "QUEUE: Processing: " + msg);
 
@@ -835,7 +840,6 @@ void ProcessMessageQueue(GameWorld *thisptr) {
         }
       }
     }
-    LeaveCriticalSection(&g_msgMutex);
   }
 }
 
