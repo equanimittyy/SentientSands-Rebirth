@@ -481,6 +481,11 @@ class ThreadTest(CampaignTestCase):
         self.assertEqual(campaign_db.thread_partners(GENERIC_ID), [self.STICK, self.RUKA])
         self.assertEqual(campaign_db.thread_partners(self.IZUMI), [])
 
+    def test_the_partners_can_leave_out_the_current_thread(self):
+        self.exchange(None, "[Day 1, 08:00]")
+        current = self.exchange(None, "[Day 2, 08:00]", speaker=self.RUKA)
+        self.assertEqual(campaign_db.thread_partners(GENERIC_ID, current), [self.STICK])
+
     def test_the_library_counts_the_members_of_a_thread_with_a_memory(self):
         thread_id = self.exchange(None, "[Day 1, 08:00]", listeners=[self.IZUMI])
         campaign_db.set_memory(thread_id, "Stick greeted Jorge.", campaign_db.game_time("[Day 1, 08:00]"))

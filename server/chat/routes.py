@@ -558,6 +558,7 @@ def chat():
 
     # A rule that rated the player's politeness let a scornful NPC warm up with each apology
     judgment = "JUDGMENT: End every reply with [JUDGMENT: n], the change that the player's line makes to how you feel about the player, from -5 (it angers, frightens, hurts, or offends you) to 5 (it pleases you); 0 is no change. Judge by your personality, not by how polite the line is."
+    action_rules = ""
     if animal:
         system_prompt = fill_prompt("prompt_animal_system.txt", language_instruction=language_instruction())
         final_instruction = f"Reply as {primary_npc} with one action or sound in asterisks, and no words. End with [JUDGMENT: n]."
@@ -567,7 +568,7 @@ def chat():
             goods = {"stock": offers.stocktake(ctx_dict)} if category == "BARTER" else {}
             # The request of the barter window names no offer tag, because only the player sets a deal that the window can accept
             wanted = fill_prompt("prompt_action_barter_table.txt" if barter else f"prompt_action_{category.lower()}.txt", speaker=player_name, **goods)
-            system_prompt += "\n\n" + fill_prompt("prompt_action_rules.txt", request=wanted)
+            action_rules = fill_prompt("prompt_action_rules.txt", request=wanted)
         final_instruction = f"Reply as {primary_npc}{', quietly' if mode == 'whisper' else ''}. End with [JUDGMENT: n]."
 
     mode_tag = {"whisper": "(Whispered) ", "yell": "(Yelled) "}.get(mode, "")
@@ -576,7 +577,9 @@ def chat():
 
     live = state.LIVE_CONTEXTS.get(primary_id, {})
     rows = campaign_db.dialogue(primary_id)
-    spoken = chat_prompt.spoken_with(rows, campaign_db.thread_partners(primary_id), primary_id)
+    # Only earlier threads count, so the scene of a first meeting, and the prompt cache with it, holds for the whole conversation
+    earlier = [row for row in rows if current_thread is None or row[2] != current_thread]
+    spoken = chat_prompt.spoken_with(earlier, campaign_db.thread_partners(primary_id, current_thread), primary_id)
     met = speaker_id in spoken
     current_members = campaign_db.thread_members([current_thread]).get(current_thread, []) if current_thread else []
     partners = tuple(npc_id for npc_id, _, role, _ in current_members if role == "speaker" and npc_id not in (primary_id, speaker_id))
@@ -597,7 +600,7 @@ def chat():
         state.CONVERSATION_SCENE[conversation] = scene
     # Read on each turn, not with the scene, so a memory that the distillation writes during a conversation reaches the next turn
     starting = chat_prompt.starting_memories(campaign_db.memories_of(primary_id), primary_id)
-    system = fill_prompt("prompt_chat_template.txt", system_prompt=system_prompt, judgment=judgment, primary_npc=primary_npc, npc_profiles=describe_npc(primary_npc, primary_data, primary_id), scene=scene, memories=chat_prompt.memories_block(starting, primary_id))
+    system = fill_prompt("prompt_chat_template.txt", system_prompt=system_prompt, judgment=judgment, primary_npc=primary_npc, npc_profiles=describe_npc(primary_npc, primary_data, primary_id), scene=scene, memories=chat_prompt.memories_block(starting, primary_id), action_rules=action_rules)
     pair = (speaker_id, primary_id)
     cooldown = load_settings()["retrieval_cooldown_turns"]
     recent_turns = state.RECENT_HITS.get(pair, [])

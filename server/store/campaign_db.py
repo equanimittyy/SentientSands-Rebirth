@@ -524,14 +524,14 @@ def _memories(rows):
     return [{"id": thread_id, "game_time": first_time, "memory": memory, "members": members.get(thread_id, [])} for thread_id, first_time, memory in rows]
 
 
-def thread_partners(npc_id):
-    """The other speaker of each chat thread in which the character is a speaker, oldest thread first. The members stay after
-    a memory replaced the lines of the thread."""
+def thread_partners(npc_id, excluded_thread=None):
+    """The other speaker of each chat thread in which the character is a speaker, except the thread excluded_thread, oldest
+    thread first. The members stay after a memory replaced the lines of the thread."""
     with _connect() as conn:
         rows = conn.execute(
             "SELECT o.npc_id FROM thread_member m JOIN thread_member o ON o.thread_id = m.thread_id AND o.role = 'speaker' AND o.npc_id != m.npc_id"
-            " WHERE m.npc_id = ? AND m.role = 'speaker' ORDER BY m.thread_id, o.rowid",
-            (npc_id,),
+            " WHERE m.npc_id = ? AND m.role = 'speaker' AND m.thread_id IS NOT ? ORDER BY m.thread_id, o.rowid",
+            (npc_id, excluded_thread),
         ).fetchall()
     return [partner for (partner,) in rows]
 

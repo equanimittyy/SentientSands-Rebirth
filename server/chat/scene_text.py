@@ -130,7 +130,7 @@ def relation_text(name, group, relation, met, companions=(), partners=()):
     NPC spoke with in earlier conversations, and partners those that spoke in this one, so a squad member who takes over
     the talk continues it. The NPC keeps one relation, which the chats of every squad member change, so the sentence gives
     it as a feeling towards the group."""
-    first = "" if met else f"You have never spoken with {name} before."
+    first = "" if met else f"This is your first conversation with {name}."
     earlier = f"Earlier you spoke with {_join(companions)}, who {'travels' if len(companions) == 1 else 'travel'} with {name}." if companions else ""
     now = f"In this conversation, you also talk with {_join(partners)}, who {'travels' if len(partners) == 1 else 'travel'} with {name}." if partners else ""
     feeling = _scale(_number(relation), RELATION).format(name=f"{group}, the group {name} travels with")

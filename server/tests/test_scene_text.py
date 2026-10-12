@@ -28,13 +28,13 @@ class ScaleTest(unittest.TestCase):
 
     def test_a_first_meeting_and_the_companions_come_before_the_relation(self):
         self.assertEqual(scene_text.relation_text("Izumi", "Nameless", 30, met=False, companions=["Stick"]),
-                         "You have never spoken with Izumi before. Earlier you spoke with Stick, who travels with Izumi. You feel friendly towards Nameless, the group Izumi travels with.")
+                         "This is your first conversation with Izumi. Earlier you spoke with Stick, who travels with Izumi. You feel friendly towards Nameless, the group Izumi travels with.")
         self.assertEqual(scene_text.relation_text("Izumi", "Nameless", 0, met=True, companions=["Stick", "Mikse"]),
                          "Earlier you spoke with Stick and Mikse, who travel with Izumi. You feel neutral towards Nameless, the group Izumi travels with.")
 
     def test_the_partners_of_this_conversation_are_not_earlier_talk(self):
         self.assertEqual(scene_text.relation_text("Izumi", "Nameless", 0, met=False, companions=["Mikse"], partners=["Stick"]),
-                         "You have never spoken with Izumi before. Earlier you spoke with Mikse, who travels with Izumi. In this conversation, you also talk with Stick, who travels with Izumi. "
+                         "This is your first conversation with Izumi. Earlier you spoke with Mikse, who travels with Izumi. In this conversation, you also talk with Stick, who travels with Izumi. "
                          "You feel neutral towards Nameless, the group Izumi travels with.")
 
     def test_the_overheard_note_names_the_listeners_and_the_other_speakers(self):
@@ -176,7 +176,7 @@ class SentenceTest(unittest.TestCase):
 
     def test_the_npc_names_the_companions_that_it_spoke_with(self):
         text = scene_text.npc_text({}, {"Relation": 0}, "Izumi", "Nameless", met=False, major=False, in_player_faction=False, feels_hunger=True, companions=["Stick"])
-        self.assertTrue(text.startswith("You:\nYou have never spoken with Izumi before. Earlier you spoke with Stick, who travels with Izumi. You feel neutral towards Nameless, the group Izumi travels with."))
+        self.assertTrue(text.startswith("You:\nThis is your first conversation with Izumi. Earlier you spoke with Stick, who travels with Izumi. You feel neutral towards Nameless, the group Izumi travels with."))
 
     def test_a_squad_member_travels_with_the_player(self):
         text = scene_text.npc_text({"faction": "Nameless", "relation": 100}, {"Faction": "Nameless"}, "Drifter", "Nameless", met=True, major=False, in_player_faction=True, feels_hunger=True)

@@ -9,3 +9,5 @@
 {scene}
 
 {memories}
+
+{action_rules}
