@@ -37,14 +37,14 @@ Each deal except charity holds this rule: what the NPC receives is worth at leas
 | An item of the player | Its `price` (`plugin/game/Context.cpp:966`) times the buy share of the NPC, times its count |
 | An item of the NPC | Its `price` times the sell share of the NPC, times its count |
 
-A non-trader wants a bigger profit margin, so it fleeces the player more:
+Each NPC sells at the full `price`, which is the price in the trade window of the game, so a deal never undercuts the trade window. A non-trader wants a bigger profit margin, so it pays less for the items of the player:
 
 | NPC | Sell share | Buy share |
 |---|---|---|
-| A trader: its Current Job (`current_job` in `server/chat/current_job.py:41`) is `Trading`, `Running a shop`, or `Travelling as a trader` | 80% | 60% |
+| A trader: its Current Job (`current_job` in `server/chat/current_job.py:41`) is `Trading`, `Running a shop`, or `Travelling as a trader` | 100% | 60% |
 | Any other NPC | 100% | 40% |
 
-For example, a trader sells a Katana with a `price` of 3,000 for at least 2,400 cats, and it buys the Katana for at most 1,800 cats.
+For example, a trader sells a Katana with a `price` of 3,000 for at least 3,000 cats, and it buys the Katana for at most 1,800 cats.
 
 ## 4. Charity
 

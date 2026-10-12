@@ -96,6 +96,7 @@ The `STOCK_PROBE` and `FIRSTAID_PROBE` lines of a bar and of a shop in a Shinobi
 - The barman carried only his own items, and his inventory was not a `ShopTraderInventory`. The bar (`Character::isIndoors().getBuilding()`) had no inventory: `getInventory` gave null.
 - The trade window of the bar showed the items in all the furniture of the bar. For Water, Vodka, Water Jug, and Bread, the counts in the window were the sums over `Building::findAllFurnitureWithFunction` with `BF_ANY`, for example 14 Water Jugs. The shop counters (`Ownerships::getHomeFurnitureOfType` with `BF_SHOP`) held only 4 of the 14 Water Jugs. Each piece of furniture keeps its items in the `backpack_content` section, and its inventory is not a `ShopTraderInventory`.
 - `Item::getValueSingle(false)` gave one item a different price on different holders: a Standard First Aid Kit was 102 on the barman and 132 in the furniture.
+- In a trade with a barman, `Item::getValueSingle(false)` gave Shochu a price of 242, the price that the trade window of the game showed.
 - The data of a weapon holds its grade: `materialData` names the grade, for example "09 - Refitted Blade", and `manufacturerData` names the maker, for example "Ancient". `Item::getLevel` rises with the grade.
 - `Item::getLevel` gives the grade of an armour: 40 is Standard and 60 is High. The game showed no grade for Shinobi Clothpants (alt) at level 60, whose game data covers no body part (no `part coverage`).
 - `Inventory::hasItemFunction` with `ITEM_FIRSTAID` was true for the barman, who carried a Standard First Aid Kit.

@@ -54,7 +54,7 @@ class OpenThreadTest(unittest.TestCase):
         thread = chat_window.open_thread(JORGE, QUIET)
         self.assertEqual((thread["title"], thread["type"]), ("Stick and Jorge | The Hub", "Barter"))
         self.assertEqual((thread["mode"], thread["speaker"], thread["trader"]), ("talk", STICK, True))
-        self.assertEqual((thread["sell_share"], thread["buy_share"]), (0.8, 0.6))
+        self.assertEqual((thread["sell_share"], thread["buy_share"]), (1.0, 0.6))
 
     def test_the_lines_of_a_thread_stay_after_it_ends(self):
         thread_id = self.chat(None, STICK, "Stick: Sell me bread.")
