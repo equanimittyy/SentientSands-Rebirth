@@ -119,7 +119,7 @@ def plain_chat(category, npc, speaker):
                 return f"{{player}} is {speaker_state}, so you cannot {verb} {{player}}."
             if npc_state in ("imprisoned", "enslaved"):
                 return f"You are {npc_state}, so you cannot {verb} {{player}}."
-        if npc.get("is_leader"):
+        if current_job.is_leader(npc):
             return f"You lead {npc.get('faction') or 'your faction'} and will not leave it."
     return None
 
@@ -207,11 +207,12 @@ def threat_lean(npc, speaker, overheard):
 
     squad, own = sides(npc, speaker, overheard)
     fight, numbers = sign(melee(speaker) - melee(npc)), sign(squad - own)
+    leader = current_job.is_leader(npc)
     pairs = [(fight, "{player} fights better than you." if fight > 0 else "You fight better than {player}."),
              (numbers, "{player}'s side outnumbers yours here." if numbers > 0 else "Your side outnumbers {player}'s here."),
              (npc.get("health") in ("Injured", "Crippled"), "You are hurt."),
              (-(speaker.get("health") in ("Injured", "Crippled")), "{player} is hurt."),
-             (-bool(npc.get("is_leader") or npc.get("unique")), "You lead your faction." if npc.get("is_leader") else "You are no common drifter.")]
+             (-bool(leader or npc.get("unique")), "You lead your faction." if leader else "You are no common drifter.")]
     return [(int(bonus), reason) for bonus, reason in pairs if bonus]
 
 

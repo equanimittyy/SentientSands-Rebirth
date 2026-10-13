@@ -40,6 +40,6 @@ The lean ([Outcome](framework.md#outcome)) is how likely the NPC is to give in:
 | The squad members near the NPC are fewer | -1 |
 | The NPC's `health` is `Injured` or `Crippled` | +1 |
 | The speaker's `health` is `Injured` or `Crippled` | -1 |
-| The NPC is the leader of its faction (`is_leader`) or unique (`unique`) | -1 |
+| The NPC is the leader of its faction (`is_leader`, or the Current Job Holding court) or unique (`unique`) | -1 |
 
 `nearby` leaves out the first squad character (`plugin/game/Context.cpp:830`), so the count must add that character when it is near.

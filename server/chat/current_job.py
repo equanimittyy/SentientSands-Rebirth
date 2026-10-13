@@ -6,12 +6,13 @@ so the same squad job gives the same phrase in every mod list.
 """
 
 AT_A_BAR = "Hanging out at a bar"
+HOLDING_COURT = "Holding court"
 # In order: the first entry that the squad jobs hold wins. A squad job such as a turret or a bar visit is a side task of
 # many guard and town packages, so it comes after the jobs that it would otherwise hide.
 TABLE = [
     ({"STAND_AT_SHOPKEEPER_NODE"}, "Running a shop"),
     ({"WANDERING_TRADER"}, "Travelling as a trader"),
-    ({"SIT_ON_THRONE"}, "Holding court"),
+    ({"SIT_ON_THRONE"}, HOLDING_COURT),
     ({"MAN_THE_GATE", "STAND_AT_GUARD_NODE_HOMETOWN_OUTSIDE"}, "Guarding the town"),
     ({"STAND_AT_GUARD_NODE_HOMEBUILDING_IN_OUT", "STAND_AT_GUARD_NODE_HOMEBUILDING_INDOORS_ONLY", "STAND_AT_BUILDING_GUARD_NODE",
       "STAND_AT_BUILDING_DEFENSIVE_NODE"}, "Guarding a building"),
@@ -50,3 +51,9 @@ def current_job(ctx, in_player_faction, player_faction):
     if ctx.get("is_trader") and "STAND_AT_SHOPKEEPER_NODE" not in jobs:
         return "Trading"
     return next((phrase for tasks, phrase in TABLE if jobs & tasks), None)
+
+
+def is_leader(ctx):
+    """The game data names one leader for each faction, so an NPC who holds court leads its faction too. The phrase decides,
+    not the squad job, because the squad of a barman can hold SIT_ON_THRONE and the barman still reads as Trading."""
+    return bool(ctx.get("is_leader")) or current_job(ctx, False, "") == HOLDING_COURT

@@ -644,6 +644,7 @@ The `CurrentJob` of a profile is a short phrase for what the NPC does now (`serv
 
 - The plugin sends the squad jobs as KenshiLib `TaskType` names from `ROLE_TASKS` (`RoleJson` in `plugin/game/Context.cpp`). A test keeps `ROLE_TASKS` and `TABLE` equal. Task types belong to the engine, so they hold in every mod list (see [Kenshi internals](kenshi_internals.md#roles)).
 - Rejected: the template title and the AI package name, which mods rename.
+- An NPC whose Current Job is Holding court leads its faction, as the leader that the game data names does (`current_job.is_leader`), because the game data names only one leader for each faction. The phrase decides, not the `SIT_ON_THRONE` squad job, because the squad of a barman can hold that job.
 
 ### Current Location
 

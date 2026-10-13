@@ -37,6 +37,12 @@ class CurrentJobTest(unittest.TestCase):
         self.assertIsNone(job({"squad_jobs": []}))
         self.assertIsNone(job({"squad_jobs": ["JOB_MEDIC", "SELF_PRESERVATION"]}))
 
+    def test_an_npc_who_holds_court_leads_its_faction(self):
+        self.assertTrue(current_job.is_leader({"is_leader": True, "squad_jobs": []}))
+        self.assertTrue(current_job.is_leader({"squad_jobs": ["SIT_ON_THRONE"]}))
+        self.assertFalse(current_job.is_leader({"is_trader": True, "squad_jobs": ["SIT_ON_THRONE"]}))
+        self.assertFalse(current_job.is_leader({"squad_jobs": ["PATROL_TOWN"]}))
+
     def test_the_plugin_sends_each_task_of_the_table_and_the_jailer_task(self):
         with open(os.path.join(ROOT, "plugin", "game", "Context.cpp"), encoding="utf-8") as f:
             source = f.read()

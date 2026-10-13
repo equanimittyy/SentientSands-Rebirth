@@ -5,6 +5,8 @@ A model reads a sentence more reliably than a raw number, so each number becomes
 plain values, so this module never reads the campaign.
 """
 
+from chat import current_job
+
 
 def _scale(value, steps):
     """The text of the first step whose bound the value is below; the last step has no bound."""
@@ -334,7 +336,7 @@ def npc_text(context, profile, player_name, player_faction, *, met, major, in_pl
     trader = context.get("is_trader") or "shopkeeper" in task.lower()
     if trader:
         sentences.append("You are a trader.")
-    if context.get("is_leader") and _known(faction):
+    if current_job.is_leader(context) and _known(faction):
         sentences.append(f"You lead {faction}.")
     if in_player_faction:
         if not self_talk:

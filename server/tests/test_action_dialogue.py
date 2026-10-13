@@ -111,6 +111,7 @@ class PlainChatTest(unittest.TestCase):
         self.assertEqual(self.chat("FOLLOW", {"character_state": "imprisoned"}), "You are imprisoned, so you cannot follow {player}.")
         for category in ("RECRUIT", "FOLLOW"):
             self.assertEqual(self.chat(category, {"is_leader": True, "faction": "Holy Nation"}), "You lead Holy Nation and will not leave it.")
+            self.assertEqual(self.chat(category, {"squad_jobs": ["SIT_ON_THRONE"], "faction": "Holy Nation"}), "You lead Holy Nation and will not leave it.")
             self.assertIsNone(self.chat(category))
 
     def test_a_captive_of_the_same_faction_can_join_or_follow(self):
