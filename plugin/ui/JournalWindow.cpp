@@ -75,21 +75,16 @@ void PopulateJournalUI(const std::string &data) {
   g_journalCampaign = GetJsonValue(reply, "campaign");
   g_journalPage = atoi(GetJsonValue(reply, "page").c_str());
   g_journalPages = atoi(GetJsonValue(reply, "pages").c_str());
-  std::string entries = GetJsonValue(reply, "entries");
+  std::vector<std::string> entries =
+      JsonArrayItems(GetJsonValue(reply, "entries"));
   g_journalList->removeAllItems();
   g_journalIds.clear();
-  // Flask sorts the keys, so each entry's label lies between its "id" and the
-  // next one
-  size_t cur = entries.find("\"id\":");
-  while (cur != std::string::npos) {
-    size_t next = entries.find("\"id\":", cur + 5);
-    std::string entry = entries.substr(cur, next - cur);
-    g_journalIds.push_back(GetJsonValue(entry, "id"));
+  for (size_t i = 0; i < entries.size(); i++) {
+    g_journalIds.push_back(GetJsonValue(entries[i], "id"));
     g_journalList->addItem(MyGUI::TextIterator::toTagsString(
-        Utf8ToWide(GetJsonValue(entry, "label"))));
+        Utf8ToWide(GetJsonValue(entries[i], "label"))));
     if (g_journalIds.back() == g_journalSelectedId)
       g_journalList->setIndexSelected(g_journalIds.size() - 1);
-    cur = next;
   }
   g_journalPageText->setCaption(
       Utf8ToWide(T("Page ") + ToString(g_journalPage) + " / " +

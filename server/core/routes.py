@@ -72,9 +72,8 @@ def cheat_relation():
 
 @bp.route('/events', methods=['GET', 'POST'])
 def list_events():
-    """The events for the Events window, newest first. The plugin finds the keys of each event after its "id", so each key must
-    sort after "id", as Flask sorts them. The window sends the campaign back with Add Event and Delete, because the same ID
-    can name another event in another campaign."""
+    """The events for the Events window, newest first. The window sends the campaign back with Add Event and Delete,
+    because the same ID can name another event in another campaign."""
     events = []
     rumors = {rumor["id"]: rumor for rumor in campaign_db.rumors()}
     for event in world_events.events():
@@ -104,9 +103,8 @@ def events_content():
 
 @bp.route('/journal', methods=['POST'])
 def journal():
-    """A page of the Journal window. The plugin finds the keys of each entry after its "id", so each key must sort after "id",
-    as Flask sorts them. The window sends the campaign back with each write, because the same ID can name another entry in
-    another campaign."""
+    """A page of the Journal window. The window sends the campaign back with each write, because the same ID can name
+    another entry in another campaign."""
     data = request.get_json(silent=True) or {}
     entries, page, pages = campaign_db.journal_page(str(data.get("query") or ""), int(data.get("page") or 1))
     return jsonify({"status": "ok", "campaign": state.ACTIVE_CAMPAIGN, "entries": entries, "page": page, "pages": pages})

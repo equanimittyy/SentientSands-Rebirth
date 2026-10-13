@@ -2,7 +2,6 @@
 #include "../core/Comm.h"
 #include "../core/Globals.h"
 #include "../core/Utils.h"
-#include <algorithm>
 #include <mygui/MyGUI_Delegate.h>
 #include <mygui/MyGUI_Gui.h>
 #include <mygui/MyGUI_ListBox.h>
@@ -23,12 +22,16 @@ MyGUI::ListBox *g_eventsText = nullptr;
 MyGUI::EditBox *g_eventsSearch = nullptr;
 MyGUI::Button *g_eventsKindBtn = nullptr;
 std::vector<std::string> g_eventsStorageIds;
-std::vector<std::string> g_eventsAllIds;
-std::vector<std::string> g_eventsAllTitles;
-std::vector<std::string> g_eventsAllTexts;
-std::vector<std::string> g_eventsAllInstructions;
-std::vector<std::string> g_eventsAllKinds;
-std::vector<std::string> g_eventsAllRumors;
+
+struct EventRow {
+  std::string id;
+  std::string title;
+  std::string text;
+  std::string instruction;
+  std::string kind;
+  std::string rumor;
+};
+static std::vector<EventRow> g_eventRows;
 int g_eventsKind = 0;
 std::string g_eventsCampaign;
 std::string g_eventsSelectId;
@@ -66,12 +69,7 @@ void CloseEventsUI() {
     g_eventsSearch = nullptr;
     g_eventsKindBtn = nullptr;
     g_eventsStorageIds.clear();
-    g_eventsAllIds.clear();
-    g_eventsAllTitles.clear();
-    g_eventsAllTexts.clear();
-    g_eventsAllInstructions.clear();
-    g_eventsAllKinds.clear();
-    g_eventsAllRumors.clear();
+    g_eventRows.clear();
     g_eventsKind = 0;
     g_eventsSelectId.clear();
   }
@@ -82,14 +80,15 @@ void ApplyEventsFilter(const std::string &keepId) {
   g_eventsStorageIds.clear();
   std::string query =
       g_eventsSearch ? g_eventsSearch->getOnlyText().asUTF8() : "";
-  for (size_t i = 0; i < g_eventsAllIds.size(); i++) {
-    if (g_eventsKind != 0 && g_eventsAllKinds[i] != EVENT_KINDS[g_eventsKind])
+  for (size_t i = 0; i < g_eventRows.size(); i++) {
+    const EventRow &row = g_eventRows[i];
+    if (g_eventsKind != 0 && row.kind != EVENT_KINDS[g_eventsKind])
       continue;
-    if (!ContainsIgnoreCase(g_eventsAllTexts[i], query))
+    if (!ContainsIgnoreCase(row.text, query))
       continue;
-    g_eventsList->addItem(Utf8ToWide(g_eventsAllTitles[i]).c_str());
-    g_eventsStorageIds.push_back(g_eventsAllIds[i]);
-    if (g_eventsAllIds[i] == keepId)
+    g_eventsList->addItem(Utf8ToWide(row.title).c_str());
+    g_eventsStorageIds.push_back(row.id);
+    if (row.id == keepId)
       g_eventsList->setIndexSelected(g_eventsStorageIds.size() - 1);
   }
 }
@@ -104,10 +103,11 @@ void OnEventsSearchChange(MyGUI::EditBox *sender) {
 }
 
 int CountEventsOfKind(int kind) {
-  if (kind == 0)
-    return (int)g_eventsAllKinds.size();
-  return (int)std::count(g_eventsAllKinds.begin(), g_eventsAllKinds.end(),
-                         EVENT_KINDS[kind]);
+  int count = 0;
+  for (size_t i = 0; i < g_eventRows.size(); i++)
+    if (kind == 0 || g_eventRows[i].kind == EVENT_KINDS[kind])
+      count++;
+  return count;
 }
 
 void ShowEventsKind() {
@@ -141,26 +141,18 @@ void PopulateEventsUI(const std::string &data) {
       g_eventsSelectId.empty() ? SelectedEventId() : g_eventsSelectId;
   g_eventsSelectId.clear();
   g_eventsCampaign = GetJsonValue(reply, "campaign");
-  std::string events = GetJsonValue(reply, "events");
-  g_eventsAllIds.clear();
-  g_eventsAllTitles.clear();
-  g_eventsAllTexts.clear();
-  g_eventsAllInstructions.clear();
-  g_eventsAllKinds.clear();
-  g_eventsAllRumors.clear();
-  // Flask sorts the keys, so each object's other keys lie between its "id" and
-  // the next one; an escaped quote in a value cannot fake an "id": key
-  size_t cur = events.find("\"id\":");
-  while (cur != std::string::npos) {
-    size_t next = events.find("\"id\":", cur + 5);
-    std::string entry = events.substr(cur, next - cur);
-    g_eventsAllIds.push_back(GetJsonValue(entry, "id"));
-    g_eventsAllTitles.push_back(GetJsonValue(entry, "title"));
-    g_eventsAllTexts.push_back(GetJsonValue(entry, "inner"));
-    g_eventsAllInstructions.push_back(GetJsonValue(entry, "instruction"));
-    g_eventsAllKinds.push_back(GetJsonValue(entry, "kind"));
-    g_eventsAllRumors.push_back(GetJsonValue(entry, "rumor"));
-    cur = next;
+  std::vector<std::string> events =
+      JsonArrayItems(GetJsonValue(reply, "events"));
+  g_eventRows.clear();
+  for (size_t i = 0; i < events.size(); i++) {
+    EventRow row;
+    row.id = GetJsonValue(events[i], "id");
+    row.title = GetJsonValue(events[i], "title");
+    row.text = GetJsonValue(events[i], "inner");
+    row.instruction = GetJsonValue(events[i], "instruction");
+    row.kind = GetJsonValue(events[i], "kind");
+    row.rumor = GetJsonValue(events[i], "rumor");
+    g_eventRows.push_back(row);
   }
   ShowEventsKind();
   ApplyEventsFilter(keepId);
@@ -377,11 +369,11 @@ bool SelectRumorEvent() {
   g_rumorEvent = g_eventsStorageIds[index];
   g_rumorLine = g_eventsList->getItemNameAt(index).asUTF8();
   g_rumorInstruction = "";
-  for (size_t i = 0; i < g_eventsAllIds.size(); i++)
-    if (g_eventsAllIds[i] == g_rumorEvent) {
-      g_rumorInstruction = g_eventsAllInstructions[i];
-      g_rumorKind = g_eventsAllKinds[i];
-      g_rumorId = g_eventsAllRumors[i];
+  for (size_t i = 0; i < g_eventRows.size(); i++)
+    if (g_eventRows[i].id == g_rumorEvent) {
+      g_rumorInstruction = g_eventRows[i].instruction;
+      g_rumorKind = g_eventRows[i].kind;
+      g_rumorId = g_eventRows[i].rumor;
     }
   return true;
 }
