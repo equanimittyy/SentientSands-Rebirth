@@ -5,6 +5,7 @@
 #include "OfferWindow.h"
 #include "../core/Comm.h"
 #include "../game/Context.h"
+#include "../game/Probes.h"
 #include "../core/Globals.h"
 #include "../core/Utils.h"
 

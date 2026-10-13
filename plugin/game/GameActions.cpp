@@ -1,5 +1,6 @@
 #include "GameActions.h"
 #include "Context.h"
+#include "Probes.h"
 #include "../core/Globals.h"
 #include "../core/Utils.h"
 #include <algorithm>

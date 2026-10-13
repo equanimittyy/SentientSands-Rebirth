@@ -33,6 +33,7 @@
 #include "game/Context.h"
 #include <core/Functions.h>
 #include "game/GameActions.h"
+#include "game/Probes.h"
 #include "core/Globals.h"
 #include "core/Utils.h"
 

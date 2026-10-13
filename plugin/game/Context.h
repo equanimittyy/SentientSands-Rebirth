@@ -3,15 +3,20 @@
 #include <vector>
 
 class Blackboard;
+class Building;
 class Character;
 class Faction;
 class GameData;
+class Inventory;
 class Item;
 class TownBase;
 class hand;
 
 void GetAllCharacterItems(Character *npc, std::vector<Item *> &outItems);
 void GetShopItems(Character *npc, std::vector<Item *> &out);
+void SectionItems(Inventory *inv, std::vector<Item *> &out);
+Building *BuildingOf(Character *npc);
+std::string GetHealthStatus(Character *npc);
 std::string ItemLabel(Item *item);
 std::string ItemsJson(const std::vector<Item *> &items);
 std::string GetDetailedContext(Character *npc, const std::string &type = "npc");
@@ -25,10 +30,6 @@ void GetCurrentSquad(std::vector<Character *> &members);
 void GetRadiantParticipants(Character *selected,
                             std::vector<Character *> &participants);
 void GetRadiantNpcs(Character *center, std::vector<Character *> &npcs);
-void LogFactionList();
-void LogNpcRole(Character *npc);
-std::string OrdersLine(Character *npc);
-void RunProbe(Character *npc, Character *speaker, const std::string &payload);
 std::string EventParty(Character *npc);
 std::string RoleJson(Character *npc);
 std::string ProfileJson(Character *npc);

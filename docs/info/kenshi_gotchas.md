@@ -17,7 +17,7 @@ Add a gotcha when a call or a pattern crashes the game, gives wrong data, or bre
 
 ## KenshiLib headers
 
-- `AI/AIPackage.h` and `AI/Blackboard.h` define the same enum, `BlackboardSignalFunctions`, so one source file cannot include both (error C2011). The plugin reads the AI package only by name, through `Blackboard::getCurrentAIPackageName` (`LogNpcRole` in `plugin/game/Context.cpp`).
+- `AI/AIPackage.h` and `AI/Blackboard.h` define the same enum, `BlackboardSignalFunctions`, so one source file cannot include both (error C2011). The plugin reads the AI package only by name, through `Blackboard::getCurrentAIPackageName` (`LogNpcRole` in `plugin/game/Probes.cpp`).
 - `Weather.h` and `PhysicsCollection.h`, which `Building/Building.h` includes, define the same class, `WeatherRegion` (error C2011). `plugin/game/Context.cpp` renames the copy of `Weather.h` with a macro while it includes that header.
 
 ## Threads
