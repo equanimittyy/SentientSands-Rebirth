@@ -19,10 +19,6 @@ MyGUI::UString PlainText(const std::string &utf8) {
   return MyGUI::TextIterator::toTagsString(Utf8ToWide(utf8));
 }
 
-std::string ItemText(MyGUI::ListBox *list, size_t index) {
-  return MyGUI::TextIterator::getOnlyText(list->getItemNameAt(index)).asUTF8();
-}
-
 MyGUI::Widget *OpenWindow(MyGUI::Window *&window, float left, float top,
                           float width, float height, MyGUI::Align align,
                           const char *layer, const std::string &name,

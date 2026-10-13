@@ -367,10 +367,11 @@ static bool SelectRumorEvent() {
   if (index == MyGUI::ITEM_NONE || index >= g_eventsStorageIds.size())
     return false;
   g_rumorEvent = g_eventsStorageIds[index];
-  g_rumorLine = ItemText(g_eventsList, index);
+  g_rumorLine = "";
   g_rumorInstruction = "";
   for (size_t i = 0; i < g_eventRows.size(); i++)
     if (g_eventRows[i].id == g_rumorEvent) {
+      g_rumorLine = g_eventRows[i].title;
       g_rumorInstruction = g_eventRows[i].instruction;
       g_rumorKind = g_eventRows[i].kind;
       g_rumorId = g_eventRows[i].rumor;

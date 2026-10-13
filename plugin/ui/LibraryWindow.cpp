@@ -256,12 +256,20 @@ void FinishKeptBio(const std::string &data) {
   RefreshLibraryUI();
 }
 
+static const LibraryRow *RowOf(const std::string &sid) {
+  for (size_t i = 0; i < g_libraryRows.size(); i++)
+    if (g_libraryRows[i].sid == sid)
+      return &g_libraryRows[i];
+  return nullptr;
+}
+
 static bool SelectBioNpc() {
   size_t index = g_libraryList->getIndexSelected();
   if (index == MyGUI::ITEM_NONE)
     return false;
   g_bioSid = g_libraryStorageIds[index];
-  g_bioName = ItemText(g_libraryList, index);
+  const LibraryRow *row = RowOf(g_bioSid);
+  g_bioName = row ? row->name : "";
   return true;
 }
 
@@ -282,10 +290,8 @@ static void OnLibraryEditBioClick(MyGUI::Widget *sender) {
 // caption
 static void ShowFavCaption() {
   std::string sid = SelectedLibrarySid();
-  bool fav = false;
-  for (size_t i = 0; i < g_libraryRows.size(); i++)
-    if (g_libraryRows[i].sid == sid)
-      fav = g_libraryRows[i].fav;
+  const LibraryRow *row = RowOf(sid);
+  bool fav = row && row->fav;
   g_libraryFavBtn->setCaption(
       Utf8ToWide(T(sid.empty() ? "Fav Toggle" : fav ? "Fav: [YES]" : "Fav: [NO]"))
           .c_str());
@@ -369,7 +375,8 @@ static void OnLibraryNPCSelect(MyGUI::ListBox *sender, size_t index) {
     return;
   ShowFavCaption();
   ShowLibraryProfile("");
-  SetLibraryText(T("Loading profile for ") + ItemText(sender, index) + "...");
+  const LibraryRow *row = RowOf(g_libraryStorageIds[index]);
+  SetLibraryText(T("Loading profile for ") + (row ? row->name : "") + "...");
   StartLibraryHistory(g_libraryStorageIds[index]);
 }
 
