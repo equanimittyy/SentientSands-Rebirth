@@ -115,6 +115,7 @@ The `STOCK_PROBE` and `FIRSTAID_PROBE` lines of a bar and of a shop in a Shinobi
 - `Character::addOrder` with `BREAKOUT_PRISONER` (111) did not make an apothecary of the Holy Nation Outlaws walk to the player character in a cage of its own faction, 63 m away. After 30 s the character was still locked up.
 - `Character::addOrder` with `BREAKOUT_PRISONER` (111) did not make a Ninja Guard of the Tech Traders move toward the player character in a cage of the Holy Nation Outlaws, 965 m away.
 - `Character::addOrder` with `FIRST_AID_ROBOT` (60) or `JOB_REPAIR_ROBOT` (57) and a damaged Skeleton player character as the target did not make a Pacifier in a bar walk to the Skeleton, 36 m away. The Pacifier carried a Skeleton Repair Kit, and its AI package was `hang out in a bar`. Within 4 s, its current goal was `RELAX_IN_TOWN_PACKAGE` (214) again.
+- `Character::addOrder` with `FIRST_AID_ROBOT` (60) and a damaged Skeleton player character as the target made a patrol guard of the Holy Nation Outlaws outside the squad, 4 m away, repair the Skeleton. The guard carried an Authentic Skeleton Repair Kit, and its AI package was `patrol town 24hr + capture ND`. After 5 s, its current goal was `FIRST_AID_ROBOT` (60).
 
 ## Crash dumps
 
