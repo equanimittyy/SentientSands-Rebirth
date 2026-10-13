@@ -46,7 +46,7 @@ A change of the mod list is not tested, by decision. Because a string ID names t
 ## Distances
 
 - A world unit is about 10 cm. In `gamedata.base`, the pathfind footprint radius of a human is 2.6, a melee attack distance is 15 to 20, and the use range of most furniture is 20 to 40.
-- So the chat ranges of the default settings are short: Whisper 25 is 2.5 m, Talk 50 is 5 m, and Yell 100 is 10 m.
+- So the chat ranges of the default settings are Whisper 50 (5 m), Talk 150 (15 m), and Yell 300 (30 m).
 
 ## Deaths and captures
 
