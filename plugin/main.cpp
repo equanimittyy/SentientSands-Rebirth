@@ -332,6 +332,9 @@ static Character *FindSpeaker(GameWorld *world, const std::string &name,
   for (uint32_t i = 0; i < results.size(); ++i)
     best = BestNameMatch(best, bestScore, (Character *)results.stuff[i], name,
                          lowName);
+  if (best)
+    Log(LOG_INFO, "SPEAKER: Only the 2500-unit search found " +
+                      best->getName() + " for the name '" + name + "'");
   return best;
 }
 
