@@ -380,6 +380,15 @@ static void OnLibraryNPCSelect(MyGUI::ListBox *sender, size_t index) {
   StartLibraryHistory(g_libraryStorageIds[index]);
 }
 
+void RefreshLibraryUI() {
+  if (!g_libraryList)
+    return;
+  RequestLibraryList();
+  std::string sid = SelectedLibrarySid();
+  if (!sid.empty())
+    StartLibraryHistory(sid);
+}
+
 static CloseAction g_libraryClose = {CloseLibraryUI};
 
 static void AddLibraryFact(MyGUI::Widget *client, int i) {
