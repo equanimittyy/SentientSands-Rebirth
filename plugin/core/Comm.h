@@ -9,7 +9,6 @@ void AsyncPostToPython(const std::wstring &endpoint,
                        const std::string &jsonData);
 std::string PostToPythonWithResponse(const std::wstring &endpoint,
                                      const std::string &jsonData);
-DWORD WINAPI RadiantPollThread(LPVOID lpParam);
 
 // Background threads hand results to the game thread only through this queue
 void QueueMessage(const std::string &message);

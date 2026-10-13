@@ -7,9 +7,7 @@ std::deque<std::string> g_messageQueue;
 CRITICAL_SECTION g_msgMutex;
 hand g_talkTargetHand;
 DWORD g_mainThreadId = 0;
-DWORD g_lastRadiantTick = 0;
 std::string g_modRoot = "";
-HMODULE g_hModule = nullptr;
 
 float g_whisperRadius = 25.0f;
 float g_proximityRadius = 50.0f;
@@ -22,8 +20,6 @@ float g_speechBubbleLife = 10.0f;
 bool g_openWebPanelOnStart = true;
 LogLevel g_logLevel = LOG_INFO;
 
-hand g_lastSelectionHand;
-hand g_lastChattingPlayerHand;
 CRITICAL_SECTION g_stateMutex;
 
 CRITICAL_SECTION g_eventMutex;

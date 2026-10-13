@@ -176,20 +176,3 @@ void AsyncPostToPython(const std::wstring &endpoint,
   task->data = jsonData;
   StartThread(AsyncHttpThread, task);
 }
-
-DWORD WINAPI RadiantPollThread(LPVOID lpParam) {
-  std::string *pJson = (std::string *)lpParam;
-  Log(LOG_DEBUG, "RADIANT: Sending request to server...");
-  std::string response = PostToPythonWithResponse(L"/radiant", *pJson);
-  delete pJson;
-
-  if (response.empty()) {
-    Log(LOG_WARN, "RADIANT: Empty response or timeout from server.");
-    return 0;
-  }
-
-  // Restart the interval on reply so a slow server doesn't shorten the gap between conversations
-  g_lastRadiantTick = GetTickCount();
-  Log(LOG_INFO, "RADIANT: Server answered " + GetJsonValue(response, "status") + ".");
-  return 0;
-}

@@ -24,7 +24,6 @@ extern std::deque<std::string> g_messageQueue;
 extern CRITICAL_SECTION g_msgMutex;
 extern hand g_talkTargetHand;
 extern DWORD g_mainThreadId;
-extern DWORD g_lastRadiantTick;
 
 extern float g_whisperRadius;
 extern float g_proximityRadius;
@@ -37,8 +36,6 @@ extern float g_speechBubbleLife;
 extern bool g_openWebPanelOnStart;
 extern LogLevel g_logLevel;
 
-extern hand g_lastSelectionHand;
-extern hand g_lastChattingPlayerHand;
 extern CRITICAL_SECTION g_stateMutex;
 extern int g_chatHotkey;
 extern std::string g_chatHotkeyStr;
@@ -47,7 +44,6 @@ std::string T(const std::string &key);
 
 // Resolved from the DLL's own path so Steam Workshop numeric-ID folders work too
 extern std::string g_modRoot;
-extern HMODULE g_hModule;
 
 enum ActionType {
   ACT_SAY,

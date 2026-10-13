@@ -42,8 +42,8 @@ SentientSandsRebirth/
 
 ## Runtime flow
 
-1. RE_Kenshi loads the DLL and calls `startPlugin`, which installs the hooks and starts `MainThread`.
-2. `MainThread` waits for `KenshiLib.dll`, starts the pipe listener, loads the INI, and starts the server. With `OpenWebPanelOnStart=1`, it passes `--open-browser`, and the server opens the web app when no earlier tab reconnects.
+1. RE_Kenshi loads the DLL and calls `startPlugin`. It finds the game world through KenshiLib and loads the INI before it installs the hooks, so no hook runs without them. Without the game world, the plugin installs no hook and stays off. It then starts the pipe listener.
+2. A thread starts the server (`ServerThread` in `plugin/main.cpp`). With `OpenWebPanelOnStart=1`, it passes `--open-browser`, and the server opens the web app when no earlier tab reconnects.
 3. The plugin sends HTTP POST requests to `127.0.0.1:5000` (`plugin/core/Comm.cpp`). The server rejects a `Host` other than `127.0.0.1:5000` or `localhost:5000`, and a foreign `Origin` (`server/core/request_guard.py`), so web pages cannot use it.
 4. The server sends commands back through the named pipe `\\.\pipe\SentientSands`, such as `NOTIFY` and `NPC_SAY` (see [Line pacing](#line-pacing)).
 5. Each prompt comes from the prompt files (see [Prompts](#prompts)) and the campaign state, and goes down the route of its task (see [LLM routing](#llm-routing)).

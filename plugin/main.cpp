@@ -87,6 +87,10 @@ void (*setName_orig)(Character *, const std::string &) = nullptr;
 bool (*addActiveObject_orig)(ActivePlatoon *, RootObject *) = nullptr;
 void (*addCharacterAt_orig)(ActivePlatoon *, RootObject *, int) = nullptr;
 static std::vector<hand> g_renamedSquad;
+static hand g_lastSelectionHand;
+static hand g_lastChattingPlayerHand;
+static HMODULE g_hModule = nullptr;
+static DWORD g_lastRadiantTick = 0;
 
 #include <mygui/MyGUI_Button.h>
 #include <mygui/MyGUI_Delegate.h>
@@ -141,6 +145,21 @@ static void ApplyConfig(const std::string &data) {
   } else if (var == "g_logLevel") {
     g_logLevel = ParseLogLevel(val);
   }
+}
+
+// Restarts the interval on the reply, so a slow server does not shorten the
+// gap between conversations
+static void FinishRadiant(const std::string &data) {
+  std::string tag, reply;
+  if (!SplitTaggedReply(data, tag, reply))
+    return;
+  if (reply.empty()) {
+    Log(LOG_WARN, "RADIANT: Empty response or timeout from server.");
+    return;
+  }
+  g_lastRadiantTick = GetTickCount();
+  Log(LOG_INFO,
+      "RADIANT: Server answered " + GetJsonValue(reply, "status") + ".");
 }
 
 // "<command>: <data>". The data stays untrimmed, because a multi-line block in
@@ -210,6 +229,8 @@ static void HandleCommand(const std::string &message) {
     SetCheatRelation(data);
   } else if (command == "CULLED") {
     FinishCull(data);
+  } else if (command == "RADIANT_DONE") {
+    FinishRadiant(data);
   }
 }
 
@@ -681,10 +702,10 @@ void playerUpdate_hook(PlayerInterface *thisptr) {
   if (!sel)
     sel = thisptr->selectedCharacter.getCharacter();
 
-  std::vector<hand> renamed;
-  EnterCriticalSection(&g_stateMutex);
   g_lastSelectionHand =
       sel && (uintptr_t)sel > 0x1000 ? sel->getHandle() : hand();
+  std::vector<hand> renamed;
+  EnterCriticalSection(&g_stateMutex);
   renamed.swap(g_renamedSquad);
   LeaveCriticalSection(&g_stateMutex);
 
@@ -731,14 +752,16 @@ void playerUpdate_hook(PlayerInterface *thisptr) {
           if (squad.size() < 3)
             squad.clear();
           if (!squad.empty() || !npcs.empty()) {
-            std::string *pJson = new std::string(
+            Log(LOG_DEBUG, "RADIANT: Sending request to server...");
+            PostForGameThread(
+                L"/radiant",
                 "{\"participants\": " + RadiantJson(squad) +
-                ", \"npcs\": " + RadiantJson(npcs) +
-                ", \"player_context\": " +
-                GetDetailedContext(center, "player") +
-                ", \"events\": " + TakeGameEvents() +
-                ", \"changed_towns\": " + ChangedTowns() + "}");
-            StartThread(RadiantPollThread, pJson);
+                    ", \"npcs\": " + RadiantJson(npcs) +
+                    ", \"player_context\": " +
+                    GetDetailedContext(center, "player") +
+                    ", \"events\": " + TakeGameEvents() +
+                    ", \"changed_towns\": " + ChangedTowns() + "}",
+                "RADIANT_DONE", "");
           }
         }
       }
@@ -795,21 +818,22 @@ void playerUpdate_hook(PlayerInterface *thisptr) {
   }
 }
 
-DWORD WINAPI MainThread(LPVOID lpParam) {
-  HMODULE hLib = GetModuleHandleA("KenshiLib.dll");
-  while (!hLib) {
-    Sleep(500);
-    hLib = GetModuleHandleA("KenshiLib.dll");
-  }
-  ppWorld = (GameWorld **)GetProcAddress(hLib, "?ou@@3PEAVGameWorld@@EA");
-  if (!ppWorld)
-    return 1;
-  ppSharedKing =
-      (SharedKing **)GetProcAddress(hLib, "?shou@@3PEAVSharedKing@@EA");
-  StartThread(PipeThread, NULL);
-  LoadPluginConfig();
+// StartPythonServer can block on system(), so it runs off the game thread
+static DWORD WINAPI ServerThread(LPVOID lpParam) {
   StartPythonServer(g_openWebPanelOnStart);
   return 0;
+}
+
+// A missing export leaves the events of its hook silent, so it logs
+static void Hook(HMODULE lib, const char *symbol, void *detour,
+                 void **original) {
+  void *thunk = (void *)GetProcAddress(lib, symbol);
+  if (!thunk) {
+    Log(LOG_WARN, std::string("SYSTEM: KenshiLib exports no ") + symbol);
+    return;
+  }
+  KenshiLib::AddHook((void *)KenshiLib::GetRealAddress(thunk), detour,
+                     original);
 }
 
 static bool g_pluginStarted = false;
@@ -836,61 +860,38 @@ extern "C" __declspec(dllexport) void startPlugin() {
   }
   Log(LOG_INFO, "SYSTEM: Mod root resolved to: " + g_modRoot);
 
+  // Before the hooks, so that no hook runs without the world or the settings
   HMODULE hLib = GetModuleHandleA("KenshiLib.dll");
-  void *thunkPlayer =
-      (void *)GetProcAddress(hLib, "?update@PlayerInterface@@QEAAXXZ");
-  if (thunkPlayer)
-    KenshiLib::AddHook((void *)KenshiLib::GetRealAddress(thunkPlayer),
-                       (void *)playerUpdate_hook, (void **)&playerUpdate_orig);
+  ppWorld = (GameWorld **)GetProcAddress(hLib, "?ou@@3PEAVGameWorld@@EA");
+  ppSharedKing =
+      (SharedKing **)GetProcAddress(hLib, "?shou@@3PEAVSharedKing@@EA");
+  if (!ppWorld) {
+    Log(LOG_ERROR, "SYSTEM: KenshiLib exports no game world, so SSR stays off");
+    return;
+  }
+  LoadPluginConfig();
 
-  void *thunkAttack =
-      (void *)GetProcAddress(hLib, "?attackingYou@Character@@QEAAXPEAV1@_N1@Z");
-  if (thunkAttack)
-    KenshiLib::AddHook((void *)KenshiLib::GetRealAddress(thunkAttack),
-                       (void *)attackingYou_hook, (void **)&attackingYou_orig);
+  Hook(hLib, "?update@PlayerInterface@@QEAAXXZ", (void *)playerUpdate_hook,
+       (void **)&playerUpdate_orig);
+  Hook(hLib, "?attackingYou@Character@@QEAAXPEAV1@_N1@Z",
+       (void *)attackingYou_hook, (void **)&attackingYou_orig);
+  Hook(hLib, "?declareDead@Character@@QEAAXXZ", (void *)declareDead_hook,
+       (void **)&declareDead_orig);
+  Hook(hLib, "?setPrisonMode@Character@@QEAAX_NPEAVUseableStuff@@@Z",
+       (void *)setPrisonMode_hook, (void **)&setPrisonMode_orig);
+  Hook(hLib, "?setProneState@Character@@UEAAXW4ProneState@@@Z",
+       (void *)setProneState_hook, (void **)&setProneState_orig);
+  Hook(hLib,
+       "?_NV_setName@Character@@QEAAXAEBV?$basic_string@DU?$char_traits@D@"
+       "std@@V?$allocator@D@2@@std@@@Z",
+       (void *)setName_hook, (void **)&setName_orig);
+  Hook(hLib, "?_NV_addActiveObject@ActivePlatoon@@QEAA_NPEAVRootObject@@@Z",
+       (void *)addActiveObject_hook, (void **)&addActiveObject_orig);
+  Hook(hLib, "?addCharacterAt@ActivePlatoon@@QEAAXPEAVRootObject@@H@Z",
+       (void *)addCharacterAt_hook, (void **)&addCharacterAt_orig);
 
-  void *thunkDeath =
-      (void *)GetProcAddress(hLib, "?declareDead@Character@@QEAAXXZ");
-  if (thunkDeath)
-    KenshiLib::AddHook((void *)KenshiLib::GetRealAddress(thunkDeath),
-                       (void *)declareDead_hook, (void **)&declareDead_orig);
-
-  void *thunkPrison = (void *)GetProcAddress(
-      hLib, "?setPrisonMode@Character@@QEAAX_NPEAVUseableStuff@@@Z");
-  if (thunkPrison)
-    KenshiLib::AddHook((void *)KenshiLib::GetRealAddress(thunkPrison),
-                       (void *)setPrisonMode_hook,
-                       (void **)&setPrisonMode_orig);
-
-  void *thunkKO = (void *)GetProcAddress(
-      hLib, "?setProneState@Character@@UEAAXW4ProneState@@@Z");
-  if (thunkKO)
-    KenshiLib::AddHook((void *)KenshiLib::GetRealAddress(thunkKO),
-                       (void *)setProneState_hook,
-                       (void **)&setProneState_orig);
-
-  void *thunkName = (void *)GetProcAddress(
-      hLib, "?_NV_setName@Character@@QEAAXAEBV?$basic_string@DU?$char_traits@D@"
-            "std@@V?$allocator@D@2@@std@@@Z");
-  if (thunkName)
-    KenshiLib::AddHook((void *)KenshiLib::GetRealAddress(thunkName),
-                       (void *)setName_hook, (void **)&setName_orig);
-
-  void *thunkAddActive = (void *)GetProcAddress(
-      hLib, "?_NV_addActiveObject@ActivePlatoon@@QEAA_NPEAVRootObject@@@Z");
-  if (thunkAddActive)
-    KenshiLib::AddHook((void *)KenshiLib::GetRealAddress(thunkAddActive),
-                       (void *)addActiveObject_hook,
-                       (void **)&addActiveObject_orig);
-
-  void *thunkAddAt = (void *)GetProcAddress(
-      hLib, "?addCharacterAt@ActivePlatoon@@QEAAXPEAVRootObject@@H@Z");
-  if (thunkAddAt)
-    KenshiLib::AddHook((void *)KenshiLib::GetRealAddress(thunkAddAt),
-                       (void *)addCharacterAt_hook,
-                       (void **)&addCharacterAt_orig);
-
-  StartThread(MainThread, NULL);
+  StartThread(PipeThread, NULL);
+  StartThread(ServerThread, NULL);
 }
 
 BOOL APIENTRY DllMain(HMODULE hModule, DWORD ul_reason_for_call,
