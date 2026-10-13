@@ -474,8 +474,7 @@ static void ShowChatTarget() {
   g_talkTargetHand = g_chatTargets[g_chatTargetIndex];
   g_chatTargetNameStr = target ? target->getName() : "?";
   g_chatTargetKey = target ? HandleKey(target) : 0;
-  g_chatWindow->setCaption(
-      Utf8ToWide(T("Talking to: ") + g_chatTargetNameStr).c_str());
+  g_chatWindow->setCaption(PlainText(T("Talking to: ") + g_chatTargetNameStr));
   g_chatTargetBtn->setCaption(PlainText(g_chatTargetNameStr));
 
   Character *speaker = g_chatSpeakerIndex < g_chatSpeakers.size()

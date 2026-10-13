@@ -33,7 +33,7 @@ MyGUI::Widget *OpenWindow(MyGUI::Window *&window, float left, float top,
   DestroyWindow(window);
   window = gui->createWidgetReal<MyGUI::Window>(
       "Kenshi_WindowCX", left, top, width, height, align, layer, name);
-  window->setCaption(Utf8ToWide(caption).c_str());
+  window->setCaption(PlainText(caption));
   window->eventWindowButtonPressed +=
       MyGUI::newDelegate(&onClose, &CloseAction::OnButton);
   return window->getClientWidget();
