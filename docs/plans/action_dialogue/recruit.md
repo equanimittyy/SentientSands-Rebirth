@@ -29,7 +29,7 @@ The leader gate still holds for a fellow captive.
 | It bargains | It makes no offer yet, and the action dialogue goes on. |
 | It refuses | It makes no offer and ends its reply with `[REFUSE]` ([Refusal](#refusal)). |
 
-On accept, `JOIN_PARTY` (`plugin/main.cpp:485`) recruits the NPC (`plugin/game/GameActions.cpp:322`).
+On accept, `JOIN_PARTY` carries the fee (`QueueTagAction` in `plugin/main.cpp`). The plugin takes the fee and recruits the NPC, or does neither when the player has fewer cats than the fee (`DoJoinParty` in `plugin/game/GameActions.cpp`).
 
 The action dialogue ends when the NPC refuses, or when the player accepts an offer.
 

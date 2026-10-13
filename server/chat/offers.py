@@ -371,19 +371,22 @@ def voiced(offer, voice):
 
 
 def _acts(offer):
-    """(holder, action) of each plugin action of the deal, the holder None for the speaker. A join goes first, because the
-    plugin pays no fee to a member of the player faction, and the fee would land back in the player's purse. The player's
-    side goes next, because the plugin skips the NPC's handover after a payment that fell short. A sale from the stock is
-    SELL_ITEM, which the plugin takes only from the furniture, so a trader never hands over an item that it carries."""
+    """(holder, action) of each plugin action of the deal, the holder None for the speaker. A join carries the fee, because
+    each action is its own pipe message: the plugin then recruits only when the player can pay, and pays the fee into no
+    purse, where a recruit's purse would hand it back to the player. The player's side goes before the NPC's, because the
+    plugin skips the NPC's handover after a payment that fell short. A sale from the stock is SELL_ITEM, which the plugin
+    takes only from the furniture, so a trader never hands over an item that it carries."""
     if offer.get("charity"):
         kind, value = offer["gives"][0]
         return [(None, f"[ACTION: ADD_CATS: {value}]" if kind == "CATS" else f"[ACTION: SPAWN_ITEM: {value[1]}]")]
-    out = [(None, "[ACTION: JOIN_PARTY]") for kind, _ in offer["gives"] if kind == "JOIN_PARTY"]
+    joins = any(kind == "JOIN_PARTY" for kind, _ in offer["gives"])
+    fee = sum(value for kind, value in offer["takes"] if kind == "CATS")
+    out = [(None, f"[ACTION: JOIN_PARTY: {fee}]")] if joins else []
     for kind, value in offer["takes"]:
-        if kind == "CATS":
-            out.append((None, f"[ACTION: TAKE_CATS: {value}]"))
-        else:
+        if kind == "ITEM":
             out.append((value[2] if len(value) > 2 else None, f"[ACTION: TAKE_ITEM: {value[1]}: {value[0]}]"))
+        elif not joins:
+            out.append((None, f"[ACTION: TAKE_CATS: {value}]"))
     for kind, value in offer["gives"]:
         if kind == "CATS":
             out.append((None, f"[ACTION: GIVE_CATS: {value}]"))

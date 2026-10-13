@@ -389,6 +389,13 @@ static bool HeldBack(Character *npc, const std::string &action) {
   return true;
 }
 
+static void PaidShort(GameWorld *world, Character *npc) {
+  g_shortPayers.insert(HandleKey(npc));
+  world->showPlayerAMessage(
+      npc->getName() + " looks annoyed. \"That's not what we agreed on!\"",
+      true);
+}
+
 static void DoSay(GameWorld *world, const QueuedAction &act, Character *npc) {
   Log(LOG_DEBUG, "ACTION: SAY [" + npc->getName() + "]: " + act.message +
                      (npc->isPlayerCharacter() ? " (PC)" : " (NPC)"));
@@ -417,9 +424,24 @@ static void DoAttack(GameWorld *world, Character *npc, Character *target) {
   world->showPlayerAMessage(npc->getName() + " is attacking!", false);
 }
 
-static void DoJoinParty(GameWorld *world, Character *npc) {
+// The fee goes to no purse, because the recruit's purse becomes the player's
+static void DoJoinParty(GameWorld *world, const QueuedAction &act,
+                        Character *npc) {
   if (!world->player)
     return;
+  Character *payer = FirstPlayerCharacter();
+  int fee = act.taskValue;
+  if (fee > 0 && (!payer || MoneyOf(payer) < fee)) {
+    Log(LOG_INFO, "ACTION: " + npc->getName() +
+                      " did not join, because the player has less than " +
+                      ToString(fee) + " cats");
+    PaidShort(world, npc);
+    return;
+  }
+  if (fee > 0) {
+    payer->takeMoney(fee);
+    world->showPlayerAMessage_withLog("Lost " + ToString(fee) + " cats.", true);
+  }
   // A hired follower joins for good, so its contract must not run out
   Blackboard *board = BoardOf(npc);
   if (board && board->hasContractJob())
@@ -553,17 +575,15 @@ static void DoGiveCats(GameWorld *world, const QueuedAction &act,
 }
 
 static void DoTakeCats(GameWorld *world, const QueuedAction &act,
-                       Character *npc, const std::deque<QueuedAction> &batch) {
+                       Character *npc) {
   Character *payer = FirstPlayerCharacter();
   if (!payer)
     return;
   int purse = MoneyOf(payer);
   int amount = act.taskValue;
   bool fellShort = amount > purse;
-  if (fellShort) {
+  if (fellShort)
     amount = purse;
-    g_shortPayers.insert(HandleKey(npc));
-  }
   if (amount < 0)
     amount = 0;
   Log(LOG_INFO, "ACTION: Taking " + ToString(amount) +
@@ -571,25 +591,13 @@ static void DoTakeCats(GameWorld *world, const QueuedAction &act,
                     ToString(act.taskValue) + ", Bank: " + ToString(purse) +
                     ")");
   payer->takeMoney(amount);
-
-  // Don't pay a recruit from this batch: the fee would land back in the player's pocket
-  bool beingRecruited = false;
-  for (size_t i = 0; i < batch.size() && !beingRecruited; ++i)
-    beingRecruited =
-        batch[i].type == ACT_JOIN_PARTY && batch[i].actor == act.actor;
-  if (!beingRecruited && !InPlayerFaction(npc))
+  if (!InPlayerFaction(npc))
     npc->takeMoney(-amount);
-  else
-    Log(LOG_DEBUG, "ACTION: Recruitment fee or sign-on bonus. Money spent "
-                   "but not given to recruit pocket.");
-
   if (amount > 0)
     world->showPlayerAMessage_withLog("Lost " + ToString(amount) + " cats.",
                                       true);
   if (fellShort)
-    world->showPlayerAMessage(
-        npc->getName() + " looks annoyed. \"That's not what we agreed on!\"",
-        true);
+    PaidShort(world, npc);
 }
 
 static void DoRelease(GameWorld *world, Character *npc, Character *target) {
@@ -737,8 +745,7 @@ static void DoSpawnItem(GameWorld *world, const QueuedAction &act,
 }
 
 static void RunAction(GameWorld *world, const QueuedAction &act,
-                      Character *npc, Character *target,
-                      const std::deque<QueuedAction> &batch) {
+                      Character *npc, Character *target) {
   switch (act.type) {
   case ACT_SAY:
     DoSay(world, act, npc);
@@ -748,7 +755,7 @@ static void RunAction(GameWorld *world, const QueuedAction &act,
       DoAttack(world, npc, target);
     break;
   case ACT_JOIN_PARTY:
-    DoJoinParty(world, npc);
+    DoJoinParty(world, act, npc);
     break;
   case ACT_SET_TASK:
     DoSetTask(world, act, npc);
@@ -765,7 +772,7 @@ static void RunAction(GameWorld *world, const QueuedAction &act,
     DoGiveCats(world, act, npc);
     break;
   case ACT_TAKE_CATS:
-    DoTakeCats(world, act, npc, batch);
+    DoTakeCats(world, act, npc);
     break;
   case ACT_RELEASE:
     if (target)
@@ -812,7 +819,7 @@ void ExecuteQueuedActions(GameWorld *world) {
     // Catches only a C++ exception, such as one from Ogre when the factory
     // loads an item, so one failed action does not end the game
     try {
-      RunAction(world, act, npc, act.target.getCharacter(), batch);
+      RunAction(world, act, npc, act.target.getCharacter());
     } catch (...) {
       Log(LOG_ERROR, "ACTION: Exception during action index " + ToString((int)i));
     }

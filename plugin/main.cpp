@@ -427,7 +427,8 @@ static void QueueTagAction(const std::string &tag, const hand &npc,
     QueueAction(ACT_PROBE, npc, g_lastChattingPlayerHand,
                 TagPayload(tag, "PROBE:"));
   } else if (Has(tag, "JOIN_PARTY")) {
-    QueueAction(ACT_JOIN_PARTY, npc);
+    QueueAction(ACT_JOIN_PARTY, npc, hand(), "",
+                atoi(TagPayload(tag, "JOIN_PARTY:").c_str()));
   } else if (Has(tag, "EXPIRE_HIRE")) {
     Character *c = npc.getCharacter();
     if (c)
