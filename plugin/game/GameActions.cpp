@@ -36,6 +36,9 @@ static std::string TaskName(TaskType task) {
 // Bread never hands over a Bread Loaf
 static Item *FindInItems(const std::vector<Item *> &items,
                          const std::string &lowerName) {
+  // An empty name is part of every name, so it would match the first item
+  if (lowerName.empty())
+    return nullptr;
   Item *named = nullptr;
   Item *partial = nullptr;
   for (size_t i = 0; i < items.size(); ++i) {
@@ -404,7 +407,7 @@ static void DoSay(GameWorld *world, const QueuedAction &act, Character *npc) {
     g_shortPayers.erase(HandleKey(npc));
   // No endDialogue/setInDialog(false): they clear AI goals, killing the task just queued
   npc->sayALine(act.message, true);
-  if (!npc->dialogue || (uintptr_t)npc->dialogue < 0x1000) {
+  if (!npc->dialogue || (uintptr_t)npc->dialogue <= 0x1000) {
     npc->say(act.message);
     return;
   }
@@ -692,7 +695,8 @@ static void DoSpawnItem(GameWorld *world, const QueuedAction &act,
         "Error: Item template '" + templateName + "' not found.", true);
     return;
   }
-  Character *p = target ? target : FirstPlayerCharacter();
+  Character *p = target && (uintptr_t)target >= 0x1000 ? target
+                                                      : FirstPlayerCharacter();
   if (!p) {
     Log(LOG_WARN, "ACTION: No character found to give item to.");
     return;
@@ -809,17 +813,16 @@ void ExecuteQueuedActions(GameWorld *world) {
 
   for (size_t i = 0; i < batch.size(); ++i) {
     const QueuedAction &act = batch[i];
-    if (act.type == ACT_NOTIFY) {
-      world->showPlayerAMessage(act.message, true);
-      continue;
-    }
-    Character *npc = act.actor.getCharacter();
-    if (!npc)
-      continue;
     // Catches only a C++ exception, such as one from Ogre when the factory
     // loads an item, so one failed action does not end the game
     try {
-      RunAction(world, act, npc, act.target.getCharacter());
+      if (act.type == ACT_NOTIFY) {
+        world->showPlayerAMessage(act.message, true);
+        continue;
+      }
+      Character *npc = act.actor.getCharacter();
+      if (npc)
+        RunAction(world, act, npc, act.target.getCharacter());
     } catch (...) {
       Log(LOG_ERROR, "ACTION: Exception during action index " + ToString((int)i));
     }
