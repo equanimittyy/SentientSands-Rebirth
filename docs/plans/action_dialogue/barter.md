@@ -29,6 +29,8 @@ Each box lists the cats first, and then each item with its count, the biggest co
 
 Each side gives only the cats that it has and the items that it carries, except in charity ([section 4](#4-charity)). A trader in a shop gives only the items of its stock ([section 6](#6-price-guide)). For the player, these are the cats of the player faction and the items of the speaker.
 
+The NPC must have room for the items that it receives, so Accept stops the trade with "X can't carry all that." when it has none. A trader in a shop puts what it receives into the furniture of its shop instead. The player's character drops at its feet what it cannot fit.
+
 The worth of a deal is no hard limit. The turn message gives what each side is worth to the NPC, and the model weighs it, so the NPC can agree to a deal at a loss. The worth of each part of the deal:
 
 | Part | Worth |

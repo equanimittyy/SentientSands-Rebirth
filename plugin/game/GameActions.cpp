@@ -5,6 +5,7 @@
 #include "../core/Utils.h"
 #include <algorithm>
 #include <kenshi/AI/Blackboard.h>
+#include <kenshi/Building/Building.h>
 #include <kenshi/Character.h>
 #include <kenshi/Dialogue.h>
 #include <kenshi/GameData.h>
@@ -72,10 +73,46 @@ static Item *FindNamedItem(Character *holder, const std::string &lowerName,
   return FindStockItem(holder, lowerName);
 }
 
+// What giveItem returns after it drops an item is unknown, so the drop is a
+// second call that runs only when the item did not fit
+static bool GiveOrDrop(GameWorld *world, Character *c, Item *item) {
+  if (c->giveItem(item, false, false))
+    return true;
+  std::string name = item->getName();
+  c->giveItem(item, true, false);
+  Log(LOG_INFO, "ACTION: " + c->getName() + " has no room for " + name +
+                    ", so it drops at their feet");
+  world->showPlayerAMessage(c->getName() + " has no room for " + name +
+                                ", so it drops at their feet.",
+                            true);
+  return true;
+}
+
+static bool Carry(GameWorld *world, Character *c, Item *item) {
+  return c->giveItem(item, false, false);
+}
+
+// The trader sells from the furniture, so what it buys goes there
+static bool Stock(GameWorld *world, Character *trader, Item *item) {
+  Building *building = BuildingOf(trader);
+  if (!building)
+    return false;
+  lektor<Building *> furniture;
+  building->findAllFurnitureWithFunction(furniture, BF_ANY);
+  for (uint32_t i = 0; i < furniture.size(); ++i)
+    if (furniture[i] && (uintptr_t)furniture[i] > 0x1000 &&
+        furniture[i]->getInventory() &&
+        furniture[i]->giveItem(item, false, false))
+      return true;
+  return false;
+}
+
+typedef bool (*Placer)(GameWorld *, Character *, Item *);
+
 // Moves at most count of the stack, so a deal for 2 Bread never hands over a
 // whole stack of 10. Returns how many moved.
-static int MoveItems(Character *holder, Item *item, int count,
-                     Character *receiver) {
+static int MoveItems(GameWorld *world, Character *holder, Item *item,
+                     int count, Character *receiver, Placer place) {
   int moved = count < item->quantity ? count : item->quantity;
   bool split = moved < item->quantity;
   if (item->isEquipped)
@@ -88,8 +125,8 @@ static int MoveItems(Character *holder, Item *item, int count,
       inv ? inv->removeItemDontDestroy_returnsItem(item, moved, split) : nullptr;
   if (!detached)
     return 0;
-  if (!receiver->giveItem(detached, true, false)) {
-    holder->giveItem(detached, true, false);
+  if (!place(world, receiver, detached)) {
+    GiveOrDrop(world, holder, detached);
     return 0;
   }
   return moved;
@@ -494,15 +531,16 @@ static Item *CarriedOrStockItem(Character *holder,
 
 // Rescans per stack, because removals reorder the inventory. Returns how many
 // moved.
-static int MoveNamed(Character *from, Character *to,
+static int MoveNamed(GameWorld *world, Character *from, Character *to,
                      const std::string &lowerName, int count,
-                     Item *(*find)(Character *, const std::string &)) {
+                     Item *(*find)(Character *, const std::string &),
+                     Placer place) {
   int moved = 0;
   while (moved < count) {
     Item *found = find(from, lowerName);
     if (!found)
       break;
-    int stack = MoveItems(from, found, count - moved, to);
+    int stack = MoveItems(world, from, found, count - moved, to, place);
     if (stack == 0) {
       Log(LOG_WARN, "ACTION: Could not move " + found->getName() + " from " +
                         from->getName() + ".");
@@ -520,12 +558,18 @@ static void DoTakeItem(GameWorld *world, const QueuedAction &act,
     return;
   std::string name = Trim(act.message, " \t\r\n\"'");
   int count = act.taskValue < 1 ? 1 : act.taskValue;
-  int taken = MoveNamed(player, npc, Lower(name), count, CarriedItem);
+  bool stock = act.type == ACT_BUY_ITEM;
+  int taken = MoveNamed(world, player, npc, Lower(name), count, CarriedItem,
+                        stock ? Stock : Carry);
   if (taken < count) {
     g_shortPayers.insert(HandleKey(npc));
     Log(LOG_WARN, "ACTION: Transaction failed: " + npc->getName() +
                       " wanted " + ToString(count) + "x '" + name +
-                      "' but only found " + ToString(taken));
+                      "' but took only " + ToString(taken));
+    bool returnedForLackOfRoom = CarriedItem(player, Lower(name)) != nullptr;
+    if (returnedForLackOfRoom)
+      world->showPlayerAMessage(npc->getName() + " can't carry all that.",
+                                true);
   }
   if (taken > 0) {
     world->showPlayerAMessage_withLog(
@@ -547,8 +591,8 @@ static void DoGiveItem(GameWorld *world, const QueuedAction &act,
   std::string name = Trim(act.message, " \t\r\n\"'");
   int count = act.taskValue < 1 ? 1 : act.taskValue;
   // A trader in a shop sells its stock and keeps what it carries
-  int given = MoveNamed(npc, player, Lower(name), count,
-                        sell ? FindStockItem : CarriedOrStockItem);
+  int given = MoveNamed(world, npc, player, Lower(name), count,
+                        sell ? FindStockItem : CarriedOrStockItem, GiveOrDrop);
   if (given < count)
     Log(LOG_WARN, "ACTION: NPC " + npc->getName() + " only had " +
                       ToString(given) + " of " + ToString(count) + "x '" +
@@ -725,15 +769,10 @@ static void DoSpawnItem(GameWorld *world, const QueuedAction &act,
       item->container = p->container;
       p->container->addActiveObject(item);
     }
-    if (p->giveItem(item, true, false)) {
-      spawnedCount++;
-      Log(LOG_INFO, "ACTION: Successfully spawned and gave " + gd->name +
-                        " to " + p->getName());
-    } else {
-      Log(LOG_WARN, "ACTION: Resolved " + gd->name +
-                        " but giveItem failed (inventory full?) for " +
-                        p->getName());
-    }
+    GiveOrDrop(world, p, item);
+    spawnedCount++;
+    Log(LOG_INFO, "ACTION: Successfully spawned and gave " + gd->name +
+                      " to " + p->getName());
   }
   if (spawnedCount == 0)
     return;
@@ -765,6 +804,7 @@ static void RunAction(GameWorld *world, const QueuedAction &act,
     DoSetTask(world, act, npc);
     break;
   case ACT_TAKE_ITEM:
+  case ACT_BUY_ITEM:
     DoTakeItem(world, act, npc, target);
     break;
   case ACT_GIVE_ITEM:

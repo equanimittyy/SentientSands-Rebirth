@@ -451,10 +451,12 @@ static void QueueTagAction(const std::string &tag, const hand &npc,
     int count = TakeCount(payload);
     QueueAction(sell ? ACT_SELL_ITEM : ACT_GIVE_ITEM, npc, itemHolder, payload,
                 count);
-  } else if (Has(tag, "TAKE_ITEM:")) {
-    std::string payload = TagPayload(tag, "TAKE_ITEM:");
+  } else if (Has(tag, "TAKE_ITEM:") || Has(tag, "BUY_ITEM:")) {
+    bool buy = Has(tag, "BUY_ITEM:");
+    std::string payload = TagPayload(tag, buy ? "BUY_ITEM:" : "TAKE_ITEM:");
     int count = TakeCount(payload);
-    QueueAction(ACT_TAKE_ITEM, npc, itemHolder, payload, count);
+    QueueAction(buy ? ACT_BUY_ITEM : ACT_TAKE_ITEM, npc, itemHolder, payload,
+                count);
   } else if (Has(tag, "ADD_CATS:")) {
     QueueAction(ACT_ADD_CATS, npc, hand(), "",
                 atoi(TagPayload(tag, "ADD_CATS:").c_str()));

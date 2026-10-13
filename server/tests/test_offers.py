@@ -135,7 +135,7 @@ class TextTest(unittest.TestCase):
         lines = offers.command(7, offer, "Bandit", "12", "3", "text").split("\n")
         self.assertEqual(lines[:4], ["CMD: OFFER: 7", "12 3", "Bandit", "text"])
         self.assertEqual(lines[4:], ["CHECK: CATS player 250", "CHECK: ITEM player 1 Dirty Loincloth", "CHECK: ITEM npc 1 Katana",
-                                     "BOX: player 250 cats", "BOX: player 1 Dirty Loincloth", "BOX: npc 1 Katana"])
+                                     "CHECK: ROOM player 1 Dirty Loincloth", "BOX: player 250 cats", "BOX: player 1 Dirty Loincloth", "BOX: npc 1 Katana"])
 
     def test_only_an_agreement_in_the_barter_window_sends_the_deal_lines(self):
         offer, _ = check("BARTER", "[OFFER: GIVE_ITEM: Katana; TAKE_CATS: 250]")
@@ -168,6 +168,15 @@ class BarterTest(unittest.TestCase):
         self.assertEqual(offers.actions(sale), ["[ACTION: TAKE_CATS: 3000]", "[ACTION: SELL_ITEM: Katana (Ancient, Refitted Blade): 1]"])
         away = {key: value for key, value in SHOP.items() if key != "stock"}
         self.assertEqual(offers.actions(self.barter("[OFFER: GIVE_ITEM: 1 Bread; TAKE_CATS: 1000]", npc=away)[0])[1], "[ACTION: GIVE_ITEM: Bread: 1]")
+
+    def test_a_trader_in_a_shop_buys_into_the_stock_and_another_npc_must_carry_what_it_buys(self):
+        shop, _ = self.barter("[OFFER: GIVE_CATS: 50; TAKE_ITEM: Dirty Loincloth]")
+        self.assertEqual(offers.actions(shop), ["[ACTION: BUY_ITEM: Dirty Loincloth: 1]", "[ACTION: GIVE_CATS: 50]"])
+        self.assertNotIn("CHECK: ROOM player 1 Dirty Loincloth", offers.checks(shop))
+        away = {key: value for key, value in SHOP.items() if key != "stock"}
+        carried, _ = self.barter("[OFFER: GIVE_CATS: 50; TAKE_ITEM: Dirty Loincloth]", npc=away)
+        self.assertEqual(offers.actions(carried)[0], "[ACTION: TAKE_ITEM: Dirty Loincloth: 1]")
+        self.assertIn("CHECK: ROOM player 1 Dirty Loincloth", offers.checks(carried))
 
     def test_another_npc_hands_over_only_what_it_carries(self):
         self.assertIsNone(self.barter("[OFFER: GIVE_ITEM: Katana; TAKE_CATS: 3000]", npc={**SHOP, "squad_jobs": []})[0])
@@ -248,7 +257,7 @@ class BarterWindowTest(unittest.TestCase):
     def test_an_item_of_any_squad_mate_leaves_its_holder(self):
         offer, _ = offers.check("BARTER", offers.table_parts(TABLE), SHOP, BUYER, SQUAD)
         self.assertEqual(offer["takes"], [("CATS", 2950), ("ITEM", (2, "Bread", "8"))])
-        self.assertEqual(offers.voiced(offer, "Shopkeeper|12>3"), ["Shopkeeper|12>3: [ACTION: TAKE_CATS: 2950]", "Shopkeeper|12>8: [ACTION: TAKE_ITEM: Bread: 2]",
+        self.assertEqual(offers.voiced(offer, "Shopkeeper|12>3"), ["Shopkeeper|12>3: [ACTION: TAKE_CATS: 2950]", "Shopkeeper|12>8: [ACTION: BUY_ITEM: Bread: 2]",
                                                                    "Shopkeeper|12>3: [ACTION: SELL_ITEM: Katana (Ancient, Refitted Blade): 1]"])
         self.assertIn("CHECK: ITEM 8 2 Bread", offers.checks(offer))
         self.assertIn("DEAL: ITEM 8 2 Bread", offers.deal_lines(offer))

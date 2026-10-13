@@ -375,7 +375,8 @@ def _acts(offer):
     each action is its own pipe message: the plugin then recruits only when the player can pay, and pays the fee into no
     purse, where a recruit's purse would hand it back to the player. The player's side goes before the NPC's, because the
     plugin skips the NPC's handover after a payment that fell short. A sale from the stock is SELL_ITEM, which the plugin
-    takes only from the furniture, so a trader never hands over an item that it carries."""
+    takes only from the furniture, so a trader never hands over an item that it carries, and a purchase into the stock is
+    BUY_ITEM, which the plugin puts into the furniture, where the trader sells it again."""
     if offer.get("charity"):
         kind, value = offer["gives"][0]
         return [(None, f"[ACTION: ADD_CATS: {value}]" if kind == "CATS" else f"[ACTION: SPAWN_ITEM: {value[1]}]")]
@@ -384,7 +385,8 @@ def _acts(offer):
     out = [(None, f"[ACTION: JOIN_PARTY: {fee}]")] if joins else []
     for kind, value in offer["takes"]:
         if kind == "ITEM":
-            out.append((value[2] if len(value) > 2 else None, f"[ACTION: TAKE_ITEM: {value[1]}: {value[0]}]"))
+            take = "BUY_ITEM" if offer.get("stock") else "TAKE_ITEM"
+            out.append((value[2] if len(value) > 2 else None, f"[ACTION: {take}: {value[1]}: {value[0]}]"))
         elif not joins:
             out.append((None, f"[ACTION: TAKE_CATS: {value}]"))
     for kind, value in offer["gives"]:
@@ -407,7 +409,9 @@ def holder_of(value, side):
 
 
 def checks(offer):
-    """The CHECK lines of the offer command: what each side must still hold when the player accepts."""
+    """The CHECK lines of the offer command: what each side must still hold when the player accepts, and a ROOM line for
+    each item that the NPC must find room for, named with its giver. A trader in a shop puts its purchases into the
+    furniture, so it needs no ROOM line."""
     lines = []
     if offer.get("charity"):
         return lines
@@ -416,6 +420,8 @@ def checks(offer):
         if total:
             lines.append(f"CHECK: CATS {side} {total}")
         lines += [f"CHECK: ITEM {holder_of(value, side)} {value[0]} {value[1]}" for kind, value in parts if kind == "ITEM"]
+    if not offer.get("stock"):
+        lines += [f"CHECK: ROOM {holder_of(value, 'player')} {value[0]} {value[1]}" for kind, value in offer["takes"] if kind == "ITEM"]
     return lines
 
 

@@ -96,6 +96,16 @@ static int CountItems(Character *c, const std::string &name, bool withShop) {
   return count;
 }
 
+static GameData *ItemData(Character *c, const std::string &name) {
+  std::vector<Item *> items;
+  GetAllCharacterItems(c, items);
+  std::string wanted = Lower(name);
+  for (size_t i = 0; i < items.size(); ++i)
+    if (items[i] && Lower(ItemLabel(items[i])) == wanted)
+      return items[i]->data;
+  return nullptr;
+}
+
 // The game does not pause while an offer waits, so a side can have spent or
 // lost its part of the deal by the time the player accepts. An item of a squad
 // mate names the key of its holder instead of player
@@ -121,6 +131,14 @@ static std::string Shortfall(Character *npc, Character *speaker) {
         : !player               ? npc
                                 : KeyedCharacter((unsigned int)strtoul(
                                       check.holder.c_str(), NULL, 10));
+    // A ROOM line names the giver of an item that the NPC must carry
+    if (check.kind == "ROOM") {
+      GameData *data = holder ? ItemData(holder, check.name) : nullptr;
+      if (data && !HasRoomFor(npc, data, check.count))
+        return Fill(T("{name} can't carry all that."), "{name}",
+                    g_offer.npcName);
+      continue;
+    }
     int have = check.kind == "CATS" ? MoneyOf(player ? payer : npc)
                : holder ? CountItems(holder, check.name, !player)
                         : 0;
