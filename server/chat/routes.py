@@ -401,7 +401,7 @@ def chat():
         
         if test_action:
             logging.info(f"CHAT: Test command {cmd} -> {test_action}")
-            return reply(f"[DEBUG] Executing test command: {test_action}", actions=[test_action])
+            return reply(f"[DEBUG] Executing test command: {cmd} {args}".rstrip(), actions=[test_action])
 
     if not player_message:
         return reply("...")
