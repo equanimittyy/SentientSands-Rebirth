@@ -324,7 +324,7 @@ void PopulateLibraryUI(const std::string &data) {
     LibraryRow row;
     row.name = GetJsonValue(items[i], "name");
     row.sid = GetJsonValue(items[i], "sid");
-    row.fav = GetJsonValue(items[i], "fav") == "true";
+    row.fav = JsonTrue(items[i], "fav");
     g_libraryRows.push_back(row);
   }
   ApplyLibraryFilter(SelectedLibrarySid());

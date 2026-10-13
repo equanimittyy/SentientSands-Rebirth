@@ -8,6 +8,16 @@ namespace UI {
 
 extern MyGUI::Window *g_offerWindow;
 
+// "<kind> <holder> <count> [<name>]", the shape of the CHECK and DEAL lines.
+// The holder is npc, player for the speaker, or the key of a squad mate
+struct DealLine {
+  std::string kind;
+  std::string holder;
+  int count;
+  std::string name;
+};
+DealLine ParseDealLine(const std::string &text);
+
 void ShowOfferUI(const std::string &data);
 void DropOfferUI();
 void WatchOffer();

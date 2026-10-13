@@ -253,6 +253,12 @@ std::string GetJsonValue(const std::string &json, const std::string &key) {
   return "";
 }
 
+// A prefix test, because a value at the end of a pretty-printed object keeps
+// its line break
+bool JsonTrue(const std::string &json, const std::string &key) {
+  return GetJsonValue(json, key).compare(0, 4, "true") == 0;
+}
+
 static void AddArrayItem(std::vector<std::string> &items,
                          const std::string &array, size_t start, size_t end) {
   size_t first = array.find_first_not_of(" \t\r\n", start);

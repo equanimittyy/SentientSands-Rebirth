@@ -16,6 +16,7 @@ std::string EscapeJSON(const std::string &s);
 std::string UnescapeJSON(const std::string &s);
 std::wstring Utf8ToWide(const std::string &str);
 std::string GetJsonValue(const std::string &json, const std::string &key);
+bool JsonTrue(const std::string &json, const std::string &key);
 // The elements of a JSON array, each as its own JSON text
 std::vector<std::string> JsonArrayItems(const std::string &array);
 bool ContainsIgnoreCase(const std::string &text, const std::string &query);

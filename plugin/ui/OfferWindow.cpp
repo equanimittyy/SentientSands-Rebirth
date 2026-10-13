@@ -99,28 +99,35 @@ static int CountItems(Character *c, const std::string &name, bool withShop) {
 // The game does not pause while an offer waits, so a side can have spent or
 // lost its part of the deal by the time the player accepts. An item of a squad
 // mate names the key of its holder instead of player
+DealLine ParseDealLine(const std::string &text) {
+  DealLine line;
+  line.count = 0;
+  std::istringstream in(text);
+  in >> line.kind >> line.holder >> line.count;
+  std::getline(in, line.name);
+  line.name.erase(0, line.name.find_first_not_of(' '));
+  return line;
+}
+
 static std::string Shortfall(Character *npc, Character *speaker) {
   Character *payer = FirstPlayerCharacter();
   if (!payer)
     payer = speaker;
   for (size_t i = 0; i < g_offer.checks.size(); ++i) {
-    std::istringstream in(g_offer.checks[i]);
-    std::string kind, side, name;
-    int count = 0;
-    in >> kind >> side >> count;
-    std::getline(in, name);
-    name.erase(0, name.find_first_not_of(' '));
-    bool player = side != "npc";
+    DealLine check = ParseDealLine(g_offer.checks[i]);
+    bool player = check.holder != "npc";
     Character *holder =
-        side == "player" ? speaker
-        : side == "npc"  ? npc
-                         : KeyedCharacter((unsigned int)strtoul(side.c_str(), NULL, 10));
-    int have = kind == "CATS" ? MoneyOf(player ? payer : npc)
-               : holder       ? CountItems(holder, name, !player)
-                              : 0;
-    if (have >= count)
+        check.holder == "player" ? speaker
+        : !player               ? npc
+                                : KeyedCharacter((unsigned int)strtoul(
+                                      check.holder.c_str(), NULL, 10));
+    int have = check.kind == "CATS" ? MoneyOf(player ? payer : npc)
+               : holder ? CountItems(holder, check.name, !player)
+                        : 0;
+    if (have >= check.count)
       continue;
-    std::string what = ToString(count) + (kind == "CATS" ? " cats" : " " + name);
+    std::string what = ToString(check.count) +
+                       (check.kind == "CATS" ? " cats" : " " + check.name);
     return player ? Fill(T("You no longer have {what}."), "{what}", what)
                   : Fill(Fill(T("{name} no longer has {what}."), "{name}",
                               g_offer.npcName),
@@ -172,10 +179,10 @@ static void SendReply() {
     reply = T("No.");
   std::string answer = AnswerJson("decline");
   std::string npcName = g_offer.npcName;
-  std::string handleStr = ToString(g_offer.npcKey);
   Character *speaker = KeyedCharacter(g_offer.speakerKey);
   ForgetOffer();
-  SendChatLine(npcName, handleStr, speaker, reply, CurrentChatMode(), answer);
+  SendChatLine(npcName, g_offer.npcKey, speaker, reply, CurrentChatMode(),
+               answer);
 }
 
 static void OnOfferDecline(MyGUI::Widget *sender) { ShowReplyBox(true); }
@@ -231,19 +238,16 @@ static void AddOfferBox(MyGUI::Widget *client, const char *labelKey,
 // speaker, the name of the NPC, the text of the popup, the CHECK lines, and the
 // BOX lines of a barter offer, which shows in two boxes instead of the text.
 // An agreement in the barter window adds DEAL lines, and the window shows it
-void ShowOfferUI(const std::string &data) {
+static bool ParseOffer(const std::string &data, Offer &offer,
+                       std::vector<std::string> &mine,
+                       std::vector<std::string> &theirs) {
   std::vector<std::string> lines;
   std::istringstream in(data);
   std::string line;
-  while (std::getline(in, line)) {
+  while (std::getline(in, line))
     lines.push_back(Trim(line, " \t\r"));
-  }
-  if (lines.size() < 4 || !MyGUI::Gui::getInstancePtr() ||
-      (!g_offer.id.empty() && g_offer.id == lines[0]))
-    return;
-  CloseOfferUI();
-
-  Offer offer;
+  if (lines.size() < 4)
+    return false;
   offer.id = lines[0];
   std::istringstream keys(lines[1]);
   offer.npcKey = 0;
@@ -251,7 +255,6 @@ void ShowOfferUI(const std::string &data) {
   keys >> offer.npcKey >> offer.speakerKey;
   offer.npcName = lines[2];
   offer.text = lines[3];
-  std::vector<std::string> mine, theirs;
   for (size_t i = 4; i < lines.size(); ++i) {
     if (lines[i].compare(0, 7, "CHECK: ") == 0)
       offer.checks.push_back(lines[i].substr(7));
@@ -262,6 +265,16 @@ void ShowOfferUI(const std::string &data) {
     else if (lines[i].compare(0, 6, "DEAL: ") == 0)
       offer.deal.push_back(lines[i].substr(6));
   }
+  return true;
+}
+
+void ShowOfferUI(const std::string &data) {
+  Offer offer;
+  std::vector<std::string> mine, theirs;
+  if (!MyGUI::Gui::getInstancePtr() || !ParseOffer(data, offer, mine, theirs) ||
+      (!g_offer.id.empty() && g_offer.id == offer.id))
+    return;
+  CloseOfferUI();
   bool barter = !mine.empty() || !theirs.empty();
   offer.npc = KeyedCharacter(offer.npcKey);
   offer.speaker = KeyedCharacter(offer.speakerKey);
@@ -280,7 +293,7 @@ void ShowOfferUI(const std::string &data) {
   g_offerText = AddTextView(client, 0.05f, 0.05f, 0.9f, 0.5f,
                             MyGUI::Align::Top | MyGUI::Align::HStretch,
                             "SentientSands_OfferText");
-  g_offerText->setCaption(Utf8ToWide(lines[3]).c_str());
+  g_offerText->setCaption(Utf8ToWide(offer.text).c_str());
   if (barter) {
     g_offerText->setVisible(false);
     AddOfferBox(client, "You are offering:", 0.05f, mine,

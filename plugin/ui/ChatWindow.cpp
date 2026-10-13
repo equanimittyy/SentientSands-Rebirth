@@ -37,7 +37,7 @@ namespace UI {
 struct ChatTask {
   std::string json;
   std::string npcName;
-  std::string handleStr;
+  unsigned int npcKey;
   bool action;
   bool yell;
   bool barter;
@@ -63,8 +63,8 @@ MyGUI::Button *g_chatTargetBtn = nullptr;
 std::vector<hand> g_chatTargets;
 size_t g_chatTargetIndex = 0;
 static hand g_chosenChatTarget;
-std::string g_chatTargetHandleStr = "";
-std::string g_chatTargetNameStr = "";
+static unsigned int g_chatTargetKey = 0;
+static std::string g_chatTargetNameStr;
 size_t g_lastChatModeIndex = 1;
 bool g_chatJustOpened = false;
 // Guarded by g_msgMutex, because the reply thread of a chat line sets them
@@ -111,6 +111,11 @@ static bool RefuseLine(const std::string &key, const std::string &name,
   return false;
 }
 
+// A line without a key goes by the name alone
+static std::string KeyText(unsigned int key) {
+  return key ? ToString(key) : std::string();
+}
+
 static bool IsAsciiLetter(char c) {
   return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z');
 }
@@ -133,8 +138,8 @@ static std::string WithoutActionMark(const std::string &text) {
 }
 
 static void SettleActionDialogue(ChatTask *t, const std::string &response) {
-  bool open = GetJsonValue(response, "action_dialogue").find("true") == 0;
-  bool offered = GetJsonValue(response, "offer").find("true") == 0;
+  bool open = JsonTrue(response, "action_dialogue");
+  bool offered = JsonTrue(response, "offer");
   EnterCriticalSection(&g_msgMutex);
   if (t->action)
     g_actionPendingName.clear();
@@ -142,7 +147,7 @@ static void SettleActionDialogue(ChatTask *t, const std::string &response) {
   if (offered)
     g_offerPendingName = t->npcName;
   g_actionNpcKey =
-      open ? (unsigned int)strtoul(t->handleStr.c_str(), NULL, 10) : 0;
+      open ? t->npcKey : 0;
   LeaveCriticalSection(&g_msgMutex);
 }
 
@@ -155,7 +160,7 @@ DWORD WINAPI ChatResponseThread(LPVOID lpParam) {
   // NPC
   if (!t->yell) {
     NotifyChatStatus("{name} is thinking...", t->npcName);
-    QueueMessage("NPC_SAY: " + t->npcName + "|" + t->handleStr + ": ...");
+    QueueMessage("NPC_SAY: " + t->npcName + "|" + KeyText(t->npcKey) + ": ...");
   }
 
   std::string response = PostToPythonWithResponse(L"/chat", t->json);
@@ -184,26 +189,14 @@ DWORD WINAPI ChatResponseThread(LPVOID lpParam) {
 
 void OnChatInputChange(MyGUI::EditBox *sender) {
   std::string text = sender->getOnlyText().asUTF8();
-
-  if (g_chatJustOpened) {
-    if (text.length() > 0) {
-      std::string textUpper = text;
-      textUpper[0] = toupper(textUpper[0]);
-      std::string hkUpper = g_chatHotkeyStr;
-      if (!hkUpper.empty())
-        hkUpper[0] = toupper(hkUpper[0]);
-
-      if (text == "\\" || text == "\n" || text == "\r" ||
-          (text.length() == 1 && textUpper == hkUpper)) {
-        sender->setCaption("");
-        g_chatJustOpened = false;
-        return;
-      }
-      g_chatJustOpened = false;
-    }
-  }
-
-  if (text == "\\" || text == "\n" || text == "\r") {
+  bool first = g_chatJustOpened && !text.empty();
+  if (first)
+    g_chatJustOpened = false;
+  // The press of the chat key that opened the window types its key
+  bool hotkey = first && text.size() == 1 && g_chatHotkeyStr.size() == 1 &&
+                toupper((unsigned char)text[0]) ==
+                    toupper((unsigned char)g_chatHotkeyStr[0]);
+  if (hotkey || text == "\\" || text == "\n" || text == "\r") {
     sender->setCaption("");
     return;
   }
@@ -240,12 +233,8 @@ void OnChatSendClick(MyGUI::Widget *sender) {
   }
 
   std::string mode = CurrentChatMode();
-  std::string npcName = g_chatTargetNameStr;
-  std::string handleStr = g_chatTargetHandleStr;
   GameWorld *world = *ppWorld;
-
-  Character *target =
-      KeyedCharacter((unsigned int)strtoul(handleStr.c_str(), NULL, 10));
+  Character *target = KeyedCharacter(g_chatTargetKey);
   Character *speaker = nullptr;
   if (g_chatSpeakerIndex < g_chatSpeakers.size())
     speaker = g_chatSpeakers[g_chatSpeakerIndex].getCharacter();
@@ -270,16 +259,15 @@ void OnChatSendClick(MyGUI::Widget *sender) {
     return;
   }
 
-  SendChatLine(npcName, handleStr, speaker, text, mode, "");
+  SendChatLine(g_chatTargetNameStr, g_chatTargetKey, speaker, text, mode, "");
 }
 
-bool SendChatLine(const std::string &npcName, const std::string &handleStr,
+bool SendChatLine(const std::string &npcName, unsigned int targetKey,
                   Character *speaker, const std::string &text,
                   const std::string &mode, const std::string &offerAnswer,
                   const std::string &barterJson) {
   GameWorld *world = *ppWorld;
   std::string playerName = speaker ? speaker->getName() : "Drifter";
-  unsigned int targetKey = (unsigned int)strtoul(handleStr.c_str(), NULL, 10);
   Character *targetNpc = KeyedCharacter(targetKey);
   std::string downName;
   if (speaker && speaker->isUnconcious())
@@ -328,7 +316,7 @@ bool SendChatLine(const std::string &npcName, const std::string &handleStr,
   QueueMessage("PLAYER_SAY: " + (speaker ? playerName + ": " : std::string()) +
                (marked ? WithoutActionMark(text) : text));
 
-  std::string primaryId = npcName + "|" + handleStr;
+  std::string primaryId = npcName + "|" + KeyText(targetKey);
   std::string npcsJson = "\"" + EscapeJSON(primaryId) + "\"";
   std::string nearbyFullJson = "";
 
@@ -381,7 +369,7 @@ bool SendChatLine(const std::string &npcName, const std::string &handleStr,
   ChatTask *task = new ChatTask();
   task->json = json;
   task->npcName = npcName;
-  task->handleStr = handleStr;
+  task->npcKey = targetKey;
   task->action = actionLine;
   task->yell = mode == "yell";
   task->barter = !barterJson.empty();
@@ -394,10 +382,9 @@ void OnChatCancelClick(MyGUI::Widget *sender) { CloseChatUI(); }
 
 static void OnChatBarterClick(MyGUI::Widget *sender) {
   std::string npcName = g_chatTargetNameStr;
-  std::string handleStr = g_chatTargetHandleStr;
   std::string thread = g_chatBarterThread;
   CloseChatUI();
-  ShowBarterUI(npcName, handleStr, thread);
+  ShowBarterUI(npcName, g_chatTargetKey, thread);
 }
 void OnRadiantClick(MyGUI::Widget *sender) {
   g_triggerRadiant = true;
@@ -411,8 +398,7 @@ static void SetChatThreadHeader(const std::string &text) {
 
 static void RequestChatHistory() {
   SetChatThreadHeader(T("Loading the conversation..."));
-  Character *target = KeyedCharacter(
-      (unsigned int)strtoul(g_chatTargetHandleStr.c_str(), NULL, 10));
+  Character *target = KeyedCharacter(g_chatTargetKey);
   PostForGameThread(L"/chat_thread",
                     "{\"npc_id\":\"" +
                         EscapeJSON(target ? GetNpcId(target) : std::string()) +
@@ -429,7 +415,7 @@ void SetChatHistory(const std::string &data) {
     SetChatThreadHeader(T("Could not load the conversation."));
     return;
   }
-  if (GetJsonValue(reply, "open").find("true") != 0) {
+  if (!JsonTrue(reply, "open")) {
     SetChatThreadHeader(T("No open conversation."));
     return;
   }
@@ -484,7 +470,7 @@ static void ShowChatTarget() {
   Character *target = g_chatTargets[g_chatTargetIndex].getCharacter();
   g_talkTargetHand = g_chatTargets[g_chatTargetIndex];
   g_chatTargetNameStr = target ? target->getName() : "?";
-  g_chatTargetHandleStr = target ? ToString(HandleKey(target)) : "";
+  g_chatTargetKey = target ? HandleKey(target) : 0;
   g_chatWindow->setCaption(
       Utf8ToWide(T("Talking to: ") + g_chatTargetNameStr).c_str());
   g_chatTargetBtn->setCaption(Utf8ToWide(g_chatTargetNameStr).c_str());
@@ -571,12 +557,7 @@ static void BuildChatWindow() {
             OnRadiantClick);
 }
 
-void CreateChatUI(Character *npc) {
-  GameWorld *world = *ppWorld;
-  if (!MyGUI::Gui::getInstancePtr() || !world || !world->player)
-    return;
-  CloseChatUI();
-
+static void FillChatTargets(GameWorld *world, Character *npc) {
   std::vector<Character *> squad;
   GetCurrentSquad(squad);
   g_chatTargets.clear();
@@ -586,9 +567,7 @@ void CreateChatUI(Character *npc) {
   // A lone character would talk to itself
   for (uint32_t i = 0; characters.size() > 1 && i < characters.size(); ++i) {
     Character *c = characters[i];
-    if (!c)
-      continue;
-    for (size_t j = 0; j < squad.size(); ++j) {
+    for (size_t j = 0; c && j < squad.size(); ++j) {
       if (c->getPosition().distance(squad[j]->getPosition()) <
           g_proximityRadius) {
         g_chatTargets.push_back(c->getHandle());
@@ -596,6 +575,15 @@ void CreateChatUI(Character *npc) {
       }
     }
   }
+}
+
+void CreateChatUI(Character *npc) {
+  GameWorld *world = *ppWorld;
+  if (!MyGUI::Gui::getInstancePtr() || !world || !world->player)
+    return;
+  CloseChatUI();
+
+  FillChatTargets(world, npc);
   if (g_chatTargets.empty())
     return;
 

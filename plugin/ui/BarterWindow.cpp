@@ -28,7 +28,6 @@
 #include <algorithm>
 #include <cstdlib>
 #include <map>
-#include <sstream>
 #include <vector>
 
 namespace SentientSands {
@@ -66,7 +65,6 @@ static Deal g_agreed;
 static bool g_offerHeld = false;
 static std::vector<Lot> g_shown[4];
 static std::string g_barterNpcName;
-static std::string g_barterHandle;
 static std::string g_barterMode;
 static unsigned int g_barterNpcKey = 0;
 static unsigned int g_barterSpeakerKey = 0;
@@ -400,7 +398,7 @@ static void SendBarterLine() {
       OfferHeldFor(g_barterNpcKey) ? DeclineOffer() : std::string();
   // The mark keeps the line in the BARTER dialogue even after the dialogue
   // ended, as a new !b line would
-  if (!SendChatLine(g_barterNpcName, g_barterHandle,
+  if (!SendChatLine(g_barterNpcName, g_barterNpcKey,
                     KeyedCharacter(g_barterSpeakerKey), "!b " + text,
                     g_barterMode, answer, json))
     return;
@@ -544,16 +542,15 @@ static Character *PlayerCharacter(const std::string &npcId) {
 
 // thread is the reply of /chat_thread: the window speaks as the speaker of
 // the action dialogue, in its mode, or its line would start a new thread
-void ShowBarterUI(const std::string &npcName, const std::string &handleStr,
+void ShowBarterUI(const std::string &npcName, unsigned int npcKey,
                   const std::string &thread) {
   if (!MyGUI::Gui::getInstancePtr())
     return;
   CloseBarterUI();
   g_barterNpcName = npcName;
-  g_barterHandle = handleStr;
-  g_barterNpcKey = (unsigned int)strtoul(handleStr.c_str(), NULL, 10);
+  g_barterNpcKey = npcKey;
   g_barterMode = GetJsonValue(thread, "mode");
-  g_barterStock = GetJsonValue(thread, "stock").find("true") == 0;
+  g_barterStock = JsonTrue(thread, "stock");
   g_deal = Deal();
   g_deal.cats[PLAYER_SIDE] = g_deal.cats[NPC_SIDE] = 0;
   g_offerHeld = false;
@@ -581,8 +578,6 @@ void ShowBarterUI(const std::string &npcName, const std::string &handleStr,
   RefreshBarterLists();
 }
 
-// The lines hold the cats of a side, or an item with its holder: npc, player
-// for the speaker, or the key of a squad mate
 bool ShowBarterOffer(unsigned int npcKey, unsigned int speakerKey,
                      const std::vector<std::string> &deal) {
   if (!g_barterWindow || npcKey != g_barterNpcKey || deal.empty())
@@ -590,25 +585,17 @@ bool ShowBarterOffer(unsigned int npcKey, unsigned int speakerKey,
   Deal loaded;
   loaded.cats[PLAYER_SIDE] = loaded.cats[NPC_SIDE] = 0;
   for (size_t i = 0; i < deal.size(); ++i) {
-    std::istringstream in(deal[i]);
-    std::string kind, holder, label;
-    int count = 0;
-    if (deal[i].compare(0, 5, "CATS ") == 0) {
-      in >> kind >> holder >> count;
-      loaded.cats[holder == "npc" ? NPC_SIDE : PLAYER_SIDE] = count;
-      continue;
-    }
-    in >> kind >> holder >> count;
-    std::getline(in, label);
-    label.erase(0, label.find_first_not_of(' '));
-    if (holder == "npc")
-      AddLot(loaded.lots[NPC_SIDE], 0, label, count);
+    DealLine line = ParseDealLine(deal[i]);
+    if (line.kind == "CATS")
+      loaded.cats[line.holder == "npc" ? NPC_SIDE : PLAYER_SIDE] = line.count;
+    else if (line.holder == "npc")
+      AddLot(loaded.lots[NPC_SIDE], 0, line.name, line.count);
     else
       AddLot(loaded.lots[PLAYER_SIDE],
-             holder == "player"
+             line.holder == "player"
                  ? speakerKey
-                 : (unsigned int)strtoul(holder.c_str(), NULL, 10),
-             label, count);
+                 : (unsigned int)strtoul(line.holder.c_str(), NULL, 10),
+             line.name, line.count);
   }
   g_deal = loaded;
   g_agreed = loaded;
