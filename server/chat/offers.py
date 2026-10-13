@@ -1,8 +1,10 @@
 """The offers of the action dialogue (docs/plans/action_dialogue/framework.md#offer).
 
-An NPC that agrees to a deal ends its reply with an offer tag, for example [OFFER: JOIN_PARTY; TAKE_CATS: 800]. The tags of
-the model never reach the plugin: code checks the offer against the hard limits, writes the popup and the memory lines from
-the checked offer, and builds each action of the plugin itself.
+An NPC that agrees to a deal ends its reply with a short tag: [AGREE: 800 cats] for a deal that the category fixes, such as a
+recruit, [GIVE: 200 cats, 1 Katana] for a handover, or [DEAL: 1 Katana for 4600 cats] for a trade. The model left out
+longer tags that named each part, so code adds the parts. The tags of the model never reach the plugin: code checks the
+offer against the hard limits, writes the popup and the memory lines from the checked offer, and builds each action of the
+plugin itself.
 
 The server holds at most one offer, in state.PENDING_OFFER, because the plugin takes no chat line while an offer waits.
 """
@@ -14,18 +16,21 @@ import re
 from chat import action_dialogue
 from core import state
 
-OFFER_TAG = re.compile(r"\[\s*OFFER\s*:((?:[^\[\]]|\[[^\[\]]*\])*)\]", re.IGNORECASE)
-# Bare parts count only in capitals, so a spoken "hire" or "release" is no offer
-_PART = r"\b(?:GIVE_CATS|TAKE_CATS|GIVE_ITEM|TAKE_ITEM|GIVE_FOOD|JOIN_PARTY|HIRE|FIRST_AID|RELEASE)\b(?:\s*:[^;\[\]\n]*)?"
-BARE_OFFER = re.compile(rf"(?:\bOFFER\s*:\s*)?({_PART}(?:\s*;\s*{_PART})*)")
+# An item name can hold brackets, such as "Armoured Rags (colored) [alt]"
+_TAG = r"\[\s*{}\s*(?::((?:[^\[\]]|\[[^\[\]]*\])*))?\]"
+AGREE_TAG = re.compile(_TAG.format("AGREE"), re.IGNORECASE)
+GIVE_TAG = re.compile(_TAG.format("GIVE"), re.IGNORECASE)
+DEAL_TAG = re.compile(_TAG.format("DEAL"), re.IGNORECASE)
 REFUSE_TAG = re.compile(r"\[\s*REFUSE\s*\]", re.IGNORECASE)
 ATTACK_TAG = re.compile(r"\[\s*ATTACK\s*\]", re.IGNORECASE)
-AGREE_TAG = re.compile(r"\[\s*AGREE\s*\]", re.IGNORECASE)
+CATS_TERM = re.compile(r"\d[\d,]*(?:\s*cats?)?", re.IGNORECASE)
+LENGTH_TERM = re.compile(r"\d+\s*(?:hours?|days?)", re.IGNORECASE)
 DEAL_LINE = re.compile(r"\((?:[^()]+ (?:accepted|declined): |[^()]+ (?:attacked|treated|dismissed) )[^()]*\)\s*$")
 
 GIVES = {"RECRUIT": {"JOIN_PARTY"}, "FOLLOW": {"HIRE"}, "HEAL": {"FIRST_AID"}, "LIBERATE": {"RELEASE"}, "THREATEN": {"GIVE_CATS", "GIVE_ITEM"}, "BARTER": {"GIVE_CATS", "GIVE_ITEM", "GIVE_FOOD"}}
 NEEDS = {"RECRUIT": "JOIN_PARTY", "FOLLOW": "HIRE", "HEAL": "FIRST_AID", "LIBERATE": "RELEASE"}
 TAKES = {"RECRUIT": {"TAKE_CATS"}, "FOLLOW": {"TAKE_CATS"}, "HEAL": {"TAKE_CATS"}, "LIBERATE": {"TAKE_CATS"}, "THREATEN": set(), "BARTER": {"TAKE_CATS", "TAKE_ITEM"}}
+TERMS_TAGS = {"RECRUIT": AGREE_TAG, "FOLLOW": AGREE_TAG, "HEAL": AGREE_TAG, "LIBERATE": AGREE_TAG, "THREATEN": GIVE_TAG, "BARTER": DEAL_TAG}
 # The cheapest food in the game data, at a base value of 40
 CHARITY_FOOD = "Dried Gristle Flaps"
 CHARITY_CATS = 50
@@ -69,27 +74,64 @@ PRICE_LINES = 10
 _ids = itertools.count(1)
 
 
-def _offer(content):
-    return OFFER_TAG.search(content or "") or BARE_OFFER.search(content or "")
+def _tag(content, category):
+    pattern = TERMS_TAGS.get(category)
+    return pattern.search(content or "") if pattern else None
 
 
-def offer_text(content):
-    """The offer of a reply as the model wrote it, or None."""
-    tag = _offer(content)
+def offer_text(content, category):
+    """The deal tag of a reply as the model wrote it, or None."""
+    tag = _tag(content, category)
     return tag.group(0) if tag else None
 
 
-def read(content):
-    """The parts of the offer tag of a reply as (name, argument) pairs, or None for a reply without one."""
-    tag = _offer(content)
+def _terms(text):
+    """The terms of a tag, split at each comma or semicolon outside parentheses and brackets. A comma before a digit stays,
+    because it groups the thousands of a number such as 1,500."""
+    terms, depth, start = [], 0, 0
+    for i, char in enumerate(text):
+        depth += (char in "([") - (char in ")]")
+        if depth == 0 and char in ",;" and not text[i + 1:i + 2].isdigit():
+            terms.append(text[start:i])
+            start = i + 1
+    terms.append(text[start:])
+    return [term.strip() for term in terms if term.strip()]
+
+
+def _side(text, side):
+    """The parts of one side of a handover or a trade: cats, items, or food for charity."""
+    parts = []
+    for term in _terms(text):
+        if term.lower() == "nothing":
+            continue
+        if side == "GIVE" and term.lower() == "food":
+            parts.append(("GIVE_FOOD", ""))
+        elif CATS_TERM.fullmatch(term):
+            parts.append((f"{side}_CATS", term))
+        else:
+            parts.append((f"{side}_ITEM", term))
+    return parts
+
+
+def read(content, category):
+    """The parts of the deal tag of a reply as (name, argument) pairs, or None for a reply without one. An [AGREE] gets the
+    part that its category needs, with the length of a hire as its argument, and its cats are the cats that the player
+    pays."""
+    tag = _tag(content, category)
     if not tag:
         return None
-    parts = []
-    for piece in tag.group(1).split(";"):
-        name, _, argument = piece.strip().partition(":")
-        if name.strip():
-            parts.append((name.strip().upper().replace(" ", "_"), argument.strip()))
-    return parts
+    text = tag.group(1) or ""
+    if category == "BARTER":
+        sides = re.split(r"\s+for\s+", text, maxsplit=1, flags=re.IGNORECASE)
+        # Each side of a trade can be "nothing", so a tag without "for" names no deal
+        if len(sides) < 2:
+            return []
+        return [*_side(sides[0], "GIVE"), *_side(sides[1], "TAKE")]
+    if category == "THREATEN":
+        return _side(text, "GIVE")
+    terms = _terms(text)
+    length = next((term for term in terms if LENGTH_TERM.fullmatch(term)), "")
+    return [(NEEDS[category], length), *(("TAKE_CATS", term) for term in terms if CATS_TERM.fullmatch(term))]
 
 
 def refused(content):
@@ -222,10 +264,8 @@ def check(category, parts, npc, speaker, squad=None):
         if name not in GIVES[category] | TAKES[category]:
             return None, f"{name} is not a part of a {category} deal"
         if name in ("GIVE_CATS", "TAKE_CATS"):
-            if not re.search(r"\d", argument):
-                return None, f"{name} has no count"
             count = count_of(argument)
-            # A model that agrees to a deal for free can still write TAKE_CATS: 0
+            # A model that agrees to a deal for free can still write 0 cats
             if count:
                 parsed.append((name, count))
         elif name in ("GIVE_ITEM", "TAKE_ITEM"):
@@ -265,9 +305,6 @@ def check(category, parts, npc, speaker, squad=None):
             (gives if name == "GIVE_CATS" else takes).append(("CATS", value))
         else:
             gives.append((name, value))
-    needed = NEEDS.get(category)
-    if needed and needed not in {kind for kind, _ in gives}:
-        return None, f"a {category} deal needs {needed}"
     if not gives and not takes:
         return None, "the offer is empty"
     paid = sum(count for kind, count in takes if kind == "CATS")

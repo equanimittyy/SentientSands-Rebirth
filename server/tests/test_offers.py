@@ -14,23 +14,30 @@ GUARD = {**NPC, "squad_jobs": ["MAN_THE_GATE"]}
 
 
 def check(category, tag, npc=NPC, speaker=SPEAKER):
-    return offers.check(category, offers.read(tag), npc, speaker)
+    return offers.check(category, offers.read(tag, category), npc, speaker)
 
 
 class ReadTest(unittest.TestCase):
-    def test_the_parts_of_the_offer_tag(self):
-        self.assertEqual(offers.read("Fine. [OFFER: JOIN_PARTY; TAKE_CATS: 1,500] [JUDGMENT: 1]"), [("JOIN_PARTY", ""), ("TAKE_CATS", "1,500")])
-        self.assertEqual(offers.read("[offer: give item: 2 Bread]"), [("GIVE_ITEM", "2 Bread")])
+    def test_an_agreement_gets_the_part_of_its_category(self):
+        self.assertEqual(offers.read("Fine. [AGREE: 1,500 cats] [JUDGMENT: 1]", "RECRUIT"), [("JOIN_PARTY", ""), ("TAKE_CATS", "1,500 cats")])
+        self.assertEqual(offers.read("Sure. [agree: 2 days, 500 cats]", "FOLLOW"), [("HIRE", "2 days"), ("TAKE_CATS", "500 cats")])
+        self.assertEqual(offers.read("Hold still. [AGREE]", "HEAL"), [("FIRST_AID", "")])
 
-    def test_a_reply_without_the_tag_has_no_offer(self):
-        self.assertIsNone(offers.read("[RECRUIT] Maybe. [JUDGMENT: 0]"))
-        self.assertIsNone(offers.read("I won't hire on, and I won't release you either."))
+    def test_a_handover_and_a_trade_name_their_sides(self):
+        self.assertEqual(offers.read("Take it. [GIVE: 200 cats, 2 Bread]", "THREATEN"), [("GIVE_CATS", "200 cats"), ("GIVE_ITEM", "2 Bread")])
+        self.assertEqual(offers.read("[DEAL: 1 Katana (Ancient, Refitted Blade) for 4,600 cats, 1 Armoured Rags (colored) [alt]]", "BARTER"),
+                         [("GIVE_ITEM", "1 Katana (Ancient, Refitted Blade)"), ("TAKE_CATS", "4,600 cats"), ("TAKE_ITEM", "1 Armoured Rags (colored) [alt]")])
+        self.assertEqual(offers.read("[DEAL: food for nothing]", "BARTER"), [("GIVE_FOOD", "")])
+        self.assertEqual(offers.read("[DEAL: 500 cats]", "BARTER"), [])
 
-    def test_the_parts_without_their_brackets(self):
-        reply = "Take it. GIVE_CATS: 4; GIVE_ITEM: 1 Shovel [JUDGMENT: -3]"
-        self.assertEqual(offers.read(reply), [("GIVE_CATS", "4"), ("GIVE_ITEM", "1 Shovel")])
-        self.assertEqual(offers.offer_text(reply).strip(), "GIVE_CATS: 4; GIVE_ITEM: 1 Shovel")
-        self.assertEqual(offers.read("Fine. OFFER: JOIN_PARTY; TAKE_CATS: 800"), [("JOIN_PARTY", ""), ("TAKE_CATS", "800")])
+    def test_a_reply_without_the_tag_of_its_category_has_no_offer(self):
+        self.assertIsNone(offers.read("[RECRUIT] Maybe. [JUDGMENT: 0]", "RECRUIT"))
+        self.assertIsNone(offers.read("Fine, take it. [AGREE]", "THREATEN"))
+        self.assertIsNone(offers.read("Fine. [AGREE]", None))
+
+    def test_the_tag_leaves_the_spoken_words_whole(self):
+        reply = "Here. [DEAL: 1 Armoured Rags (colored) [alt] for 50 cats] [JUDGMENT: 0]"
+        self.assertEqual(offers.offer_text(reply, "BARTER"), "[DEAL: 1 Armoured Rags (colored) [alt] for 50 cats]")
 
     def test_the_refusal_and_the_attack(self):
         self.assertTrue(offers.refused("No. [REFUSE]"))
@@ -40,80 +47,75 @@ class ReadTest(unittest.TestCase):
 
 class CheckTest(unittest.TestCase):
     def test_a_recruit_with_a_fee(self):
-        offer, reason = check("RECRUIT", "[OFFER: JOIN_PARTY; TAKE_CATS: 800]")
+        offer, reason = check("RECRUIT", "[AGREE: 800 cats]")
         self.assertIsNone(reason)
         self.assertEqual(offer["gives"], [("JOIN_PARTY", None)])
         self.assertEqual(offer["takes"], [("CATS", 800)])
 
     def test_the_player_pays_only_the_cats_that_it_has(self):
-        self.assertIsNone(check("RECRUIT", "[OFFER: JOIN_PARTY; TAKE_CATS: 1001]")[0])
-
-    def test_a_deal_needs_its_part(self):
-        self.assertIsNone(check("RECRUIT", "[OFFER: TAKE_CATS: 100]")[0])
-        self.assertIsNone(check("HEAL", "[OFFER: JOIN_PARTY]")[0])
+        self.assertIsNone(check("RECRUIT", "[AGREE: 1001 cats]")[0])
 
     def test_a_part_of_another_category_breaks_the_offer(self):
-        self.assertIsNone(check("THREATEN", "[OFFER: GIVE_CATS: 100; TAKE_CATS: 50]")[0])
+        self.assertIsNone(check("THREATEN", "[GIVE: food]")[0])
 
     def test_a_handover_holds_only_what_the_npc_carries(self):
-        offer, _ = check("THREATEN", "[OFFER: GIVE_CATS: 200; GIVE_ITEM: 3 bread]")
+        offer, _ = check("THREATEN", "[GIVE: 200 cats, 3 bread]")
         self.assertEqual(offer["gives"], [("CATS", 200), ("ITEM", (3, "Bread"))])
-        self.assertIsNone(check("THREATEN", "[OFFER: GIVE_ITEM: 4 Bread]")[0])
-        self.assertIsNone(check("THREATEN", "[OFFER: GIVE_CATS: 301]")[0])
-        self.assertIsNone(check("THREATEN", "[OFFER: GIVE_ITEM: Wakizashi]")[0])
+        self.assertIsNone(check("THREATEN", "[GIVE: 4 Bread]")[0])
+        self.assertIsNone(check("THREATEN", "[GIVE: 301 cats]")[0])
+        self.assertIsNone(check("THREATEN", "[GIVE: Wakizashi]")[0])
 
     def test_the_length_of_a_hire(self):
-        self.assertEqual(check("FOLLOW", "[OFFER: HIRE: 2 days]")[0]["gives"], [("HIRE", 48)])
-        self.assertEqual(check("FOLLOW", "[OFFER: HIRE: 6 hours]")[0]["gives"], [("HIRE", 6)])
-        self.assertIsNone(check("FOLLOW", "[OFFER: HIRE]")[0])
+        self.assertEqual(check("FOLLOW", "[AGREE: 2 days]")[0]["gives"], [("HIRE", 48)])
+        self.assertEqual(check("FOLLOW", "[AGREE: 6 hours]")[0]["gives"], [("HIRE", 6)])
+        self.assertIsNone(check("FOLLOW", "[AGREE]")[0])
 
     def test_a_mercenary_charges_its_daily_rate(self):
         merc = {**NPC, "faction": "Mercenary Guild"}
-        self.assertIsNone(check("FOLLOW", "[OFFER: HIRE: 1 day; TAKE_CATS: 900]", npc=merc)[0])
+        self.assertIsNone(check("FOLLOW", "[AGREE: 1 day, 900 cats]", npc=merc)[0])
         rich = {**SPEAKER, "money": 5000}
-        self.assertIsNotNone(check("FOLLOW", "[OFFER: HIRE: 2 days; TAKE_CATS: 4000]", npc=merc, speaker=rich)[0])
-        self.assertIsNotNone(check("FOLLOW", "[OFFER: HIRE: 6 hours; TAKE_CATS: 500]", npc=merc)[0])
-        self.assertIsNone(check("FOLLOW", "[OFFER: HIRE: 1 day; TAKE_CATS: 0]", npc=merc)[0])
+        self.assertIsNotNone(check("FOLLOW", "[AGREE: 2 days, 4000 cats]", npc=merc, speaker=rich)[0])
+        self.assertIsNotNone(check("FOLLOW", "[AGREE: 6 hours, 500 cats]", npc=merc)[0])
+        self.assertIsNone(check("FOLLOW", "[AGREE: 1 day, 0 cats]", npc=merc)[0])
 
     def test_a_part_of_0_cats_is_no_cats(self):
-        hire, _ = check("FOLLOW", "[OFFER: HIRE: 1 day; TAKE_CATS: 0]")
+        hire, _ = check("FOLLOW", "[AGREE: 1 day, 0 cats]")
         self.assertEqual((hire["gives"], hire["takes"]), ([("HIRE", 24)], []))
-        self.assertIsNone(check("FOLLOW", "[OFFER: HIRE: 1 day; TAKE_CATS]")[0])
-        self.assertIsNone(check("BARTER", "[OFFER: TAKE_CATS: 0]")[0])
+        self.assertIsNone(check("BARTER", "[DEAL: nothing for 0 cats]")[0])
 
     def test_a_release_costs_a_bribe_on_top_of_the_bounty(self):
-        self.assertIsNone(check("LIBERATE", "[OFFER: RELEASE]", npc=GUARD)[0])
-        self.assertIsNone(check("LIBERATE", "[OFFER: RELEASE; TAKE_CATS: 499]", npc=GUARD)[0])
-        self.assertEqual(check("LIBERATE", "[OFFER: RELEASE; TAKE_CATS: 500]", npc=GUARD)[0]["gives"], [("RELEASE", None)])
+        self.assertIsNone(check("LIBERATE", "[AGREE]", npc=GUARD)[0])
+        self.assertIsNone(check("LIBERATE", "[AGREE: 499 cats]", npc=GUARD)[0])
+        self.assertEqual(check("LIBERATE", "[AGREE: 500 cats]", npc=GUARD)[0]["gives"], [("RELEASE", None)])
         wanted = {**SPEAKER, "money": 5000, "bounty": 2000}
-        self.assertIsNone(check("LIBERATE", "[OFFER: RELEASE; TAKE_CATS: 2000]", npc=GUARD, speaker=wanted)[0])
-        self.assertIsNotNone(check("LIBERATE", "[OFFER: RELEASE; TAKE_CATS: 2500]", npc=GUARD, speaker=wanted)[0])
+        self.assertIsNone(check("LIBERATE", "[AGREE: 2000 cats]", npc=GUARD, speaker=wanted)[0])
+        self.assertIsNotNone(check("LIBERATE", "[AGREE: 2500 cats]", npc=GUARD, speaker=wanted)[0])
 
 
 class TextTest(unittest.TestCase):
     def test_the_popup_names_the_real_deal(self):
-        recruit, _ = check("RECRUIT", "[OFFER: JOIN_PARTY; TAKE_CATS: 1500]", speaker={**SPEAKER, "money": 2000})
+        recruit, _ = check("RECRUIT", "[AGREE: 1500 cats]", speaker={**SPEAKER, "money": 2000})
         self.assertEqual(offers.popup_text(recruit, "Drifter", "Zaps"), "Drifter offers to join your squad for 1,500 cats.")
-        handover, _ = check("THREATEN", "[OFFER: GIVE_CATS: 200; GIVE_ITEM: Katana]")
+        handover, _ = check("THREATEN", "[GIVE: 200 cats, Katana]")
         self.assertEqual(offers.popup_text(handover, "Bandit", "Zaps"), "Bandit offers 200 cats and a Katana.")
-        hire, _ = check("FOLLOW", "[OFFER: HIRE: 2 days; TAKE_CATS: 400]")
+        hire, _ = check("FOLLOW", "[AGREE: 2 days, 400 cats]")
         self.assertEqual(offers.popup_text(hire, "Drifter", "Zaps"), "Drifter offers to follow you for 2 days for 400 cats.")
-        release, _ = check("LIBERATE", "[OFFER: RELEASE; TAKE_CATS: 500]", npc=GUARD)
+        release, _ = check("LIBERATE", "[AGREE: 500 cats]", npc=GUARD)
         self.assertEqual(offers.popup_text(release, "Guard", "Zaps"), "Guard offers your release for 500 cats.")
         self.assertEqual(offers.actions(release), ["[ACTION: TAKE_CATS: 500]", "[ACTION: RELEASE_PRISONER]"])
 
     def test_a_hire_keeps_its_terms_for_the_renewal(self):
-        hire, _ = check("FOLLOW", "[OFFER: HIRE: 2 days; TAKE_CATS: 400]")
+        hire, _ = check("FOLLOW", "[AGREE: 2 days, 400 cats]")
         self.assertEqual(offers.hire_terms(hire), (48, 400))
-        free, _ = check("FOLLOW", "[OFFER: HIRE: 6 hours]")
+        free, _ = check("FOLLOW", "[AGREE: 6 hours]")
         self.assertEqual(offers.hire_terms(free), (6, 0))
-        recruit, _ = check("RECRUIT", "[OFFER: JOIN_PARTY; TAKE_CATS: 800]")
+        recruit, _ = check("RECRUIT", "[AGREE: 800 cats]")
         self.assertIsNone(offers.hire_terms(recruit))
         self.assertEqual(offers.renewal_text("Drifter", 48, 4000), "Drifter offers to renew following you for 2 days for 4,000 cats.")
         self.assertEqual(offers.renewal_text("Drifter", 6, 0), "Drifter offers to renew following you for 6 hours.")
 
     def test_the_memory_lines_are_deal_lines(self):
-        handover, _ = check("THREATEN", "[OFFER: GIVE_CATS: 200]")
+        handover, _ = check("THREATEN", "[GIVE: 200 cats]")
         accepted = offers.accepted_line(handover, "Bandit", "Zaps")
         declined = offers.declined_line(handover, "Bandit", "Zaps")
         self.assertEqual(accepted, "(Zaps accepted: Bandit gives Zaps 200 cats.)")
@@ -123,22 +125,22 @@ class TextTest(unittest.TestCase):
         self.assertFalse(offers.DEAL_LINE.search("[Day 1, 10:00] Zaps: Fine (for now)."))
 
     def test_the_join_carries_its_fee_and_the_player_pays_before_the_npc_hands_over(self):
-        recruit, _ = check("RECRUIT", "[OFFER: JOIN_PARTY; TAKE_CATS: 800]")
+        recruit, _ = check("RECRUIT", "[AGREE: 800 cats]")
         self.assertEqual(offers.actions(recruit), ["[ACTION: JOIN_PARTY: 800]"])
-        free, _ = check("RECRUIT", "[OFFER: JOIN_PARTY]")
+        free, _ = check("RECRUIT", "[AGREE]")
         self.assertEqual(offers.actions(free), ["[ACTION: JOIN_PARTY: 0]"])
-        handover, _ = check("THREATEN", "[OFFER: GIVE_ITEM: 2 Bread]")
+        handover, _ = check("THREATEN", "[GIVE: 2 Bread]")
         self.assertEqual(offers.actions(handover), ["[ACTION: GIVE_ITEM: Bread: 2]"])
 
     def test_the_command_holds_what_each_side_must_still_hold(self):
-        offer, _ = check("BARTER", "[OFFER: GIVE_ITEM: Katana; TAKE_CATS: 250; TAKE_ITEM: Dirty Loincloth]")
+        offer, _ = check("BARTER", "[DEAL: Katana for 250 cats, Dirty Loincloth]")
         lines = offers.command(7, offer, "Bandit", "12", "3", "text").split("\n")
         self.assertEqual(lines[:4], ["CMD: OFFER: 7", "12 3", "Bandit", "text"])
         self.assertEqual(lines[4:], ["CHECK: CATS player 250", "CHECK: ITEM player 1 Dirty Loincloth", "CHECK: ITEM npc 1 Katana",
                                      "CHECK: ROOM player 1 Dirty Loincloth", "BOX: player 250 cats", "BOX: player 1 Dirty Loincloth", "BOX: npc 1 Katana"])
 
     def test_only_an_agreement_in_the_barter_window_sends_the_deal_lines(self):
-        offer, _ = check("BARTER", "[OFFER: GIVE_ITEM: Katana; TAKE_CATS: 250]")
+        offer, _ = check("BARTER", "[DEAL: Katana for 250 cats]")
         lines = offers.command(7, offer, "Bandit", "12", "3", "text", window=True).split("\n")
         self.assertEqual(lines[-2:], ["DEAL: CATS player 250", "DEAL: ITEM npc 1 Katana"])
 
@@ -155,39 +157,39 @@ class BarterTest(unittest.TestCase):
         state.CHARITY_DAYS.clear()
 
     def barter(self, tag, npc=SHOP, speaker=BUYER):
-        return offers.check("BARTER", offers.read(tag), npc, speaker)
+        return offers.check("BARTER", offers.read(tag, "BARTER"), npc, speaker)
 
     def test_a_shopkeeper_sells_the_stock_of_its_shop(self):
-        offer, reason = self.barter("[OFFER: GIVE_ITEM: Katana; TAKE_CATS: 3000]")
+        offer, reason = self.barter("[DEAL: Katana for 3000 cats]")
         self.assertIsNone(reason)
         self.assertEqual(offer["gives"], [("ITEM", (1, "Katana (Ancient, Refitted Blade)"))])
 
     def test_a_trader_in_a_shop_keeps_what_it_carries(self):
-        self.assertIsNone(self.barter("[OFFER: GIVE_ITEM: 1 Bread; TAKE_CATS: 1000]")[0])
-        sale, _ = self.barter("[OFFER: GIVE_ITEM: Katana; TAKE_CATS: 3000]")
+        self.assertIsNone(self.barter("[DEAL: 1 Bread for 1000 cats]")[0])
+        sale, _ = self.barter("[DEAL: Katana for 3000 cats]")
         self.assertEqual(offers.actions(sale), ["[ACTION: TAKE_CATS: 3000]", "[ACTION: SELL_ITEM: Katana (Ancient, Refitted Blade): 1]"])
         away = {key: value for key, value in SHOP.items() if key != "stock"}
-        self.assertEqual(offers.actions(self.barter("[OFFER: GIVE_ITEM: 1 Bread; TAKE_CATS: 1000]", npc=away)[0])[1], "[ACTION: GIVE_ITEM: Bread: 1]")
+        self.assertEqual(offers.actions(self.barter("[DEAL: 1 Bread for 1000 cats]", npc=away)[0])[1], "[ACTION: GIVE_ITEM: Bread: 1]")
 
     def test_a_trader_in_a_shop_buys_into_the_stock_and_another_npc_must_carry_what_it_buys(self):
-        shop, _ = self.barter("[OFFER: GIVE_CATS: 50; TAKE_ITEM: Dirty Loincloth]")
+        shop, _ = self.barter("[DEAL: 50 cats for Dirty Loincloth]")
         self.assertEqual(offers.actions(shop), ["[ACTION: BUY_ITEM: Dirty Loincloth: 1]", "[ACTION: GIVE_CATS: 50]"])
         self.assertNotIn("CHECK: ROOM player 1 Dirty Loincloth", offers.checks(shop))
         away = {key: value for key, value in SHOP.items() if key != "stock"}
-        carried, _ = self.barter("[OFFER: GIVE_CATS: 50; TAKE_ITEM: Dirty Loincloth]", npc=away)
+        carried, _ = self.barter("[DEAL: 50 cats for Dirty Loincloth]", npc=away)
         self.assertEqual(offers.actions(carried)[0], "[ACTION: TAKE_ITEM: Dirty Loincloth: 1]")
         self.assertIn("CHECK: ROOM player 1 Dirty Loincloth", offers.checks(carried))
 
     def test_another_npc_hands_over_only_what_it_carries(self):
-        self.assertIsNone(self.barter("[OFFER: GIVE_ITEM: Katana; TAKE_CATS: 3000]", npc={**SHOP, "squad_jobs": []})[0])
+        self.assertIsNone(self.barter("[DEAL: Katana for 3000 cats]", npc={**SHOP, "squad_jobs": []})[0])
 
     def test_a_barman_whose_job_reads_trading_sells_the_stock(self):
         barman = {**SHOP, "squad_jobs": [], "is_trader": True}
-        self.assertIsNotNone(self.barter("[OFFER: GIVE_ITEM: Katana; TAKE_CATS: 3000]", npc=barman)[0])
+        self.assertIsNotNone(self.barter("[DEAL: Katana for 3000 cats]", npc=barman)[0])
 
     def test_a_trade_at_a_loss_holds_because_the_worth_only_guides_the_model(self):
-        self.assertIsNotNone(self.barter("[OFFER: GIVE_ITEM: Katana; TAKE_CATS: 10]")[0])
-        self.assertIsNotNone(self.barter("[OFFER: GIVE_ITEM: Katana; TAKE_ITEM: Dirty Loincloth]")[0])
+        self.assertIsNotNone(self.barter("[DEAL: Katana for 10 cats]")[0])
+        self.assertIsNotNone(self.barter("[DEAL: Katana for Dirty Loincloth]")[0])
 
     def test_the_relation_sets_the_loss_that_the_npc_usually_takes(self):
         self.assertEqual([offers.loss_share(relation) for relation in (-60, -59, -25, -24, 24, 25, 59, 60)], [-0.3, -0.2, -0.2, -0.1, -0.1, 0.1, 0.1, 0.2])
@@ -202,26 +204,26 @@ class BarterTest(unittest.TestCase):
 
     def test_charity_costs_the_npc_nothing_but_has_tight_limits(self):
         poor = {**SHOP, "money": 0, "stock": [], "inventory": []}
-        cats, _ = self.barter("[OFFER: GIVE_CATS: 50]", npc=poor)
+        cats, _ = self.barter("[DEAL: 50 cats for nothing]", npc=poor)
         self.assertTrue(cats["charity"])
         self.assertEqual(offers.actions(cats), ["[ACTION: ADD_CATS: 50]"])
         self.assertEqual(offers.checks(cats), [])
-        food, _ = self.barter("[OFFER: GIVE_FOOD]", npc=poor)
+        food, _ = self.barter("[DEAL: food for nothing]", npc=poor)
         self.assertEqual(offers.actions(food), ["[ACTION: SPAWN_ITEM: Dried Gristle Flaps]"])
-        self.assertIn("only for charity", self.barter("[OFFER: GIVE_FOOD; TAKE_CATS: 10]")[1])
-        self.assertIsNone(self.barter("[OFFER: GIVE_ITEM: 1 Dried Meat]", npc=poor)[0])
-        self.assertEqual(self.barter("[OFFER: GIVE_CATS: 500]", npc=poor)[0]["gives"], [("CATS", 50)])
-        self.assertIsNone(self.barter("[OFFER: GIVE_ITEM: 1 Katana]")[0])
+        self.assertIn("only for charity", self.barter("[DEAL: food for 10 cats]")[1])
+        self.assertIsNone(self.barter("[DEAL: 1 Dried Meat for nothing]", npc=poor)[0])
+        self.assertEqual(self.barter("[DEAL: 500 cats for nothing]", npc=poor)[0]["gives"], [("CATS", 50)])
+        self.assertIsNone(self.barter("[DEAL: 1 Katana for nothing]")[0])
 
     def test_a_second_charity_in_a_day_is_no_hard_limit(self):
         state.CHARITY_DAYS[SHOP["npc_id"]] = SHOP["day"]
-        self.assertTrue(self.barter("[OFFER: GIVE_CATS: 10]", npc={**SHOP, "money": 0})[0]["charity"])
+        self.assertTrue(self.barter("[DEAL: 10 cats for nothing]", npc={**SHOP, "money": 0})[0]["charity"])
 
     def test_a_gift_raises_the_relation_by_its_worth(self):
-        self.assertEqual(self.barter("[OFFER: TAKE_CATS: 1499]")[0]["gift"], 2)
-        self.assertEqual(self.barter("[OFFER: TAKE_CATS: 499]")[0]["gift"], 0)
-        self.assertEqual(self.barter("[OFFER: TAKE_ITEM: Chain Shirt]")[0]["gift"], 10)
-        self.assertEqual(offers.popup_text(self.barter("[OFFER: TAKE_CATS: 500]")[0], "Shopkeeper", "Zaps"), "Shopkeeper accepts your gift of 500 cats.")
+        self.assertEqual(self.barter("[DEAL: nothing for 1499 cats]")[0]["gift"], 2)
+        self.assertEqual(self.barter("[DEAL: nothing for 499 cats]")[0]["gift"], 0)
+        self.assertEqual(self.barter("[DEAL: nothing for Chain Shirt]")[0]["gift"], 10)
+        self.assertEqual(offers.popup_text(self.barter("[DEAL: nothing for 500 cats]")[0], "Shopkeeper", "Zaps"), "Shopkeeper accepts your gift of 500 cats.")
 
     def test_the_prompt_lists_the_goods_and_the_prices_of_the_items_named(self):
         self.assertEqual(offers.stocktake(SHOP), "YOUR GOODS: 1 Katana (Ancient, Refitted Blade), 2 First Aid Kit.")

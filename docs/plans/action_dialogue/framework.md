@@ -114,9 +114,9 @@ The doc of a category holds its gates, its hard limits, its lean, the popups of 
 
 ### Prompt
 
-The action prompt takes the parts of the chat system prompt (`server/data/prompts/prompt_system.txt`) that it needs, for example the voice rules, HOW PEOPLE TALK, and WORLD LORE, so that the NPC talks as it does in plain chat. It also takes the reply rules of chat (`server/data/prompts/response_rules.txt`), and it adds the rules of the action dialogue: the offer tag ([Offer](#offer)), `[REFUSE]` ([recruit.md](recruit.md#refusal)), `[END]` ([End](#end)), and `[JUDGMENT: n]` ([Outcome](#outcome)).
+The action prompt takes the parts of the chat system prompt (`server/data/prompts/prompt_system.txt`) that it needs, for example the voice rules, HOW PEOPLE TALK, and WORLD LORE, so that the NPC talks as it does in plain chat. It also takes the reply rules of chat (`server/data/prompts/response_rules.txt`), and it adds the rules of the action dialogue: the deal tag ([Offer](#offer)), `[REFUSE]` ([recruit.md](recruit.md#refusal)), `[END]` ([End](#end)), and `[JUDGMENT: n]` ([Outcome](#outcome)).
 
-Each category has its own prompt file, which the action prompt adds for the category of the action dialogue. The file holds what the player wants, the shape of the offer tag with one example, and the rules of the category, for example charity and gifts in BARTER.
+Each category has its own prompt file, which the action prompt adds for the category of the action dialogue. The file holds what the player wants, the shape of the deal tag with one example, and the rules of the category, for example charity and gifts in BARTER.
 
 The turn message of each call holds the lean ([Outcome](#outcome)), the facts of the hard limits, for example the cats of the NPC, and the price guide of BARTER ([barter.md](barter.md#6-price-guide)), because these change each turn.
 
@@ -155,7 +155,17 @@ A guard is an NPC whose Current Job (`current_job` in `server/chat/current_job.p
 
 ### Offer
 
-An NPC that agrees to a deal makes an offer. The model ends its reply with an offer tag, which holds the parts of the deal, for example `[OFFER: GIVE_CATS: 200]` or `[OFFER: TAKE_CATS: 3000; GIVE_ITEM: Katana]`. The parts are `GIVE_CATS`, `TAKE_CATS`, `GIVE_ITEM`, and `TAKE_ITEM`, the part of each category that moves a character or runs a service: `JOIN_PARTY`, `HIRE`, `FIRST_AID`, and `RELEASE`, and `GIVE_FOOD` for the charity of BARTER ([barter.md](barter.md#4-charity)). Each action that moves cats, items, or characters needs an offer: the handover of THREATEN, each deal of BARTER, HEAL, LIBERATE, RECRUIT, and FOLLOW. Only `ATTACK`, the `END_HIRE` of DISMISS, and a free treatment of HEAL ([heal.md](heal.md#2-deal)) run at once. The server also reads the parts when the model leaves out the brackets of the tag, but only in capitals. It reads a part of 0 cats, such as `TAKE_CATS: 0`, as no cats, because a model that agrees to a deal for free can still write it.
+An NPC that agrees to a deal makes an offer. The model ends its reply with a short deal tag, and code builds the parts of the deal from it (`offers.read` in `server/chat/offers.py`):
+
+| Category | Tag | Example |
+|---|---|---|
+| RECRUIT, HEAL | `[AGREE]`, or `[AGREE: n cats]` for a fee | `[AGREE: 800 cats]` |
+| LIBERATE | `[AGREE: n cats]` with the bribe | `[AGREE: 800 cats]` |
+| FOLLOW | `[AGREE: length]`, or `[AGREE: length, n cats]` | `[AGREE: 2 days, 500 cats]` |
+| THREATEN | `[GIVE: ...]` with what the NPC hands over | `[GIVE: 200 cats, 1 Katana]` |
+| BARTER | `[DEAL: A for B]`: A from the NPC and B from the player, either one `nothing` | `[DEAL: 1 Katana for 4600 cats]` |
+
+Code adds the part of each category that moves a character or runs a service: `JOIN_PARTY`, `HIRE`, `FIRST_AID`, and `RELEASE`, because the model left out longer tags that named each part. The other parts are `GIVE_CATS`, `TAKE_CATS`, `GIVE_ITEM`, and `TAKE_ITEM`, and `GIVE_FOOD` for `food` in the charity of BARTER ([barter.md](barter.md#4-charity)). Each action that moves cats, items, or characters needs an offer: the handover of THREATEN, each deal of BARTER, HEAL, LIBERATE, RECRUIT, and FOLLOW. Only `ATTACK`, the `END_HIRE` of DISMISS, and a free treatment of HEAL ([heal.md](heal.md#2-deal)) run at once. It reads 0 cats as no cats, because a model that agrees to a deal for free can still write it.
 
 The server checks the offer against the hard limits, and it drops and logs an offer that breaks one. The prompt never gives the cats of the player's squad, so the NPC does not ask for the whole purse; a fee above the purse breaks a hard limit. The reply already reads as a deal, so the chat window then shows the system message "X made an offer it can't keep. (LLM hallucinated an offer it can't make)", and the action dialogue goes on. It holds a valid offer and sends it to the plugin after the lines of the reply. The offer goes to the squad member that spoke the line that the offer answers ([section 5](#5-speaker)).
 

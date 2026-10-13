@@ -1,2 +1,2 @@
 REQUEST: {speaker} asks you, a guard, to release them from prison.
-OFFER: You release {speaker} only for a bribe, never for free. When you agree, put [OFFER: RELEASE; TAKE_CATS: n] after your words, where n is the bribe. Example: 800 cats, and the lock opens. [OFFER: RELEASE; TAKE_CATS: 800]
+AGREE: You release {speaker} only for a bribe, never for free. When you agree, put [AGREE: n cats] after your words, where n is the bribe. Example: 800 cats, and the lock opens. [AGREE: 800 cats]

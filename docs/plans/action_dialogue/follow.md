@@ -18,7 +18,7 @@ The action dialogue ends when the NPC refuses ([Refusal](recruit.md#refusal)), o
 
 ## 3. Mercenaries
 
-Code picks the request by the faction of the NPC. A mercenary gets `prompt_action_follow_mercenary.txt`, a hire as a guard for a fee, and any other NPC gets `prompt_action_follow.txt`, a request to follow as a follower. One request that called each follow the work of a hired guard made NPCs that are not mercenaries refuse "hired guard work", and its fee example made them write `TAKE_CATS: 0`.
+Code picks the request by the faction of the NPC. A mercenary gets `prompt_action_follow_mercenary.txt`, a hire as a guard for a fee, and any other NPC gets `prompt_action_follow.txt`, a request to follow as a follower. One request that called each follow the work of a hired guard made NPCs that are not mercenaries refuse "hired guard work", and its fee example made them write a fee of 0 cats.
 
 An NPC that is not a mercenary never asks for a fee, but it can take the cats that the player offers, and an offer of cats makes it more willing to follow. It is wary of following the player for no reason, so its lean takes -1 on top of the lean of RECRUIT.
 

@@ -183,7 +183,7 @@ def lean(category, npc, speaker, relation, overheard=(), mode="talk"):
     elif category in ("RECRUIT", "FOLLOW"):
         captive = fellow_captives(npc, speaker)
         pairs += [(npc.get("character_state") == "escaped-slave", "You escaped slavery."),
-                  (captive, "{player} is a fellow captive."),
+                  (2 * captive, "{player} is a fellow captive, and like most captives, you want to escape."),
                   (-3 * (captive and mode != "whisper"), "{player} does not whisper, so your captors can hear."),
                   (-bool(npc.get("unique")), "You are no common drifter."),
                   (-2 * is_guard(npc), "You are a guard."),

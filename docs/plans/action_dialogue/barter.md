@@ -71,7 +71,7 @@ Charity has tight limits:
 
 The model often offers more cats than the cap, for example 500 cats from an NPC that holds 3,000 cats. The server then cuts the offer to 50 cats, and it does not drop the offer, so the player still gets the charity. The popup shows 50 cats, although the reply of the NPC can name more. Each turn message of a trade also states the cap next to the cats of the NPC (`offers.facts`).
 
-For food, the model writes `GIVE_FOOD`, and code picks the food. The prompt names no food, because the model offered a food that the charity rule listed, Dried Meat, as its own stock in a trade.
+For food, the model writes `food` in the `[DEAL]` tag, and code picks the food. The prompt names no food, because the model offered a food that the charity rule listed, Dried Meat, as its own stock in a trade.
 
 `GIVE_CATS` takes the cats from the NPC (`plugin/game/GameActions.cpp:572`), so charity needs an action that only adds the cats to the player. `SPAWN_ITEM` already creates an item for the speaker (`plugin/game/GameActions.cpp:680`).
 
