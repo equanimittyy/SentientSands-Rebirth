@@ -135,20 +135,8 @@ static GameData *GearGrade(GameWorld *world, GameData *gd) {
     if (grade && (!gradeType || grade->type == gradeType))
       return grade;
   }
-  GameData *first = nullptr;
-  boost::unordered::unordered_map<std::string, GameData *>::iterator it;
-  for (it = world->gamedata.gamedataSID.begin();
-       it != world->gamedata.gamedataSID.end(); ++it) {
-    GameData *check = it->second;
-    if (!check || (gradeType && check->type != gradeType))
-      continue;
-    if (check->name.find("Standard") != std::string::npos ||
-        check->name.find("Catun") != std::string::npos)
-      return check;
-    if (!first)
-      first = check;
-  }
-  return first;
+  // createItem takes a null grade and sets the grade from the level
+  return nullptr;
 }
 
 static hand g_newestBubble;
