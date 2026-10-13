@@ -388,7 +388,9 @@ void LoadPluginConfig() {
   std::string logLevel = IniString(ini, "LogLevel", "INFO");
   g_logLevel = ParseLogLevel(logLevel);
 
-  Log(LOG_INFO, "CONFIG: Loaded TalkRadius=" + ToString(g_proximityRadius) +
+  Log(LOG_INFO, "CONFIG: Loaded WhisperRadius=" + ToString(g_whisperRadius) +
+                    ", TalkRadius=" + ToString(g_proximityRadius) +
+                    ", YellRadius=" + ToString(g_yellRadius) +
                     ", RadiantInterval=" + ToString(g_radiantIntervalSeconds) +
                     "s" + ", EnableRadiant=" + JsonBool(g_enableRadiant) +
                     ", EnableWelcome=" + JsonBool(g_enableWelcome) +

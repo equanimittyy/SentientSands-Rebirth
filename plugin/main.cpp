@@ -114,6 +114,7 @@ static void ApplyConfig(const std::string &data) {
     return;
   std::string var = Trim(data.substr(0, colon));
   std::string val = Trim(data.substr(colon + 1));
+  Log(LOG_INFO, "CONFIG: Set " + var + " to " + val);
   if (var == "g_enableRadiant") {
     g_enableRadiant = (val == "1");
     g_lastRadiantTick = GetTickCount();
