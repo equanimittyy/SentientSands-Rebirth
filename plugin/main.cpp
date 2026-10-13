@@ -154,14 +154,13 @@ static void FinishRadiant(const std::string &data) {
       "RADIANT: Server answered " + GetJsonValue(reply, "status") + ".");
 }
 
-// "<command>: <data>". The data stays untrimmed, because a multi-line block in
-// it must arrive as sent
+// "<command>: <data>", or the command alone, as OFFER_GONE comes. The data
+// stays untrimmed, because a multi-line block in it must arrive as sent
 static void HandleCommand(const std::string &message) {
   size_t colon = message.find(':');
-  if (colon == std::string::npos)
-    return;
   std::string command = Trim(message.substr(0, colon));
-  std::string data = message.substr(colon + 1);
+  std::string data =
+      colon == std::string::npos ? std::string() : message.substr(colon + 1);
   if (command == "APPLY_TRANSLATION") {
     LoadUITranslation(data);
     RefreshLauncherUI();
