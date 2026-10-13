@@ -5,7 +5,6 @@ namespace SentientSands {
 namespace UI {
 
 void CreateJournalUI();
-void CloseJournalUI();
 void PopulateJournalUI(const std::string &data);
 void SetJournalEntry(const std::string &data);
 void FinishJournalAdd(const std::string &data);

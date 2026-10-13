@@ -155,7 +155,7 @@ static void AppendUtf8(std::string &out, unsigned int cp) {
   }
 }
 
-std::string UnescapeJSON(const std::string &s) {
+static std::string UnescapeJSON(const std::string &s) {
   std::string res;
   for (size_t i = 0; i < s.length(); ++i) {
     if (s[i] != '\\' || i + 1 == s.length()) {

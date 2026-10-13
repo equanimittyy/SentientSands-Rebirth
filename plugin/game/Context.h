@@ -31,13 +31,9 @@ void GetRadiantParticipants(Character *selected,
                             std::vector<Character *> &participants);
 void GetRadiantNpcs(Character *center, std::vector<Character *> &npcs);
 std::string EventParty(Character *npc);
-std::string RoleJson(Character *npc);
-std::string ProfileJson(Character *npc);
 std::string PartyFields(Character *c);
-std::string RaceName(Character *npc);
 Faction *CharacterFaction(Character *npc);
 std::string FactionName(Faction *faction);
-std::string GenderOf(Character *npc);
 std::string GetVisibleEquipment(Character *npc);
 void QueueGameEvent(const std::string &kind, const std::string &fields,
                     unsigned long long attack = 0);

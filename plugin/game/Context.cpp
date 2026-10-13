@@ -30,7 +30,7 @@
 #include <set>
 #include <vector>
 
-std::string SlotToString(AttachSlot slot) {
+static std::string SlotToString(AttachSlot slot) {
   switch (slot) {
   case ATTACH_WEAPON:
     return "weapon";
@@ -281,7 +281,7 @@ void RekeyCharacter(Character *npc, const hand &before) {
       "REKEY: '" + npc->getName() + "' " + oldId + " is now " + newId);
 }
 
-std::string RaceName(Character *npc) {
+static std::string RaceName(Character *npc) {
   RaceData *race = npc->getRace() ? npc->getRace() : npc->myRace;
   if (race && (uintptr_t)race > 0x1000 && race->data) {
     if (!race->data->name.empty())
@@ -311,7 +311,7 @@ std::string FactionName(Faction *faction) {
   return "Neutral";
 }
 
-std::string GenderOf(Character *npc) {
+static std::string GenderOf(Character *npc) {
   if (npc->sex == "female" || npc->sex == "male")
     return npc->sex;
   return npc->isFemale() ? "female" : "male";
@@ -421,7 +421,7 @@ static const struct {
 };
 #undef ROLE_TASK
 
-std::string RoleJson(Character *npc) {
+static std::string RoleJson(Character *npc) {
   bool trader = false;
   bool follower = false;
   std::string jobs;
@@ -467,7 +467,7 @@ static std::string BuildingName(Character *npc) {
   return building ? building->getName() : "Unknown";
 }
 
-std::string ProfileJson(Character *npc) {
+static std::string ProfileJson(Character *npc) {
   std::string json = "\"health\":\"" + EscapeJSON(GetHealthStatus(npc)) +
                      "\",\"origin_faction\":\"" +
                      EscapeJSON(GetIdentityFaction(npc)) +

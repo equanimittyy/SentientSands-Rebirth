@@ -14,15 +14,15 @@ namespace SentientSands {
 namespace UI {
 
 MyGUI::Window *g_libraryWindow = nullptr;
-MyGUI::ListBox *g_libraryList = nullptr;
-MyGUI::EditBox *g_libraryText = nullptr;
-MyGUI::TextBox *g_libraryName = nullptr;
-MyGUI::Button *g_libraryFavBtn = nullptr;
-MyGUI::EditBox *g_librarySearch = nullptr;
+static MyGUI::ListBox *g_libraryList = nullptr;
+static MyGUI::EditBox *g_libraryText = nullptr;
+static MyGUI::TextBox *g_libraryName = nullptr;
+static MyGUI::Button *g_libraryFavBtn = nullptr;
+static MyGUI::EditBox *g_librarySearch = nullptr;
 
-std::vector<std::string> g_libraryStorageIds;
-std::string g_librarySortMode = "alphabetical";
-int g_libraryRequest = 0;
+static std::vector<std::string> g_libraryStorageIds;
+static std::string g_librarySortMode = "alphabetical";
+static int g_libraryRequest = 0;
 
 struct LibraryRow {
   std::string name;
@@ -39,9 +39,9 @@ static const char *LIBRARY_FACT_KEYS[] = {"race",     "faction", "sex",
 static const char *LIBRARY_FACT_LABELS[] = {"Race",     "Faction", "Sex",
                                             "Origin",   "Job",     "Location",
                                             "Relation", "Alias",   "Bio"};
-MyGUI::TextBox *g_libraryFacts[LIBRARY_FACT_COUNT] = {nullptr};
+static MyGUI::TextBox *g_libraryFacts[LIBRARY_FACT_COUNT] = {nullptr};
 
-void CloseLibraryUI() {
+static void CloseLibraryUI() {
   g_libraryRequest++;
   g_libraryListRequest++;
   if (g_libraryWindow) {
@@ -70,17 +70,17 @@ static void RequestLibraryList() {
                     "POPULATE_LIBRARY", ToString(++g_libraryListRequest));
 }
 
-void OnLibrarySortLatest(MyGUI::Widget *sender) {
+static void OnLibrarySortLatest(MyGUI::Widget *sender) {
   g_librarySortMode = "latest";
   RequestLibraryList();
 }
 
-void OnLibrarySortAZ(MyGUI::Widget *sender) {
+static void OnLibrarySortAZ(MyGUI::Widget *sender) {
   g_librarySortMode = "alphabetical";
   RequestLibraryList();
 }
 
-void OnLibraryFavoriteClick(MyGUI::Widget *sender) {
+static void OnLibraryFavoriteClick(MyGUI::Widget *sender) {
   std::string sid = SelectedLibrarySid();
   if (!sid.empty())
     PostForGameThread(L"/favorite", "{\"sid\":\"" + EscapeJSON(sid) + "\"}",
@@ -91,6 +91,7 @@ static const char *BIO_PARTS[] = {"Personality", "Backstory", "SpeechQuirks"};
 static const char *BIO_CHOICES[] = {"Full bio", "Personality", "Backstory",
                                     "Speech"};
 
+static void SetLibraryText(const std::string &text);
 static EditorPopup g_bio = {nullptr, nullptr, nullptr, 0, SetLibraryText};
 static MyGUI::Button *g_bioChoiceBtns[4] = {nullptr, nullptr, nullptr, nullptr};
 static MyGUI::EditBox *g_bioInstructions = nullptr;
@@ -117,7 +118,7 @@ static bool BioPartChosen(int part) {
   return g_bioChoice == 0 || g_bioChoice == part + 1;
 }
 
-void OnBioWriteClick(MyGUI::Widget *sender) {
+static void OnBioWriteClick(MyGUI::Widget *sender) {
   std::string parts;
   for (int i = 0; i < 3; i++)
     if (BioPartChosen(i))
@@ -132,7 +133,7 @@ void OnBioWriteClick(MyGUI::Widget *sender) {
                   "BIO_WRITTEN");
 }
 
-void OnBioKeepClick(MyGUI::Widget *sender) {
+static void OnBioKeepClick(MyGUI::Widget *sender) {
   std::string bio;
   for (int i = 0; i < 3; i++)
     if (g_bioTexts[i])
@@ -147,7 +148,7 @@ void OnBioKeepClick(MyGUI::Widget *sender) {
                   "BIO_KEPT");
 }
 
-void UpdateBioChoiceButtons() {
+static void UpdateBioChoiceButtons() {
   for (int i = 0; i < 4; i++) {
     std::string label = T(BIO_CHOICES[i]);
     g_bioChoiceBtns[i]->setCaption(
@@ -155,7 +156,7 @@ void UpdateBioChoiceButtons() {
   }
 }
 
-void OnBioChoiceClick(MyGUI::Widget *sender) {
+static void OnBioChoiceClick(MyGUI::Widget *sender) {
   for (int i = 0; i < 4; i++)
     if (sender == g_bioChoiceBtns[i])
       g_bioChoice = i;
@@ -255,7 +256,7 @@ void FinishKeptBio(const std::string &data) {
   RefreshLibraryUI();
 }
 
-bool SelectBioNpc() {
+static bool SelectBioNpc() {
   size_t index = g_libraryList->getIndexSelected();
   if (index == MyGUI::ITEM_NONE)
     return false;
@@ -264,12 +265,12 @@ bool SelectBioNpc() {
   return true;
 }
 
-void OnLibraryBioClick(MyGUI::Widget *sender) {
+static void OnLibraryBioClick(MyGUI::Widget *sender) {
   if (SelectBioNpc())
     CreateBioAskUI();
 }
 
-void OnLibraryEditBioClick(MyGUI::Widget *sender) {
+static void OnLibraryEditBioClick(MyGUI::Widget *sender) {
   if (!SelectBioNpc())
     return;
   CloseBioUI();
@@ -290,7 +291,7 @@ static void ShowFavCaption() {
           .c_str());
 }
 
-void ApplyLibraryFilter(const std::string &keepSid) {
+static void ApplyLibraryFilter(const std::string &keepSid) {
   g_libraryList->removeAllItems();
   g_libraryStorageIds.clear();
   std::string query =
@@ -308,7 +309,7 @@ void ApplyLibraryFilter(const std::string &keepSid) {
   ShowFavCaption();
 }
 
-void OnLibrarySearchChange(MyGUI::EditBox *sender) {
+static void OnLibrarySearchChange(MyGUI::EditBox *sender) {
   ApplyLibraryFilter(SelectedLibrarySid());
 }
 
@@ -330,12 +331,12 @@ void PopulateLibraryUI(const std::string &data) {
   ApplyLibraryFilter(SelectedLibrarySid());
 }
 
-void SetLibraryText(const std::string &text) {
+static void SetLibraryText(const std::string &text) {
   if (g_libraryText)
     ShowFromTop(g_libraryText, text);
 }
 
-void ShowLibraryProfile(const std::string &json) {
+static void ShowLibraryProfile(const std::string &json) {
   if (!g_libraryName)
     return;
   g_libraryName->setCaption(Utf8ToWide(GetJsonValue(json, "name")).c_str());
@@ -364,7 +365,7 @@ static void StartLibraryHistory(const std::string &sid) {
                     "SET_LIBRARY_PROFILE", ToString(++g_libraryRequest));
 }
 
-void OnLibraryNPCSelect(MyGUI::ListBox *sender, size_t index) {
+static void OnLibraryNPCSelect(MyGUI::ListBox *sender, size_t index) {
   if (index >= g_libraryStorageIds.size())
     return;
   ShowFavCaption();

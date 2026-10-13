@@ -162,7 +162,7 @@ struct HttpTask {
   std::string data;
 };
 
-DWORD WINAPI AsyncHttpThread(LPVOID lpParam) {
+static DWORD WINAPI AsyncHttpThread(LPVOID lpParam) {
   HttpTask *task = (HttpTask *)lpParam;
   Post(task->endpoint, task->data, 5000);
   delete task;

@@ -12,13 +12,13 @@
 namespace SentientSands {
 namespace UI {
 
-MyGUI::Window *g_welcomeWindow = nullptr;
+static MyGUI::Window *g_welcomeWindow = nullptr;
 
-void CloseWelcomeUI() { DestroyWindow(g_welcomeWindow); }
+static void CloseWelcomeUI() { DestroyWindow(g_welcomeWindow); }
 
 static CloseAction g_welcomeClose = {CloseWelcomeUI};
 
-void OnWelcomeToggleClick(MyGUI::Widget *sender) {
+static void OnWelcomeToggleClick(MyGUI::Widget *sender) {
   g_enableWelcome = !g_enableWelcome;
   ((MyGUI::Button *)sender)
       ->setCaption(g_enableWelcome

@@ -16,12 +16,12 @@ static const char *EVENT_KIND_LABELS[] = {"All kinds", "Kill", "Capture",
                                          "Custom", "Auto"};
 static const int EVENT_KIND_COUNT = sizeof(EVENT_KINDS) / sizeof(EVENT_KINDS[0]);
 
-MyGUI::Window *g_eventsWindow = nullptr;
-MyGUI::ListBox *g_eventsList = nullptr;
-MyGUI::ListBox *g_eventsText = nullptr;
-MyGUI::EditBox *g_eventsSearch = nullptr;
-MyGUI::Button *g_eventsKindBtn = nullptr;
-std::vector<std::string> g_eventsStorageIds;
+static MyGUI::Window *g_eventsWindow = nullptr;
+static MyGUI::ListBox *g_eventsList = nullptr;
+static MyGUI::ListBox *g_eventsText = nullptr;
+static MyGUI::EditBox *g_eventsSearch = nullptr;
+static MyGUI::Button *g_eventsKindBtn = nullptr;
+static std::vector<std::string> g_eventsStorageIds;
 
 struct EventRow {
   std::string id;
@@ -32,9 +32,9 @@ struct EventRow {
   std::string rumor;
 };
 static std::vector<EventRow> g_eventRows;
-int g_eventsKind = 0;
-std::string g_eventsCampaign;
-std::string g_eventsSelectId;
+static int g_eventsKind = 0;
+static std::string g_eventsCampaign;
+static std::string g_eventsSelectId;
 // The arrow keys move the selection faster than the server answers, so the
 // replies can come back out of order
 static int g_eventsListRequest = 0;
@@ -43,13 +43,13 @@ static int g_eventsContentRequest = 0;
 static void SetEventsText(const std::string &text);
 static EditorPopup g_rumor = {nullptr, nullptr, nullptr, 0, SetEventsText};
 static MyGUI::EditBox *g_rumorBox = nullptr;
-bool g_rumorWritten = false;
-std::string g_rumorEvent;
-std::string g_rumorLine;
-std::string g_rumorInstruction;
-std::string g_rumorCampaign;
-std::string g_rumorKind;
-std::string g_rumorId;
+static bool g_rumorWritten = false;
+static std::string g_rumorEvent;
+static std::string g_rumorLine;
+static std::string g_rumorInstruction;
+static std::string g_rumorCampaign;
+static std::string g_rumorKind;
+static std::string g_rumorId;
 
 static void CloseRumorUI() {
   CloseEditor(g_rumor);
@@ -58,7 +58,7 @@ static void CloseRumorUI() {
 
 static CloseAction g_rumorClose = {CloseRumorUI};
 
-void CloseEventsUI() {
+static void CloseEventsUI() {
   CloseRumorUI();
   g_eventsListRequest++;
   g_eventsContentRequest++;
@@ -75,7 +75,7 @@ void CloseEventsUI() {
   }
 }
 
-void ApplyEventsFilter(const std::string &keepId) {
+static void ApplyEventsFilter(const std::string &keepId) {
   g_eventsList->removeAllItems();
   g_eventsStorageIds.clear();
   std::string query =
@@ -93,16 +93,16 @@ void ApplyEventsFilter(const std::string &keepId) {
   }
 }
 
-std::string SelectedEventId() {
+static std::string SelectedEventId() {
   size_t index = g_eventsList->getIndexSelected();
   return index < g_eventsStorageIds.size() ? g_eventsStorageIds[index] : "";
 }
 
-void OnEventsSearchChange(MyGUI::EditBox *sender) {
+static void OnEventsSearchChange(MyGUI::EditBox *sender) {
   ApplyEventsFilter(SelectedEventId());
 }
 
-int CountEventsOfKind(int kind) {
+static int CountEventsOfKind(int kind) {
   int count = 0;
   for (size_t i = 0; i < g_eventRows.size(); i++)
     if (kind == 0 || g_eventRows[i].kind == EVENT_KINDS[kind])
@@ -110,7 +110,7 @@ int CountEventsOfKind(int kind) {
   return count;
 }
 
-void ShowEventsKind() {
+static void ShowEventsKind() {
   if (CountEventsOfKind(g_eventsKind) == 0)
     g_eventsKind = 0;
   g_eventsKindBtn->setCaption(
@@ -119,7 +119,7 @@ void ShowEventsKind() {
           .c_str());
 }
 
-void OnEventsKindClick(MyGUI::Widget *sender) {
+static void OnEventsKindClick(MyGUI::Widget *sender) {
   do
     g_eventsKind = (g_eventsKind + 1) % EVENT_KIND_COUNT;
   while (g_eventsKind != 0 && CountEventsOfKind(g_eventsKind) == 0);
@@ -178,13 +178,13 @@ void SetEventContent(const std::string &data) {
   SetEventsText(text.empty() ? FailureText("Load failed: ", reply) : text);
 }
 
-void ShowEventContent(const std::string &id) {
+static void ShowEventContent(const std::string &id) {
   SetEventsText(T("Loading the event..."));
   PostForGameThread(L"/events/content", "{\"id\":\"" + EscapeJSON(id) + "\"}",
                     "SET_EVENTS_TEXT", ToString(++g_eventsContentRequest));
 }
 
-void OnEventsSelect(MyGUI::ListBox *sender, size_t index) {
+static void OnEventsSelect(MyGUI::ListBox *sender, size_t index) {
   if (index == MyGUI::ITEM_NONE)
     return;
   if (index >= g_eventsStorageIds.size())
@@ -211,7 +211,7 @@ static MyGUI::Widget *CreateRumorWindow(const char *captionKey,
   return client;
 }
 
-void OnRumorWriteClick(MyGUI::Widget *sender) {
+static void OnRumorWriteClick(MyGUI::Widget *sender) {
   g_rumorInstruction = g_rumorBox->getOnlyText().asUTF8();
   g_rumorWritten = true;
   SetEditorStatus(g_rumor, T("This may take a moment..."));
@@ -222,7 +222,7 @@ void OnRumorWriteClick(MyGUI::Widget *sender) {
                     "RUMOR_WRITTEN");
 }
 
-void OnRumorKeepClick(MyGUI::Widget *sender) {
+static void OnRumorKeepClick(MyGUI::Widget *sender) {
   // Edit Rumor sends no instruction, so the stored one stays
   std::string instruction =
       g_rumorWritten
@@ -238,7 +238,7 @@ void OnRumorKeepClick(MyGUI::Widget *sender) {
                     "RUMOR_KEPT");
 }
 
-void CreateRumorAskUI() {
+static void CreateRumorAskUI() {
   MyGUI::Widget *client =
       CreateRumorWindow("Generate Rumor", "Write", OnRumorWriteClick, "Cancel");
   if (!client)
@@ -254,7 +254,7 @@ void CreateRumorAskUI() {
              0.62f, "SentientSands_RumorHint");
 }
 
-void CreateRumorEditUI(const std::string &text) {
+static void CreateRumorEditUI(const std::string &text) {
   MyGUI::Widget *client =
       CreateRumorWindow("Edit Rumor", "Keep", OnRumorKeepClick, "Discard");
   if (!client)
@@ -265,7 +265,7 @@ void CreateRumorEditUI(const std::string &text) {
   g_rumorBox->setCaption(Utf8ToWide(text).c_str());
 }
 
-void OnEventAddClick(MyGUI::Widget *sender) {
+static void OnEventAddClick(MyGUI::Widget *sender) {
   SetEditorStatus(g_rumor, "");
   StartEditorRequest(g_rumor, L"/add_event",
                     "{\"campaign\":\"" + EscapeJSON(g_eventsCampaign) +
@@ -274,7 +274,7 @@ void OnEventAddClick(MyGUI::Widget *sender) {
                     "EVENT_ADDED");
 }
 
-void CreateEventAddUI() {
+static void CreateEventAddUI() {
   g_rumorLine = "";
   MyGUI::Widget *client =
       CreateRumorWindow("Add Event", "Add", OnEventAddClick, "Cancel");
@@ -289,11 +289,11 @@ void CreateEventAddUI() {
              0.62f, "SentientSands_EventAddCullHint");
 }
 
-bool DeletesWholeEvent() {
+static bool DeletesWholeEvent() {
   return g_rumorKind == "custom" || g_rumorKind == "auto";
 }
 
-void OnEventDeleteClick(MyGUI::Widget *sender) {
+static void OnEventDeleteClick(MyGUI::Widget *sender) {
   bool whole = DeletesWholeEvent();
   SetEditorStatus(g_rumor, "");
   StartEditorRequest(g_rumor, whole ? L"/delete_event" : L"/delete_rumor",
@@ -304,7 +304,7 @@ void OnEventDeleteClick(MyGUI::Widget *sender) {
                     "EVENT_DELETED");
 }
 
-void CreateEventDeleteUI() {
+static void CreateEventDeleteUI() {
   bool whole = DeletesWholeEvent();
   bool isAuto = g_rumorKind == "auto";
   MyGUI::Widget *client = CreateRumorWindow(
@@ -362,7 +362,7 @@ void FinishEventChange(const std::string &data, const std::string &failureKey) {
   ShowEventContent(g_rumorEvent);
 }
 
-bool SelectRumorEvent() {
+static bool SelectRumorEvent() {
   size_t index = g_eventsList->getIndexSelected();
   if (index == MyGUI::ITEM_NONE || index >= g_eventsStorageIds.size())
     return false;
@@ -378,12 +378,12 @@ bool SelectRumorEvent() {
   return true;
 }
 
-void OnEventsGenerateClick(MyGUI::Widget *sender) {
+static void OnEventsGenerateClick(MyGUI::Widget *sender) {
   if (SelectRumorEvent())
     CreateRumorAskUI();
 }
 
-void OnEventsEditClick(MyGUI::Widget *sender) {
+static void OnEventsEditClick(MyGUI::Widget *sender) {
   if (!SelectRumorEvent())
     return;
   CloseRumorUI();
@@ -393,9 +393,9 @@ void OnEventsEditClick(MyGUI::Widget *sender) {
                     "RUMOR_READ");
 }
 
-void OnEventsAddClick(MyGUI::Widget *sender) { CreateEventAddUI(); }
+static void OnEventsAddClick(MyGUI::Widget *sender) { CreateEventAddUI(); }
 
-void OnEventsDeleteClick(MyGUI::Widget *sender) {
+static void OnEventsDeleteClick(MyGUI::Widget *sender) {
   if (!SelectRumorEvent())
     return;
   if (!DeletesWholeEvent() && g_rumorId.empty()) {

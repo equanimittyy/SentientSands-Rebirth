@@ -11,36 +11,36 @@
 namespace SentientSands {
 namespace UI {
 
-MyGUI::Window *g_journalWindow = nullptr;
-MyGUI::EditBox *g_journalSearch = nullptr;
-MyGUI::ListBox *g_journalList = nullptr;
-MyGUI::Button *g_journalPrevBtn = nullptr;
-MyGUI::Button *g_journalNextBtn = nullptr;
-MyGUI::TextBox *g_journalPageText = nullptr;
-MyGUI::TextBox *g_journalTime = nullptr;
-MyGUI::EditBox *g_journalTitle = nullptr;
-MyGUI::EditBox *g_journalText = nullptr;
-MyGUI::TextBox *g_journalStatus = nullptr;
-MyGUI::Window *g_journalDeleteWindow = nullptr;
-std::vector<std::string> g_journalIds;
-int g_journalPage = 1;
-int g_journalPages = 1;
-int g_journalListRequest = 0;
-int g_journalEntryRequest = 0;
-std::string g_journalCampaign;
-std::string g_journalSelectedId;
+static MyGUI::Window *g_journalWindow = nullptr;
+static MyGUI::EditBox *g_journalSearch = nullptr;
+static MyGUI::ListBox *g_journalList = nullptr;
+static MyGUI::Button *g_journalPrevBtn = nullptr;
+static MyGUI::Button *g_journalNextBtn = nullptr;
+static MyGUI::TextBox *g_journalPageText = nullptr;
+static MyGUI::TextBox *g_journalTime = nullptr;
+static MyGUI::EditBox *g_journalTitle = nullptr;
+static MyGUI::EditBox *g_journalText = nullptr;
+static MyGUI::TextBox *g_journalStatus = nullptr;
+static MyGUI::Window *g_journalDeleteWindow = nullptr;
+static std::vector<std::string> g_journalIds;
+static int g_journalPage = 1;
+static int g_journalPages = 1;
+static int g_journalListRequest = 0;
+static int g_journalEntryRequest = 0;
+static std::string g_journalCampaign;
+static std::string g_journalSelectedId;
 // Empty while an entry loads, so no save sends the blank boxes
-std::string g_journalEntryId;
-std::string g_journalSavedTitle;
-std::string g_journalSavedText;
-std::string g_journalDeleteId;
+static std::string g_journalEntryId;
+static std::string g_journalSavedTitle;
+static std::string g_journalSavedText;
+static std::string g_journalDeleteId;
 
-void SetJournalStatus(const std::string &text) {
+static void SetJournalStatus(const std::string &text) {
   if (g_journalStatus)
     g_journalStatus->setCaption(Utf8ToWide(text).c_str());
 }
 
-void ShowJournalEntry(const std::string &time, const std::string &title,
+static void ShowJournalEntry(const std::string &time, const std::string &title,
                       const std::string &text) {
   g_journalTime->setCaption(Utf8ToWide(time).c_str());
   // setOnlyText, because setCaption reads a # in the text as a colour tag
@@ -53,7 +53,7 @@ void ShowJournalEntry(const std::string &time, const std::string &title,
   g_journalSavedText = g_journalText->getOnlyText().asUTF8();
 }
 
-void RequestJournalPage(int page) {
+static void RequestJournalPage(int page) {
   g_journalPage = page;
   std::string query =
       g_journalSearch ? g_journalSearch->getOnlyText().asUTF8() : "";
@@ -94,7 +94,7 @@ void PopulateJournalUI(const std::string &data) {
   g_journalNextBtn->setEnabled(g_journalPage < g_journalPages);
 }
 
-void LoadJournalEntry(const std::string &id) {
+static void LoadJournalEntry(const std::string &id) {
   g_journalSelectedId = id;
   g_journalEntryId = "";
   ShowJournalEntry("", "", "");
@@ -119,7 +119,7 @@ void SetJournalEntry(const std::string &data) {
   SetJournalStatus("");
 }
 
-void SaveJournalEntry() {
+static void SaveJournalEntry() {
   std::string title = g_journalTitle->getOnlyText().asUTF8();
   std::string text = g_journalText->getOnlyText().asUTF8();
   g_journalSavedTitle = title;
@@ -132,7 +132,7 @@ void SaveJournalEntry() {
                       "JOURNAL_SAVED", g_journalEntryId);
 }
 
-void SaveJournalIfChanged() {
+static void SaveJournalIfChanged() {
   if (g_journalEntryId.empty())
     return;
   if (g_journalTitle->getOnlyText().asUTF8() != g_journalSavedTitle ||
@@ -161,14 +161,14 @@ void FinishJournalSave(const std::string &data) {
   RequestJournalPage(g_journalPage);
 }
 
-void OnJournalSaveClick(MyGUI::Widget *sender) {
+static void OnJournalSaveClick(MyGUI::Widget *sender) {
   if (g_journalEntryId.empty())
     return;
   SetJournalStatus(T("Saving..."));
   SaveJournalEntry();
 }
 
-void OnJournalSelect(MyGUI::ListBox *sender, size_t index) {
+static void OnJournalSelect(MyGUI::ListBox *sender, size_t index) {
   if (index == MyGUI::ITEM_NONE || index >= g_journalIds.size() ||
       g_journalIds[index] == g_journalSelectedId)
     return;
@@ -176,19 +176,21 @@ void OnJournalSelect(MyGUI::ListBox *sender, size_t index) {
   LoadJournalEntry(g_journalIds[index]);
 }
 
-void OnJournalSearchChange(MyGUI::EditBox *sender) { RequestJournalPage(1); }
+static void OnJournalSearchChange(MyGUI::EditBox *sender) {
+  RequestJournalPage(1);
+}
 
-void OnJournalPrevClick(MyGUI::Widget *sender) {
+static void OnJournalPrevClick(MyGUI::Widget *sender) {
   SaveJournalIfChanged();
   RequestJournalPage(g_journalPage - 1);
 }
 
-void OnJournalNextClick(MyGUI::Widget *sender) {
+static void OnJournalNextClick(MyGUI::Widget *sender) {
   SaveJournalIfChanged();
   RequestJournalPage(g_journalPage + 1);
 }
 
-void OnJournalNewClick(MyGUI::Widget *sender) {
+static void OnJournalNewClick(MyGUI::Widget *sender) {
   SaveJournalIfChanged();
   SetJournalStatus("");
   PostForGameThread(L"/journal/add",
@@ -211,9 +213,9 @@ void FinishJournalAdd(const std::string &data) {
   RequestJournalPage(1);
 }
 
-void CloseJournalDeleteUI() { DestroyWindow(g_journalDeleteWindow); }
+static void CloseJournalDeleteUI() { DestroyWindow(g_journalDeleteWindow); }
 
-void OnJournalDeleteConfirmClick(MyGUI::Widget *sender) {
+static void OnJournalDeleteConfirmClick(MyGUI::Widget *sender) {
   CloseJournalDeleteUI();
   SetJournalStatus("");
   PostForGameThread(L"/journal/delete",
@@ -223,13 +225,13 @@ void OnJournalDeleteConfirmClick(MyGUI::Widget *sender) {
                       "JOURNAL_DELETED", g_journalDeleteId);
 }
 
-void OnJournalDeleteCancelClick(MyGUI::Widget *sender) {
+static void OnJournalDeleteCancelClick(MyGUI::Widget *sender) {
   CloseJournalDeleteUI();
 }
 
 static CloseAction g_journalDeleteClose = {CloseJournalDeleteUI};
 
-void CreateJournalDeleteUI() {
+static void CreateJournalDeleteUI() {
   CloseJournalDeleteUI();
   // The player can select another entry while the popup is open
   g_journalDeleteId = g_journalEntryId;
@@ -246,7 +248,7 @@ void CreateJournalDeleteUI() {
               g_journalDeleteClose);
 }
 
-void OnJournalDeleteClick(MyGUI::Widget *sender) {
+static void OnJournalDeleteClick(MyGUI::Widget *sender) {
   if (!g_journalEntryId.empty())
     CreateJournalDeleteUI();
 }
@@ -269,7 +271,7 @@ void FinishJournalDelete(const std::string &data) {
   RequestJournalPage(g_journalPage);
 }
 
-void CloseJournalUI() {
+static void CloseJournalUI() {
   CloseJournalDeleteUI();
   if (!g_journalWindow)
     return;

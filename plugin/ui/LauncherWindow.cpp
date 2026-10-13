@@ -17,10 +17,10 @@
 namespace SentientSands {
 namespace UI {
 
-MyGUI::Window *g_launcherWindow = nullptr;
+static MyGUI::Window *g_launcherWindow = nullptr;
 static MyGUI::Window *g_cullWindow = nullptr;
 
-void CloseLauncherUI() { DestroyWindow(g_launcherWindow); }
+static void CloseLauncherUI() { DestroyWindow(g_launcherWindow); }
 
 static CloseAction g_launcherClose = {CloseLauncherUI};
 

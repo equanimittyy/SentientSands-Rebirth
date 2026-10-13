@@ -51,36 +51,40 @@ static const struct {
   const char *label;
 } CHAT_MODES[] = {{"whisper", "Whisper"}, {"talk", "Talk"}, {"yell", "Yell"}};
 
+static void OnChatSendClick(MyGUI::Widget *sender);
+static void OnModeButtonClick(MyGUI::Widget *sender);
+static void UpdateModeButtons();
+
 MyGUI::Window *g_chatWindow = nullptr;
-MyGUI::EditBox *g_chatInput = nullptr;
-MyGUI::Button *g_chatModeBtns[3] = {nullptr, nullptr, nullptr};
-MyGUI::Button *g_chatSpeakerBtn = nullptr;
-std::vector<hand> g_chatSpeakers;
-size_t g_chatSpeakerIndex = 0;
+static MyGUI::EditBox *g_chatInput = nullptr;
+static MyGUI::Button *g_chatModeBtns[3] = {nullptr, nullptr, nullptr};
+static MyGUI::Button *g_chatSpeakerBtn = nullptr;
+static std::vector<hand> g_chatSpeakers;
+static size_t g_chatSpeakerIndex = 0;
 // In memory only, so a new game session starts on the first squad member
-unsigned int g_lastSpeakerKey = 0;
-MyGUI::Button *g_chatTargetBtn = nullptr;
-std::vector<hand> g_chatTargets;
-size_t g_chatTargetIndex = 0;
+static unsigned int g_lastSpeakerKey = 0;
+static MyGUI::Button *g_chatTargetBtn = nullptr;
+static std::vector<hand> g_chatTargets;
+static size_t g_chatTargetIndex = 0;
 static hand g_chosenChatTarget;
 static unsigned int g_chatTargetKey = 0;
 static std::string g_chatTargetNameStr;
-size_t g_lastChatModeIndex = 1;
-bool g_chatJustOpened = false;
+static size_t g_lastChatModeIndex = 1;
+static bool g_chatJustOpened = false;
 // Guarded by g_msgMutex, because the reply thread of a chat line sets them
-std::string g_actionPendingName;
-unsigned int g_actionNpcKey = 0;
-std::string g_offerPendingName;
-MyGUI::TextBox *g_chatThreadHeader = nullptr;
-MyGUI::EditBox *g_chatHistoryText = nullptr;
-MyGUI::Button *g_chatBarterBtn = nullptr;
-std::string g_chatBarterThread;
-int g_chatHistoryRequest = 0;
-const float CHAT_INPUT_HEIGHT = 0.18f;
-const float CHAT_HEADER_HEIGHT = 0.035f;
-const float CHAT_HISTORY_HEIGHT = 0.15f;
+static std::string g_actionPendingName;
+static unsigned int g_actionNpcKey = 0;
+static std::string g_offerPendingName;
+static MyGUI::TextBox *g_chatThreadHeader = nullptr;
+static MyGUI::EditBox *g_chatHistoryText = nullptr;
+static MyGUI::Button *g_chatBarterBtn = nullptr;
+static std::string g_chatBarterThread;
+static int g_chatHistoryRequest = 0;
+static const float CHAT_INPUT_HEIGHT = 0.18f;
+static const float CHAT_HEADER_HEIGHT = 0.035f;
+static const float CHAT_HISTORY_HEIGHT = 0.15f;
 
-void CloseChatUI() {
+static void CloseChatUI() {
   if (!g_chatWindow)
     return;
   DestroyWindow(g_chatWindow);
@@ -151,7 +155,7 @@ static void SettleActionDialogue(ChatTask *t, const std::string &response) {
   LeaveCriticalSection(&g_msgMutex);
 }
 
-DWORD WINAPI ChatResponseThread(LPVOID lpParam) {
+static DWORD WINAPI ChatResponseThread(LPVOID lpParam) {
   ChatTask *t = (ChatTask *)lpParam;
   if (!t->offerAnswer.empty())
     PostToPythonWithResponse(L"/offer", t->offerAnswer);
@@ -187,7 +191,7 @@ DWORD WINAPI ChatResponseThread(LPVOID lpParam) {
   return 0;
 }
 
-void OnChatInputChange(MyGUI::EditBox *sender) {
+static void OnChatInputChange(MyGUI::EditBox *sender) {
   std::string text = sender->getOnlyText().asUTF8();
   bool first = g_chatJustOpened && !text.empty();
   if (first)
@@ -210,7 +214,9 @@ void OnChatInputChange(MyGUI::EditBox *sender) {
   }
 }
 
-void OnChatInputAccept(MyGUI::EditBox *sender) { OnChatSendClick(sender); }
+static void OnChatInputAccept(MyGUI::EditBox *sender) {
+  OnChatSendClick(sender);
+}
 
 void SetOfferPending(const std::string &npcName) {
   EnterCriticalSection(&g_msgMutex);
@@ -223,7 +229,7 @@ std::string CurrentChatMode() {
                                  : "talk";
 }
 
-void OnChatSendClick(MyGUI::Widget *sender) {
+static void OnChatSendClick(MyGUI::Widget *sender) {
   if (!g_chatInput)
     return;
   std::string text = g_chatInput->getOnlyText().asUTF8();
@@ -378,7 +384,7 @@ bool SendChatLine(const std::string &npcName, unsigned int targetKey,
   return true;
 }
 
-void OnChatCancelClick(MyGUI::Widget *sender) { CloseChatUI(); }
+static void OnChatCancelClick(MyGUI::Widget *sender) { CloseChatUI(); }
 
 static void OnChatBarterClick(MyGUI::Widget *sender) {
   std::string npcName = g_chatTargetNameStr;
@@ -386,7 +392,7 @@ static void OnChatBarterClick(MyGUI::Widget *sender) {
   CloseChatUI();
   ShowBarterUI(npcName, g_chatTargetKey, thread);
 }
-void OnRadiantClick(MyGUI::Widget *sender) {
+static void OnRadiantClick(MyGUI::Widget *sender) {
   g_triggerRadiant = true;
   CloseChatUI();
 }
@@ -437,7 +443,7 @@ static void ShowChatSpeaker() {
       Utf8ToWide(member ? member->getName() : "?").c_str());
 }
 
-void OnChatSpeakerClick(MyGUI::Widget *sender) {
+static void OnChatSpeakerClick(MyGUI::Widget *sender) {
   g_chatSpeakerIndex = (g_chatSpeakerIndex + 1) % g_chatSpeakers.size();
   ShowChatSpeaker();
 }
@@ -610,7 +616,7 @@ void CreateChatUI(Character *npc) {
   }
 }
 
-void OnModeButtonClick(MyGUI::Widget *sender) {
+static void OnModeButtonClick(MyGUI::Widget *sender) {
   for (int i = 0; i < 3; i++) {
     if (sender == g_chatModeBtns[i]) {
       g_lastChatModeIndex = i;
@@ -620,7 +626,7 @@ void OnModeButtonClick(MyGUI::Widget *sender) {
   UpdateModeButtons();
 }
 
-void UpdateModeButtons() {
+static void UpdateModeButtons() {
   for (int i = 0; i < 3; i++) {
     if (!g_chatModeBtns[i])
       continue;

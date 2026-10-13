@@ -564,7 +564,7 @@ static void ProcessMessage(GameWorld *world, const std::string &msg) {
 }
 
 // Kenshi engine writes must happen on the main thread, inside hooks.
-void ProcessMessageQueue(GameWorld *thisptr) {
+static void ProcessMessageQueue(GameWorld *thisptr) {
   std::deque<std::string> messages;
   if (!TryEnterCriticalSection(&g_msgMutex))
     return;
@@ -576,7 +576,7 @@ void ProcessMessageQueue(GameWorld *thisptr) {
     ProcessMessage(thisptr, messages[i]);
 }
 
-void attackingYou_hook(Character *npc, Character *attacker, bool so,
+static void attackingYou_hook(Character *npc, Character *attacker, bool so,
                        bool doAwarenessCheck) {
   // The hook runs many times a second for each attacker, so the faction check
   // comes first, and the handle serials find an attack that already waits
@@ -597,21 +597,21 @@ void attackingYou_hook(Character *npc, Character *attacker, bool so,
     attackingYou_orig(npc, attacker, so, doAwarenessCheck);
 }
 
-void declareDead_hook(Character *npc) {
+static void declareDead_hook(Character *npc) {
   if (npc)
     QueueGameEvent("death", "\"party\": " + EventParty(npc));
   if (declareDead_orig)
     declareDead_orig(npc);
 }
 
-void setPrisonMode_hook(Character *npc, bool on, UseableStuff *h) {
+static void setPrisonMode_hook(Character *npc, bool on, UseableStuff *h) {
   if (npc && on)
     QueueGameEvent("imprisonment", "\"party\": " + EventParty(npc));
   if (setPrisonMode_orig)
     setPrisonMode_orig(npc, on, h);
 }
 
-void setProneState_hook(Character *npc, ProneState p) {
+static void setProneState_hook(Character *npc, ProneState p) {
   // The hook runs about 10 times a second while a character lies knocked out,
   // so only a change of the knockout makes an event
   bool down = npc && npc->getProneState() == PS_KO;
@@ -629,7 +629,7 @@ void setProneState_hook(Character *npc, ProneState p) {
 
 // The frame hook sends the context, because a rename can come in the middle of
 // a game update
-void setName_hook(Character *c, const std::string &name) {
+static void setName_hook(Character *c, const std::string &name) {
   std::string old = c ? c->getName() : std::string();
   if (setName_orig)
     setName_orig(c, name);
@@ -651,7 +651,7 @@ static Character *AsCharacter(RootObject *o) {
 
 // A recruit and a leave add the character with addActiveObject, and a move
 // between the player's squads with addCharacterAt
-bool addActiveObject_hook(ActivePlatoon *p, RootObject *o) {
+static bool addActiveObject_hook(ActivePlatoon *p, RootObject *o) {
   Character *c = AsCharacter(o);
   hand before = c ? c->getHandle() : hand();
   bool added = addActiveObject_orig ? addActiveObject_orig(p, o) : false;
@@ -659,7 +659,7 @@ bool addActiveObject_hook(ActivePlatoon *p, RootObject *o) {
   return added;
 }
 
-void addCharacterAt_hook(ActivePlatoon *p, RootObject *o, int index) {
+static void addCharacterAt_hook(ActivePlatoon *p, RootObject *o, int index) {
   Character *c = AsCharacter(o);
   hand before = c ? c->getHandle() : hand();
   if (addCharacterAt_orig)
@@ -684,7 +684,7 @@ static std::string RadiantJson(const std::vector<Character *> &characters) {
   return json + "]";
 }
 
-void playerUpdate_hook(PlayerInterface *thisptr) {
+static void playerUpdate_hook(PlayerInterface *thisptr) {
   if (playerUpdate_orig)
     playerUpdate_orig(thisptr);
 

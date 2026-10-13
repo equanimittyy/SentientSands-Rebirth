@@ -258,7 +258,7 @@ static const HelpTopic HELP_TOPICS[] = {
 static const int HELP_TOPIC_COUNT =
     sizeof(HELP_TOPICS) / sizeof(HELP_TOPICS[0]);
 
-MyGUI::Window *g_helpWindow = nullptr;
+static MyGUI::Window *g_helpWindow = nullptr;
 static MyGUI::Button *g_helpTopicBtns[HELP_TOPIC_COUNT];
 static MyGUI::TextBox *g_helpTitle = nullptr;
 static MyGUI::EditBox *g_helpText = nullptr;
@@ -320,7 +320,7 @@ static void OnHelpNextClick(MyGUI::Widget *sender) {
     ShowHelpTopic(g_helpTopic + 1);
 }
 
-void CloseHelpUI() { DestroyWindow(g_helpWindow); }
+static void CloseHelpUI() { DestroyWindow(g_helpWindow); }
 
 static CloseAction g_helpClose = {CloseHelpUI};
 
