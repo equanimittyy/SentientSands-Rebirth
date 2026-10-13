@@ -25,7 +25,6 @@
 #undef WeatherRegion
 #include <kenshi/util/hand.h>
 #include <algorithm>
-#include <cstdlib>
 #include <map>
 #include <set>
 #include <vector>

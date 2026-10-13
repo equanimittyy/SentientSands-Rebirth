@@ -2,7 +2,6 @@
 #include <deque>
 #include <map>
 #include <string>
-#include <vector>
 #include <windows.h>
 
 #include "Utils.h"
@@ -10,11 +9,10 @@
 class GameData;
 class GameWorld;
 class SharedKing;
-namespace Ogre {
-class Vector3;
-}
 #include <kenshi/Enums.h>
 #include <kenshi/util/hand.h>
+// Character.h reaches OgrePrerequisites.h mid-cycle, where STLAllocator is not
+// yet declared, so Ogre's headers must load first
 #include <ogre/OgreVector3.h>
 
 extern GameWorld **ppWorld;

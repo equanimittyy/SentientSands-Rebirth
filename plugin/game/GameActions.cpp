@@ -4,11 +4,9 @@
 #include "../core/Globals.h"
 #include "../core/Utils.h"
 #include <algorithm>
-#include <core/Functions.h>
 #include <kenshi/AI/Blackboard.h>
 #include <kenshi/Character.h>
 #include <kenshi/Dialogue.h>
-#include <kenshi/Faction.h>
 #include <kenshi/GameData.h>
 #include <kenshi/GameWorld.h>
 #include <kenshi/Inventory.h>
@@ -16,11 +14,8 @@
 #include <kenshi/Platoon.h>
 #include <kenshi/PlayerInterface.h>
 #include <kenshi/RootObjectFactory.h>
-#include <kenshi/SensoryData.h>
 #include <kenshi/Town.h>
-#include <kenshi/util/YesNoMaybe.h>
 #include <kenshi/util/hand.h>
-#include <ogre/OgreColourValue.h>
 #include <set>
 #include <vector>
 

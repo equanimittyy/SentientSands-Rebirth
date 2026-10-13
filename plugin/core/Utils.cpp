@@ -1,14 +1,10 @@
 #include "Utils.h"
 #include "Globals.h"
 #include <fstream>
-#include <iomanip>
-#include <kenshi/Enums.h>
-#include <kenshi/util/hand.h>
 #include <sstream>
 
 #include <algorithm>
 #include <cctype>
-#include <cmath>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>

@@ -37,21 +37,16 @@
 #include "core/Globals.h"
 #include "core/Utils.h"
 
-#include <kenshi/CharStats.h>
 #include <kenshi/Character.h>
 #include <kenshi/Dialogue.h>
 #include <kenshi/Faction.h>
 #include <kenshi/GameData.h>
 #include <kenshi/GameWorld.h>
-#include <kenshi/Kenshi.h>
 #include <kenshi/Platoon.h>
 #include <kenshi/PlayerInterface.h>
 #include <kenshi/util/hand.h>
 
-#include <kenshi/RaceData.h>
 #include <kenshi/RootObject.h>
-#include <kenshi/RootObjectBase.h>
-#include <kenshi/WorldEventStateQuery.h>
 
 // A generic NPC whose template is a canon character carries the npc_id of that
 // character, not the one that GetNpcId gives it
@@ -93,13 +88,9 @@ static HMODULE g_hModule = nullptr;
 static DWORD g_lastRadiantTick = 0;
 static bool g_welcomeShown = false;
 
-#include <mygui/MyGUI_Button.h>
-#include <mygui/MyGUI_Delegate.h>
 #include <mygui/MyGUI_EditBox.h>
 #include <mygui/MyGUI_Gui.h>
 #include <mygui/MyGUI_InputManager.h>
-#include <mygui/MyGUI_TextBox.h>
-#include <mygui/MyGUI_Window.h>
 
 #include "ui/ChatUI.h"
 
