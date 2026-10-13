@@ -20,7 +20,7 @@ std::string CurrentChatMode();
 void SetChatHistory(const std::string &data);
 
 void SelectChatSpeaker(const hand &member);
-void ForgetChatTarget();
+void SelectChatTarget(Character *npc);
 
 } // namespace UI
 } // namespace SentientSands

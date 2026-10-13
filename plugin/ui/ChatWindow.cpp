@@ -10,6 +10,7 @@
 #include "../core/Utils.h"
 
 #include <kenshi/Character.h>
+#include <kenshi/Dialogue.h>
 #include <kenshi/Faction.h>
 #include <kenshi/GameData.h>
 #include <kenshi/GameWorld.h>
@@ -514,8 +515,6 @@ static void OnChatTargetClick(MyGUI::Widget *sender) {
   ShowChatTarget();
 }
 
-void ForgetChatTarget() { g_chosenChatTarget = hand(); }
-
 static void BuildChatWindow() {
   float panel = CHAT_HEADER_HEIGHT + CHAT_HISTORY_HEIGHT;
   MyGUI::Widget *client = OpenWindow(
@@ -597,12 +596,31 @@ static void FillChatTargets(GameWorld *world, Character *npc) {
   }
 }
 
+// Vanilla dialogue would run alongside the AI chat ("double dialogue")
+static void EndVanillaDialogue(Character *npc) {
+  if (npc && npc->dialogue && (uintptr_t)npc->dialogue > 0x1000) {
+    npc->dialogue->endDialogue(true);
+    npc->dialogue->setInDialog(false);
+  }
+}
+
+void SelectChatTarget(Character *npc) {
+  g_chosenChatTarget = hand();
+  if (!g_chatWindow)
+    return;
+  EndVanillaDialogue(npc);
+  FillChatTargets(*ppWorld, npc);
+  g_chatTargetIndex = 0;
+  ShowChatTarget();
+}
+
 void CreateChatUI(Character *npc) {
   GameWorld *world = *ppWorld;
   if (!MyGUI::Gui::getInstancePtr() || !world || !world->player)
     return;
   CloseChatUI();
 
+  EndVanillaDialogue(npc);
   FillChatTargets(world, npc);
   if (g_chatTargets.empty())
     return;

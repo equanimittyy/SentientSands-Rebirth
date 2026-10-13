@@ -38,7 +38,6 @@
 #include "core/Utils.h"
 
 #include <kenshi/Character.h>
-#include <kenshi/Dialogue.h>
 #include <kenshi/Faction.h>
 #include <kenshi/GameData.h>
 #include <kenshi/GameWorld.h>
@@ -778,7 +777,7 @@ static void playerUpdate_hook(PlayerInterface *thisptr) {
   if (sel && (uintptr_t)sel > 0x1000 && !InPlayerFaction(sel)) {
     // Each frame sees the NPC that stays selected, which would undo the button
     if (pick != lastPick)
-      ForgetChatTarget();
+      SelectChatTarget(sel);
     lastNpc = pick;
   }
   lastPick = pick;
@@ -800,11 +799,6 @@ static void playerUpdate_hook(PlayerInterface *thisptr) {
       Character *npc = lastNpc.getCharacter();
       if (npc && InPlayerFaction(npc))
         npc = nullptr;
-      // End vanilla dialogue, or it runs alongside the AI chat ("double dialogue").
-      if (npc && npc->dialogue && (uintptr_t)npc->dialogue > 0x1000) {
-        npc->dialogue->endDialogue(true);
-        npc->dialogue->setInDialog(false);
-      }
       CreateChatUI(npc);
     }
   }
