@@ -718,7 +718,7 @@ std::string GetIdentityFaction(Character *npc) {
   std::string npcId = GetNpcId(npc);
   std::map<std::string, std::string>::iterator cached =
       g_originFactions.find(npcId);
-  if (cached != g_originFactions.end())
+  if (cached != g_originFactions.end() && !cached->second.empty())
     return cached->second;
   Faction *faction = CharacterFaction(npc);
   if (faction && faction->isThePlayer()) {
