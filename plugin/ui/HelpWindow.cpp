@@ -45,11 +45,11 @@ static const HelpTopic HELP_TOPICS[] = {
      {{NULL, "Select an NPC and press the chat key, [ {key} ]. The chat goes "
              "to the last NPC that you selected, even when you select a squad "
              "member after it. While the chat window is open, select another "
-             "NPC to talk to that NPC instead. The window still shows the "
-             "current conversation until you send the line. You can change the "
-             "chat key on the Settings tab of the web app. To whisper, the NPC "
-             "must stand within the Whisper range of the speaker, and to talk, "
-             "within the Talk range."},
+             "NPC to talk to that NPC instead. The window then shows your "
+             "conversation with that NPC. You can change the chat key on the "
+             "Settings tab of the web app. To whisper, the NPC must stand "
+             "within the Whisper range of the speaker, and to talk, within the "
+             "Talk range."},
       {"Target", "To talk to one of your characters within the Talk range of "
                  "your squad, press the button on the right, with the name of "
                  "the NPC, until it shows that character. The chat stays on "

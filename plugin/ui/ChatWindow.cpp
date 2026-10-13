@@ -82,7 +82,6 @@ static MyGUI::TextBox *g_chatThreadHeader = nullptr;
 static MyGUI::EditBox *g_chatHistoryText = nullptr;
 static MyGUI::Button *g_chatBarterBtn = nullptr;
 static std::string g_chatBarterThread;
-static unsigned int g_chatThreadNpcKey = 0;
 static int g_chatHistoryRequest = 0;
 static const float CHAT_INPUT_HEIGHT = 0.18f;
 static const float CHAT_HEADER_HEIGHT = 0.035f;
@@ -100,7 +99,6 @@ static void CloseChatUI() {
   g_chatThreadHeader = nullptr;
   g_chatHistoryText = nullptr;
   g_chatBarterBtn = nullptr;
-  g_chatBarterThread.clear();
 }
 
 static CloseAction g_chatClose = {CloseChatUI};
@@ -436,19 +434,12 @@ static void SetChatThreadHeader(const std::string &text) {
 
 static void RequestChatHistory() {
   SetChatThreadHeader(T("Loading the conversation..."));
-  g_chatThreadNpcKey = g_chatTargetKey;
   Character *target = KeyedCharacter(g_chatTargetKey);
   PostForGameThread(L"/chat_thread",
                     "{\"npc_id\":\"" +
                         EscapeJSON(target ? GetNpcId(target) : std::string()) +
                         "\"}",
                     "CHAT_HISTORY", ToString(++g_chatHistoryRequest));
-}
-
-// Barter would otherwise send the trade of this thread to a switched target
-static void ShowBarterButton() {
-  g_chatBarterBtn->setVisible(!g_chatBarterThread.empty() &&
-                              g_chatTargetKey == g_chatThreadNpcKey);
 }
 
 void SetChatHistory(const std::string &data) {
@@ -468,7 +459,7 @@ void SetChatHistory(const std::string &data) {
                       GetJsonValue(reply, "title"));
   if (GetJsonValue(reply, "type") == "Barter") {
     g_chatBarterThread = reply;
-    ShowBarterButton();
+    g_chatBarterBtn->setVisible(true);
   }
   g_chatHistoryText->setOnlyText(
       Utf8ToWide(GetJsonValue(reply, "lines")).c_str());
@@ -526,7 +517,10 @@ static void ShowChatTarget() {
   g_chatSpeakerBtn->setVisible(!g_chatSpeakers.empty());
   if (!g_chatSpeakers.empty())
     ShowChatSpeaker();
-  ShowBarterButton();
+
+  g_chatBarterBtn->setVisible(false);
+  g_chatHistoryText->setOnlyText("");
+  RequestChatHistory();
 }
 
 static void OnChatTargetClick(MyGUI::Widget *sender) {
@@ -647,7 +641,6 @@ void CreateChatUI(Character *npc) {
   g_chatJustOpened = true;
   BuildChatWindow();
   ShowChatTarget();
-  RequestChatHistory();
   // Only a button press may make a character talk to itself
   if (!g_chatSpeakers.empty() &&
       g_chatSpeakers[g_chatSpeakerIndex] == g_chatTargets[g_chatTargetIndex]) {

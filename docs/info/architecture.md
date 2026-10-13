@@ -594,8 +594,7 @@ Above the input, the chat window shows a header line with the type and the title
 
 - `POST /chat_thread` (`server/chat/chat_window.py`) returns the thread while `CURRENT_THREAD` belongs to the target NPC, or is the yell thread and the NPC is its member, and its last reply is within the Conversation timeout. It does not compare the mode or the speaker, because a change of either ends the thread only at the next line, and each line closes the chat window.
 - The reply holds the type (`Chat` or the action category), the title (the speakers and the start place, as on Dialogue & Memories), the mode, and the copy of the thread lines of the NPC. The reply of an action dialogue also holds its speaker and `stock`, for the Barter window (see [Barter window](#barter-window)).
-- The window asks at each open, and drops a reply that a newer request made stale. A thread that ends while the window is open shows until the next open.
-- A switch of the target, by a selection or by the target button, keeps the thread on view, because the thread ends only at the next line to another NPC. The Barter button shows only while the target is the NPC of the thread, because the Barter window would send the trade of the thread to the new target (`ShowBarterButton`).
+- The window asks at each open and at each switch of the target, by a selection or by the target button, and drops a reply that a newer request made stale (`ShowChatTarget`). So a switch to another NPC clears the panel, and a switch back to the NPC of the open thread shows the thread again. A thread that ends while the window is open shows until the next request.
 - The panel adds its height above the input, so the input rows keep their size and the window grows upward.
 
 ### Conversation memories

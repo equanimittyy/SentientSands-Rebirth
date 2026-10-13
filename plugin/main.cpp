@@ -784,11 +784,13 @@ static void playerUpdate_hook(PlayerInterface *thisptr) {
 
   // Only a change moves the speaker, so the speaker button still cycles
   static hand lastSelected;
-  if (thisptr->selectedObject != lastSelected) {
-    lastSelected = thisptr->selectedObject;
-    Character *member = lastSelected.getCharacter();
-    if (member && InPlayerFaction(member))
-      SelectChatSpeaker(lastSelected);
+  hand member = thisptr->selectedCharacters.size() == 1
+                    ? *thisptr->selectedCharacters.begin()
+                    : hand();
+  if (member != lastSelected) {
+    lastSelected = member;
+    if (member.getCharacter())
+      SelectChatSpeaker(member);
   }
 
   if (!typing && (GetAsyncKeyState(g_chatHotkey) & 0x8000) && !g_chatWindow &&
