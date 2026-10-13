@@ -8,7 +8,7 @@ In a RECRUIT action dialogue, the player asks the NPC to join the squad. The pla
 
 RECRUIT needs all of these, and a line that fails one goes to plain chat with the reason ([Plain chat](framework.md#plain-chat)):
 
-- Neither the speaker nor the NPC is `imprisoned` or `enslaved` (`character_state` in `plugin/game/Context.cpp:1104`), because a caged or shackled speaker cannot recruit, and the player must free a caged or shackled NPC first. Fellow captives are the exception ([Fellow captives](#fellow-captives)).
+- Neither the speaker nor the NPC is `imprisoned` or `enslaved` (`character_state` in `plugin/game/Context.cpp:755`), because a caged or shackled speaker cannot recruit, and the player must free a caged or shackled NPC first. Fellow captives are the exception ([Fellow captives](#fellow-captives)).
 - The NPC is not the leader of its faction (`is_leader`), because the faction would lose its leader in the world.
 
 A marked line to an NPC that is already in the player faction goes to plain chat ([Plain chat](framework.md#plain-chat)). A temporary follower can join, and its hire then becomes a permanent join.

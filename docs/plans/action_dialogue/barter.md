@@ -10,7 +10,7 @@ A trade is between the speaker and the NPC only. The cats of the player belong t
 
 Any NPC can trade, but a trader gives better prices ([section 3](#3-hard-limits)).
 
-A prisoner can trade too, for example to ask a guard for bread. When the speaker is `imprisoned` (`plugin/game/Context.cpp:675`), the prompt says so, and it gives the NPC's Current Job, for example "Guarding the town", and whether the NPC is `imprisoned` too.
+A prisoner can trade too, for example to ask a guard for bread. When the speaker is `imprisoned` (`plugin/game/Context.cpp:744`), the prompt says so, and it gives the NPC's Current Job, for example "Guarding the town", and whether the NPC is `imprisoned` too.
 
 The action dialogue ends when the player accepts an offer.
 
@@ -23,7 +23,7 @@ An offer of BARTER shows in two boxes of the popup instead of the popup line of 
 | 500 cats | 1 Katana |
 | 1 Dirty Loincloth | |
 
-Each box lists the cats first, and then each item with its count, the biggest count first and items of one count by name. A box with nothing in it, as in a gift or in charity, shows "Nothing". The server fills the boxes from the checked offer, as it writes the popup line. The boxes reuse the list boxes of the existing windows, for example the event list of the Events window (`MyGUI::ListBox` in `plugin/ui/EventsWindow.cpp:22`).
+Each box lists the cats first, and then each item with its count, the biggest count first and items of one count by name. A box with nothing in it, as in a gift or in charity, shows "Nothing". The server fills the boxes from the checked offer, as it writes the popup line. The boxes reuse the list boxes of the existing windows, for example the event list of the Events window (`MyGUI::ListBox` in `plugin/ui/EventsWindow.cpp:20`).
 
 ## 3. Hard limits
 
@@ -34,7 +34,7 @@ The worth of a deal is no hard limit. The turn message gives what each side is w
 | Part | Worth |
 |---|---|
 | Cats, from either side | Their count |
-| An item of the player | Its `price` (`plugin/game/Context.cpp:966`) times the buy share of the NPC, times its count |
+| An item of the player | Its `price` (`plugin/game/Context.cpp:605`) times the buy share of the NPC, times its count |
 | An item of the NPC | Its `price` times the sell share of the NPC, times its count |
 
 Each NPC sells at the full `price`, which is the price in the trade window of the game, so a deal never undercuts the trade window. A non-trader wants a bigger profit margin, so it pays less for the items of the player:
@@ -71,11 +71,11 @@ The model often offers more cats than the cap, for example 500 cats from an NPC 
 
 For food, the model writes `GIVE_FOOD`, and code picks the food. The prompt names no food, because the model offered a food that the charity rule listed, Dried Meat, as its own stock in a trade.
 
-`GIVE_CATS` takes the cats from the NPC (`plugin/game/GameActions.cpp:730`), so charity needs an action that only adds the cats to the player. `SPAWN_ITEM` already creates an item for the speaker (`plugin/game/GameActions.cpp:1018`).
+`GIVE_CATS` takes the cats from the NPC (`plugin/game/GameActions.cpp:572`), so charity needs an action that only adds the cats to the player. `SPAWN_ITEM` already creates an item for the speaker (`plugin/game/GameActions.cpp:680`).
 
 ## 5. Gifts
 
-A gift raises the NPC's profile `Relation` (`change_relation` in `server/store/campaign_db.py:267`) by 1 for each 500 cats of the worth that the NPC receives ([section 3](#3-hard-limits)), at most by 10 for each gift. A gift worth less than 500 thus gives nothing, so small gifts cannot farm relation. The game shows "X appreciates the gift." as a message, as it shows "Gained 200 cats." (`showPlayerAMessage_withLog` in `plugin/game/GameActions.cpp:732`).
+A gift raises the NPC's profile `Relation` (`change_relation` in `server/store/campaign_db.py:282`) by 1 for each 500 cats of the worth that the NPC receives ([section 3](#3-hard-limits)), at most by 10 for each gift. A gift worth less than 500 thus gives nothing, so small gifts cannot farm relation. The game shows "X appreciates the gift." as a message, as it shows "Gained 200 cats." (`showPlayerAMessage_withLog` in `plugin/game/GameActions.cpp:573`).
 
 ## 6. Price guide
 

@@ -6,7 +6,7 @@ In a THREATEN action dialogue, the player threatens the NPC, demands its cats or
 
 ## 2. Gate
 
-A threat of an `imprisoned` speaker (`plugin/game/Context.cpp:675`) goes to plain chat ([Plain chat](framework.md#plain-chat)), because no one takes a threat from a cage seriously. The NPC's thought gives that reason. THREATEN has no other gate.
+A threat of an `imprisoned` speaker (`plugin/game/Context.cpp:744`) goes to plain chat ([Plain chat](framework.md#plain-chat)), because no one takes a threat from a cage seriously. The NPC's thought gives that reason. THREATEN has no other gate.
 
 A chained slave (`enslaved`) can threaten: the NPC, for example a guard, can laugh it off or beat the slave for it.
 
@@ -34,12 +34,12 @@ The lean ([Outcome](framework.md#outcome)) is how likely the NPC is to give in:
 
 | Fact | Bonus |
 |---|---|
-| The melee attack plus the melee defence of the speaker (`stats` in `plugin/game/Context.cpp:885`) is above the NPC's | +1 |
+| The melee attack plus the melee defence of the speaker (`stats` in `plugin/game/Context.cpp:915`) is above the NPC's | +1 |
 | The same sum is below the NPC's | -1 |
-| The squad members near the NPC (`nearby` in `plugin/game/Context.cpp:800`) outnumber the members of the NPC's faction near it | +1 |
+| The squad members near the NPC (`nearby` in `plugin/game/Context.cpp:822`) outnumber the members of the NPC's faction near it | +1 |
 | The squad members near the NPC are fewer | -1 |
 | The NPC's `health` is `Injured` or `Crippled` | +1 |
 | The speaker's `health` is `Injured` or `Crippled` | -1 |
 | The NPC is the leader of its faction (`is_leader`) or unique (`unique`) | -1 |
 
-`nearby` leaves out the first squad character (`plugin/game/Context.cpp:806`), so the count must add that character when it is near.
+`nearby` leaves out the first squad character (`plugin/game/Context.cpp:830`), so the count must add that character when it is near.

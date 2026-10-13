@@ -2,7 +2,7 @@
 
 ## 1. Summary
 
-Chat sends no game actions since the action tags were turned off. The plugin still runs the actions (`ExecuteQueuedActions` in `plugin/game/GameActions.cpp:245`). Only the debug commands of the chat send them, through the pipe before the reply line (`server/chat/routes.py:250`).
+Chat sends no game actions since the action tags were turned off. The plugin still runs the actions (`ExecuteQueuedActions` in `plugin/game/GameActions.cpp:803`). Only the debug commands of the chat send them, through the pipe before the reply line (`server/chat/routes.py:106`).
 
 In this plan, the player marks a chat thread as an action dialogue. An action dialogue uses its own system prompt instead of the chat system prompt (`server/data/prompts/prompt_system.txt`), and a new LLM route (`TASKS` in `server/chat/llm_config.py:14`) that its classify call ([No category](#no-category)) shares. A chat thread without the mark stays plain chat, with no game actions.
 
@@ -10,7 +10,7 @@ This doc holds the framework that all categories share. Each category has its ow
 
 ## 2. Entry
 
-A player line that starts with `!` marks its chat thread as an action dialogue. The mark holds for the rest of the chat thread. A chat thread is one NPC in one mode, and the squad members that speak to that NPC share the thread (`server/chat/routes.py:278`). An action dialogue belongs to one speaker instead: a line of another squad member to the NPC starts a new chat thread, and the action dialogue [ends](#end). The chat thread ends after `conversation_timeout_minutes` without a chat (`server/chat/memory.py:13`).
+A player line that starts with `!` marks its chat thread as an action dialogue. The mark holds for the rest of the chat thread. A chat thread is one NPC in one mode, and the squad members that speak to that NPC share the thread (`server/chat/routes.py:435`). An action dialogue belongs to one speaker instead: a line of another squad member to the NPC starts a new chat thread, and the action dialogue [ends](#end). The chat thread ends after `conversation_timeout_minutes` without a chat (`server/chat/memory.py:13`).
 
 The characters right after the `!` decide the result. A word after the `!` runs up to the first character that is not a letter. Letters and words are case-insensitive, so `!B` names BARTER.
 
@@ -38,9 +38,9 @@ The characters right after the `!` decide the result. A word after the `!` runs 
 
 A category needs text after its mark, so `!barter` alone is a failure. Only the end mark works without text, as in `!end`.
 
-An action dialogue works in each chat mode. The mode sets who overhears its lines, as in plain chat (`server/chat/routes.py:286`).
+An action dialogue works in each chat mode. The mode sets who overhears its lines, as in plain chat (`server/chat/routes.py:506`).
 
-The debug commands of the chat keep the `/` mark (`server/chat/routes.py:198`), so the two marks do not collide.
+The debug commands of the chat keep the `/` mark (`server/chat/routes.py:374`), so the two marks do not collide.
 
 ### No category
 
@@ -76,14 +76,14 @@ A failure sends no action dialogue call. The server replies with the line "X did
 
 A deal that cannot happen at all is blocked. A blocked line sends no LLM call. The chat window shows a system message ([Reply](#reply)) that names the reason, for example "Hobbs is not a hired follower.". The server keeps neither the player's line nor the message, so the chat thread stays as it was. Two blocks exist:
 
-- A knockout blocks every line (`knockout_block`), because a knocked-out character cannot talk. While the speaker or the NPC is knocked out (`character_state` is `unconscious`, `plugin/game/Context.cpp:658`), each line that starts with `!` and each line of an action dialogue is blocked, before any classify call. The message names who is knocked out, for example "Bandit is unconscious.". The block holds for plain chat too: a line from a knocked-out speaker or to a knocked-out NPC sends no LLM call, and the chat window shows the same message. Radiant conversations already leave out knocked-out characters (`CanTalk` in `plugin/game/Context.cpp:495`).
+- A knockout blocks every line (`knockout_block`), because a knocked-out character cannot talk. While the speaker or the NPC is knocked out (`character_state` is `unconscious`, `plugin/game/Context.cpp:742`), each line that starts with `!` and each line of an action dialogue is blocked, before any classify call. The message names who is knocked out, for example "Bandit is unconscious.". The block holds for plain chat too: a line from a knocked-out speaker or to a knocked-out NPC sends no LLM call, and the chat window shows the same message. Radiant conversations already leave out knocked-out characters (`CanTalk` in `plugin/game/Context.cpp:629`).
 - DISMISS of an NPC that is not a temporary follower is blocked (`gate_block`, [dismiss.md](dismiss.md#2-gate)).
 
 ### Plain chat
 
 A deal that the story allows but code rules out goes to plain chat instead: the NPC answers in its own words, and the model never gets the prompt of the category, so it never learns how to make the deal. The turn message gives the NPC the reason as its thought, for example "YOUR THOUGHT: Zaps is locked in a cage, so you do not take the threat seriously.", so that the reply can name it. The server log names each line that goes to plain chat, with its reason.
 
-Each marked line goes to plain chat before any classify call (`mark_chat`) when the NPC is an animal (`animal` in `plugin/game/Context.cpp:705`) or a member of the player faction (`in_squad` in `server/chat/routes.py:290`). A temporary follower keeps its own faction, so DISMISS still reaches it.
+Each marked line goes to plain chat before any classify call (`mark_chat`) when the NPC is an animal (`animal` in `plugin/game/Context.cpp:803`) or a member of the player faction (`in_squad` in `server/chat/routes.py:505`). A temporary follower keeps its own faction, so DISMISS still reaches it.
 
 A line of a category goes to plain chat when the game state fails a gate of the category (`plain_chat`):
 
@@ -126,7 +126,7 @@ The speech bubble of each reply starts with the category tag of the action dialo
 
 The player's mark names the category for the model. A later line of the chat thread can name another category, for example `!t` after `!b`. A later line without a mark keeps the category of the action dialogue and runs no classify call, so code always knows which lean and which parts of the prompt the call needs.
 
-The chat window shows system messages about the action dialogue, in the shape of the chat status messages such as "{name} is thinking..." (`NotifyChatStatus` in `plugin/ui/ChatWindow.cpp:65`). They show only a block, a failure, a refusal, and an offer that the NPC can't keep, because a message after each reply crowded the chat window.
+The chat window shows system messages about the action dialogue, in the shape of the chat status messages such as "{name} is thinking..." (`NotifyChatStatus` in `plugin/ui/ChatWindow.cpp:102`). They show only a block, a failure, a refusal, and an offer that the NPC can't keep, because a message after each reply crowded the chat window.
 
 ### Outcome
 
@@ -149,7 +149,7 @@ BARTER, HEAL, LIBERATE, RECRUIT, and FOLLOW count the NPC's profile `Relation` o
 | -59 to -25 | -1 |
 | -60 or less | -2 |
 
-The action prompt keeps the judgment of plain chat (`judgment` in `server/chat/routes.py:313`): each reply ends with `[JUDGMENT: n]`, and the NPC's `Relation` changes by n. A threat thus costs relation.
+The action prompt keeps the judgment of plain chat (`judgment` in `server/chat/routes.py:556`): each reply ends with `[JUDGMENT: n]`, and the NPC's `Relation` changes by n. A threat thus costs relation.
 
 A guard is an NPC whose Current Job (`current_job` in `server/chat/current_job.py:41`) is `Guarding the town`, `Guarding a building`, `Patrolling the town`, `Keeping the peace`, or `Working as a slaver`, or whose squad jobs hold the jailer task `FIND_CAGE_AND_PUT_DEADGUY_IN`. The captain of a bounty desk is a jailer, but it stands at a shopkeeper node, so its Current Job reads `Running a shop`. LIBERATE and RECRUIT read it.
 
@@ -170,21 +170,21 @@ BARTER shows its offers in two boxes instead ([barter.md](barter.md#offer-boxes)
 
 While an offer waits, the chat waits for the answer. The chat window takes no new line to any NPC, and it shows the status "Answer X's offer first.". No other chat thread or radiant conversation starts, and the chat thread does not time out. The game does not pause.
 
-While the reply to a line of an action dialogue is pending, the chat window also takes no new line to any NPC, and it shows the status "X is still thinking.". The chat window does not wait for a reply before it sends the next line (`ChatResponseThread` in `plugin/ui/ChatWindow.cpp:70`), so without the block a second line could bring a second offer.
+While the reply to a line of an action dialogue is pending, the chat window also takes no new line to any NPC, and it shows the status "X is still thinking.". The chat window does not wait for a reply before it sends the next line (`ChatResponseThread` in `plugin/ui/ChatWindow.cpp:157`), so without the block a second line could bring a second offer.
 
-Before it runs an accepted offer, the plugin checks that each side still has the cats and the items of the offer. The game does not pause while the offer waits, and `TAKE_CATS` takes all the cats of the player when they are fewer than its count (`plugin/game/GameActions.cpp:747`). When a check fails, the plugin runs no action of the offer, and the chat window shows a system message that names why, for example "You no longer have 500 cats.". The server does the same when an answer arrives for an offer that it no longer holds, for example after a restart of the server. In both cases the action dialogue ends.
+Before it runs an accepted offer, the plugin checks that each side still has the cats and the items of the offer. The game does not pause while the offer waits, and `TAKE_CATS` takes all the cats of the player when they are fewer than its count (`plugin/game/GameActions.cpp:577`). When a check fails, the plugin runs no action of the offer, and the chat window shows a system message that names why, for example "You no longer have 500 cats.". The server does the same when an answer arrives for an offer that it no longer holds, for example after a restart of the server. In both cases the action dialogue ends.
 
 The tags of the model never reach the plugin as they are. The server builds each action from the data of the plugin, and it sends the plugin a game-altering payload, such as an order to an NPC. `ATTACK` and `END_HIRE` reach the plugin the same way.
 
 A save load removes the popup and the offer, and it ends the action dialogue, because the load can undo the world that the offer rests on.
 
-A knockout or a death of the speaker or the NPC while an offer waits also removes the popup and the offer, and it ends the action dialogue, because a knocked-out or dead character cannot make or take a deal. The plugin sees each knockout in `setProneState_hook` (`plugin/main.cpp:982`), and each death in `declareDead_hook` (`plugin/main.cpp:968`).
+A knockout or a death of the speaker or the NPC while an offer waits also removes the popup and the offer, and it ends the action dialogue, because a knocked-out or dead character cannot make or take a deal. The plugin sees each knockout in `setProneState_hook` (`plugin/main.cpp:606`), and each death in `declareDead_hook` (`plugin/main.cpp:592`).
 
 ### Memory
 
 The server writes a line into the chat thread for each action that runs and for each answer to an offer. It writes the line from the checked offer, for example "(Drifter accepted: Bandit gives 200 cats.)" or "(Drifter declined: Bandit offered 200 cats.)". The model thus sees on the next turn which offer the player declined.
 
-The line counts as an exchange, so a chat thread that ends in a deal is not deleted as a chat thread of one exchange (`server/chat/memory.py:89`).
+The line counts as an exchange, so a chat thread that ends in a deal is not deleted as a chat thread of one exchange (`server/chat/memory.py:44`).
 
 A chat thread that holds a line of an action or of an answer gets its memory from its own memory prompt, `prompt_action_memory.txt`, instead of `prompt_thread_memory.txt` (`write_memory` in `server/chat/memory.py`), so that the memory keeps each action and each deal.
 
@@ -197,7 +197,7 @@ The action dialogue ends at the first of these events:
 - The player accepts an offer, or a save loads while an offer waits ([Offer](#offer)).
 - The speaker or the NPC is knocked out or dies while an offer waits ([Offer](#offer)).
 - The player sends `!e` or `!end`, for example `!end Thanks`. The line sends no LLM call, and the server does not keep it.
-- The action dialogue call gives an error. The chat window shows the error status of plain chat, "X could not respond. (Something went wrong, is SSR configured?)" (`plugin/ui/ChatWindow.cpp:129`).
+- The action dialogue call gives an error. The chat window shows the error status of plain chat, "X could not respond. (Something went wrong, is SSR configured?)" (`plugin/ui/ChatWindow.cpp:177`).
 - The chat thread ends: `conversation_timeout_minutes` pass without a chat, or the player starts another chat thread, for example with another NPC or from another squad member ([section 2](#2-entry)).
 
 Each end also ends the chat thread.

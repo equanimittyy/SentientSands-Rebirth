@@ -4,7 +4,7 @@
 
 In a FOLLOW action dialogue, the player asks the NPC to follow the squad for a time. Unlike RECRUIT, the hire is temporary. The player opens it with `!f` or `!follow`. [framework.md](framework.md) holds the rules that all categories share.
 
-FOLLOW reuses the game's mercenary hire: the NPC follows the squad under a hire contract, as a hired mercenary does. The game's hire dialogues give the NPC the `Bodyguard` contract (`5090-gamedata.base`) with a length in hours, and the game runs it as a hired ally (`Contract_HiredAlly` in `deps/KenshiLib/Include/kenshi/AI/Contract.h:63`). The contract expires at the end of its length. The plugin starts the hire with `_setContractJob` of the blackboard, with the `Bodyguard` package and the hours of the hire (`deps/KenshiLib/Include/kenshi/AI/Blackboard.h:65`), which an in-game test showed to work ([kenshi_internals.md](../../info/kenshi_internals.md#orders-and-contracts)). The plugin already reads such a contract as `temporary_follower` (`plugin/game/Context.cpp:362`). The player ends the hire early with DISMISS ([dismiss.md](dismiss.md)).
+FOLLOW reuses the game's mercenary hire: the NPC follows the squad under a hire contract, as a hired mercenary does. The game's hire dialogues give the NPC the `Bodyguard` contract (`5090-gamedata.base`) with a length in hours, and the game runs it as a hired ally (`Contract_HiredAlly` in `deps/KenshiLib/Include/kenshi/AI/Contract.h:63`). The contract expires at the end of its length. The plugin starts the hire with `_setContractJob` of the blackboard, with the `Bodyguard` package and the hours of the hire (`deps/KenshiLib/Include/kenshi/AI/Blackboard.h:65`), which an in-game test showed to work ([kenshi_internals.md](../../info/kenshi_internals.md#orders-and-contracts)). The plugin already reads such a contract as `temporary_follower` (`plugin/game/Context.cpp:455`). The player ends the hire early with DISMISS ([dismiss.md](dismiss.md)).
 
 ## 2. Gate, hard limits, and lean
 
@@ -22,7 +22,7 @@ Code picks the request by the faction of the NPC. A mercenary gets `prompt_actio
 
 An NPC that is not a mercenary never asks for a fee, but it can take the cats that the player offers, and an offer of cats makes it more willing to follow. It is wary of following the player for no reason, so its lean takes -1 on top of the lean of RECRUIT.
 
-A mercenary never follows for free: its fee is at least the daily rate of its faction times the days of the hire. Code tells a mercenary by the faction that it belongs to (`faction` and `factionID` in `plugin/game/Context.cpp:726`). The rates come from the `Bodyguard` contracts of the game's hire dialogues:
+A mercenary never follows for free: its fee is at least the daily rate of its faction times the days of the hire. Code tells a mercenary by the faction that it belongs to (`faction` and `factionID` in `plugin/game/Context.cpp:805`). The rates come from the `Bodyguard` contracts of the game's hire dialogues:
 
 | Faction | Daily rate | Hire dialogue in the game data |
 |---|---|---|

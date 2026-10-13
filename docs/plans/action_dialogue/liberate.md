@@ -11,7 +11,7 @@ LIBERATE has no breakout, because no NPC that got the `BREAKOUT_PRISONER` task m
 LIBERATE needs all of these, and a line that fails one goes to plain chat with the reason ([Plain chat](framework.md#plain-chat)):
 
 - The speaker is not a slave, because no one releases a slave.
-- The speaker is a prisoner: its `character_state` (`plugin/game/Context.cpp:1093`) is `imprisoned`.
+- The speaker is a prisoner: its `character_state` (`plugin/game/Context.cpp:755`) is `imprisoned`.
 - The NPC is not `imprisoned`, because a fellow prisoner cannot free anyone.
 - The NPC is a guard ([Outcome](framework.md#outcome)).
 
@@ -19,7 +19,7 @@ The guard releases the speaker with the `RELEASE_PRISONER` task. The popup ([Off
 
 The task runs through the release handler (`ACT_RELEASE` in `plugin/game/GameActions.cpp`). It frees the speaker at once when the NPC stands within 4 m of the cage or the shackles, and it gives the NPC the task otherwise. When the speaker is still locked up after 30 seconds of unpaused game, `WatchReleases` frees it, because the package of a jailer can keep it at its desk: the captain of a bounty desk never left the desk for the task.
 
-A slave in a cage reads as `imprisoned`, because the plugin checks the cage before the slave state (`plugin/game/Context.cpp:1093`). The plugin must therefore send the slave state apart from `character_state` (`isSlave` in `plugin/game/Context.cpp:1118`), so that a slave in a cage also goes to plain chat.
+A slave in a cage reads as `imprisoned`, because the plugin checks the cage before the slave state (`plugin/game/Context.cpp:744`). The plugin must therefore send the slave state apart from `character_state` (`isSlave` in `plugin/game/Context.cpp:757`), so that a slave in a cage also goes to plain chat.
 
 The action dialogue ends when the player accepts an offer. The guard says its accept line while the speaker is still in the cage, before it walks over, so the lines of `liberate_accept` (`server/data/defaults/action_end_lines.json`) promise the release and do not send the speaker away.
 

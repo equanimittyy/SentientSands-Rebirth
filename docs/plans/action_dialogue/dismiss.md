@@ -8,10 +8,10 @@ Dismissing a squad member stays outside the action dialogue and goes through the
 
 ## 2. Gate
 
-The NPC is a temporary follower (`temporary_follower` in `plugin/game/Context.cpp:362`) ([Blocked](framework.md#blocked)).
+The NPC is a temporary follower (`temporary_follower` in `plugin/game/Context.cpp:455`) ([Blocked](framework.md#blocked)).
 
 ## 3. Answer
 
 The NPC never refuses, so DISMISS has no lean, no offer, and no LLM call. The hire ends at once, the NPC says a line of `dismiss_end`, and the action dialogue ends with it. The player gets no part of the fee back.
 
-The plugin ends the hire with `endContractJob` of the blackboard (`deps/KenshiLib/Include/kenshi/AI/Blackboard.h:76`), which an in-game test showed to work ([kenshi_internals.md](../../info/kenshi_internals.md#orders-and-contracts)). `PerformLeaveSquad` (`plugin/game/GameActions.cpp:26`) does not fit, because it takes a member out of the squad.
+The plugin ends the hire with `endContractJob` of the blackboard (`deps/KenshiLib/Include/kenshi/AI/Blackboard.h:76`), which an in-game test showed to work ([kenshi_internals.md](../../info/kenshi_internals.md#orders-and-contracts)).
