@@ -19,7 +19,6 @@ void CloseWelcomeUI() {
     if (MyGUI::Gui::getInstancePtr())
       MyGUI::Gui::getInstancePtr()->destroyWidget(g_welcomeWindow);
     g_welcomeWindow = nullptr;
-    g_welcomeCheckbox = nullptr;
   }
 }
 
@@ -131,16 +130,14 @@ void CreateWelcomeUI() {
   instructions->setTextAlign(MyGUI::Align::Center);
   instructions->setTextColour(MyGUI::Colour(0.6f, 1.0f, 0.6f));
 
-  g_welcomeCheckbox = client->createWidgetReal<MyGUI::Button>(
+  MyGUI::Button *toggle = client->createWidgetReal<MyGUI::Button>(
       "Kenshi_Button1", 0.05f, 0.61f, 0.9f, 0.12f,
       MyGUI::Align::Top | MyGUI::Align::HStretch,
       "SentientSands_WelcomeToggle");
-  g_welcomeCheckbox->setCaption(Utf8ToWide(g_enableWelcome
-                                               ? T("Show on Startup: [ON]")
-                                               : T("Show on Startup: [OFF]"))
-                                    .c_str());
-  g_welcomeCheckbox->eventMouseButtonClick +=
-      MyGUI::newDelegate(OnWelcomeToggleClick);
+  toggle->setCaption(Utf8ToWide(g_enableWelcome ? T("Show on Startup: [ON]")
+                                                : T("Show on Startup: [OFF]"))
+                         .c_str());
+  toggle->eventMouseButtonClick += MyGUI::newDelegate(OnWelcomeToggleClick);
 
   MyGUI::Button *saveBtn = client->createWidgetReal<MyGUI::Button>(
       "Kenshi_Button1", 0.29f, 0.78f, 0.42f, 0.18f,

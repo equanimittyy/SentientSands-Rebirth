@@ -822,7 +822,7 @@ static std::string IdentityFields(GameWorld *world, Character *npc) {
 // origin faction of the character, so a later recruit still has it
 static std::string NearbyFactions(GameWorld *world, Character *npc) {
   lektor<RootObject *> results;
-  world->getCharactersWithinSphere(results, npc->getPosition(), g_visionRange,
+  world->getCharactersWithinSphere(results, npc->getPosition(), VISION_RANGE,
                                    0.0f, 0.0f, 16, 0, npc);
   Character *first = FirstPlayerCharacter();
   std::string json = "[";

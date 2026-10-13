@@ -9,15 +9,17 @@ hand g_talkTargetHand;
 DWORD g_mainThreadId = 0;
 std::string g_modRoot = "";
 
+// LoadPluginConfig keeps these when the INI lacks a key, as at a first start,
+// so g_openWebPanelOnStart must match SETTINGS_DEFAULTS of the server
 float g_whisperRadius = 25.0f;
 float g_proximityRadius = 50.0f;
 float g_yellRadius = 100.0f;
-float g_visionRange = 100.0f;
 int g_radiantIntervalSeconds = 600;
 bool g_enableRadiant = true;
 bool g_triggerRadiant = false;
 float g_speechBubbleLife = 10.0f;
 bool g_openWebPanelOnStart = true;
+bool g_enableWelcome = true;
 LogLevel g_logLevel = LOG_INFO;
 
 CRITICAL_SECTION g_stateMutex;

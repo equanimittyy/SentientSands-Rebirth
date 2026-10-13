@@ -91,6 +91,7 @@ static hand g_lastSelectionHand;
 static hand g_lastChattingPlayerHand;
 static HMODULE g_hModule = nullptr;
 static DWORD g_lastRadiantTick = 0;
+static bool g_welcomeShown = false;
 
 #include <mygui/MyGUI_Button.h>
 #include <mygui/MyGUI_Delegate.h>

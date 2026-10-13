@@ -1,5 +1,4 @@
 #include "Utils.h"
-#include "../ui/ChatUIGlobals.h"
 #include "Globals.h"
 #include <fstream>
 #include <iomanip>
@@ -12,9 +11,8 @@
 #include <cmath>
 #include <cstdio>
 #include <cstdlib>
+#include <cstring>
 #include <windows.h>
-
-using namespace SentientSands::UI;
 
 std::wstring Utf8ToWide(const std::string &str) {
   if (str.empty())
@@ -325,22 +323,16 @@ std::string Fill(std::string text, const std::string &slot,
 }
 
 void SetHotkeyFromString(const std::string &keyStr) {
+  char letter =
+      keyStr.size() == 1 ? (char)toupper((unsigned char)keyStr[0]) : '\0';
   g_chatHotkeyStr = keyStr;
-  if (keyStr == "\\")
+  if (keyStr == "\\") {
     g_chatHotkey = VK_OEM_5;
-  else if (keyStr == "[")
+  } else if (keyStr == "[") {
     g_chatHotkey = VK_OEM_4;
-  else if (keyStr == "P" || keyStr == "p")
-    g_chatHotkey = 'P';
-  else if (keyStr == "T" || keyStr == "t")
-    g_chatHotkey = 'T';
-  else if (keyStr == "J" || keyStr == "j")
-    g_chatHotkey = 'J';
-  else if (keyStr == "U" || keyStr == "u")
-    g_chatHotkey = 'U';
-  else if (keyStr == "K" || keyStr == "k")
-    g_chatHotkey = 'K';
-  else {
+  } else if (letter && strchr("PTJUK", letter)) {
+    g_chatHotkey = letter;
+  } else {
     g_chatHotkey = VK_OEM_5;
     g_chatHotkeyStr = "\\";
   }
@@ -364,53 +356,41 @@ void LoadUITranslation(const std::string &json) {
   LeaveCriticalSection(&g_stateMutex);
 }
 
+static int IniInt(const std::string &ini, const char *key, int fallback) {
+  return GetPrivateProfileIntA("Settings", key, fallback, ini.c_str());
+}
+
+static std::string IniString(const std::string &ini, const char *key,
+                             const std::string &fallback) {
+  char value[64];
+  GetPrivateProfileStringA("Settings", key, fallback.c_str(), value,
+                           sizeof(value), ini.c_str());
+  return value;
+}
+
 void LoadPluginConfig() {
-  std::string iniPath = g_modRoot + "\\SentientSands_Config.ini";
-
-  char hotkeyBuf[32];
-  GetPrivateProfileStringA("Settings", "ChatHotkey", "\\", hotkeyBuf, 32,
-                           iniPath.c_str());
-  SetHotkeyFromString(hotkeyBuf);
-
-  g_whisperRadius = (float)GetPrivateProfileIntA("Settings", "WhisperRadius",
-                                                 25, iniPath.c_str());
-  g_proximityRadius = (float)GetPrivateProfileIntA("Settings", "TalkRadius",
-                                                   50, iniPath.c_str());
-  g_yellRadius = (float)GetPrivateProfileIntA("Settings", "YellRadius", 100,
-                                              iniPath.c_str());
-
-  g_visionRange = 100.0f;
+  std::string ini = g_modRoot + "\\SentientSands_Config.ini";
+  SetHotkeyFromString(IniString(ini, "ChatHotkey", g_chatHotkeyStr));
+  g_whisperRadius = (float)IniInt(ini, "WhisperRadius", (int)g_whisperRadius);
+  g_proximityRadius = (float)IniInt(ini, "TalkRadius", (int)g_proximityRadius);
+  g_yellRadius = (float)IniInt(ini, "YellRadius", (int)g_yellRadius);
   g_radiantIntervalSeconds =
-      60 * GetPrivateProfileIntA("Settings", "RadiantChatMinutes", 10,
-                                 iniPath.c_str());
-
+      60 * IniInt(ini, "RadiantChatMinutes", g_radiantIntervalSeconds / 60);
   g_enableRadiant =
-      GetPrivateProfileIntA("Settings", "EnableRadiantConversations", 1,
-                            iniPath.c_str()) != 0;
+      IniInt(ini, "EnableRadiantConversations", g_enableRadiant) != 0;
+  g_enableWelcome = IniInt(ini, "EnableWelcomePopup", g_enableWelcome) != 0;
+  g_speechBubbleLife = (float)atof(
+      IniString(ini, "SpeechBubbleLife", ToString(g_speechBubbleLife)).c_str());
+  g_openWebPanelOnStart =
+      IniInt(ini, "OpenWebPanelOnStart", g_openWebPanelOnStart) != 0;
+  std::string logLevel = IniString(ini, "LogLevel", "INFO");
+  g_logLevel = ParseLogLevel(logLevel);
 
-  g_enableWelcome = GetPrivateProfileIntA("Settings", "EnableWelcomePopup", 1,
-                                          iniPath.c_str()) != 0;
-
-  char bubbleLifeBuf[32];
-  GetPrivateProfileStringA("Settings", "SpeechBubbleLife", "10.0",
-                           bubbleLifeBuf, 32, iniPath.c_str());
-  g_speechBubbleLife = (float)atof(bubbleLifeBuf);
-
-  g_openWebPanelOnStart = GetPrivateProfileIntA("Settings",
-                                                "OpenWebPanelOnStart", 1,
-                                                iniPath.c_str()) != 0;
-
-  char logLevelBuf[16];
-  GetPrivateProfileStringA("Settings", "LogLevel", "INFO", logLevelBuf, 16,
-                           iniPath.c_str());
-  g_logLevel = ParseLogLevel(logLevelBuf);
-
-  Log(LOG_INFO,
-      "CONFIG: Loaded ProximityRadius=" + ToString(g_proximityRadius) +
-          ", RadiantInterval=" + ToString(g_radiantIntervalSeconds) + "s" +
-          ", EnableRadiant=" + (g_enableRadiant ? "true" : "false") +
-          ", EnableWelcome=" + (g_enableWelcome ? "true" : "false") +
-          ", LogLevel=" + logLevelBuf);
+  Log(LOG_INFO, "CONFIG: Loaded TalkRadius=" + ToString(g_proximityRadius) +
+                    ", RadiantInterval=" + ToString(g_radiantIntervalSeconds) +
+                    "s" + ", EnableRadiant=" + JsonBool(g_enableRadiant) +
+                    ", EnableWelcome=" + JsonBool(g_enableWelcome) +
+                    ", LogLevel=" + logLevel);
 }
 
 void StartPythonServer(bool openBrowser) {

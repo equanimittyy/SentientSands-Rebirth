@@ -35,9 +35,5 @@ struct ChatTask {
   std::string offerAnswer;
 };
 
-extern bool g_welcomeShown;
-extern bool g_enableWelcome;
-extern MyGUI::Button *g_welcomeCheckbox;
-
 } // namespace UI
 } // namespace SentientSands

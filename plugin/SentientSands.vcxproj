@@ -61,7 +61,6 @@
     <ClCompile Include="game\Probes.cpp" />
     <ClCompile Include="main.cpp" />
     <ClCompile Include="ui\BarterWindow.cpp" />
-    <ClCompile Include="ui\ChatUIGlobals.cpp" />
     <ClCompile Include="ui\ChatWindow.cpp" />
     <ClCompile Include="ui\CheatWindow.cpp" />
     <ClCompile Include="ui\EventsWindow.cpp" />

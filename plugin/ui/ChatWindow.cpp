@@ -319,7 +319,7 @@ bool SendChatLine(const std::string &npcName, const std::string &handleStr,
 
   float searchRadius = g_proximityRadius;
   if (mode == "whisper")
-    searchRadius = g_visionRange; // NPCs can see you even if you whisper
+    searchRadius = VISION_RANGE; // NPCs can see you even if you whisper
   else if (mode == "yell")
     searchRadius = g_yellRadius;
 

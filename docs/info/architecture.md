@@ -174,8 +174,8 @@ The Editor:
 ## Settings
 
 - The server is the only writer of `SentientSands_Config.ini`. The plugin reads it once at start and then takes changes only through `SET_CONFIG`, because two writers without a lock undo each other.
-- The release ships no INI, so an update keeps the settings. On the first start the plugin uses `LoadPluginConfig` (`plugin/core/Utils.cpp`), and the server writes `SETTINGS_DEFAULTS` (`server/core/settings.py`) and pushes each plugin value (`push_settings_to_plugin`).
-- `OpenWebPanelOnStart` is read before the server starts, so its default in `LoadPluginConfig` must agree with `SETTINGS_DEFAULTS`.
+- The release ships no INI, so an update keeps the settings. On the first start the plugin keeps the defaults of its globals (`plugin/core/Globals.cpp`, read by `LoadPluginConfig`), and the server writes `SETTINGS_DEFAULTS` (`server/core/settings.py`) and pushes each plugin value (`push_settings_to_plugin`).
+- `OpenWebPanelOnStart` is read before the server starts, so its default (`g_openWebPanelOnStart` in `plugin/core/Globals.cpp`) must agree with `SETTINGS_DEFAULTS`.
 - `GET /settings/defaults` is a separate route, because the plugin reads the `/settings` reply by the first match of each key (`GetJsonValue`).
 - `send_to_pipe` retries for 0.25 s, because the plugin re-creates its pipe instance after each message.
 

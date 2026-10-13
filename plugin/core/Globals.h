@@ -25,15 +25,17 @@ extern CRITICAL_SECTION g_msgMutex;
 extern hand g_talkTargetHand;
 extern DWORD g_mainThreadId;
 
+const float VISION_RANGE = 100.0f;
+
 extern float g_whisperRadius;
 extern float g_proximityRadius;
 extern float g_yellRadius;
-extern float g_visionRange;
 extern int g_radiantIntervalSeconds;
 extern bool g_enableRadiant;
 extern bool g_triggerRadiant;
 extern float g_speechBubbleLife;
 extern bool g_openWebPanelOnStart;
+extern bool g_enableWelcome;
 extern LogLevel g_logLevel;
 
 extern CRITICAL_SECTION g_stateMutex;
