@@ -463,6 +463,7 @@ static void OnChatSpeakerClick(MyGUI::Widget *sender) {
 }
 
 void SelectChatSpeaker(const hand &member) {
+  g_lastSpeakerKey = HandleKey(member.getCharacter());
   if (!g_chatWindow || member == g_chatTargets[g_chatTargetIndex])
     return;
   for (size_t i = 0; i < g_chatSpeakers.size(); ++i) {
@@ -615,7 +616,6 @@ void CreateChatUI(Character *npc) {
   g_chatJustOpened = true;
   BuildChatWindow();
   ShowChatTarget();
-  SelectChatSpeaker(world->player->selectedCharacter);
   // Only a button press may make a character talk to itself
   if (!g_chatSpeakers.empty() &&
       g_chatSpeakers[g_chatSpeakerIndex] == g_chatTargets[g_chatTargetIndex]) {
