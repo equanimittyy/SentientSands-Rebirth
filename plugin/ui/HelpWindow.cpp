@@ -45,10 +45,11 @@ static const HelpTopic HELP_TOPICS[] = {
      {{NULL, "Select an NPC and press the chat key, [ {key} ]. The chat goes "
              "to the last NPC that you selected, even when you select a squad "
              "member after it. While the chat window is open, select another "
-             "NPC to talk to that NPC instead. You can change the chat key on "
-             "the Settings tab of the web app. To whisper, the NPC must stand "
-             "within the Whisper range of the speaker, and to talk, within the "
-             "Talk range."},
+             "NPC to talk to that NPC instead. The window still shows the "
+             "current conversation until you send the line. You can change the "
+             "chat key on the Settings tab of the web app. To whisper, the NPC "
+             "must stand within the Whisper range of the speaker, and to talk, "
+             "within the Talk range."},
       {"Target", "To talk to one of your characters within the Talk range of "
                  "your squad, press the button on the right, with the name of "
                  "the NPC, until it shows that character. The chat stays on "
@@ -57,10 +58,11 @@ static const HelpTopic HELP_TOPICS[] = {
       {"Speaker", "You speak as the squad member that you select. To speak "
                   "as another squad member, select that member, or press the "
                   "button on the left, with the name of the speaker, until it "
-                  "shows that member. To make a character talk to itself, "
-                  "press the buttons until both show that character. This "
-                  "works with Talk and Whisper. With Yell, the character "
-                  "yells at everyone."},
+                  "shows that member. While you type a line, the number keys "
+                  "type digits and do not select a squad member. To make a "
+                  "character talk to itself, press the buttons until both "
+                  "show that character. This works with Talk and Whisper. "
+                  "With Yell, the character yells at everyone."},
       {"Whisper", "Only the NPC hears it."},
       {"Talk", "The NPCs within the Talk range hear it."},
       {"Yell", "The NPCs within the Yell range hear it. Up to 3 of them can "

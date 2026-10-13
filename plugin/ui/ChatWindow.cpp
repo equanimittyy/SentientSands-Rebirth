@@ -67,6 +67,9 @@ static MyGUI::Button *g_chatTargetBtn = nullptr;
 static std::vector<hand> g_chatTargets;
 static size_t g_chatTargetIndex = 0;
 static hand g_chosenChatTarget;
+// Ending a vanilla dialogue also clears the AI goals of the NPC, so an NPC
+// selected while the window is open keeps it until a line goes to the NPC
+static hand g_switchedNpc;
 static unsigned int g_chatTargetKey = 0;
 static std::string g_chatTargetNameStr;
 static size_t g_lastChatModeIndex = 1;
@@ -79,6 +82,7 @@ static MyGUI::TextBox *g_chatThreadHeader = nullptr;
 static MyGUI::EditBox *g_chatHistoryText = nullptr;
 static MyGUI::Button *g_chatBarterBtn = nullptr;
 static std::string g_chatBarterThread;
+static unsigned int g_chatThreadNpcKey = 0;
 static int g_chatHistoryRequest = 0;
 static const float CHAT_INPUT_HEIGHT = 0.18f;
 static const float CHAT_HEADER_HEIGHT = 0.035f;
@@ -96,6 +100,7 @@ static void CloseChatUI() {
   g_chatThreadHeader = nullptr;
   g_chatHistoryText = nullptr;
   g_chatBarterBtn = nullptr;
+  g_chatBarterThread.clear();
 }
 
 static CloseAction g_chatClose = {CloseChatUI};
@@ -229,6 +234,14 @@ std::string CurrentChatMode() {
                                  : "talk";
 }
 
+// Vanilla dialogue would run alongside the AI chat ("double dialogue")
+static void EndVanillaDialogue(Character *npc) {
+  if (npc && npc->dialogue && (uintptr_t)npc->dialogue > 0x1000) {
+    npc->dialogue->endDialogue(true);
+    npc->dialogue->setInDialog(false);
+  }
+}
+
 static void OnChatSendClick(MyGUI::Widget *sender) {
   if (!g_chatInput)
     return;
@@ -265,7 +278,10 @@ static void OnChatSendClick(MyGUI::Widget *sender) {
     return;
   }
 
-  SendChatLine(g_chatTargetNameStr, g_chatTargetKey, speaker, text, mode, "");
+  if (SendChatLine(g_chatTargetNameStr, g_chatTargetKey, speaker, text, mode,
+                   "") &&
+      target && target->getHandle() == g_switchedNpc)
+    EndVanillaDialogue(target);
 }
 
 bool SendChatLine(const std::string &npcName, unsigned int targetKey,
@@ -420,12 +436,19 @@ static void SetChatThreadHeader(const std::string &text) {
 
 static void RequestChatHistory() {
   SetChatThreadHeader(T("Loading the conversation..."));
+  g_chatThreadNpcKey = g_chatTargetKey;
   Character *target = KeyedCharacter(g_chatTargetKey);
   PostForGameThread(L"/chat_thread",
                     "{\"npc_id\":\"" +
                         EscapeJSON(target ? GetNpcId(target) : std::string()) +
                         "\"}",
                     "CHAT_HISTORY", ToString(++g_chatHistoryRequest));
+}
+
+// Barter would otherwise send the trade of this thread to a switched target
+static void ShowBarterButton() {
+  g_chatBarterBtn->setVisible(!g_chatBarterThread.empty() &&
+                              g_chatTargetKey == g_chatThreadNpcKey);
 }
 
 void SetChatHistory(const std::string &data) {
@@ -445,7 +468,7 @@ void SetChatHistory(const std::string &data) {
                       GetJsonValue(reply, "title"));
   if (GetJsonValue(reply, "type") == "Barter") {
     g_chatBarterThread = reply;
-    g_chatBarterBtn->setVisible(true);
+    ShowBarterButton();
   }
   g_chatHistoryText->setOnlyText(
       Utf8ToWide(GetJsonValue(reply, "lines")).c_str());
@@ -503,10 +526,7 @@ static void ShowChatTarget() {
   g_chatSpeakerBtn->setVisible(!g_chatSpeakers.empty());
   if (!g_chatSpeakers.empty())
     ShowChatSpeaker();
-
-  g_chatBarterBtn->setVisible(false);
-  g_chatHistoryText->setOnlyText("");
-  RequestChatHistory();
+  ShowBarterButton();
 }
 
 static void OnChatTargetClick(MyGUI::Widget *sender) {
@@ -596,19 +616,11 @@ static void FillChatTargets(GameWorld *world, Character *npc) {
   }
 }
 
-// Vanilla dialogue would run alongside the AI chat ("double dialogue")
-static void EndVanillaDialogue(Character *npc) {
-  if (npc && npc->dialogue && (uintptr_t)npc->dialogue > 0x1000) {
-    npc->dialogue->endDialogue(true);
-    npc->dialogue->setInDialog(false);
-  }
-}
-
 void SelectChatTarget(Character *npc) {
   g_chosenChatTarget = hand();
   if (!g_chatWindow)
     return;
-  EndVanillaDialogue(npc);
+  g_switchedNpc = npc->getHandle();
   FillChatTargets(*ppWorld, npc);
   g_chatTargetIndex = 0;
   ShowChatTarget();
@@ -621,6 +633,7 @@ void CreateChatUI(Character *npc) {
   CloseChatUI();
 
   EndVanillaDialogue(npc);
+  g_switchedNpc = hand();
   FillChatTargets(world, npc);
   if (g_chatTargets.empty())
     return;
@@ -634,6 +647,7 @@ void CreateChatUI(Character *npc) {
   g_chatJustOpened = true;
   BuildChatWindow();
   ShowChatTarget();
+  RequestChatHistory();
   // Only a button press may make a character talk to itself
   if (!g_chatSpeakers.empty() &&
       g_chatSpeakers[g_chatSpeakerIndex] == g_chatTargets[g_chatTargetIndex]) {
