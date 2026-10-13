@@ -42,36 +42,23 @@ static const HelpTopic HELP_TOPICS[] = {
       {"Help", "Choose a topic on the left, or press Next to read the topics "
                "in order."}}},
     {"Talk to an NPC",
-     {{NULL, "Select an NPC and press the chat key, [ {key} ]. The chat goes "
-             "to the last NPC that you selected, even when you select a squad "
-             "member after it. While the chat window is open, select another "
-             "NPC to talk to that NPC instead. The window then shows your "
-             "conversation with that NPC. You can change the chat key on the "
-             "Settings tab of the web app. To whisper, the NPC must stand "
-             "within the Whisper range of the speaker, and to talk, within the "
-             "Talk range."},
-      {"Target", "To talk to one of your characters within the Talk range of "
-                 "your squad, press the button on the right, with the name of "
-                 "the NPC, until it shows that character. The chat stays on "
-                 "that character until you select an NPC or press the button "
-                 "again."},
-      {"Speaker", "You speak as the squad member that you select. To speak "
-                  "as another squad member, select that member, or press the "
-                  "button on the left, with the name of the speaker, until it "
-                  "shows that member. While you type a line, the number keys "
-                  "type digits and do not select a squad member. To make a "
-                  "character talk to itself, press the buttons until both "
-                  "show that character. This works with Talk and Whisper. "
-                  "With Yell, the character yells at everyone."},
+     {{NULL, "Select an NPC and press the chat key, [ {key} ]. To talk to "
+             "another NPC, select it. You can change the chat key on the "
+             "Settings tab of the web app."},
+      {"Target", "To talk to one of your characters, press the button on the "
+                 "right until it shows that character."},
+      {"Speaker", "You speak as the squad member that you select. To change "
+                  "the speaker, select another member, or press the button on "
+                  "the left. To make a character talk to itself, press the "
+                  "buttons until both show that character."},
       {"Whisper", "Only the NPC hears it."},
       {"Talk", "The NPCs within the Talk range hear it."},
-      {"Yell", "The NPCs within the Yell range hear it. Up to 3 of them can "
-               "answer, one after another."},
+      {"Yell", "The NPCs within the Yell range hear it, and up to 3 of them "
+               "can answer."},
       {"Send", "Type your line and press Enter. The NPC replies in a speech "
                "bubble."},
-      {NULL, "Above the input, the chat window shows the type of the current "
-             "conversation, such as Chat or Barter, with its speakers and its "
-             "place, and below them its lines."},
+      {NULL,
+       "Above the input, the chat window shows the current conversation."},
       {"Cancel", "Closes the chat window. Enter on an empty line also closes "
                  "it."}}},
     {"Make a deal",
@@ -87,47 +74,35 @@ static const HelpTopic HELP_TOPICS[] = {
              "robotic parts, paid or free."},
       {"!l", "Ask for a release from prison or slavery, paid or free."},
       {"!r", "Ask the NPC to join your squad for good."},
-      {"!f", "Ask the NPC to come along, or hire it for a while. When the "
-             "hire runs out, a popup asks if you renew it on the same terms."},
+      {"!f", "Ask the NPC to come along, or hire it for a while."},
       {"!d", "Tell a hired follower to leave."},
       {"!end", "Ends the deal."},
       {"Offer", "When the NPC makes an offer, a popup opens. Press Accept to "
-                "carry out the deal, or press Decline and type your reply. "
-                "Answer the offer before you say another line."},
+                "carry out the deal, or press Decline and type your reply."},
       {NULL, "You can type the full word instead of the letter, for example "
-             "!barter. Your next lines without ! stay in the same deal. "
-             "Animals and the members of your faction make no deals. A deal "
-             "in Yell mode needs the NPC within the Talk range of the "
-             "speaker."}}},
+             "!barter. Your next lines without ! stay in the same deal."}}},
     {"The Barter window",
      {{NULL, "During a barter (!b), the chat window shows a Barter button. It "
              "opens a window in which you build the deal from real items and "
              "cats."},
       {"Left side", "Your cats and the items of one squad member. Press the "
-                    "button with the name to show the next squad member near "
-                    "the NPC."},
-      {"Right side", "The cats and the goods of the NPC: the stock of its "
-                     "shop, or else the items that it carries."},
+                    "button with the name to show the next squad member."},
+      {"Right side", "The cats and the goods of the NPC."},
       {"Double-click", "Moves one item between the holdings and the offer of "
                        "a side. Shift and double-click moves the whole "
                        "stack."},
       {"Cats", "Type the cats of each side in its Cats box."},
-      {"Estimate", "The line under the boxes shows the profit or the loss of "
-                   "the NPC at the full price. The NPC cannot agree to a loss, "
-                   "except for charity. A profit does not mean that the NPC "
-                   "agrees."},
-      {"Send", "Sends the deal on the table with your line, or with \"How "
-               "about this deal?\" when the line is blank."},
+      {"Estimate",
+       "The line under the boxes shows the profit or the loss of the NPC. The "
+       "NPC cannot agree to a loss, except for charity."},
+      {"Send", "Sends the deal on the table with your line."},
       {"Accept", "Carries out the deal after the NPC agrees to it."},
       {"Close", "Closes the window, and declines an offer that waits."}}},
     {"Radiant conversations",
-     {{NULL, "Each Radiant chat timer (10 minutes of unpaused time by "
-             "default), 3 to 5 of your characters who stand together talk. The "
-             "topic is a memory that they share, the place, or a rumor."},
-      {NULL, "Sometimes the NPCs of one squad who relax at a bar talk about a "
-             "rumor instead. NPC radiant chance on the Settings tab of the web "
-             "app sets how often."},
-      {NULL, "Characters who fought in the last 3 game hours do not talk."},
+     {{NULL, "Each Radiant chat timer (10 minutes by default), 3 to 5 of your "
+             "characters who stand together talk."},
+      {NULL, "Sometimes NPCs who relax at a bar talk instead. NPC radiant "
+             "chance on the Settings tab of the web app sets how often."},
       {"Trigger Radiant", "Press it in the chat window to start a radiant "
                           "conversation now."},
       {NULL, "To stop them, clear Radiant conversations on the Settings tab "
@@ -141,54 +116,44 @@ static const HelpTopic HELP_TOPICS[] = {
       {"Cull Future Data", "Makes NPCs forget what happened after the current "
                            "game time."},
       {"Open Web App", "Opens the web app in a new browser tab."},
-      {"Restart Server", "Restarts the SSR server, for example when the web "
-                         "app says that the server is not running."},
+      {"Restart Server", "Restarts the SSR server."},
       {"Help", "Opens this guide."}}},
     {"The Dialogue Library",
      {{NULL, "The Dialogue Library lists the NPCs that you talked to. Select "
              "an NPC to see its profile and its conversation log."},
-      {"Latest and A-Z", "Sort the list by the newest change to a profile, or "
-                         "by name. The favorites stay at the top."},
+      {"Latest and A-Z", "Sort the list by the newest change, or by name."},
       {"Search", "Finds an NPC by name."},
-      {"Fav Toggle", "Makes the selected NPC a favorite, marked [*]. SSR never "
-                     "prunes the profile of a favorite."},
-      {"Generate Bio", "The AI writes the bio from the current texts and the "
-                       "chats with the NPC. Choose what to write, add "
-                       "instructions if you want, for example \"a former "
-                       "slave who distrusts every noble\", and press Write. "
-                       "Then press Keep to store it, or Discard."},
+      {"Fav Toggle", "Makes the selected NPC a favorite. SSR never prunes the "
+                     "profile of a favorite."},
+      {"Generate Bio", "The AI writes a new bio. Add instructions if you want, "
+                       "press Write, then press Keep or Discard."},
       {"Edit Bio", "Edit the text, then press Keep to store it."},
       {NULL, "After Chats before a bio (5 by default), the AI writes the full "
              "bio by itself."}}},
     {"The Events window",
-     {{NULL, "The Events window lists the events of the campaign: the unique "
-             "characters that your squad killed or captured, such as Tinfist, "
-             "and the custom and auto events. Select an event to see its "
-             "rumor."},
-      {"Show", "Press it until it shows the kind of event that you want: Kill, "
-               "Capture, Custom, or Auto."},
+     {{NULL, "The Events window lists the kills, captures, and other events of "
+             "the campaign. Select an event to see its rumor."},
+      {"Show", "Press it to switch between Kill, Capture, Custom, and Auto."},
       {"Search", "Finds an event by its text."},
-      {"Generate Rumor", "The AI writes the rumor of the selected event now, "
-                         "with optional instructions. Then press Keep to "
-                         "store it, or Discard."},
+      {"Generate Rumor",
+       "The AI writes a new rumor for the selected event, with optional "
+       "instructions. Then press Keep or Discard."},
       {"Edit Rumor", "Edit the text of the rumor, then press Keep."},
-      {"Add Event", "Write the rumor of an event that the game does not "
-                    "track. A custom event has no game time, so Cull Future "
-                    "Data keeps it."},
+      {"Add Event",
+       "Write the rumor of an event that the game does not track."},
       {"Delete", "Deletes the rumor of a kill or a capture, or a whole custom "
                  "or auto event. The delete is irreversible."},
       {NULL, "NPCs mention the 3 newest rumors, and recall an older one when "
              "your line touches it."}}},
     {"The Journal",
-     {{NULL, "The Journal holds your own notes. Each campaign has its own "
-             "journal. NPCs never read it, and Cull Future Data keeps it."},
+     {{NULL,
+       "The Journal holds your own notes on the campaign. NPCs never read it."},
       {"New Entry", "Adds an entry at the current game time."},
-      {"Title and text", "Type your note. The window saves a changed entry "
-                         "when you select another entry, change the page, "
-                         "press New Entry, or close the window."},
+      {"Title and text",
+       "Type your note. The window saves a changed entry when you leave it."},
       {"Save", "Saves the entry now."},
       {"Search", "Finds the entries whose title or text holds your words."},
-      {"< and >", "Go to the previous or the next page of 20 entries."},
+      {"< and >", "Go to the previous or the next page."},
       {"Delete", "Deletes the selected entry. The delete is irreversible."}}},
     {"Campaigns",
      {{NULL, "A campaign holds the memories, rumors, and world events of one "
@@ -205,26 +170,21 @@ static const HelpTopic HELP_TOPICS[] = {
     {"Cheats",
      {{NULL, "Type /cheat or /cheats in the chat window to open the Cheats "
              "window."},
-      {"Name button", "Press it until it shows the character that you want to "
-                      "change: the NPC that you talked to, or a member of "
-                      "your squad."},
+      {"Name button",
+       "Press it until it shows the character that you want to change."},
       {"Rename", "Gives the character a new name."},
       {"Heal", "Heals all the wounds of the character at once."},
       {"Set Stat", "Sets a stat from 0 to 100."},
       {"Set Relation", "Sets how much the character likes your group, from "
                        "-100 to 100."},
-      {"Set Faction", "Sets how much the faction in the list likes your "
-                      "group, from -100 to 100. The list starts on the "
-                      "faction of the character, and you can choose any "
-                      "other faction."},
-      {"Spawn", "Gives the character items. The list shows each weapon, "
-                "armour, and crossbow once for each grade, from the worst "
-                "grade to the best."},
+      {"Set Faction", "Sets how much the faction in the list likes your group, "
+                      "from -100 to 100."},
+      {"Spawn", "Gives the character items."},
       {"Add Cats and Take Cats", "Add or take the cats of the player."}}},
     {"Chat commands",
      {{NULL, "Type a command in the chat window. Except for /help and /cheat, "
-             "a command makes the NPC that you talk to act at once, with no "
-             "deal and no reply from the AI. Use them to test SSR."},
+             "a command makes the NPC act at once, with no deal and no AI "
+             "reply. Use them to test SSR."},
       {"/help", "Opens this guide."},
       {"/cheat or /cheats", "Opens the Cheats window."},
       {"/recruit", "The NPC joins your squad."},
@@ -232,11 +192,10 @@ static const HelpTopic HELP_TOPICS[] = {
       {"/raid [town]", "The NPC goes to raid the town, for example /raid "
                        "Squin."},
       {"/travel [town]", "The NPC travels to the town."},
-      {"/follow", "/follow [hours] hires the NPC as a bodyguard for that many "
-                  "hours, /follow [line ID] starts the contract of a dialogue "
-                  "line of the game, and /follow end makes the hire run out "
-                  "now, as when its time ends. /follow alone only writes the "
-                  "contract of the NPC to the log."},
+      {"/follow",
+       "/follow [hours] hires the NPC for that many hours, /follow [line ID] "
+       "starts the contract of a game dialogue line, and /follow end ends the "
+       "hire now. /follow alone writes the contract of the NPC to the log."},
       {"/firstaid", "The NPC treats the wounds of the speaker, or repairs its "
                     "robotic parts, when it carries the kit. /firstaid job and "
                     "/firstaid aid try other orders for the repair."},
