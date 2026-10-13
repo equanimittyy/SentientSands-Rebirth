@@ -486,7 +486,8 @@ std::string PartyFields(Character *c) {
   return "\"name\": \"" + EscapeJSON(c->getName()) +
          "\", \"id\": " + ToString(HandleKey(c)) + ", \"npc_id\": \"" +
          EscapeJSON(GetNpcId(c)) + "\", \"race\": \"" +
-         EscapeJSON(RaceName(c)) + "\", \"animal\": " + JsonBool(c->isAnimal()) +
+         EscapeJSON(RaceName(c)) + "\", \"animal\": " +
+         JsonBool(c->isAnimal() != nullptr) +
          ", \"gender\": \"" + GenderOf(c) + "\", \"template\": \"" +
          EscapeJSON(c->data ? c->data->name : std::string()) +
          "\", \"template_id\": \"" +
@@ -801,7 +802,8 @@ static std::string IdentityFields(GameWorld *world, Character *npc) {
       EscapeJSON(npc->data ? npc->data->stringID : std::string()) +
       "\", \"unique\": " + JsonBool(npc->isUnique()) + ", \"race\": \"" +
       EscapeJSON(RaceName(npc)) + "\", \"animal\": " +
-      JsonBool(npc->isAnimal()) + ", \"gender\": \"" + GenderOf(npc) +
+      JsonBool(npc->isAnimal() != nullptr) + ", \"gender\": \"" +
+      GenderOf(npc) +
       "\", \"faction\": \"" + EscapeJSON(FactionName(faction)) +
       "\", \"factionID\": \"" + EscapeJSON(FactionID(faction)) +
       "\", \"job\": \"" + EscapeJSON(JobNames(npc)) +
@@ -873,7 +875,8 @@ static std::string MedicalJson(MedicalSystem *med) {
 
 static std::string EnvironmentJson(Character *npc) {
   std::string json = "{\"indoors\": " + JsonBool(npc->isIndoors().isValid()) +
-                     ", \"in_town\": " + JsonBool(npc->amInsideTownWalls());
+                     ", \"in_town\": " +
+                     JsonBool(npc->amInsideTownWalls() != 0);
   TownBase *town = npc->getCurrentTownLocation();
   if (town)
     json += ", \"town_name\": \"" + EscapeJSON(town->getName()) + "\"";
