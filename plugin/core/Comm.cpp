@@ -40,105 +40,58 @@ DWORD WINAPI PipeThread(LPVOID lpParam) {
   return 0;
 }
 
-void PostToPython(const std::wstring &endpoint, const std::string &jsonData) {
-  HINTERNET hSession = NULL, hConnect = NULL, hRequest = NULL;
-  BOOL bResults = FALSE;
-
-  hSession =
+// 127.0.0.1, because the server binds only that address
+static std::string Post(const std::wstring &endpoint, const std::string &json,
+                        int timeoutMs) {
+  std::string body;
+  HINTERNET session =
       WinHttpOpen(L"SentientSands/1.0", WINHTTP_ACCESS_TYPE_DEFAULT_PROXY,
                   WINHTTP_NO_PROXY_NAME, WINHTTP_NO_PROXY_BYPASS, 0);
-
-  if (hSession) {
-    WinHttpSetTimeouts(hSession, 5000, 5000, 5000, 5000);
-    hConnect = WinHttpConnect(hSession, L"localhost", 5000, 0);
+  HINTERNET connect = NULL, request = NULL;
+  if (session) {
+    WinHttpSetTimeouts(session, timeoutMs, timeoutMs, timeoutMs, timeoutMs);
+    connect = WinHttpConnect(session, L"127.0.0.1", 5000, 0);
   }
-
-  if (hConnect)
-    hRequest =
-        WinHttpOpenRequest(hConnect, L"POST", endpoint.c_str(), NULL,
-                           WINHTTP_NO_REFERER, WINHTTP_DEFAULT_ACCEPT_TYPES, 0);
-
-  if (hRequest) {
-    bResults = WinHttpSendRequest(
-        hRequest, L"Content-Type: application/json\r\n", (DWORD)-1L,
-        (LPVOID)jsonData.c_str(), (DWORD)jsonData.length(),
-        (DWORD)jsonData.length(), 0);
-  }
-
-  if (bResults) {
-    WinHttpReceiveResponse(hRequest, NULL);
-  } else {
-    std::string endp(endpoint.begin(), endpoint.end());
-    Log(LOG_WARN, "HTTP: Failed to POST to " + endp +
+  if (connect)
+    request = WinHttpOpenRequest(connect, L"POST", endpoint.c_str(), NULL,
+                                 WINHTTP_NO_REFERER,
+                                 WINHTTP_DEFAULT_ACCEPT_TYPES, 0);
+  bool answered =
+      request &&
+      WinHttpSendRequest(request, L"Content-Type: application/json\r\n",
+                         (DWORD)-1L, (LPVOID)json.c_str(), (DWORD)json.length(),
+                         (DWORD)json.length(), 0) &&
+      WinHttpReceiveResponse(request, NULL);
+  if (!answered) {
+    Log(LOG_WARN, "HTTP: Failed to POST to " +
+                      std::string(endpoint.begin(), endpoint.end()) +
                       " Error: " + ToString((int)GetLastError()));
+  } else {
+    char buffer[4096];
+    DWORD available = 0;
+    while (WinHttpQueryDataAvailable(request, &available) && available > 0) {
+      DWORD read = 0;
+      if (!WinHttpReadData(request, buffer,
+                           available < sizeof(buffer) ? available
+                                                      : (DWORD)sizeof(buffer),
+                           &read) ||
+          read == 0)
+        break;
+      body.append(buffer, read);
+    }
   }
-
-  if (hRequest)
-    WinHttpCloseHandle(hRequest);
-  if (hConnect)
-    WinHttpCloseHandle(hConnect);
-  if (hSession)
-    WinHttpCloseHandle(hSession);
+  if (request)
+    WinHttpCloseHandle(request);
+  if (connect)
+    WinHttpCloseHandle(connect);
+  if (session)
+    WinHttpCloseHandle(session);
+  return body;
 }
 
 std::string PostToPythonWithResponse(const std::wstring &endpoint,
                                      const std::string &jsonData) {
-  HINTERNET hSession = NULL, hConnect = NULL, hRequest = NULL;
-  BOOL bResults = FALSE;
-  std::string responseBody = "";
-
-  hSession =
-      WinHttpOpen(L"SentientSands/1.0", WINHTTP_ACCESS_TYPE_DEFAULT_PROXY,
-                  WINHTTP_NO_PROXY_NAME, WINHTTP_NO_PROXY_BYPASS, 0);
-
-  if (hSession) {
-    WinHttpSetTimeouts(hSession, 60000, 60000, 60000, 60000);
-    hConnect = WinHttpConnect(hSession, L"127.0.0.1", 5000, 0);
-  }
-
-  if (hConnect)
-    hRequest =
-        WinHttpOpenRequest(hConnect, L"POST", endpoint.c_str(), NULL,
-                           WINHTTP_NO_REFERER, WINHTTP_DEFAULT_ACCEPT_TYPES, 0);
-
-  if (hRequest) {
-    bResults = WinHttpSendRequest(
-        hRequest, L"Content-Type: application/json\r\n", (DWORD)-1L,
-        (LPVOID)jsonData.c_str(), (DWORD)jsonData.length(),
-        (DWORD)jsonData.length(), 0);
-  }
-
-  if (bResults) {
-    bResults = WinHttpReceiveResponse(hRequest, NULL);
-  }
-
-  if (bResults) {
-    DWORD dwSize = 0;
-    do {
-      if (!WinHttpQueryDataAvailable(hRequest, &dwSize))
-        break;
-      if (dwSize == 0)
-        break;
-
-      char *pszOutBuffer = new char[dwSize + 1];
-      DWORD dwDownloaded = 0;
-      if (WinHttpReadData(hRequest, (LPVOID)pszOutBuffer, dwSize,
-                          &dwDownloaded)) {
-        pszOutBuffer[dwDownloaded] = '\0';
-        responseBody += pszOutBuffer;
-      }
-      delete[] pszOutBuffer;
-    } while (dwSize > 0);
-  }
-
-  if (hRequest)
-    WinHttpCloseHandle(hRequest);
-  if (hConnect)
-    WinHttpCloseHandle(hConnect);
-  if (hSession)
-    WinHttpCloseHandle(hSession);
-
-  return responseBody;
+  return Post(endpoint, jsonData, 60000);
 }
 
 void StartThread(LPTHREAD_START_ROUTINE start, LPVOID arg) {
@@ -211,7 +164,7 @@ struct HttpTask {
 
 DWORD WINAPI AsyncHttpThread(LPVOID lpParam) {
   HttpTask *task = (HttpTask *)lpParam;
-  PostToPython(task->endpoint, task->data);
+  Post(task->endpoint, task->data, 5000);
   delete task;
   return 0;
 }
