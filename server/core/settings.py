@@ -67,7 +67,7 @@ SETTINGS_DEFAULTS = {
     "radiant_rumor_minutes": 30,
     "whisper_radius": 50,
     "talk_radius": 150,
-    "yell_radius": 300,
+    "yell_radius": 200,
     "enable_welcome": True,
     "dialogue_speed_seconds": 5,
     "bubble_life": 10.0,
@@ -171,7 +171,7 @@ def push_settings_to_plugin():
 def get_config_radii():
     settings = load_settings()
     t = float(settings.get('talk_radius', 150.0))
-    y = float(settings.get('yell_radius', 300.0))
+    y = float(settings.get('yell_radius', 200.0))
     return t, y
 
 def load_configs():

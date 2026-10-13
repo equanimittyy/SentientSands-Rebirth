@@ -13,7 +13,7 @@ std::string g_modRoot = "";
 // so g_openWebPanelOnStart must match SETTINGS_DEFAULTS of the server
 float g_whisperRadius = 50.0f;
 float g_proximityRadius = 150.0f;
-float g_yellRadius = 300.0f;
+float g_yellRadius = 200.0f;
 int g_radiantIntervalSeconds = 600;
 bool g_enableRadiant = true;
 bool g_triggerRadiant = false;
