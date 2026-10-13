@@ -152,7 +152,7 @@ static void UpdateBioChoiceButtons() {
   for (int i = 0; i < 4; i++) {
     std::string label = T(BIO_CHOICES[i]);
     g_bioChoiceBtns[i]->setCaption(
-        Utf8ToWide(i == g_bioChoice ? "> " + label + " <" : label).c_str());
+        PlainText(i == g_bioChoice ? "> " + label + " <" : label));
   }
 }
 
@@ -292,9 +292,8 @@ static void ShowFavCaption() {
   std::string sid = SelectedLibrarySid();
   const LibraryRow *row = RowOf(sid);
   bool fav = row && row->fav;
-  g_libraryFavBtn->setCaption(
-      Utf8ToWide(T(sid.empty() ? "Fav Toggle" : fav ? "Fav: [YES]" : "Fav: [NO]"))
-          .c_str());
+  g_libraryFavBtn->setCaption(PlainText(
+      T(sid.empty() ? "Fav Toggle" : fav ? "Fav: [YES]" : "Fav: [NO]")));
 }
 
 static void ApplyLibraryFilter(const std::string &keepSid) {

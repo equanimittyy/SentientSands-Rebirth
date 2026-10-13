@@ -114,9 +114,8 @@ static void ShowEventsKind() {
   if (CountEventsOfKind(g_eventsKind) == 0)
     g_eventsKind = 0;
   g_eventsKindBtn->setCaption(
-      Utf8ToWide(T("Show: ") + T(EVENT_KIND_LABELS[g_eventsKind]) + " (" +
-                 ToString(CountEventsOfKind(g_eventsKind)) + ")")
-          .c_str());
+      PlainText(T("Show: ") + T(EVENT_KIND_LABELS[g_eventsKind]) + " (" +
+                ToString(CountEventsOfKind(g_eventsKind)) + ")"));
 }
 
 static void OnEventsKindClick(MyGUI::Widget *sender) {

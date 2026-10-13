@@ -628,8 +628,7 @@ static void UpdateModeButtons() {
       continue;
     std::string label = T(CHAT_MODES[i].label);
     g_chatModeBtns[i]->setCaption(
-        Utf8ToWide(i == g_lastChatModeIndex ? "> " + label + " <" : label)
-            .c_str());
+        PlainText(i == g_lastChatModeIndex ? "> " + label + " <" : label));
   }
 }
 

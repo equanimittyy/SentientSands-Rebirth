@@ -112,7 +112,7 @@ void SetCheatRelation(const std::string &data) {
     return;
   std::string relation = GetJsonValue(reply, "relation");
   g_cheatRelation->setCaption(
-      Utf8ToWide("Relation: " + (relation.empty() ? "?" : relation)).c_str());
+      PlainText("Relation: " + (relation.empty() ? "?" : relation)));
 }
 
 static Faction *PlayerFaction() {

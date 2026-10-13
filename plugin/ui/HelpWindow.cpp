@@ -277,7 +277,7 @@ static void ShowHelpTopic(int topic) {
   const HelpTopic &shown = HELP_TOPICS[topic];
   for (int i = 0; i < HELP_TOPIC_COUNT; ++i)
     g_helpTopicBtns[i]->setStateSelected(i == topic);
-  g_helpTitle->setCaption(Utf8ToWide(T(shown.title)).c_str());
+  g_helpTitle->setCaption(PlainText(T(shown.title)));
 
   std::wstring body;
   for (int i = 0; i < HELP_LINE_MAX && shown.lines[i].text; ++i) {
@@ -295,8 +295,7 @@ static void ShowHelpTopic(int topic) {
   g_helpText->setVScrollPosition(0);
 
   g_helpPage->setCaption(
-      Utf8ToWide(ToString(topic + 1) + " / " + ToString(HELP_TOPIC_COUNT))
-          .c_str());
+      PlainText(ToString(topic + 1) + " / " + ToString(HELP_TOPIC_COUNT)));
   g_helpBackBtn->setEnabled(topic > 0);
   g_helpNextBtn->setEnabled(topic < HELP_TOPIC_COUNT - 1);
 }

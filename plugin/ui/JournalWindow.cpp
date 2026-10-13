@@ -36,12 +36,12 @@ static std::string g_journalDeleteId;
 
 static void SetJournalStatus(const std::string &text) {
   if (g_journalStatus)
-    g_journalStatus->setCaption(Utf8ToWide(text).c_str());
+    g_journalStatus->setCaption(PlainText(text));
 }
 
 static void ShowJournalEntry(const std::string &time, const std::string &title,
                       const std::string &text) {
-  g_journalTime->setCaption(Utf8ToWide(time).c_str());
+  g_journalTime->setCaption(PlainText(time));
   // setOnlyText, because setCaption reads a # in the text as a colour tag
   g_journalTitle->setOnlyText(Utf8ToWide(title).c_str());
   ShowFromTop(g_journalText, text);
@@ -84,10 +84,8 @@ void PopulateJournalUI(const std::string &data) {
     if (g_journalIds.back() == g_journalSelectedId)
       g_journalList->setIndexSelected(g_journalIds.size() - 1);
   }
-  g_journalPageText->setCaption(
-      Utf8ToWide(T("Page ") + ToString(g_journalPage) + " / " +
-                 ToString(g_journalPages))
-          .c_str());
+  g_journalPageText->setCaption(PlainText(
+      T("Page ") + ToString(g_journalPage) + " / " + ToString(g_journalPages)));
   g_journalPrevBtn->setEnabled(g_journalPage > 1);
   g_journalNextBtn->setEnabled(g_journalPage < g_journalPages);
 }

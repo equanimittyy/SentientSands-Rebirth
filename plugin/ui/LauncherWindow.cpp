@@ -106,14 +106,14 @@ void CreateLauncherUI() {
 void RefreshLauncherUI() {
   if (!g_launcherWindow)
     return;
-  g_launcherWindow->setCaption(Utf8ToWide(T("SSR HUB")).c_str());
+  g_launcherWindow->setCaption(PlainText(T("SSR HUB")));
   MyGUI::Widget *client = g_launcherWindow->getClientWidget();
   for (size_t i = 0; client && i < LAUNCHER_BUTTON_COUNT; ++i) {
     MyGUI::Widget *widget = client->findWidget(LAUNCHER_BUTTONS[i].name);
     MyGUI::Button *button =
         widget ? widget->castType<MyGUI::Button>(false) : nullptr;
     if (button)
-      button->setCaption(Utf8ToWide(T(LAUNCHER_BUTTONS[i].key)).c_str());
+      button->setCaption(PlainText(T(LAUNCHER_BUTTONS[i].key)));
   }
 }
 

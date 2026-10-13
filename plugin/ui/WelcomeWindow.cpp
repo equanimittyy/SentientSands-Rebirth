@@ -21,9 +21,8 @@ static CloseAction g_welcomeClose = {CloseWelcomeUI};
 static void OnWelcomeToggleClick(MyGUI::Widget *sender) {
   g_enableWelcome = !g_enableWelcome;
   ((MyGUI::Button *)sender)
-      ->setCaption(g_enableWelcome
-                       ? Utf8ToWide(T("Show on Startup: [ON]")).c_str()
-                       : Utf8ToWide(T("Show on Startup: [OFF]")).c_str());
+      ->setCaption(PlainText(T(g_enableWelcome ? "Show on Startup: [ON]"
+                                               : "Show on Startup: [OFF]")));
   AsyncPostToPython(L"/settings", std::string("{\"enable_welcome\": ") +
                                       (g_enableWelcome ? "true" : "false") +
                                       "}");
