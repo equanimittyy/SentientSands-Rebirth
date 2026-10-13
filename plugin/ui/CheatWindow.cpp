@@ -155,7 +155,7 @@ static void FillFactionBox(GameWorld *world) {
   g_cheatFactionBox->removeAllItems();
   for (size_t i = 0; i < factions.size(); ++i) {
     g_cheatFactions.push_back(factions[i]->data->stringID);
-    g_cheatFactionBox->addItem(Utf8ToWide(FactionLine(factions[i])).c_str());
+    g_cheatFactionBox->addItem(PlainText(FactionLine(factions[i])));
   }
 }
 
@@ -170,7 +170,7 @@ static void SelectCheatFaction(Character *c) {
 static void ShowCheatCharacter() {
   Character *c = CheatCharacter();
   std::string name = c ? c->getName() : "?";
-  g_cheatCharacterBtn->setCaption(Utf8ToWide(name).c_str());
+  g_cheatCharacterBtn->setCaption(PlainText(name));
   g_cheatName->setOnlyText(Utf8ToWide(c ? name : "").c_str());
   FillStatList();
   RequestCheatRelation("");
@@ -270,8 +270,7 @@ static void OnCheatSetFactionClick(MyGUI::Widget *sender) {
           (player->relations
                ? ToString((int)player->relations->getFactionRelation(faction))
                : std::string("?")));
-  g_cheatFactionBox->setItemNameAt(index,
-                                   Utf8ToWide(FactionLine(faction)).c_str());
+  g_cheatFactionBox->setItemNameAt(index, PlainText(FactionLine(faction)));
   g_cheatFactionBox->setIndexSelected(index);
 }
 
@@ -418,7 +417,7 @@ static void OnCheatSearchChange(MyGUI::EditBox *sender) {
     if (!ContainsIgnoreCase(g_cheatItems[i].label, wanted))
       continue;
     g_cheatShown.push_back(i);
-    g_cheatItemList->addItem(Utf8ToWide(g_cheatItems[i].label).c_str());
+    g_cheatItemList->addItem(PlainText(g_cheatItems[i].label));
   }
 }
 

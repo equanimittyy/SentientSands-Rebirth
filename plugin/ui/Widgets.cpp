@@ -5,6 +5,7 @@
 
 #include <mygui/MyGUI_Delegate.h>
 #include <mygui/MyGUI_Gui.h>
+#include <mygui/MyGUI_TextIterator.h>
 
 namespace SentientSands {
 namespace UI {
@@ -12,6 +13,14 @@ namespace UI {
 void CloseAction::OnButton(MyGUI::Window *sender, const std::string &name) {
   if (name == "close")
     close();
+}
+
+MyGUI::UString PlainText(const std::string &utf8) {
+  return MyGUI::TextIterator::toTagsString(Utf8ToWide(utf8));
+}
+
+std::string ItemText(MyGUI::ListBox *list, size_t index) {
+  return MyGUI::TextIterator::getOnlyText(list->getItemNameAt(index)).asUTF8();
 }
 
 MyGUI::Widget *OpenWindow(MyGUI::Window *&window, float left, float top,
@@ -42,7 +51,7 @@ MyGUI::Button *AddButton(MyGUI::Widget *parent, const std::string &caption,
                          ClickHandler onClick) {
   MyGUI::Button *button = parent->createWidgetReal<MyGUI::Button>(
       "Kenshi_Button1", left, top, width, height, align, name);
-  button->setCaption(Utf8ToWide(caption).c_str());
+  button->setCaption(PlainText(caption));
   button->eventMouseButtonClick += MyGUI::newDelegate(onClick);
   return button;
 }
@@ -53,7 +62,7 @@ MyGUI::TextBox *AddLabel(MyGUI::Widget *parent, const std::string &text,
                          MyGUI::Align textAlign) {
   MyGUI::TextBox *label = parent->createWidgetReal<MyGUI::TextBox>(
       "Kenshi_TextboxStandardText", left, top, width, height, align, name);
-  label->setCaption(Utf8ToWide(text).c_str());
+  label->setCaption(PlainText(text));
   label->setTextAlign(textAlign);
   return label;
 }
@@ -180,7 +189,7 @@ MyGUI::EditBox *AddEditorBox(MyGUI::Widget *client, float top, float height,
 
 void SetEditorStatus(EditorPopup &popup, const std::string &text) {
   if (popup.status)
-    popup.status->setCaption(Utf8ToWide(text).c_str());
+    popup.status->setCaption(PlainText(text));
 }
 
 void StartEditorRequest(EditorPopup &popup, const wchar_t *endpoint,

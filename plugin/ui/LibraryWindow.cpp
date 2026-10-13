@@ -225,7 +225,7 @@ static void CreateBioEditUI(const std::string &reply) {
                "SentientSands_BioLabel_" + ToString(i));
     g_bioTexts[i] = AddEditorBox(client, top + 0.05f, slot - 0.07f,
                                   "SentientSands_BioText_" + ToString(i));
-    g_bioTexts[i]->setCaption(
+    g_bioTexts[i]->setOnlyText(
         Utf8ToWide(GetJsonValue(reply, BIO_PARTS[i])).c_str());
     top += slot;
   }
@@ -261,7 +261,7 @@ static bool SelectBioNpc() {
   if (index == MyGUI::ITEM_NONE)
     return false;
   g_bioSid = g_libraryStorageIds[index];
-  g_bioName = g_libraryList->getItemNameAt(index).asUTF8();
+  g_bioName = ItemText(g_libraryList, index);
   return true;
 }
 
@@ -300,8 +300,7 @@ static void ApplyLibraryFilter(const std::string &keepSid) {
     const LibraryRow &row = g_libraryRows[i];
     if (!ContainsIgnoreCase(row.name, query))
       continue;
-    g_libraryList->addItem(
-        Utf8ToWide(row.fav ? "[*] " + row.name : row.name).c_str());
+    g_libraryList->addItem(PlainText(row.fav ? "[*] " + row.name : row.name));
     g_libraryStorageIds.push_back(row.sid);
     if (row.sid == keepSid)
       g_libraryList->setIndexSelected(g_libraryStorageIds.size() - 1);
@@ -339,10 +338,10 @@ static void SetLibraryText(const std::string &text) {
 static void ShowLibraryProfile(const std::string &json) {
   if (!g_libraryName)
     return;
-  g_libraryName->setCaption(Utf8ToWide(GetJsonValue(json, "name")).c_str());
+  g_libraryName->setCaption(PlainText(GetJsonValue(json, "name")));
   for (int i = 0; i < LIBRARY_FACT_COUNT; i++)
     g_libraryFacts[i]->setCaption(
-        Utf8ToWide(GetJsonValue(json, LIBRARY_FACT_KEYS[i])).c_str());
+        PlainText(GetJsonValue(json, LIBRARY_FACT_KEYS[i])));
   SetLibraryText(GetJsonValue(json, "text"));
 }
 
@@ -370,8 +369,7 @@ static void OnLibraryNPCSelect(MyGUI::ListBox *sender, size_t index) {
     return;
   ShowFavCaption();
   ShowLibraryProfile("");
-  SetLibraryText(T("Loading profile for ") +
-                 sender->getItemNameAt(index).asUTF8() + "...");
+  SetLibraryText(T("Loading profile for ") + ItemText(sender, index) + "...");
   StartLibraryHistory(g_libraryStorageIds[index]);
 }
 

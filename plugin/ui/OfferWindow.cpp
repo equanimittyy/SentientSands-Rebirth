@@ -162,7 +162,7 @@ static void ShowReplyBox(bool shown) {
   for (size_t i = 0; i < g_offerBoxes.size(); ++i)
     g_offerBoxes[i]->setVisible(!shown);
   g_offerText->setVisible(shown || !barter);
-  g_offerText->setCaption(
+  g_offerText->setOnlyText(
       Utf8ToWide(shown ? T("Your reply:") : g_offer.text).c_str());
   g_offerAcceptBtn->setVisible(!shown);
   g_offerDeclineBtn->setVisible(!shown);
@@ -229,7 +229,7 @@ static void AddOfferBox(MyGUI::Widget *client, const char *labelKey,
   if (entries.empty())
     box->addItem(Utf8ToWide(T("Nothing")).c_str());
   for (size_t i = 0; i < entries.size(); ++i)
-    box->addItem(Utf8ToWide(entries[i]).c_str());
+    box->addItem(PlainText(entries[i]));
   g_offerBoxes.push_back(label);
   g_offerBoxes.push_back(box);
 }
@@ -293,7 +293,7 @@ void ShowOfferUI(const std::string &data) {
   g_offerText = AddTextView(client, 0.05f, 0.05f, 0.9f, 0.5f,
                             MyGUI::Align::Top | MyGUI::Align::HStretch,
                             "SentientSands_OfferText");
-  g_offerText->setCaption(Utf8ToWide(offer.text).c_str());
+  g_offerText->setOnlyText(Utf8ToWide(offer.text).c_str());
   if (barter) {
     g_offerText->setVisible(false);
     AddOfferBox(client, "You are offering:", 0.05f, mine,

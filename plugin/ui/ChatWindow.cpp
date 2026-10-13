@@ -25,7 +25,6 @@
 #include <mygui/MyGUI_Gui.h>
 #include <mygui/MyGUI_InputManager.h>
 #include <mygui/MyGUI_TextBox.h>
-#include <mygui/MyGUI_TextIterator.h>
 #include <mygui/MyGUI_Window.h>
 
 #include <cstdlib>
@@ -398,8 +397,7 @@ static void OnRadiantClick(MyGUI::Widget *sender) {
 }
 
 static void SetChatThreadHeader(const std::string &text) {
-  g_chatThreadHeader->setCaption(
-      MyGUI::TextIterator::toTagsString(Utf8ToWide(text)));
+  g_chatThreadHeader->setCaption(PlainText(text));
 }
 
 static void RequestChatHistory() {
@@ -439,8 +437,7 @@ void SetChatHistory(const std::string &data) {
 
 static void ShowChatSpeaker() {
   Character *member = g_chatSpeakers[g_chatSpeakerIndex].getCharacter();
-  g_chatSpeakerBtn->setCaption(
-      Utf8ToWide(member ? member->getName() : "?").c_str());
+  g_chatSpeakerBtn->setCaption(PlainText(member ? member->getName() : "?"));
 }
 
 static void OnChatSpeakerClick(MyGUI::Widget *sender) {
@@ -479,7 +476,7 @@ static void ShowChatTarget() {
   g_chatTargetKey = target ? HandleKey(target) : 0;
   g_chatWindow->setCaption(
       Utf8ToWide(T("Talking to: ") + g_chatTargetNameStr).c_str());
-  g_chatTargetBtn->setCaption(Utf8ToWide(g_chatTargetNameStr).c_str());
+  g_chatTargetBtn->setCaption(PlainText(g_chatTargetNameStr));
 
   Character *speaker = g_chatSpeakerIndex < g_chatSpeakers.size()
                            ? g_chatSpeakers[g_chatSpeakerIndex].getCharacter()

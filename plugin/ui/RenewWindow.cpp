@@ -204,7 +204,7 @@ static void ShowRenewUI(GameWorld *world, const Hire &hire) {
   AddTextView(client, 0.05f, 0.05f, 0.9f, 0.5f,
               MyGUI::Align::Top | MyGUI::Align::HStretch,
               "SentientSands_RenewText")
-      ->setCaption(Utf8ToWide(hire.text).c_str());
+      ->setOnlyText(Utf8ToWide(hire.text).c_str());
   const std::string name = "SentientSands_Renew";
   AddPopupButton(client, "Accept", 0.18f, name, OnRenewAccept);
   AddPopupButton(client, "Decline", 0.57f, name, OnRenewDecline);

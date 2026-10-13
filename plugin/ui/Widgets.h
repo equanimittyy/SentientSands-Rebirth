@@ -20,6 +20,10 @@ struct CloseAction {
 
 typedef void (*ClickHandler)(MyGUI::Widget *);
 
+// MyGUI reads a # in a caption as the start of a colour tag
+MyGUI::UString PlainText(const std::string &utf8);
+std::string ItemText(MyGUI::ListBox *list, size_t index);
+
 // Returns the client widget, or null without a GUI
 MyGUI::Widget *OpenWindow(MyGUI::Window *&window, float left, float top,
                           float width, float height, MyGUI::Align align,

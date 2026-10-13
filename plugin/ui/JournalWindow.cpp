@@ -6,7 +6,6 @@
 #include <cstdlib>
 #include <mygui/MyGUI_Delegate.h>
 #include <mygui/MyGUI_Gui.h>
-#include <mygui/MyGUI_TextIterator.h>
 
 namespace SentientSands {
 namespace UI {
@@ -81,8 +80,7 @@ void PopulateJournalUI(const std::string &data) {
   g_journalIds.clear();
   for (size_t i = 0; i < entries.size(); i++) {
     g_journalIds.push_back(GetJsonValue(entries[i], "id"));
-    g_journalList->addItem(MyGUI::TextIterator::toTagsString(
-        Utf8ToWide(GetJsonValue(entries[i], "label"))));
+    g_journalList->addItem(PlainText(GetJsonValue(entries[i], "label")));
     if (g_journalIds.back() == g_journalSelectedId)
       g_journalList->setIndexSelected(g_journalIds.size() - 1);
   }

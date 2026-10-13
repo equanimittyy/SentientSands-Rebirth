@@ -86,7 +86,7 @@ static void ApplyEventsFilter(const std::string &keepId) {
       continue;
     if (!ContainsIgnoreCase(row.text, query))
       continue;
-    g_eventsList->addItem(Utf8ToWide(row.title).c_str());
+    g_eventsList->addItem(PlainText(row.title));
     g_eventsStorageIds.push_back(row.id);
     if (row.id == keepId)
       g_eventsList->setIndexSelected(g_eventsStorageIds.size() - 1);
@@ -165,7 +165,7 @@ static void SetEventsText(const std::string &text) {
   std::string line;
   g_eventsText->removeAllItems();
   while (std::getline(ss, line)) {
-    g_eventsText->addItem(Utf8ToWide(line).c_str());
+    g_eventsText->addItem(PlainText(line));
   }
 }
 
@@ -247,7 +247,7 @@ static void CreateRumorAskUI() {
              "SentientSands_RumorInstructionsLabel");
   g_rumorBox =
       AddEditorBox(client, 0.18f, 0.40f, "SentientSands_RumorInstructions");
-  g_rumorBox->setCaption(Utf8ToWide(g_rumorInstruction).c_str());
+  g_rumorBox->setOnlyText(Utf8ToWide(g_rumorInstruction).c_str());
   AddEditorLine(client,
              T("The LLM also reads the event, the characters in it, and the "
                "rumor so far."),
@@ -262,7 +262,7 @@ static void CreateRumorEditUI(const std::string &text) {
   AddEditorLine(client, T("Edit the text, then Keep to store it."), 0.10f,
              "SentientSands_RumorEditHint");
   g_rumorBox = AddEditorBox(client, 0.17f, 0.55f, "SentientSands_RumorText");
-  g_rumorBox->setCaption(Utf8ToWide(text).c_str());
+  g_rumorBox->setOnlyText(Utf8ToWide(text).c_str());
 }
 
 static void OnEventAddClick(MyGUI::Widget *sender) {
@@ -367,7 +367,7 @@ static bool SelectRumorEvent() {
   if (index == MyGUI::ITEM_NONE || index >= g_eventsStorageIds.size())
     return false;
   g_rumorEvent = g_eventsStorageIds[index];
-  g_rumorLine = g_eventsList->getItemNameAt(index).asUTF8();
+  g_rumorLine = ItemText(g_eventsList, index);
   g_rumorInstruction = "";
   for (size_t i = 0; i < g_eventRows.size(); i++)
     if (g_eventRows[i].id == g_rumorEvent) {

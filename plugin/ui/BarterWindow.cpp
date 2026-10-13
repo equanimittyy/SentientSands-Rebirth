@@ -22,7 +22,6 @@
 #include <mygui/MyGUI_InputManager.h>
 #include <mygui/MyGUI_ListBox.h>
 #include <mygui/MyGUI_TextBox.h>
-#include <mygui/MyGUI_TextIterator.h>
 #include <mygui/MyGUI_Window.h>
 
 #include <algorithm>
@@ -78,7 +77,7 @@ static std::map<std::string, int> g_npcPrices;
 static std::map<std::string, int> g_squadPrices;
 
 static void SetCaption(MyGUI::TextBox *widget, const std::string &text) {
-  widget->setCaption(Utf8ToWide(text).c_str());
+  widget->setCaption(PlainText(text));
 }
 
 static void SetStatus(const std::string &key) {
@@ -249,7 +248,7 @@ static void FillList(int list, const std::vector<Lot> &lots, bool named) {
     std::string row = ToString(lots[i].count) + " " + lots[i].label;
     if (named)
       row = HolderName(lots[i].holder) + ": " + row;
-    box->addItem(MyGUI::TextIterator::toTagsString(Utf8ToWide(row)));
+    box->addItem(PlainText(row));
   }
   g_shown[list] = lots;
 }

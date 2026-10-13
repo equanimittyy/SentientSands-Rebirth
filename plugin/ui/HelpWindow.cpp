@@ -6,7 +6,6 @@
 #include <mygui/MyGUI_EditBox.h>
 #include <mygui/MyGUI_Gui.h>
 #include <mygui/MyGUI_TextBox.h>
-#include <mygui/MyGUI_TextIterator.h>
 #include <mygui/MyGUI_Window.h>
 
 namespace SentientSands {
@@ -270,9 +269,7 @@ static int g_helpTopic = 0;
 // The text goes through setCaption for its colour tags, so a # of a
 // translation must be escaped
 static std::wstring HelpText(const char *key) {
-  return MyGUI::TextIterator::toTagsString(
-             Utf8ToWide(Fill(T(key), "{key}", g_chatHotkeyStr)))
-      .asWStr();
+  return PlainText(Fill(T(key), "{key}", g_chatHotkeyStr)).asWStr();
 }
 
 static void ShowHelpTopic(int topic) {
