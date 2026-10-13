@@ -21,6 +21,8 @@ The plugin sends the captor as `captor`, the faction ID of the owner of the cage
 
 The leader gate still holds for a fellow captive.
 
+At the accept, a fellow captive says a line of `recruit_captive_accept` instead of `recruit_accept` (`server/data/defaults/action_end_lines.json`, `offers.accept_end`). It agrees while the captors still hold both characters, so its lines keep the escape quiet.
+
 ## 3. Answers
 
 | Answer | Result |

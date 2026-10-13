@@ -389,6 +389,14 @@ def accepted_line(offer, npc, player):
     return f"({player} accepted: {npc} {deal_text(offer, 'accepted', player)}{f' for {paid}' if paid else ''}.)"
 
 
+def accept_end(offer, npc, speaker):
+    """The end whose preset line the NPC says at the accept. A fellow captive agrees while the captors still hold both, so
+    its lines keep the escape quiet."""
+    if offer["category"] == "RECRUIT" and action_dialogue.fellow_captives(npc, speaker):
+        return "recruit_captive_accept"
+    return ACCEPT_LINES[offer["category"]]
+
+
 def declined_line(offer, npc, player):
     paid = goods_text(offer["takes"])
     if not offer["gives"]:

@@ -83,6 +83,18 @@
         "Count me in.",
         "Let's go, before I think better of it."
     ],
+    "recruit_captive_accept": [
+        "Keep your voice down. I'm with you.",
+        "Anything beats rotting here.",
+        "If they catch us, I never knew you.",
+        "Fine. Just get us out of here.",
+        "Wait till they look away.",
+        "I'm in. Don't get us both killed.",
+        "Better to die running than die here.",
+        "Quiet. They're watching.",
+        "Alright. Tell me when.",
+        "I've been waiting for someone to ask."
+    ],
     "follow_accept": [
         "Lead on.",
         "For a while, then.",

@@ -124,6 +124,15 @@ class TextTest(unittest.TestCase):
             self.assertTrue(offers.DEAL_LINE.search(f"[Day 1, 10:00] {line}"), line)
         self.assertFalse(offers.DEAL_LINE.search("[Day 1, 10:00] Zaps: Fine (for now)."))
 
+    def test_a_fellow_captive_says_a_captive_line_at_the_accept(self):
+        shackled = {"character_state": "enslaved", "captor": "17-gamedata.base"}
+        recruit, _ = check("RECRUIT", "[AGREE]")
+        self.assertEqual(offers.accept_end(recruit, shackled, shackled), "recruit_captive_accept")
+        self.assertEqual(offers.accept_end(recruit, {**shackled, "captor": "5-gamedata.base"}, shackled), "recruit_accept")
+        self.assertEqual(offers.accept_end(recruit, NPC, SPEAKER), "recruit_accept")
+        handover, _ = check("THREATEN", "[GIVE: 2 Bread]")
+        self.assertEqual(offers.accept_end(handover, shackled, shackled), "threaten_accept")
+
     def test_the_join_carries_its_fee_and_the_player_pays_before_the_npc_hands_over(self):
         recruit, _ = check("RECRUIT", "[AGREE: 800 cats]")
         self.assertEqual(offers.actions(recruit), ["[ACTION: JOIN_PARTY: 800]"])

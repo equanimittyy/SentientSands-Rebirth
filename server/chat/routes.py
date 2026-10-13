@@ -269,7 +269,7 @@ def answer_offer():
             campaign_db.set_hire(held["npc_id"], *terms)
         end_thread()
         voice = held["voice"]
-        play_lines([f"{voice}: {action_dialogue.end_line(offers.ACCEPT_LINES[offer['category']])}"], offers.voiced(offer, voice))
+        play_lines([f"{voice}: {action_dialogue.end_line(held['accept'])}"], offers.voiced(offer, voice))
         logging.info(f"ACTION: {player} accepted: {offers.popup_text(offer, npc, player)}")
         if offer.get("charity"):
             state.CHARITY_DAYS[held["npc_id"]] = held["day"]
@@ -735,7 +735,7 @@ def chat():
         elif outcome == "offer":
             popup = offers.popup_text(offer, primary_npc, player_name)
             offer_id = offers.hold(offer, npc=primary_npc, player=player_name, voice=voice(), thread=thread_id, parties=[npc_party, speaker_party],
-                                   location=location, npc_id=primary_id, day=ctx_dict.get("day"))
+                                   location=location, npc_id=primary_id, day=ctx_dict.get("day"), accept=offers.accept_end(offer, ctx_dict, speaker))
             state.PENDING_OFFER["command"] = offers.command(offer_id, offer, primary_npc, target_key, speaker_key, popup, barter)
             after = [state.PENDING_OFFER["command"]]
             logging.info(f"ACTION: {popup}")

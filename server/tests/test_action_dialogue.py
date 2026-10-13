@@ -224,7 +224,8 @@ class ReplyTest(unittest.TestCase):
     def test_each_end_has_ten_preset_lines(self):
         with open(ad.END_LINES_PATH, encoding="utf-8") as f:
             lines = json.load(f)
-        ends = ("end", "barter_accept", "threaten_accept", "threaten_attack", "heal_start", "liberate_accept", "recruit_accept", "follow_accept", "dismiss_end")
+        ends = ("end", "barter_accept", "threaten_accept", "threaten_attack", "heal_start", "liberate_accept", "recruit_accept", "recruit_captive_accept", "follow_accept",
+                "dismiss_end")
         self.assertEqual({end: len(texts) for end, texts in lines.items()}, {end: 10 for end in ends})
         self.assertIn(ad.end_line("end"), lines["end"])
 
