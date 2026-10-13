@@ -390,9 +390,9 @@ An NPC radiant conversation takes the place of a talk of the player's characters
 
 ## Chat range
 
-The plugin sends a chat line only when the target stands within range of the speaker: `WhisperRadius` for a whisper, else `TalkRadius` (`SendChatLine` in `plugin/ui/ChatWindow.cpp`). Otherwise the chat window shows "{name} is too far away." and the line goes nowhere.
+The plugin sends a chat line only when the target stands within range of the speaker: `WhisperRadius` for a whisper, else `TalkRadius` (`SendChatLine` in `plugin/ui/ChatWindow.cpp`). Otherwise the chat window shows "{name} is too far away.", the plugin log names the distance and the range, and the line goes nowhere.
 
-- A plain yell is the exception, because it goes to each NPC within `YellRadius`, not only to the target (see [Yells](#yells)).
+- A plain yell is the exception, because it goes to each NPC within `YellRadius`, not only to the target (see [Yells](#yells)). A plain yell at a target beyond `YellRadius` goes out as a yell at the speaker, so only the NPCs in range can answer, and the chat window shows "{name} is too far away.".
 - An action dialogue in Yell mode needs the target within `TalkRadius`, because its offer belongs to one NPC.
 - A test command, a line that starts with `/`, skips the check, because no character says it.
 
@@ -400,7 +400,7 @@ The plugin sends a chat line only when the target stands within range of the spe
 
 A plain chat line in Yell mode can get up to 3 replies, one after another, from the NPCs that hear it (`chat` in `server/chat/routes.py`). An action dialogue in Yell mode gets one reply from its NPC, because an offer and a judgment belong to one NPC.
 
-- The NPCs that can answer are the target and each NPC within `YellRadius` that is outside the player's faction and awake (`radiant.can_answer`). An animal never answers, and a yell at an animal outside the squad gets only the reply of the animal.
+- The NPCs that can answer are the target and each NPC within `YellRadius` that is outside the player's faction and awake (`radiant.can_answer`). A target beyond `YellRadius` does not hear the yell, so the plugin sends it as a yell at the speaker (see [Chat range](#chat-range)). An animal never answers, and a yell at an animal outside the squad gets only the reply of the animal.
 - Only the player's speaker speaks for the squad. So a yell at the speaker or at a squad member gets only the replies of the other NPCs, and no reply when no other NPC can answer.
 - A yell at the speaker itself is a yell at everyone. Each NPC that answers it gets the line as spoken to it, for example `(Yelled) Stick: ...`, and each other NPC overhears it, for example `(Overheard) (Yelled) Stick to everyone: ...`.
 - The server shows the "{name} is thinking..." status and the "..." bubble of the NPC that answers first, just before its chat call. For a talk or a whisper the plugin shows them for the target when it sends the line (`ChatResponseThread` in `plugin/ui/ChatWindow.cpp`), but only the server knows which NPC answers a yell.

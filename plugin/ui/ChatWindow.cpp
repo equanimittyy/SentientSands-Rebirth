@@ -286,10 +286,11 @@ bool SendChatLine(const std::string &npcName, unsigned int targetKey,
     return RefuseLine("{name} is unconscious.", downName, offerAnswer);
   }
   bool marked = IsActionMark(text);
+  float dist = speaker && targetNpc
+                   ? speaker->getPosition().distance(targetNpc->getPosition())
+                   : 0.0f;
   float range = mode == "whisper" ? g_whisperRadius : g_proximityRadius;
-  bool beyondRange =
-      said && speaker && targetNpc &&
-      speaker->getPosition().distance(targetNpc->getPosition()) >= range;
+  bool beyondRange = said && dist >= range;
   EnterCriticalSection(&g_msgMutex);
   std::string pendingName = g_actionPendingName;
   std::string offerName = g_offerPendingName;
@@ -312,8 +313,24 @@ bool SendChatLine(const std::string &npcName, unsigned int targetKey,
   }
   if (!pendingName.empty())
     return RefuseLine("{name} is still thinking.", pendingName, offerAnswer);
-  if (tooFar)
+  if (tooFar) {
+    Log(LOG_INFO, "CHAT: " + npcName + " is " + ToString((int)dist) +
+                      " from " + playerName + ", beyond the range of " +
+                      ToString((int)range));
     return RefuseLine("{name} is too far away.", npcName, offerAnswer);
+  }
+  // The server reads a yell at the speaker as a yell at everyone in range, so
+  // a target beyond Yell range does not answer
+  bool unheard = mode == "yell" && said && dist >= g_yellRadius;
+  if (unheard) {
+    Log(LOG_INFO, "CHAT: " + npcName + " is " + ToString((int)dist) +
+                      " from " + playerName + ", beyond the Yell range of " +
+                      ToString((int)g_yellRadius));
+    NotifyChatStatus("{name} is too far away.", npcName);
+  }
+  Character *addressee = unheard ? speaker : targetNpc;
+  std::string addresseeName = unheard ? playerName : npcName;
+  unsigned int addresseeKey = unheard ? HandleKey(speaker) : targetKey;
 
   // Names the speaker, so its bubble and the NPC's actions go to that squad
   // member. A line of only a mark, such as !end, shows no bubble but still
@@ -321,7 +338,7 @@ bool SendChatLine(const std::string &npcName, unsigned int targetKey,
   QueueMessage("PLAYER_SAY: " + (speaker ? playerName + ": " : std::string()) +
                (marked ? WithoutActionMark(text) : text));
 
-  std::string primaryId = npcName + "|" + KeyText(targetKey);
+  std::string primaryId = addresseeName + "|" + KeyText(addresseeKey);
   std::string npcsJson = "\"" + EscapeJSON(primaryId) + "\"";
   std::string nearbyFullJson = "";
 
@@ -336,7 +353,7 @@ bool SendChatLine(const std::string &npcName, unsigned int targetKey,
     for (auto it = chars.begin(); it != chars.end(); ++it) {
       Character *other = *it;
       if (!other || (uintptr_t)other < 0x1000 || other == speaker ||
-          other == targetNpc)
+          other == addressee)
         continue;
       float dist = speaker->getPosition().distance(other->getPosition());
       if (dist >= searchRadius)
@@ -352,17 +369,17 @@ bool SendChatLine(const std::string &npcName, unsigned int targetKey,
   }
 
   std::string detailedContext = "{}";
-  if (targetNpc) {
-    detailedContext = GetDetailedContext(targetNpc);
+  if (addressee) {
+    detailedContext = GetDetailedContext(addressee);
     LogFactionList();
-    LogNpcRole(targetNpc);
+    LogNpcRole(addressee);
   }
   std::string speakerContext =
       speaker ? GetDetailedContext(speaker, "player") : "{}";
 
   std::string json =
-      "{\"npc\": \"" + EscapeJSON(npcName) + "\", \"npcs\": [" + npcsJson +
-      "], \"nearby\": [" + nearbyFullJson + "], \"message\": \"" +
+      "{\"npc\": \"" + EscapeJSON(addresseeName) + "\", \"npcs\": [" +
+      npcsJson + "], \"nearby\": [" + nearbyFullJson + "], \"message\": \"" +
       EscapeJSON(text) + "\", \"player\": \"" + EscapeJSON(playerName) +
       "\", \"mode\": \"" + mode + "\", \"context\": " + detailedContext +
       ", \"speaker\": " + speakerContext + ", \"speaker_key\": \"" +

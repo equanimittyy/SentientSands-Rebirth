@@ -43,6 +43,11 @@ A change of the mod list is not tested, by decision. Because a string ID names t
 - The zone object (`AreaBiomeGroup`) holds the zone record, for example Stenn Desert, at slot `0x10`. `WeatherSystem::ActiveRegion` and `TownBase::getBiome` both give a zone object.
 - Slot `0x120` also holds a zone record, but not the zone that the map shows.
 
+## Distances
+
+- A world unit is about 10 cm. In `gamedata.base`, the pathfind footprint radius of a human is 2.6, a melee attack distance is 15 to 20, and the use range of most furniture is 20 to 40.
+- So the chat ranges of the default settings are short: Whisper 25 is 2.5 m, Talk 50 is 5 m, and Yell 100 is 10 m.
+
 ## Deaths and captures
 
 A probe of these hooks in several played sessions showed these facts. The plugin sends the game events from the same hooks (see [architecture.md](architecture.md#game-events)).
