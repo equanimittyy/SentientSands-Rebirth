@@ -1,5 +1,5 @@
 #include "CheatWindow.h"
-#include "JournalWindow.h"
+#include "Widgets.h"
 #include "../core/Comm.h"
 #include "../core/Globals.h"
 #include "../core/Utils.h"
@@ -61,11 +61,9 @@ struct CheatItem {
 static std::vector<CheatItem> g_cheatItems;
 static std::vector<size_t> g_cheatShown;
 
-static void CloseCheatUI() {
-  if (g_cheatWindow && MyGUI::Gui::getInstancePtr())
-    MyGUI::Gui::getInstancePtr()->destroyWidget(g_cheatWindow);
-  g_cheatWindow = nullptr;
-}
+static void CloseCheatUI() { DestroyWindow(g_cheatWindow); }
+
+static CloseAction g_cheatClose = {CloseCheatUI};
 
 // getOnlyText, because getCaption doubles a typed # as MyGUI's colour escape
 static std::string Trimmed(MyGUI::EditBox *box) {
@@ -447,12 +445,6 @@ static void OnCheatSpawnClick(MyGUI::Widget *sender) {
                     item.label + " for " + c->getName());
 }
 
-static void OnCheatWindowButtonPressed(MyGUI::Window *sender,
-                                       const std::string &name) {
-  if (name == "close")
-    CloseCheatUI();
-}
-
 static MyGUI::ListBox *AddCheatList(MyGUI::Widget *client, float left,
                                     const std::string &name) {
   return client->createWidgetReal<MyGUI::ListBox>(
@@ -475,9 +467,8 @@ static void FindCheatCharacters(Character *chatTarget) {
 
 void ShowCheatUI(Character *chatTarget) {
   GameWorld *world = ppWorld ? *ppWorld : NULL;
-  MyGUI::Gui *gui = MyGUI::Gui::getInstancePtr();
   CloseCheatUI();
-  if (!world || !gui)
+  if (!world || !MyGUI::Gui::getInstancePtr())
     return;
   FindCheatCharacters(chatTarget);
   FindCheatItems(world);
@@ -487,76 +478,73 @@ void ShowCheatUI(Character *chatTarget) {
       g_cheatStats.push_back((StatsEnumerated)i);
 
   // Not "Popup": a click there raises the window over its open faction list
-  g_cheatWindow = gui->createWidgetReal<MyGUI::Window>(
-      "Kenshi_WindowCX", 0.1f, 0.1f, 0.8f, 0.8f, MyGUI::Align::Center, "Window",
-      "SentientSands_CheatWindow");
-  g_cheatWindow->setCaption("Cheats");
-  g_cheatWindow->eventWindowButtonPressed +=
-      MyGUI::newDelegate(OnCheatWindowButtonPressed);
-  MyGUI::Widget *client = g_cheatWindow->getClientWidget();
+  MyGUI::Widget *client =
+      OpenWindow(g_cheatWindow, 0.1f, 0.1f, 0.8f, 0.8f, MyGUI::Align::Center,
+                 "Window", "SentientSands_CheatWindow", "Cheats", g_cheatClose);
 
   g_cheatCharacterBtn =
-      AddJournalButton(client, "", 0.02f, 0.02f, 0.28f, OnCheatCharacterClick,
-                       "SentientSands_CheatCharacterBtn");
-  AddJournalLine(client, 0.02f, 0.12f, 0.07f, "SentientSands_CheatNameLabel")
-      ->setCaption("Name");
+      AddRowButton(client, "", 0.02f, 0.02f, 0.28f,
+                   "SentientSands_CheatCharacterBtn", OnCheatCharacterClick);
+  AddRowLabel(client, "Name", 0.02f, 0.12f, 0.07f,
+              "SentientSands_CheatNameLabel");
   g_cheatName =
-      AddJournalLineBox(client, 0.09f, 0.12f, 0.21f, "SentientSands_CheatName");
-  AddJournalButton(client, "Rename", 0.02f, 0.20f, 0.135f, OnCheatRenameClick,
-                   "SentientSands_CheatRenameBtn");
-  AddJournalButton(client, "Heal", 0.165f, 0.20f, 0.135f, OnCheatHealClick,
-                   "SentientSands_CheatHealBtn");
+      AddRowBox(client, 0.09f, 0.12f, 0.21f, "SentientSands_CheatName");
+  AddRowButton(client, "Rename", 0.02f, 0.20f, 0.135f,
+               "SentientSands_CheatRenameBtn", OnCheatRenameClick);
+  AddRowButton(client, "Heal", 0.165f, 0.20f, 0.135f,
+               "SentientSands_CheatHealBtn", OnCheatHealClick);
   g_cheatCats =
-      AddJournalLine(client, 0.02f, 0.34f, 0.28f, "SentientSands_CheatCats");
-  AddJournalLine(client, 0.02f, 0.42f, 0.07f, "SentientSands_CheatAmountLabel")
-      ->setCaption("Amount");
-  g_cheatAmount = AddJournalLineBox(client, 0.09f, 0.42f, 0.21f,
-                                    "SentientSands_CheatAmount");
-  AddJournalButton(client, "Add Cats", 0.02f, 0.50f, 0.135f,
-                   OnCheatAddCatsClick, "SentientSands_CheatAddCatsBtn");
-  AddJournalButton(client, "Take Cats", 0.165f, 0.50f, 0.135f,
-                   OnCheatTakeCatsClick, "SentientSands_CheatTakeCatsBtn");
+      AddRowLabel(client, "", 0.02f, 0.34f, 0.28f, "SentientSands_CheatCats");
+  AddRowLabel(client, "Amount", 0.02f, 0.42f, 0.07f,
+              "SentientSands_CheatAmountLabel");
+  g_cheatAmount = AddRowBox(client, 0.09f, 0.42f, 0.21f,
+                            "SentientSands_CheatAmount");
+  AddRowButton(client, "Add Cats", 0.02f, 0.50f, 0.135f,
+               "SentientSands_CheatAddCatsBtn", OnCheatAddCatsClick);
+  AddRowButton(client, "Take Cats", 0.165f, 0.50f, 0.135f,
+               "SentientSands_CheatTakeCatsBtn", OnCheatTakeCatsClick);
   g_cheatRelation =
-      AddJournalLine(client, 0.02f, 0.64f, 0.28f, "SentientSands_CheatRelation");
+      AddRowLabel(client, "", 0.02f, 0.64f, 0.28f,
+                  "SentientSands_CheatRelation");
   g_cheatFactionBox = client->createWidgetReal<MyGUI::ComboBox>(
       "Kenshi_ComboBox", 0.02f, 0.72f, 0.28f, 0.06f,
       MyGUI::Align::Left | MyGUI::Align::Top, "SentientSands_CheatFaction");
   g_cheatFactionBox->setComboModeDrop(true);
   g_cheatFactionBox->setSmoothShow(false);
-  AddJournalLine(client, 0.02f, 0.80f, 0.07f, "SentientSands_CheatPointsLabel")
-      ->setCaption("Points");
-  g_cheatPoints = AddJournalLineBox(client, 0.09f, 0.80f, 0.21f,
-                                    "SentientSands_CheatPoints");
-  AddJournalButton(client, "Set Relation", 0.02f, 0.88f, 0.135f,
-                   OnCheatSetRelationClick, "SentientSands_CheatSetRelationBtn");
-  AddJournalButton(client, "Set Faction", 0.165f, 0.88f, 0.135f,
-                   OnCheatSetFactionClick, "SentientSands_CheatSetFactionBtn");
+  AddRowLabel(client, "Points", 0.02f, 0.80f, 0.07f,
+              "SentientSands_CheatPointsLabel");
+  g_cheatPoints = AddRowBox(client, 0.09f, 0.80f, 0.21f,
+                            "SentientSands_CheatPoints");
+  AddRowButton(client, "Set Relation", 0.02f, 0.88f, 0.135f,
+               "SentientSands_CheatSetRelationBtn", OnCheatSetRelationClick);
+  AddRowButton(client, "Set Faction", 0.165f, 0.88f, 0.135f,
+               "SentientSands_CheatSetFactionBtn", OnCheatSetFactionClick);
 
-  AddJournalLine(client, 0.32f, 0.02f, 0.32f, "SentientSands_CheatStatsLabel")
-      ->setCaption("Stats");
+  AddRowLabel(client, "Stats", 0.32f, 0.02f, 0.32f,
+              "SentientSands_CheatStatsLabel");
   g_cheatStatList = AddCheatList(client, 0.32f, "SentientSands_CheatStatList");
   g_cheatStatList->eventListChangePosition +=
       MyGUI::newDelegate(OnCheatStatSelect);
-  AddJournalLine(client, 0.32f, 0.79f, 0.07f, "SentientSands_CheatLevelLabel")
-      ->setCaption("Level");
-  g_cheatLevel = AddJournalLineBox(client, 0.39f, 0.79f, 0.25f,
-                                   "SentientSands_CheatLevel");
-  AddJournalButton(client, "Set Stat", 0.32f, 0.88f, 0.135f,
-                   OnCheatSetStatClick, "SentientSands_CheatSetStatBtn");
+  AddRowLabel(client, "Level", 0.32f, 0.79f, 0.07f,
+              "SentientSands_CheatLevelLabel");
+  g_cheatLevel = AddRowBox(client, 0.39f, 0.79f, 0.25f,
+                           "SentientSands_CheatLevel");
+  AddRowButton(client, "Set Stat", 0.32f, 0.88f, 0.135f,
+               "SentientSands_CheatSetStatBtn", OnCheatSetStatClick);
 
-  AddJournalLine(client, 0.66f, 0.02f, 0.07f, "SentientSands_CheatSearchLabel")
-      ->setCaption("Search");
-  MyGUI::EditBox *search = AddJournalLineBox(client, 0.73f, 0.02f, 0.25f,
-                                             "SentientSands_CheatSearch");
+  AddRowLabel(client, "Search", 0.66f, 0.02f, 0.07f,
+              "SentientSands_CheatSearchLabel");
+  MyGUI::EditBox *search = AddRowBox(client, 0.73f, 0.02f, 0.25f,
+                                     "SentientSands_CheatSearch");
   search->eventEditTextChange += MyGUI::newDelegate(OnCheatSearchChange);
   g_cheatItemList = AddCheatList(client, 0.66f, "SentientSands_CheatItemList");
-  AddJournalLine(client, 0.66f, 0.79f, 0.07f, "SentientSands_CheatCountLabel")
-      ->setCaption("Count");
-  g_cheatCount = AddJournalLineBox(client, 0.73f, 0.79f, 0.25f,
-                                   "SentientSands_CheatCount");
+  AddRowLabel(client, "Count", 0.66f, 0.79f, 0.07f,
+              "SentientSands_CheatCountLabel");
+  g_cheatCount = AddRowBox(client, 0.73f, 0.79f, 0.25f,
+                           "SentientSands_CheatCount");
   g_cheatCount->setCaption("1");
-  AddJournalButton(client, "Spawn", 0.66f, 0.88f, 0.135f, OnCheatSpawnClick,
-                   "SentientSands_CheatSpawnBtn");
+  AddRowButton(client, "Spawn", 0.66f, 0.88f, 0.135f,
+               "SentientSands_CheatSpawnBtn", OnCheatSpawnClick);
 
   FillFactionBox(world);
   ShowCheatCharacter();

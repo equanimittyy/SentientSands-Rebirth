@@ -71,6 +71,7 @@
     <ClCompile Include="ui\OfferWindow.cpp" />
     <ClCompile Include="ui\RenewWindow.cpp" />
     <ClCompile Include="ui\WelcomeWindow.cpp" />
+    <ClCompile Include="ui\Widgets.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="core\Comm.h" />
@@ -81,7 +82,6 @@
     <ClInclude Include="game\Probes.h" />
     <ClInclude Include="ui\BarterWindow.h" />
     <ClInclude Include="ui\ChatUI.h" />
-    <ClInclude Include="ui\ChatUIGlobals.h" />
     <ClInclude Include="ui\ChatWindow.h" />
     <ClInclude Include="ui\CheatWindow.h" />
     <ClInclude Include="ui\EventsWindow.h" />
@@ -92,6 +92,7 @@
     <ClInclude Include="ui\OfferWindow.h" />
     <ClInclude Include="ui\RenewWindow.h" />
     <ClInclude Include="ui\WelcomeWindow.h" />
+    <ClInclude Include="ui\Widgets.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <Target Name="CopyToInstalledMod" AfterTargets="Build" Condition="'$(SENTIENT_SANDS_MOD_DIR)' != ''">

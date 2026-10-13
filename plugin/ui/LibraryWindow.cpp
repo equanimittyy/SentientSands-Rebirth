@@ -17,10 +17,7 @@ MyGUI::Window *g_libraryWindow = nullptr;
 MyGUI::ListBox *g_libraryList = nullptr;
 MyGUI::EditBox *g_libraryText = nullptr;
 MyGUI::TextBox *g_libraryName = nullptr;
-MyGUI::Button *g_libraryLatestBtn = nullptr;
-MyGUI::Button *g_libraryAZBtn = nullptr;
 MyGUI::Button *g_libraryFavBtn = nullptr;
-MyGUI::Button *g_libraryBioBtn = nullptr;
 MyGUI::EditBox *g_librarySearch = nullptr;
 
 std::vector<std::string> g_libraryStorageIds;
@@ -48,18 +45,13 @@ void CloseLibraryUI() {
   g_libraryRequest++;
   g_libraryListRequest++;
   if (g_libraryWindow) {
-    if (MyGUI::Gui::getInstancePtr())
-      MyGUI::Gui::getInstancePtr()->destroyWidget(g_libraryWindow);
-    g_libraryWindow = nullptr;
+    DestroyWindow(g_libraryWindow);
     g_libraryList = nullptr;
     g_libraryText = nullptr;
     g_libraryName = nullptr;
     for (int i = 0; i < LIBRARY_FACT_COUNT; i++)
       g_libraryFacts[i] = nullptr;
-    g_libraryLatestBtn = nullptr;
-    g_libraryAZBtn = nullptr;
     g_libraryFavBtn = nullptr;
-    g_libraryBioBtn = nullptr;
     g_librarySearch = nullptr;
     g_libraryStorageIds.clear();
     g_libraryRows.clear();
@@ -231,25 +223,6 @@ MyGUI::TextBox *AddBioLine(MyGUI::Widget *client, const std::string &text,
   line->setCaption(Utf8ToWide(text).c_str());
   line->setTextAlign(MyGUI::Align::Left | MyGUI::Align::VCenter);
   return line;
-}
-
-MyGUI::EditBox *AddWordWrapBox(MyGUI::Widget *client, float left, float top,
-                               float width, float height,
-                               const std::string &name) {
-  MyGUI::EditBox *box = client->createWidgetReal<MyGUI::EditBox>(
-      "Kenshi_WordWrap", left, top, width, height,
-      MyGUI::Align::Top | MyGUI::Align::HStretch, name);
-  // Kenshi_WordWrap sets Static, which blocks typing
-  box->setEditStatic(false);
-  box->setEditMultiLine(true);
-  box->setEditWordWrap(true);
-  box->setVisibleVScroll(true);
-  // MyGUI cuts text at 2048 characters by default, and Keep would store the
-  // cut text
-  box->setMaxTextLength(16384);
-  box->setTextAlign(MyGUI::Align::Left | MyGUI::Align::Top);
-  box->setFontHeight(18);
-  return box;
 }
 
 MyGUI::EditBox *AddBioEditBox(MyGUI::Widget *client, float top, float height,
@@ -440,12 +413,8 @@ void PopulateLibraryUI(const std::string &data) {
 }
 
 void SetLibraryText(const std::string &text) {
-  if (!g_libraryText)
-    return;
-  g_libraryText->setOnlyText(Utf8ToWide(text).c_str());
-  // setOnlyText leaves the cursor at the end, and the view follows the cursor
-  g_libraryText->setTextCursor(0);
-  g_libraryText->setVScrollPosition(0);
+  if (g_libraryText)
+    ShowFromTop(g_libraryText, text);
 }
 
 void ShowLibraryProfile(const std::string &json) {
@@ -487,91 +456,44 @@ void OnLibraryNPCSelect(MyGUI::ListBox *sender, size_t index) {
   StartLibraryHistory(g_libraryStorageIds[index]);
 }
 
-void OnLibraryWindowButtonPressed(MyGUI::Window *sender,
-                                  const std::string &name) {
-  if (name == "close")
-    CloseLibraryUI();
-}
+static CloseAction g_libraryClose = {CloseLibraryUI};
 
-void RefreshLibraryUI() {
-  if (!g_libraryList)
-    return;
-  RequestLibraryList();
-  std::string sid = SelectedLibrarySid();
-  if (!sid.empty())
-    StartLibraryHistory(sid);
-}
-
-void AddLibraryFact(MyGUI::Widget *client, int i) {
+static void AddLibraryFact(MyGUI::Widget *client, int i) {
   float left = i % 2 ? 0.66f : 0.32f;
   float top = 0.075f + (i / 2) * 0.045f;
   float valueWidth = i == LIBRARY_FACT_COUNT - 1 ? 0.57f : 0.23f;
-  MyGUI::TextBox *label = client->createWidgetReal<MyGUI::TextBox>(
-      "Kenshi_TextboxStandardText", left, top, 0.09f, 0.045f,
-      MyGUI::Align::Left | MyGUI::Align::Top,
-      "SentientSands_LibFactLabel_" + ToString(i));
-  label->setCaption(Utf8ToWide(T(LIBRARY_FACT_LABELS[i])).c_str());
-  label->setTextAlign(MyGUI::Align::Left | MyGUI::Align::VCenter);
-  label->setTextColour(MyGUI::Colour(0.7f, 0.7f, 0.7f));
-
-  g_libraryFacts[i] = client->createWidgetReal<MyGUI::TextBox>(
-      "Kenshi_TextboxStandardText", left + 0.09f, top, valueWidth, 0.045f,
-      MyGUI::Align::Left | MyGUI::Align::Top,
-      "SentientSands_LibFact_" + ToString(i));
-  g_libraryFacts[i]->setTextAlign(MyGUI::Align::Left | MyGUI::Align::VCenter);
+  MyGUI::Align align = MyGUI::Align::Left | MyGUI::Align::Top;
+  AddLabel(client, T(LIBRARY_FACT_LABELS[i]), left, top, 0.09f, 0.045f, align,
+           "SentientSands_LibFactLabel_" + ToString(i))
+      ->setTextColour(MyGUI::Colour(0.7f, 0.7f, 0.7f));
+  g_libraryFacts[i] =
+      AddLabel(client, "", left + 0.09f, top, valueWidth, 0.045f, align,
+               "SentientSands_LibFact_" + ToString(i));
 }
 
 void CreateLibraryUI() {
-  MyGUI::Gui *gui = MyGUI::Gui::getInstancePtr();
-  if (!gui)
+  CloseLibraryUI();
+  MyGUI::Widget *client =
+      OpenWindow(g_libraryWindow, 0.15f, 0.1f, 0.7f, 0.8f,
+                 MyGUI::Align::Center, "Popup", "SentientSands_LibraryWindow",
+                 T("AI Dialogue Library & Logs"), g_libraryClose);
+  if (!client)
     return;
-  if (g_libraryWindow)
-    CloseLibraryUI();
+  MyGUI::Align left = MyGUI::Align::Left;
+  MyGUI::Align topLeft = MyGUI::Align::Left | MyGUI::Align::Top;
 
-  g_libraryWindow = gui->createWidgetReal<MyGUI::Window>(
-      "Kenshi_WindowCX", 0.15f, 0.1f, 0.7f, 0.8f, MyGUI::Align::Center, "Popup",
-      "SentientSands_LibraryWindow");
-  g_libraryWindow->setCaption(
-      Utf8ToWide(T("AI Dialogue Library & Logs")).c_str());
-  g_libraryWindow->eventWindowButtonPressed +=
-      MyGUI::newDelegate(OnLibraryWindowButtonPressed);
+  AddButton(client, T("Latest"), 0.02f, 0.015f, 0.09f, 0.05f, left,
+            "SentientSands_LibLatestBtn", OnLibrarySortLatest);
+  AddButton(client, T("A-Z"), 0.115f, 0.015f, 0.08f, 0.05f, left,
+            "SentientSands_LibAZBtn", OnLibrarySortAZ);
+  g_libraryFavBtn =
+      AddButton(client, T("Fav Toggle"), 0.20f, 0.015f, 0.1f, 0.05f, left,
+                "SentientSands_LibFavBtn", OnLibraryFavoriteClick);
 
-  MyGUI::Widget *client = g_libraryWindow->getClientWidget();
-
-  g_libraryLatestBtn = client->createWidgetReal<MyGUI::Button>(
-      "Kenshi_Button1", 0.02f, 0.015f, 0.09f, 0.05f, MyGUI::Align::Left,
-      "SentientSands_LibLatestBtn");
-  g_libraryLatestBtn->setCaption(Utf8ToWide(T("Latest")).c_str());
-  g_libraryLatestBtn->eventMouseButtonClick +=
-      MyGUI::newDelegate(OnLibrarySortLatest);
-
-  g_libraryAZBtn = client->createWidgetReal<MyGUI::Button>(
-      "Kenshi_Button1", 0.115f, 0.015f, 0.08f, 0.05f, MyGUI::Align::Left,
-      "SentientSands_LibAZBtn");
-  g_libraryAZBtn->setCaption(Utf8ToWide(T("A-Z")).c_str());
-  g_libraryAZBtn->eventMouseButtonClick += MyGUI::newDelegate(OnLibrarySortAZ);
-
-  g_libraryFavBtn = client->createWidgetReal<MyGUI::Button>(
-      "Kenshi_Button1", 0.20f, 0.015f, 0.1f, 0.05f, MyGUI::Align::Left,
-      "SentientSands_LibFavBtn");
-  g_libraryFavBtn->setCaption(Utf8ToWide(T("Fav Toggle")).c_str());
-  g_libraryFavBtn->eventMouseButtonClick +=
-      MyGUI::newDelegate(OnLibraryFavoriteClick);
-
-  MyGUI::TextBox *searchLabel = client->createWidgetReal<MyGUI::TextBox>(
-      "Kenshi_TextboxStandardText", 0.02f, 0.075f, 0.08f, 0.05f,
-      MyGUI::Align::Left | MyGUI::Align::Top, "SentientSands_LibSearchLabel");
-  searchLabel->setCaption(Utf8ToWide(T("Search")).c_str());
-  searchLabel->setTextAlign(MyGUI::Align::Left | MyGUI::Align::VCenter);
-
-  g_librarySearch = client->createWidgetReal<MyGUI::EditBox>(
-      "Kenshi_EditBox", 0.10f, 0.075f, 0.20f, 0.05f,
-      MyGUI::Align::Left | MyGUI::Align::Top, "SentientSands_LibSearch");
-  g_librarySearch->setEditMultiLine(false);
-  g_librarySearch->setEditWordWrap(false);
-  g_librarySearch->setVisibleVScroll(false);
-  g_librarySearch->setTextAlign(MyGUI::Align::Default);
-  g_librarySearch->setFontHeight(18);
+  AddLabel(client, T("Search"), 0.02f, 0.075f, 0.08f, 0.05f, topLeft,
+           "SentientSands_LibSearchLabel");
+  g_librarySearch = AddLineBox(client, 0.10f, 0.075f, 0.20f, 0.05f, topLeft,
+                               "SentientSands_LibSearch");
   g_librarySearch->eventEditTextChange +=
       MyGUI::newDelegate(OnLibrarySearchChange);
 
@@ -583,40 +505,19 @@ void CreateLibraryUI() {
   g_libraryList->eventListChangePosition +=
       MyGUI::newDelegate(OnLibraryNPCSelect);
 
-  g_libraryName = client->createWidgetReal<MyGUI::TextBox>(
-      "Kenshi_TextboxStandardText", 0.32f, 0.015f, 0.44f, 0.05f,
-      MyGUI::Align::Left | MyGUI::Align::Top, "SentientSands_LibName");
-  g_libraryName->setTextAlign(MyGUI::Align::Left | MyGUI::Align::VCenter);
+  g_libraryName = AddLabel(client, "", 0.32f, 0.015f, 0.44f, 0.05f, topLeft,
+                           "SentientSands_LibName");
   g_libraryName->setTextColour(MyGUI::Colour(1.0f, 0.9f, 0.5f));
-
-  g_libraryBioBtn = client->createWidgetReal<MyGUI::Button>(
-      "Kenshi_Button1", 0.775f, 0.015f, 0.11f, 0.05f, MyGUI::Align::Left,
-      "SentientSands_LibBioBtn");
-  g_libraryBioBtn->setCaption(Utf8ToWide(T("Generate Bio")).c_str());
-  g_libraryBioBtn->eventMouseButtonClick +=
-      MyGUI::newDelegate(OnLibraryBioClick);
-
-  MyGUI::Button *editBioBtn = client->createWidgetReal<MyGUI::Button>(
-      "Kenshi_Button1", 0.89f, 0.015f, 0.09f, 0.05f, MyGUI::Align::Left,
-      "SentientSands_LibEditBioBtn");
-  editBioBtn->setCaption(Utf8ToWide(T("Edit Bio")).c_str());
-  editBioBtn->eventMouseButtonClick +=
-      MyGUI::newDelegate(OnLibraryEditBioClick);
+  AddButton(client, T("Generate Bio"), 0.775f, 0.015f, 0.11f, 0.05f, left,
+            "SentientSands_LibBioBtn", OnLibraryBioClick);
+  AddButton(client, T("Edit Bio"), 0.89f, 0.015f, 0.09f, 0.05f, left,
+            "SentientSands_LibEditBioBtn", OnLibraryEditBioClick);
 
   for (int i = 0; i < LIBRARY_FACT_COUNT; i++)
     AddLibraryFact(client, i);
 
-  g_libraryText = client->createWidgetReal<MyGUI::EditBox>(
-      "Kenshi_WordWrap", 0.32f, 0.31f, 0.66f, 0.67f, MyGUI::Align::Default,
-      "SentientSands_LibraryText");
-  g_libraryText->setEditMultiLine(true);
-  g_libraryText->setEditWordWrap(true);
-  g_libraryText->setEditReadOnly(true);
-  g_libraryText->setVisibleVScroll(true);
-  // The default cap of 2048 characters would cut the newest lines of the log
-  g_libraryText->setMaxTextLength(262144);
-  g_libraryText->setTextAlign(MyGUI::Align::Left | MyGUI::Align::Top);
-  g_libraryText->setFontHeight(18);
+  g_libraryText = AddTextView(client, 0.32f, 0.31f, 0.66f, 0.67f,
+                              MyGUI::Align::Default, "SentientSands_LibraryText");
   SetLibraryText(T("Select an NPC from the list to view their profile."));
 
   RequestLibraryList();

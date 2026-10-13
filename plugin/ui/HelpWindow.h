@@ -1,5 +1,5 @@
 #pragma once
-#include "ChatUIGlobals.h"
+#include "Widgets.h"
 
 namespace SentientSands {
 namespace UI {

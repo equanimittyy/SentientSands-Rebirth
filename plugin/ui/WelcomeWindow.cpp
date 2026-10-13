@@ -14,13 +14,9 @@ namespace UI {
 
 MyGUI::Window *g_welcomeWindow = nullptr;
 
-void CloseWelcomeUI() {
-  if (g_welcomeWindow) {
-    if (MyGUI::Gui::getInstancePtr())
-      MyGUI::Gui::getInstancePtr()->destroyWidget(g_welcomeWindow);
-    g_welcomeWindow = nullptr;
-  }
-}
+void CloseWelcomeUI() { DestroyWindow(g_welcomeWindow); }
+
+static CloseAction g_welcomeClose = {CloseWelcomeUI};
 
 void OnWelcomeToggleClick(MyGUI::Widget *sender) {
   g_enableWelcome = !g_enableWelcome;
@@ -31,12 +27,6 @@ void OnWelcomeToggleClick(MyGUI::Widget *sender) {
   AsyncPostToPython(L"/settings", std::string("{\"enable_welcome\": ") +
                                       (g_enableWelcome ? "true" : "false") +
                                       "}");
-}
-
-void OnWelcomeWindowButtonPressed(MyGUI::Window *sender,
-                                  const std::string &name) {
-  if (name == "close")
-    CloseWelcomeUI();
 }
 
 DWORD WINAPI WelcomeResponseThread(LPVOID lpParam) {
@@ -52,107 +42,63 @@ DWORD WINAPI WelcomeResponseThread(LPVOID lpParam) {
   return 0;
 }
 
+static const struct {
+  const char *key;
+  float red, green, blue;
+} WELCOME_LINES[] = {
+    {"Welcome to Sentient Sands Rebirth, an LLM mod for Kenshi", 0.85f, 0.85f,
+     0.85f},
+    {"Special thanks to Harvicus, the original author of Sentient Sands,", 1.0f,
+     0.9f, 0.5f},
+    {"and to BFrizzleFoShizzle and the RE_Kenshi contributors", 1.0f, 0.9f,
+     0.5f},
+    {"See the Web app for a tutorial on SSR!", 1.0f, 0.6f, 0.6f},
+    {"It opens on start: Alt-Tab to it, or click Open Web App (F8)", 1.0f, 0.6f,
+     0.6f},
+};
+
+static void OnWelcomeCloseClick(MyGUI::Widget *sender) { CloseWelcomeUI(); }
+
 void CreateWelcomeUI() {
-  MyGUI::Gui *gui = MyGUI::Gui::getInstancePtr();
-  if (!gui)
+  CloseWelcomeUI();
+  MyGUI::Widget *client = OpenWindow(
+      g_welcomeWindow, 0.32f, 0.10f, 0.36f, 0.52f, MyGUI::Align::Center,
+      "Popup", "SentientSands_WelcomeWindow",
+      T("Welcome to Sentient Sands Rebirth"), g_welcomeClose);
+  if (!client)
     return;
-  if (g_welcomeWindow)
-    CloseWelcomeUI();
+  MyGUI::Align topWide = MyGUI::Align::Top | MyGUI::Align::HStretch;
 
-  g_welcomeWindow = gui->createWidgetReal<MyGUI::Window>(
-      "Kenshi_WindowCX", 0.32f, 0.10f, 0.36f, 0.52f, MyGUI::Align::Center,
-      "Popup", "SentientSands_WelcomeWindow");
-  g_welcomeWindow->setCaption(
-      Utf8ToWide(T("Welcome to Sentient Sands Rebirth")).c_str());
-  g_welcomeWindow->eventWindowButtonPressed +=
-      MyGUI::newDelegate(OnWelcomeWindowButtonPressed);
+  for (size_t i = 0; i < sizeof(WELCOME_LINES) / sizeof(WELCOME_LINES[0]);
+       ++i)
+    AddLabel(client, T(WELCOME_LINES[i].key), 0.05f, 0.02f + i * 0.07f, 0.9f,
+             0.06f, topWide, "SentientSands_WelcomeL" + ToString((int)i),
+             MyGUI::Align::Center)
+        ->setTextColour(MyGUI::Colour(WELCOME_LINES[i].red,
+                                      WELCOME_LINES[i].green,
+                                      WELCOME_LINES[i].blue));
 
-  MyGUI::Widget *client = g_welcomeWindow->getClientWidget();
+  AddLabel(client,
+           Fill(T("Use [ {key} ] to Chat and [ F8 ] to open the SSR HUB"),
+                "{key}", g_chatHotkeyStr),
+           0.05f, 0.47f, 0.9f, 0.1f, topWide, "SentientSands_WelcomeKeys",
+           MyGUI::Align::Center)
+      ->setTextColour(MyGUI::Colour(0.6f, 1.0f, 0.6f));
 
-  float yProg = 0.02f;
-  float yDelta = 0.07f;
-
-  MyGUI::TextBox *l1 = client->createWidgetReal<MyGUI::TextBox>(
-      "Kenshi_TextboxStandardText", 0.05f, yProg, 0.9f, 0.06f,
-      MyGUI::Align::Top | MyGUI::Align::HStretch, "SentientSands_WelcomeL1");
-  l1->setCaption(Utf8ToWide(T("Welcome to Sentient Sands Rebirth, an LLM mod "
-                              "for Kenshi"))
-                     .c_str());
-  l1->setTextAlign(MyGUI::Align::Center);
-  l1->setTextColour(MyGUI::Colour(0.85f, 0.85f, 0.85f));
-  yProg += yDelta;
-
-  MyGUI::TextBox *l3 = client->createWidgetReal<MyGUI::TextBox>(
-      "Kenshi_TextboxStandardText", 0.05f, yProg, 0.9f, 0.06f,
-      MyGUI::Align::Top | MyGUI::Align::HStretch, "SentientSands_WelcomeL3");
-  l3->setCaption(Utf8ToWide(T("Special thanks to Harvicus, the original "
-                              "author of Sentient Sands,"))
-                     .c_str());
-  l3->setTextAlign(MyGUI::Align::Center);
-  l3->setTextColour(MyGUI::Colour(1.0f, 0.9f, 0.5f));
-  yProg += yDelta;
-
-  MyGUI::TextBox *l4 = client->createWidgetReal<MyGUI::TextBox>(
-      "Kenshi_TextboxStandardText", 0.05f, yProg, 0.9f, 0.06f,
-      MyGUI::Align::Top | MyGUI::Align::HStretch, "SentientSands_WelcomeL4");
-  l4->setCaption(Utf8ToWide(T("and to BFrizzleFoShizzle and the RE_Kenshi "
-                              "contributors"))
-                     .c_str());
-  l4->setTextAlign(MyGUI::Align::Center);
-  l4->setTextColour(MyGUI::Colour(1.0f, 0.9f, 0.5f));
-  yProg += yDelta;
-
-  MyGUI::TextBox *l5 = client->createWidgetReal<MyGUI::TextBox>(
-      "Kenshi_TextboxStandardText", 0.05f, yProg, 0.9f, 0.06f,
-      MyGUI::Align::Top | MyGUI::Align::HStretch, "SentientSands_WelcomeL5");
-  l5->setCaption(Utf8ToWide(T("See the Web app for a tutorial on SSR!"))
-                     .c_str());
-  l5->setTextAlign(MyGUI::Align::Center);
-  l5->setTextColour(MyGUI::Colour(1.0f, 0.6f, 0.6f));
-  yProg += yDelta;
-
-  MyGUI::TextBox *l6 = client->createWidgetReal<MyGUI::TextBox>(
-      "Kenshi_TextboxStandardText", 0.05f, yProg, 0.9f, 0.06f,
-      MyGUI::Align::Top | MyGUI::Align::HStretch, "SentientSands_WelcomeL6");
-  l6->setCaption(Utf8ToWide(T("It opens on start: Alt-Tab to it, or click Open "
-                              "Web App (F8)"))
-                     .c_str());
-  l6->setTextAlign(MyGUI::Align::Center);
-  l6->setTextColour(MyGUI::Colour(1.0f, 0.6f, 0.6f));
-
-  MyGUI::TextBox *instructions = client->createWidgetReal<MyGUI::TextBox>(
-      "Kenshi_TextboxStandardText", 0.05f, 0.47f, 0.9f, 0.1f,
-      MyGUI::Align::Top | MyGUI::Align::HStretch, "SentientSands_WelcomeKeys");
-  instructions->setCaption(
-      Utf8ToWide(Fill(T("Use [ {key} ] to Chat and [ F8 ] to open the SSR HUB"),
-                      "{key}", g_chatHotkeyStr))
-          .c_str());
-  instructions->setTextAlign(MyGUI::Align::Center);
-  instructions->setTextColour(MyGUI::Colour(0.6f, 1.0f, 0.6f));
-
-  MyGUI::Button *toggle = client->createWidgetReal<MyGUI::Button>(
-      "Kenshi_Button1", 0.05f, 0.61f, 0.9f, 0.12f,
-      MyGUI::Align::Top | MyGUI::Align::HStretch,
-      "SentientSands_WelcomeToggle");
-  toggle->setCaption(Utf8ToWide(g_enableWelcome ? T("Show on Startup: [ON]")
-                                                : T("Show on Startup: [OFF]"))
-                         .c_str());
-  toggle->eventMouseButtonClick += MyGUI::newDelegate(OnWelcomeToggleClick);
-
-  MyGUI::Button *saveBtn = client->createWidgetReal<MyGUI::Button>(
-      "Kenshi_Button1", 0.29f, 0.78f, 0.42f, 0.18f,
-      MyGUI::Align::Bottom | MyGUI::Align::HCenter,
-      "SentientSands_WelcomeSaveBtn");
-  saveBtn->setCaption(Utf8ToWide(T("CLOSE")).c_str());
-  saveBtn->eventMouseButtonClick += MyGUI::newDelegate(OnWelcomeSaveClick);
+  AddButton(client,
+            T(g_enableWelcome ? "Show on Startup: [ON]"
+                              : "Show on Startup: [OFF]"),
+            0.05f, 0.61f, 0.9f, 0.12f, topWide, "SentientSands_WelcomeToggle",
+            OnWelcomeToggleClick);
+  AddButton(client, T("CLOSE"), 0.29f, 0.78f, 0.42f, 0.18f,
+            MyGUI::Align::Bottom | MyGUI::Align::HCenter,
+            "SentientSands_WelcomeSaveBtn", OnWelcomeCloseClick);
 }
 
 void RefreshWelcomeUI() {
   if (g_welcomeWindow)
     CreateWelcomeUI();
 }
-
-void OnWelcomeSaveClick(MyGUI::Widget *sender) { CloseWelcomeUI(); }
 
 } // namespace UI
 } // namespace SentientSands

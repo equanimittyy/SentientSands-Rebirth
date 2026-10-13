@@ -336,9 +336,7 @@ static void SetBarterHistory(const std::string &lines) {
 }
 
 static void CloseBarterUI() {
-  if (g_barterWindow && MyGUI::Gui::getInstancePtr())
-    MyGUI::Gui::getInstancePtr()->destroyWidget(g_barterWindow);
-  g_barterWindow = nullptr;
+  DestroyWindow(g_barterWindow);
   g_barterHistory = nullptr;
   g_barterInput = nullptr;
   g_barterPickBtn = nullptr;
@@ -424,75 +422,49 @@ static void OnBarterAccept(MyGUI::Widget *sender) {
 }
 
 // The NPC hears that the player walked away from a deal that it agreed to
-static void OnBarterClose(MyGUI::Widget *sender) {
+static void CloseBarterTable() {
   if (g_offerHeld)
     AsyncPostToPython(L"/offer", DeclineOffer());
   CloseBarterUI();
 }
 
-static void OnBarterWindowButtonPressed(MyGUI::Window *sender,
-                                        const std::string &name) {
-  if (name == "close")
-    OnBarterClose(sender);
-}
+static void OnBarterClose(MyGUI::Widget *sender) { CloseBarterTable(); }
+
+static CloseAction g_barterClose = {CloseBarterTable};
 
 static MyGUI::TextBox *AddBarterText(MyGUI::Widget *client, float left,
                                      float top, float width, float height,
                                      const std::string &text,
                                      const std::string &name) {
-  MyGUI::TextBox *box = client->createWidgetReal<MyGUI::TextBox>(
-      "Kenshi_TextboxStandardText", left, top, width, height,
-      MyGUI::Align::Top | MyGUI::Align::Left, name);
-  SetCaption(box, text);
-  return box;
+  return AddLabel(client, text, left, top, width, height,
+                  MyGUI::Align::Top | MyGUI::Align::Left, name,
+                  MyGUI::Align::Default);
 }
 
 static MyGUI::Button *AddBarterButton(MyGUI::Widget *client, float left,
                                       float top, float width,
                                       const std::string &key,
                                       const std::string &name,
-                                      void (*onClick)(MyGUI::Widget *)) {
-  MyGUI::Button *button = client->createWidgetReal<MyGUI::Button>(
-      "Kenshi_Button1", left, top, width, 0.06f,
-      MyGUI::Align::Top | MyGUI::Align::Left, name);
-  SetCaption(button, T(key));
-  button->eventMouseButtonClick += MyGUI::newDelegate(onClick);
-  return button;
+                                      ClickHandler onClick) {
+  return AddButton(client, T(key), left, top, width, 0.06f,
+                   MyGUI::Align::Top | MyGUI::Align::Left, name, onClick);
 }
 
 static MyGUI::EditBox *AddBarterEdit(MyGUI::Widget *client, float left,
                                      float top, float width,
                                      const std::string &name) {
-  MyGUI::EditBox *box = client->createWidgetReal<MyGUI::EditBox>(
-      "Kenshi_EditBox", left, top, width, 0.05f,
-      MyGUI::Align::Top | MyGUI::Align::Left, name);
-  box->setEditMultiLine(false);
-  box->setFontHeight(18);
-  return box;
+  return AddLineBox(client, left, top, width, 0.05f,
+                    MyGUI::Align::Top | MyGUI::Align::Left, name);
 }
 
-static void BuildBarterWindow(MyGUI::Gui *gui) {
-  g_barterWindow = gui->createWidgetReal<MyGUI::Window>(
-      "Kenshi_WindowCX", 0.15f, 0.08f, 0.7f, 0.84f, MyGUI::Align::Center,
-      "Window", "SentientSands_BarterWindow");
-  SetCaption(g_barterWindow,
-             Fill(T("Barter with {name}"), "{name}", g_barterNpcName));
-  g_barterWindow->eventWindowButtonPressed +=
-      MyGUI::newDelegate(OnBarterWindowButtonPressed);
-  MyGUI::Widget *client = g_barterWindow->getClientWidget();
-
-  g_barterHistory = client->createWidgetReal<MyGUI::EditBox>(
-      "Kenshi_WordWrap", 0.03f, 0.02f, 0.94f, 0.22f,
-      MyGUI::Align::Top | MyGUI::Align::HStretch,
-      "SentientSands_BarterHistory");
-  g_barterHistory->setEditMultiLine(true);
-  g_barterHistory->setEditWordWrap(true);
-  g_barterHistory->setEditReadOnly(true);
-  g_barterHistory->setVisibleVScroll(true);
-  // The default cap of 2048 characters would cut the newest lines
-  g_barterHistory->setMaxTextLength(262144);
-  g_barterHistory->setTextAlign(MyGUI::Align::Left | MyGUI::Align::Top);
-  g_barterHistory->setFontHeight(18);
+static void BuildBarterWindow() {
+  MyGUI::Widget *client = OpenWindow(
+      g_barterWindow, 0.15f, 0.08f, 0.7f, 0.84f, MyGUI::Align::Center, "Window",
+      "SentientSands_BarterWindow",
+      Fill(T("Barter with {name}"), "{name}", g_barterNpcName), g_barterClose);
+  g_barterHistory = AddTextView(client, 0.03f, 0.02f, 0.94f, 0.22f,
+                                MyGUI::Align::Top | MyGUI::Align::HStretch,
+                                "SentientSands_BarterHistory");
 
   // A button goes to the next squad mate, because a drop-down list opens
   // under the window (kenshi_gotchas.md)
@@ -574,8 +546,7 @@ static Character *PlayerCharacter(const std::string &npcId) {
 // the action dialogue, in its mode, or its line would start a new thread
 void ShowBarterUI(const std::string &npcName, const std::string &handleStr,
                   const std::string &thread) {
-  MyGUI::Gui *gui = MyGUI::Gui::getInstancePtr();
-  if (!gui)
+  if (!MyGUI::Gui::getInstancePtr())
     return;
   CloseBarterUI();
   g_barterNpcName = npcName;
@@ -605,7 +576,7 @@ void ShowBarterUI(const std::string &npcName, const std::string &handleStr,
   Character *first = Picked();
   g_barterSpeakerKey = first ? HandleKey(first) : 0;
 
-  BuildBarterWindow(gui);
+  BuildBarterWindow();
   SetBarterHistory(GetJsonValue(thread, "lines"));
   RefreshBarterLists();
 }

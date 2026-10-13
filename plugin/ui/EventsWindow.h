@@ -1,5 +1,5 @@
 #pragma once
-#include "ChatUIGlobals.h"
+#include "Widgets.h"
 
 namespace SentientSands {
 namespace UI {
@@ -17,7 +17,6 @@ void OpenRumorEditor(const std::string &data, const std::string &failureKey);
 void FinishEventChange(const std::string &data, const std::string &failureKey);
 
 void OnEventsSelect(MyGUI::ListBox *sender, size_t index);
-void OnEventsWindowClose(MyGUI::Window *sender, const std::string &name);
 
 } // namespace UI
 } // namespace SentientSands

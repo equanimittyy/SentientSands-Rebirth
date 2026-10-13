@@ -320,84 +320,41 @@ static void OnHelpNextClick(MyGUI::Widget *sender) {
     ShowHelpTopic(g_helpTopic + 1);
 }
 
-static void OnHelpWindowButtonPressed(MyGUI::Window *sender,
-                                      const std::string &name) {
-  if (name == "close")
-    CloseHelpUI();
-}
+void CloseHelpUI() { DestroyWindow(g_helpWindow); }
 
-static MyGUI::Button *AddHelpButton(MyGUI::Widget *client,
-                                    const std::string &caption, float left,
-                                    float top, float width, float height,
-                                    void (*onClick)(MyGUI::Widget *),
-                                    const std::string &name) {
-  MyGUI::Button *button = client->createWidgetReal<MyGUI::Button>(
-      "Kenshi_Button1", left, top, width, height,
-      MyGUI::Align::Left | MyGUI::Align::Top, name);
-  button->setCaption(Utf8ToWide(caption).c_str());
-  button->eventMouseButtonClick += MyGUI::newDelegate(onClick);
-  return button;
-}
-
-void CloseHelpUI() {
-  if (g_helpWindow) {
-    if (MyGUI::Gui::getInstancePtr())
-      MyGUI::Gui::getInstancePtr()->destroyWidget(g_helpWindow);
-    g_helpWindow = nullptr;
-  }
-}
+static CloseAction g_helpClose = {CloseHelpUI};
 
 void CreateHelpUI() {
-  MyGUI::Gui *gui = MyGUI::Gui::getInstancePtr();
-  if (!gui)
+  CloseHelpUI();
+  MyGUI::Widget *client =
+      OpenWindow(g_helpWindow, 0.15f, 0.1f, 0.7f, 0.8f, MyGUI::Align::Center,
+                 "Popup", "SentientSands_HelpWindow", T("SSR Help"),
+                 g_helpClose);
+  if (!client)
     return;
-  if (g_helpWindow)
-    CloseHelpUI();
-
-  g_helpWindow = gui->createWidgetReal<MyGUI::Window>(
-      "Kenshi_WindowCX", 0.15f, 0.1f, 0.7f, 0.8f, MyGUI::Align::Center,
-      "Popup", "SentientSands_HelpWindow");
-  g_helpWindow->setCaption(Utf8ToWide(T("SSR Help")).c_str());
-  g_helpWindow->eventWindowButtonPressed +=
-      MyGUI::newDelegate(OnHelpWindowButtonPressed);
-  MyGUI::Widget *client = g_helpWindow->getClientWidget();
+  MyGUI::Align topLeft = MyGUI::Align::Left | MyGUI::Align::Top;
 
   float step = 0.94f / HELP_TOPIC_COUNT;
   for (int i = 0; i < HELP_TOPIC_COUNT; ++i)
-    g_helpTopicBtns[i] = AddHelpButton(
+    g_helpTopicBtns[i] = AddButton(
         client, T(HELP_TOPICS[i].title), 0.02f, 0.02f + i * step, 0.25f,
-        step - 0.01f, OnHelpTopicClick,
-        "SentientSands_HelpTopic" + ToString(i));
+        step - 0.01f, topLeft, "SentientSands_HelpTopic" + ToString(i),
+        OnHelpTopicClick);
 
-  g_helpTitle = client->createWidgetReal<MyGUI::TextBox>(
-      "Kenshi_TextboxStandardText", 0.29f, 0.02f, 0.69f, 0.06f,
-      MyGUI::Align::Left | MyGUI::Align::Top, "SentientSands_HelpTitle");
-  g_helpTitle->setTextAlign(MyGUI::Align::Left | MyGUI::Align::VCenter);
+  g_helpTitle = AddLabel(client, "", 0.29f, 0.02f, 0.69f, 0.06f, topLeft,
+                         "SentientSands_HelpTitle");
   g_helpTitle->setTextColour(MyGUI::Colour(1.0f, 0.9f, 0.5f));
+  g_helpText = AddTextView(client, 0.29f, 0.09f, 0.69f, 0.77f,
+                           MyGUI::Align::Default, "SentientSands_HelpText");
 
-  g_helpText = client->createWidgetReal<MyGUI::EditBox>(
-      "Kenshi_WordWrap", 0.29f, 0.09f, 0.69f, 0.77f, MyGUI::Align::Default,
-      "SentientSands_HelpText");
-  g_helpText->setEditMultiLine(true);
-  g_helpText->setEditWordWrap(true);
-  g_helpText->setEditReadOnly(true);
-  g_helpText->setVisibleVScroll(true);
-  // MyGUI cuts text at 2048 characters by default, and a translation can be
-  // longer
-  g_helpText->setMaxTextLength(16384);
-  g_helpText->setTextAlign(MyGUI::Align::Left | MyGUI::Align::Top);
-  g_helpText->setFontHeight(18);
-
-  g_helpBackBtn = AddHelpButton(client, "< " + T("Back"), 0.29f, 0.88f, 0.14f,
-                                0.08f, OnHelpBackClick,
-                                "SentientSands_HelpBackBtn");
-  g_helpPage = client->createWidgetReal<MyGUI::TextBox>(
-      "Kenshi_TextboxStandardText", 0.43f, 0.88f, 0.41f, 0.08f,
-      MyGUI::Align::Left | MyGUI::Align::Top, "SentientSands_HelpPage");
-  g_helpPage->setTextAlign(MyGUI::Align::Center);
-  g_helpNextBtn = AddHelpButton(client, T("Next") + " >", 0.84f, 0.88f, 0.14f,
-                                0.08f, OnHelpNextClick,
-                                "SentientSands_HelpNextBtn");
+  g_helpBackBtn = AddButton(client, "< " + T("Back"), 0.29f, 0.88f, 0.14f,
+                            0.08f, topLeft, "SentientSands_HelpBackBtn",
+                            OnHelpBackClick);
+  g_helpPage = AddLabel(client, "", 0.43f, 0.88f, 0.41f, 0.08f, topLeft,
+                        "SentientSands_HelpPage", MyGUI::Align::Center);
+  g_helpNextBtn = AddButton(client, T("Next") + " >", 0.84f, 0.88f, 0.14f,
+                            0.08f, topLeft, "SentientSands_HelpNextBtn",
+                            OnHelpNextClick);
 
   ShowHelpTopic(g_helpTopic);
 }

@@ -1,5 +1,5 @@
 #pragma once
-#include "ChatUIGlobals.h"
+#include "Widgets.h"
 
 class Character;
 class hand;
@@ -10,7 +10,6 @@ namespace UI {
 extern MyGUI::Window *g_chatWindow;
 extern MyGUI::EditBox *g_chatInput;
 extern MyGUI::Button *g_chatModeBtns[3];
-extern MyGUI::TextBox *g_chatLabel;
 extern std::string g_chatTargetHandleStr;
 extern std::string g_chatTargetNameStr;
 extern size_t g_lastChatModeIndex;
@@ -37,7 +36,6 @@ void ForgetChatTarget();
 void OnModeButtonClick(MyGUI::Widget *sender);
 void UpdateModeButtons();
 void OnRadiantClick(MyGUI::Widget *sender);
-void OnChatWindowButtonPressed(MyGUI::Window *sender, const std::string &name);
 
 } // namespace UI
 } // namespace SentientSands

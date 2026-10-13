@@ -8,6 +8,7 @@
 #include "../core/Globals.h"
 #include "../core/Utils.h"
 #include "../game/Context.h"
+#include "OfferWindow.h"
 
 #include <kenshi/AI/Blackboard.h>
 #include <kenshi/Character.h>
@@ -143,9 +144,7 @@ static Character *NearestMember(GameWorld *world, Character *npc) {
 }
 
 static void CloseRenewUI() {
-  if (g_renewWindow && MyGUI::Gui::getInstancePtr())
-    MyGUI::Gui::getInstancePtr()->destroyWidget(g_renewWindow);
-  g_renewWindow = nullptr;
+  DestroyWindow(g_renewWindow);
   GameWorld *world = *ppWorld;
   if (g_renewPaused && world)
     world->userPause(false);
@@ -187,55 +186,28 @@ static void OnRenewDecline(MyGUI::Widget *sender) {
     EndHire(npc);
 }
 
-static void OnRenewWindowButtonPressed(MyGUI::Window *sender,
-                                       const std::string &name) {
-  if (name == "close")
-    OnRenewDecline(sender);
-}
+static void OnRenewClose() { OnRenewDecline(nullptr); }
 
-static MyGUI::Button *AddRenewButton(MyGUI::Widget *client, const char *key,
-                                     float left,
-                                     void (*onClick)(MyGUI::Widget *)) {
-  MyGUI::Button *button = client->createWidgetReal<MyGUI::Button>(
-      "Kenshi_Button1", left, 0.72f, 0.25f, 0.2f,
-      MyGUI::Align::Bottom | MyGUI::Align::Left,
-      std::string("SentientSands_Renew") + key);
-  button->setCaption(Utf8ToWide(T(key)).c_str());
-  button->eventMouseButtonClick += MyGUI::newDelegate(onClick);
-  return button;
-}
+static CloseAction g_renewClose = {OnRenewClose};
 
 static void ShowRenewUI(GameWorld *world, const Hire &hire) {
-  MyGUI::Gui *gui = MyGUI::Gui::getInstancePtr();
-  if (!gui)
+  if (!MyGUI::Gui::getInstancePtr())
     return;
   g_renewal = hire;
   g_renewPaused = !world->isPaused();
   if (g_renewPaused)
     world->userPause(true);
 
-  g_renewWindow = gui->createWidgetReal<MyGUI::Window>(
-      "Kenshi_WindowCX", 0.3f, 0.36f, 0.4f, 0.24f, MyGUI::Align::Center,
-      "Popup", "SentientSands_RenewWindow");
-  g_renewWindow->setCaption(
-      Utf8ToWide(Fill(T("Offer from {name}"), "{name}", hire.npc->getName()))
-          .c_str());
-  g_renewWindow->eventWindowButtonPressed +=
-      MyGUI::newDelegate(OnRenewWindowButtonPressed);
-  MyGUI::Widget *client = g_renewWindow->getClientWidget();
-
-  MyGUI::EditBox *text = client->createWidgetReal<MyGUI::EditBox>(
-      "Kenshi_WordWrap", 0.05f, 0.05f, 0.9f, 0.5f,
-      MyGUI::Align::Top | MyGUI::Align::HStretch, "SentientSands_RenewText");
-  text->setEditMultiLine(true);
-  text->setEditWordWrap(true);
-  text->setEditReadOnly(true);
-  text->setTextAlign(MyGUI::Align::Left | MyGUI::Align::Top);
-  text->setFontHeight(18);
-  text->setCaption(Utf8ToWide(hire.text).c_str());
-
-  AddRenewButton(client, "Accept", 0.18f, OnRenewAccept);
-  AddRenewButton(client, "Decline", 0.57f, OnRenewDecline);
+  MyGUI::Widget *client =
+      OpenPopup(g_renewWindow, 0.36f, 0.24f, "SentientSands_RenewWindow",
+                hire.npc->getName(), g_renewClose);
+  AddTextView(client, 0.05f, 0.05f, 0.9f, 0.5f,
+              MyGUI::Align::Top | MyGUI::Align::HStretch,
+              "SentientSands_RenewText")
+      ->setCaption(Utf8ToWide(hire.text).c_str());
+  const std::string name = "SentientSands_Renew";
+  AddPopupButton(client, "Accept", 0.18f, name, OnRenewAccept);
+  AddPopupButton(client, "Decline", 0.57f, name, OnRenewDecline);
 }
 
 void WatchHires(GameWorld *world) {

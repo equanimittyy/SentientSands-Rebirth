@@ -1,5 +1,5 @@
 #pragma once
-#include "ChatUIGlobals.h"
+#include "Widgets.h"
 
 namespace SentientSands {
 namespace UI {
@@ -10,11 +10,6 @@ void CreateLauncherUI();
 void CloseLauncherUI();
 void RefreshLauncherUI();
 void FinishCull(const std::string &data);
-
-void OnLauncherLibraryClick(MyGUI::Widget *sender);
-void OnLauncherEventsClick(MyGUI::Widget *sender);
-void OnLauncherWindowButtonPressed(MyGUI::Window *sender,
-                                   const std::string &name);
 
 } // namespace UI
 } // namespace SentientSands

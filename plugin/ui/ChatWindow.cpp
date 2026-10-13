@@ -34,10 +34,26 @@
 namespace SentientSands {
 namespace UI {
 
+struct ChatTask {
+  std::string json;
+  std::string npcName;
+  std::string handleStr;
+  bool action;
+  bool yell;
+  bool barter;
+  // The decline goes to /offer before the reply line, or the server would
+  // still hold the offer and drop the line
+  std::string offerAnswer;
+};
+
+static const struct {
+  const char *mode;
+  const char *label;
+} CHAT_MODES[] = {{"whisper", "Whisper"}, {"talk", "Talk"}, {"yell", "Yell"}};
+
 MyGUI::Window *g_chatWindow = nullptr;
 MyGUI::EditBox *g_chatInput = nullptr;
 MyGUI::Button *g_chatModeBtns[3] = {nullptr, nullptr, nullptr};
-MyGUI::TextBox *g_chatLabel = nullptr;
 MyGUI::Button *g_chatSpeakerBtn = nullptr;
 std::vector<hand> g_chatSpeakers;
 size_t g_chatSpeakerIndex = 0;
@@ -65,21 +81,20 @@ const float CHAT_HEADER_HEIGHT = 0.035f;
 const float CHAT_HISTORY_HEIGHT = 0.15f;
 
 void CloseChatUI() {
-  if (g_chatWindow) {
-    if (MyGUI::Gui::getInstancePtr())
-      MyGUI::Gui::getInstancePtr()->destroyWidget(g_chatWindow);
-    g_chatWindow = nullptr;
-    g_chatInput = nullptr;
-    for (int i = 0; i < 3; i++)
-      g_chatModeBtns[i] = nullptr;
-    g_chatLabel = nullptr;
-    g_chatSpeakerBtn = nullptr;
-    g_chatTargetBtn = nullptr;
-    g_chatThreadHeader = nullptr;
-    g_chatHistoryText = nullptr;
-    g_chatBarterBtn = nullptr;
-  }
+  if (!g_chatWindow)
+    return;
+  DestroyWindow(g_chatWindow);
+  g_chatInput = nullptr;
+  for (int i = 0; i < 3; i++)
+    g_chatModeBtns[i] = nullptr;
+  g_chatSpeakerBtn = nullptr;
+  g_chatTargetBtn = nullptr;
+  g_chatThreadHeader = nullptr;
+  g_chatHistoryText = nullptr;
+  g_chatBarterBtn = nullptr;
 }
+
+static CloseAction g_chatClose = {CloseChatUI};
 
 static void NotifyChatStatus(const std::string &key,
                              const std::string &npcName) {
@@ -211,8 +226,8 @@ void SetOfferPending(const std::string &npcName) {
 }
 
 std::string CurrentChatMode() {
-  const char *modes[] = {"whisper", "talk", "yell"};
-  return g_lastChatModeIndex < 3 ? modes[g_lastChatModeIndex] : "talk";
+  return g_lastChatModeIndex < 3 ? CHAT_MODES[g_lastChatModeIndex].mode
+                                 : "talk";
 }
 
 void OnChatSendClick(MyGUI::Widget *sender) {
@@ -389,11 +404,6 @@ void OnRadiantClick(MyGUI::Widget *sender) {
   CloseChatUI();
 }
 
-void OnChatWindowButtonPressed(MyGUI::Window *sender, const std::string &name) {
-  if (name == "close")
-    CloseChatUI();
-}
-
 static void SetChatThreadHeader(const std::string &text) {
   g_chatThreadHeader->setCaption(
       MyGUI::TextIterator::toTagsString(Utf8ToWide(text)));
@@ -500,29 +510,12 @@ static void OnChatTargetClick(MyGUI::Widget *sender) {
 
 void ForgetChatTarget() { g_chosenChatTarget = hand(); }
 
-static void AddChatHistory(MyGUI::Widget *client, float top, float height) {
-  g_chatHistoryText = client->createWidgetReal<MyGUI::EditBox>(
-      "Kenshi_WordWrap", 0.05f, top, 0.9f, height,
-      MyGUI::Align::Top | MyGUI::Align::HStretch, "SentientSands_ChatHistory");
-  g_chatHistoryText->setEditMultiLine(true);
-  g_chatHistoryText->setEditWordWrap(true);
-  g_chatHistoryText->setEditReadOnly(true);
-  g_chatHistoryText->setVisibleVScroll(true);
-  // The default cap of 2048 characters would cut the newest lines
-  g_chatHistoryText->setMaxTextLength(262144);
-  g_chatHistoryText->setTextAlign(MyGUI::Align::Left | MyGUI::Align::Top);
-  g_chatHistoryText->setFontHeight(18);
-}
-
-static void BuildChatWindow(MyGUI::Gui *gui) {
+static void BuildChatWindow() {
   float panel = CHAT_HEADER_HEIGHT + CHAT_HISTORY_HEIGHT;
-  g_chatWindow = gui->createWidgetReal<MyGUI::Window>(
-      "Kenshi_WindowCX", 0.1875f, 0.4f - panel, 0.625f,
-      CHAT_INPUT_HEIGHT + panel, MyGUI::Align::Center, "Window",
-      "SentientSands_ChatWindow");
-  g_chatWindow->eventWindowButtonPressed +=
-      MyGUI::newDelegate(OnChatWindowButtonPressed);
-  MyGUI::Widget *client = g_chatWindow->getClientWidget();
+  MyGUI::Widget *client = OpenWindow(
+      g_chatWindow, 0.1875f, 0.4f - panel, 0.625f, CHAT_INPUT_HEIGHT + panel,
+      MyGUI::Align::Center, "Window", "SentientSands_ChatWindow", "",
+      g_chatClose);
   // unit turns a share of the screen into a share of the client, so the panel
   // gets its screen height and the input rows keep their pixel height
   float unit = (float)g_chatWindow->getHeight() /
@@ -530,98 +523,59 @@ static void BuildChatWindow(MyGUI::Gui *gui) {
   float header = CHAT_HEADER_HEIGHT * unit;
   float top = panel * unit;
   float rows = 1.0f - top;
+  MyGUI::Align topLeft = MyGUI::Align::Top | MyGUI::Align::Left;
+  MyGUI::Align topWide = MyGUI::Align::Top | MyGUI::Align::HStretch;
+  MyGUI::Align bottomLeft = MyGUI::Align::Bottom | MyGUI::Align::Left;
+  MyGUI::Align bottomRight = MyGUI::Align::Bottom | MyGUI::Align::Right;
 
-  g_chatThreadHeader = client->createWidgetReal<MyGUI::TextBox>(
-      "Kenshi_TextboxStandardText", 0.05f, 0.0f, 0.9f, header,
-      MyGUI::Align::Top | MyGUI::Align::HStretch,
-      "SentientSands_ChatThreadHeader");
-  g_chatThreadHeader->setTextAlign(MyGUI::Align::Left | MyGUI::Align::VCenter);
+  g_chatThreadHeader = AddLabel(client, "", 0.05f, 0.0f, 0.9f, header, topWide,
+                                "SentientSands_ChatThreadHeader");
   g_chatThreadHeader->setTextColour(MyGUI::Colour(1.0f, 0.9f, 0.5f));
-  AddChatHistory(client, header, top - header);
+  g_chatHistoryText = AddTextView(client, 0.05f, header, 0.9f, top - header,
+                                  topWide, "SentientSands_ChatHistory");
 
-  g_chatLabel = client->createWidgetReal<MyGUI::TextBox>(
-      "Kenshi_TextboxStandardText", 0.40f, top + 0.05f * rows, 0.37f,
-      0.2f * rows, MyGUI::Align::Top | MyGUI::Align::HStretch,
-      "SentientSands_ChatLabel");
-  g_chatLabel->setTextAlign(MyGUI::Align::Right | MyGUI::Align::VCenter);
-  g_chatLabel->setCaption(Utf8ToWide(T("Message for ")).c_str());
-
-  g_chatSpeakerBtn = client->createWidgetReal<MyGUI::Button>(
-      "Kenshi_Button1", 0.05f, top + 0.05f * rows, 0.165f, 0.22f * rows,
-      MyGUI::Align::Top | MyGUI::Align::Left, "SentientSands_ChatSpeakerBtn");
-  g_chatSpeakerBtn->eventMouseButtonClick +=
-      MyGUI::newDelegate(OnChatSpeakerClick);
-
-  g_chatTargetBtn = client->createWidgetReal<MyGUI::Button>(
-      "Kenshi_Button1", 0.785f, top + 0.05f * rows, 0.165f, 0.22f * rows,
-      MyGUI::Align::Top | MyGUI::Align::Right, "SentientSands_ChatTargetBtn");
-  g_chatTargetBtn->eventMouseButtonClick +=
-      MyGUI::newDelegate(OnChatTargetClick);
-
-  g_chatBarterBtn = client->createWidgetReal<MyGUI::Button>(
-      "Kenshi_Button1", 0.23f, top + 0.05f * rows, 0.15f, 0.22f * rows,
-      MyGUI::Align::Top | MyGUI::Align::Left, "SentientSands_ChatBarterBtn");
-  g_chatBarterBtn->setCaption(Utf8ToWide(T("Barter")).c_str());
-  g_chatBarterBtn->eventMouseButtonClick +=
-      MyGUI::newDelegate(OnChatBarterClick);
+  AddLabel(client, T("Message for "), 0.40f, top + 0.05f * rows, 0.37f,
+           0.2f * rows, topWide, "SentientSands_ChatLabel",
+           MyGUI::Align::Right | MyGUI::Align::VCenter);
+  g_chatSpeakerBtn =
+      AddButton(client, "", 0.05f, top + 0.05f * rows, 0.165f, 0.22f * rows,
+                topLeft, "SentientSands_ChatSpeakerBtn", OnChatSpeakerClick);
+  g_chatTargetBtn = AddButton(client, "", 0.785f, top + 0.05f * rows, 0.165f,
+                              0.22f * rows, MyGUI::Align::Top | MyGUI::Align::Right,
+                              "SentientSands_ChatTargetBtn", OnChatTargetClick);
+  g_chatBarterBtn =
+      AddButton(client, T("Barter"), 0.23f, top + 0.05f * rows, 0.15f,
+                0.22f * rows, topLeft, "SentientSands_ChatBarterBtn",
+                OnChatBarterClick);
   g_chatBarterBtn->setVisible(false);
 
-  g_chatInput = client->createWidgetReal<MyGUI::EditBox>(
-      "Kenshi_EditBox", 0.05f, top + 0.35f * rows, 0.9f, 0.25f * rows,
-      MyGUI::Align::Top | MyGUI::Align::HStretch, "SentientSands_ChatInput");
-
-  g_chatInput->setEditMultiLine(false);
-  g_chatInput->setEditWordWrap(false);
-  g_chatInput->setVisibleVScroll(false);
-  g_chatInput->setTextAlign(MyGUI::Align::Default);
-  g_chatInput->setFontHeight(18);
-
+  g_chatInput = AddLineBox(client, 0.05f, top + 0.35f * rows, 0.9f,
+                           0.25f * rows, topWide, "SentientSands_ChatInput");
   g_chatInput->eventEditTextChange += MyGUI::newDelegate(OnChatInputChange);
   g_chatInput->eventEditSelectAccept += MyGUI::newDelegate(OnChatInputAccept);
   MyGUI::InputManager::getInstance().setKeyFocusWidget(g_chatInput);
 
-  const char *btnLabelKeys[] = {"Whisper", "Talk", "Yell"};
-  float btnX = 0.05f;
-  for (int i = 0; i < 3; i++) {
-    g_chatModeBtns[i] = client->createWidgetReal<MyGUI::Button>(
-        "Kenshi_Button1", btnX, top + 0.75f * rows, 0.12f, 0.2f * rows,
-        MyGUI::Align::Bottom | MyGUI::Align::Left,
-        "SentientSands_ChatMode_" + ToString(i));
-    g_chatModeBtns[i]->setCaption(Utf8ToWide(T(btnLabelKeys[i])).c_str());
-    g_chatModeBtns[i]->eventMouseButtonClick +=
-        MyGUI::newDelegate(OnModeButtonClick);
-    btnX += 0.13f;
-  }
+  for (int i = 0; i < 3; i++)
+    g_chatModeBtns[i] =
+        AddButton(client, "", 0.05f + i * 0.13f, top + 0.75f * rows, 0.12f,
+                  0.2f * rows, bottomLeft,
+                  "SentientSands_ChatMode_" + ToString(i), OnModeButtonClick);
   UpdateModeButtons();
 
-  MyGUI::Button *sendBtn = client->createWidgetReal<MyGUI::Button>(
-      "Kenshi_Button1", 0.44f, top + 0.75f * rows, 0.17f, 0.2f * rows,
-      MyGUI::Align::Bottom | MyGUI::Align::Right, "SentientSands_ChatSendBtn");
-  sendBtn->setCaption(Utf8ToWide(T("Send")).c_str());
-  sendBtn->eventMouseButtonClick += MyGUI::newDelegate(OnChatSendClick);
-
-  MyGUI::Button *cancelBtn = client->createWidgetReal<MyGUI::Button>(
-      "Kenshi_Button1", 0.62f, top + 0.75f * rows, 0.17f, 0.2f * rows,
-      MyGUI::Align::Bottom | MyGUI::Align::Right,
-      "SentientSands_ChatCancelBtn");
-  cancelBtn->setCaption(Utf8ToWide(T("Cancel")).c_str());
-  cancelBtn->eventMouseButtonClick += MyGUI::newDelegate(OnChatCancelClick);
-
-  MyGUI::Button *radiantBtn = client->createWidgetReal<MyGUI::Button>(
-      "Kenshi_Button1", 0.80f, top + 0.75f * rows, 0.17f, 0.2f * rows,
-      MyGUI::Align::Bottom | MyGUI::Align::Right,
-      "SentientSands_ChatRadiantBtn");
-  radiantBtn->setCaption(Utf8ToWide(T("Trigger Radiant")).c_str());
-  radiantBtn->eventMouseButtonClick += MyGUI::newDelegate(OnRadiantClick);
+  AddButton(client, T("Send"), 0.44f, top + 0.75f * rows, 0.17f, 0.2f * rows,
+            bottomRight, "SentientSands_ChatSendBtn", OnChatSendClick);
+  AddButton(client, T("Cancel"), 0.62f, top + 0.75f * rows, 0.17f, 0.2f * rows,
+            bottomRight, "SentientSands_ChatCancelBtn", OnChatCancelClick);
+  AddButton(client, T("Trigger Radiant"), 0.80f, top + 0.75f * rows, 0.17f,
+            0.2f * rows, bottomRight, "SentientSands_ChatRadiantBtn",
+            OnRadiantClick);
 }
 
 void CreateChatUI(Character *npc) {
-  MyGUI::Gui *gui = MyGUI::Gui::getInstancePtr();
   GameWorld *world = *ppWorld;
-  if (!gui || !world || !world->player)
+  if (!MyGUI::Gui::getInstancePtr() || !world || !world->player)
     return;
-  if (g_chatWindow)
-    CloseChatUI();
+  CloseChatUI();
 
   std::vector<Character *> squad;
   GetCurrentSquad(squad);
@@ -652,7 +606,7 @@ void CreateChatUI(Character *npc) {
   }
   g_chatSpeakers.clear();
   g_chatJustOpened = true;
-  BuildChatWindow(gui);
+  BuildChatWindow();
   ShowChatTarget();
   SelectChatSpeaker(world->player->selectedCharacter);
   // Only a button press may make a character talk to itself
@@ -679,16 +633,13 @@ void OnModeButtonClick(MyGUI::Widget *sender) {
 }
 
 void UpdateModeButtons() {
-  const char *btnLabelKeys[] = {"Whisper", "Talk", "Yell"};
   for (int i = 0; i < 3; i++) {
     if (!g_chatModeBtns[i])
       continue;
-    if (i == g_lastChatModeIndex) {
-      g_chatModeBtns[i]->setCaption(
-          (std::string("> ") + T(btnLabelKeys[i]) + " <").c_str());
-    } else {
-      g_chatModeBtns[i]->setCaption(Utf8ToWide(T(btnLabelKeys[i])).c_str());
-    }
+    std::string label = T(CHAT_MODES[i].label);
+    g_chatModeBtns[i]->setCaption(
+        Utf8ToWide(i == g_lastChatModeIndex ? "> " + label + " <" : label)
+            .c_str());
   }
 }
 

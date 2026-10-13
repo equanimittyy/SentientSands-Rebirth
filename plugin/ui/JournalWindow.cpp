@@ -3,7 +3,6 @@
 #include "../core/Globals.h"
 #include "../core/Utils.h"
 #include "../game/Context.h"
-#include "LibraryWindow.h"
 #include <cstdlib>
 #include <mygui/MyGUI_Delegate.h>
 #include <mygui/MyGUI_Gui.h>
@@ -46,9 +45,7 @@ void ShowJournalEntry(const std::string &time, const std::string &title,
   g_journalTime->setCaption(Utf8ToWide(time).c_str());
   // setOnlyText, because setCaption reads a # in the text as a colour tag
   g_journalTitle->setOnlyText(Utf8ToWide(title).c_str());
-  g_journalText->setOnlyText(Utf8ToWide(text).c_str());
-  g_journalText->setTextCursor(0);
-  g_journalText->setVScrollPosition(0);
+  ShowFromTop(g_journalText, text);
   bool loaded = !g_journalEntryId.empty();
   g_journalTitle->setEnabled(loaded);
   g_journalText->setEnabled(loaded);
@@ -219,13 +216,7 @@ void FinishJournalAdd(const std::string &data) {
   RequestJournalPage(1);
 }
 
-void CloseJournalDeleteUI() {
-  if (!g_journalDeleteWindow)
-    return;
-  if (MyGUI::Gui::getInstancePtr())
-    MyGUI::Gui::getInstancePtr()->destroyWidget(g_journalDeleteWindow);
-  g_journalDeleteWindow = nullptr;
-}
+void CloseJournalDeleteUI() { DestroyWindow(g_journalDeleteWindow); }
 
 void OnJournalDeleteConfirmClick(MyGUI::Widget *sender) {
   CloseJournalDeleteUI();
@@ -241,16 +232,9 @@ void OnJournalDeleteCancelClick(MyGUI::Widget *sender) {
   CloseJournalDeleteUI();
 }
 
-void OnJournalDeleteWindowButtonPressed(MyGUI::Window *sender,
-                                        const std::string &name) {
-  if (name == "close")
-    CloseJournalDeleteUI();
-}
+static CloseAction g_journalDeleteClose = {CloseJournalDeleteUI};
 
 void CreateJournalDeleteUI() {
-  MyGUI::Gui *gui = MyGUI::Gui::getInstancePtr();
-  if (!gui)
-    return;
   CloseJournalDeleteUI();
   // The player can select another entry while the popup is open
   g_journalDeleteId = g_journalEntryId;
@@ -258,45 +242,13 @@ void CreateJournalDeleteUI() {
   for (size_t i = 0; i < g_journalIds.size(); i++)
     if (g_journalIds[i] == g_journalDeleteId)
       label = g_journalList->getItemNameAt(i);
-
-  g_journalDeleteWindow = gui->createWidgetReal<MyGUI::Window>(
-      "Kenshi_WindowCX", 0.30f, 0.25f, 0.40f, 0.25f, MyGUI::Align::Center,
-      "Popup", "SentientSands_JournalDeleteWindow");
-  g_journalDeleteWindow->setCaption(Utf8ToWide(T("Delete the entry")).c_str());
-  g_journalDeleteWindow->eventWindowButtonPressed +=
-      MyGUI::newDelegate(OnJournalDeleteWindowButtonPressed);
-  MyGUI::Widget *client = g_journalDeleteWindow->getClientWidget();
-
-  MyGUI::UString lines[] = {
+  const MyGUI::UString lines[] = {
       Utf8ToWide(T("This deletes the journal entry:")), label,
       Utf8ToWide(T("The delete takes effect immediately and is irreversible."))};
-  float lineTops[] = {0.06f, 0.19f, 0.36f};
-  for (int i = 0; i < 3; i++) {
-    MyGUI::TextBox *line = client->createWidgetReal<MyGUI::TextBox>(
-        "Kenshi_TextboxStandardText", 0.05f, lineTops[i], 0.9f, 0.11f,
-        MyGUI::Align::Top | MyGUI::Align::HStretch,
-        "SentientSands_JournalDeleteL" + ToString(i));
-    line->setCaption(lines[i]);
-    line->setTextAlign(MyGUI::Align::Center);
-    line->setTextColour(i == 2 ? MyGUI::Colour(1.0f, 0.6f, 0.6f)
-                               : MyGUI::Colour(0.85f, 0.85f, 0.85f));
-  }
-
-  MyGUI::Button *deleteBtn = client->createWidgetReal<MyGUI::Button>(
-      "Kenshi_Button1", 0.10f, 0.62f, 0.38f, 0.30f,
-      MyGUI::Align::Bottom | MyGUI::Align::Left,
-      "SentientSands_JournalDeleteConfirmBtn");
-  deleteBtn->setCaption(Utf8ToWide(T("Delete")).c_str());
-  deleteBtn->eventMouseButtonClick +=
-      MyGUI::newDelegate(OnJournalDeleteConfirmClick);
-
-  MyGUI::Button *cancelBtn = client->createWidgetReal<MyGUI::Button>(
-      "Kenshi_Button1", 0.52f, 0.62f, 0.38f, 0.30f,
-      MyGUI::Align::Bottom | MyGUI::Align::Right,
-      "SentientSands_JournalDeleteCancelBtn");
-  cancelBtn->setCaption(Utf8ToWide(T("Cancel")).c_str());
-  cancelBtn->eventMouseButtonClick +=
-      MyGUI::newDelegate(OnJournalDeleteCancelClick);
+  OpenConfirm(g_journalDeleteWindow, "SentientSands_JournalDelete",
+              T("Delete the entry"), lines, T("Delete"),
+              OnJournalDeleteConfirmClick, OnJournalDeleteCancelClick,
+              g_journalDeleteClose);
 }
 
 void OnJournalDeleteClick(MyGUI::Widget *sender) {
@@ -329,9 +281,7 @@ void CloseJournalUI() {
   SaveJournalIfChanged();
   g_journalListRequest++;
   g_journalEntryRequest++;
-  if (MyGUI::Gui::getInstancePtr())
-    MyGUI::Gui::getInstancePtr()->destroyWidget(g_journalWindow);
-  g_journalWindow = nullptr;
+  DestroyWindow(g_journalWindow);
   g_journalSearch = nullptr;
   g_journalList = nullptr;
   g_journalPrevBtn = nullptr;
@@ -346,66 +296,21 @@ void CloseJournalUI() {
   g_journalEntryId.clear();
 }
 
-void OnJournalWindowButtonPressed(MyGUI::Window *sender,
-                                  const std::string &name) {
-  if (name == "close")
-    CloseJournalUI();
-}
-
-MyGUI::Button *AddJournalButton(MyGUI::Widget *client, const char *captionKey,
-                                float left, float top, float width,
-                                void (*onClick)(MyGUI::Widget *),
-                                const std::string &name) {
-  MyGUI::Button *button = client->createWidgetReal<MyGUI::Button>(
-      "Kenshi_Button1", left, top, width, 0.08f,
-      MyGUI::Align::Left | MyGUI::Align::Bottom, name);
-  button->setCaption(Utf8ToWide(T(captionKey)).c_str());
-  button->eventMouseButtonClick += MyGUI::newDelegate(onClick);
-  return button;
-}
-
-MyGUI::TextBox *AddJournalLine(MyGUI::Widget *client, float left, float top,
-                               float width, const std::string &name) {
-  MyGUI::TextBox *line = client->createWidgetReal<MyGUI::TextBox>(
-      "Kenshi_TextboxStandardText", left, top, width, 0.06f,
-      MyGUI::Align::Left | MyGUI::Align::Top, name);
-  line->setTextAlign(MyGUI::Align::Left | MyGUI::Align::VCenter);
-  return line;
-}
-
-MyGUI::EditBox *AddJournalLineBox(MyGUI::Widget *client, float left,
-                                  float top, float width,
-                                  const std::string &name) {
-  MyGUI::EditBox *box = client->createWidgetReal<MyGUI::EditBox>(
-      "Kenshi_EditBox", left, top, width, 0.06f,
-      MyGUI::Align::Left | MyGUI::Align::Top, name);
-  box->setEditMultiLine(false);
-  box->setEditWordWrap(false);
-  box->setVisibleVScroll(false);
-  box->setTextAlign(MyGUI::Align::Default);
-  box->setFontHeight(18);
-  return box;
-}
+static CloseAction g_journalClose = {CloseJournalUI};
 
 void CreateJournalUI() {
-  MyGUI::Gui *gui = MyGUI::Gui::getInstancePtr();
-  if (!gui)
+  CloseJournalUI();
+  MyGUI::Widget *client =
+      OpenWindow(g_journalWindow, 0.1f, 0.1f, 0.8f, 0.8f, MyGUI::Align::Center,
+                 "Popup", "SentientSands_JournalWindow", T("Journal"),
+                 g_journalClose);
+  if (!client)
     return;
-  if (g_journalWindow)
-    CloseJournalUI();
 
-  g_journalWindow = gui->createWidgetReal<MyGUI::Window>(
-      "Kenshi_WindowCX", 0.1f, 0.1f, 0.8f, 0.8f, MyGUI::Align::Center, "Popup",
-      "SentientSands_JournalWindow");
-  g_journalWindow->setCaption(Utf8ToWide(T("Journal")).c_str());
-  g_journalWindow->eventWindowButtonPressed +=
-      MyGUI::newDelegate(OnJournalWindowButtonPressed);
-  MyGUI::Widget *client = g_journalWindow->getClientWidget();
-
-  AddJournalLine(client, 0.02f, 0.02f, 0.07f, "SentientSands_JournalSearchLabel")
-      ->setCaption(Utf8ToWide(T("Search")).c_str());
+  AddRowLabel(client, T("Search"), 0.02f, 0.02f, 0.07f,
+              "SentientSands_JournalSearchLabel");
   g_journalSearch =
-      AddJournalLineBox(client, 0.09f, 0.02f, 0.21f, "SentientSands_JournalSearch");
+      AddRowBox(client, 0.09f, 0.02f, 0.21f, "SentientSands_JournalSearch");
   g_journalSearch->eventEditTextChange +=
       MyGUI::newDelegate(OnJournalSearchChange);
 
@@ -415,33 +320,33 @@ void CreateJournalUI() {
   g_journalList->eventListSelectAccept += MyGUI::newDelegate(OnJournalSelect);
   g_journalList->eventListChangePosition += MyGUI::newDelegate(OnJournalSelect);
 
-  g_journalPrevBtn = AddJournalButton(client, "<", 0.02f, 0.78f, 0.05f,
-                                      OnJournalPrevClick,
-                                      "SentientSands_JournalPrevBtn");
-  g_journalPageText = AddJournalLine(client, 0.07f, 0.79f, 0.18f,
-                                     "SentientSands_JournalPageText");
+  g_journalPrevBtn = AddRowButton(client, "<", 0.02f, 0.78f, 0.05f,
+                                  "SentientSands_JournalPrevBtn",
+                                  OnJournalPrevClick);
+  g_journalPageText = AddRowLabel(client, "", 0.07f, 0.79f, 0.18f,
+                                  "SentientSands_JournalPageText");
   g_journalPageText->setTextAlign(MyGUI::Align::Center);
-  g_journalNextBtn = AddJournalButton(client, ">", 0.25f, 0.78f, 0.05f,
-                                      OnJournalNextClick,
-                                      "SentientSands_JournalNextBtn");
-  AddJournalButton(client, "New Entry", 0.02f, 0.88f, 0.135f,
-                   OnJournalNewClick, "SentientSands_JournalNewBtn");
-  AddJournalButton(client, "Delete", 0.165f, 0.88f, 0.135f,
-                   OnJournalDeleteClick, "SentientSands_JournalDeleteBtn");
+  g_journalNextBtn = AddRowButton(client, ">", 0.25f, 0.78f, 0.05f,
+                                  "SentientSands_JournalNextBtn",
+                                  OnJournalNextClick);
+  AddRowButton(client, "New Entry", 0.02f, 0.88f, 0.135f,
+               "SentientSands_JournalNewBtn", OnJournalNewClick);
+  AddRowButton(client, "Delete", 0.165f, 0.88f, 0.135f,
+               "SentientSands_JournalDeleteBtn", OnJournalDeleteClick);
 
   g_journalTime =
-      AddJournalLine(client, 0.32f, 0.02f, 0.66f, "SentientSands_JournalTime");
+      AddRowLabel(client, "", 0.32f, 0.02f, 0.66f, "SentientSands_JournalTime");
   g_journalTime->setTextColour(MyGUI::Colour(1.0f, 0.9f, 0.5f));
-  AddJournalLine(client, 0.32f, 0.10f, 0.06f, "SentientSands_JournalTitleLabel")
-      ->setCaption(Utf8ToWide(T("Title")).c_str());
+  AddRowLabel(client, T("Title"), 0.32f, 0.10f, 0.06f,
+              "SentientSands_JournalTitleLabel");
   g_journalTitle =
-      AddJournalLineBox(client, 0.38f, 0.10f, 0.60f, "SentientSands_JournalTitle");
+      AddRowBox(client, 0.38f, 0.10f, 0.60f, "SentientSands_JournalTitle");
   g_journalText = AddWordWrapBox(client, 0.32f, 0.18f, 0.66f, 0.68f,
                                  "SentientSands_JournalText");
-  g_journalStatus = AddJournalLine(client, 0.32f, 0.89f, 0.50f,
-                                   "SentientSands_JournalStatus");
-  AddJournalButton(client, "Save", 0.84f, 0.88f, 0.14f, OnJournalSaveClick,
-                   "SentientSands_JournalSaveBtn");
+  g_journalStatus = AddRowLabel(client, "", 0.32f, 0.89f, 0.50f,
+                                "SentientSands_JournalStatus");
+  AddRowButton(client, "Save", 0.84f, 0.88f, 0.14f,
+               "SentientSands_JournalSaveBtn", OnJournalSaveClick);
 
   ShowJournalEntry("", "", "");
   SetJournalStatus(T("Select an entry, or press New Entry."));

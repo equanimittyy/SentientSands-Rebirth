@@ -55,9 +55,7 @@ struct Offer {
 static Offer g_offer;
 
 static void CloseOfferUI() {
-  if (g_offerWindow && MyGUI::Gui::getInstancePtr())
-    MyGUI::Gui::getInstancePtr()->destroyWidget(g_offerWindow);
-  g_offerWindow = nullptr;
+  DestroyWindow(g_offerWindow);
   g_offerText = nullptr;
   g_offerReply = nullptr;
   g_offerAcceptBtn = nullptr;
@@ -185,35 +183,39 @@ static void OnOfferBack(MyGUI::Widget *sender) { ShowReplyBox(false); }
 static void OnOfferSend(MyGUI::Widget *sender) { SendReply(); }
 static void OnOfferReplyAccept(MyGUI::EditBox *sender) { SendReply(); }
 
-static void OnOfferWindowButtonPressed(MyGUI::Window *sender,
-                                       const std::string &name) {
-  if (name != "close")
-    return;
+// Close is a decline, which asks for a reply first
+static void OnOfferClose() {
   if (g_offerAcceptBtn->getVisible())
     ShowReplyBox(true);
   else
     SendReply();
 }
 
-static MyGUI::Button *AddOfferButton(MyGUI::Widget *client, const char *key,
-                                     float left, float top,
-                                     void (*onClick)(MyGUI::Widget *)) {
-  MyGUI::Button *button = client->createWidgetReal<MyGUI::Button>(
-      "Kenshi_Button1", left, top, 0.25f, 0.2f,
-      MyGUI::Align::Bottom | MyGUI::Align::Left,
-      std::string("SentientSands_Offer") + key);
-  button->setCaption(Utf8ToWide(T(key)).c_str());
-  button->eventMouseButtonClick += MyGUI::newDelegate(onClick);
-  return button;
+static CloseAction g_offerClose = {OnOfferClose};
+
+MyGUI::Widget *OpenPopup(MyGUI::Window *&window, float top, float height,
+                         const std::string &name, const std::string &npcName,
+                         CloseAction &onClose) {
+  return OpenWindow(window, 0.3f, top, 0.4f, height, MyGUI::Align::Center,
+                    "Popup", name,
+                    Fill(T("Offer from {name}"), "{name}", npcName), onClose);
+}
+
+MyGUI::Button *AddPopupButton(MyGUI::Widget *client, const std::string &key,
+                              float left, const std::string &name,
+                              ClickHandler onClick) {
+  return AddButton(client, T(key), left, 0.72f, 0.25f, 0.2f,
+                   MyGUI::Align::Bottom | MyGUI::Align::Left, name + key,
+                   onClick);
 }
 
 static void AddOfferBox(MyGUI::Widget *client, const char *labelKey,
                         float left, const std::vector<std::string> &entries,
                         const std::string &name) {
-  MyGUI::TextBox *label = client->createWidgetReal<MyGUI::TextBox>(
-      "Kenshi_TextboxStandardText", left, 0.03f, 0.43f, 0.1f,
-      MyGUI::Align::Top | MyGUI::Align::Left, name + "Label");
-  label->setCaption(Utf8ToWide(T(labelKey)).c_str());
+  MyGUI::TextBox *label =
+      AddLabel(client, T(labelKey), left, 0.03f, 0.43f, 0.1f,
+               MyGUI::Align::Top | MyGUI::Align::Left, name + "Label",
+               MyGUI::Align::Default);
   MyGUI::ListBox *box = client->createWidgetReal<MyGUI::ListBox>(
       "Kenshi_ListBox", left, 0.14f, 0.43f, 0.52f,
       MyGUI::Align::Top | MyGUI::Align::Left, name);
@@ -236,8 +238,8 @@ void ShowOfferUI(const std::string &data) {
   while (std::getline(in, line)) {
     lines.push_back(Trim(line, " \t\r"));
   }
-  MyGUI::Gui *gui = MyGUI::Gui::getInstancePtr();
-  if (lines.size() < 4 || !gui || (!g_offer.id.empty() && g_offer.id == lines[0]))
+  if (lines.size() < 4 || !MyGUI::Gui::getInstancePtr() ||
+      (!g_offer.id.empty() && g_offer.id == lines[0]))
     return;
   CloseOfferUI();
 
@@ -272,25 +274,12 @@ void ShowOfferUI(const std::string &data) {
   if (ShowBarterOffer(offer.npcKey, offer.speakerKey, offer.deal))
     return;
 
-  g_offerWindow = gui->createWidgetReal<MyGUI::Window>(
-      "Kenshi_WindowCX", 0.3f, barter ? 0.3f : 0.36f, 0.4f,
-      barter ? 0.36f : 0.24f, MyGUI::Align::Center, "Popup",
-      "SentientSands_OfferWindow");
-  g_offerWindow->setCaption(
-      Utf8ToWide(Fill(T("Offer from {name}"), "{name}", offer.npcName))
-          .c_str());
-  g_offerWindow->eventWindowButtonPressed +=
-      MyGUI::newDelegate(OnOfferWindowButtonPressed);
-  MyGUI::Widget *client = g_offerWindow->getClientWidget();
-
-  g_offerText = client->createWidgetReal<MyGUI::EditBox>(
-      "Kenshi_WordWrap", 0.05f, 0.05f, 0.9f, 0.5f,
-      MyGUI::Align::Top | MyGUI::Align::HStretch, "SentientSands_OfferText");
-  g_offerText->setEditMultiLine(true);
-  g_offerText->setEditWordWrap(true);
-  g_offerText->setEditReadOnly(true);
-  g_offerText->setTextAlign(MyGUI::Align::Left | MyGUI::Align::Top);
-  g_offerText->setFontHeight(18);
+  MyGUI::Widget *client =
+      OpenPopup(g_offerWindow, barter ? 0.3f : 0.36f, barter ? 0.36f : 0.24f,
+                "SentientSands_OfferWindow", offer.npcName, g_offerClose);
+  g_offerText = AddTextView(client, 0.05f, 0.05f, 0.9f, 0.5f,
+                            MyGUI::Align::Top | MyGUI::Align::HStretch,
+                            "SentientSands_OfferText");
   g_offerText->setCaption(Utf8ToWide(lines[3]).c_str());
   if (barter) {
     g_offerText->setVisible(false);
@@ -300,22 +289,20 @@ void ShowOfferUI(const std::string &data) {
                 "SentientSands_OfferTheirs");
   }
 
-  g_offerReply = client->createWidgetReal<MyGUI::EditBox>(
-      "Kenshi_EditBox", 0.05f, 0.35f, 0.9f, 0.22f,
-      MyGUI::Align::Top | MyGUI::Align::HStretch, "SentientSands_OfferReply");
-  g_offerReply->setEditMultiLine(false);
-  g_offerReply->setFontHeight(18);
+  g_offerReply = AddLineBox(client, 0.05f, 0.35f, 0.9f, 0.22f,
+                            MyGUI::Align::Top | MyGUI::Align::HStretch,
+                            "SentientSands_OfferReply");
   g_offerReply->eventEditSelectAccept +=
       MyGUI::newDelegate(OnOfferReplyAccept);
   g_offerReply->setVisible(false);
 
-  g_offerAcceptBtn = AddOfferButton(client, "Accept", 0.18f, 0.72f, OnOfferAccept);
+  const std::string name = "SentientSands_Offer";
+  g_offerAcceptBtn = AddPopupButton(client, "Accept", 0.18f, name, OnOfferAccept);
   g_offerDeclineBtn =
-      AddOfferButton(client, "Decline", 0.57f, 0.72f, OnOfferDecline);
-  g_offerSendBtn = AddOfferButton(client, "Send", 0.18f, 0.72f, OnOfferSend);
+      AddPopupButton(client, "Decline", 0.57f, name, OnOfferDecline);
+  g_offerSendBtn = AddPopupButton(client, "Send", 0.18f, name, OnOfferSend);
   g_offerSendBtn->setVisible(false);
-  g_offerBackBtn =
-      AddOfferButton(client, "Back", 0.57f, 0.72f, OnOfferBack);
+  g_offerBackBtn = AddPopupButton(client, "Back", 0.57f, name, OnOfferBack);
   g_offerBackBtn->setVisible(false);
 }
 

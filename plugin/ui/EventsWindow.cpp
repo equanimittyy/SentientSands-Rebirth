@@ -70,9 +70,7 @@ void CloseEventsUI() {
   g_eventsListRequest++;
   g_eventsContentRequest++;
   if (g_eventsWindow) {
-    if (MyGUI::Gui::getInstancePtr())
-      MyGUI::Gui::getInstancePtr()->destroyWidget(g_eventsWindow);
-    g_eventsWindow = nullptr;
+    DestroyWindow(g_eventsWindow);
     g_eventsList = nullptr;
     g_eventsText = nullptr;
     g_eventsSearch = nullptr;
@@ -470,49 +468,28 @@ void OnEventsDeleteClick(MyGUI::Widget *sender) {
   CreateEventDeleteUI();
 }
 
-void OnEventsWindowClose(MyGUI::Window *sender, const std::string &name) {
-  CloseEventsUI();
-}
+static CloseAction g_eventsClose = {CloseEventsUI};
 
 void CreateEventsUI() {
-  MyGUI::Gui *gui = MyGUI::Gui::getInstancePtr();
-  if (!gui)
+  CloseEventsUI();
+  MyGUI::Widget *client =
+      OpenWindow(g_eventsWindow, 0.1f, 0.1f, 0.8f, 0.8f, MyGUI::Align::Center,
+                 "Popup", "SentientSands_EventsWindow", T("Events"),
+                 g_eventsClose);
+  if (!client)
     return;
-  if (g_eventsWindow)
-    CloseEventsUI();
 
-  g_eventsWindow = gui->createWidgetReal<MyGUI::Window>(
-      "Kenshi_WindowCX", 0.1f, 0.1f, 0.8f, 0.8f, MyGUI::Align::Center, "Popup",
-      "SentientSands_EventsWindow");
-  g_eventsWindow->setCaption(Utf8ToWide(T("Events")).c_str());
-  g_eventsWindow->eventWindowButtonPressed +=
-      MyGUI::newDelegate(OnEventsWindowClose);
-
-  MyGUI::Widget *client = g_eventsWindow->getClientWidget();
-
-  MyGUI::TextBox *searchLabel = client->createWidgetReal<MyGUI::TextBox>(
-      "Kenshi_TextboxStandardText", 0.02f, 0.02f, 0.07f, 0.06f,
-      MyGUI::Align::Left | MyGUI::Align::Top,
-      "SentientSands_EventsSearchLabel");
-  searchLabel->setCaption(Utf8ToWide(T("Search")).c_str());
-  searchLabel->setTextAlign(MyGUI::Align::Left | MyGUI::Align::VCenter);
-
-  g_eventsSearch = client->createWidgetReal<MyGUI::EditBox>(
-      "Kenshi_EditBox", 0.09f, 0.02f, 0.21f, 0.06f,
-      MyGUI::Align::Left | MyGUI::Align::Top, "SentientSands_EventsSearch");
-  g_eventsSearch->setEditMultiLine(false);
-  g_eventsSearch->setEditWordWrap(false);
-  g_eventsSearch->setVisibleVScroll(false);
-  g_eventsSearch->setTextAlign(MyGUI::Align::Default);
-  g_eventsSearch->setFontHeight(18);
+  AddRowLabel(client, T("Search"), 0.02f, 0.02f, 0.07f,
+              "SentientSands_EventsSearchLabel");
+  g_eventsSearch =
+      AddRowBox(client, 0.09f, 0.02f, 0.21f, "SentientSands_EventsSearch");
   g_eventsSearch->eventEditTextChange +=
       MyGUI::newDelegate(OnEventsSearchChange);
 
-  g_eventsKindBtn = client->createWidgetReal<MyGUI::Button>(
-      "Kenshi_Button1", 0.02f, 0.10f, 0.28f, 0.06f,
-      MyGUI::Align::Left | MyGUI::Align::Top, "SentientSands_EventsKindBtn");
-  g_eventsKindBtn->eventMouseButtonClick +=
-      MyGUI::newDelegate(OnEventsKindClick);
+  g_eventsKindBtn =
+      AddButton(client, "", 0.02f, 0.10f, 0.28f, 0.06f,
+                MyGUI::Align::Left | MyGUI::Align::Top,
+                "SentientSands_EventsKindBtn", OnEventsKindClick);
   ShowEventsKind();
 
   g_eventsList = client->createWidgetReal<MyGUI::ListBox>(
@@ -521,34 +498,14 @@ void CreateEventsUI() {
   g_eventsList->eventListSelectAccept += MyGUI::newDelegate(OnEventsSelect);
   g_eventsList->eventListChangePosition += MyGUI::newDelegate(OnEventsSelect);
 
-  MyGUI::Button *generateBtn = client->createWidgetReal<MyGUI::Button>(
-      "Kenshi_Button1", 0.02f, 0.78f, 0.135f, 0.08f,
-      MyGUI::Align::Left | MyGUI::Align::Bottom,
-      "SentientSands_EventsGenerateRumorBtn");
-  generateBtn->setCaption(Utf8ToWide(T("Generate Rumor")).c_str());
-  generateBtn->eventMouseButtonClick +=
-      MyGUI::newDelegate(OnEventsGenerateClick);
-
-  MyGUI::Button *editBtn = client->createWidgetReal<MyGUI::Button>(
-      "Kenshi_Button1", 0.165f, 0.78f, 0.135f, 0.08f,
-      MyGUI::Align::Left | MyGUI::Align::Bottom,
-      "SentientSands_EventsEditRumorBtn");
-  editBtn->setCaption(Utf8ToWide(T("Edit Rumor")).c_str());
-  editBtn->eventMouseButtonClick += MyGUI::newDelegate(OnEventsEditClick);
-
-  MyGUI::Button *addBtn = client->createWidgetReal<MyGUI::Button>(
-      "Kenshi_Button1", 0.02f, 0.88f, 0.135f, 0.08f,
-      MyGUI::Align::Left | MyGUI::Align::Bottom,
-      "SentientSands_EventsAddEventBtn");
-  addBtn->setCaption(Utf8ToWide(T("Add Event")).c_str());
-  addBtn->eventMouseButtonClick += MyGUI::newDelegate(OnEventsAddClick);
-
-  MyGUI::Button *deleteBtn = client->createWidgetReal<MyGUI::Button>(
-      "Kenshi_Button1", 0.165f, 0.88f, 0.135f, 0.08f,
-      MyGUI::Align::Left | MyGUI::Align::Bottom,
-      "SentientSands_EventsDeleteBtn");
-  deleteBtn->setCaption(Utf8ToWide(T("Delete")).c_str());
-  deleteBtn->eventMouseButtonClick += MyGUI::newDelegate(OnEventsDeleteClick);
+  AddRowButton(client, "Generate Rumor", 0.02f, 0.78f, 0.135f,
+               "SentientSands_EventsGenerateRumorBtn", OnEventsGenerateClick);
+  AddRowButton(client, "Edit Rumor", 0.165f, 0.78f, 0.135f,
+               "SentientSands_EventsEditRumorBtn", OnEventsEditClick);
+  AddRowButton(client, "Add Event", 0.02f, 0.88f, 0.135f,
+               "SentientSands_EventsAddEventBtn", OnEventsAddClick);
+  AddRowButton(client, "Delete", 0.165f, 0.88f, 0.135f,
+               "SentientSands_EventsDeleteBtn", OnEventsDeleteClick);
 
   g_eventsText = client->createWidgetReal<MyGUI::ListBox>(
       "Kenshi_ListBox", 0.32f, 0.02f, 0.66f, 0.96f, MyGUI::Align::Default,
