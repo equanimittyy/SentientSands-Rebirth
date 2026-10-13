@@ -702,19 +702,7 @@ void playerUpdate_hook(PlayerInterface *thisptr) {
         AsyncPostToPython(L"/squad_rename", GetDetailedContext(c));
     }
 
-    // The buffer drops its oldest past 100, and the events that wait are lost
-    // when the game closes
-    EnterCriticalSection(&g_eventMutex);
-    bool reportDue =
-        g_gameEvents.size() >= 50 ||
-        (!g_gameEvents.empty() &&
-         GetTickCount() - g_gameEvents.front().queuedAt >= 60000);
-    // A save holds the new handle, so a re-key that dies with the game would
-    // cut the character off from its records
-    for (size_t i = 0; !reportDue && i < g_gameEvents.size(); ++i)
-      reportDue = g_gameEvents[i].kind == "rekey";
-    LeaveCriticalSection(&g_eventMutex);
-    if (reportDue)
+    if (ReportDue())
       AsyncPostToPython(L"/report", GameReport());
 
     DWORD now = GetTickCount();

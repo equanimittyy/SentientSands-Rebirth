@@ -1,7 +1,6 @@
 #pragma once
 #include <deque>
 #include <map>
-#include <set>
 #include <string>
 #include <vector>
 #include <windows.h>
@@ -70,20 +69,7 @@ enum ActionType {
   ACT_SELL_ITEM
 };
 
-struct GameEvent {
-  std::string kind;
-  std::string fields;
-  unsigned long long attack;
-  int day, hour, minute;
-  DWORD queuedAt;
-};
-
-extern std::deque<GameEvent> g_gameEvents;
-extern std::set<unsigned long long> g_waitingAttacks;
 extern CRITICAL_SECTION g_eventMutex;
-void QueueGameEvent(const std::string &kind, const std::string &fields,
-                    unsigned long long attack = 0);
-bool AttackWaits(unsigned long long attack);
 
 struct QueuedAction {
   ActionType type;

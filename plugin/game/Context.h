@@ -38,6 +38,10 @@ Faction *CharacterFaction(Character *npc);
 std::string FactionName(Faction *faction);
 std::string GenderOf(Character *npc);
 std::string GetVisibleEquipment(Character *npc);
+void QueueGameEvent(const std::string &kind, const std::string &fields,
+                    unsigned long long attack = 0);
+bool AttackWaits(unsigned long long attack);
+bool ReportDue();
 std::string TakeGameEvents();
 std::string ChangedTowns();
 TownBase *FindTown(const std::string &name);

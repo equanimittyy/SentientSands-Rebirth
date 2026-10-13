@@ -1258,6 +1258,77 @@ std::string GetDetailedContext(Character *npc, const std::string &type) {
   return json + "}";
 }
 
+struct GameEvent {
+  std::string kind;
+  std::string fields;
+  unsigned long long attack;
+  int day, hour, minute;
+  DWORD queuedAt;
+};
+// Under g_eventMutex, because the hooks of knockouts, deaths, and prisons run
+// off the game thread
+static std::deque<GameEvent> g_gameEvents;
+static std::set<unsigned long long> g_waitingAttacks;
+
+static void GameClock(GameWorld *world, int &day, int &hour, int &minute) {
+  TimeOfDay tod = world->getTimeStamp_inGameHours();
+  day = (int)tod.getTotalDays();
+  hour = (int)fmod(tod.getTotalHours(), 24.0);
+  minute = (int)fmod(tod.getTotalMinutes(), 60.0);
+}
+
+void QueueGameEvent(const std::string &kind, const std::string &fields,
+                    unsigned long long attack) {
+  // The cull deletes by game time, so an event needs one
+  GameWorld *world = ppWorld ? *ppWorld : nullptr;
+  if (!world)
+    return;
+  GameEvent ev;
+  ev.kind = kind;
+  ev.fields = fields;
+  ev.attack = attack;
+  ev.queuedAt = GetTickCount();
+
+  EnterCriticalSection(&g_eventMutex);
+  // Read under the lock, so that the queue holds the events in the order of
+  // their game times: the server takes a step back of the game time as a load
+  GameClock(world, ev.day, ev.hour, ev.minute);
+  g_gameEvents.push_back(ev);
+  if (kind == "attack")
+    g_waitingAttacks.insert(attack);
+  if (g_gameEvents.size() > 100) {
+    // A dropped attack no longer waits, so the hook can add it again
+    if (g_gameEvents.front().kind == "attack")
+      g_waitingAttacks.erase(g_gameEvents.front().attack);
+    g_gameEvents.pop_front();
+  }
+  LeaveCriticalSection(&g_eventMutex);
+
+  if (LogEnabled(LOG_DEBUG))
+    Log(LOG_DEBUG, "EVENT: " + kind + ": " + fields);
+}
+
+bool AttackWaits(unsigned long long attack) {
+  EnterCriticalSection(&g_eventMutex);
+  bool waits = g_waitingAttacks.count(attack) > 0;
+  LeaveCriticalSection(&g_eventMutex);
+  return waits;
+}
+
+// The buffer drops its oldest past 100, and the events that wait are lost
+// when the game closes. A save holds the new handle, so a re-key that dies
+// with the game would cut the character off from its records
+bool ReportDue() {
+  EnterCriticalSection(&g_eventMutex);
+  bool due = g_gameEvents.size() >= 50 ||
+             (!g_gameEvents.empty() &&
+              GetTickCount() - g_gameEvents.front().queuedAt >= 60000);
+  for (size_t i = 0; !due && i < g_gameEvents.size(); ++i)
+    due = g_gameEvents[i].kind == "rekey";
+  LeaveCriticalSection(&g_eventMutex);
+  return due;
+}
+
 // Empties the buffer, because the server records each event that it gets
 std::string TakeGameEvents() {
   std::deque<GameEvent> events;
@@ -1373,8 +1444,8 @@ std::string GameTimeFields() {
   GameWorld *world = ppWorld ? *ppWorld : nullptr;
   if (!world)
     return "";
-  TimeOfDay tod = world->getTimeStamp_inGameHours();
-  return ", \"day\": " + ToString((int)tod.getTotalDays()) +
-         ", \"hour\": " + ToString((int)fmod(tod.getTotalHours(), 24.0)) +
-         ", \"minute\": " + ToString((int)fmod(tod.getTotalMinutes(), 60.0));
+  int day, hour, minute;
+  GameClock(world, day, hour, minute);
+  return ", \"day\": " + ToString(day) + ", \"hour\": " + ToString(hour) +
+         ", \"minute\": " + ToString(minute);
 }
