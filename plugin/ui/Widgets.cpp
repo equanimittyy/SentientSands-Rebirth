@@ -1,4 +1,5 @@
 #include "Widgets.h"
+#include "../core/Comm.h"
 #include "../core/Globals.h"
 #include "../core/Utils.h"
 
@@ -138,6 +139,71 @@ void OpenConfirm(MyGUI::Window *&window, const std::string &prefix,
   AddButton(client, T("Cancel"), 0.52f, 0.62f, 0.38f, 0.30f,
             MyGUI::Align::Bottom | MyGUI::Align::Right, prefix + "CancelBtn",
             onCancel);
+}
+
+void CloseEditor(EditorPopup &popup) {
+  popup.request++;
+  DestroyWindow(popup.window);
+  popup.confirm = nullptr;
+  popup.status = nullptr;
+}
+
+MyGUI::Widget *OpenEditor(EditorPopup &popup, CloseAction &onClose,
+                          const std::string &prefix, const std::string &caption,
+                          float left, float top, float width, float height,
+                          const std::string &confirm, ClickHandler onConfirm,
+                          const std::string &cancel, ClickHandler onCancel) {
+  MyGUI::Widget *client =
+      OpenWindow(popup.window, left, top, width, height, MyGUI::Align::Center,
+                 "Popup", prefix + "Window", caption, onClose);
+  if (!client)
+    return nullptr;
+  popup.confirm = AddButton(client, confirm, 0.10f, 0.87f, 0.38f, 0.10f,
+                            MyGUI::Align::Bottom | MyGUI::Align::Left,
+                            prefix + "ConfirmBtn", onConfirm);
+  AddButton(client, cancel, 0.52f, 0.87f, 0.38f, 0.10f,
+            MyGUI::Align::Bottom | MyGUI::Align::Right, prefix + "CancelBtn",
+            onCancel);
+  return client;
+}
+
+MyGUI::TextBox *AddEditorLine(MyGUI::Widget *client, const std::string &text,
+                              float top, const std::string &name) {
+  return AddLabel(client, text, 0.05f, top, 0.9f, 0.05f,
+                  MyGUI::Align::Top | MyGUI::Align::HStretch, name);
+}
+
+MyGUI::EditBox *AddEditorBox(MyGUI::Widget *client, float top, float height,
+                             const std::string &name) {
+  return AddWordWrapBox(client, 0.05f, top, 0.9f, height, name);
+}
+
+void SetEditorStatus(EditorPopup &popup, const std::string &text) {
+  if (popup.status)
+    popup.status->setCaption(Utf8ToWide(text).c_str());
+}
+
+void StartEditorRequest(EditorPopup &popup, const wchar_t *endpoint,
+                        const std::string &json, const std::string &command) {
+  if (popup.confirm)
+    popup.confirm->setEnabled(false);
+  PostForGameThread(endpoint, json, command, ToString(popup.request));
+}
+
+bool TakeEditorReply(EditorPopup &popup, const std::string &data,
+                     std::string &reply) {
+  return TakeTaggedReply(data, popup.request, reply);
+}
+
+void ShowEditorFailure(EditorPopup &popup, const std::string &prefixKey,
+                       const std::string &reply) {
+  std::string text = FailureText(prefixKey, reply);
+  if (!popup.window) {
+    popup.showOutside(text);
+    return;
+  }
+  SetEditorStatus(popup, text);
+  popup.confirm->setEnabled(true);
 }
 
 MyGUI::Button *AddRowButton(MyGUI::Widget *parent, const std::string &key,

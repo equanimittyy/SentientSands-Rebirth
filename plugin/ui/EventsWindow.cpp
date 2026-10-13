@@ -2,7 +2,6 @@
 #include "../core/Comm.h"
 #include "../core/Globals.h"
 #include "../core/Utils.h"
-#include "LibraryWindow.h"
 #include <algorithm>
 #include <mygui/MyGUI_Delegate.h>
 #include <mygui/MyGUI_Gui.h>
@@ -38,11 +37,9 @@ std::string g_eventsSelectId;
 static int g_eventsListRequest = 0;
 static int g_eventsContentRequest = 0;
 
-MyGUI::Window *g_rumorWindow = nullptr;
-MyGUI::EditBox *g_rumorBox = nullptr;
-MyGUI::Button *g_rumorConfirmBtn = nullptr;
-MyGUI::TextBox *g_rumorStatus = nullptr;
-int g_rumorRequest = 0;
+static void SetEventsText(const std::string &text);
+static EditorPopup g_rumor = {nullptr, nullptr, nullptr, 0, SetEventsText};
+static MyGUI::EditBox *g_rumorBox = nullptr;
 bool g_rumorWritten = false;
 std::string g_rumorEvent;
 std::string g_rumorLine;
@@ -51,19 +48,12 @@ std::string g_rumorCampaign;
 std::string g_rumorKind;
 std::string g_rumorId;
 
-// The player can close the window, or open it for another event, while a
-// request runs, so each close makes the pending reply stale
-void CloseRumorUI() {
-  g_rumorRequest++;
-  if (!g_rumorWindow)
-    return;
-  if (MyGUI::Gui::getInstancePtr())
-    MyGUI::Gui::getInstancePtr()->destroyWidget(g_rumorWindow);
-  g_rumorWindow = nullptr;
+static void CloseRumorUI() {
+  CloseEditor(g_rumor);
   g_rumorBox = nullptr;
-  g_rumorConfirmBtn = nullptr;
-  g_rumorStatus = nullptr;
 }
+
+static CloseAction g_rumorClose = {CloseRumorUI};
 
 void CloseEventsUI() {
   CloseRumorUI();
@@ -210,75 +200,30 @@ void OnEventsSelect(MyGUI::ListBox *sender, size_t index) {
   ShowEventContent(g_eventsStorageIds[index]);
 }
 
-void SetRumorStatus(const std::string &text) {
-  if (g_rumorStatus)
-    g_rumorStatus->setCaption(Utf8ToWide(text).c_str());
-}
+static void OnRumorCancelClick(MyGUI::Widget *sender) { CloseRumorUI(); }
 
-void StartRumorRequest(const wchar_t *endpoint, const std::string &json,
-                       const std::string &command) {
-  if (g_rumorConfirmBtn)
-    g_rumorConfirmBtn->setEnabled(false);
-  PostForGameThread(endpoint, json, command, ToString(g_rumorRequest));
-}
-
-void ShowRumorFailure(const std::string &prefixKey, const std::string &reply) {
-  std::string text = FailureText(prefixKey, reply);
-  // Edit Rumor opens no window until the stored text arrives
-  if (!g_rumorWindow) {
-    SetEventsText(text);
-    return;
-  }
-  SetRumorStatus(text);
-  g_rumorConfirmBtn->setEnabled(true);
-}
-
-void OnRumorCancelClick(MyGUI::Widget *sender) { CloseRumorUI(); }
-
-void OnRumorWindowButtonPressed(MyGUI::Window *sender,
-                                const std::string &name) {
-  if (name == "close")
-    CloseRumorUI();
-}
-
-MyGUI::Widget *CreateRumorWindow(const char *captionKey, const char *confirmKey,
-                                 void (*onConfirm)(MyGUI::Widget *),
-                                 const char *cancelKey) {
-  MyGUI::Gui *gui = MyGUI::Gui::getInstancePtr();
-  if (!gui)
-    return nullptr;
+static MyGUI::Widget *CreateRumorWindow(const char *captionKey,
+                                        const char *confirmKey,
+                                        ClickHandler onConfirm,
+                                        const char *cancelKey) {
   CloseRumorUI();
-  g_rumorWindow = gui->createWidgetReal<MyGUI::Window>(
-      "Kenshi_WindowCX", 0.28f, 0.22f, 0.44f, 0.50f, MyGUI::Align::Center,
-      "Popup", "SentientSands_RumorWindow");
-  g_rumorWindow->setCaption(Utf8ToWide(T(captionKey)).c_str());
-  g_rumorWindow->eventWindowButtonPressed +=
-      MyGUI::newDelegate(OnRumorWindowButtonPressed);
-  MyGUI::Widget *client = g_rumorWindow->getClientWidget();
-  AddBioLine(client, g_rumorLine, 0.03f, "SentientSands_RumorLine");
-  g_rumorStatus = AddBioLine(client, "", 0.76f, "SentientSands_RumorStatus");
-
-  g_rumorConfirmBtn = client->createWidgetReal<MyGUI::Button>(
-      "Kenshi_Button1", 0.10f, 0.87f, 0.38f, 0.10f,
-      MyGUI::Align::Bottom | MyGUI::Align::Left,
-      "SentientSands_RumorConfirmBtn");
-  g_rumorConfirmBtn->setCaption(Utf8ToWide(T(confirmKey)).c_str());
-  g_rumorConfirmBtn->eventMouseButtonClick += MyGUI::newDelegate(onConfirm);
-
-  MyGUI::Button *cancelBtn = client->createWidgetReal<MyGUI::Button>(
-      "Kenshi_Button1", 0.52f, 0.87f, 0.38f, 0.10f,
-      MyGUI::Align::Bottom | MyGUI::Align::Right,
-      "SentientSands_RumorCancelBtn");
-  cancelBtn->setCaption(Utf8ToWide(T(cancelKey)).c_str());
-  cancelBtn->eventMouseButtonClick += MyGUI::newDelegate(OnRumorCancelClick);
+  MyGUI::Widget *client = OpenEditor(
+      g_rumor, g_rumorClose, "SentientSands_Rumor", T(captionKey), 0.28f,
+      0.22f, 0.44f, 0.50f, T(confirmKey), onConfirm, T(cancelKey),
+      OnRumorCancelClick);
+  if (!client)
+    return nullptr;
+  AddEditorLine(client, g_rumorLine, 0.03f, "SentientSands_RumorLine");
+  g_rumor.status =
+      AddEditorLine(client, "", 0.76f, "SentientSands_RumorStatus");
   return client;
 }
 
 void OnRumorWriteClick(MyGUI::Widget *sender) {
   g_rumorInstruction = g_rumorBox->getOnlyText().asUTF8();
   g_rumorWritten = true;
-  SetRumorStatus(T("This may take a moment..."));
-  StartRumorRequest(L"/write_rumor",
+  SetEditorStatus(g_rumor, T("This may take a moment..."));
+  StartEditorRequest(g_rumor, L"/write_rumor",
                     "{\"event\":\"" + EscapeJSON(g_rumorEvent) +
                         "\",\"instruction\":\"" +
                         EscapeJSON(g_rumorInstruction) + "\"}",
@@ -291,8 +236,8 @@ void OnRumorKeepClick(MyGUI::Widget *sender) {
       g_rumorWritten
           ? ",\"instruction\":\"" + EscapeJSON(g_rumorInstruction) + "\""
           : "";
-  SetRumorStatus("");
-  StartRumorRequest(L"/keep_rumor",
+  SetEditorStatus(g_rumor, "");
+  StartEditorRequest(g_rumor, L"/keep_rumor",
                     "{\"event\":\"" + EscapeJSON(g_rumorEvent) +
                         "\",\"campaign\":\"" + EscapeJSON(g_rumorCampaign) +
                         "\",\"text\":\"" +
@@ -306,12 +251,12 @@ void CreateRumorAskUI() {
       CreateRumorWindow("Generate Rumor", "Write", OnRumorWriteClick, "Cancel");
   if (!client)
     return;
-  AddBioLine(client, T("Instructions (optional)"), 0.12f,
+  AddEditorLine(client, T("Instructions (optional)"), 0.12f,
              "SentientSands_RumorInstructionsLabel");
   g_rumorBox =
-      AddBioEditBox(client, 0.18f, 0.40f, "SentientSands_RumorInstructions");
+      AddEditorBox(client, 0.18f, 0.40f, "SentientSands_RumorInstructions");
   g_rumorBox->setCaption(Utf8ToWide(g_rumorInstruction).c_str());
-  AddBioLine(client,
+  AddEditorLine(client,
              T("The LLM also reads the event, the characters in it, and the "
                "rumor so far."),
              0.62f, "SentientSands_RumorHint");
@@ -322,15 +267,15 @@ void CreateRumorEditUI(const std::string &text) {
       CreateRumorWindow("Edit Rumor", "Keep", OnRumorKeepClick, "Discard");
   if (!client)
     return;
-  AddBioLine(client, T("Edit the text, then Keep to store it."), 0.10f,
+  AddEditorLine(client, T("Edit the text, then Keep to store it."), 0.10f,
              "SentientSands_RumorEditHint");
-  g_rumorBox = AddBioEditBox(client, 0.17f, 0.55f, "SentientSands_RumorText");
+  g_rumorBox = AddEditorBox(client, 0.17f, 0.55f, "SentientSands_RumorText");
   g_rumorBox->setCaption(Utf8ToWide(text).c_str());
 }
 
 void OnEventAddClick(MyGUI::Widget *sender) {
-  SetRumorStatus("");
-  StartRumorRequest(L"/add_event",
+  SetEditorStatus(g_rumor, "");
+  StartEditorRequest(g_rumor, L"/add_event",
                     "{\"campaign\":\"" + EscapeJSON(g_eventsCampaign) +
                         "\",\"rumor\":\"" +
                         EscapeJSON(g_rumorBox->getOnlyText().asUTF8()) + "\"}",
@@ -343,11 +288,11 @@ void CreateEventAddUI() {
       CreateRumorWindow("Add Event", "Add", OnEventAddClick, "Cancel");
   if (!client)
     return;
-  AddBioLine(client,
+  AddEditorLine(client,
              T("Write the rumor of an event that the game does not track."),
              0.10f, "SentientSands_EventAddHint");
-  g_rumorBox = AddBioEditBox(client, 0.17f, 0.40f, "SentientSands_EventRumor");
-  AddBioLine(client,
+  g_rumorBox = AddEditorBox(client, 0.17f, 0.40f, "SentientSands_EventRumor");
+  AddEditorLine(client,
              T("A custom event has no game time, so Cull Future Data keeps it."),
              0.62f, "SentientSands_EventAddCullHint");
 }
@@ -358,8 +303,8 @@ bool DeletesWholeEvent() {
 
 void OnEventDeleteClick(MyGUI::Widget *sender) {
   bool whole = DeletesWholeEvent();
-  SetRumorStatus("");
-  StartRumorRequest(whole ? L"/delete_event" : L"/delete_rumor",
+  SetEditorStatus(g_rumor, "");
+  StartEditorRequest(g_rumor, whole ? L"/delete_event" : L"/delete_rumor",
                     "{\"campaign\":\"" + EscapeJSON(g_eventsCampaign) +
                         "\",\"id\":\"" +
                         EscapeJSON(whole ? g_rumorEvent : g_rumorId) +
@@ -377,14 +322,14 @@ void CreateEventDeleteUI() {
       "Delete", OnEventDeleteClick, "Cancel");
   if (!client)
     return;
-  AddBioLine(client,
+  AddEditorLine(client,
              T(!whole   ? "NPCs stop mentioning this rumor."
                : isAuto ? "This deletes the auto event and its rumor, so NPCs "
                           "stop mentioning it."
                         : "This deletes the custom event and its rumor, so NPCs "
                           "stop mentioning it."),
              0.12f, "SentientSands_EventDeleteText");
-  MyGUI::TextBox *warning = AddBioLine(
+  MyGUI::TextBox *warning = AddEditorLine(
       client, T("The delete takes effect immediately and is irreversible."),
       0.18f, "SentientSands_EventDeleteWarning");
   warning->setTextColour(MyGUI::Colour(1.0f, 0.6f, 0.6f));
@@ -392,10 +337,10 @@ void CreateEventDeleteUI() {
 
 void OpenRumorEditor(const std::string &data, const std::string &failureKey) {
   std::string reply;
-  if (!TakeTaggedReply(data, g_rumorRequest, reply))
+  if (!TakeEditorReply(g_rumor, data, reply))
     return;
   if (GetJsonValue(reply, "status") != "ok") {
-    ShowRumorFailure(failureKey, reply);
+    ShowEditorFailure(g_rumor, failureKey, reply);
     return;
   }
   g_rumorCampaign = GetJsonValue(reply, "campaign");
@@ -404,10 +349,10 @@ void OpenRumorEditor(const std::string &data, const std::string &failureKey) {
 
 void FinishEventChange(const std::string &data, const std::string &failureKey) {
   std::string reply;
-  if (!TakeTaggedReply(data, g_rumorRequest, reply))
+  if (!TakeEditorReply(g_rumor, data, reply))
     return;
   if (GetJsonValue(reply, "status") != "ok") {
-    ShowRumorFailure(failureKey, reply);
+    ShowEditorFailure(g_rumor, failureKey, reply);
     return;
   }
   CloseRumorUI();
@@ -451,7 +396,7 @@ void OnEventsEditClick(MyGUI::Widget *sender) {
     return;
   CloseRumorUI();
   g_rumorWritten = false;
-  StartRumorRequest(L"/read_rumor",
+  StartEditorRequest(g_rumor, L"/read_rumor",
                     "{\"event\":\"" + EscapeJSON(g_rumorEvent) + "\"}",
                     "RUMOR_READ");
 }

@@ -128,7 +128,7 @@ At most once in each period of the Radiant rumor timer (`radiant_rumor_minutes`,
 The Events window of the SSR HUB mirrors Campaign Canon > Events through `/events`, `/events/content`, `/write_rumor`, `/read_rumor`, `/keep_rumor`, `/add_event`, `/delete_event`, and `/delete_rumor`. These share the code of the web app routes in `server/chat/routes.py`.
 
 - The reads return the active campaign, and each write sends it back. A write is refused when that campaign is no longer active, because the same ID can name another event.
-- Each close of a popup makes the pending reply stale (`CloseRumorUI`).
+- Each close of a popup makes the pending reply stale (`CloseEditor` in `plugin/ui/Widgets.cpp`).
 
 ### Changed towns
 

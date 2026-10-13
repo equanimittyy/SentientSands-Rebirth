@@ -91,68 +91,30 @@ static const char *BIO_PARTS[] = {"Personality", "Backstory", "SpeechQuirks"};
 static const char *BIO_CHOICES[] = {"Full bio", "Personality", "Backstory",
                                     "Speech"};
 
-MyGUI::Window *g_bioWindow = nullptr;
-MyGUI::Button *g_bioChoiceBtns[4] = {nullptr, nullptr, nullptr, nullptr};
-MyGUI::EditBox *g_bioInstructions = nullptr;
-MyGUI::EditBox *g_bioTexts[3] = {nullptr, nullptr, nullptr};
-MyGUI::Button *g_bioConfirmBtn = nullptr;
-MyGUI::TextBox *g_bioStatus = nullptr;
-int g_bioChoice = 0;
-int g_bioRequest = 0;
-std::string g_bioSid;
-std::string g_bioName;
-std::string g_bioCampaign;
+static EditorPopup g_bio = {nullptr, nullptr, nullptr, 0, SetLibraryText};
+static MyGUI::Button *g_bioChoiceBtns[4] = {nullptr, nullptr, nullptr, nullptr};
+static MyGUI::EditBox *g_bioInstructions = nullptr;
+static MyGUI::EditBox *g_bioTexts[3] = {nullptr, nullptr, nullptr};
+static int g_bioChoice = 0;
+static std::string g_bioSid;
+static std::string g_bioName;
+static std::string g_bioCampaign;
 
-// The player can close the window, or open it for another NPC, while a
-// request runs, so each close makes the pending reply stale.
-void CloseBioUI() {
-  g_bioRequest++;
-  if (!g_bioWindow)
-    return;
-  if (MyGUI::Gui::getInstancePtr())
-    MyGUI::Gui::getInstancePtr()->destroyWidget(g_bioWindow);
-  g_bioWindow = nullptr;
+static void CloseBioUI() {
+  CloseEditor(g_bio);
   for (int i = 0; i < 4; i++)
     g_bioChoiceBtns[i] = nullptr;
   for (int i = 0; i < 3; i++)
     g_bioTexts[i] = nullptr;
   g_bioInstructions = nullptr;
-  g_bioConfirmBtn = nullptr;
-  g_bioStatus = nullptr;
 }
 
-void OnBioWindowButtonPressed(MyGUI::Window *sender, const std::string &name) {
-  if (name == "close")
-    CloseBioUI();
-}
+static CloseAction g_bioClose = {CloseBioUI};
 
-void OnBioCancelClick(MyGUI::Widget *sender) { CloseBioUI(); }
+static void OnBioCancelClick(MyGUI::Widget *sender) { CloseBioUI(); }
 
-bool BioPartChosen(int part) {
+static bool BioPartChosen(int part) {
   return g_bioChoice == 0 || g_bioChoice == part + 1;
-}
-
-void SetBioStatus(const std::string &text) {
-  if (g_bioStatus)
-    g_bioStatus->setCaption(Utf8ToWide(text).c_str());
-}
-
-void StartBioRequest(const wchar_t *endpoint, const std::string &json,
-                     const std::string &command) {
-  if (g_bioConfirmBtn)
-    g_bioConfirmBtn->setEnabled(false);
-  PostForGameThread(endpoint, json, command, ToString(g_bioRequest));
-}
-
-void ShowBioFailure(const std::string &prefixKey, const std::string &reply) {
-  std::string text = FailureText(prefixKey, reply);
-  // Edit Bio opens no window until the stored texts arrive
-  if (!g_bioWindow) {
-    SetLibraryText(text);
-    return;
-  }
-  SetBioStatus(text);
-  g_bioConfirmBtn->setEnabled(true);
 }
 
 void OnBioWriteClick(MyGUI::Widget *sender) {
@@ -161,8 +123,8 @@ void OnBioWriteClick(MyGUI::Widget *sender) {
     if (BioPartChosen(i))
       parts += std::string(parts.empty() ? "" : ",") + "\"" + BIO_PARTS[i] +
                "\"";
-  SetBioStatus(T("This may take a moment..."));
-  StartBioRequest(L"/write_bio",
+  SetEditorStatus(g_bio, T("This may take a moment..."));
+  StartEditorRequest(g_bio, L"/write_bio",
                   "{\"sid\":\"" + EscapeJSON(g_bioSid) + "\",\"parts\":[" +
                       parts + "],\"instructions\":\"" +
                       EscapeJSON(g_bioInstructions->getOnlyText().asUTF8()) +
@@ -177,8 +139,8 @@ void OnBioKeepClick(MyGUI::Widget *sender) {
       bio += std::string(bio.empty() ? "" : ",") + "\"" + BIO_PARTS[i] +
              "\":\"" + EscapeJSON(g_bioTexts[i]->getOnlyText().asUTF8()) +
              "\"";
-  SetBioStatus("");
-  StartBioRequest(L"/keep_bio",
+  SetEditorStatus(g_bio, "");
+  StartEditorRequest(g_bio, L"/keep_bio",
                   "{\"sid\":\"" + EscapeJSON(g_bioSid) +
                       "\",\"campaign\":\"" + EscapeJSON(g_bioCampaign) +
                       "\",\"bio\":{" + bio + "}}",
@@ -200,92 +162,49 @@ void OnBioChoiceClick(MyGUI::Widget *sender) {
   UpdateBioChoiceButtons();
 }
 
-MyGUI::Widget *CreateBioWindow(const char *captionKey, float left, float top,
-                               float width, float height) {
-  MyGUI::Gui *gui = MyGUI::Gui::getInstancePtr();
-  if (!gui)
-    return nullptr;
+static void CreateBioAskUI() {
   CloseBioUI();
-  g_bioWindow = gui->createWidgetReal<MyGUI::Window>(
-      "Kenshi_WindowCX", left, top, width, height, MyGUI::Align::Center,
-      "Popup", "SentientSands_BioWindow");
-  g_bioWindow->setCaption(Utf8ToWide(T(captionKey)).c_str());
-  g_bioWindow->eventWindowButtonPressed +=
-      MyGUI::newDelegate(OnBioWindowButtonPressed);
-  return g_bioWindow->getClientWidget();
-}
-
-MyGUI::TextBox *AddBioLine(MyGUI::Widget *client, const std::string &text,
-                           float top, const std::string &name) {
-  MyGUI::TextBox *line = client->createWidgetReal<MyGUI::TextBox>(
-      "Kenshi_TextboxStandardText", 0.05f, top, 0.9f, 0.05f,
-      MyGUI::Align::Top | MyGUI::Align::HStretch, name);
-  line->setCaption(Utf8ToWide(text).c_str());
-  line->setTextAlign(MyGUI::Align::Left | MyGUI::Align::VCenter);
-  return line;
-}
-
-MyGUI::EditBox *AddBioEditBox(MyGUI::Widget *client, float top, float height,
-                              const std::string &name) {
-  return AddWordWrapBox(client, 0.05f, top, 0.9f, height, name);
-}
-
-void AddBioButtons(MyGUI::Widget *client, const char *confirmKey,
-                   void (*onConfirm)(MyGUI::Widget *), const char *cancelKey) {
-  g_bioConfirmBtn = client->createWidgetReal<MyGUI::Button>(
-      "Kenshi_Button1", 0.10f, 0.87f, 0.38f, 0.10f,
-      MyGUI::Align::Bottom | MyGUI::Align::Left, "SentientSands_BioConfirmBtn");
-  g_bioConfirmBtn->setCaption(Utf8ToWide(T(confirmKey)).c_str());
-  g_bioConfirmBtn->eventMouseButtonClick += MyGUI::newDelegate(onConfirm);
-
-  MyGUI::Button *cancelBtn = client->createWidgetReal<MyGUI::Button>(
-      "Kenshi_Button1", 0.52f, 0.87f, 0.38f, 0.10f,
-      MyGUI::Align::Bottom | MyGUI::Align::Right, "SentientSands_BioCancelBtn");
-  cancelBtn->setCaption(Utf8ToWide(T(cancelKey)).c_str());
-  cancelBtn->eventMouseButtonClick += MyGUI::newDelegate(OnBioCancelClick);
-}
-
-void CreateBioAskUI() {
   MyGUI::Widget *client =
-      CreateBioWindow("Generate Bio", 0.28f, 0.20f, 0.44f, 0.55f);
+      OpenEditor(g_bio, g_bioClose, "SentientSands_Bio", T("Generate Bio"),
+                 0.28f, 0.20f, 0.44f, 0.55f, T("Write"), OnBioWriteClick,
+                 T("Cancel"), OnBioCancelClick);
   if (!client)
     return;
   g_bioChoice = 0;
 
-  AddBioLine(client, g_bioName, 0.03f, "SentientSands_BioName");
-  AddBioLine(client, T("What to write"), 0.11f, "SentientSands_BioChoiceLabel");
-  for (int i = 0; i < 4; i++) {
-    g_bioChoiceBtns[i] = client->createWidgetReal<MyGUI::Button>(
-        "Kenshi_Button1", 0.05f + i * 0.23f, 0.17f, 0.21f, 0.08f,
-        MyGUI::Align::Top | MyGUI::Align::Left,
-        "SentientSands_BioChoice_" + ToString(i));
-    g_bioChoiceBtns[i]->eventMouseButtonClick +=
-        MyGUI::newDelegate(OnBioChoiceClick);
-  }
+  AddEditorLine(client, g_bioName, 0.03f, "SentientSands_BioName");
+  AddEditorLine(client, T("What to write"), 0.11f, "SentientSands_BioChoiceLabel");
+  for (int i = 0; i < 4; i++)
+    g_bioChoiceBtns[i] =
+        AddButton(client, "", 0.05f + i * 0.23f, 0.17f, 0.21f, 0.08f,
+                  MyGUI::Align::Top | MyGUI::Align::Left,
+                  "SentientSands_BioChoice_" + ToString(i), OnBioChoiceClick);
   UpdateBioChoiceButtons();
 
-  AddBioLine(client, T("Instructions (optional)"), 0.28f,
+  AddEditorLine(client, T("Instructions (optional)"), 0.28f,
              "SentientSands_BioInstructionsLabel");
   g_bioInstructions =
-      AddBioEditBox(client, 0.34f, 0.26f, "SentientSands_BioInstructions");
-  AddBioLine(client,
+      AddEditorBox(client, 0.34f, 0.26f, "SentientSands_BioInstructions");
+  AddEditorLine(client,
              T("The LLM also reads the name, sex, race, faction, job, the race "
                "lore,"),
              0.62f, "SentientSands_BioHint1");
-  AddBioLine(client, T("the current texts, and the chats with this character."),
+  AddEditorLine(client, T("the current texts, and the chats with this character."),
              0.67f, "SentientSands_BioHint2");
-  g_bioStatus = AddBioLine(client, "", 0.76f, "SentientSands_BioStatus");
-  AddBioButtons(client, "Write", OnBioWriteClick, "Cancel");
+  g_bio.status = AddEditorLine(client, "", 0.76f, "SentientSands_BioStatus");
 }
 
-void CreateBioEditUI(const std::string &reply) {
+static void CreateBioEditUI(const std::string &reply) {
+  CloseBioUI();
   MyGUI::Widget *client =
-      CreateBioWindow("Edit Bio", 0.20f, 0.08f, 0.60f, 0.84f);
+      OpenEditor(g_bio, g_bioClose, "SentientSands_Bio", T("Edit Bio"), 0.20f,
+                 0.08f, 0.60f, 0.84f, T("Keep"), OnBioKeepClick, T("Discard"),
+                 OnBioCancelClick);
   if (!client)
     return;
 
-  AddBioLine(client, g_bioName, 0.02f, "SentientSands_BioName");
-  AddBioLine(client, T("Edit the text, then Keep to store it."), 0.07f,
+  AddEditorLine(client, g_bioName, 0.02f, "SentientSands_BioName");
+  AddEditorLine(client, T("Edit the text, then Keep to store it."), 0.07f,
              "SentientSands_BioEditHint");
   // The choice buttons stay live while the LLM writes, so the reply and not
   // the current choice names the parts
@@ -301,24 +220,23 @@ void CreateBioEditUI(const std::string &reply) {
   for (int i = 0; i < 3; i++) {
     if (!written[i])
       continue;
-    AddBioLine(client, T(BIO_CHOICES[i + 1]), top,
+    AddEditorLine(client, T(BIO_CHOICES[i + 1]), top,
                "SentientSands_BioLabel_" + ToString(i));
-    g_bioTexts[i] = AddBioEditBox(client, top + 0.05f, slot - 0.07f,
+    g_bioTexts[i] = AddEditorBox(client, top + 0.05f, slot - 0.07f,
                                   "SentientSands_BioText_" + ToString(i));
     g_bioTexts[i]->setCaption(
         Utf8ToWide(GetJsonValue(reply, BIO_PARTS[i])).c_str());
     top += slot;
   }
-  g_bioStatus = AddBioLine(client, "", 0.79f, "SentientSands_BioStatus");
-  AddBioButtons(client, "Keep", OnBioKeepClick, "Discard");
+  g_bio.status = AddEditorLine(client, "", 0.79f, "SentientSands_BioStatus");
 }
 
 void OpenBioEditor(const std::string &data, const std::string &failureKey) {
   std::string reply;
-  if (!TakeTaggedReply(data, g_bioRequest, reply))
+  if (!TakeEditorReply(g_bio, data, reply))
     return;
   if (GetJsonValue(reply, "status") != "ok") {
-    ShowBioFailure(failureKey, reply);
+    ShowEditorFailure(g_bio, failureKey, reply);
     return;
   }
   g_bioCampaign = GetJsonValue(reply, "campaign");
@@ -327,10 +245,10 @@ void OpenBioEditor(const std::string &data, const std::string &failureKey) {
 
 void FinishKeptBio(const std::string &data) {
   std::string reply;
-  if (!TakeTaggedReply(data, g_bioRequest, reply))
+  if (!TakeEditorReply(g_bio, data, reply))
     return;
   if (GetJsonValue(reply, "status") != "ok") {
-    ShowBioFailure("Keep failed: ", reply);
+    ShowEditorFailure(g_bio, "Keep failed: ", reply);
     return;
   }
   CloseBioUI();
@@ -355,7 +273,7 @@ void OnLibraryEditBioClick(MyGUI::Widget *sender) {
   if (!SelectBioNpc())
     return;
   CloseBioUI();
-  StartBioRequest(L"/read_bio", "{\"sid\":\"" + EscapeJSON(g_bioSid) + "\"}",
+  StartEditorRequest(g_bio, L"/read_bio", "{\"sid\":\"" + EscapeJSON(g_bioSid) + "\"}",
                   "BIO_READ");
 }
 
