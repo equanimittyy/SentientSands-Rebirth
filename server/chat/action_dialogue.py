@@ -184,7 +184,8 @@ def lean(category, npc, speaker, relation, overheard=(), mode="talk"):
         captive = fellow_captives(npc, speaker)
         pairs += [(npc.get("character_state") == "escaped-slave", "You escaped slavery."),
                   (2 * captive, "{player} is a fellow captive, and like most captives, you want to escape."),
-                  (-3 * (captive and mode != "whisper"), "{player} does not whisper, so your captors can hear."),
+                  # Outweighs the best relation and the captive bonus together, so a plan said aloud always leans to a refusal
+                  (-6 * (captive and mode != "whisper"), "{player} says it out loud, where your captors can hear, so you refuse and deny any plan to escape."),
                   (-bool(npc.get("unique")), "You are no common drifter."),
                   (-2 * is_guard(npc), "You are a guard."),
                   (-2 * is_trader(npc), "You have a trade to run."),

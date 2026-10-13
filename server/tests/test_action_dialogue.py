@@ -190,8 +190,10 @@ class LeanTest(unittest.TestCase):
     def test_a_fellow_captive_that_hears_no_whisper_fears_the_captors(self):
         shackled = {"character_state": "enslaved", "captor": "17-gamedata.base"}
         for mode in ("talk", "yell"):
-            self.assertIn((-3, "{player} does not whisper, so your captors can hear."), ad.lean("RECRUIT", shackled, shackled, 0, (), mode))
-            self.assertEqual(score("RECRUIT", shackled, shackled, 0, (), mode), -1)
+            self.assertIn((-6, "{player} says it out loud, where your captors can hear, so you refuse and deny any plan to escape."),
+                          ad.lean("RECRUIT", shackled, shackled, 0, (), mode))
+            self.assertEqual(score("RECRUIT", shackled, shackled, 0, (), mode), -4)
+            self.assertEqual(ad.lean_text(score("RECRUIT", shackled, shackled, 100, (), mode)), ad.REFUSED_LEAN)
         self.assertEqual(score("RECRUIT", {}, {}, 0, (), "talk"), 0)
 
     def test_a_npc_that_is_no_mercenary_is_wary_of_following(self):
