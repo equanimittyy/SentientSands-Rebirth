@@ -1,12 +1,17 @@
-[img]images/title.png[/img]
+[img]https://i.imgur.com/1UTGWm4.png[/img]
 [b][i]A RE_Kenshi AI dialogue mod for Kenshi[/i][/b]
 
-[b]Sentient Sands Rebirth[/b]
-lets you talk to NPCs, create memories, and drive your own dynamic story in the world of Kenshi. Powered by LLMs.
+[i]I got fed up with modifying other people's versions of Sentient Sands, so I just made my own instead.[/i]
+
+[hr][/hr]
+
+[b]Sentient Sands Rebirth[/b] lets you talk to NPCs, create memories, and drive your own dynamic story in the world of Kenshi. Powered by LLMs.
 
 Rebirth rebuilds version 0.2 of [url=https://steamcommunity.com/sharedfiles/filedetails/?id=3675880187]Sentient Sands[/url] by Harvicus. What's new:
 [list]
-[*] [b]NPCs who remember:[/b] new chats, rumours, and radiant conversations. NPCs remember what you said, what they overheard, and what the world talks about
+[*] [b]Rebuilt backend:[/b] I rebuilt the backend with real production grade database design, and search capabilities. Your NPCs can search for lore and memories
+[*] [b]NPCs who remember:[/b] new chats, rumours, and radiant conversations. NPCs remember what you said, what they overheard, and know what the world talks about
+[*] [b]Tuned prompts:[/b] Overhauled, tuned and tested prompts to produce close-to-vanilla like dialogue. Your mileage will vary depending on your model, but it's customisable
 [*] [b]Easy setup:[/b] a modern, simple web app
 [*] [b]Overhauled action system:[/b] trade, hire, recruit, heal, or buy a release from prison in the chat, and build your trades from real items in the new Barter window
 [*] [b]NPCs who know Kenshi:[/b] real Kenshi lore of its factions, history, races, places, and regions. NPCs know who leads each faction, where it holds ground, and who its enemies are, and they bring up the lore that your words touch
@@ -14,7 +19,7 @@ Rebirth rebuilds version 0.2 of [url=https://steamcommunity.com/sharedfiles/file
 
 [b]Requires RE_Kenshi v0.3.5 or later, and an AI model![/b]
 
-[img]images/features.png[/img]
+[img]https://i.imgur.com/C1p8hsG.png[/img]
 [list]
 [*] Talk to any NPC in your own words. Whisper, talk and yell
 [*] Make deals in chat: trades, gifts, charity, healing and repair, liberation, recruit, and hire
@@ -35,7 +40,7 @@ Rebirth rebuilds version 0.2 of [url=https://steamcommunity.com/sharedfiles/file
 [*] Universal Wasteland Expansion: [b]Yes[/b]
 [/list]
 
-[img]images/install_setup.png[/img]
+[img]https://i.imgur.com/3tmQ9Mk.png[/img]
 [olist]
 [*] Install [url=https://github.com/BFrizzleFoShizzle/RE_Kenshi/releases]RE_Kenshi[/url] v0.3.5 or later
 [*] Subscribe to this mod
@@ -45,12 +50,11 @@ Rebirth rebuilds version 0.2 of [url=https://steamcommunity.com/sharedfiles/file
 [*] Select an NPC in the game, and press [b]\[/b] (default) to talk to it
 [/olist]
 
-[img]images/chat_commands.png[/img]
+[img]https://i.imgur.com/qsL6FWh.png[/img]
 [b]Keys:[/b]
 [list]
 [*] [b]\[/b] - Talk to the selected NPC. You can change the chat key on the Settings tab of the web app
 [*] [b]F8[/b] - Open the SSR HUB: the Dialogue Library, Events, Journal, Cull Future Data, Open Web App, Restart Server, and Help
-[*] [b]Enter[/b] on an empty line - Close the chat window
 [/list]
 
 [b]Deals:[/b]
@@ -74,7 +78,7 @@ You can type the full word instead of the letter, for example [i]!barter[/i]. Yo
 [*] [b]/cheats[/b] - Open the Cheats window
 [/list]
 
-[img]images/faq.png[/img]
+[img]https://i.imgur.com/PyUJPEN.png[/img]
 [b]Q: Does it cost money?[/b]
 A: The mod is free. An online service, such as OpenRouter, needs an API key and sets its own prices. A local model through Ollama or llama.cpp needs no API key, and can be free
 
