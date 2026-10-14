@@ -146,7 +146,7 @@ class TextTest(unittest.TestCase):
         lines = offers.command(7, offer, "Bandit", "12", "3", "text").split("\n")
         self.assertEqual(lines[:4], ["CMD: OFFER: 7", "12 3", "Bandit", "text"])
         self.assertEqual(lines[4:], ["CHECK: CATS player 250", "CHECK: ITEM player 1 Dirty Loincloth", "CHECK: ITEM npc 1 Katana",
-                                     "CHECK: ROOM player 1 Dirty Loincloth", "BOX: player 250 cats", "BOX: player 1 Dirty Loincloth", "BOX: npc 1 Katana"])
+                                     "CHECK: ROOM player 1 Dirty Loincloth", "RESTOCK: inventory", "BOX: player 250 cats", "BOX: player 1 Dirty Loincloth", "BOX: npc 1 Katana"])
 
     def test_only_an_agreement_in_the_barter_window_sends_the_deal_lines(self):
         offer, _ = check("BARTER", "[DEAL: Katana for 250 cats]")
@@ -335,6 +335,14 @@ class BarterWindowTest(unittest.TestCase):
         for deal, why in broken:
             with self.subTest(why=why):
                 self.assertEqual(offers.on_table(deal, SHOP, BUYER, SQUAD, "Zaps")[2][1], f"You cannot agree to it as it is, because {why}.")
+
+    def test_only_a_trade_names_where_accept_restocks(self):
+        offer = offers.on_table(TABLE, SHOP, BUYER, SQUAD, "Zaps")[0]
+        self.assertIn("RESTOCK: stock", offers.command(7, offer, "Shopkeeper", "12", "3", "text").split("\n"))
+        handover, _ = check("THREATEN", "[GIVE: 2 Bread]")
+        charity = offers.on_table({"give_cats": 50}, SHOP, BUYER, SQUAD, "Zaps")[0]
+        for offer in (handover, charity):
+            self.assertNotIn("RESTOCK", offers.command(7, offer, "Bandit", "12", "3", "text"))
 
     def test_an_item_that_the_npc_lost_from_the_table_stays_its_own(self):
         soup = {"take_cats": 800, "give": [{"name": "Meat and Barley Rice Soup", "count": 1}]}

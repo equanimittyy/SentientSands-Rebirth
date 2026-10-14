@@ -6,7 +6,6 @@
 #include "../core/Globals.h"
 #include "../core/Utils.h"
 #include "../game/Context.h"
-#include "../game/GameActions.h"
 #include "ChatWindow.h"
 #include "OfferWindow.h"
 
@@ -62,14 +61,6 @@ struct Deal {
 
 static Deal g_deal;
 static Deal g_agreed;
-
-struct Sample {
-  GameData *data;
-  GameData *maker;
-  GameData *grade;
-  int level;
-};
-static std::map<std::string, Sample> g_npcSamples;
 static bool g_offerHeld = false;
 static std::vector<Lot> g_shown[4];
 static std::string g_barterNpcName;
@@ -262,20 +253,6 @@ static void FillList(int list, const std::vector<Lot> &lots, bool named) {
   g_shown[list] = lots;
 }
 
-static void NoteSamples(Character *npc) {
-  if (!npc)
-    return;
-  std::vector<Item *> items;
-  GoodsOf(npc, g_barterStock, items);
-  for (size_t i = 0; i < items.size(); ++i) {
-    if (!items[i] || items[i]->itemFunction == ITEM_MONEY)
-      continue;
-    Sample sample = {items[i]->data, items[i]->manufacturerData,
-                     items[i]->materialData, items[i]->getLevel()};
-    g_npcSamples[ItemLabel(items[i])] = sample;
-  }
-}
-
 static std::vector<Lot> Missing() {
   std::vector<Lot> held =
       Holdings(KeyedCharacter(g_barterNpcKey), 0, g_barterStock);
@@ -288,19 +265,6 @@ static std::vector<Lot> Missing() {
       missing.push_back(lot);
   }
   return missing;
-}
-
-// The NPC agreed to its lost items as its own (offers.with_lost)
-static void RestockLost() {
-  Character *npc = KeyedCharacter(g_barterNpcKey);
-  std::vector<Lot> lost = Missing();
-  for (size_t i = 0; npc && i < lost.size(); ++i) {
-    std::map<std::string, Sample>::const_iterator sample =
-        g_npcSamples.find(lost[i].label);
-    if (sample != g_npcSamples.end())
-      Restock(npc, g_barterStock, sample->second.data, sample->second.maker,
-              sample->second.grade, sample->second.level, lost[i].count);
-  }
 }
 
 // The game does not pause, so a side can lose an item that lies on the table.
@@ -332,7 +296,7 @@ static void RefreshBarterLists() {
   Character *mate = Picked();
   g_squadPrices.clear();
   NotePrices(npc, g_barterStock, g_npcPrices);
-  NoteSamples(npc);
+  NoteNpcItems(npc);
   for (size_t i = 0; i < g_barterSquad.size(); ++i)
     NotePrices(g_barterSquad[i].getCharacter(), false, g_squadPrices);
   unsigned int mateKey = mate ? HandleKey(mate) : 0;
@@ -504,7 +468,6 @@ static void OnBarterInputAccept(MyGUI::EditBox *sender) { SendBarterLine(); }
 static void OnBarterAccept(MyGUI::Widget *sender) {
   if (!g_offerHeld)
     return;
-  RestockLost();
   AcceptOffer();
   CloseBarterUI();
 }
@@ -644,7 +607,6 @@ void ShowBarterUI(const std::string &npcName, unsigned int npcKey,
   g_deal = Deal();
   g_deal.cats[PLAYER_SIDE] = g_deal.cats[NPC_SIDE] = 0;
   g_npcPrices.clear();
-  g_npcSamples.clear();
   g_offerHeld = false;
   g_barterWaiting = false;
 

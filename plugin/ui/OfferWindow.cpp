@@ -3,6 +3,7 @@
 #include "../core/Globals.h"
 #include "../core/Utils.h"
 #include "../game/Context.h"
+#include "../game/GameActions.h"
 #include "BarterWindow.h"
 #include "ChatWindow.h"
 
@@ -22,6 +23,7 @@
 #include <mygui/MyGUI_Window.h>
 
 #include <cstdlib>
+#include <map>
 #include <sstream>
 #include <vector>
 
@@ -49,10 +51,20 @@ struct Offer {
   Character *speaker;
   std::vector<std::string> checks;
   std::vector<std::string> deal;
+  std::string restock;
 };
 // The barter window can hold the offer instead of the popup, so the ID marks a
 // held offer
 static Offer g_offer;
+
+struct Sample {
+  GameData *data;
+  GameData *maker;
+  GameData *grade;
+  int level;
+};
+static std::map<std::string, Sample> g_samples;
+static unsigned int g_samplesNpc = 0;
 
 static void CloseOfferUI() {
   DestroyWindow(g_offerWindow);
@@ -94,6 +106,44 @@ static int CountItems(Character *c, const std::string &name, bool withShop) {
     if (items[i] && Lower(ItemLabel(items[i])) == wanted)
       count += items[i]->quantity;
   return count;
+}
+
+void NoteNpcItems(Character *npc) {
+  if (!npc)
+    return;
+  if (HandleKey(npc) != g_samplesNpc) {
+    g_samples.clear();
+    g_samplesNpc = HandleKey(npc);
+  }
+  std::vector<Item *> items;
+  GetAllCharacterItems(npc, items);
+  GetShopItems(npc, items);
+  for (size_t i = 0; i < items.size(); ++i) {
+    if (!items[i] || items[i]->itemFunction == ITEM_MONEY)
+      continue;
+    Sample sample = {items[i]->data, items[i]->manufacturerData,
+                     items[i]->materialData, items[i]->getLevel()};
+    g_samples[ItemLabel(items[i])] = sample;
+  }
+}
+
+// The NPC agreed to give each item as its own, and the barter window counts an
+// item that the NPC lost from the table as its own (offers.with_lost)
+static void RestockLost(Character *npc) {
+  if (g_offer.restock.empty() || HandleKey(npc) != g_samplesNpc)
+    return;
+  for (size_t i = 0; i < g_offer.checks.size(); ++i) {
+    DealLine check = ParseDealLine(g_offer.checks[i]);
+    if (check.kind != "ITEM" || check.holder != "npc")
+      continue;
+    int missing = check.count - CountItems(npc, check.name, true);
+    std::map<std::string, Sample>::const_iterator sample =
+        g_samples.find(check.name);
+    if (missing > 0 && sample != g_samples.end())
+      Restock(npc, g_offer.restock == "stock", sample->second.data,
+              sample->second.maker, sample->second.grade,
+              sample->second.level, missing);
+  }
 }
 
 static GameData *ItemData(Character *c, const std::string &name) {
@@ -157,6 +207,8 @@ static std::string Shortfall(Character *npc, Character *speaker) {
 void AcceptOffer() {
   Character *npc = KeyedCharacter(g_offer.npcKey);
   Character *speaker = KeyedCharacter(g_offer.speakerKey);
+  if (npc && speaker)
+    RestockLost(npc);
   std::string reason = npc && speaker ? Shortfall(npc, speaker) : "";
   if (!reason.empty()) {
     NotifyText(reason);
@@ -254,8 +306,9 @@ static void AddOfferBox(MyGUI::Widget *client, const char *labelKey,
 
 // The data holds, one to a line, the offer ID, the keys of the NPC and the
 // speaker, the name of the NPC, the text of the popup, the CHECK lines, and the
-// BOX lines of a barter offer, which shows in two boxes instead of the text.
-// An agreement in the barter window adds DEAL lines, and the window shows it
+// RESTOCK and BOX lines of a trade, which shows in two boxes instead of the
+// text. An agreement in the barter window adds DEAL lines, and the window
+// shows it
 static bool ParseOffer(const std::string &data, Offer &offer,
                        std::vector<std::string> &mine,
                        std::vector<std::string> &theirs) {
@@ -282,6 +335,8 @@ static bool ParseOffer(const std::string &data, Offer &offer,
       theirs.push_back(lines[i].substr(9));
     else if (lines[i].compare(0, 6, "DEAL: ") == 0)
       offer.deal.push_back(lines[i].substr(6));
+    else if (lines[i].compare(0, 9, "RESTOCK: ") == 0)
+      offer.restock = lines[i].substr(9);
   }
   return true;
 }

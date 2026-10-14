@@ -389,6 +389,9 @@ bool SendChatLine(const std::string &npcName, unsigned int targetKey,
     LogFactionList();
     LogNpcRole(addressee);
   }
+  // The offer of the reply comes from this context, so its items are noted now
+  if (actionLine && !unheard)
+    NoteNpcItems(targetNpc);
   std::string speakerContext =
       speaker ? GetDetailedContext(speaker, "player") : "{}";
 

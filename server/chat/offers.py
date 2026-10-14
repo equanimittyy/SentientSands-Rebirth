@@ -508,10 +508,13 @@ def boxes(offer):
 
 def command(offer_id, offer, npc, npc_key, speaker_key, text, window=False):
     """The pipe command that opens the popup: the ID, the keys of the NPC and the speaker, the name of the NPC, the text of
-    the popup, the CHECK lines, and the BOX lines of a trade, one to a line. An agreement in the barter window adds the DEAL
-    lines, so the window loads only a deal of its own table."""
+    the popup, the CHECK lines, and the RESTOCK and BOX lines of a trade, one to a line. RESTOCK names where Accept puts a
+    copy of an item that the NPC lost. Only a trade restocks, because the player pays for each copy, and a handover costs
+    nothing. An agreement in the barter window adds the DEAL lines, so the window loads only a deal of its own table."""
+    trade = offer["category"] == "BARTER" and not offer.get("charity")
+    restock = [f"RESTOCK: {'stock' if offer.get('stock') else 'inventory'}"] if trade else []
     shown = boxes(offer) + (deal_lines(offer) if window else []) if offer["category"] == "BARTER" else []
-    return "CMD: OFFER: " + "\n".join([str(offer_id), f"{npc_key} {speaker_key}", npc, text, *checks(offer), *shown])
+    return "CMD: OFFER: " + "\n".join([str(offer_id), f"{npc_key} {speaker_key}", npc, text, *checks(offer), *restock, *shown])
 
 
 def hold(offer, **details):

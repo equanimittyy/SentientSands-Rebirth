@@ -18,6 +18,8 @@ struct DealLine {
 };
 DealLine ParseDealLine(const std::string &text);
 
+// Accept restocks an item that the NPC lost as a copy of what this saw
+void NoteNpcItems(Character *npc);
 void ShowOfferUI(const std::string &data);
 void DropOfferUI();
 void WatchOffer();
