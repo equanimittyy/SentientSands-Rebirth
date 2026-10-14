@@ -1,7 +1,8 @@
 [img]https://i.imgur.com/1UTGWm4.png[/img]
 [b][i]A RE_Kenshi AI dialogue mod for Kenshi[/i][/b]
+[b][i]Released under GNU General Public License v3.0 (GPLv3)[/i][/b]
 
-[i]I got fed up with modifying other people's versions of Sentient Sands, so I just made my own instead.[/i]
+[i]I got fed up with modifying other people's versions of Sentient Sands, so I just made my own, properly designed version instead.[/i]
 
 [hr][/hr]
 
@@ -11,7 +12,7 @@ Rebirth rebuilds version 0.2 of [url=https://steamcommunity.com/sharedfiles/file
 [list]
 [*] [b]Rebuilt backend:[/b] I rebuilt the backend with real production grade database design, and search capabilities. Your NPCs can search for lore and memories
 [*] [b]NPCs who remember:[/b] new chats, rumours, and radiant conversations. NPCs remember what you said, what they overheard, and know what the world talks about
-[*] [b]Tuned prompts:[/b] Overhauled, tuned and tested prompts to produce close-to-vanilla like dialogue. Your mileage will vary depending on your model, but it's customisable
+[*] [b]Tuned prompts:[/b] Overhauled, tuned and tested prompts to produce close-to-vanilla like dialogue. Your mileage will vary depending on your model, but it's customisable. Tuned under a local Gemma 4 E4B model
 [*] [b]Easy setup:[/b] a modern, simple web app
 [*] [b]Overhauled action system:[/b] trade, hire, recruit, heal, or buy a release from prison in the chat, and build your trades from real items in the new Barter window
 [*] [b]NPCs who know Kenshi:[/b] real Kenshi lore of its factions, history, races, places, and regions. NPCs know who leads each faction, where it holds ground, and who its enemies are, and they bring up the lore that your words touch
