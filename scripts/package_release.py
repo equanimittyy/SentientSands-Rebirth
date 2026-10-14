@@ -18,10 +18,6 @@ from datetime import datetime
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parent.parent
-sys.path.insert(0, str(REPO / "server"))
-
-from core.version import MOD_VERSION
-
 MOD_NAME = "SentientSandsRebirth"
 DEFAULT_DLL = REPO / "plugin" / "x64" / "Release" / "SentientSands.dll"
 SERVER_DIRS = ("core", "chat", "store", "dashboard", "data/templates", "data/prompts", "data/defaults")
@@ -113,7 +109,6 @@ def main():
 
     if not args.dll.is_file():
         raise SystemExit(f"DLL not found: {args.dll}. Build the plugin first (docs/info/development.md#plugin).")
-    print(f"Version  {MOD_VERSION}")
     describe_dll(args.dll)
 
     stage_root = args.out / "stage"
@@ -126,7 +121,7 @@ def main():
     install_python(embed_zip, PYTHON_VERSION, python_dir)
     install_dependencies(PYTHON_VERSION, python_dir / "Lib" / "site-packages")
 
-    out_zip = args.out / f"{MOD_NAME}-{MOD_VERSION}.zip"
+    out_zip = args.out / f"{MOD_NAME}.zip"
     make_zip(stage, out_zip)
     print(f"Wrote {out_zip} ({out_zip.stat().st_size / 1_048_576:.1f} MB)")
 
