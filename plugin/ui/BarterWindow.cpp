@@ -61,6 +61,7 @@ struct Deal {
 
 static Deal g_deal;
 static Deal g_agreed;
+static std::vector<Lot> g_lost;
 static bool g_offerHeld = false;
 static std::vector<Lot> g_shown[4];
 static std::string g_barterNpcName;
@@ -267,11 +268,17 @@ static bool TrimDeal() {
                    lot.holder, lot.label);
       if (have >= lot.count)
         continue;
+      std::string text =
+          Fill(Fill(T("{name} no longer has {what}."), "{name}",
+                    npc ? g_barterNpcName : HolderName(lot.holder)),
+               "{what}", ToString(lot.count) + " " + lot.label);
+      if (npc) {
+        text += " " + T("Someone bought or ate it.");
+        AddLot(g_lost, lot.holder, lot.label, lot.count - have);
+      }
+      NotifyText(text);
       if (!trimmed)
-        SetCaption(g_barterStatus,
-                   Fill(Fill(T("{name} no longer has {what}."), "{name}",
-                             npc ? g_barterNpcName : HolderName(lot.holder)),
-                        "{what}", ToString(lot.count) + " " + lot.label));
+        SetCaption(g_barterStatus, text);
       trimmed = true;
       TakeLot(lots, lot.holder, lot.label, lot.count - have);
     }
@@ -406,7 +413,7 @@ static std::string BarterJson() {
          ", \"give_cats\": " + ToString(deal.cats[NPC_SIDE]) +
          ", \"take\": " + LotsJson(deal.lots[PLAYER_SIDE]) +
          ", \"give\": " + LotsJson(deal.lots[NPC_SIDE]) +
-         "}, \"squad\": " + squad + "]}";
+         ", \"lost\": " + LotsJson(g_lost) + "}, \"squad\": " + squad + "]}";
 }
 
 static void SendBarterLine() {
@@ -433,6 +440,7 @@ static void SendBarterLine() {
                     KeyedCharacter(g_barterSpeakerKey), "!b " + text,
                     g_barterMode, answer, json))
     return;
+  g_lost.clear();
   g_barterInput->setCaption("");
   g_barterWaiting = true;
   g_barterSendBtn->setEnabled(false);
@@ -584,6 +592,7 @@ void ShowBarterUI(const std::string &npcName, unsigned int npcKey,
   g_barterStock = JsonTrue(thread, "stock");
   g_deal = Deal();
   g_deal.cats[PLAYER_SIDE] = g_deal.cats[NPC_SIDE] = 0;
+  g_lost.clear();
   g_offerHeld = false;
   g_barterWaiting = false;
 

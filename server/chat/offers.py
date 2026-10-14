@@ -52,7 +52,7 @@ LOSS_LEAN = -2
 # The reasons of check name the parties for the log. The turn message of the barter window speaks to the NPC, which invented
 # a reason, such as a sale of an item that it no longer had, when the message gave none.
 TABLE_REASONS = {
-    "the NPC does not hold": "you do not have",
+    "the NPC does not hold": "someone else bought your",
     "the NPC has fewer than": "you have fewer than",
     "the speaker does not hold": "{player} does not have",
     "the player has fewer than": "{player} has fewer than",
@@ -598,13 +598,16 @@ def on_table(deal, npc, speaker, squad, player_name, relation=None):
     None and the reason, the lines that describe the deal and its worth in the turn message, so the NPC weighs the deal
     against the loss that it usually takes or the profit that it wants, and the (bonus, reason) pairs that the profit or
     the loss adds to the lean."""
+    # The NPC hears of a sale, because the game does not say what took the item
+    lost = [("ITEM", (int(item["count"]), item["name"])) for item in deal.get("lost") or []]
+    sold = [f"While the deal lay on the table, someone else bought {goods_text(lost)} from you."] if lost else []
     parts = table_parts(deal)
     if not parts:
-        return None, "the table is empty", ["Nothing is on the table yet."], []
+        return None, "the table is empty", sold + ["Nothing is on the table yet."], []
     offer, reason = check("BARTER", parts, npc, speaker, squad)
     gives = [("CATS", count_of(argument)) if name == "GIVE_CATS" else ("ITEM", item_of(argument)) for name, argument, *_ in parts if name.startswith("GIVE")]
     takes = [("CATS", count_of(argument)) if name == "TAKE_CATS" else ("ITEM", item_of(argument)) for name, argument, *_ in parts if name.startswith("TAKE")]
-    lines = [f"On the table, {player_name} gives {goods_text(takes) or 'nothing'}, and you give {goods_text(gives) or 'nothing'}."]
+    lines = sold + [f"On the table, {player_name} gives {goods_text(takes) or 'nothing'}, and you give {goods_text(gives) or 'nothing'}."]
     side = dict(speaker, inventory=pooled(squad))
     received, handed = worth(takes, npc, side, "takes"), worth(gives, npc, side, "gives")
     worths = f"you get a worth of {received:,.0f} cats for a worth of {handed:,.0f}"

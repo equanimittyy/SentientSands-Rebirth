@@ -330,11 +330,17 @@ class BarterWindowTest(unittest.TestCase):
 
     def test_the_turn_message_names_the_broken_limit_of_the_table(self):
         soup = {"take_cats": 600, "give": [{"name": "Meat and Barley Rice Soup", "count": 1}]}
-        broken = [(soup, "you do not have 1 Meat and Barley Rice Soup"), ({**TABLE, "give_cats": 9000}, "you have fewer than 9000 cats"),
+        broken = [(soup, "someone else bought your 1 Meat and Barley Rice Soup"), ({**TABLE, "give_cats": 9000}, "you have fewer than 9000 cats"),
                   ({**TABLE, "take_cats": 6000}, "Zaps has fewer than 6000 cats"), ({"give": TABLE["give"]}, "you give charity only as cats")]
         for deal, why in broken:
             with self.subTest(why=why):
                 self.assertEqual(offers.on_table(deal, SHOP, BUYER, SQUAD, "Zaps")[2][1], f"You cannot agree to it as it is, because {why}.")
+
+    def test_the_npc_hears_that_someone_bought_its_item_off_the_table(self):
+        sold = "While the deal lay on the table, someone else bought a Meat and Barley Rice Soup and 2 Bread from you."
+        lost = [{"holder": "0", "name": "Meat and Barley Rice Soup", "count": 1}, {"holder": "0", "name": "Bread", "count": 2}]
+        self.assertEqual(offers.on_table({**TABLE, "lost": lost}, SHOP, BUYER, SQUAD, "Zaps")[2][:2], [sold, "On the table, Zaps gives 2,950 cats and 2 Bread, and you give a Katana (Ancient, Refitted Blade)."])
+        self.assertEqual(offers.on_table({"lost": lost}, SHOP, BUYER, SQUAD, "Zaps")[2], [sold, "Nothing is on the table yet."])
 
     def test_a_gift_charity_and_an_empty_table(self):
         self.assertEqual(offers.on_table({"take_cats": 600}, SHOP, BUYER, SQUAD, "Zaps")[2][1], "It is a gift to you.")
