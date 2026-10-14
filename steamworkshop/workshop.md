@@ -96,6 +96,9 @@ A: Yes. The SSR Vanilla world template also describes the factions and the uniqu
 [b]Q: I loaded an older save, and NPCs remember things that did not happen yet![/b]
 A: Press [b]Cull Future Data[/b] in the SSR HUB (F8). NPCs then forget what happened after your save. You cannot undo it. A campaign is not linked to a save, so choose the right campaign on the Campaigns tab before you load another playthrough
 
+[b]Q: I want to modify SSR, how can I do this?[/b]
+A: The source code for SSR can be found [url=https://github.com/equanimittyy/SentientSands-Rebirth]here[/url].
+
 [b]Q: I found a bug. What do I do?[/b]
 A: Please post in the Discussions tab with a description of the issue. Logs can be found in the [i]logs[/i] folder of the mod: [i]SentientSands_SDK.log[/i] and [i]server.log[/i]
 
