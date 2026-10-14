@@ -49,6 +49,15 @@ LOSS_SHARES = {-2: -0.3, -1: -0.2, 0: -0.1, 1: 0.1, 2: 0.2}
 # relation.
 PROFIT_LEANS = ((0.5, 4, ", a big profit"), (0.25, 3, ", a good profit"), (0.0, 2, ""))
 LOSS_LEAN = -2
+# The reasons of check name the parties for the log. The turn message of the barter window speaks to the NPC, which invented
+# a reason, such as a sale of an item that it no longer had, when the message gave none.
+TABLE_REASONS = {
+    "the NPC does not hold": "you do not have",
+    "the NPC has fewer than": "you have fewer than",
+    "the speaker does not hold": "{player} does not have",
+    "the player has fewer than": "{player} has fewer than",
+    "charity is only GIVE_CATS or GIVE_FOOD": "you give charity only as cats",
+}
 ACCEPT_LINES = {"RECRUIT": "recruit_accept", "FOLLOW": "follow_accept", "HEAL": "heal_start", "LIBERATE": "liberate_accept", "THREATEN": "threaten_accept", "BARTER": "barter_accept"}
 # Keyed by the kinds of ItemKind (plugin/game/Context.cpp). Kenshi files alcohol under narcotics, so a drink is a "drug".
 KIND_WORDS = {
@@ -617,7 +626,8 @@ def on_table(deal, npc, speaker, squad, player_name, relation=None):
         lines.append(f"It is below your price by more than the loss that you usually take: {worths}.")
         lean.append((LOSS_LEAN, f"The deal on the table loses you {handed - received:,.0f} cats, more than you usually take."))
     else:
-        lines.append("You cannot agree to it as it is.")
+        why = next((words.format(player=player_name) + reason[len(start):] for start, words in TABLE_REASONS.items() if reason.startswith(start)), reason)
+        lines.append(f"You cannot agree to it as it is, because {why}.")
     return offer, reason, lines, lean
 
 

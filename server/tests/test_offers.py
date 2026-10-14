@@ -325,8 +325,16 @@ class BarterWindowTest(unittest.TestCase):
         offer, reason, lines, lean = offers.on_table({**TABLE, "take": [{"holder": "3", "name": "Bread", "count": 2}]}, SHOP, BUYER, SQUAD, "Zaps")
         self.assertIsNone(offer)
         self.assertIn("does not hold", reason)
-        self.assertEqual(lines[1], "You cannot agree to it as it is.")
+        self.assertEqual(lines[1], "You cannot agree to it as it is, because Zaps does not have 2 Bread.")
         self.assertEqual(lean, [])
+
+    def test_the_turn_message_names_the_broken_limit_of_the_table(self):
+        soup = {"take_cats": 600, "give": [{"name": "Meat and Barley Rice Soup", "count": 1}]}
+        broken = [(soup, "you do not have 1 Meat and Barley Rice Soup"), ({**TABLE, "give_cats": 9000}, "you have fewer than 9000 cats"),
+                  ({**TABLE, "take_cats": 6000}, "Zaps has fewer than 6000 cats"), ({"give": TABLE["give"]}, "you give charity only as cats")]
+        for deal, why in broken:
+            with self.subTest(why=why):
+                self.assertEqual(offers.on_table(deal, SHOP, BUYER, SQUAD, "Zaps")[2][1], f"You cannot agree to it as it is, because {why}.")
 
     def test_a_gift_charity_and_an_empty_table(self):
         self.assertEqual(offers.on_table({"take_cats": 600}, SHOP, BUYER, SQUAD, "Zaps")[2][1], "It is a gift to you.")

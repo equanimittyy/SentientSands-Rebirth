@@ -253,7 +253,34 @@ static void FillList(int list, const std::vector<Lot> &lots, bool named) {
   g_shown[list] = lots;
 }
 
+// The game does not pause, so a side can lose an item that lies on the table
+static bool TrimDeal() {
+  bool trimmed = false;
+  for (int side = 0; side < 2; ++side) {
+    std::vector<Lot> &lots = g_deal.lots[side];
+    for (size_t i = lots.size(); i-- > 0;) {
+      Lot lot = lots[i];
+      bool npc = side == NPC_SIDE;
+      Character *holder = KeyedCharacter(npc ? g_barterNpcKey : lot.holder);
+      int have =
+          LotCount(Holdings(holder, lot.holder, npc && g_barterStock),
+                   lot.holder, lot.label);
+      if (have >= lot.count)
+        continue;
+      if (!trimmed)
+        SetCaption(g_barterStatus,
+                   Fill(Fill(T("{name} no longer has {what}."), "{name}",
+                             npc ? g_barterNpcName : HolderName(lot.holder)),
+                        "{what}", ToString(lot.count) + " " + lot.label));
+      trimmed = true;
+      TakeLot(lots, lot.holder, lot.label, lot.count - have);
+    }
+  }
+  return trimmed;
+}
+
 static void RefreshBarterLists() {
+  TrimDeal();
   Character *npc = KeyedCharacter(g_barterNpcKey);
   Character *mate = Picked();
   g_npcPrices.clear();
@@ -385,6 +412,11 @@ static std::string BarterJson() {
 static void SendBarterLine() {
   if (g_barterWaiting)
     return;
+  // The player wrote the line for the table before the trim
+  if (TrimDeal()) {
+    RefreshBarterLists();
+    return;
+  }
   std::string text = Trim(g_barterInput->getOnlyText().asUTF8());
   if (text.empty())
     text = T("How about this deal?");
@@ -601,8 +633,8 @@ bool ShowBarterOffer(unsigned int npcKey, unsigned int speakerKey,
   g_offerHeld = true;
   for (int side = 0; side < 2; ++side)
     SetCaption(g_barterCats[side], ToString(loaded.cats[side]));
-  RefreshBarterLists();
   SetStatus("{name} agrees to this deal.");
+  RefreshBarterLists();
   return true;
 }
 
