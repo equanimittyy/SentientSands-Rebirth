@@ -9,6 +9,7 @@ from core import log_setup, state, world_events
 from core.game import context_dict, relation_text, take_report
 from core.pipe import send_to_pipe
 from core.settings import CHAT_HOTKEYS, SETTINGS_DEFAULTS, load_configs, load_settings, save_settings, settings_page_values
+from core.version import MOD_VERSION
 from store import campaign_db
 from store.campaigns import switch_campaign
 
@@ -165,6 +166,7 @@ def get_context():
         "player": state.PLAYER_CONTEXT,
         "npc": last_npc or {},
         "campaign": state.ACTIVE_CAMPAIGN,
+        "version": MOD_VERSION,
         "debug": logging.getLogger().isEnabledFor(logging.DEBUG),
         # Both counts only grow, so the sum changes when either does
         "writes": campaign_db.writes + state.WRITE_REQUESTS,

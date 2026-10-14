@@ -38,6 +38,7 @@ from core.paths import LOGS_DIR
 from core.app import app
 from core.process import kill_old_servers, monitor_kenshi_process
 from core.settings import load_configs, push_settings_to_plugin
+from core.version import MOD_VERSION
 from dashboard import routes as dashboard_routes
 from dashboard.browser_launch import open_when_ready
 from store.campaigns import init_server_state
@@ -58,7 +59,7 @@ def start():
 
 if __name__ == '__main__':
     start()
-    logging.info("SYSTEM: Server starting on port 5000.")
+    logging.info(f"SYSTEM: Server v{MOD_VERSION} starting on port 5000.")
     # A thread, because each message waits up to 0.25 s for a pipe that a closed game never opens
     threading.Thread(target=push_settings_to_plugin, daemon=True).start()
     if "--open-browser" in sys.argv[1:]:

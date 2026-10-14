@@ -49,6 +49,7 @@ themeToggle.addEventListener("click", () => {
 showTheme();
 
 const status = document.getElementById("status");
+const version = document.getElementById("version");
 const offline = document.getElementById("offline");
 const loaders = { settings: loadSettings, llm: loadLlm, prompts: loadPrompts, campaigns: loadCampaigns, editor: loadEditor };
 // A refresher keeps the unsaved drafts. It changes the bar message only when the unsaved state changes, so a change from
@@ -150,6 +151,7 @@ async function poll() {
   try {
     const context = await getJson("/context");
     status.textContent = `Current Campaign: ${context.campaign || "None"}`;
+    version.textContent = `v${context.version}`;
     if (campaign !== null && context.campaign !== campaign) document.dispatchEvent(new CustomEvent("campaignchange", { detail: context.campaign }));
     campaign = context.campaign;
     document.documentElement.toggleAttribute("data-debug", context.debug);

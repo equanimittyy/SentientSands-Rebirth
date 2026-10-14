@@ -24,8 +24,8 @@ The release zip unpacks into `Kenshi/mods/`. The plugin and the server find each
 SentientSandsRebirth/
   SentientSands.dll          built from plugin/
   RE_Kenshi.json             makes RE_Kenshi load the DLL
-  mod.info
-  SentientSandsRebirth.mod
+  _SentientSandsRebirth.info the Steam Workshop data of the mod
+  SentientSandsRebirth.mod   its header holds the mod version, which FCS sets
   LICENSE                    the GPL text
   NOTICE                     the copyright notices and the additional term
   SentientSands_Config.ini   settings, created by the server on first start
