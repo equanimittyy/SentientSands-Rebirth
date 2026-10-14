@@ -248,6 +248,21 @@ An FTS5 table holds one row per record (name, aliases, fields, text) with the `p
 - A record that the system message holds is skipped (`background.in_system_message`).
 - An entry's text ends at its last sentence end before 700 characters (`clipped`). The fields are not cut.
 
+### Directions
+
+The lore of a turn ends with the directions from the NPC's region to the neighbours that the turn asks about (`background.directions`), for example "From here, Okran's Gulf lies to the north." The line takes no slot and has no cooldown.
+
+| The player's line | Neighbours in the line |
+|---|---|
+| Names a direction, such as "east" | The neighbours that lie that way |
+| Asks for a "direction" | All neighbours |
+| Names a neighbouring region, or a location in one | That region |
+
+- The record of a neighbour gives the directions from its own side, and only on the turn that names it. With that alone, the model put Okran's Gulf east of the Border Zone, not north.
+- Only a name match counts, because a content hit such as "bonedogs" finds most regions.
+- Rejected: all directions in the chat scene, because few turns need them.
+- A location in the NPC's own region gets no direction, because the game data holds no town positions.
+
 ### Knowledge
 
 Each lore record has a tier (`server/chat/knowledge.py`), and the search of a chat line finds only the records that the NPC can know:

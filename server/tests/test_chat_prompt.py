@@ -272,6 +272,17 @@ class BackgroundBlockTest(unittest.TestCase):
         ])
         self.assertEqual(chat_prompt.background_block([], [], [], self.ABEL, "Izumi", [vain]).splitlines()[0], "(Background, not said aloud. You learned the following in your travels:")
 
+    def test_the_directions_end_the_lore(self):
+        self.assertEqual(chat_prompt.background_block([], [], [self.ADMAG], self.ABEL, "Izumi", directions={"Stenn Desert": "west"}).splitlines()[:3], [
+            "(Background, not said aloud. Lore that Izumi's words may touch on:",
+            "- Admag (location; type: town; zone: Stenn Desert): The Shek capital.",
+            "- From here, Stenn Desert lies to the west.",
+        ])
+        self.assertEqual(chat_prompt.background_block([], [], [], self.ABEL, "Izumi", directions={"Shem": "east"}).splitlines()[:2], [
+            "(Background, not said aloud. Lore that Izumi's words may touch on:",
+            "- From here, Shem lies to the east.",
+        ])
+
     def test_a_long_text_is_cut_and_the_fields_stay(self):
         entry = {**self.ADMAG, "description": "Walls. " * 200}
         line = chat_prompt.background_block([], [], [entry], self.ABEL, "Izumi").splitlines()[1]

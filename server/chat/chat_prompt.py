@@ -144,12 +144,14 @@ def memory_heading(memory, npc_id):
     return _dated(memory, scene_text.memory_header(*_members_seen_by(memory["members"], npc_id)))
 
 
-def background_block(memories, rumors, entries, npc_id, speaker, travels=(), today=None):
+def background_block(memories, rumors, entries, npc_id, speaker, travels=(), today=None, directions=None):
     """The memories of memories_of, the rumors of campaign_db.rumors, and the lore records of retrieval.lore_records that
     the player's message found, for the last user message. travels holds the found records that the NPC knows only from
-    its travels (knowledge.known). The block is a part of the user message, so its mark keeps a model from taking it for
-    words of the player. Empty without a memory, a rumor, or a record, so the block stays out."""
-    lore = [*entries, *travels]
+    its travels (knowledge.known), and directions the neighbours of background.directions. The block is a part of the
+    user message, so its mark keeps a model from taking it for words of the player. Empty without a memory, a rumor, a
+    record, or a direction, so the block stays out."""
+    compass = [f"- {scene_text.compass_text(directions)}"] if directions else []
+    lore = [*entries, *travels, *compass]
     if not memories and not rumors and not lore:
         return ""
     parts = []
@@ -161,10 +163,10 @@ def background_block(memories, rumors, entries, npc_id, speaker, travels=(), tod
     if rumors:
         parts.append(f"Rumours that {speaker}'s words may touch on:")
         parts += [f"- {scene_text.rumor_sentence(rumor['game_time'], retrieval.clipped(rumor['text']), today)}" for rumor in rumors]
-    for heading, records in ((f"Lore that {speaker}'s words may touch on:", entries), ("You learned the following in your travels:", travels)):
-        if records:
+    for heading, records, extra in ((f"Lore that {speaker}'s words may touch on:", entries, compass), ("You learned the following in your travels:", travels, [])):
+        if records or extra:
             parts.append(heading)
-            parts += [f"- {describe_record({**entry, 'description': retrieval.clipped(entry['description'])}, entry['kind'])}" for entry in records]
+            parts += [f"- {describe_record({**entry, 'description': retrieval.clipped(entry['description'])}, entry['kind'])}" for entry in records] + extra
     # A search finds words, not meaning, and a model tends to use all the text that it gets
     found = [kind for kind, hits in (("these memories", memories), ("these rumours", rumors), ("this lore", lore)) if hits]
     if found == ["this lore"]:

@@ -77,6 +77,18 @@ def place_of(location, lore):
     return None, place or None
 
 
+def directions(message, entries, lore, town, zone):
+    """The neighbours of the NPC's region that a turn asks about, by direction: those that lie the way that the message
+    names, all of them when it asks for a direction, and the regions that the found entries name, or name as the zone
+    of a location. The record of a neighbour gives the directions from its own side and only on the turn that names it,
+    and with that alone the model put Okran's Gulf east of the Border Zone, not north."""
+    _, regions, _ = retrieval.place(lore, town, zone)
+    neighbours = {name: side for record in lore if record["key"] in regions for name, side in record["fields"].get("neighbours", {}).items()}
+    said = set(retrieval.words(message))
+    named = {retrieval.name_words(name) for hit in entries if "name" in hit for name in (hit["record"]["name"], *hit["record"]["fields"].get("zone", []))}
+    return {name: side for name, side in neighbours.items() if side in said or "direction" in said or retrieval.name_words(name) in named}
+
+
 def rumor_records(npc_id):
     """The rumors that the chat scene leaves out, because it holds the newest. Each NPC hears each rumor, as in the scene.
     The NPC drops out of the names, because the player names it to address it."""

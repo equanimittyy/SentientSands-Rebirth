@@ -6,6 +6,7 @@ plain values, so this module never reads the campaign.
 """
 
 from chat import current_job
+from store.world_template import DIRECTIONS
 
 
 def _scale(value, steps):
@@ -280,6 +281,16 @@ def location_text(environment, subject="You"):
         place = f"{subject} are somewhere in the wasteland."
     walls = f"{subject} are inside the town walls." if environment.get("in_town") else ""
     return " ".join(part for part in (place, walls, WEATHER.get(int(_number(environment.get("weather"))), "")) if part)
+
+
+def compass_text(neighbours):
+    clauses = []
+    for direction in DIRECTIONS:
+        names = [name for name, side in neighbours.items() if side == direction]
+        if names:
+            verb = "" if clauses else " lies" if len(names) == 1 else " lie"
+            clauses.append(f"{_join(names)}{verb} to the {direction}")
+    return f"From here, {_join(clauses)}." if clauses else ""
 
 
 def rumor_sentence(at, text, today):

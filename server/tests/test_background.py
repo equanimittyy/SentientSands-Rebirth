@@ -214,5 +214,38 @@ class PlaceTest(unittest.TestCase):
         self.assertEqual(background.place_of("", self.LORE), (None, None))
 
 
+def lore_record(kind, name, fields):
+    return {"key": (kind, name), "kind": kind, "name": name, "aliases": [], "fields": fields, "description": name}
+
+
+class DirectionsTest(unittest.TestCase):
+    BORDER_ZONE = lore_record("region", "Border Zone", {"neighbours": {"Okran's Gulf": "north", "Shem": "east", "The Swamp": "south", "Vain": "west"}})
+    GULF = lore_record("region", "Okran's Gulf", {"neighbours": {"Border Zone": "south"}})
+    SWAMP = lore_record("region", "The Swamp", {"neighbours": {"Border Zone": "north"}})
+    STACK = lore_record("location", "Stack", {"zone": ["Okran's Gulf"]})
+    HUB = lore_record("location", "The Hub", {"zone": ["Border Zone"]})
+    LORE = [BORDER_ZONE, GULF, SWAMP, STACK, HUB]
+
+    def directions(self, message, entries=(), town=None, zone="Border Zone"):
+        return background.directions(message, list(entries), self.LORE, town, zone)
+
+    def test_a_named_direction_gives_the_neighbours_that_way(self):
+        self.assertEqual(self.directions("What is to my east?"), {"Shem": "east"})
+
+    def test_a_question_for_a_direction_gives_every_neighbour(self):
+        self.assertEqual(self.directions("Which directions?"), self.BORDER_ZONE["fields"]["neighbours"])
+
+    def test_a_named_neighbour_or_a_town_in_it_gives_its_direction(self):
+        self.assertEqual(self.directions("Where is the Swamp?", [{"record": self.SWAMP, "name": "Swamp"}]), {"The Swamp": "south"})
+        self.assertEqual(self.directions("Where is Stack?", [{"record": self.STACK, "name": "Stack"}]), {"Okran's Gulf": "north"})
+
+    def test_a_content_hit_or_small_talk_gives_none(self):
+        self.assertEqual(self.directions("Any bonedogs around?", [{"record": self.GULF, "words": ["bonedog"]}]), {})
+        self.assertEqual(self.directions("Where are you from?"), {})
+
+    def test_a_town_without_a_zone_gives_the_neighbours_of_its_zone(self):
+        self.assertEqual(self.directions("What lies west?", town="The Hub", zone=None), {"Vain": "west"})
+
+
 if __name__ == "__main__":
     unittest.main()

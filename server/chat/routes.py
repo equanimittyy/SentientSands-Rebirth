@@ -606,17 +606,19 @@ def chat():
     pair = (speaker_id, primary_id)
     cooldown = load_settings()["retrieval_cooldown_turns"]
     recent_turns = state.RECENT_HITS.get(pair, [])
-    found_memories, found_rumors, found_entries = [], [], []
+    found_memories, found_rumors, found_entries, directions = [], [], [], {}
     # An animal replies only in actions
     if not animal:
         environment = ctx_dict.get("environment") or {}
+        lore = background.campaign_lore()
         found_memories, found_rumors, found_entries, _ = background.search(
-            player_message, background.campaign_lore(), primary_id, primary_data, live.get("factionID"), (speaker or state.PLAYER_CONTEXT).get("race"),
+            player_message, lore, primary_id, primary_data, live.get("factionID"), (speaker or state.PLAYER_CONTEXT).get("race"),
             environment.get("town_name"), environment.get("zone_name"), retrieval.held(recent_turns, cooldown),
         )
+        directions = background.directions(player_message, found_entries, lore, environment.get("town_name"), environment.get("zone_name"))
     background_block = chat_prompt.background_block(
         [hit["record"]["memory"] for hit in found_memories], [hit["record"]["rumor"] for hit in found_rumors], [hit["record"] for hit in found_entries if not hit["travels"]], primary_id, player_name,
-        [hit["record"] for hit in found_entries if hit["travels"]], state.PLAYER_CONTEXT.get("day"),
+        [hit["record"] for hit in found_entries if hit["travels"]], state.PLAYER_CONTEXT.get("day"), directions,
     )
     campaign_db.use_memories([memory["id"] for memory in starting] + [hit["record"]["memory"]["id"] for hit in found_memories], campaign_db.game_time(time_prefix))
     if category:

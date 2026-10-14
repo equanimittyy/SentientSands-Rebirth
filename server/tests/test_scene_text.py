@@ -204,6 +204,12 @@ class SentenceTest(unittest.TestCase):
         self.assertEqual(scene_text.location_text({"in_town": False, "weather": 0}), "You are somewhere in the wasteland.")
         self.assertEqual(scene_text.location_text({"town_name": "Squin", "in_town": True}, "They"), "They are in Squin. They are inside the town walls.")
 
+    def test_compass(self):
+        border_zone = {"Okran's Gulf": "north", "Okran's Pride": "north", "Shem": "east", "Skinner's Roam": "northeast", "Spider Plains": "southwest", "Stenn Desert": "west", "The Swamp": "south", "Vain": "west"}
+        self.assertEqual(scene_text.compass_text(border_zone), "From here, Okran's Gulf and Okran's Pride lie to the north, Skinner's Roam to the northeast, Shem to the east, The Swamp to the south, Spider Plains to the southwest, and Stenn Desert and Vain to the west.")
+        self.assertEqual(scene_text.compass_text({"Arach": "south", "Spider Plains": "east"}), "From here, Spider Plains lies to the east and Arach to the south.")
+        self.assertEqual(scene_text.compass_text({}), "")
+
 
 if __name__ == "__main__":
     unittest.main()
