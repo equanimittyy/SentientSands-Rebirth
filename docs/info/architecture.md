@@ -220,7 +220,7 @@ The last user message holds the lore entries, memories, and rumors that the play
 | Race, location, region | `name`, `aliases` | the values of `fields`, except `neighbours` | `description` | `campaign_db.list_records("entity")` |
 | Faction | `name`, `aliases` | the values of `fields` | `description` | `campaign_db.list_factions()` |
 | History entry | `title` | none | `text` | `campaign_db.history()` |
-| Character | `Name` | `race` and `faction` of the profile | `Backstory` | `campaign_db.list_records("character")` |
+| Character | `Name`, `Alias` of the profile | `race` and `faction` of the profile | `Backstory` | `campaign_db.list_records("character")` |
 
 - A record with an empty text is no hit, but a link or a `known_by` can still name it.
 - A character is a record only when it is canon (`origin` `seed` or `campaign`), because a rolled backstory is invented.
@@ -258,13 +258,12 @@ The lore of a turn ends with the directions from the NPC to the places that the 
 | Asks for a "direction" | All neighbours of the NPC's region |
 | Names a neighbouring region, or a location in one | That region |
 | Names a location other than the NPC's town | That location, with its direction from the game |
-| Names no place, but asks "where", "way", "direction", or a direction | The places of the last turn that named one |
 
 - The record of a neighbour gives the directions from its own side, and only on the turn that names it. With that alone, the model put Okran's Gulf east of the Border Zone, not north.
 - Only a name match counts, because a content hit such as "bonedogs" finds most regions.
 - Rejected: all directions in the chat scene, because few turns need them.
 - The game data holds no town positions, so the plugin reads them in play. Only a line that names a town reads a position: `NamedTowns` (`plugin/game/Context.cpp`) matches each town name in the line as the server matches a name, and sends the offset of the nearest town of that name from the NPC as `named_towns`. The server turns each offset into one of the 8 directions (`background.town_directions`).
-- The lore of a turn stays out of the history (see [Block](#block)), so the server keeps the places of the last turn that named one per pair of speaker and NPC (`NAMED_DIRECTIONS`). "Where is it from here?" can then follow "Have you heard of Shem?". Another pair, or a campaign switch, drops them.
+- A place that a line carries from the last turn (see [Follow-up lines](#follow-up-lines)) gets its direction again. A town keeps the direction that the plugin gave on its own turn, so "Where is it from here?" can follow "Have you heard of Squin?".
 
 ### Knowledge
 
@@ -350,6 +349,15 @@ Each rumor (`campaign_db.rumors`) is a record, except the 3 newest, which the ch
 - The server keeps the recent hit keys per pair of speaker and NPC (`RECENT_HITS`). Another pair, or a campaign switch, drops them.
 - The plugin does not use these values, so `SET_CONFIG` does not send them.
 
+### Follow-up lines
+
+The hits of a turn stay out of the history (see [Block](#block)). So when a line names nothing, the hits that the last line found by name come first again (`carried` of `background.search`): "What does she rule?" gets the entry that "Who is Esata?" found.
+
+- The lore, the memories, and the rumors carry alike. Only a name match carries, because a content hit is often wrong. A carried hit passes the cooldown, as a name match does.
+- A hit carries for one turn only (`background.named`), so it does not stay for the rest of the conversation.
+- The server keeps the named hits and the directions of the named towns of the last line per pair of speaker and NPC (`LAST_NAMED`). Another pair, or a campaign switch, drops them.
+- Rejected: fuzzy name matching, which would find "Esata" from "Estata" but would also find wrong records.
+
 ### Block
 
 The hits go into `{background}` of `prompt_chat_turn.txt`, before the player's line (`chat_prompt.background_block`), so they stay out of the cached system message and the stored dialogue.
@@ -365,7 +373,7 @@ The Test search box of Campaign Canon and Templates shows what a line finds and 
 - It shows only while the Log level is `DEBUG` (`debug` from `GET /context`).
 - On Campaign Canon, a picked character makes it search as that character, at the `CurrentLocation` of its profile (`background.place_of`). Otherwise it gives a lore search of every record.
 - The routes are `GET /api/campaign/search?message=...&npc=...&speaker=...` and `GET /api/templates/<name>/search?message=...`. They are GETs, because a POST under `/api/` counts as a write and refreshes every open page (`count_write_requests`).
-- A search as a character also shows the line of [Directions](#directions). Without the game, a named town shows "(direction from the game)" in place of its direction (`GAME_DIRECTION`). A search has no earlier turn, so it keeps no place.
+- A search as a character also shows the line of [Directions](#directions). Without the game, a named town shows "(direction from the game)" in place of its direction (`GAME_DIRECTION`). A search has no earlier turn, so it carries nothing.
 
 ## Radiant conversations
 
@@ -801,6 +809,7 @@ Each fact comes from the game: its data files (FCS), its dialogue, and play. The
 - A direction is the bearing between the centroids of the two zones. Four pairs have a set direction, because a wide or wrapping zone misleads the centroid: the Arm of Okran lies west of Okran's Valley, Watcher's Rim north of Arach, Dreg southwest of the Fog Islands, and Purple Sands south of the Iron Trail.
 - The UWE factions and characters bind by a UWE `game_id`, so they change nothing without UWE. Where UWE changes a vanilla fact, the field is `Unknown`, so the game fills it (see [Characters](#characters)).
 - A character text that no source supports stays blank.
+- A canon character whose name holds a title or an epithet has its own name as its `Alias`, for example Esata for Esata the Stone Golem and Shiro for Lord Shiro, so a line that uses only that name finds it by name. An alias that names another record stays out: King Gurgler has none, because "Gurglers" names the Fishmen.
 
 The `major` factions are Global. The other factions, the locations, the regions, and the canon characters are Limited. Each tier that differs from the default of its kind has a source in the game dialogue or the wiki. These records are Secret:
 

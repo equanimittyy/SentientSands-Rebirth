@@ -18,8 +18,8 @@ CURRENT_THREAD = {}
 THREAD_LOCK = threading.Lock()
 # {(npc_id of the squad member, npc_id of the NPC): the keys of the retrieval hits of each of its last turns, oldest first}; a chat of another pair drops it
 RECENT_HITS = {}
-# The lore of a turn stays out of the history, so "Where is it from here?" takes the directions of the last named places, per (squad member, NPC) pair; a chat of another pair drops it
-NAMED_DIRECTIONS = {}
+# The hits of a turn stay out of the history, so a line that names nothing carries the named hits and town directions of the last line, per (squad member, NPC) pair; a chat of another pair drops it
+LAST_NAMED = {}
 # Starts with the server, so the threads that a restart left pending get their memories one quiet period after the start
 QUIET_SINCE = time.monotonic()
 LAST_RADIANT = None

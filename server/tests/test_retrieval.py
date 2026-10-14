@@ -51,6 +51,11 @@ class LoreRecordsTest(unittest.TestCase):
         ])
         self.assertEqual(records[0]["aliases"], ["Shek warriors"])
 
+    def test_the_alias_of_a_character_is_a_name(self):
+        records = retrieval.lore_records([], [], [], [{"npc_id": "h:1", "profile": {"Name": "Esata the Stone Golem", "Alias": "Esata", "Backstory": "Rules the Shek."}}])
+        self.assertEqual(records[0]["aliases"], ["Esata"])
+        self.assertEqual([(hit["record"]["name"], hit["name"]) for hit in retrieval.find_lore("Who is Esata?", records)[0]], [("Esata the Stone Golem", "Esata")])
+
     def test_a_record_without_text_stays_for_its_links(self):
         records = retrieval.lore_records([], [{"faction_id": "9-x", "name": "Bugmaster", "aliases": [], "fields": {}, "description": ""}], [{"title": "Empty", "text": " "}])
         self.assertEqual([record["name"] for record in records], ["Bugmaster", "Empty"])

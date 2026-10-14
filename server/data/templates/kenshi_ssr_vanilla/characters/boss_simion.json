@@ -2,6 +2,7 @@
   "game_id": "65004-Dialogue.mod",
   "profile": {
     "Name": "Boss Simion",
+    "Alias": "Simion",
     "Race": "Greenlander",
     "Sex": "Male",
     "Faction": "Rebel Farmers",

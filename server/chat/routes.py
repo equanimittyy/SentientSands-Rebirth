@@ -606,19 +606,18 @@ def chat():
     pair = (speaker_id, primary_id)
     cooldown = load_settings()["retrieval_cooldown_turns"]
     recent_turns = state.RECENT_HITS.get(pair, [])
-    found_memories, found_rumors, found_entries, directions, named_directions = [], [], [], {}, {}
+    found_memories, found_rumors, found_entries, directions, towns = [], [], [], {}, {}
+    last = state.LAST_NAMED.get(pair, {})
     # An animal replies only in actions
     if not animal:
         environment = ctx_dict.get("environment") or {}
         lore = background.campaign_lore()
         found_memories, found_rumors, found_entries, _ = background.search(
             player_message, lore, primary_id, primary_data, live.get("factionID"), (speaker or state.PLAYER_CONTEXT).get("race"),
-            environment.get("town_name"), environment.get("zone_name"), retrieval.held(recent_turns, cooldown),
+            environment.get("town_name"), environment.get("zone_name"), retrieval.held(recent_turns, cooldown), last.get("hits"),
         )
-        directions, named_directions = background.directions(
-            player_message, found_entries, lore, environment.get("town_name"), environment.get("zone_name"),
-            background.town_directions(data.get("named_towns") or []), state.NAMED_DIRECTIONS.get(pair),
-        )
+        towns = background.town_directions(data.get("named_towns") or [])
+        directions = background.directions(player_message, found_entries, lore, environment.get("town_name"), environment.get("zone_name"), {**last.get("towns", {}), **towns})
     background_block = chat_prompt.background_block(
         [hit["record"]["memory"] for hit in found_memories], [hit["record"]["rumor"] for hit in found_rumors], [hit["record"] for hit in found_entries if not hit["travels"]], primary_id, player_name,
         [hit["record"] for hit in found_entries if hit["travels"]], state.PLAYER_CONTEXT.get("day"), directions,
@@ -749,8 +748,8 @@ def chat():
 
         state.RECENT_HITS.clear()
         state.RECENT_HITS[pair] = retrieval.next_turns(recent_turns, [hit["record"]["key"] for hit in found_memories + found_rumors + found_entries], cooldown)
-        state.NAMED_DIRECTIONS.clear()
-        state.NAMED_DIRECTIONS[pair] = named_directions
+        state.LAST_NAMED.clear()
+        state.LAST_NAMED[pair] = {"hits": background.named(found_memories, found_rumors, found_entries), "towns": towns}
 
         interactions = campaign_db.count_interaction(primary_id) if primary_id else None
         threshold = load_settings()["bio_interactions"]

@@ -10,8 +10,6 @@ from core.settings import load_settings
 from store import campaign_db
 from store.world_template import DIRECTIONS
 
-WHERE = frozenset(("where", "way", "direction", *DIRECTIONS))
-
 
 def campaign_lore():
     """A character that the server added in play is no record: its rolled backstory is invented."""
@@ -82,14 +80,12 @@ def place_of(location, lore):
     return None, place or None
 
 
-def directions(message, entries, lore, town, zone, towns, earlier=None):
-    """The directions of a turn by name, and the named directions that the next turn keeps. A neighbour of the NPC's
-    region comes when the message names its direction or asks for a direction, and when a found entry names it, or names
-    it as the zone of a location. A named location other than the NPC's town takes its direction from towns, by name
-    words. The lore of a turn stays out of the history, so a line that names no place but asks where gets the directions
-    of earlier: "Where is it from here?" can follow "Have you heard of Shem?". The record of a neighbour gives the
-    directions from its own side and only on the turn that names it, and with that alone the model put Okran's Gulf east
-    of the Border Zone, not north."""
+def directions(message, entries, lore, town, zone, towns):
+    """The directions of a turn by name. A neighbour of the NPC's region comes when the message names its direction or
+    asks for a direction, and when a found entry names it, or names it as the zone of a location. A named location other
+    than the NPC's town takes its direction from towns, by name words. The record of a neighbour gives the directions
+    from its own side and only on the turn that names it, and with that alone the model put Okran's Gulf east of the
+    Border Zone, not north."""
     _, regions, _ = retrieval.place(lore, town, zone)
     neighbours = {name: side for record in lore if record["key"] in regions for name, side in record["fields"].get("neighbours", {}).items()}
     said = set(retrieval.words(message))
@@ -101,9 +97,7 @@ def directions(message, entries, lore, town, zone, towns, earlier=None):
         words = retrieval.name_words(record["name"])
         if record["kind"] == "location" and words != here and words in towns:
             named[record["name"]] = towns[words]
-    asked = {name: side for name, side in neighbours.items() if side in said or "direction" in said}
-    kept = named or earlier or {}
-    return {**asked, **(kept if named or said & WHERE else {})}, kept
+    return {**{name: side for name, side in neighbours.items() if side in said or "direction" in said}, **named}
 
 
 def town_directions(named_towns):
@@ -124,12 +118,14 @@ def rumor_records(npc_id):
     ]
 
 
-def search(message, lore, npc_id=None, profile=None, faction_id=None, speaker_race=None, town=None, zone=None, recent=frozenset()):
+def search(message, lore, npc_id=None, profile=None, faction_id=None, speaker_race=None, town=None, zone=None, recent=frozenset(), carried=None):
     """The memory hits, the rumor hits, and the lore hits of a turn in prompt order, and the words that did not search the
     lore, as retrieval gives them. Without npc_id, a lore search alone of every record, so a template author can test
     each one. With it, the search skips what the system message holds, and the records that the NPC cannot know drop
     out before the index, so they set neither the best score of the score cut nor the common share. A lore hit holds
-    travels, which is true when the NPC knows the record only from its travels."""
+    travels, which is true when the NPC knows the record only from its travels. carried holds the hits of the last turn
+    that its line found by name (named), which come first when this message names nothing: the hits of a turn stay out
+    of the history, so "What does she rule?" would lose what "Who is Esata?" found."""
     searched = [record for record in lore if record["description"].strip()]
     keys = {}
     if npc_id is not None:
@@ -151,6 +147,18 @@ def search(message, lore, npc_id=None, profile=None, faction_id=None, speaker_ra
         memory_hits = retrieval.find_texts(message, records, profile.get("Name", ""), lore_names)
         rumor_hits = retrieval.find_texts(message, rumor_records(npc_id), profile.get("Name", ""), lore_names)
         skip = in_system_message(lore, npc_id, profile, faction_id, speaker_race)
+    if carried and not any("name" in hit for hits in (memory_hits, rumor_hits, lore_hits) for hit in hits):
+        memory_hits, rumor_hits, lore_hits = (_carried_first(old, new) for old, new in zip(carried, (memory_hits, rumor_hits, lore_hits)))
     settings = load_settings()
     memories, rumors, entries = retrieval.chosen(memory_hits, rumor_hits, lore_hits, skip, recent, settings["retrieval_slots"], settings["memory_slots"])
     return memories, rumors, entries, skipped
+
+
+def _carried_first(carried, hits):
+    keys = {hit["record"]["key"] for hit in carried}
+    return [{**hit, "carried": True} for hit in carried] + [hit for hit in hits if hit["record"]["key"] not in keys]
+
+
+def named(*found):
+    """The hits of each list of search that the line of the turn found by name, so the next turn carries only one turn."""
+    return tuple([hit for hit in hits if "name" in hit and not hit.get("carried")] for hits in found)

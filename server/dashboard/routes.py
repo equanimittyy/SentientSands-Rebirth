@@ -263,7 +263,7 @@ def search_campaign():
             known = background.known_keys(lore, npc_id, profile, faction_id, town, zone)
             named = retrieval.name_matches(message, [(name, record) for record in lore if record["description"].strip() for name in (record["name"], *record["aliases"])])
             dropped = list({record["key"]: record for _, record in named if record["key"] not in known}.values())
-            directions, _ = background.directions(message, entries, lore, town, zone, {retrieval.name_words(record["name"]): GAME_DIRECTION for record in lore if record["kind"] == "location"})
+            directions = background.directions(message, entries, lore, town, zone, {retrieval.name_words(record["name"]): GAME_DIRECTION for record in lore if record["kind"] == "location"})
     except campaign_db.CampaignUnavailable as e:
         return jsonify({"status": "error", "name": state.ACTIVE_CAMPAIGN, "message": str(e)}), 409
     return search_reply(memories, rumors, entries, skipped, npc_id, dropped, directions)

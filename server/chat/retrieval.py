@@ -54,7 +54,8 @@ def _character(character):
     profile = character["profile"]
     given = {key: value for key, value in profile.items() if value and value != "Unknown"}
     record = _record(("characters", character["npc_id"]), "character", {
-        **character, "name": profile.get("Name", ""), "fields": {field: given[key] for field, key in (("race", "Race"), ("faction", "Faction")) if key in given}, "description": profile.get("Backstory"),
+        **character, "name": profile.get("Name", ""), "aliases": [given["Alias"]] if "Alias" in given else [],
+        "fields": {field: given[key] for field, key in (("race", "Race"), ("faction", "Faction")) if key in given}, "description": profile.get("Backstory"),
     })
     return {**record, "origin_faction": given.get("OriginFaction", "")}
 

@@ -75,6 +75,15 @@ class SearchTest(unittest.TestCase):
     def test_a_lore_name_finds_the_memory_and_its_entry(self):
         self.assertEqual(self.search("Are the Dust Bandits around?"), ([self.guard], ["Dust Bandits"]))
 
+    def test_a_line_that_names_nothing_carries_the_named_hits_of_the_last_turn(self):
+        lore = background.campaign_lore()
+        carried = background.named(*background.search("Are the Dust Bandits around?", lore, ABEL, self.ABEL_PROFILE, None, "Greenlander")[:3])
+        memories, _, entries, _ = background.search("Are they dangerous?", lore, ABEL, self.ABEL_PROFILE, None, "Greenlander", carried=carried)
+        self.assertEqual(([hit["record"]["memory"]["id"] for hit in memories], [hit["record"]["name"] for hit in entries]), ([self.guard], ["Dust Bandits"]))
+        self.assertEqual(background.named(memories, [], entries), ([], [], []))
+        _, _, entries, _ = background.search("Is Shek Kingdom near?", lore, ABEL, self.ABEL_PROFILE, None, "Greenlander", carried=carried)
+        self.assertEqual([hit["record"]["name"] for hit in entries], ["Shek Kingdom"])
+
     def test_a_member_name_finds_the_memory(self):
         self.assertEqual(self.search("Have you seen Stick?"), ([self.guard], []))
 
@@ -227,40 +236,33 @@ class DirectionsTest(unittest.TestCase):
     SQUIN = lore_record("location", "Squin", {"zone": ["Border Zone"]})
     LORE = [BORDER_ZONE, GULF, SWAMP, STACK, HUB, SQUIN]
 
-    def directions(self, message, entries=(), town=None, zone="Border Zone", towns=None, earlier=None):
-        return background.directions(message, list(entries), self.LORE, town, zone, towns or {}, earlier)
+    def directions(self, message, entries=(), town=None, zone="Border Zone", towns=None):
+        return background.directions(message, list(entries), self.LORE, town, zone, towns or {})
 
     def named(self, record):
         return {"record": record, "name": record["name"]}
 
     def test_a_named_direction_gives_the_neighbours_that_way(self):
-        self.assertEqual(self.directions("What is to my east?")[0], {"Shem": "east"})
+        self.assertEqual(self.directions("What is to my east?"), {"Shem": "east"})
 
     def test_a_question_for_a_direction_gives_every_neighbour(self):
-        self.assertEqual(self.directions("Which directions?")[0], self.BORDER_ZONE["fields"]["neighbours"])
+        self.assertEqual(self.directions("Which directions?"), self.BORDER_ZONE["fields"]["neighbours"])
 
     def test_a_named_neighbour_or_a_town_in_it_gives_its_direction(self):
-        self.assertEqual(self.directions("Where is the Swamp?", [self.named(self.SWAMP)])[0], {"The Swamp": "south"})
-        self.assertEqual(self.directions("Where is Stack?", [self.named(self.STACK)])[0], {"Okran's Gulf": "north"})
+        self.assertEqual(self.directions("Where is the Swamp?", [self.named(self.SWAMP)]), {"The Swamp": "south"})
+        self.assertEqual(self.directions("Where is Stack?", [self.named(self.STACK)]), {"Okran's Gulf": "north"})
 
     def test_a_content_hit_or_small_talk_gives_none(self):
-        self.assertEqual(self.directions("Any bonedogs around?", [{"record": self.GULF, "words": ["bonedog"]}])[0], {})
-        self.assertEqual(self.directions("Where are you from?")[0], {})
+        self.assertEqual(self.directions("Any bonedogs around?", [{"record": self.GULF, "words": ["bonedog"]}]), {})
+        self.assertEqual(self.directions("Where are you from?"), {})
 
     def test_a_town_without_a_zone_gives_the_neighbours_of_its_zone(self):
-        self.assertEqual(self.directions("What lies west?", town="The Hub", zone=None)[0], {"Vain": "west"})
+        self.assertEqual(self.directions("What lies west?", town="The Hub", zone=None), {"Vain": "west"})
 
     def test_a_named_town_takes_its_direction_from_the_game_except_the_npcs_own_town(self):
         towns = {("squin",): "west", ("hub",): "north"}
-        self.assertEqual(self.directions("Squin or the Hub?", [self.named(self.SQUIN), self.named(self.HUB)], town="The Hub", towns=towns)[0], {"Squin": "west"})
-        self.assertEqual(self.directions("Know Squin?", [self.named(self.SQUIN)])[0], {})
-
-    def test_a_question_where_keeps_the_place_of_an_earlier_turn(self):
-        _, kept = self.directions("Have you heard of Shem?", [self.named(lore_record("region", "Shem", {}))])
-        self.assertEqual(kept, {"Shem": "east"})
-        self.assertEqual(self.directions("Where is it from here?", earlier=kept), ({"Shem": "east"}, kept))
-        self.assertEqual(self.directions("Got any food?", earlier=kept), ({}, kept))
-        self.assertEqual(self.directions("Where is the Swamp?", [self.named(self.SWAMP)], earlier=kept)[1], {"The Swamp": "south"})
+        self.assertEqual(self.directions("Squin or the Hub?", [self.named(self.SQUIN), self.named(self.HUB)], town="The Hub", towns=towns), {"Squin": "west"})
+        self.assertEqual(self.directions("Know Squin?", [self.named(self.SQUIN)]), {})
 
     def test_a_town_offset_gives_the_direction_from_the_npc(self):
         offsets = [{"name": "Squin", "dx": -9000, "dz": 400}, {"name": "Stack", "dx": 300, "dz": -12000}, {"name": "The Hub", "dx": 5000, "dz": 5000}]
