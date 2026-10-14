@@ -390,6 +390,10 @@ An NPC radiant conversation takes the place of a talk of the player's characters
 - For an NPC, only a knockout counts as a fight, because the game events hold only the attacks of the player's faction (see [Game events](#game-events)).
 - The name of an NPC comes from `npc_name`, as in a chat, and the thread stores each NPC as a member outside the player's faction.
 
+## Chat target
+
+The chat key opens the chat window on the NPC that the player has selected. When no NPC is selected, the window opens on the last character that the player sent a line to, an NPC or a squad member (`CreateChatUI` in `plugin/ui/ChatWindow.cpp`). A target that the window only showed does not replace that character. Rejected: the last NPC that the player selected, because a click on an NPC that the player never spoke to replaced the conversation.
+
 ## Chat range
 
 The plugin sends a chat line only when the target stands within range of the speaker: `WhisperRadius` for a whisper, else `TalkRadius` (`SendChatLine` in `plugin/ui/ChatWindow.cpp`). Otherwise the chat window shows "{name} is too far away.", the plugin log names the distance and the range, and the line goes nowhere.

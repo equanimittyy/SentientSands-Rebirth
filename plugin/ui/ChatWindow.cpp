@@ -67,7 +67,9 @@ static unsigned int g_lastSpeakerKey = 0;
 static MyGUI::Button *g_chatTargetBtn = nullptr;
 static std::vector<hand> g_chatTargets;
 static size_t g_chatTargetIndex = 0;
-static hand g_chosenChatTarget;
+// A shown target does not set it, so a target that the player never spoke to
+// does not replace the last conversation
+static unsigned int g_lastTargetKey = 0;
 // Ending a vanilla dialogue also clears the AI goals of the NPC, so an NPC
 // selected while the window is open keeps it until a line goes to the NPC
 static hand g_switchedNpc;
@@ -268,6 +270,7 @@ static void OnChatSendClick(MyGUI::Widget *sender) {
   }
   if (speaker)
     g_lastSpeakerKey = HandleKey(speaker);
+  g_lastTargetKey = g_chatTargetKey;
 
   if (text == "/cheat" || text == "/cheats") {
     CloseChatUI();
@@ -491,11 +494,14 @@ void SelectChatSpeaker(const hand &member) {
   Character *character = member.getCharacter();
   Character *speaker =
       g_chatWindow ? CurrentChatSpeaker() : KeyedCharacter(g_lastSpeakerKey);
+  Character *target = g_chatWindow
+                          ? g_chatTargets[g_chatTargetIndex].getCharacter()
+                          : KeyedCharacter(g_lastTargetKey);
   g_lastSpeakerKey = HandleKey(character);
   // Two squad members talk in turns, so a selection of the target makes the
   // last speaker the target
-  if (speaker && character == g_chosenChatTarget.getCharacter()) {
-    g_chosenChatTarget = speaker->getHandle();
+  if (speaker && character == target) {
+    g_lastTargetKey = HandleKey(speaker);
     for (size_t i = 0; g_chatWindow && i < g_chatTargets.size(); ++i) {
       if (g_chatTargets[i].getCharacter() == speaker) {
         g_chatTargetIndex = i;
@@ -530,7 +536,6 @@ static void FillChatSpeakers(unsigned int preferredKey) {
 static void ShowChatTarget() {
   Character *target = g_chatTargets[g_chatTargetIndex].getCharacter();
   g_talkTargetHand = g_chatTargets[g_chatTargetIndex];
-  g_chosenChatTarget = g_chatTargets[g_chatTargetIndex];
   g_chatTargetNameStr = target ? target->getName() : "?";
   g_chatTargetKey = target ? HandleKey(target) : 0;
   g_chatWindow->setCaption(PlainText(T("Talking to: ") + g_chatTargetNameStr));
@@ -634,7 +639,6 @@ static void FillChatTargets(GameWorld *world, Character *npc) {
 }
 
 void SelectChatTarget(Character *npc) {
-  g_chosenChatTarget = hand();
   if (!g_chatWindow)
     return;
   g_switchedNpc = npc->getHandle();
@@ -649,6 +653,9 @@ void CreateChatUI(Character *npc) {
     return;
   CloseChatUI();
 
+  Character *last = KeyedCharacter(g_lastTargetKey);
+  if (!npc && last && !InPlayerFaction(last))
+    npc = last;
   EndVanillaDialogue(npc);
   g_switchedNpc = hand();
   FillChatTargets(world, npc);
@@ -656,8 +663,8 @@ void CreateChatUI(Character *npc) {
     return;
 
   g_chatTargetIndex = 0;
-  for (size_t i = 0; i < g_chatTargets.size(); ++i) {
-    if (g_chatTargets[i] == g_chosenChatTarget)
+  for (size_t i = 0; !npc && i < g_chatTargets.size(); ++i) {
+    if (g_chatTargets[i].getCharacter() == last)
       g_chatTargetIndex = i;
   }
   g_chatSpeakers.clear();

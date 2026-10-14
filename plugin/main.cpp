@@ -790,15 +790,13 @@ static void playerUpdate_hook(PlayerInterface *thisptr) {
   MyGUI::Widget *keyFocus = input ? input->getKeyFocusWidget() : nullptr;
   bool typing = keyFocus && keyFocus->isType<MyGUI::EditBox>();
 
-  static hand lastNpc;
   static hand lastPick;
   hand pick = sel && (uintptr_t)sel > 0x1000 ? sel->getHandle() : hand();
-  if (sel && (uintptr_t)sel > 0x1000 && !InPlayerFaction(sel)) {
-    // Each frame sees the NPC that stays selected, which would undo the button
-    if (pick != lastPick)
-      SelectChatTarget(sel);
-    lastNpc = pick;
-  }
+  Character *npc =
+      sel && (uintptr_t)sel > 0x1000 && !InPlayerFaction(sel) ? sel : nullptr;
+  // Each frame sees the NPC that stays selected, which would undo the button
+  if (npc && pick != lastPick)
+    SelectChatTarget(npc);
   lastPick = pick;
 
   // Only a change moves the speaker, so the speaker button still cycles. A
@@ -819,9 +817,6 @@ static void playerUpdate_hook(PlayerInterface *thisptr) {
     static DWORD lastTalkTick = 0;
     if (GetTickCount() - lastTalkTick > 500) {
       lastTalkTick = GetTickCount();
-      Character *npc = lastNpc.getCharacter();
-      if (npc && InPlayerFaction(npc))
-        npc = nullptr;
       CreateChatUI(npc);
     }
   }
