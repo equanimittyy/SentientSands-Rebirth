@@ -118,6 +118,8 @@ The script packages `plugin/x64/Release/SentientSands.dll`. Use `--dll` to packa
 
 The script writes `dist/SentientSandsRebirth-<version>.zip` and takes the version from `mod/mod.info`. The zip contains the mod files, the DLL, the server, and an embedded Windows Python runtime with the packages from `server/requirements.txt` already installed. Players unzip it into `Kenshi/mods/` and do not install Python. The zip leaves out `server/config/`, `server/data/campaigns/`, and `server/data/user_templates/`, so it never contains your keys or your campaigns, and an update never replaces a player's keys, campaigns, or templates. It also leaves out `SentientSands_Config.ini`, so an update keeps a player's settings.
 
+`mod/LICENSE` is a copy of the root `LICENSE`. The zip takes its files from `mod/`, and GitHub reads the license only from the repo root, so keep both files.
+
 The script runs on any OS. It needs Python 3 with `pip`, and internet access to python.org and PyPI. Downloaded runtimes are cached in `dist/cache/`.
 
 Each release must ship the same runtime and packages unless a commit changes them. `PYTHON_VERSION` in `scripts/package_release.py` sets the embedded runtime, and `server/requirements.txt` pins every package, the transitive ones included. Some pinned packages ship a separate wheel for each Python version, so change `PYTHON_VERSION` and the pins in the same commit, and run the script once to confirm that pip finds a wheel for each pin.

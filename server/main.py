@@ -1,5 +1,6 @@
 # Sentient Sands - Kenshi AI Mod
 # Copyright (C) 2026 Sentient Sands Team
+# Copyright (C) 2026 equanimittyy
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -13,6 +14,8 @@
 #
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
+#
+# An additional term under section 7(b) of the License applies; see NOTICE.
 
 import logging
 import os

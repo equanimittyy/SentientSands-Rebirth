@@ -26,6 +26,8 @@ SentientSandsRebirth/
   RE_Kenshi.json             makes RE_Kenshi load the DLL
   mod.info
   SentientSandsRebirth.mod
+  LICENSE                    the GPL text
+  NOTICE                     the copyright notices and the additional term
   SentientSands_Config.ini   settings, created by the server on first start
   logs/                      the plugin and server logs, created at runtime
   server/

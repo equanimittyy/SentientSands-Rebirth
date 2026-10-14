@@ -80,6 +80,12 @@ The SSR Vanilla template describes the factions and characters of Universal Wast
 
 ---
 
+## License
+
+Sentient Sands Rebirth is free software under the GNU General Public License, version 3 or any later version. [LICENSE](LICENSE) holds the full text. [mod/NOTICE](mod/NOTICE) holds the copyright notices and an additional term under section 7(b) of the License, which requires you to keep the author attribution when you convey the mod or a modified version of it.
+
+---
+
 ## Development
 
 See [docs/info/architecture.md](docs/info/architecture.md) for how the plugin, the server, and the mod files fit together, and [docs/info/development.md](docs/info/development.md) for building, running, and releasing.
