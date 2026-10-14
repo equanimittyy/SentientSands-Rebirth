@@ -264,6 +264,14 @@ class DirectionsTest(unittest.TestCase):
         self.assertEqual(self.directions("Squin or the Hub?", [self.named(self.SQUIN), self.named(self.HUB)], town="The Hub", towns=towns), {"Squin": "west"})
         self.assertEqual(self.directions("Know Squin?", [self.named(self.SQUIN)]), {})
 
+    def test_a_named_town_that_the_npc_cannot_know_is_unknown(self):
+        named_towns = [{"name": "Squin", "dx": 0, "dz": 0}, {"name": "Stack", "dx": 0, "dz": 0}, {"name": "Mod Town", "dx": 0, "dz": 0}]
+        self.assertEqual(background.unknown_towns(named_towns, self.LORE, {self.SQUIN["key"]}), ["Stack"])
+
+    def test_a_name_that_the_npc_cannot_know_still_names_a_record(self):
+        self.assertTrue(background.names_record("How about Stack?", self.LORE))
+        self.assertFalse(background.names_record("Where is it?", self.LORE))
+
     def test_a_town_offset_gives_the_direction_from_the_npc(self):
         offsets = [{"name": "Squin", "dx": -9000, "dz": 400}, {"name": "Stack", "dx": 300, "dz": -12000}, {"name": "The Hub", "dx": 5000, "dz": 5000}]
         self.assertEqual(background.town_directions(offsets), {("squin",): "west", ("stack",): "north", ("hub",): "southeast"})

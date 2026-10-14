@@ -144,13 +144,13 @@ def memory_heading(memory, npc_id):
     return _dated(memory, scene_text.memory_header(*_members_seen_by(memory["members"], npc_id)))
 
 
-def background_block(memories, rumors, entries, npc_id, speaker, travels=(), today=None, directions=None):
+def background_block(memories, rumors, entries, npc_id, speaker, travels=(), today=None, directions=None, unknown=()):
     """The memories of memories_of, the rumors of campaign_db.rumors, and the lore records of retrieval.lore_records that
     the player's message found, for the last user message. travels holds the found records that the NPC knows only from
-    its travels (knowledge.known), and directions the neighbours of background.directions. The block is a part of the
-    user message, so its mark keeps a model from taking it for words of the player. Empty without a memory, a rumor, a
-    record, or a direction, so the block stays out."""
-    compass = [f"- {scene_text.compass_text(directions)}"] if directions else []
+    its travels (knowledge.known), directions the neighbours of background.directions, and unknown the towns of
+    background.unknown_towns. The block is a part of the user message, so its mark keeps a model from taking it for words
+    of the player. Empty without a memory, a rumor, a record, a direction, or an unknown town, so the block stays out."""
+    compass = [f"- {text}" for text in (scene_text.compass_text(directions or {}), scene_text.unknown_way_text(unknown)) if text]
     lore = [*entries, *travels, *compass]
     if not memories and not rumors and not lore:
         return ""

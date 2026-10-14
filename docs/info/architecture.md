@@ -264,6 +264,7 @@ The lore of a turn ends with the directions from the NPC to the places that the 
 - Rejected: all directions in the chat scene, because few turns need them.
 - The game data holds no town positions, so the plugin reads them in play. Only a line that names a town reads a position: `NamedTowns` (`plugin/game/Context.cpp`) matches each town name in the line as the server matches a name, and sends the offset of the nearest town of that name from the NPC as `named_towns`. The server turns each offset into one of the 8 directions (`background.town_directions`).
 - A place that a line carries from the last turn (see [Follow-up lines](#follow-up-lines)) gets its direction again. A town keeps the direction that the plugin gave on its own turn, so "Where is it from here?" can follow "Have you heard of Squin?".
+- A named town whose location record the NPC cannot know (see [Knowledge](#knowledge)) gets the line "You do not know the way to Clownsteady." in place of a direction (`background.unknown_towns`). Without it, the model made up a way. A town without a location record gets neither line, because nothing tells whether the NPC knows it.
 
 ### Knowledge
 
@@ -353,9 +354,10 @@ Each rumor (`campaign_db.rumors`) is a record, except the 3 newest, which the ch
 
 The hits of a turn stay out of the history (see [Block](#block)). So when a line names nothing, the hits that the last line found by name come first again (`carried` of `background.search`): "What does she rule?" gets the entry that "Who is Esata?" found.
 
+- A line names something when it names a lore record, even one that the NPC cannot know (`background.names_record`), or a town that the plugin found (`named_towns`). The search drops a record that the NPC cannot know, so without this rule "How about to Clownsteady?" names nothing, and "Where is it?" gets the direction of the town before it.
 - The lore, the memories, and the rumors carry alike. Only a name match carries, because a content hit is often wrong. A carried hit passes the cooldown, as a name match does.
 - A hit carries for one turn only (`background.named`), so it does not stay for the rest of the conversation.
-- The server keeps the named hits and the directions of the named towns of the last line per pair of speaker and NPC (`LAST_NAMED`). Another pair, or a campaign switch, drops them.
+- The server keeps the named hits, the directions of the named towns, and the towns that the NPC does not know the way to, of the last line per pair of speaker and NPC (`LAST_NAMED`). Another pair, or a campaign switch, drops them.
 - Rejected: fuzzy name matching, which would find "Esata" from "Estata" but would also find wrong records.
 
 ### Block
@@ -373,7 +375,7 @@ The Test search box of Campaign Canon and Templates shows what a line finds and 
 - It shows only while the Log level is `DEBUG` (`debug` from `GET /context`).
 - On Campaign Canon, a picked character makes it search as that character, at the `CurrentLocation` of its profile (`background.place_of`). Otherwise it gives a lore search of every record.
 - The routes are `GET /api/campaign/search?message=...&npc=...&speaker=...` and `GET /api/templates/<name>/search?message=...`. They are GETs, because a POST under `/api/` counts as a write and refreshes every open page (`count_write_requests`).
-- A search as a character also shows the line of [Directions](#directions). Without the game, a named town shows "(direction from the game)" in place of its direction (`GAME_DIRECTION`). A search has no earlier turn, so it carries nothing.
+- A search as a character also shows the line of [Directions](#directions). Without the game, a named town shows "(direction from the game)" in place of its direction (`GAME_DIRECTION`), and each named location that the NPC cannot know shows as a town that it does not know the way to. A search has no earlier turn, so it carries nothing.
 
 ## Radiant conversations
 

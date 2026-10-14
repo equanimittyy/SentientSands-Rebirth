@@ -105,6 +105,22 @@ def town_directions(named_towns):
     return {retrieval.name_words(town["name"]): DIRECTIONS[round(math.degrees(math.atan2(town["dx"], -town["dz"])) / 45) % 8] for town in named_towns}
 
 
+def unknown_towns(named_towns, lore, known):
+    """The towns of the plugin's named_towns whose location the NPC cannot know (known_keys). Without a line that says so,
+    the model made up a way to them. A town without a location record is not one, because nothing tells whether the NPC
+    knows it."""
+    locations = [record for record in lore if record["kind"] == "location"]
+    hidden = {retrieval.name_words(record["name"]) for record in locations} - {retrieval.name_words(record["name"]) for record in locations if record["key"] in known}
+    return [town["name"] for town in named_towns if retrieval.name_words(town["name"]) in hidden]
+
+
+def names_record(message, lore):
+    """Whether the message names a lore record, whether the NPC can know it or not. A search drops the records that the
+    NPC cannot know, so without this a line that names only such a town carries the town before it, and "Where is it?"
+    gets the direction of that town."""
+    return bool(retrieval.name_matches(message, [(name, record["key"]) for record in lore for name in (record["name"], *record["aliases"])]))
+
+
 def rumor_records(npc_id):
     """The rumors that the chat scene leaves out, because it holds the newest. Each NPC hears each rumor, as in the scene.
     The NPC drops out of the names, because the player names it to address it."""

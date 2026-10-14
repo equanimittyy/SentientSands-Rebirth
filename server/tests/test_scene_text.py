@@ -210,6 +210,8 @@ class SentenceTest(unittest.TestCase):
         self.assertEqual(scene_text.compass_text({"Arach": "south", "Spider Plains": "east"}), "From here, Spider Plains lies to the east and Arach to the south.")
         self.assertEqual(scene_text.compass_text({}), "")
         self.assertEqual(scene_text.compass_text({"Squin": "(direction from the game)", "Shem": "east"}), "From here, Shem lies to the east and Squin to the (direction from the game).")
+        self.assertEqual(scene_text.unknown_way_text(["Clownsteady", "Black Scratch"]), "You do not know the way to Clownsteady and Black Scratch.")
+        self.assertEqual(scene_text.unknown_way_text([]), "")
 
 
 if __name__ == "__main__":

@@ -293,6 +293,10 @@ def compass_text(neighbours):
     return f"From here, {_join(clauses)}." if clauses else ""
 
 
+def unknown_way_text(towns):
+    return f"You do not know the way to {_join(towns)}." if towns else ""
+
+
 def rumor_sentence(at, text, today):
     """at is the game minutes of the rumor, which a custom event does not have."""
     heard = f"{_scale(today - at // 1440, RUMOR_AGE)} you heard" if today is not None and at is not None else "You heard"

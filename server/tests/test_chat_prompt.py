@@ -283,6 +283,13 @@ class BackgroundBlockTest(unittest.TestCase):
             "- From here, Shem lies to the east.",
         ])
 
+    def test_a_town_that_the_npc_cannot_know_ends_the_lore_as_unknown(self):
+        self.assertEqual(chat_prompt.background_block([], [], [], self.ABEL, "Izumi", directions={"Shem": "east"}, unknown=["Clownsteady"]).splitlines()[:3], [
+            "(Background, not said aloud. Lore that Izumi's words may touch on:",
+            "- From here, Shem lies to the east.",
+            "- You do not know the way to Clownsteady.",
+        ])
+
     def test_a_long_text_is_cut_and_the_fields_stay(self):
         entry = {**self.ADMAG, "description": "Walls. " * 200}
         line = chat_prompt.background_block([], [], [entry], self.ABEL, "Izumi").splitlines()[1]
