@@ -477,12 +477,16 @@ static void OnChatSpeakerClick(MyGUI::Widget *sender) {
   ShowChatSpeaker();
 }
 
+// By the character, because a hand from the selection did not equal the hand
+// of the same squad member in the speaker list
 void SelectChatSpeaker(const hand &member) {
-  g_lastSpeakerKey = HandleKey(member.getCharacter());
-  if (!g_chatWindow || member == g_chatTargets[g_chatTargetIndex])
+  Character *character = member.getCharacter();
+  g_lastSpeakerKey = HandleKey(character);
+  if (!g_chatWindow ||
+      character == g_chatTargets[g_chatTargetIndex].getCharacter())
     return;
   for (size_t i = 0; i < g_chatSpeakers.size(); ++i) {
-    if (g_chatSpeakers[i] == member) {
+    if (g_chatSpeakers[i].getCharacter() == character) {
       g_chatSpeakerIndex = i;
       ShowChatSpeaker();
       return;
