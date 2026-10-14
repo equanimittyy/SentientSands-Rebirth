@@ -226,7 +226,7 @@ def thread_of(thread_key, speaker_id):
     """The ID and the action dialogue of the current chat thread for a line, or (None, None) for a new chat thread. Call it
     under THREAD_LOCK. An action dialogue belongs to its speaker, so a line of another squad member starts a new chat thread."""
     live = state.CURRENT_THREAD
-    if live.get("key") != thread_key or time.monotonic() - live["replied"] >= quiet_seconds():
+    if not live or time.monotonic() - live["replied"] >= quiet_seconds() or not chat_window.stays_in(live, thread_key):
         return None, None
     action = live.get("action")
     if action and action["speaker"] != speaker_id:
@@ -518,7 +518,7 @@ def chat():
         if not answering:
             logging.info(f"CHAT: No one outside the squad can answer the yell of {player_name}.")
             return reply()
-        speaking = {npc_id for npc_id, _, role, _ in campaign_db.thread_members([current_thread]).get(current_thread, []) if role == "speaker"} if current_thread else set()
+        speaking = chat_window.thread_speakers(current_thread) if current_thread else set()
         aliases = {key: (listeners[npc["npc_id"]][0], npc.get("name")) for key, npc in crowd.items()}
         favoured = {target_key} | radiant.named(player_message, aliases) | {key for key, npc in crowd.items() if npc["npc_id"] in speaking}
         order = radiant.yell_turns(answering, favoured, speaker_key, target_key)

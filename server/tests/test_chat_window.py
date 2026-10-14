@@ -61,21 +61,50 @@ class OpenThreadTest(unittest.TestCase):
         self.chat(None, STICK, "Stick: Another day.")
         self.assertEqual(chat_window.thread_lines(JORGE, thread_id), "[Day 3, 14:05] Stick: Sell me bread.\n[Day 3, 14:05] Jorge: Hm.")
 
-    def test_the_yell_thread_is_open_for_each_of_its_members_only(self):
-        self.chat(None, STICK, "(Yelled) Stick: Hey!", listeners=[IZUMI])
-        state.CURRENT_THREAD["key"] = (None, "yell")
+    def test_a_thread_is_open_for_each_of_its_speakers_but_not_for_an_overhearer(self):
+        thread_id = self.chat(None, STICK, "Stick: Hello.", listeners=[IZUMI])
+        campaign_db.append_dialogue(STICK, [("[Day 3, 14:05] Stick: Hello.", STICK), ("[Day 3, 14:05] Jorge: Hm.", JORGE)], {}, thread_id)
+        self.assertEqual(chat_window.open_thread(STICK, QUIET)["lines"], "[Day 3, 14:05] Stick: Hello.\n[Day 3, 14:05] Jorge: Hm.")
         self.assertEqual(chat_window.open_thread(JORGE, QUIET)["title"], "Stick and Jorge | The Hub")
-        self.assertEqual(chat_window.open_thread(IZUMI, QUIET)["lines"], "[Day 3, 14:05] (Overheard) (Yelled) Stick: Hey!")
-        self.assertIsNone(chat_window.open_thread(RUKA, QUIET))
+        self.assertIsNone(chat_window.open_thread(IZUMI, QUIET))
+        state.CURRENT_THREAD["key"] = (None, "yell")
+        self.assertIsNotNone(chat_window.open_thread(JORGE, QUIET))
+        self.assertIsNone(chat_window.open_thread(IZUMI, QUIET))
 
     def test_no_thread_is_open_for_another_npc_after_the_timeout_or_after_an_end(self):
         self.chat(None, STICK, "Stick: Hello.")
-        self.assertIsNone(chat_window.open_thread(STICK, QUIET))
+        self.assertIsNone(chat_window.open_thread(RUKA, QUIET))
         self.assertIsNone(chat_window.open_thread("", QUIET))
         state.CURRENT_THREAD["replied"] = time.monotonic() - QUIET
         self.assertIsNone(chat_window.open_thread(JORGE, QUIET))
         state.CURRENT_THREAD.clear()
         self.assertIsNone(chat_window.open_thread(JORGE, QUIET))
+
+
+class StaysInTest(unittest.TestCase):
+    def setUp(self):
+        self._tmp = tempfile.TemporaryDirectory()
+        campaign_db.open_campaign(self._tmp.name, lambda: SEED)
+        members = [(STICK, "speaker", True), (JORGE, "speaker", True), (IZUMI, "overheard", True)]
+        self.live = {"key": (JORGE, "talk"), "id": campaign_db.join_thread(None, members, campaign_db.game_time("[Day 3, 14:05] "), "The Hub")}
+
+    def tearDown(self):
+        self._tmp.cleanup()
+
+    def test_a_line_to_a_speaker_of_the_thread_in_its_mode_stays_in_it(self):
+        self.assertTrue(chat_window.stays_in(self.live, (JORGE, "talk")))
+        self.assertTrue(chat_window.stays_in(self.live, (STICK, "talk")))
+        self.assertFalse(chat_window.stays_in(self.live, (IZUMI, "talk")))
+        self.assertFalse(chat_window.stays_in(self.live, (RUKA, "talk")))
+        self.assertFalse(chat_window.stays_in(self.live, (STICK, "whisper")))
+
+    def test_talk_with_itself_and_the_yell_thread_stay_apart(self):
+        self.assertFalse(chat_window.stays_in(self.live, (STICK, "talk", "self")))
+        self.live["key"] = (STICK, "talk", "self")
+        self.assertFalse(chat_window.stays_in(self.live, (STICK, "talk")))
+        self.live["key"] = (None, "yell")
+        self.assertTrue(chat_window.stays_in(self.live, (None, "yell")))
+        self.assertFalse(chat_window.stays_in(self.live, (JORGE, "yell")))
 
 
 if __name__ == "__main__":

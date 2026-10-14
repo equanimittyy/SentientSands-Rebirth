@@ -682,6 +682,20 @@ static std::string RadiantJson(const std::vector<Character *> &characters) {
   return json + "]";
 }
 
+// The selection is an unordered set, so the order of the player's characters
+// decides
+static hand FirstSelected(PlayerInterface *player) {
+  const lektor<Character *> &characters = player->playerCharacters;
+  for (uint32_t i = 0; i < characters.size(); ++i) {
+    for (auto it = player->selectedCharacters.begin();
+         it != player->selectedCharacters.end(); ++it) {
+      if (it->getCharacter() == characters[i])
+        return *it;
+    }
+  }
+  return hand();
+}
+
 static void playerUpdate_hook(PlayerInterface *thisptr) {
   if (playerUpdate_orig)
     playerUpdate_orig(thisptr);
@@ -788,9 +802,7 @@ static void playerUpdate_hook(PlayerInterface *thisptr) {
   // click on the member already selected alone changes only the GUI's object
   static hand lastSelected;
   static hand lastGuiObject;
-  hand member = thisptr->selectedCharacters.size() == 1
-                    ? *thisptr->selectedCharacters.begin()
-                    : hand();
+  hand member = FirstSelected(thisptr);
   hand guiObject = ppGui && *ppGui ? (*ppGui)->selectedObject : hand();
   if (member.getCharacter() &&
       (member != lastSelected ||
