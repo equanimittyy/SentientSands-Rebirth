@@ -625,8 +625,9 @@ static void FillChatTargets(GameWorld *world, Character *npc) {
   if (npc)
     g_chatTargets.push_back(npc->getHandle());
   lektor<Character *> &characters = world->player->playerCharacters;
-  // A lone character would talk to itself
-  for (uint32_t i = 0; characters.size() > 1 && i < characters.size(); ++i) {
+  // A lone character talks to itself only when no one else is there
+  for (uint32_t i = 0; (characters.size() > 1 || !npc) && i < characters.size();
+       ++i) {
     Character *c = characters[i];
     for (size_t j = 0; c && j < squad.size(); ++j) {
       if (c->getPosition().distance(squad[j]->getPosition()) <
@@ -671,8 +672,9 @@ void CreateChatUI(Character *npc) {
   g_chatJustOpened = true;
   BuildChatWindow();
   ShowChatTarget();
-  // Only a button press may make a character talk to itself
-  if (!g_chatSpeakers.empty() &&
+  // A talk to itself opens only when the player chose it or no one else is near
+  if (!g_chatSpeakers.empty() && g_chatTargets.size() > 1 &&
+      g_chatTargets[g_chatTargetIndex].getCharacter() != last &&
       g_chatSpeakers[g_chatSpeakerIndex] == g_chatTargets[g_chatTargetIndex]) {
     if (g_chatSpeakers.size() > 1) {
       OnChatSpeakerClick(NULL);
