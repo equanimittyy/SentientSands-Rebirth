@@ -551,6 +551,8 @@ def chat():
     animal = primary_data.get("Animal")
     barter = window is not None and category == "BARTER"
     mates = window.get("squad") if barter else None
+    if barter:
+        ctx_dict = offers.with_lost(ctx_dict, (window.get("deal") or {}).get("lost"))
 
     # A rule that rated the player's politeness let a scornful NPC warm up with each apology
     judgment = "" if self_talk else "JUDGMENT: End every reply with [JUDGMENT: n], the change that the player's line makes to how you feel about the player, from -5 (it angers, frightens, hurts, or offends you) to 5 (it pleases you); 0 is no change. Judge by your personality, not by how polite the line is."

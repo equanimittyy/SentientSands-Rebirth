@@ -551,21 +551,21 @@ void GetShopItems(Character *npc, std::vector<Item *> &out) {
 
 // Only carried sections count, so a deal never relies on the receiver wearing
 // what it gets; a stack that fits only split over sections counts as no room
+bool InventoryHasRoom(Inventory *inv, GameData *data, int count) {
+  if (!inv)
+    return false;
+  lektor<InventorySection *> &sections = inv->sectionsInSearchOrder;
+  for (uint32_t s = 0; s < sections.size(); ++s)
+    if (sections[s] && !sections[s]->isAnEquippedItemSection &&
+        sections[s]->hasRoomForItem(data, count))
+      return true;
+  return false;
+}
+
 bool HasRoomFor(Character *c, GameData *data, int count) {
   ContainerItem *backpack = c->hasABackpackOn();
-  Inventory *inventories[] = {c->getInventory(),
-                              backpack ? backpack->inventory : nullptr};
-  for (int i = 0; i < 2; ++i) {
-    if (!inventories[i])
-      continue;
-    lektor<InventorySection *> &sections =
-        inventories[i]->sectionsInSearchOrder;
-    for (uint32_t s = 0; s < sections.size(); ++s)
-      if (sections[s] && !sections[s]->isAnEquippedItemSection &&
-          sections[s]->hasRoomForItem(data, count))
-        return true;
-  }
-  return false;
+  return InventoryHasRoom(c->getInventory(), data, count) ||
+         (backpack && InventoryHasRoom(backpack->inventory, data, count));
 }
 
 // KIND_WORDS in server/chat/offers.py keys on these names

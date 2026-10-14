@@ -576,6 +576,15 @@ def price_guide(said, npc, speaker, player_name):
     return lines
 
 
+def with_lost(npc, lost):
+    """The NPC with the items that it lost from the table of the barter window among its goods, because the plugin
+    restocks them at Accept."""
+    if not lost:
+        return npc
+    key = "stock" if sells_stock(npc, "BARTER") else "inventory"
+    return {**npc, key: [*(npc.get(key) or []), *lost]}
+
+
 def table_parts(deal):
     """The offer parts of the deal on the table of the barter window. An item of the player's side names its holder."""
     parts = [("GIVE_CATS", str(deal["give_cats"]))] if int(deal.get("give_cats") or 0) > 0 else []
@@ -598,16 +607,13 @@ def on_table(deal, npc, speaker, squad, player_name, relation=None):
     None and the reason, the lines that describe the deal and its worth in the turn message, so the NPC weighs the deal
     against the loss that it usually takes or the profit that it wants, and the (bonus, reason) pairs that the profit or
     the loss adds to the lean."""
-    # The NPC hears of a sale, because the game does not say what took the item
-    lost = [("ITEM", (int(item["count"]), item["name"])) for item in deal.get("lost") or []]
-    sold = [f"While the deal lay on the table, someone else bought {goods_text(lost)} from you."] if lost else []
     parts = table_parts(deal)
     if not parts:
-        return None, "the table is empty", sold + ["Nothing is on the table yet."], []
+        return None, "the table is empty", ["Nothing is on the table yet."], []
     offer, reason = check("BARTER", parts, npc, speaker, squad)
     gives = [("CATS", count_of(argument)) if name == "GIVE_CATS" else ("ITEM", item_of(argument)) for name, argument, *_ in parts if name.startswith("GIVE")]
     takes = [("CATS", count_of(argument)) if name == "TAKE_CATS" else ("ITEM", item_of(argument)) for name, argument, *_ in parts if name.startswith("TAKE")]
-    lines = sold + [f"On the table, {player_name} gives {goods_text(takes) or 'nothing'}, and you give {goods_text(gives) or 'nothing'}."]
+    lines = [f"On the table, {player_name} gives {goods_text(takes) or 'nothing'}, and you give {goods_text(gives) or 'nothing'}."]
     side = dict(speaker, inventory=pooled(squad))
     received, handed = worth(takes, npc, side, "takes"), worth(gives, npc, side, "gives")
     worths = f"you get a worth of {received:,.0f} cats for a worth of {handed:,.0f}"

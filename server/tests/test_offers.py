@@ -336,11 +336,16 @@ class BarterWindowTest(unittest.TestCase):
             with self.subTest(why=why):
                 self.assertEqual(offers.on_table(deal, SHOP, BUYER, SQUAD, "Zaps")[2][1], f"You cannot agree to it as it is, because {why}.")
 
-    def test_the_npc_hears_that_someone_bought_its_item_off_the_table(self):
-        sold = "While the deal lay on the table, someone else bought a Meat and Barley Rice Soup and 2 Bread from you."
-        lost = [{"holder": "0", "name": "Meat and Barley Rice Soup", "count": 1}, {"holder": "0", "name": "Bread", "count": 2}]
-        self.assertEqual(offers.on_table({**TABLE, "lost": lost}, SHOP, BUYER, SQUAD, "Zaps")[2][:2], [sold, "On the table, Zaps gives 2,950 cats and 2 Bread, and you give a Katana (Ancient, Refitted Blade)."])
-        self.assertEqual(offers.on_table({"lost": lost}, SHOP, BUYER, SQUAD, "Zaps")[2], [sold, "Nothing is on the table yet."])
+    def test_an_item_that_the_npc_lost_from_the_table_stays_its_own(self):
+        soup = {"take_cats": 800, "give": [{"name": "Meat and Barley Rice Soup", "count": 1}]}
+        lost = [{"name": "Meat and Barley Rice Soup", "count": 1, "price": 721}]
+        store = offers.with_lost(SHOP, lost)
+        offer, _, lines, _ = offers.on_table(soup, store, BUYER, SQUAD, "Zaps")
+        self.assertEqual(offer["gives"], [("ITEM", (1, "Meat and Barley Rice Soup"))])
+        self.assertEqual(lines[1], "It keeps your price: you get a worth of 800 cats for a worth of 721.")
+        self.assertIn("1 Meat and Barley Rice Soup", offers.stocktake(store))
+        self.assertEqual(offers.with_lost({**SHOP, "squad_jobs": []}, lost)["inventory"][-1], lost[0])
+        self.assertIs(offers.with_lost(SHOP, []), SHOP)
 
     def test_a_gift_charity_and_an_empty_table(self):
         self.assertEqual(offers.on_table({"take_cats": 600}, SHOP, BUYER, SQUAD, "Zaps")[2][1], "It is a gift to you.")

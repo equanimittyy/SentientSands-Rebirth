@@ -724,6 +724,58 @@ static void DoFirstAid(GameWorld *world, Character *npc, Character *target) {
   world->showPlayerAMessage(message, false);
 }
 
+static Item *NewItem(GameWorld *world, GameData *gd, GameData *maker,
+                     GameData *grade, int level, Character *owner) {
+  Item *item = CreateItem(world, gd, maker, grade, level);
+  if (!item)
+    return NULL;
+  item->quantity = 1;
+  item->quality = 1.0f;
+  item->chargesLeft = item->originalFullChargeAmount;
+  if (item->chargesLeft <= 0.0f)
+    item->chargesLeft = 1.0f;
+  item->setProperOwner(owner->getHandle());
+  item->visible = true;
+  item->isTradeItem = true;
+  if (!item->container && owner->container) {
+    item->container = owner->container;
+    owner->container->addActiveObject(item);
+  }
+  return item;
+}
+
+static Building *ShelfFor(Character *trader, GameData *gd) {
+  Building *building = BuildingOf(trader);
+  if (!building)
+    return NULL;
+  lektor<Building *> furniture;
+  building->findAllFurnitureWithFunction(furniture, BF_ANY);
+  for (uint32_t i = 0; i < furniture.size(); ++i)
+    if (furniture[i] && (uintptr_t)furniture[i] > 0x1000 &&
+        InventoryHasRoom(furniture[i]->getInventory(), gd, 1))
+      return furniture[i];
+  return NULL;
+}
+
+// A copy is made only where it fits, so none lies free on the ground, and the
+// checks of Accept refuse the sale of a copy that did not fit
+void Restock(Character *trader, bool stock, GameData *gd, GameData *maker,
+             GameData *grade, int level, int count) {
+  GameWorld *world = *ppWorld;
+  for (int i = 0; i < count; ++i) {
+    Building *shelf = stock ? ShelfFor(trader, gd) : NULL;
+    if (stock ? !shelf : !HasRoomFor(trader, gd, 1))
+      return;
+    Item *item = NewItem(world, gd, maker, grade, level, trader);
+    if (!item)
+      return;
+    if (shelf)
+      shelf->giveItem(item, false, false);
+    else
+      Carry(world, trader, item);
+  }
+}
+
 static void DoSpawnItem(GameWorld *world, const QueuedAction &act,
                         Character *target) {
   // "<record name>|<label>": the Cheats window also names its record, and the
@@ -749,25 +801,14 @@ static void DoSpawnItem(GameWorld *world, const QueuedAction &act,
   int count = act.taskValue < 1 ? 1 : act.taskValue;
   int spawnedCount = 0;
   for (int c = 0; c < count; c++) {
-    Item *item = CreateItem(world, gd, act.itemMaker, gradeData, act.itemLevel);
+    Item *item =
+        NewItem(world, gd, act.itemMaker, gradeData, act.itemLevel, p);
     if (!item) {
       Log(LOG_ERROR, "ACTION: Resolved " + gd->name +
                          " but Factory failed to createItem! (Grade: " +
                          (gradeData ? gradeData->name : "NULL") + ", Maker: " +
                          (act.itemMaker ? act.itemMaker->name : "NULL") + ")");
       continue;
-    }
-    item->quantity = 1;
-    item->quality = 1.0f;
-    item->chargesLeft = item->originalFullChargeAmount;
-    if (item->chargesLeft <= 0.0f)
-      item->chargesLeft = 1.0f;
-    item->setProperOwner(p->getHandle());
-    item->visible = true;
-    item->isTradeItem = true;
-    if (!item->container && p->container) {
-      item->container = p->container;
-      p->container->addActiveObject(item);
     }
     GiveOrDrop(world, p, item);
     spawnedCount++;

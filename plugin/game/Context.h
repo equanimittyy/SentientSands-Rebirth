@@ -14,6 +14,7 @@ class hand;
 
 void GetAllCharacterItems(Character *npc, std::vector<Item *> &outItems);
 void GetShopItems(Character *npc, std::vector<Item *> &out);
+bool InventoryHasRoom(Inventory *inv, GameData *data, int count);
 bool HasRoomFor(Character *c, GameData *data, int count);
 void SectionItems(Inventory *inv, std::vector<Item *> &out);
 Building *BuildingOf(Character *npc);
