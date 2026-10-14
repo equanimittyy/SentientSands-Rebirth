@@ -54,6 +54,7 @@ static const struct {
 static void OnChatSendClick(MyGUI::Widget *sender);
 static void OnModeButtonClick(MyGUI::Widget *sender);
 static void UpdateModeButtons();
+static void ShowChatTarget();
 
 MyGUI::Window *g_chatWindow = nullptr;
 static MyGUI::EditBox *g_chatInput = nullptr;
@@ -67,6 +68,10 @@ static MyGUI::Button *g_chatTargetBtn = nullptr;
 static std::vector<hand> g_chatTargets;
 static size_t g_chatTargetIndex = 0;
 static hand g_chosenChatTarget;
+// A selection of an NPC keeps the pair, because it does not end the chat
+// thread of the pair either
+static hand g_pairSpeaker;
+static hand g_pairTarget;
 // Ending a vanilla dialogue also clears the AI goals of the NPC, so an NPC
 // selected while the window is open keeps it until a line goes to the NPC
 static hand g_switchedNpc;
@@ -240,6 +245,17 @@ static void EndVanillaDialogue(Character *npc) {
   }
 }
 
+static Character *CurrentChatSpeaker() {
+  return g_chatSpeakerIndex < g_chatSpeakers.size()
+             ? g_chatSpeakers[g_chatSpeakerIndex].getCharacter()
+             : nullptr;
+}
+
+static void SetChatPair(Character *speaker, Character *target) {
+  g_pairSpeaker = speaker ? speaker->getHandle() : hand();
+  g_pairTarget = target ? target->getHandle() : hand();
+}
+
 static void OnChatSendClick(MyGUI::Widget *sender) {
   if (!g_chatInput)
     return;
@@ -252,9 +268,7 @@ static void OnChatSendClick(MyGUI::Widget *sender) {
   std::string mode = CurrentChatMode();
   GameWorld *world = *ppWorld;
   Character *target = KeyedCharacter(g_chatTargetKey);
-  Character *speaker = nullptr;
-  if (g_chatSpeakerIndex < g_chatSpeakers.size())
-    speaker = g_chatSpeakers[g_chatSpeakerIndex].getCharacter();
+  Character *speaker = CurrentChatSpeaker();
   if (!speaker && world && world->player) {
     lektor<Character *> &characters = world->player->playerCharacters;
     for (uint32_t i = 0; !speaker && i < characters.size(); ++i)
@@ -276,9 +290,11 @@ static void OnChatSendClick(MyGUI::Widget *sender) {
     return;
   }
 
-  if (SendChatLine(g_chatTargetNameStr, g_chatTargetKey, speaker, text, mode,
-                   "") &&
-      target && target->getHandle() == g_switchedNpc)
+  if (!SendChatLine(g_chatTargetNameStr, g_chatTargetKey, speaker, text, mode,
+                    ""))
+    return;
+  SetChatPair(speaker, target);
+  if (target && target->getHandle() == g_switchedNpc)
     EndVanillaDialogue(target);
 }
 
@@ -484,7 +500,20 @@ static void OnChatSpeakerClick(MyGUI::Widget *sender) {
 // of the same squad member in the speaker list
 void SelectChatSpeaker(const hand &member) {
   Character *character = member.getCharacter();
+  Character *partner = g_pairSpeaker.getCharacter();
   g_lastSpeakerKey = HandleKey(character);
+  // Two squad members talk in turns, so a selection of the target of the pair
+  // makes its speaker the target
+  if (partner && character == g_pairTarget.getCharacter()) {
+    SetChatPair(character, partner);
+    g_chosenChatTarget = g_pairTarget;
+    for (size_t i = 0; g_chatWindow && i < g_chatTargets.size(); ++i) {
+      if (g_chatTargets[i].getCharacter() == partner) {
+        g_chatTargetIndex = i;
+        ShowChatTarget();
+      }
+    }
+  }
   if (!g_chatWindow ||
       character == g_chatTargets[g_chatTargetIndex].getCharacter())
     return;
@@ -512,14 +541,13 @@ static void FillChatSpeakers(unsigned int preferredKey) {
 static void ShowChatTarget() {
   Character *target = g_chatTargets[g_chatTargetIndex].getCharacter();
   g_talkTargetHand = g_chatTargets[g_chatTargetIndex];
+  g_chosenChatTarget = g_chatTargets[g_chatTargetIndex];
   g_chatTargetNameStr = target ? target->getName() : "?";
   g_chatTargetKey = target ? HandleKey(target) : 0;
   g_chatWindow->setCaption(PlainText(T("Talking to: ") + g_chatTargetNameStr));
   g_chatTargetBtn->setCaption(PlainText(g_chatTargetNameStr));
 
-  Character *speaker = g_chatSpeakerIndex < g_chatSpeakers.size()
-                           ? g_chatSpeakers[g_chatSpeakerIndex].getCharacter()
-                           : nullptr;
+  Character *speaker = CurrentChatSpeaker();
   FillChatSpeakers(speaker ? HandleKey(speaker) : g_lastSpeakerKey);
   g_chatSpeakerBtn->setVisible(!g_chatSpeakers.empty());
   if (!g_chatSpeakers.empty())
@@ -532,7 +560,8 @@ static void ShowChatTarget() {
 
 static void OnChatTargetClick(MyGUI::Widget *sender) {
   g_chatTargetIndex = (g_chatTargetIndex + 1) % g_chatTargets.size();
-  g_chosenChatTarget = g_chatTargets[g_chatTargetIndex];
+  SetChatPair(CurrentChatSpeaker(),
+              g_chatTargets[g_chatTargetIndex].getCharacter());
   ShowChatTarget();
 }
 
