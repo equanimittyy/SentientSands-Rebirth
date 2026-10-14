@@ -151,7 +151,7 @@ async function poll() {
   try {
     const context = await getJson("/context");
     status.textContent = `Current Campaign: ${context.campaign || "None"}`;
-    version.textContent = `v${context.version}`;
+    version.textContent = `Version: ${context.version}`;
     if (campaign !== null && context.campaign !== campaign) document.dispatchEvent(new CustomEvent("campaignchange", { detail: context.campaign }));
     campaign = context.campaign;
     document.documentElement.toggleAttribute("data-debug", context.debug);
