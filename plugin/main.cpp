@@ -46,6 +46,7 @@
 #include <kenshi/util/hand.h>
 
 #include <kenshi/RootObject.h>
+#include <kenshi/gui/ForgottenGUI.h>
 
 // A generic NPC whose template is a canon character carries the npc_id of that
 // character, not the one that GetNpcId gives it
@@ -84,6 +85,7 @@ static std::vector<hand> g_renamedSquad;
 static hand g_lastSelectionHand;
 static hand g_lastChattingPlayerHand;
 static HMODULE g_hModule = nullptr;
+static ForgottenGUI **ppGui = nullptr;
 static DWORD g_lastRadiantTick = 0;
 static bool g_welcomeShown = false;
 
@@ -782,16 +784,20 @@ static void playerUpdate_hook(PlayerInterface *thisptr) {
   }
   lastPick = pick;
 
-  // Only a change moves the speaker, so the speaker button still cycles
+  // Only a change moves the speaker, so the speaker button still cycles. A
+  // click on the member already selected alone changes only the GUI's object
   static hand lastSelected;
+  static hand lastGuiObject;
   hand member = thisptr->selectedCharacters.size() == 1
                     ? *thisptr->selectedCharacters.begin()
                     : hand();
-  if (member != lastSelected) {
-    lastSelected = member;
-    if (member.getCharacter())
-      SelectChatSpeaker(member);
-  }
+  hand guiObject = ppGui && *ppGui ? (*ppGui)->selectedObject : hand();
+  if (member.getCharacter() &&
+      (member != lastSelected ||
+       (guiObject == member && guiObject != lastGuiObject)))
+    SelectChatSpeaker(member);
+  lastSelected = member;
+  lastGuiObject = guiObject;
 
   if (!typing && (GetAsyncKeyState(g_chatHotkey) & 0x8000) && !g_chatWindow &&
       !g_libraryWindow && !g_barterWindow) {
@@ -861,6 +867,7 @@ extern "C" __declspec(dllexport) void startPlugin() {
   ppWorld = (GameWorld **)GetProcAddress(hLib, "?ou@@3PEAVGameWorld@@EA");
   ppSharedKing =
       (SharedKing **)GetProcAddress(hLib, "?shou@@3PEAVSharedKing@@EA");
+  ppGui = (ForgottenGUI **)GetProcAddress(hLib, "?gui@@3PEAVForgottenGUI@@EA");
   if (!ppWorld) {
     Log(LOG_ERROR, "SYSTEM: KenshiLib exports no game world, so SSR stays off");
     return;
