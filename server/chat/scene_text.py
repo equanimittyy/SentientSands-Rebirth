@@ -285,7 +285,7 @@ def location_text(environment, subject="You"):
 
 def compass_text(neighbours):
     clauses = []
-    for direction in DIRECTIONS:
+    for direction in dict.fromkeys([*DIRECTIONS, *neighbours.values()]):
         names = [name for name, side in neighbours.items() if side == direction]
         if names:
             verb = "" if clauses else " lies" if len(names) == 1 else " lie"

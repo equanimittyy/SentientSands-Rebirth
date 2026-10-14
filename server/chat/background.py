@@ -1,11 +1,16 @@
 """The memories, the rumors, and the lore entries that a player's message finds in the active campaign, for the last user
 message of a chat and for the test search of the web app, so the test search finds what a chat would find."""
 
+import math
+
 from chat import chat_prompt, knowledge, retrieval, towns
 from chat.prompts import PROMPT_RUMORS, find_named
 from core import world_events
 from core.settings import load_settings
 from store import campaign_db
+from store.world_template import DIRECTIONS
+
+WHERE = frozenset(("where", "way", "direction", *DIRECTIONS))
 
 
 def campaign_lore():
@@ -77,16 +82,33 @@ def place_of(location, lore):
     return None, place or None
 
 
-def directions(message, entries, lore, town, zone):
-    """The neighbours of the NPC's region that a turn asks about, by direction: those that lie the way that the message
-    names, all of them when it asks for a direction, and the regions that the found entries name, or name as the zone
-    of a location. The record of a neighbour gives the directions from its own side and only on the turn that names it,
-    and with that alone the model put Okran's Gulf east of the Border Zone, not north."""
+def directions(message, entries, lore, town, zone, towns, earlier=None):
+    """The directions of a turn by name, and the named directions that the next turn keeps. A neighbour of the NPC's
+    region comes when the message names its direction or asks for a direction, and when a found entry names it, or names
+    it as the zone of a location. A named location other than the NPC's town takes its direction from towns, by name
+    words. The lore of a turn stays out of the history, so a line that names no place but asks where gets the directions
+    of earlier: "Where is it from here?" can follow "Have you heard of Shem?". The record of a neighbour gives the
+    directions from its own side and only on the turn that names it, and with that alone the model put Okran's Gulf east
+    of the Border Zone, not north."""
     _, regions, _ = retrieval.place(lore, town, zone)
     neighbours = {name: side for record in lore if record["key"] in regions for name, side in record["fields"].get("neighbours", {}).items()}
     said = set(retrieval.words(message))
-    named = {retrieval.name_words(name) for hit in entries if "name" in hit for name in (hit["record"]["name"], *hit["record"]["fields"].get("zone", []))}
-    return {name: side for name, side in neighbours.items() if side in said or "direction" in said or retrieval.name_words(name) in named}
+    records = [hit["record"] for hit in entries if "name" in hit]
+    named_words = {retrieval.name_words(name) for record in records for name in (record["name"], *record["fields"].get("zone", []))}
+    named = {name: side for name, side in neighbours.items() if retrieval.name_words(name) in named_words}
+    here = retrieval.name_words(town or "")
+    for record in records:
+        words = retrieval.name_words(record["name"])
+        if record["kind"] == "location" and words != here and words in towns:
+            named[record["name"]] = towns[words]
+    asked = {name: side for name, side in neighbours.items() if side in said or "direction" in said}
+    kept = named or earlier or {}
+    return {**asked, **(kept if named or said & WHERE else {})}, kept
+
+
+def town_directions(named_towns):
+    """The direction of each town of the plugin's named_towns from the NPC, by the name words of the town."""
+    return {retrieval.name_words(town["name"]): DIRECTIONS[round(math.degrees(math.atan2(town["dx"], -town["dz"])) / 45) % 8] for town in named_towns}
 
 
 def rumor_records(npc_id):

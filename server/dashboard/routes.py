@@ -5,7 +5,7 @@ import os
 import requests
 from flask import Blueprint, Response, current_app, jsonify, request
 
-from chat import background, chat_prompt, knowledge, llm, llm_config, llm_router, prompt_store, retrieval
+from chat import background, chat_prompt, knowledge, llm, llm_config, llm_router, prompt_store, retrieval, scene_text
 from chat.bio import recorded_history
 from chat.characters import send_rename
 from chat.llm import default_llm_config, send_completion
@@ -224,10 +224,10 @@ def get_campaign_canon():
     except campaign_db.CampaignUnavailable as e:
         return jsonify({"status": "error", "name": state.ACTIVE_CAMPAIGN, "message": str(e)}), 409
 
-def search_reply(memories, rumors, entries, skipped, npc_id=None, dropped=()):
+def search_reply(memories, rumors, entries, skipped, npc_id=None, dropped=(), directions=None):
     """The hits of a test search in prompt order, each with how it was found: by a name or by the words of the line, and
     with its tier, and an entry with whether the NPC knows it only from its travels. dropped holds the records that the
-    line names and that the NPC cannot know."""
+    line names and that the NPC cannot know, and directions those of background.directions."""
     def found(hit):
         return {key: hit[key] for key in ("name", "words") if key in hit}
 
@@ -241,7 +241,11 @@ def search_reply(memories, rumors, entries, skipped, npc_id=None, dropped=()):
         "entries": [{"name": hit["record"]["name"], "kind": hit["record"]["kind"], "tier": knowledge.tier(hit["record"]), "travels": hit["travels"], **found(hit)} for hit in entries],
         "dropped": [{"name": record["name"], "kind": record["kind"], "tier": knowledge.tier(record)} for record in dropped],
         "skipped": [{"word": word, "reason": reason} for word, reason in skipped],
+        "directions": scene_text.compass_text(directions or {}),
     })
+
+# Only the plugin knows where a town lies, so a test search shows where its direction would go
+GAME_DIRECTION = "(direction from the game)"
 
 # A GET, because a POST under /api/ counts as a write, which makes every open page refresh
 @bp.route('/api/campaign/search', methods=['GET'])
@@ -254,14 +258,15 @@ def search_campaign():
         town, zone = background.place_of(profile.get("CurrentLocation", ""), lore)
         message, faction_id = request.args.get("message", ""), state.LIVE_CONTEXTS.get(npc_id, {}).get("factionID")
         memories, rumors, entries, skipped = background.search(message, lore, npc_id, profile, faction_id, speaker.get("Race"), town, zone)
-        dropped = []
+        dropped, directions = [], {}
         if npc_id:
             known = background.known_keys(lore, npc_id, profile, faction_id, town, zone)
             named = retrieval.name_matches(message, [(name, record) for record in lore if record["description"].strip() for name in (record["name"], *record["aliases"])])
             dropped = list({record["key"]: record for _, record in named if record["key"] not in known}.values())
+            directions, _ = background.directions(message, entries, lore, town, zone, {retrieval.name_words(record["name"]): GAME_DIRECTION for record in lore if record["kind"] == "location"})
     except campaign_db.CampaignUnavailable as e:
         return jsonify({"status": "error", "name": state.ACTIVE_CAMPAIGN, "message": str(e)}), 409
-    return search_reply(memories, rumors, entries, skipped, npc_id, dropped)
+    return search_reply(memories, rumors, entries, skipped, npc_id, dropped, directions)
 
 def record_refusal(errors):
     return jsonify({"status": "error", "errors": errors}), 400

@@ -43,6 +43,7 @@ bool AttackWaits(unsigned long long attack);
 bool ReportDue();
 std::string TakeGameEvents();
 std::string ChangedTowns();
+std::string NamedTowns(const std::string &line, Character *from);
 TownBase *FindTown(const std::string &name);
 Character *FirstPlayerCharacter();
 Blackboard *BoardOf(Character *c);

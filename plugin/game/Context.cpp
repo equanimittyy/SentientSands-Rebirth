@@ -25,6 +25,7 @@
 #undef WeatherRegion
 #include <kenshi/util/hand.h>
 #include <algorithm>
+#include <cctype>
 #include <map>
 #include <set>
 #include <vector>
@@ -1091,6 +1092,67 @@ std::string ChangedTowns() {
                                             : std::string()) +
             "\", \"type\": " +
             ToString(type != now->idata.end() ? type->second : -1) + "}";
+  }
+  return json + "]";
+}
+
+static std::string NameWords(const std::string &text) {
+  std::string words;
+  for (size_t i = 0; i < text.size(); ++i) {
+    unsigned char c = (unsigned char)text[i];
+    if (isalnum(c))
+      words += (char)tolower(c);
+    else if (!words.empty() && words[words.size() - 1] != ' ')
+      words += ' ';
+  }
+  if (!words.empty() && words[words.size() - 1] == ' ')
+    words.erase(words.size() - 1);
+  return words;
+}
+
+// Matches a name as the server does, so each town that the server finds by
+// name gets its offset. Towns can share a name, such as the Holy Farms, so the
+// nearest one counts.
+std::string NamedTowns(const std::string &line, Character *from) {
+  std::string json = "[";
+  SharedKing *shared = ppSharedKing ? *ppSharedKing : nullptr;
+  if (!shared || !shared->townList || !from)
+    return json + "]";
+  std::string said = " " + NameWords(line) + " ";
+  Ogre::Vector3 here = from->getPosition();
+  std::map<std::string, std::pair<std::string, Ogre::Vector3> > nearest;
+  lektor<RootObject *> &towns = shared->townList->getAllTowns();
+  for (uint32_t i = 0; i < towns.size(); ++i) {
+    Town *town = towns[i] ? ((TownBase *)towns[i])->isTown() : nullptr;
+    if (!town)
+      continue;
+    GameData *original = town->getOriginalGameData();
+    std::string name = original ? original->name : town->getName();
+    std::string words = NameWords(name);
+    if (words.compare(0, 4, "the ") == 0)
+      words.erase(0, 4);
+    if (words.empty() || said.find(" " + words + " ") == std::string::npos)
+      continue;
+    Ogre::Vector3 at = town->getPosition();
+    std::map<std::string, std::pair<std::string, Ogre::Vector3> >::iterator
+        found = nearest.find(words);
+    if (found == nearest.end() ||
+        here.distance(at) < here.distance(found->second.second))
+      nearest[words] = std::make_pair(name, at);
+  }
+  for (std::map<std::string,
+                std::pair<std::string, Ogre::Vector3> >::iterator it =
+           nearest.begin();
+       it != nearest.end(); ++it) {
+    int dx = (int)(it->second.second.x - here.x);
+    int dz = (int)(it->second.second.z - here.z);
+    Log(LOG_DEBUG, "CHAT: " + it->second.first + " lies at x " +
+                       ToString(dx) + ", z " + ToString(dz) + " from " +
+                       from->getName());
+    if (json.size() > 1)
+      json += ",";
+    json += "{\"name\": \"" + EscapeJSON(it->second.first) +
+            "\", \"dx\": " + ToString(dx) + ", \"dz\": " + ToString(dz) + "}";
   }
   return json + "]";
 }

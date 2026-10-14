@@ -209,6 +209,7 @@ class SentenceTest(unittest.TestCase):
         self.assertEqual(scene_text.compass_text(border_zone), "From here, Okran's Gulf and Okran's Pride lie to the north, Skinner's Roam to the northeast, Shem to the east, The Swamp to the south, Spider Plains to the southwest, and Stenn Desert and Vain to the west.")
         self.assertEqual(scene_text.compass_text({"Arach": "south", "Spider Plains": "east"}), "From here, Spider Plains lies to the east and Arach to the south.")
         self.assertEqual(scene_text.compass_text({}), "")
+        self.assertEqual(scene_text.compass_text({"Squin": "(direction from the game)", "Shem": "east"}), "From here, Shem lies to the east and Squin to the (direction from the game).")
 
 
 if __name__ == "__main__":

@@ -60,7 +60,7 @@ The plugin reads the game state only when a request needs it. Do not post it on 
 
 | Request | Game state that it carries |
 |---|---|
-| `/chat` | The contexts of the target and of the squad member who speaks, the game events, and the changed towns |
+| `/chat` | The contexts of the target and of the squad member who speaks, the game events, the changed towns, and the towns that the line names (see [Directions](#directions)) |
 | `/radiant` | The participants, the NPCs near the center, the context of the center, the game events, and the changed towns |
 | `/cull`, `/report` | A report: the player's context, the game events, and the changed towns (`GameReport`). `/report` goes when 50 events wait, when the oldest event waited 60 s, when a `rekey` event waits, or on `REPORT` from the pipe. |
 | `/squad_rename` | The context of a renamed member of the player's faction (see [Names](#names)) |
@@ -250,18 +250,21 @@ An FTS5 table holds one row per record (name, aliases, fields, text) with the `p
 
 ### Directions
 
-The lore of a turn ends with the directions from the NPC's region to the neighbours that the turn asks about (`background.directions`), for example "From here, Okran's Gulf lies to the north." The line takes no slot and has no cooldown.
+The lore of a turn ends with the directions from the NPC to the places that the turn asks about (`background.directions`), for example "From here, Okran's Gulf lies to the north and Squin to the west." The line takes no slot and has no cooldown.
 
-| The player's line | Neighbours in the line |
+| The player's line | Places in the line |
 |---|---|
-| Names a direction, such as "east" | The neighbours that lie that way |
-| Asks for a "direction" | All neighbours |
+| Names a direction, such as "east" | The neighbours of the NPC's region that lie that way |
+| Asks for a "direction" | All neighbours of the NPC's region |
 | Names a neighbouring region, or a location in one | That region |
+| Names a location other than the NPC's town | That location, with its direction from the game |
+| Names no place, but asks "where", "way", "direction", or a direction | The places of the last turn that named one |
 
 - The record of a neighbour gives the directions from its own side, and only on the turn that names it. With that alone, the model put Okran's Gulf east of the Border Zone, not north.
 - Only a name match counts, because a content hit such as "bonedogs" finds most regions.
 - Rejected: all directions in the chat scene, because few turns need them.
-- A location in the NPC's own region gets no direction, because the game data holds no town positions.
+- The game data holds no town positions, so the plugin reads them in play. Only a line that names a town reads a position: `NamedTowns` (`plugin/game/Context.cpp`) matches each town name in the line as the server matches a name, and sends the offset of the nearest town of that name from the NPC as `named_towns`. The server turns each offset into one of the 8 directions (`background.town_directions`).
+- The lore of a turn stays out of the history (see [Block](#block)), so the server keeps the places of the last turn that named one per pair of speaker and NPC (`NAMED_DIRECTIONS`). "Where is it from here?" can then follow "Have you heard of Shem?". Another pair, or a campaign switch, drops them.
 
 ### Knowledge
 
@@ -362,6 +365,7 @@ The Test search box of Campaign Canon and Templates shows what a line finds and 
 - It shows only while the Log level is `DEBUG` (`debug` from `GET /context`).
 - On Campaign Canon, a picked character makes it search as that character, at the `CurrentLocation` of its profile (`background.place_of`). Otherwise it gives a lore search of every record.
 - The routes are `GET /api/campaign/search?message=...&npc=...&speaker=...` and `GET /api/templates/<name>/search?message=...`. They are GETs, because a POST under `/api/` counts as a write and refreshes every open page (`count_write_requests`).
+- A search as a character also shows the line of [Directions](#directions). Without the game, a named town shows "(direction from the game)" in place of its direction (`GAME_DIRECTION`). A search has no earlier turn, so it keeps no place.
 
 ## Radiant conversations
 

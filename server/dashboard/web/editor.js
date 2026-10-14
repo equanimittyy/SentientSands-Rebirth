@@ -942,6 +942,7 @@ function testSearchResult() {
     ...result.memories.map((hit) => el("li", {}, el("strong", {}, "Memory: "), hit.heading, " ", how(hit), el("p", { className: "hint" }, hit.text))),
     ...result.rumors.map((hit) => el("li", {}, el("strong", {}, "Rumor "), how(hit), el("p", { className: "hint" }, hit.text))),
     ...result.entries.map((hit) => el("li", {}, el("strong", {}, hit.name), ` (${hit.kind}, ${TIERS[hit.tier]}${hit.travels ? ", learned in travels" : ""}) `, how(hit))),
+    ...(result.directions ? [el("li", {}, el("strong", {}, "Directions: "), result.directions)] : []),
   ];
   return [
     hits.length ? el("ol", {}, ...hits) : el("p", { className: "hint" }, "The line finds nothing."),
