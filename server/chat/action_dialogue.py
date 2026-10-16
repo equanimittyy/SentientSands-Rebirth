@@ -1,5 +1,5 @@
 """The action dialogue: a chat thread that the player marks with "!", so that the NPC can make a deal that the game carries
-out (docs/plans/action_dialogue/framework.md).
+out (docs/info/architecture.md#action-dialogue).
 
 The checks here read only the contexts that the plugin sends, so they hold no state. routes.chat keeps the action dialogue
 in state.CURRENT_THREAD, because it ends with its chat thread.

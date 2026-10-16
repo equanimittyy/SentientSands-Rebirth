@@ -1,4 +1,4 @@
-"""The offers of the action dialogue (docs/plans/action_dialogue/framework.md#offer).
+"""The offers of the action dialogue (docs/info/architecture.md#action-dialogue).
 
 An NPC that agrees to a deal ends its reply with a short tag: [AGREE: 800 cats] for a deal that the category fixes, such as a
 recruit, [GIVE: 200 cats, 1 Katana] for a handover, or [DEAL: 1 Katana for 4600 cats] for a trade. The model left out
