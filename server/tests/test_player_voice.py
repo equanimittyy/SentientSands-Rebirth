@@ -68,6 +68,15 @@ class RewriteTest(unittest.TestCase):
             self.assertEqual(result, line)
             call.assert_not_called()
 
+    def test_the_blank_send_of_the_barter_window_gets_no_call(self):
+        with mock.patch.object(player_voice, "load_settings", return_value={"language": "Spanish"}), \
+             mock.patch.object(player_voice.state, "LOCALIZATION_CONFIG", {"Spanish": {"How about this deal?": "¿Qué tal este trato?"}}):
+            result, call = self.rewrite("¿Qué tal este trato?", "Changed")
+        self.assertEqual(result, "¿Qué tal este trato?")
+        call.assert_not_called()
+        with mock.patch.object(player_voice, "load_settings", return_value={"language": "English"}):
+            self.assertEqual(self.rewrite("How about this deal?", "Changed")[0], "How about this deal?")
+
     def test_no_reply_keeps_the_raw_line(self):
         self.assertEqual(self.rewrite("Hello", None)[0], "Hello")
         self.assertEqual(self.rewrite("Hello", "[JUDGMENT: 0]")[0], "Hello")

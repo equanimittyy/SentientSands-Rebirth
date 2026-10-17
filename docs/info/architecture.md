@@ -562,7 +562,7 @@ When Characterised player dialogue is on (`characterised_dialogue` on the Settin
 - `chat` in `server/chat/routes.py` runs the rewrite after the check of a failure and before the check of `!end`.
 - A line that the game refuses keeps the raw line: a line while an offer waits, a blocked line, and a failure, also of the classify call. The game tells the player that the line failed, so the bubble shows what the player typed, and the classify call read the same words.
 - A line that the world hears gets the rewrite, also when no chat call follows: `!end` with text after the mark, DISMISS of a hired follower, and a yell that no one can answer. So with the setting on, DISMISS makes one call.
-- A line with no words outside `*actions*` and a line of an animal speaker get no call.
+- A line with no words outside `*actions*`, a line of an animal speaker, and the line "How about this deal?" that a blank Send of the [Barter window](#barter-window) sends, in the language of the Settings page (`player_voice.BLANK_DEAL`), get no call. The rewrite of that line took a deal from the last line of the NPC, and the NPC then answered that deal instead of the table.
 - The `rephrase` task has a deadline of 15 s, because the chat call of the same request waits for it (see [LLM routing](#llm-routing)).
 - `prompt_player_voice.txt` holds the race and the persona of the speaker (`describe_persona`), who hears the line and how, the last line of the chat thread, and the line. It holds no scene and no lore, because a model with more context adds facts that the player did not say.
 - The prompt names the parts in asterisks only when the line has one (`actions`), because Gemma 4 put asterisks around the reworded words of a line without actions when the prompt named them.

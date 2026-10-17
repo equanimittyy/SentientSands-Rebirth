@@ -10,11 +10,16 @@ import re
 from chat import reply_text
 from chat.llm import call_llm
 from chat.prompts import describe_persona, fill_prompt, language_instruction
+from core import state
+from core.settings import load_settings
 
 _ACTIONS = re.compile(r"\*[^*]*\*")
 _NUMBER = re.compile(r"\d[\d,]*")
 _MARK = re.compile(r"^![A-Za-z]* *")
 _VERBS = {"talk": "says", "whisper": "whispers", "yell": "yells"}
+# The barter window sends this line for a blank Send (SendBarterLine in plugin/ui/BarterWindow.cpp). Its rewrite took a
+# deal from the last line of the NPC, which then answered that deal instead of the table.
+BLANK_DEAL = "How about this deal?"
 
 
 def bubble(message):
@@ -34,7 +39,8 @@ def _numbers(text):
 def rewrite(line, name, profile, listener, mode, last_line, until=None):
     """The line in the words of the speaker, or the line itself when it needs no call, the call fails, or the rewrite
     loses a number of the line, because a lost price breaks a trade."""
-    if profile.get("Animal") or not re.search(r"\w", _ACTIONS.sub("", line)):
+    blank = state.LOCALIZATION_CONFIG.get(load_settings()["language"], {}).get(BLANK_DEAL, BLANK_DEAL)
+    if profile.get("Animal") or not re.search(r"\w", _ACTIONS.sub("", line)) or line == blank:
         return line
     prompt = fill_prompt(
         "prompt_player_voice.txt",
