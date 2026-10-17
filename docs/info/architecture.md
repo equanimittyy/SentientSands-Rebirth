@@ -557,7 +557,7 @@ The Barter window lets the player build the deal of a BARTER action dialogue fro
 
 ## Characterised dialogue
 
-When Characterised player dialogue is on (`characterised_dialogue` on the Settings page, off by default), one LLM call rewrites each chat line of the player in the words of the speaker before the NPC hears it (`server/chat/player_voice.py`). The rewrite keeps the meaning of the line and changes only the words, to fit the personality and the manner of speech of the speaker.
+When Characterised player dialogue is on (`characterised_dialogue` on the Settings page, off by default), one LLM call rewrites each chat line of the player in the words of the speaker before the NPC hears it (`server/chat/player_voice.py`). The prompt gives the line as the gist of what the speaker says, not the words, so the rewrite says the same thing with the phrasing, the sentence shape, and the length that fit the personality and the manner of speech of the speaker. A prompt that asked to keep the line and change only the words gave the line of the player back with a few words changed.
 
 - `chat` in `server/chat/routes.py` runs the rewrite after the check of a failure and before the check of `!end`.
 - A line that the game refuses keeps the raw line: a line while an offer waits, a blocked line, and a failure, also of the classify call. The game tells the player that the line failed, so the bubble shows what the player typed, and the classify call read the same words.
@@ -565,6 +565,7 @@ When Characterised player dialogue is on (`characterised_dialogue` on the Settin
 - A line with no words outside `*actions*` and a line of an animal speaker get no call.
 - The `rephrase` task has a deadline of 15 s, because the chat call of the same request waits for it (see [LLM routing](#llm-routing)).
 - `prompt_player_voice.txt` holds the race and the persona of the speaker (`describe_persona`), who hears the line and how, the last line of the chat thread, and the line. It holds no scene and no lore, because a model with more context adds facts that the player did not say.
+- The prompt names the parts in asterisks only when the line has one (`actions`), because Gemma 4 put asterisks around the reworded words of a line without actions when the prompt named them.
 - The rewrite is cleaned as a chat reply (`reply_text.spoken`). A call with no reply, and a rewrite that leaves out a number of the raw line, give the raw line, because a lost price breaks a trade. The check compares the digits without thousands separators, so "two hundred" for "200" also gives the raw line.
 - The NPC hears the rewrite, and the chat thread, the overheard copies, the later lines of a yell, and the memory hold it. The code that matches words reads the raw line: the names of a yell (`radiant.named`), the lore search, the directions, and the price guide. The rewrite adds words of the speaker's manner, such as "by the Holy Flame", that would find lore that the player did not ask for, and it can change an item word, such as "water" to "drink".
 

@@ -49,12 +49,18 @@ class RewriteTest(unittest.TestCase):
         task, messages, until = call.call_args.args
         self.assertEqual((task, until), ("rephrase", 99))
         prompt = messages[0]["content"]
-        for part in ("Blunt and proud.", "Short, hard words.", "Shek", "Beep whispers it to Ruka.", "LAST LINE OF THE TALK: Ruka: What do you want?", "LINE: Can you help me?"):
+        for part in ("Blunt and proud.", "Short, hard words.", "Shek", "Beep whispers it to Ruka.", "LAST LINE OF THE TALK: Ruka: What do you want?", "GIST: Can you help me?"):
             self.assertIn(part, prompt)
 
     def test_prompt_without_a_last_line_has_no_label(self):
         _, call = self.rewrite("Hello", "Hey.")
         self.assertNotIn("LAST LINE", call.call_args.args[1][0]["content"])
+
+    def test_prompt_names_asterisks_only_for_a_line_with_actions(self):
+        _, call = self.rewrite("Got anything to trade?", "Got stuff?")
+        self.assertNotIn("*", call.call_args.args[1][0]["content"])
+        _, call = self.rewrite("*nods* Got anything to trade?", "*nods* Got stuff?")
+        self.assertIn("Keep each part in asterisks as it is.", call.call_args.args[1][0]["content"])
 
     def test_lines_without_words_and_animals_get_no_call(self):
         for line, profile in (("*nods*", PROFILE), ("*waves* *smiles*", PROFILE), ("Hello", dict(PROFILE, Animal=True))):

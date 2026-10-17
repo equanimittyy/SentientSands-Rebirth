@@ -44,6 +44,8 @@ def rewrite(line, name, profile, listener, mode, last_line, until=None):
         addressee=f"{name} {_VERBS.get(mode, 'says')} it to {listener}.",
         last_line=f"LAST LINE OF THE TALK: {last_line}" if last_line else "",
         line=line,
+        # Only with actions, because Gemma 4 put asterisks around the reworded words when the prompt named them
+        actions="Keep each part in asterisks as it is." if _ACTIONS.search(line) else "",
         language_instruction=language_instruction(),
     )
     text = reply_text.spoken(call_llm("rephrase", [{"role": "user", "content": prompt}], until) or "", {name.lower()}, {listener.lower()})

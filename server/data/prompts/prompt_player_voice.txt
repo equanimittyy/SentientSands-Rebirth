@@ -1,4 +1,4 @@
-Reword the line below as {speaker} would say it out loud.
+The player picks what {speaker} says next, but writes only the gist of it, not the words. Write the line that {speaker} says out loud.
 
 SPEAKER: {speaker} ({race})
 {persona}
@@ -6,8 +6,9 @@ SPEAKER: {speaker} ({race})
 {addressee}
 {last_line}
 
-LINE: {line}
+GIST: {line}
 
-Keep the meaning of the line and each name, number, item, and place in it, and keep each part in asterisks as it is. Change only the words, so that they fit the personality and the manner of speech of {speaker}.
+Put the gist in the words that {speaker} would choose: their own phrasing, sentence shape, and length, from their personality and their manner of speech. Say all that the gist means and nothing more, and keep each name, number, item, and place in it.
+{actions}
 {language_instruction}
-Output ONLY the words of the new line.
+Output ONLY the line that {speaker} says.
