@@ -626,7 +626,7 @@ def chat():
     pair = (speaker_id, primary_id)
     cooldown = load_settings()["retrieval_cooldown_turns"]
     recent_turns = state.RECENT_HITS.get(pair, [])
-    found_memories, found_rumors, found_entries, directions, towns, unknown, follow_up = [], [], [], {}, {}, [], False
+    found_memories, found_rumors, found_entries, directions, towns, unknown, follow_up, priced = [], [], [], {}, {}, [], False, []
     last = state.LAST_NAMED.get(pair, {})
     # An animal replies only in actions
     if not animal:
@@ -659,6 +659,13 @@ def chat():
             # The price guide then gives the price of each item on the table, so a counter-offer can name a fair price
             said += "".join(f"\n{item['name']}" for item in [*(deal.get("give") or []), *(deal.get("take") or [])])
             side = dict(speaker, inventory=offers.pooled(mates))
+        if category == "BARTER":
+            priced = offers.named_items(said, ctx_dict, side)
+            # A follow-up such as "How many cats?" names no item, so it keeps the prices of the items before it. Unlike a
+            # lore hit, they carry until a line names an item, because a haggle can run several lines without naming one.
+            if not priced:
+                priced = last.get("items", [])
+                said += "".join(f"\n{label}" for label in priced)
         background_block = offers.facts(category, ctx_dict, side, player_name, lean, said, table, relation) + "\n\n" + background_block
     elif chat_reason:
         background_block = f"YOUR THOUGHT: {chat_reason}\n\n{background_block}"
@@ -771,7 +778,7 @@ def chat():
         state.RECENT_HITS.clear()
         state.RECENT_HITS[pair] = retrieval.next_turns(recent_turns, [hit["record"]["key"] for hit in found_memories + found_rumors + found_entries], cooldown)
         state.LAST_NAMED.clear()
-        state.LAST_NAMED[pair] = {"hits": background.named(found_memories, found_rumors, found_entries), "towns": towns, "unknown": unknown}
+        state.LAST_NAMED[pair] = {"hits": background.named(found_memories, found_rumors, found_entries), "towns": towns, "unknown": unknown, "items": priced}
 
         interactions = campaign_db.count_interaction(primary_id) if primary_id else None
         threshold = load_settings()["bio_interactions"]

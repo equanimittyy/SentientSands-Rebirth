@@ -578,6 +578,12 @@ def price_guide(said, npc, speaker, player_name, relation=None):
     return lines
 
 
+def named_items(said, npc, speaker):
+    """The labels of the items that the price guide prices for the text, which a follow-up line that asks for no item
+    carries (state.LAST_NAMED)."""
+    return asked(goods(npc, "BARTER"), said)[:PRICE_LINES] + asked(speaker.get("inventory") or [], said)[:PRICE_LINES]
+
+
 def with_lost(npc, lost):
     """The NPC with the items that it lost from the table of the barter window among its goods, because the plugin
     restocks them at Accept."""

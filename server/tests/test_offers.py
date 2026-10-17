@@ -273,6 +273,13 @@ class BarterTest(unittest.TestCase):
         self.assertEqual(offers.asked(bar["stock"], "Can I pay in cats, right now?"), [])
         self.assertEqual(offers.price_guide("Got any water?", bar, BUYER, "Zaps")[1], "You have 14 Water Jug: you sell each for at least 120 cats.")
 
+    def test_the_named_items_of_both_sides_are_what_a_follow_up_carries(self):
+        said = "How much for the katana? I could sell my chain shirt."
+        self.assertEqual(offers.named_items(said, SHOP, BUYER), ["Katana (Ancient, Refitted Blade)", "Chain Shirt (High)"])
+        self.assertEqual(offers.named_items("How many cats, you say?\nFor a good price. Not cheap.", SHOP, BUYER), [])
+        carried = "How many cats?\n" + "\n".join(offers.named_items(said, SHOP, BUYER))
+        self.assertEqual(offers.price_guide(carried, SHOP, BUYER, "Zaps"), offers.price_guide(said, SHOP, BUYER, "Zaps"))
+
     def test_a_kind_word_prices_at_most_ten_items_of_each_side(self):
         store = {**SHOP, "inventory": [], "stock": [{"name": f"Food {n}", "count": 1, "price": 10, "kind": "food"} for n in range(15)]}
         self.assertEqual(len(offers.price_guide("Any food?", store, BUYER, "Zaps")), offers.PRICE_LINES)
