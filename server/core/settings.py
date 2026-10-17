@@ -33,7 +33,8 @@ INI_KEY_MAP = {
     "retrieval_slots": "RetrievalSlots",
     "memory_slots": "MemorySlots",
     "retrieval_cooldown_turns": "RetrievalCooldownTurns",
-    "barter_profit_target": "BarterProfitTarget"
+    "barter_profit_target": "BarterProfitTarget",
+    "characterised_dialogue": "CharacterisedDialogue"
 }
 
 def _save_settings_raw(settings):
@@ -82,7 +83,8 @@ SETTINGS_DEFAULTS = {
     "retrieval_slots": 3,
     "memory_slots": 3,
     "retrieval_cooldown_turns": 1,
-    "barter_profit_target": 50
+    "barter_profit_target": 50,
+    "characterised_dialogue": False
 }
 
 def load_settings():
@@ -151,7 +153,8 @@ def settings_page_values(settings):
         "retrieval_slots": settings["retrieval_slots"],
         "memory_slots": settings["memory_slots"],
         "retrieval_cooldown_turns": settings["retrieval_cooldown_turns"],
-        "barter_profit_target": settings["barter_profit_target"]
+        "barter_profit_target": settings["barter_profit_target"],
+        "characterised_dialogue": settings["characterised_dialogue"]
     }
 
 def push_settings_to_plugin():
@@ -165,6 +168,7 @@ def push_settings_to_plugin():
         ("g_yellRadius", settings["yell_radius"]),
         ("g_chatHotkey", settings["chat_hotkey"]),
         ("g_enableWelcome", "1" if settings["enable_welcome"] else "0"),
+        ("g_characterisedDialogue", "1" if settings["characterised_dialogue"] else "0"),
         ("g_logLevel", settings["log_level"]),
         ("g_speechBubbleLife", settings["bubble_life"]),
     ):

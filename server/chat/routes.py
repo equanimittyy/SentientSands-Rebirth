@@ -8,7 +8,7 @@ import time
 
 from flask import Blueprint, jsonify, request
 
-from chat import action_dialogue, background, chat_prompt, chat_window, offers, radiant, reply_text, retrieval, rumors, scene_text
+from chat import action_dialogue, background, chat_prompt, chat_window, offers, player_voice, radiant, reply_text, retrieval, rumors, scene_text
 from chat.bio import BIO_PARTS, generate_bio, recorded_history, write_bio
 from chat.characters import animal_flag, get_character_data, npc_name, should_save_profile
 from chat.llm import call_llm
@@ -355,6 +355,9 @@ def chat():
         return f"{primary_npc}|{target_key}{f'>{speaker_key}' if speaker_key else ''}"
 
     def reply(*texts, actions=(), action_open=False, after=(), then=None):
+        if covered:
+            # Else the "..." over the speaker stays for the whole bubble life
+            send_to_pipe(f"PLAYER_SAY: {player_name}: {covered}")
         # After the lines, so the barter window shows them once they are said
         turn = [f"CMD: BARTER_TURN: {int(action_open)}\n{chat_window.thread_lines(primary_id, thread_id) if thread_id else ''}"] if window else []
         play_lines([f"{voice()}: {text}" for text in texts], [f"{voice()}: {action}" for action in actions], [*after, *turn], then)
@@ -372,6 +375,9 @@ def chat():
         primary_npc = npcs[0]
         
     player_message = data.get('message', '')
+    characterised = load_settings()["characterised_dialogue"]
+    # With the setting on, the plugin shows "..." over the speaker until the server sends these words
+    covered = player_voice.bubble(player_message) if characterised else ""
     
     if player_message.startswith('/'):
         cmd_parts = player_message[1:].split(' ', 1)
@@ -471,13 +477,18 @@ def chat():
         end_thread()
         notify(f"{primary_npc} didn't understand what you meant.")
         return reply()
+    raw_line = player_message = text if kind else player_message
+    if covered:
+        last_line = next((line for line, _, thread in reversed(campaign_db.dialogue(primary_id)) if thread == current_thread), "") if current_thread else ""
+        listener = "themself" if self_talk else "everyone" if mode == "yell" and primary_id == speaker_id else primary_npc
+        player_message = player_voice.rewrite(raw_line, player_name, get_character_data(player_name, speaker), listener, mode, last_line, until)
+        send_to_pipe(f"PLAYER_SAY: {player_name}: {player_message}")
+        covered = ""
     if kind == "end":
         end_thread()
         logging.info(f"ACTION: {player_name} ended the conversation with {primary_npc}.")
         return reply(action_dialogue.end_line("end"))
-    if kind:
-        player_message = text
-    elif action and not chat_reason:
+    if not kind and action and not chat_reason:
         category = action["category"]
     category = action_dialogue.runs_as(category, ctx_dict, speaker)
     npc_party = (primary_id, primary_npc, context, npc_in_faction)
@@ -522,7 +533,7 @@ def chat():
             return reply()
         speaking = chat_window.thread_speakers(current_thread) if current_thread else set()
         aliases = {key: (listeners[npc["npc_id"]][0], npc.get("name")) for key, npc in crowd.items()}
-        favoured = {target_key} | radiant.named(player_message, aliases) | {key for key, npc in crowd.items() if npc["npc_id"] in speaking}
+        favoured = {target_key} | radiant.named(raw_line, aliases) | {key for key, npc in crowd.items() if npc["npc_id"] in speaking}
         order = radiant.yell_turns(answering, favoured, speaker_key, target_key)
         if primary_id == speaker_id:
             # A yell at everyone counts as spoken only to the NPCs that answer it, so a bystander that stays quiet overhears it
@@ -615,13 +626,13 @@ def chat():
         environment = ctx_dict.get("environment") or {}
         lore = background.campaign_lore()
         named_towns = data.get("named_towns") or []
-        follow_up = not named_towns and not background.names_record(player_message, lore)
+        follow_up = not named_towns and not background.names_record(raw_line, lore)
         found_memories, found_rumors, found_entries, _ = background.search(
-            player_message, lore, primary_id, primary_data, live.get("factionID"), (speaker or state.PLAYER_CONTEXT).get("race"),
+            raw_line, lore, primary_id, primary_data, live.get("factionID"), (speaker or state.PLAYER_CONTEXT).get("race"),
             environment.get("town_name"), environment.get("zone_name"), retrieval.held(recent_turns, cooldown), last.get("hits") if follow_up else None,
         )
         towns = background.town_directions(named_towns)
-        directions = background.directions(player_message, found_entries, lore, environment.get("town_name"), environment.get("zone_name"), {**last.get("towns", {}), **towns})
+        directions = background.directions(raw_line, found_entries, lore, environment.get("town_name"), environment.get("zone_name"), {**last.get("towns", {}), **towns})
         if named_towns:
             unknown = background.unknown_towns(named_towns, lore, background.known_keys(lore, primary_id, primary_data, live.get("factionID"), environment.get("town_name"), environment.get("zone_name")))
     background_block = chat_prompt.background_block(
@@ -633,7 +644,7 @@ def chat():
         relation = primary_data.get("Relation")
         lean = action_dialogue.lean(category, ctx_dict, speaker, relation, nearby, mode)
         last_reply = next((line for line, who, _ in reversed(rows) if who == primary_id), "")
-        said, side, table = f"{player_message}\n{last_reply}", speaker, []
+        said, side, table = f"{raw_line}\n{last_reply}", speaker, []
         if barter:
             deal = window.get("deal") or {}
             table_offer, table_reason, table, profit = offers.on_table(deal, ctx_dict, speaker, mates, player_name, relation)
@@ -649,8 +660,8 @@ def chat():
     notes = chat_prompt.overheard_notes(campaign_db.thread_members({thread_id for _, _, thread_id in history if thread_id}), primary_id)
     messages = chat_prompt.chat_messages(system, chat_prompt.history_turns(chat_prompt.with_notes(history, notes), primary_id), turn)
 
-    if mode == "yell":
-        # The plugin shows these at once for a talk, but only the server knows which NPC answers a yell
+    if mode == "yell" or characterised:
+        # The plugin shows these for a talk, but only the server knows who answers a yell, or when the words of the speaker arrive
         thinking = state.LOCALIZATION_CONFIG.get(load_settings()["language"], {}).get("{name} is thinking...", "{name} is thinking...")
         notify(thinking.replace("{name}", primary_npc))
         send_to_pipe(f"NPC_SAY: {voice()}: ...")

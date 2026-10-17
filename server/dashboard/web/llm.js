@@ -7,6 +7,7 @@ const TASK_LABELS = {
   synthesis: "Rumors",
   memory: "Conversation memories",
   action: "Action dialogue",
+  rephrase: "Player lines",
 };
 const TASK_HINTS = {
   chat: "The reply of an NPC when you talk to it.",
@@ -15,6 +16,7 @@ const TASK_HINTS = {
   synthesis: "A rumor about an event, when you stop chatting or press Generate Rumor, and a rumor about a story that comes back in your conversations, on the radiant rumor timer.",
   memory: "A short summary of each conversation, written when you stop chatting for the Conversation timeout on the Settings page.",
   action: "The reply of an NPC when you start a chat line with !, such as a trade or a threat, and the pick of the kind of request when the line names none.",
+  rephrase: "Your character's own words for each chat line that you send, when Characterised player dialogue is on.",
 };
 const TYPE_LABELS = { openai: "OpenAI-compatible", player2: "Player2" };
 const GAME_WAIT_S = 60;

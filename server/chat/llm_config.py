@@ -18,6 +18,8 @@ TASKS = {
     "synthesis": {"max_tokens": 2048, "temperature": 0.8},
     "memory": {"max_tokens": 1500, "temperature": 0.3},
     "action": {"max_tokens": 2048, "temperature": 0.8},
+    # Runs before the chat call of the same request, so it leaves most of the wait of the plugin to the reply
+    "rephrase": {"max_tokens": 512, "temperature": 0.7, "deadline": 15},
 }
 PROVIDER_TYPES = ("openai", "player2")
 # The plugin stops waiting for a reply after 60 s, so a whole fallback chain must end before that
@@ -50,7 +52,7 @@ def build(providers, models, first_profile):
 
 
 def default_route(task):
-    return dict(TASKS[task], profiles=[DEFAULT_SLOT], deadline=DEFAULT_DEADLINE)
+    return dict({"deadline": DEFAULT_DEADLINE}, **TASKS[task], profiles=[DEFAULT_SLOT])
 
 
 def route_profiles(config, route):

@@ -1,0 +1,13 @@
+Reword the line below as {speaker} would say it out loud.
+
+SPEAKER: {speaker} ({race})
+{persona}
+
+{addressee}
+{last_line}
+
+LINE: {line}
+
+Keep the meaning of the line and each name, number, item, and place in it, and keep each part in asterisks as it is. Change only the words, so that they fit the personality and the manner of speech of {speaker}.
+{language_instruction}
+Output ONLY the words of the new line.

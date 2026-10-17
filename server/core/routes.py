@@ -262,6 +262,12 @@ def settings_endpoint():
         changes["enable_welcome"] = bool(enable_welcome)
         send_to_pipe(f"SET_CONFIG: g_enableWelcome: {'1' if enable_welcome else '0'}")
 
+    characterised = data.get("characterised_dialogue")
+    if characterised is not None:
+        changes["characterised_dialogue"] = bool(characterised)
+        send_to_pipe(f"SET_CONFIG: g_characterisedDialogue: {'1' if characterised else '0'}")
+        logging.info(f"SETTINGS: Characterised player dialogue set to {bool(characterised)}")
+
     open_web_panel = data.get("open_web_panel_on_start")
     if open_web_panel is not None:
         changes["open_web_panel_on_start"] = bool(open_web_panel)

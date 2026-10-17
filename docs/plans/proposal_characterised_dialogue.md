@@ -36,8 +36,8 @@ When the player turns on Characterised player dialogue on the Settings page, eac
   - A line of an animal speaker.
 - These lines get the rewrite: talk, whisper, and yell lines, a talk to itself, `!b` lines and the lines of the Barter window (also "How about this deal?"), and the reply to a declined offer, which goes to `/chat` as the next line.
 - A call that gets no reply, and a rewrite that leaves out a number of the raw line, give the raw line instead. The check compares each number of digits, without thousands separators, because a lost "200 cats" breaks a trade, and code checks it more reliably than the model.
-- The server removes quotes around the rewrite and a label with the name of the speaker at its start, and it keeps the rest as it is.
-- The log line of the chat (`server/chat/routes.py:783`) holds the raw line and the rewrite.
+- The server cleans the rewrite as a chat reply (`reply_text.spoken`), which removes the quotes and a label with the name of the speaker.
+- Each rewrite writes a log line with the raw line and the rewrite, for example `CHAT: Beep says "Can I have some water?" as "Oi. Spare some water?"`.
 
 ### Prompt
 
@@ -100,7 +100,7 @@ With the setting on, the bubbles of a line come in this order:
 
 | Test file | Checks |
 |---|---|
-| A new `server/tests/test_player_voice.py` | Each line of [section 3](#3-rewrite) that gets no call gets no call. A call with no reply gives the raw line. A rewrite without a number of the raw line gives the raw line, and "2,000" matches "2000". The server removes quotes and the label of the speaker. With the setting off, no call runs. |
+| A new `server/tests/test_player_voice.py` | Each line of [section 3](#3-rewrite) that gets no call gets no call. A call with no reply gives the raw line. A rewrite without a number of the raw line gives the raw line, and "2,000" matches "2000". The server removes quotes and the label of the speaker. `bubble` gives the words of the bubble of the plugin. |
 | `server/tests/test_llm_router.py` | An `until` before the deadline of the route ends the chain at `until`. |
 | `server/tests/test_llm_config.py` | The default route of `rephrase` has a deadline of 15 s, and the other tasks keep 55 s. |
 

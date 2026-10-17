@@ -28,10 +28,10 @@ class BuildTest(unittest.TestCase):
         config = built()
         self.assertEqual(config["default_profile"], "kimi")
         self.assertEqual(set(config["routes"]), set(llm_config.TASKS))
-        for route in config["routes"].values():
+        for task, route in config["routes"].items():
             self.assertEqual(route["profiles"], [llm_config.DEFAULT_SLOT])
             self.assertEqual(llm_config.route_profiles(config, route), ["kimi"])
-            self.assertEqual(route["deadline"], llm_config.DEFAULT_DEADLINE)
+            self.assertEqual(route["deadline"], 15 if task == "rephrase" else llm_config.DEFAULT_DEADLINE)
         self.assertEqual(config["routes"]["profile"]["max_tokens"], 1500)
 
     def test_keeps_keys_and_sets_provider_type_from_name(self):

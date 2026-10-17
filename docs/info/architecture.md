@@ -555,6 +555,20 @@ The Barter window lets the player build the deal of a BARTER action dialogue fro
 - An offer that waits in the popup when the window opens stays in the popup, because the model wrote it. A send of the window declines it (`OfferHeldFor`).
 - The hotkey of the chat window does nothing while the window is open.
 
+## Characterised dialogue
+
+When Characterised player dialogue is on (`characterised_dialogue` on the Settings page, off by default), one LLM call rewrites each chat line of the player in the words of the speaker before the NPC hears it (`server/chat/player_voice.py`). The rewrite keeps the meaning of the line and changes only the words, to fit the personality and the manner of speech of the speaker.
+
+- `chat` in `server/chat/routes.py` runs the rewrite after the check of a failure and before the check of `!end`.
+- A line that the game refuses keeps the raw line: a line while an offer waits, a blocked line, and a failure, also of the classify call. The game tells the player that the line failed, so the bubble shows what the player typed, and the classify call read the same words.
+- A line that the world hears gets the rewrite, also when no chat call follows: `!end` with text after the mark, DISMISS of a hired follower, and a yell that no one can answer. So with the setting on, DISMISS makes one call.
+- A line with no words outside `*actions*` and a line of an animal speaker get no call.
+- The `rephrase` task has a deadline of 15 s, because the chat call of the same request waits for it (see [LLM routing](#llm-routing)).
+- `prompt_player_voice.txt` holds the race and the persona of the speaker (`describe_persona`), who hears the line and how, the last line of the chat thread, and the line. It holds no scene and no lore, because a model with more context adds facts that the player did not say.
+- The rewrite is cleaned as a chat reply (`reply_text.spoken`). A call with no reply, and a rewrite that leaves out a number of the raw line, give the raw line, because a lost price breaks a trade. The check compares the digits without thousands separators, so "two hundred" for "200" also gives the raw line.
+- The NPC hears the rewrite, and the chat thread, the overheard copies, the later lines of a yell, and the memory hold it. The code that matches words reads the raw line: the names of a yell (`radiant.named`), the lore search, the directions, and the price guide. The rewrite adds words of the speaker's manner, such as "by the Holy Flame", that would find lore that the player did not ask for, and it can change an item word, such as "water" to "drink".
+- The server sends the bubble of the speaker as `PLAYER_SAY` after the rewrite, and with the raw line from `reply` when the line stops before the rewrite. Then, just before the chat call, it sends the "{name} is thinking..." status and the "..." of the NPC, as for a yell.
+
 ## Line pacing
 
 The server paces the lines of every conversation (`say` in `server/chat/routes.py`). The reply of `/chat` and `/radiant` holds no text. A server thread sends the actions as `NPC_ACTION`, then each line as `NPC_SAY: Name|key: line`, at least `DialogueSpeed` (5 s by default) after the line before it.
@@ -569,7 +583,7 @@ The server paces the lines of every conversation (`say` in `server/chat/routes.p
 
 ## LLM routing
 
-Each LLM call names a task: `chat`, `radiant`, `profile`, `synthesis`, `memory`, or `action`. `server/config/llm_config.json` holds the providers, the profiles, the default profile, and the routes, and the Models page edits them through `/api/llm`.
+Each LLM call names a task: `chat`, `radiant`, `profile`, `synthesis`, `memory`, `action`, or `rephrase`. `server/config/llm_config.json` holds the providers, the profiles, the default profile, and the routes, and the Models page edits them through `/api/llm`.
 
 | Part | Contents |
 |---|---|
@@ -578,7 +592,7 @@ Each LLM call names a task: `chat`, `radiant`, `profile`, `synthesis`, `memory`,
 | Route | Per task: an ordered list of profiles with `null` once for the default profile, `max_tokens`, `temperature`, and a deadline |
 
 - `llm_router.run_route` tries each profile once, in order, and moves on after an exception, a non-200 status, or an empty completion. The default deadline is 55 s, because the plugin stops waiting after 60 s.
-- The calls of one chat request end by 55 s after the request starts (`until` of `run_route`, passed by `chat` in `server/chat/routes.py`), because the classify call and the action call each took their own deadline.
+- The calls of one chat request end by 55 s after the request starts (`until` of `run_route`, passed by `chat` in `server/chat/routes.py`), because a request can make three calls, the classify call, the rewrite of [Characterised dialogue](#characterised-dialogue), and the chat or action call, and each route has its own deadline.
 - The profile's extra parameters override the route's `max_tokens` and `temperature`.
 - A Player2 provider gets a new session key and retries once on a 401.
 - `/api/llm` never returns a stored API key. An empty key field keeps the stored key, and a renamed provider sends `previous_name` (`llm_config.with_stored_keys`).
