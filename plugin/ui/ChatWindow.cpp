@@ -39,7 +39,7 @@ struct ChatTask {
   std::string npcName;
   unsigned int npcKey;
   bool action;
-  bool yell;
+  bool showThinking;
   bool barter;
   // The decline goes to /offer before the reply line, or the server would
   // still hold the offer and drop the line
@@ -166,9 +166,9 @@ static DWORD WINAPI ChatResponseThread(LPVOID lpParam) {
   if (!t->offerAnswer.empty())
     PostToPythonWithResponse(L"/offer", t->offerAnswer);
   Log(LOG_INFO, "CHAT: Sending chat request for " + t->npcName);
-  // The server picks the NPC that answers a yell, so it shows these for that
-  // NPC
-  if (!t->yell) {
+  // The server shows these for a yell, because it picks the NPC that answers,
+  // and with Characterised player dialogue, after the words of the speaker
+  if (t->showThinking) {
     NotifyChatStatus("{name} is thinking...", t->npcName);
     QueueMessage("NPC_SAY: " + t->npcName + "|" + KeyText(t->npcKey) + ": ...");
   }
@@ -357,9 +357,13 @@ bool SendChatLine(const std::string &npcName, unsigned int targetKey,
 
   // Names the speaker, so its bubble and the NPC's actions go to that squad
   // member. A line of only a mark, such as !end, shows no bubble but still
-  // names the speaker
+  // names the speaker. With Characterised player dialogue, the server sends
+  // the words after it rewrites them
+  std::string bubble = marked ? WithoutActionMark(text) : text;
+  if (g_characterisedDialogue && said && !bubble.empty())
+    bubble = "...";
   QueueMessage("PLAYER_SAY: " + (speaker ? playerName + ": " : std::string()) +
-               (marked ? WithoutActionMark(text) : text));
+               bubble);
 
   std::string primaryId = addresseeName + "|" + KeyText(addresseeKey);
   std::string npcsJson = "\"" + EscapeJSON(primaryId) + "\"";
@@ -420,7 +424,7 @@ bool SendChatLine(const std::string &npcName, unsigned int targetKey,
   task->npcName = npcName;
   task->npcKey = targetKey;
   task->action = actionLine;
-  task->yell = mode == "yell";
+  task->showThinking = mode != "yell" && !g_characterisedDialogue;
   task->barter = !barterJson.empty();
   task->offerAnswer = offerAnswer;
   StartThread(ChatResponseThread, task);

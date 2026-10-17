@@ -33,6 +33,7 @@ extern bool g_triggerRadiant;
 extern float g_speechBubbleLife;
 extern bool g_openWebPanelOnStart;
 extern bool g_enableWelcome;
+extern bool g_characterisedDialogue;
 extern LogLevel g_logLevel;
 
 extern CRITICAL_SECTION g_stateMutex;

@@ -438,7 +438,7 @@ A plain chat line in Yell mode can get up to 3 replies, one after another, from 
 - The NPCs that can answer are the target and each NPC within `YellRadius` that is outside the player's faction and awake (`radiant.can_answer`). A target beyond `YellRadius` does not hear the yell, so the plugin sends it as a yell at the speaker (see [Chat range](#chat-range)). An animal never answers, and a yell at an animal outside the squad gets only the reply of the animal.
 - Only the player's speaker speaks for the squad. So a yell at the speaker or at a squad member gets only the replies of the other NPCs, and no reply when no other NPC can answer.
 - A yell at the speaker itself is a yell at everyone. Each NPC that answers it gets the line as spoken to it, for example `(Yelled) Stick: ...`, and each other NPC overhears it, for example `(Overheard) (Yelled) Stick to everyone: ...`.
-- The server shows the "{name} is thinking..." status and the "..." bubble of the NPC that answers first, just before its chat call. For a talk or a whisper the plugin shows them for the target when it sends the line (`ChatResponseThread` in `plugin/ui/ChatWindow.cpp`), but only the server knows which NPC answers a yell.
+- The server shows the "{name} is thinking..." status and the "..." bubble of the NPC that answers first, just before its chat call. For a talk or a whisper the plugin shows them for the target when it sends the line (`ChatResponseThread` in `plugin/ui/ChatWindow.cpp`), unless [Characterised dialogue](#characterised-dialogue) is on, but only the server knows which NPC answers a yell.
 - A plain chat reason of the target (see [Action dialogue](#action-dialogue)) does not reach another NPC that answers first, because the reason judges only the target.
 - The server rolls the count of replies: 1 at 50 %, 2 at 30 %, or 3 at 20 % (`radiant.YELL_REPLIES`). When only one NPC can answer, the count is 1.
 - The server picks the speaker and the addressee of each reply (`radiant.yell_turns`), as in a radiant conversation. The first reply speaks to the player's speaker. Then the NPC addressed answers back, or another NPC cuts in, at even odds (`REPLY_SHARE`), and speaks to the last speaker or to the player's speaker.
@@ -567,7 +567,20 @@ When Characterised player dialogue is on (`characterised_dialogue` on the Settin
 - `prompt_player_voice.txt` holds the race and the persona of the speaker (`describe_persona`), who hears the line and how, the last line of the chat thread, and the line. It holds no scene and no lore, because a model with more context adds facts that the player did not say.
 - The rewrite is cleaned as a chat reply (`reply_text.spoken`). A call with no reply, and a rewrite that leaves out a number of the raw line, give the raw line, because a lost price breaks a trade. The check compares the digits without thousands separators, so "two hundred" for "200" also gives the raw line.
 - The NPC hears the rewrite, and the chat thread, the overheard copies, the later lines of a yell, and the memory hold it. The code that matches words reads the raw line: the names of a yell (`radiant.named`), the lore search, the directions, and the price guide. The rewrite adds words of the speaker's manner, such as "by the Holy Flame", that would find lore that the player did not ask for, and it can change an item word, such as "water" to "drink".
-- The server sends the bubble of the speaker as `PLAYER_SAY` after the rewrite, and with the raw line from `reply` when the line stops before the rewrite. Then, just before the chat call, it sends the "{name} is thinking..." status and the "..." of the NPC, as for a yell.
+
+### Speech bubbles
+
+With the setting on, the bubbles of a line come in this order, so that the raw words of a line that the NPC hears never show:
+
+1. When the player sends the line, the plugin shows "..." over the speaker instead of the line (`SendChatLine` in `plugin/ui/ChatWindow.cpp`). A line that starts with `/` and a line of only a mark still show no bubble.
+2. The server runs the rewrite and sends `PLAYER_SAY` with the rewrite, or with the raw line when the line gets no call or the call fails. The bubble of the speaker changes from "..." to the line.
+3. Just before the chat call, the server sends the "{name} is thinking..." status and the "..." of the NPC that answers, as for a yell (see [Yells](#yells)). The plugin does not show them when it sends the line (`showThinking` of `ChatTask`).
+4. The reply plays as usual.
+
+- A line that stops before the rewrite gets the raw line, without its mark, as the bubble of the speaker from `reply` in `chat` (`player_voice.bubble`, which matches `WithoutActionMark`). Without it, the "..." would stay for the whole bubble life.
+- `!end`, DISMISS, and a yell that no one can answer stop after the rewrite and before the chat call, so no "..." shows over an NPC that does not answer.
+- The "..." of the speaker still names the speaker, so `TakePlayerSpeaker` sets the squad member that the actions of the reply fall back to (`plugin/main.cpp`).
+- The "..." and the line of the speaker share one bubble, so with the "..." of the NPC no third bubble ends one of them (`KeepTwoBubbles` in `plugin/game/GameActions.cpp`).
 
 ## Line pacing
 

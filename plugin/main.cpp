@@ -139,6 +139,8 @@ static void ApplyConfig(const std::string &data) {
     RefreshHelpUI();
   } else if (var == "g_enableWelcome") {
     g_enableWelcome = (val == "1");
+  } else if (var == "g_characterisedDialogue") {
+    g_characterisedDialogue = (val == "1");
   } else if (var == "g_logLevel") {
     g_logLevel = ParseLogLevel(val);
   }

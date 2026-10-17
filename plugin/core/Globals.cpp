@@ -20,6 +20,7 @@ bool g_triggerRadiant = false;
 float g_speechBubbleLife = 10.0f;
 bool g_openWebPanelOnStart = true;
 bool g_enableWelcome = true;
+bool g_characterisedDialogue = false;
 LogLevel g_logLevel = LOG_INFO;
 
 CRITICAL_SECTION g_stateMutex;
