@@ -83,7 +83,7 @@ SETTINGS_DEFAULTS = {
     "retrieval_slots": 3,
     "memory_slots": 3,
     "retrieval_cooldown_turns": 1,
-    "barter_profit_target": 50,
+    "barter_profit_target": 70,
     "characterised_dialogue": False
 }
 

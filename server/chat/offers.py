@@ -39,12 +39,10 @@ CHARITY_CATS = 50
 GIFT_WORTH = 500
 GIFT_MOST = 10
 RELEASE_BRIBE = 500
-# (sell share, buy share) of the price for a trader and for any other NPC. Each sells at the price of the game's trade
-# window, or a deal would undercut it, and a non-trader pays less for the player's items, because it wants a bigger margin
-SHARES = {True: (1.0, 0.8), False: (1.0, 0.6)}
 # Percent points of what the NPC gives. It only guides the model: no check enforces it, so the character decides each
 # deal.
 PROFIT_OFFSETS = {-2: 20, -1: 10, 0: 0, 1: -20, 2: -30}
+NON_TRADER_PROFIT = 10
 # (least profit share, lean bonus), the biggest share first. The model refused profits when the lean held only the
 # relation.
 PROFIT_LEANS = ((0.5, 4), (0.25, 3), (0.0, 2))
@@ -219,19 +217,16 @@ def price_of(label, *holdings):
     return 0
 
 
-def shares(npc):
-    return SHARES[action_dialogue.is_trader(npc)]
-
-
-def profit_share(relation):
-    return max(0, load_settings()["barter_profit_target"] + PROFIT_OFFSETS[action_dialogue.relation_bonus(relation)]) / 100
+def profit_share(npc, relation):
+    points = load_settings()["barter_profit_target"] + PROFIT_OFFSETS[action_dialogue.relation_bonus(relation)]
+    return max(0, points + (0 if action_dialogue.is_trader(npc) else NON_TRADER_PROFIT)) / 100
 
 
 def worth(parts, npc, speaker, side, markup=1):
-    """The worth to the NPC of the cats and the items of one side of a trade: "gives" for the NPC's side at its sell share,
-    or "takes" for the player's side at its buy share. A markup of 1 plus the profit that the NPC wants raises the price of
-    each item of the NPC and lowers each item of the player, as the price guide does."""
-    sell, buy = shares(npc)
+    """The worth to the NPC of the cats and the items of one side of a trade, at the price of each item: "gives" for the
+    NPC's side, or "takes" for the player's side. A markup of 1 plus the profit that the NPC wants lowers each item of the
+    player, as the price guide does. The NPC's items keep their price, so a deal costs what the game's trade window
+    costs."""
     stock = goods(npc, "BARTER")
     total = 0.0
     for kind, value in parts:
@@ -239,7 +234,7 @@ def worth(parts, npc, speaker, side, markup=1):
             total += value
         elif kind == "ITEM":
             count, label = value[:2]
-            total += count * (price_of(label, stock) * sell * markup if side == "gives" else price_of(label, stock, speaker.get("inventory") or []) * buy / markup)
+            total += count * (price_of(label, stock) if side == "gives" else price_of(label, stock, speaker.get("inventory") or []) / markup)
     return total
 
 
@@ -568,19 +563,18 @@ def asked(items, said):
 
 
 def price_guide(said, npc, speaker, player_name, relation=None):
-    """The count and the price of each item that the text asks for, in the goods of the NPC or of the speaker, at the share
-    of the NPC and with the profit that it wants, so the model gives the real price and does no sums. A kind word such as
-    "food" can ask for a whole shop, so each side gives at most PRICE_LINES items."""
-    sell, buy = shares(npc)
-    markup = 1 + profit_share(relation)
+    """The count and the price of each item that the text asks for, in the goods of the NPC or of the speaker, less the
+    profit that the NPC wants for an item that it buys, so the model gives the real price and does no sums. A kind word
+    such as "food" can ask for a whole shop, so each side gives at most PRICE_LINES items."""
+    markup = 1 + profit_share(npc, relation)
     stock = goods(npc, "BARTER")
     carried = speaker.get("inventory") or []
     lines = []
-    # The tolerance keeps float noise, such as 3000 * 1.1 = 3300.0000000000005, from moving a price by a cat
     for label in asked(stock, said)[:PRICE_LINES]:
-        lines.append(f"You have {held(stock, label)[1]} {label}: you sell each for at least {math.ceil(price_of(label, stock) * sell * markup - 1e-6):,} cats.")
+        lines.append(f"You have {held(stock, label)[1]} {label}: you sell each for at least {price_of(label, stock):,} cats.")
+    # The tolerance keeps float noise, such as 33 / 1.1 = 29.999999999999996, from taking a cat off a price
     for label in asked(carried, said)[:PRICE_LINES]:
-        lines.append(f"{player_name} has {held(carried, label)[1]} {label}: you pay at most {math.floor(price_of(label, stock, carried) * buy / markup + 1e-6):,} cats each.")
+        lines.append(f"{player_name} has {held(carried, label)[1]} {label}: you pay at most {math.floor(price_of(label, stock, carried) / markup + 1e-6):,} cats each.")
     return lines
 
 
@@ -604,7 +598,7 @@ def table_parts(deal):
 
 def profit_lean(received, handed, gap):
     """The (bonus, reason) of a deal on the table that meets the profit that the NPC wants: the bonus by the profit at the
-    NPC's shares, and the reason by the gap at the prices of the price guide. A gift hands over nothing, so it is a big
+    full prices, and the reason by the gap at the prices of the price guide. A gift hands over nothing, so it is a big
     profit."""
     share = max(received - handed, 0) / handed if handed else math.inf
     bonus = next(bonus for least, bonus in PROFIT_LEANS if share >= least)
@@ -625,9 +619,8 @@ def on_table(deal, npc, speaker, squad, player_name, relation=None):
     lines = [f"On the table, {player_name} gives {goods_text(takes) or 'nothing'}, and they want {goods_text(gives) or 'nothing'} from you."]
     side = dict(speaker, inventory=pooled(squad))
     received, handed = worth(takes, npc, side, "takes"), worth(gives, npc, side, "gives")
-    markup = 1 + profit_share(relation)
     # A gap measured from the break-even worth contradicted the price lines of the turn message
-    gap = worth(takes, npc, side, "takes", markup) - worth(gives, npc, side, "gives", markup)
+    gap = worth(takes, npc, side, "takes", 1 + profit_share(npc, relation)) - handed
     lean = []
     if offer and offer.get("charity"):
         lines.append("It is a plea for charity.")

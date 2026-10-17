@@ -211,7 +211,7 @@ static int Worth(const std::vector<Lot> &lots) {
 }
 
 // At the full price, so the player sees how much the NPC fleeces them. The NPC
-// weighs the deal at its shares instead (offers.worth)
+// weighs the deal against the profit that it wants instead (offers.on_table)
 static void UpdateEstimate() {
   Deal deal = TableDeal();
   int profit = deal.cats[PLAYER_SIDE] + Worth(deal.lots[PLAYER_SIDE]) -
