@@ -656,19 +656,13 @@ static void DoRelease(GameWorld *world, Character *npc, Character *target) {
                     target->getName() + ". Locked up: " + ToString(lockedUp) +
                     ", Dist: " + ToString(dist));
 
-  // Free directly when close: for recruits/friends the engine cancels the release task
-  bool freed = dist < 4.0f && lockedUp;
-  if (freed) {
-    Log(LOG_DEBUG, "ACTION: Proximity force-release triggered.");
-    FreePrisoner(world, target);
-  }
-  bool didSomething = freed;
+  bool didSomething = false;
   if (npc->isCarryingSomething && npc->carryingObject == target->getHandle()) {
     Log(LOG_DEBUG, "ACTION: NPC is carrying target. Dropping.");
     npc->dropCarriedObject(false, false);
     didSomething = true;
   }
-  if (lockedUp && !freed) {
+  if (lockedUp) {
     Log(LOG_DEBUG, "ACTION: Assigning task: " + TaskName(RELEASE_PRISONER));
     // addOrder overrides at once, unlike addJob; clear=true halts background AI (staying home)
     npc->clearAllAIGoals();
