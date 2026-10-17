@@ -1,16 +1,25 @@
 import os
 import sys
 import unittest
+from unittest import mock
 
 ROOT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..")
 sys.path.insert(0, os.path.join(ROOT, "server"))
 
 from chat import action_dialogue, offers
 from core import state
+from core.settings import SETTINGS_DEFAULTS
 
 NPC = {"money": 300, "inventory": [{"name": "Katana", "count": 1}, {"name": "Bread", "count": 2}, {"name": "Bread", "count": 1}]}
 SPEAKER = {"money": 1000, "inventory": [{"name": "Dirty Loincloth", "count": 1}]}
 GUARD = {**NPC, "squad_jobs": ["MAN_THE_GATE"]}
+
+
+# A fixed profit target, because the INI of a dev install and the default can change
+def setUpModule():
+    patcher = mock.patch.object(offers, "load_settings", lambda: {**SETTINGS_DEFAULTS, "barter_profit_target": 10})
+    patcher.start()
+    unittest.addModuleCleanup(patcher.stop)
 
 
 def check(category, tag, npc=NPC, speaker=SPEAKER):
@@ -202,6 +211,10 @@ class BarterTest(unittest.TestCase):
 
     def test_the_relation_sets_the_loss_that_the_npc_usually_takes(self):
         self.assertEqual([offers.loss_share(relation) for relation in (-60, -59, -25, -24, 24, 25, 59, 60)], [-0.3, -0.2, -0.2, -0.1, -0.1, 0.1, 0.1, 0.2])
+
+    def test_the_profit_target_setting_moves_each_relation_band(self):
+        with mock.patch.object(offers, "load_settings", lambda: {**SETTINGS_DEFAULTS, "barter_profit_target": 25}):
+            self.assertEqual([offers.loss_share(relation) for relation in (-60, 0, 60)], [-0.45, -0.25, 0.05])
 
     def test_the_stock_sets_the_price_at_its_highest(self):
         self.assertEqual(offers.price_of("First Aid Kit", offers.goods(SHOP, "BARTER")), 132)

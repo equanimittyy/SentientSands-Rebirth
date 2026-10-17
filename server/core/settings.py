@@ -32,7 +32,8 @@ INI_KEY_MAP = {
     "conversation_timeout_minutes": "ConversationTimeoutMinutes",
     "retrieval_slots": "RetrievalSlots",
     "memory_slots": "MemorySlots",
-    "retrieval_cooldown_turns": "RetrievalCooldownTurns"
+    "retrieval_cooldown_turns": "RetrievalCooldownTurns",
+    "barter_profit_target": "BarterProfitTarget"
 }
 
 def _save_settings_raw(settings):
@@ -80,7 +81,8 @@ SETTINGS_DEFAULTS = {
     "conversation_timeout_minutes": 3,
     "retrieval_slots": 3,
     "memory_slots": 3,
-    "retrieval_cooldown_turns": 1
+    "retrieval_cooldown_turns": 1,
+    "barter_profit_target": 50
 }
 
 def load_settings():
@@ -148,7 +150,8 @@ def settings_page_values(settings):
         "conversation_timeout_minutes": settings["conversation_timeout_minutes"],
         "retrieval_slots": settings["retrieval_slots"],
         "memory_slots": settings["memory_slots"],
-        "retrieval_cooldown_turns": settings["retrieval_cooldown_turns"]
+        "retrieval_cooldown_turns": settings["retrieval_cooldown_turns"],
+        "barter_profit_target": settings["barter_profit_target"]
     }
 
 def push_settings_to_plugin():

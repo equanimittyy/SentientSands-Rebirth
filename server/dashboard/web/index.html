@@ -103,6 +103,10 @@
           <label><span class="label-text">Prune profiles after (game days)<span class="help" tabindex="0">?<span class="tip">SSR deletes the provisional profile of an NPC that nobody talks to or recalls for this many game days. 0 keeps every profile.</span></span></span> <input type="number" name="prune_profile_days" min="0" required></label>
         </fieldset>
         <fieldset>
+          <legend>Barter</legend>
+          <label><span class="label-text">Profit target (%)<span class="help" tabindex="0">?<span class="tip">The least profit that a neutral NPC wants from a trade. A friendly NPC wants less, and a hostile NPC more.</span></span></span> <input type="number" name="barter_profit_target" min="0" required></label>
+        </fieldset>
+        <fieldset>
           <legend>Diagnostics</legend>
           <label><span class="label-text">Log level<span class="help" tabindex="0">?<span class="tip">The lowest level that the plugin and the server write to their logs. DEBUG also shows the Test search box on Campaign Canon and Templates.</span></span></span> <select name="log_level"></select></label>
         </fieldset>

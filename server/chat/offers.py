@@ -15,6 +15,7 @@ import re
 
 from chat import action_dialogue
 from core import state
+from core.settings import load_settings
 
 # An item name can hold brackets, such as "Armoured Rags (colored) [alt]"
 _TAG = r"\[\s*{}\s*(?::((?:[^\[\]]|\[[^\[\]]*\])*))?\]"
@@ -41,10 +42,9 @@ RELEASE_BRIBE = 500
 # (sell share, buy share) of the price for a trader and for any other NPC. Each sells at the price of the game's trade
 # window, or a deal would undercut it, and a non-trader pays less for the player's items, because it wants a bigger margin
 SHARES = {True: (1.0, 0.8), False: (1.0, 0.6)}
-# The share of what it gives that an NPC usually loses at most in a trade, by the band of its relation
-# (action_dialogue.relation_bonus); a negative share is the least profit that it wants. It only guides the model: no
-# check enforces it, so the character decides each deal.
-LOSS_SHARES = {-2: -0.3, -1: -0.2, 0: -0.1, 1: 0.1, 2: 0.2}
+# Percent points of what the NPC gives; a negative target is the most loss that it usually takes. It only guides the
+# model: no check enforces it, so the character decides each deal.
+PROFIT_OFFSETS = {-2: 20, -1: 10, 0: 0, 1: -20, 2: -30}
 # (least profit share, lean bonus, words), the biggest share first. The model refused profits when the lean held only the
 # relation.
 PROFIT_LEANS = ((0.5, 4, ", a big profit"), (0.25, 3, ", a good profit"), (0.0, 2, ""))
@@ -222,7 +222,7 @@ def shares(npc):
 
 
 def loss_share(relation):
-    return LOSS_SHARES[action_dialogue.relation_bonus(relation)]
+    return -(load_settings()["barter_profit_target"] + PROFIT_OFFSETS[action_dialogue.relation_bonus(relation)]) / 100
 
 
 def worth(parts, npc, speaker, side):
