@@ -12,6 +12,7 @@ from chat import action_dialogue, background, chat_prompt, chat_window, offers, 
 from chat.bio import BIO_PARTS, generate_bio, recorded_history, write_bio
 from chat.characters import animal_flag, get_character_data, npc_name, should_save_profile
 from chat.llm import call_llm
+from chat.llm_config import DEFAULT_DEADLINE
 from chat.memory import quiet_seconds
 from chat.prompts import PROMPT_RUMORS, build_system_prompt, describe_faction, describe_npc, describe_persona, describe_race, fill_prompt, find_location, language_instruction, npc_scene, scene_values
 from core import state, world_events
@@ -326,6 +327,7 @@ def merge_live_context(ctx):
 @bp.route('/chat', methods=['POST'])
 def chat():
     started = time.monotonic()
+    until = started + DEFAULT_DEADLINE
     data = request.json
     logging.debug("HTTP: POST /chat")
     if not data: return jsonify({"text": "Error: No JSON data provided"}), 400
@@ -458,7 +460,7 @@ def chat():
     if kind == "classify" and not chat_reason:
         listed = action_dialogue.choices(ctx_dict, speaker, primary_npc)
         prompt = fill_prompt("prompt_action_classify.txt", line=text, choices=action_dialogue.choice_list(listed))
-        category = action_dialogue.chosen(call_llm("action", [{"role": "user", "content": prompt}]), listed)
+        category = action_dialogue.chosen(call_llm("action", [{"role": "user", "content": prompt}], until), listed)
         logging.info(f"ACTION: Classified the line of {player_name} to {primary_npc} as {category or 'no category'}.")
         chat_reason = action_dialogue.plain_chat(category, ctx_dict, speaker)
     if chat_reason:
@@ -652,7 +654,7 @@ def chat():
         thinking = state.LOCALIZATION_CONFIG.get(load_settings()["language"], {}).get("{name} is thinking...", "{name} is thinking...")
         notify(thinking.replace("{name}", primary_npc))
         send_to_pipe(f"NPC_SAY: {voice()}: ...")
-    content = call_llm("action" if category else "chat", messages)
+    content = call_llm("action" if category else "chat", messages, until)
     state.restart_quiet_clock()
     if not content:
         logging.error("CHAT: No reply from the LLM.")

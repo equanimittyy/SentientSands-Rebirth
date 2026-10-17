@@ -178,10 +178,10 @@ def log_usage(model, data, seconds):
         line += f": {timings['prompt_ms'] / 1000:.1f} s reading, {timings['predicted_ms'] / 1000:.1f} s writing at {timings['predicted_per_second']:.1f} tokens/s"
     logging.info(line)
 
-def call_llm(task, messages):
+def call_llm(task, messages, until=None):
     """Returns the completion text from the first profile of the task's route that answers, or None."""
     llm_log.debug(f"{task} request:\n" + "\n".join(f"[{m['role']}]\n{m['content']}" for m in messages))
-    text = llm_router.run_route(LLM_CONFIG, task, messages, send_completion)
+    text = llm_router.run_route(LLM_CONFIG, task, messages, send_completion, until=until)
     llm_log.debug(f"{task} reply:\n{text}")
     return text
 

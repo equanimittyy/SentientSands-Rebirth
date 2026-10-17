@@ -18,8 +18,9 @@ def build_body(route, profile, messages):
     return body
 
 
-def run_route(config, task, messages, send, clock=time.monotonic):
-    """send(provider, profile, body, timeout) returns the completion text or raises. Returns None when every profile fails."""
+def run_route(config, task, messages, send, clock=time.monotonic, until=None):
+    """send(provider, profile, body, timeout) returns the completion text or raises. Returns None when every profile fails.
+    until, a clock time, ends the chain before the deadline of the route, so the calls of one request share the wait of the plugin."""
     route = config["routes"].get(task)
     if route is None:
         logging.error(f"LLM: {task} has no route.")
@@ -27,11 +28,13 @@ def run_route(config, task, messages, send, clock=time.monotonic):
 
     start = clock()
     deadline = start + route["deadline"]
+    if until is not None:
+        deadline = min(deadline, until)
     failures = []
     for name in route_profiles(config, route):
         remaining = deadline - clock()
         if remaining <= 0:
-            failures.append(f"{name}: the {route['deadline']} s deadline passed")
+            failures.append(f"{name}: the {round(deadline - start, 1):g} s deadline passed")
             break
         profile = config["profiles"].get(name)
         provider = config["providers"].get(profile["provider"]) if profile else None

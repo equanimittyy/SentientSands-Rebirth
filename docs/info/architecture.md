@@ -578,6 +578,7 @@ Each LLM call names a task: `chat`, `radiant`, `profile`, `synthesis`, `memory`,
 | Route | Per task: an ordered list of profiles with `null` once for the default profile, `max_tokens`, `temperature`, and a deadline |
 
 - `llm_router.run_route` tries each profile once, in order, and moves on after an exception, a non-200 status, or an empty completion. The default deadline is 55 s, because the plugin stops waiting after 60 s.
+- The calls of one chat request end by 55 s after the request starts (`until` of `run_route`, passed by `chat` in `server/chat/routes.py`), because the classify call and the action call each took their own deadline.
 - The profile's extra parameters override the route's `max_tokens` and `temperature`.
 - A Player2 provider gets a new session key and retries once on a 401.
 - `/api/llm` never returns a stored API key. An empty key field keeps the stored key, and a renamed provider sends `previous_name` (`llm_config.with_stored_keys`).

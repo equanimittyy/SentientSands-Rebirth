@@ -91,6 +91,31 @@ class RunRouteTest(unittest.TestCase):
         run_route(config(["a", "b", "c"], deadline=55), "chat", MESSAGES, send, clock=clock)
         self.assertEqual(timeouts, [30, 15])
 
+    def test_until_ends_the_chain_before_the_deadline(self):
+        clock = FakeClock()
+        clock.now = 100
+        timeouts = []
+
+        def send(provider, profile, body, timeout):
+            timeouts.append(timeout)
+            clock.now += 20
+            raise TimeoutError("timed out")
+
+        self.assertIsNone(run_route(config(["a", "b", "c"], deadline=55), "chat", MESSAGES, send, clock=clock, until=125))
+        self.assertEqual(timeouts, [25, 5])
+
+    def test_until_already_passed_sends_nothing(self):
+        calls = []
+
+        def send(provider, profile, body, timeout):
+            calls.append(profile["model"])
+            return "late"
+
+        clock = FakeClock()
+        clock.now = 100
+        self.assertIsNone(run_route(config(["a"]), "chat", MESSAGES, send, clock=clock, until=90))
+        self.assertEqual(calls, [])
+
     def test_default_slot_runs_the_default_profile(self):
         calls = []
 
