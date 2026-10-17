@@ -8,7 +8,8 @@ SPEAKER: {speaker} ({race})
 
 GIST: {line}
 
-Put the gist in the words that {speaker} would choose: their own phrasing, sentence shape, and length, from their personality and their manner of speech. Say all that the gist means and nothing more, and keep each name, number, item, and place in it.
+Put the gist in the words that {speaker} would choose: their own phrasing, sentence shape, and length, from their personality and their manner of speech. Say all that the gist means and nothing more, and keep each name, item, and place in it.
+Keep each number in the gist exactly as the gist writes it, in digits or in words, because a number can be the price of a deal, and add no other number. The last line of the talk only shows what {speaker} answers, so take no number and no offer from it.
 {actions}
 {language_instruction}
 Output ONLY the line that {speaker} says.
