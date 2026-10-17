@@ -321,19 +321,19 @@ class BarterWindowTest(unittest.TestCase):
     def test_the_gap_prices_each_side_as_the_price_guide_does(self):
         self.assertEqual(offers.price_guide("Katana, Bread", SHOP, {"inventory": offers.pooled(SQUAD)}, "Zaps"),
                          ["You have 1 Katana (Ancient, Refitted Blade): you sell each for at least 3,000 cats.", "Zaps has 4 Bread: you pay at most 45 cats each."])
-        self.assertEqual(offers.on_table({**TABLE, "take_cats": 2908}, SHOP, BUYER, SQUAD, "Zaps")[3], [(-1, "The deal on the table misses your desired profit by 2 cats.")])
+        self.assertEqual(offers.on_table({**TABLE, "take_cats": 2908}, SHOP, BUYER, SQUAD, "Zaps")[3], [(-1, "The deal on the table misses your desired profit by about 2 cats.")])
 
     def test_a_profit_below_the_one_that_the_npc_wants_leans_it_to_refuse(self):
         offer, _, _, lean = offers.on_table(PURCHASE, SHOP, BUYER, SQUAD, "Zaps")
         self.assertIsNotNone(offer)
-        self.assertEqual(lean, [(-1, "The deal on the table misses your desired profit by 5 cats.")])
-        self.assertEqual(offers.on_table(PURCHASE, SHOP, BUYER, SQUAD, "Zaps", relation=30)[3], [(2, "The deal on the table beats your desired profit by 5 cats.")])
+        self.assertEqual(lean, [(-1, "The deal on the table misses your desired profit by about 5 cats.")])
+        self.assertEqual(offers.on_table(PURCHASE, SHOP, BUYER, SQUAD, "Zaps", relation=30)[3], [(2, "The deal on the table beats your desired profit by about 5 cats.")])
 
     def test_a_bigger_profit_on_the_table_leans_harder_to_agree(self):
         self.assertEqual(offers.on_table({**TABLE, "take_cats": 2900}, SHOP, BUYER, SQUAD, "Zaps", relation=30)[3], [(2, "The deal on the table meets your desired profit.")])
-        self.assertEqual(offers.on_table({**TABLE, "take_cats": 3670}, SHOP, BUYER, SQUAD, "Zaps")[3], [(3, "The deal on the table beats your desired profit by 760 cats.")])
-        self.assertEqual(offers.on_table({**TABLE, "take_cats": 4420}, SHOP, BUYER, SQUAD, "Zaps")[3], [(4, "The deal on the table beats your desired profit by 1,510 cats.")])
-        self.assertEqual(offers.on_table({"take_cats": 600}, SHOP, BUYER, SQUAD, "Zaps")[3], [(4, "The deal on the table beats your desired profit by 600 cats.")])
+        self.assertEqual(offers.on_table({**TABLE, "take_cats": 3670}, SHOP, BUYER, SQUAD, "Zaps")[3], [(3, "The deal on the table beats your desired profit by about 760 cats.")])
+        self.assertEqual(offers.on_table({**TABLE, "take_cats": 4420}, SHOP, BUYER, SQUAD, "Zaps")[3], [(4, "The deal on the table beats your desired profit by about 1,510 cats.")])
+        self.assertEqual(offers.on_table({"take_cats": 600}, SHOP, BUYER, SQUAD, "Zaps")[3], [(4, "The deal on the table beats your desired profit by about 600 cats.")])
 
     def test_a_big_profit_outweighs_hate_but_a_small_one_does_not(self):
         hated = action_dialogue.lean("BARTER", SHOP, BUYER, -60)
@@ -346,7 +346,7 @@ class BarterWindowTest(unittest.TestCase):
         for relation, missed in ((60, 100), (None, 110), (-25, 117)):
             offer, _, lines, lean = offers.on_table({**TABLE, "take_cats": 2800}, SHOP, BUYER, SQUAD, "Zaps", relation=relation)
             self.assertIsNotNone(offer)
-            self.assertEqual(lean, [(-2, f"The deal on the table misses your desired profit by {missed} cats, and you lose on it.")])
+            self.assertEqual(lean, [(-2, f"The deal on the table misses your desired profit by about {missed} cats, and you lose on it.")])
         self.assertIn("- On the table, Zaps gives 2,800 cats", offers.facts("BARTER", SHOP, BUYER, "Zaps", [], table=lines))
 
     def test_a_table_that_breaks_a_hard_limit_cannot_be_agreed(self):
@@ -378,7 +378,7 @@ class BarterWindowTest(unittest.TestCase):
         store = offers.with_lost(SHOP, lost)
         offer, _, _, lean = offers.on_table(soup, store, BUYER, SQUAD, "Zaps")
         self.assertEqual(offer["gives"], [("ITEM", (1, "Meat and Barley Rice Soup"))])
-        self.assertEqual(lean, [(2, "The deal on the table beats your desired profit by 79 cats.")])
+        self.assertEqual(lean, [(2, "The deal on the table beats your desired profit by about 79 cats.")])
         self.assertIn("1 Meat and Barley Rice Soup", offers.stocktake(store))
         self.assertEqual(offers.with_lost({**SHOP, "squad_jobs": []}, lost)["inventory"][-1], lost[0])
         self.assertIs(offers.with_lost(SHOP, []), SHOP)
