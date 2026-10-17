@@ -378,7 +378,7 @@ def chat():
         
         test_action = None
         if cmd == "recruit": test_action = "[ACTION: JOIN_PARTY]"
-        elif cmd == "liberate": test_action = "[ACTION: FREE_PLAYER]"
+        elif cmd == "liberate": test_action = "[ACTION: RELEASE_PRISONER]"
         elif cmd == "raid": test_action = f"[ACTION: RAID_TOWN: {args}]"
         elif cmd == "travel": test_action = f"[ACTION: TRAVEL_TO_TARGET_TOWN: {args}]"
         elif cmd in ("stock", "firstaid", "follow"):

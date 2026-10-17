@@ -478,7 +478,7 @@ static void QueueTagAction(const std::string &tag, const hand &npc,
     QueueAction(ACT_SPAWN_ITEM, npc, itemHolder,
                 bar == std::string::npos ? name : name + payload.substr(bar),
                 count);
-  } else if (Has(tag, "RELEASE_PRISONER") || Has(tag, "FREE_PLAYER")) {
+  } else if (Has(tag, "RELEASE_PRISONER")) {
     QueueAction(ACT_RELEASE, npc, actionTarget);
   } else if (Has(tag, "RAID_TOWN")) {
     QueueAction(ACT_SET_TASK, npc, hand(), TagPayload(tag, "RAID_TOWN:"),
@@ -556,11 +556,14 @@ static void ProcessMessage(GameWorld *world, const std::string &msg) {
     // A line that runs an action still shows its bubble
     bubble = NpcBubble(text, npcSay);
   }
-  if (bubble.empty() || !anchor.isValid())
+  if (bubble.empty())
     return;
-  Character *c = anchor.getCharacter();
-  Log(LOG_DEBUG, "QUEUE: Queuing SAY for " + (c ? c->getName() : "Unknown") +
-                     ": " + bubble);
+  Character *c = anchor.isValid() ? anchor.getCharacter() : NULL;
+  if (!c) {
+    Log(LOG_ERROR, "QUEUE: No character found to say: " + bubble);
+    return;
+  }
+  Log(LOG_DEBUG, "QUEUE: Queuing SAY for " + c->getName() + ": " + bubble);
   QueueAction(ACT_SAY, anchor, hand(), bubble);
 }
 

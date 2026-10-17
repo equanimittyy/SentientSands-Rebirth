@@ -10,6 +10,7 @@
 #include <kenshi/Dialogue.h>
 #include <kenshi/GameData.h>
 #include <kenshi/GameWorld.h>
+#include <kenshi/Gear.h>
 #include <kenshi/Inventory.h>
 #include <kenshi/Item.h>
 #include <kenshi/Platoon.h>
@@ -204,16 +205,37 @@ static bool IsLockedUp(Character *c) {
   return c->inSomething == IN_PRISON || c->isChained || c->isChainedMode();
 }
 
-static void FreePrisoner(GameWorld *world, Character *target) {
-  if (target->isChained || target->isChainedMode()) {
-    target->setChainedMode(false, hand());
-    target->isChained = false;
-  }
-  if (target->inSomething == IN_PRISON) {
-    target->setPrisonMode(false, nullptr);
-    // setPrisonMode may not reset inSomething, so clear it directly
-    target->inSomething = IN_NOTHING;
-  }
+// KenshiLib declares DoorLock without members; this is the layout that
+// Lucius64's KenshiExtensionPlugin reads
+class DoorLock {
+public:
+  int level;
+  float hardness;
+  UseableStuff *stuff;
+  float minTime;
+  float maxTime;
+  float pickingTime;
+  float waitingTime;
+  bool locked;
+  bool broken;
+};
+
+// Unlocks as Lucius64's KenshiExtensionPlugin does, so the game lets the
+// prisoner out instead of the plugin writing the prison state
+static void UnlockPrisoner(GameWorld *world, Character *target) {
+  Building *cage =
+      target->inSomething == IN_PRISON ? target->inWhat.getBuilding() : NULL;
+  DoorLock *door = cage ? cage->getDoorLock() : NULL;
+  if (door)
+    door->locked = false;
+  LockedArmour *shackles = target->getChainedModeShackles();
+  if (shackles && shackles->lock)
+    shackles->lock->locked = false;
+  Character *rescuer =
+      world->player ? world->player->getNearestCharacterTo(target->getPosition())
+                    : NULL;
+  if (rescuer && target->dialogue && (uintptr_t)target->dialogue > 0x1000)
+    target->dialogue->sendEvent(rescuer, EV_UNLOCK_MY_CAGE_OR_SHACKLES);
   world->showPlayerAMessage("You have been freed!", true);
 }
 
@@ -248,8 +270,8 @@ static void WatchReleases(GameWorld *world, DWORD step) {
       continue;
     }
     Log(LOG_INFO, "ACTION: The release task left " + target->getName() +
-                      " locked up, so the plugin frees it");
-    FreePrisoner(world, target);
+                      " locked up, so the plugin unlocks it");
+    UnlockPrisoner(world, target);
     g_releases.erase(g_releases.begin() + i);
   }
 }
@@ -442,12 +464,14 @@ static void DoSay(GameWorld *world, const QueuedAction &act, Character *npc) {
   KeepTwoBubbles(act.actor);
   if (!g_shortPayers.empty())
     g_shortPayers.erase(HandleKey(npc));
-  // No endDialogue/setInDialog(false): they clear AI goals, killing the task just queued
-  npc->sayALine(act.message, true);
   if (!npc->dialogue || (uintptr_t)npc->dialogue <= 0x1000) {
-    npc->say(act.message);
+    Log(LOG_ERROR, "ACTION: " + npc->getName() +
+                       " has no dialogue object, so it cannot say: " +
+                       act.message);
     return;
   }
+  // No endDialogue/setInDialog(false): they clear AI goals, killing the task just queued
+  npc->sayALine(act.message, true);
   // Scaled by game speed, else bubbles vanish too fast at high speeds.
   // Both timers are set so the engine honors the duration.
   float speed = world->getFrameSpeedMultiplier();
