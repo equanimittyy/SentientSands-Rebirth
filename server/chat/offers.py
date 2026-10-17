@@ -42,8 +42,8 @@ RELEASE_BRIBE = 500
 # (sell share, buy share) of the price for a trader and for any other NPC. Each sells at the price of the game's trade
 # window, or a deal would undercut it, and a non-trader pays less for the player's items, because it wants a bigger margin
 SHARES = {True: (1.0, 0.8), False: (1.0, 0.6)}
-# Percent points of what the NPC gives; a negative target is the most loss that it usually takes. It only guides the
-# model: no check enforces it, so the character decides each deal.
+# Percent points of what the NPC gives. It only guides the model: no check enforces it, so the character decides each
+# deal.
 PROFIT_OFFSETS = {-2: 20, -1: 10, 0: 0, 1: -20, 2: -30}
 # (least profit share, lean bonus, words), the biggest share first. The model refused profits when the lean held only the
 # relation.
@@ -221,8 +221,8 @@ def shares(npc):
     return SHARES[action_dialogue.is_trader(npc)]
 
 
-def loss_share(relation):
-    return -(load_settings()["barter_profit_target"] + PROFIT_OFFSETS[action_dialogue.relation_bonus(relation)]) / 100
+def profit_share(relation):
+    return max(0, load_settings()["barter_profit_target"] + PROFIT_OFFSETS[action_dialogue.relation_bonus(relation)]) / 100
 
 
 def worth(parts, npc, speaker, side):
@@ -608,8 +608,7 @@ def profit_lean(received, handed):
 def on_table(deal, npc, speaker, squad, player_name, relation=None):
     """(offer, reason, lines, lean) of the deal on the table of the barter window: the checked offer that [AGREE] takes, or
     None and the reason, the lines that describe the deal and its worth in the turn message, so the NPC weighs the deal
-    against the loss that it usually takes or the profit that it wants, and the (bonus, reason) pairs that the profit or
-    the loss adds to the lean."""
+    against the profit that it wants, and the (bonus, reason) pairs that the profit or the loss adds to the lean."""
     parts = table_parts(deal)
     if not parts:
         return None, "the table is empty", ["Nothing is on the table yet."], []
@@ -620,23 +619,21 @@ def on_table(deal, npc, speaker, squad, player_name, relation=None):
     side = dict(speaker, inventory=pooled(squad))
     received, handed = worth(takes, npc, side, "takes"), worth(gives, npc, side, "gives")
     worths = f"you get a worth of {received:,.0f} cats for a worth of {handed:,.0f}"
-    floor = handed * (1 - loss_share(relation))
+    floor = handed * (1 + profit_share(relation))
     lean = []
     if offer and offer.get("charity"):
         lines.append("It is a plea for charity.")
     elif offer and not offer["gives"]:
         lines.append("It is a gift to you.")
         lean.append(profit_lean(received, handed))
-    elif offer and received + 1e-6 >= max(handed, floor):
+    elif offer and received + 1e-6 >= floor:
         lines.append(f"It keeps your price: {worths}.")
         lean.append(profit_lean(received, handed))
-    elif offer and received + 1e-6 >= floor:
-        lines.append(f"It is below your price, inside the loss that you usually take: {worths}.")
     elif offer and received + 1e-6 >= handed:
         lines.append(f"It keeps your price, but it makes less than the profit that you usually want: {worths}.")
     elif offer:
-        lines.append(f"It is below your price by more than the loss that you usually take: {worths}.")
-        lean.append((LOSS_LEAN, f"The deal on the table loses you {handed - received:,.0f} cats, more than you usually take."))
+        lines.append(f"It is below your price: {worths}.")
+        lean.append((LOSS_LEAN, f"The deal on the table loses you {handed - received:,.0f} cats."))
     else:
         why = next((words.format(player=player_name) + reason[len(start):] for start, words in TABLE_REASONS.items() if reason.startswith(start)), reason)
         lines.append(f"You cannot agree to it as it is, because {why}.")
@@ -646,7 +643,7 @@ def on_table(deal, npc, speaker, squad, player_name, relation=None):
 def facts(category, npc, speaker, player_name, lean, said="", table=(), relation=None):
     """The facts of the hard limits and the lean, for the turn message, because they change each turn. said is the text in
     which the price guide of a trade looks for item names, table holds the lines of the deal on the table of the barter
-    window, and relation sets the loss that the NPC usually takes, or the profit that it wants, in a trade."""
+    window, and relation sets the profit that the NPC wants in a trade."""
     lines = []
     if category in ("THREATEN", "BARTER"):
         lines.append(f"You have {cats_of(npc):,} cats.")
@@ -658,9 +655,7 @@ def facts(category, npc, speaker, player_name, lean, said="", table=(), relation
         if speaker.get("character_state") == "imprisoned":
             lines.append(f"{player_name} is imprisoned." + (" You are imprisoned too." if npc.get("character_state") == "imprisoned" else ""))
         lines += price_guide(said, npc, speaker, player_name)
-        loss = loss_share(relation)
-        lines.append(f"As a rule, you take a loss of at most {loss:.0%} of what you give in a trade, but your character decides." if loss > 0
-                     else f"As a rule, you want a profit of at least {-loss:.0%} of what you give in a trade, but your character decides.")
+        lines.append(f"As a rule, you want a profit of at least {profit_share(relation):.0%} of what you give in a trade, but your character decides.")
         lines.append("A trade that gets you more than you give is a profit: the bigger the profit, the more gladly you take it.")
         lines += table
     if category == "HEAL" and speaker.get("needs_repair"):

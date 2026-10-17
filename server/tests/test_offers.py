@@ -209,12 +209,12 @@ class BarterTest(unittest.TestCase):
         self.assertIsNotNone(self.barter("[DEAL: Katana for 10 cats]")[0])
         self.assertIsNotNone(self.barter("[DEAL: Katana for Dirty Loincloth]")[0])
 
-    def test_the_relation_sets_the_loss_that_the_npc_usually_takes(self):
-        self.assertEqual([offers.loss_share(relation) for relation in (-60, -59, -25, -24, 24, 25, 59, 60)], [-0.3, -0.2, -0.2, -0.1, -0.1, 0.1, 0.1, 0.2])
+    def test_the_relation_sets_the_profit_that_the_npc_wants(self):
+        self.assertEqual([offers.profit_share(relation) for relation in (-60, -59, -25, -24, 24, 25, 59, 60)], [0.3, 0.2, 0.2, 0.1, 0.1, 0, 0, 0])
 
-    def test_the_profit_target_setting_moves_each_relation_band(self):
+    def test_the_profit_target_setting_moves_each_relation_band_down_to_zero(self):
         with mock.patch.object(offers, "load_settings", lambda: {**SETTINGS_DEFAULTS, "barter_profit_target": 25}):
-            self.assertEqual([offers.loss_share(relation) for relation in (-60, 0, 60)], [-0.45, -0.25, 0.05])
+            self.assertEqual([offers.profit_share(relation) for relation in (-60, 0, 25, 60)], [0.45, 0.25, 0.05, 0])
 
     def test_the_stock_sets_the_price_at_its_highest(self):
         self.assertEqual(offers.price_of("First Aid Kit", offers.goods(SHOP, "BARTER")), 132)
@@ -322,16 +322,12 @@ class BarterWindowTest(unittest.TestCase):
         self.assertIn("YOUR THOUGHT: You are inclined to refuse.", offers.facts("BARTER", SHOP, BUYER, "Zaps", hated + small, relation=-60))
         self.assertIn("YOUR THOUGHT: You are inclined to agree.", offers.facts("BARTER", SHOP, BUYER, "Zaps", hated + big, relation=-60))
 
-    def test_the_table_weighs_a_loss_against_the_loss_that_the_npc_usually_takes(self):
-        offer, _, lines, lean = offers.on_table({**TABLE, "take_cats": 2800}, SHOP, BUYER, SQUAD, "Zaps", relation=30)
-        self.assertIsNotNone(offer)
-        self.assertEqual(lines[1], "It is below your price, inside the loss that you usually take: you get a worth of 2,880 cats for a worth of 3,000.")
-        self.assertEqual(lean, [])
-        for relation in (None, -25):
+    def test_a_deal_below_the_price_of_the_npc_leans_it_to_refuse_at_any_relation(self):
+        for relation in (60, None, -25):
             offer, _, lines, lean = offers.on_table({**TABLE, "take_cats": 2800}, SHOP, BUYER, SQUAD, "Zaps", relation=relation)
             self.assertIsNotNone(offer)
-            self.assertEqual(lines[1], "It is below your price by more than the loss that you usually take: you get a worth of 2,880 cats for a worth of 3,000.")
-            self.assertEqual(lean, [(-2, "The deal on the table loses you 120 cats, more than you usually take.")])
+            self.assertEqual(lines[1], "It is below your price: you get a worth of 2,880 cats for a worth of 3,000.")
+            self.assertEqual(lean, [(-2, "The deal on the table loses you 120 cats.")])
         self.assertIn("- It is below your price", offers.facts("BARTER", SHOP, BUYER, "Zaps", [], table=lines))
 
     def test_a_table_that_breaks_a_hard_limit_cannot_be_agreed(self):
@@ -403,8 +399,8 @@ class FactsTest(unittest.TestCase):
     def test_a_trade_names_the_cap_of_charity(self):
         self.assertIn("- As charity, you give at most 50 cats.", offers.facts("BARTER", NPC, SPEAKER, "Zaps", []))
 
-    def test_a_trade_names_the_loss_that_the_npc_usually_takes(self):
-        self.assertIn("- As a rule, you take a loss of at most 10% of what you give in a trade, but your character decides.",
+    def test_a_trade_names_the_profit_that_the_npc_wants(self):
+        self.assertIn("- As a rule, you want a profit of at least 0% of what you give in a trade, but your character decides.",
                       offers.facts("BARTER", NPC, SPEAKER, "Zaps", [], relation=30))
         self.assertIn("- As a rule, you want a profit of at least 20% of what you give in a trade, but your character decides.",
                       offers.facts("BARTER", NPC, SPEAKER, "Zaps", [], relation=-30))
