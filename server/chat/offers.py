@@ -45,9 +45,11 @@ SHARES = {True: (1.0, 0.8), False: (1.0, 0.6)}
 # Percent points of what the NPC gives. It only guides the model: no check enforces it, so the character decides each
 # deal.
 PROFIT_OFFSETS = {-2: 20, -1: 10, 0: 0, 1: -20, 2: -30}
-# (least profit share, lean bonus, words), the biggest share first. The model refused profits when the lean held only the
+# (least profit share, lean bonus), the biggest share first. The model refused profits when the lean held only the
 # relation.
-PROFIT_LEANS = ((0.5, 4, ", a big profit"), (0.25, 3, ", a good profit"), (0.0, 2, ""))
+PROFIT_LEANS = ((0.5, 4), (0.25, 3), (0.0, 2))
+# The model agreed to a profit below the one that it wants when that profit moved the lean by nothing
+SMALL_PROFIT_LEAN = -1
 LOSS_LEAN = -2
 # The reasons of check name the parties for the log. The turn message of the barter window speaks to the NPC, which invented
 # a reason, such as a sale of an item that it no longer had, when the message gave none.
@@ -225,9 +227,10 @@ def profit_share(relation):
     return max(0, load_settings()["barter_profit_target"] + PROFIT_OFFSETS[action_dialogue.relation_bonus(relation)]) / 100
 
 
-def worth(parts, npc, speaker, side):
+def worth(parts, npc, speaker, side, markup=1):
     """The worth to the NPC of the cats and the items of one side of a trade: "gives" for the NPC's side at its sell share,
-    or "takes" for the player's side at its buy share."""
+    or "takes" for the player's side at its buy share. A markup of 1 plus the profit that the NPC wants raises the price of
+    each item of the NPC and lowers each item of the player, as the price guide does."""
     sell, buy = shares(npc)
     stock = goods(npc, "BARTER")
     total = 0.0
@@ -236,7 +239,7 @@ def worth(parts, npc, speaker, side):
             total += value
         elif kind == "ITEM":
             count, label = value[:2]
-            total += count * (price_of(label, stock) * sell if side == "gives" else price_of(label, stock, speaker.get("inventory") or []) * buy)
+            total += count * (price_of(label, stock) * sell * markup if side == "gives" else price_of(label, stock, speaker.get("inventory") or []) * buy / markup)
     return total
 
 
@@ -564,18 +567,20 @@ def asked(items, said):
     return labels
 
 
-def price_guide(said, npc, speaker, player_name):
+def price_guide(said, npc, speaker, player_name, relation=None):
     """The count and the price of each item that the text asks for, in the goods of the NPC or of the speaker, at the share
-    of the NPC, so the model gives the real price instead of inventing one. A kind word such as "food" can ask for a whole
-    shop, so each side gives at most PRICE_LINES items."""
+    of the NPC and with the profit that it wants, so the model gives the real price and does no sums. A kind word such as
+    "food" can ask for a whole shop, so each side gives at most PRICE_LINES items."""
     sell, buy = shares(npc)
+    markup = 1 + profit_share(relation)
     stock = goods(npc, "BARTER")
     carried = speaker.get("inventory") or []
     lines = []
+    # The tolerance keeps float noise, such as 3000 * 1.1 = 3300.0000000000005, from moving a price by a cat
     for label in asked(stock, said)[:PRICE_LINES]:
-        lines.append(f"You have {held(stock, label)[1]} {label}: you sell each for at least {math.ceil(price_of(label, stock) * sell):,} cats.")
+        lines.append(f"You have {held(stock, label)[1]} {label}: you sell each for at least {math.ceil(price_of(label, stock) * sell * markup - 1e-6):,} cats.")
     for label in asked(carried, said)[:PRICE_LINES]:
-        lines.append(f"{player_name} has {held(carried, label)[1]} {label}: you pay at most {math.floor(price_of(label, stock, carried) * buy):,} cats each.")
+        lines.append(f"{player_name} has {held(carried, label)[1]} {label}: you pay at most {math.floor(price_of(label, stock, carried) * buy / markup + 1e-6):,} cats each.")
     return lines
 
 
@@ -597,43 +602,43 @@ def table_parts(deal):
     return parts
 
 
-def profit_lean(received, handed):
-    """The (bonus, reason) of a deal on the table at the NPC's price. A gift hands over nothing, so it is a big profit."""
-    profit = max(received - handed, 0)
-    share = profit / handed if handed else math.inf
-    bonus, size = next((bonus, size) for least, bonus, size in PROFIT_LEANS if share >= least)
-    return bonus, f"The deal on the table earns you {profit:,.0f} cats{size}." if profit >= 1 else "The deal on the table keeps your price."
+def profit_lean(received, handed, gap):
+    """The (bonus, reason) of a deal on the table that meets the profit that the NPC wants: the bonus by the profit at the
+    NPC's shares, and the reason by the gap at the prices of the price guide. A gift hands over nothing, so it is a big
+    profit."""
+    share = max(received - handed, 0) / handed if handed else math.inf
+    bonus = next(bonus for least, bonus in PROFIT_LEANS if share >= least)
+    return bonus, f"The deal on the table beats your desired profit by {math.floor(gap + 1e-6):,} cats." if gap >= 1 else "The deal on the table meets your desired profit."
 
 
 def on_table(deal, npc, speaker, squad, player_name, relation=None):
     """(offer, reason, lines, lean) of the deal on the table of the barter window: the checked offer that [AGREE] takes, or
-    None and the reason, the lines that describe the deal and its worth in the turn message, so the NPC weighs the deal
-    against the profit that it wants, and the (bonus, reason) pairs that the profit or the loss adds to the lean."""
+    None and the reason, the lines that describe the deal in the turn message, and the (bonus, reason) pairs that the
+    profit or the loss adds to the lean. A reason names in cats how far the deal misses or beats the desired profit, so the
+    model does no sums."""
     parts = table_parts(deal)
     if not parts:
         return None, "the table is empty", ["Nothing is on the table yet."], []
     offer, reason = check("BARTER", parts, npc, speaker, squad)
     gives = [("CATS", count_of(argument)) if name == "GIVE_CATS" else ("ITEM", item_of(argument)) for name, argument, *_ in parts if name.startswith("GIVE")]
     takes = [("CATS", count_of(argument)) if name == "TAKE_CATS" else ("ITEM", item_of(argument)) for name, argument, *_ in parts if name.startswith("TAKE")]
-    lines = [f"On the table, {player_name} gives {goods_text(takes) or 'nothing'}, and you give {goods_text(gives) or 'nothing'}."]
+    lines = [f"On the table, {player_name} gives {goods_text(takes) or 'nothing'}, and they want {goods_text(gives) or 'nothing'} from you."]
     side = dict(speaker, inventory=pooled(squad))
     received, handed = worth(takes, npc, side, "takes"), worth(gives, npc, side, "gives")
-    worths = f"you get a worth of {received:,.0f} cats for a worth of {handed:,.0f}"
-    floor = handed * (1 + profit_share(relation))
+    markup = 1 + profit_share(relation)
+    # A gap measured from the break-even worth contradicted the price lines of the turn message
+    gap = worth(takes, npc, side, "takes", markup) - worth(gives, npc, side, "gives", markup)
     lean = []
     if offer and offer.get("charity"):
         lines.append("It is a plea for charity.")
     elif offer and not offer["gives"]:
         lines.append("It is a gift to you.")
-        lean.append(profit_lean(received, handed))
-    elif offer and received + 1e-6 >= floor:
-        lines.append(f"It keeps your price: {worths}.")
-        lean.append(profit_lean(received, handed))
-    elif offer and received + 1e-6 >= handed:
-        lines.append(f"It keeps your price, but it makes less than the profit that you usually want: {worths}.")
+        lean.append(profit_lean(received, handed, gap))
+    elif offer and gap + 1e-6 >= 0:
+        lean.append(profit_lean(received, handed, gap))
     elif offer:
-        lines.append(f"It is below your price: {worths}.")
-        lean.append((LOSS_LEAN, f"The deal on the table loses you {handed - received:,.0f} cats."))
+        missed = f"The deal on the table misses your desired profit by {math.ceil(-gap - 1e-6):,} cats"
+        lean.append((SMALL_PROFIT_LEAN, f"{missed}.") if received + 1e-6 >= handed else (LOSS_LEAN, f"{missed}, and you lose on it."))
     else:
         why = next((words.format(player=player_name) + reason[len(start):] for start, words in TABLE_REASONS.items() if reason.startswith(start)), reason)
         lines.append(f"You cannot agree to it as it is, because {why}.")
@@ -654,8 +659,7 @@ def facts(category, npc, speaker, player_name, lean, said="", table=(), relation
         lines.append(f"As charity, you give at most {CHARITY_CATS} cats.")
         if speaker.get("character_state") == "imprisoned":
             lines.append(f"{player_name} is imprisoned." + (" You are imprisoned too." if npc.get("character_state") == "imprisoned" else ""))
-        lines += price_guide(said, npc, speaker, player_name)
-        lines.append(f"As a rule, you want a profit of at least {profit_share(relation):.0%} of what you give in a trade, but your character decides.")
+        lines += price_guide(said, npc, speaker, player_name, relation)
         lines.append("A trade that gets you more than you give is a profit: the bigger the profit, the more gladly you take it.")
         lines += table
     if category == "HEAL" and speaker.get("needs_repair"):
