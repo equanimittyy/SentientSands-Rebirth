@@ -104,11 +104,12 @@ def radiant_conversation():
         if not playing:
             _STAGE.release()
 
-def say(lines, actions=(), think=False):
+def say(lines, actions=(), think=False, player=False):
     """Sends the actions, then each line at least the dialogue delay after the line before it, also when that line ended an
-    earlier conversation. The plugin shows a line when it arrives, so the server alone paces every conversation. A pause of
-    the game does not stop the delay. The actions go first, so an AI state change cannot clear a bubble that is already up.
-    With think, the speaker of each line shows "..." for the last THINK_SHARE of the delay before it."""
+    earlier conversation. The plugin shows a line when it arrives, so the server alone paces every conversation, also the
+    lines of the player, which are "Name: text" with player. A pause of the game does not stop the delay. The actions go
+    first, so an AI state change cannot clear a bubble that is already up. With think, the speaker of each line shows "..."
+    for the last THINK_SHARE of the delay before it."""
     global _last_line
     for action in actions:
         send_to_pipe(f"NPC_ACTION: {action}")
@@ -120,7 +121,7 @@ def say(lines, actions=(), think=False):
             send_to_pipe(f"NPC_SAY: {line.split(':', 1)[0]}: ...")
             due = max(due, time.monotonic() + THINK_SHARE * delay)
         time.sleep(max(0.0, due - time.monotonic()))
-        send_to_pipe(f"NPC_SAY: {line}")
+        send_to_pipe(f"{'PLAYER_SAY' if player else 'NPC_SAY'}: {line}")
         _last_line = time.monotonic()
 
 def play_radiant(conversation):
@@ -196,18 +197,18 @@ def remember_radiant(conversation, spoken):
     state.LAST_RADIANT = time.monotonic()
     logging.info("RADIANT: " + " | ".join(f'{names[key]}: "{text}"' for key, text in spoken))
 
-def play_lines(lines, actions=(), after=(), then=None):
-    """Queues a chat reply, which plays after every reply before it and after a radiant conversation that holds the stage.
-    The pipe messages of after go out after the last line, so the popup of an offer opens when the NPC has spoken. then
-    runs after them on the stage, so the next reply waits for it."""
-    _REPLIES.put((lines, actions, after, then))
+def play_lines(lines, actions=(), after=(), then=None, player=False):
+    """Queues a chat reply, or with player the line of the player, which plays after every reply before it and after a
+    radiant conversation that holds the stage. The pipe messages of after go out after the last line, so the popup of an
+    offer opens when the NPC has spoken. then runs after them on the stage, so the next reply waits for it."""
+    _REPLIES.put((lines, actions, after, then, player))
 
 def reply_loop():
     while True:
-        lines, actions, after, then = _REPLIES.get()
+        lines, actions, after, then, player = _REPLIES.get()
         try:
             with _STAGE:
-                say(lines, actions)
+                say(lines, actions, player=player)
                 for message in after:
                     send_to_pipe(message)
                 if then:
@@ -354,10 +355,15 @@ def chat():
         # because its request named the NPC before a rename, and the actions act on the squad member of the key after >.
         return f"{primary_npc}|{target_key}{f'>{speaker_key}' if speaker_key else ''}"
 
-    def reply(*texts, actions=(), action_open=False, after=(), then=None):
+    def player_says(words):
+        nonlocal covered
         if covered:
-            # Else the "..." over the speaker stays for the whole bubble life
-            send_to_pipe(f"PLAYER_SAY: {player_name}: {covered}")
+            play_lines([f"{player_name}: {words}"], player=True)
+        covered = ""
+
+    def reply(*texts, actions=(), action_open=False, after=(), then=None):
+        # Else the "..." over the speaker stays for the whole bubble life
+        player_says(covered)
         # After the lines, so the barter window shows them once they are said
         turn = [f"CMD: BARTER_TURN: {int(action_open)}\n{chat_window.thread_lines(primary_id, thread_id) if thread_id else ''}"] if window else []
         play_lines([f"{voice()}: {text}" for text in texts], [f"{voice()}: {action}" for action in actions], [*after, *turn], then)
@@ -376,8 +382,10 @@ def chat():
         
     player_message = data.get('message', '')
     characterised = load_settings()["characterised_dialogue"]
-    # With the setting on, the plugin shows "..." over the speaker until the server sends these words
-    covered = player_voice.bubble(player_message) if characterised else ""
+    # The plugin shows "..." over the speaker until the server sends these words
+    covered = player_voice.bubble(player_message)
+    if not characterised:
+        player_says(covered)
     
     if player_message.startswith('/'):
         cmd_parts = player_message[1:].split(' ', 1)
@@ -482,8 +490,7 @@ def chat():
         last_line = next((line for line, _, thread in reversed(campaign_db.dialogue(primary_id)) if thread == current_thread), "") if current_thread else ""
         listener = "themself" if self_talk else "everyone" if mode == "yell" and primary_id == speaker_id else primary_npc
         player_message = player_voice.rewrite(raw_line, player_name, get_character_data(player_name, speaker), listener, mode, last_line, until)
-        send_to_pipe(f"PLAYER_SAY: {player_name}: {player_message}")
-        covered = ""
+        player_says(player_message)
     if kind == "end":
         end_thread()
         logging.info(f"ACTION: {player_name} ended the conversation with {primary_npc}.")
@@ -660,11 +667,9 @@ def chat():
     notes = chat_prompt.overheard_notes(campaign_db.thread_members({thread_id for _, _, thread_id in history if thread_id}), primary_id)
     messages = chat_prompt.chat_messages(system, chat_prompt.history_turns(chat_prompt.with_notes(history, notes), primary_id), turn)
 
-    if mode == "yell" or characterised:
-        # The plugin shows these for a talk, but only the server knows who answers a yell, or when the words of the speaker arrive
-        thinking = state.LOCALIZATION_CONFIG.get(load_settings()["language"], {}).get("{name} is thinking...", "{name} is thinking...")
-        notify(thinking.replace("{name}", primary_npc))
-        send_to_pipe(f"NPC_SAY: {voice()}: ...")
+    # Queued, so they follow the line of the speaker, which can wait its turn. Only the server knows which NPC answers a yell.
+    thinking = state.LOCALIZATION_CONFIG.get(load_settings()["language"], {}).get("{name} is thinking...", "{name} is thinking...")
+    play_lines([], after=[f"NOTIFY: {thinking.replace('{name}', primary_npc)}", f"NPC_SAY: {voice()}: ..."])
     content = call_llm("action" if category else "chat", messages, until)
     state.restart_quiet_clock()
     if not content:

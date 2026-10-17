@@ -438,7 +438,7 @@ A plain chat line in Yell mode can get up to 3 replies, one after another, from 
 - The NPCs that can answer are the target and each NPC within `YellRadius` that is outside the player's faction and awake (`radiant.can_answer`). A target beyond `YellRadius` does not hear the yell, so the plugin sends it as a yell at the speaker (see [Chat range](#chat-range)). An animal never answers, and a yell at an animal outside the squad gets only the reply of the animal.
 - Only the player's speaker speaks for the squad. So a yell at the speaker or at a squad member gets only the replies of the other NPCs, and no reply when no other NPC can answer.
 - A yell at the speaker itself is a yell at everyone. Each NPC that answers it gets the line as spoken to it, for example `(Yelled) Stick: ...`, and each other NPC overhears it, for example `(Overheard) (Yelled) Stick to everyone: ...`.
-- The server shows the "{name} is thinking..." status and the "..." bubble of the NPC that answers first, just before its chat call. For a talk or a whisper the plugin shows them for the target when it sends the line (`ChatResponseThread` in `plugin/ui/ChatWindow.cpp`), unless [Characterised dialogue](#characterised-dialogue) is on, but only the server knows which NPC answers a yell.
+- The "{name} is thinking..." status and the "..." bubble go to the NPC that answers first (see [Chat lines](#chat-lines)), because only the server knows which NPC answers a yell.
 - A plain chat reason of the target (see [Action dialogue](#action-dialogue)) does not reach another NPC that answers first, because the reason judges only the target.
 - The server rolls the count of replies: 1 at 50 %, 2 at 30 %, or 3 at 20 % (`radiant.YELL_REPLIES`). When only one NPC can answer, the count is 1.
 - The server picks the speaker and the addressee of each reply (`radiant.yell_turns`), as in a radiant conversation. The first reply speaks to the player's speaker. Then the NPC addressed answers back, or another NPC cuts in, at even odds (`REPLY_SHARE`), and speaks to the last speaker or to the player's speaker.
@@ -470,7 +470,7 @@ A chat line that starts with `!` marks its chat thread as an action dialogue. Th
 - The mark is the word after the `!`, up to the first character that is not a letter, in any case. A letter or a word of [Categories](#categories) names the category, a space runs the classify call, and `e` or `end` ends the action dialogue. Any other word, a category with no text after it, and a lone `!` are a failure. A `!` before any other character, such as `!!!` or `!?`, is plain chat.
 - The classify prompt (`prompt_action_classify.txt`) holds only the player's line and a numbered list of the categories, in the order of `CATEGORIES`, and it asks for the number of one choice. The list ends with "None of these", so that the model can reject a line that fits no category instead of forcing it into one. That choice, an output with no number of a choice, and a call that gets no reply are a failure. A failure sends no action call, stores no line, and shows "X didn't understand what you meant.".
 - The blocks read only the contexts of the request. A knockout of the speaker or the NPC blocks every line, plain chat too, and DISMISS of an NPC that is not a hired follower is blocked (`gate_block`). The classify list leaves out a blocked category.
-- The plugin stops each line of a knocked-out speaker or NPC before the request (`SendChatLine` in `plugin/ui/ChatWindow.cpp`), because it shows the speaker's bubble and the NPC's "..." before the reply. A test command still goes, because it shows no bubble.
+- The plugin stops each line of a knocked-out speaker or NPC before the request (`SendChatLine` in `plugin/ui/ChatWindow.cpp`), because the speaker's bubble and the NPC's "..." show before the reply. A test command still goes, because it shows no bubble.
 - A line of a deal that the story allows but code rules out goes to plain chat instead, with the reason as the NPC's thought in the turn message: a marked line to an animal or to a member of the player faction (`mark_chat`), and a line that fails a gate of its category (`plain_chat`), for example a threat from a cage.
 - The plugin sends `slave`, `captor`, `bounty`, `has_first_aid`, `has_repair_kit`, `needs_first_aid`, and `needs_repair` in each context (`GetDetailedContext` in `plugin/game/Context.cpp`), because a slave in a cage reads as `imprisoned`, a captive can recruit a fellow captive of the same faction, the bribe of a LIBERATE release adds the bounty, and HEAL needs a kit that fits a wound of the speaker.
 - `CURRENT_THREAD` holds the category and the speaker of the action dialogue (`action`). A line without a mark keeps the category. A marked line that goes to plain chat ends the action dialogue but not the chat thread, because an action dialogue holds one category at a time, and a later mark starts the next one in the same chat thread. A line of another squad member starts a new chat thread (`thread_of`). The ending tag `[END]`, `!end`, a failure, and an error of the action call end the chat thread.
@@ -569,24 +569,11 @@ When Characterised player dialogue is on (`characterised_dialogue` on the Settin
 - The prompt names the parts in asterisks only when the line has one (`actions`), because Gemma 4 put asterisks around the reworded words of a line without actions when the prompt named them.
 - The rewrite is cleaned as a chat reply (`reply_text.spoken`). A call with no reply, and a rewrite that leaves out a number of the raw line, give the raw line, because a lost price breaks a trade. The check compares the digits without thousands separators, so "two hundred" for "200" also gives the raw line.
 - The NPC hears the rewrite, and the chat thread, the overheard copies, the later lines of a yell, and the memory hold it. The code that matches words reads the raw line: the names of a yell (`radiant.named`), the lore search, the directions, and the price guide. The rewrite adds words of the speaker's manner, such as "by the Holy Flame", that would find lore that the player did not ask for, and it can change an item word, such as "water" to "drink".
-
-### Speech bubbles
-
-With the setting on, the bubbles of a line come in this order, so that the raw words of a line that the NPC hears never show:
-
-1. When the player sends the line, the plugin shows "..." over the speaker instead of the line (`SendChatLine` in `plugin/ui/ChatWindow.cpp`). A line that starts with `/` and a line of only a mark still show no bubble.
-2. The server runs the rewrite and sends `PLAYER_SAY` with the rewrite, or with the raw line when the line gets no call or the call fails. The bubble of the speaker changes from "..." to the line.
-3. Just before the chat call, the server sends the "{name} is thinking..." status and the "..." of the NPC that answers, as for a yell (see [Yells](#yells)). The plugin does not show them when it sends the line (`showThinking` of `ChatTask`).
-4. The reply plays as usual.
-
-- A line that stops before the rewrite gets the raw line, without its mark, as the bubble of the speaker from `reply` in `chat` (`player_voice.bubble`, which matches `WithoutActionMark`). Without it, the "..." would stay for the whole bubble life.
-- `!end`, DISMISS, and a yell that no one can answer stop after the rewrite and before the chat call, so no "..." shows over an NPC that does not answer.
-- The "..." of the speaker still names the speaker, so `TakePlayerSpeaker` sets the squad member that the actions of the reply fall back to (`plugin/main.cpp`).
-- The "..." and the line of the speaker share one bubble, so with the "..." of the NPC no third bubble ends one of them (`KeepTwoBubbles` in `plugin/game/GameActions.cpp`).
+- The bubble of the speaker shows the rewrite, so the raw words of a line that the NPC hears never show (see [Chat lines](#chat-lines)). A line that stops before the rewrite shows the raw line, without its mark, from `reply` in `chat` (`player_voice.bubble`, which matches `WithoutActionMark`). Without it, the "..." would stay for the whole bubble life.
 
 ## Line pacing
 
-The server paces the lines of every conversation (`say` in `server/chat/routes.py`). The reply of `/chat` and `/radiant` holds no text. A server thread sends the actions as `NPC_ACTION`, then each line as `NPC_SAY: Name|key: line`, at least `DialogueSpeed` (5 s by default) after the line before it.
+The server paces the lines of every conversation (`say` in `server/chat/routes.py`). The reply of `/chat` and `/radiant` holds no text. A server thread sends the actions as `NPC_ACTION`, then each line as `NPC_SAY: Name|key: line`, or a line of the player as `PLAYER_SAY: Name: line`, at least `DialogueSpeed` (5 s by default) after the line before it.
 
 - The key is a number that the plugin gives a character for the game session (`HandleKey` in `plugin/game/Context.cpp`). Each character of a request carries its key, and the server sends it back unchanged. The plugin finds the character of a line by its key, and by its name only when the key finds no character.
 - The key stands for the full handle, because characters of other squads can have the same `serial` ([kenshi_internals.md](kenshi_internals.md#character-identity)). A squad change gives the character a new handle, and `RekeyCharacter` gives the key that handle (see [Characters](#characters)).
@@ -595,6 +582,20 @@ The server paces the lines of every conversation (`say` in `server/chat/routes.p
 - The actions go first, so an AI state change cannot clear a bubble that is already up.
 - A line that finds no character, or a character with no dialogue object, logs an error and shows no bubble (`ProcessMessage` in `plugin/main.cpp`, `DoSay` in `plugin/game/GameActions.cpp`).
 - The plugin shows at most two bubbles: the newest line or `...`, and the line before it. A bubble on a third character ends the oldest bubble (`KeepTwoBubbles` in `plugin/game/GameActions.cpp`), so the participants of a radiant conversation do not all talk at once.
+
+### Chat lines
+
+The line of the player waits its turn on the queue of replies as a line of an NPC does (`play_lines` with `player`), so it shows at least `DialogueSpeed` after the line before it, and the reply shows at least `DialogueSpeed` after it. Only the bubbles wait: the LLM calls of the line start at once. The bubbles of a chat line come in this order:
+
+1. When the player sends the line, the plugin shows "..." over the speaker (`SendChatLine` in `plugin/ui/ChatWindow.cpp`). A line that starts with `/` and a line of only a mark show no bubble.
+2. The server queues the line as `PLAYER_SAY` (`player_says` in `chat`): at once, or with [Characterised dialogue](#characterised-dialogue) after the rewrite. When its turn comes, the bubble of the speaker changes from "..." to the line.
+3. Just before the chat call, the server queues the "{name} is thinking..." status and the "..." of the NPC that answers, so they show right after the line of the speaker.
+4. The reply plays as usual.
+
+- `!end`, DISMISS, and a yell that no one can answer stop before the chat call, so no "..." shows over an NPC that does not answer.
+- The "..." of the speaker still names the speaker, so `TakePlayerSpeaker` sets the squad member that the actions of the reply fall back to (`plugin/main.cpp`).
+- The "..." and the line of the speaker share one bubble, so with the "..." of the NPC no third bubble ends one of them (`KeepTwoBubbles` in `plugin/game/GameActions.cpp`).
+- A line of the player waits for the end of a radiant conversation that holds the stage, as a reply does.
 
 ## LLM routing
 

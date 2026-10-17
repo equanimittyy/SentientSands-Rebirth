@@ -381,8 +381,6 @@ void LoadPluginConfig() {
   g_enableRadiant =
       IniInt(ini, "EnableRadiantConversations", g_enableRadiant) != 0;
   g_enableWelcome = IniInt(ini, "EnableWelcomePopup", g_enableWelcome) != 0;
-  g_characterisedDialogue =
-      IniInt(ini, "CharacterisedDialogue", g_characterisedDialogue) != 0;
   g_speechBubbleLife = (float)atof(
       IniString(ini, "SpeechBubbleLife", ToString(g_speechBubbleLife)).c_str());
   g_openWebPanelOnStart =
@@ -396,8 +394,6 @@ void LoadPluginConfig() {
                     ", RadiantInterval=" + ToString(g_radiantIntervalSeconds) +
                     "s" + ", EnableRadiant=" + JsonBool(g_enableRadiant) +
                     ", EnableWelcome=" + JsonBool(g_enableWelcome) +
-                    ", CharacterisedDialogue=" +
-                    JsonBool(g_characterisedDialogue) +
                     ", LogLevel=" + logLevel);
 }
 

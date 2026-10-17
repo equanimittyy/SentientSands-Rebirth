@@ -168,7 +168,6 @@ def push_settings_to_plugin():
         ("g_yellRadius", settings["yell_radius"]),
         ("g_chatHotkey", settings["chat_hotkey"]),
         ("g_enableWelcome", "1" if settings["enable_welcome"] else "0"),
-        ("g_characterisedDialogue", "1" if settings["characterised_dialogue"] else "0"),
         ("g_logLevel", settings["log_level"]),
         ("g_speechBubbleLife", settings["bubble_life"]),
     ):

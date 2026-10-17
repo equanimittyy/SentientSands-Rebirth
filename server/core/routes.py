@@ -265,7 +265,6 @@ def settings_endpoint():
     characterised = data.get("characterised_dialogue")
     if characterised is not None:
         changes["characterised_dialogue"] = bool(characterised)
-        send_to_pipe(f"SET_CONFIG: g_characterisedDialogue: {'1' if characterised else '0'}")
         logging.info(f"SETTINGS: Characterised player dialogue set to {bool(characterised)}")
 
     open_web_panel = data.get("open_web_panel_on_start")
