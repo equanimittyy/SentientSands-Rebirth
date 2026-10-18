@@ -729,12 +729,14 @@ def chat():
 
     # Queued, so they follow the line of the speaker, which can wait its turn. Only the server knows which NPC answers a yell.
     thinking = state.LOCALIZATION_CONFIG.get(load_settings()["language"], {}).get("{name} is thinking...", "{name} is thinking...")
-    play_lines([], after=[f"NOTIFY: {thinking.replace('{name}', primary_npc)}"], thinker=voice())
+    # An NPC that talks to itself is the speaker, so its "..." would replace its own line at once
+    play_lines([], after=[] if yell else [f"NOTIFY: {thinking.replace('{name}', primary_npc)}"], thinker=None if self_talk else voice())
     content = call_llm("action" if category else "chat", messages, until)
     state.restart_quiet_clock()
     if not content:
         logging.error("CHAT: No reply from the LLM.")
-        play_lines([], then=lambda: hush(voice()))
+        if not self_talk:
+            play_lines([], then=lambda: hush(voice()))
         if category:
             end_thread()
     
