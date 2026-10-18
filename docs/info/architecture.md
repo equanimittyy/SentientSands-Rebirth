@@ -585,7 +585,7 @@ The server paces the lines of every conversation (`say` and `think` in `server/c
 3. The line of the next speaker replaces its "..." when the line before it has gone and the LLM call for it has returned, but at least 0.2 s after the "..." (`THINK_MIN`).
 
 - Only the bubbles wait, so each LLM call starts as soon as it can. A radiant conversation and the later replies of a yell write each line as soon as the call before it returns (`write_ahead`).
-- The "..." of the NPC that answers also shows while the line of the player is up. The game ends the line of the player before its life once the game runs (see [kenshi_gotchas.md](kenshi_gotchas.md#speech-bubbles)).
+- The "..." of the NPC that answers also shows while the line of the player is up.
 - A "..." stays until the line of its speaker, because a call can take longer than `DialogueSpeed` (`THINKING_LIFE` in `plugin/game/GameActions.cpp`). When the line does not come, the server sends an empty line (`hush`), and the plugin ends the bubble.
 - The key is a number that the plugin gives a character for the game session (`HandleKey` in `plugin/game/Context.cpp`). Each character of a request carries its key, and the server sends it back unchanged. The plugin finds the character of a line by its key, and by its name only when the key finds no character.
 - The key stands for the full handle, because characters of other squads can have the same `serial` ([kenshi_internals.md](kenshi_internals.md#character-identity)). A squad change gives the character a new handle, and `RekeyCharacter` gives the key that handle (see [Characters](#characters)).

@@ -8,7 +8,6 @@
 #include <kenshi/AI/Blackboard.h>
 #include <kenshi/Building/Building.h>
 #include <kenshi/Character.h>
-#include <kenshi/Dialogue.h>
 #include <kenshi/Faction.h>
 #include <kenshi/GameData.h>
 #include <kenshi/GameWorld.h>
@@ -21,7 +20,6 @@
 #include <kenshi/StateBroadcastData.h>
 #include <kenshi/Tasker.h>
 #include <kenshi/util/hand.h>
-#include <mygui/MyGUI_EditBox.h>
 #include <cstdlib>
 #include <map>
 #include <vector>
@@ -329,64 +327,4 @@ void RunProbe(Character *npc, Character *speaker, const std::string &payload) {
     ProbeFirstAid(npc, speaker, arg);
   else if (name == "hire")
     ProbeHire(npc, speaker, arg);
-}
-
-// Probe: what the game changes in the frame that ends the line of a player
-// character, which ends on the first unpaused update while an NPC line stays
-static hand g_bubbleSpeaker;
-static DWORD g_bubbleStart;
-static std::string g_bubbleState;
-static const DWORD BUBBLE_WATCH_MS = 30000;
-
-void WatchPlayerBubble(Character *speaker) {
-  if (!LogEnabled(LOG_DEBUG))
-    return;
-  g_bubbleSpeaker = speaker->getHandle();
-  g_bubbleStart = GetTickCount();
-  g_bubbleState.clear();
-}
-
-static std::string HandName(const hand &h) {
-  Character *c = h.isValid() ? h.getCharacter() : NULL;
-  return c ? c->getName() : "";
-}
-
-void LogPlayerBubble(GameWorld *world) {
-  if (!g_bubbleSpeaker.isValid())
-    return;
-  Character *speaker = g_bubbleSpeaker.getCharacter();
-  Dialogue *d = speaker ? speaker->dialogue : NULL;
-  if (!d || (uintptr_t)d <= 0x1000) {
-    g_bubbleSpeaker = hand();
-    return;
-  }
-  DialogueSpeechBubble *panel =
-      (uintptr_t)d->speechBubblePanel > 0x1000 ? d->speechBubblePanel : NULL;
-  MyGUI::EditBox *box =
-      panel && (uintptr_t)panel->textBox > 0x1000 ? panel->textBox : NULL;
-  float alpha = panel ? panel->getAlpha() : 0.0f;
-  std::string state =
-      std::string(" paused=") + (world->isPaused() ? "1" : "0") +
-      " panel=" + (panel ? "1" : "0") +
-      " alpha=" + (alpha <= 0.01f ? "0" : alpha >= 0.99f ? "1" : "fading") +
-      " visible=" + (box && box->getVisible() ? "1" : "0") + " text='" +
-      (box ? box->getCaption().asUTF8() : "") + "' ended=" +
-      (d->_hasEnded ? "1" : "0") + " stays=" +
-      (d->staysOnScreen ? "1" : "0") + " conversation=" +
-      (d->currentConversation ? "1" : "0") + " target='" +
-      HandName(d->conversationTarget) + "' master='" +
-      HandName(d->conversationMaster) + "' waiting='" +
-      HandName(d->waitingForReplyFrom) + "'";
-  // Not on a missing panel: the game may make it in a later frame
-  bool gone = d->speechTextTimer <= 0.0f ||
-              GetTickCount() - g_bubbleStart > BUBBLE_WATCH_MS;
-  if (state != g_bubbleState || gone)
-    Log(LOG_DEBUG, "BUBBLE_PROBE: name='" + speaker->getName() + "' after=" +
-                       ToString((unsigned int)(GetTickCount() - g_bubbleStart)) +
-                       "ms timer=" + ToString(d->speechTextTimer) +
-                       " forced=" + ToString(d->speechTextTimer_forced) +
-                       state);
-  g_bubbleState = state;
-  if (gone)
-    g_bubbleSpeaker = hand();
 }

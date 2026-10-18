@@ -180,8 +180,8 @@ static GameData *GearGrade(GameWorld *world, GameData *gd) {
   return nullptr;
 }
 
-static hand g_newestBubble;
-static hand g_previousBubble;
+static unsigned int g_newestBubble;
+static unsigned int g_previousBubble;
 // A call can outlast a bubble life, so a "..." waits for its line. This only
 // ends one whose line never came, past the default 55 s deadline of a call
 static const float THINKING_LIFE = 60.0f;
@@ -196,13 +196,15 @@ static void EndBubble(Character *c) {
   }
 }
 
-static void KeepTwoBubbles(const hand &speaker) {
-  if (speaker == g_newestBubble)
+// By key, because hand == gave false for two handles of one character
+static void KeepTwoBubbles(Character *speaker) {
+  unsigned int key = HandleKey(speaker);
+  if (key == g_newestBubble)
     return;
-  if (g_previousBubble.isValid() && !(speaker == g_previousBubble))
-    EndBubble(g_previousBubble.getCharacter());
+  if (g_previousBubble && key != g_previousBubble)
+    EndBubble(KeyedCharacter(g_previousBubble));
   g_previousBubble = g_newestBubble;
-  g_newestBubble = speaker;
+  g_newestBubble = key;
 }
 
 static bool IsLockedUp(Character *c) {
@@ -469,7 +471,7 @@ static void DoSay(GameWorld *world, const QueuedAction &act, Character *npc) {
     EndBubble(npc);
     return;
   }
-  KeepTwoBubbles(act.actor);
+  KeepTwoBubbles(npc);
   if (!g_shortPayers.empty())
     g_shortPayers.erase(HandleKey(npc));
   if (!npc->dialogue || (uintptr_t)npc->dialogue <= 0x1000) {
@@ -487,8 +489,6 @@ static void DoSay(GameWorld *world, const QueuedAction &act, Character *npc) {
   float duration = life * (speed < 1.0f ? 1.0f : speed);
   npc->dialogue->speechTextTimer = duration;
   npc->dialogue->speechTextTimer_forced = duration;
-  if (act.type == ACT_SAY && npc->isPlayerCharacter())
-    WatchPlayerBubble(npc);
 }
 
 static void DoAttack(GameWorld *world, Character *npc, Character *target) {
