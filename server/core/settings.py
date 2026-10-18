@@ -110,11 +110,6 @@ def load_settings():
                             settings[k] = [x.strip() for x in val.split(",") if x.strip()]
                         else:
                             settings[k] = val
-                # Each save wrote every key, so a 70 under the old key is the old default, and the new key lets a later choice of 70 stand
-                legacy = config['Settings'].get("BarterProfitTarget")
-                if legacy and legacy != "70" and INI_KEY_MAP["barter_profit_target"] not in config['Settings']:
-                    try: settings["barter_profit_target"] = int(legacy)
-                    except: pass
         except Exception as e:
             logging.error(f"SETTINGS: Cannot read the INI: {e}")
             
