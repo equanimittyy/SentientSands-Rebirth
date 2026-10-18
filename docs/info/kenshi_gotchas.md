@@ -13,7 +13,7 @@ Add a gotcha when a call or a pattern crashes the game, gives wrong data, or bre
 
 ## Speech bubbles
 
-- The bubble of the player's speaker ended as soon as the NPC that the speaker talks to showed its "..." bubble and the game showed the "{name} is thinking..." message (`showPlayerAMessage`). The two came in the same frame, so it is not known which one ends the bubble. A "..." of an NPC that shows while the line of another NPC is up does not end that line. The server sends both while the line of the player is up (`think` in `server/chat/routes.py`, see [architecture.md](architecture.md#line-pacing)).
+- A status message of the game (`showPlayerAMessage`) replaces the text of the bubble of the player's speaker. The server sent a "{name} is thinking..." status with the "..." of the NPC that answers, so the line of the player went at once. A "..." of an NPC does not end the line of another character, so the server still sends it while the line of the player is up (`think` in `server/chat/routes.py`, see [architecture.md](architecture.md#line-pacing)).
 
 ## Exceptions
 
