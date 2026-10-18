@@ -40,11 +40,14 @@ def auto_pool():
 
 def auto_prompt(memories):
     """memories are rumor_pool dicts. A label stands for each memory, because a short label is harder for the LLM to get
-    wrong than a thread ID."""
+    wrong than a thread ID. The faction line names the members of the player's faction, because a memory names a
+    character but not its faction."""
     told = [rumor["text"] for rumor in campaign_db.rumors()[-AUTO_TOLD:]]
+    members = list(dict.fromkeys(name for memory in memories for _, name, _, in_faction in memory["members"] if in_faction and name))
+    faction = f"The player's faction: {player_line()[0]}." + (f" Its members in the memories: {world_events.name_list(members)}." if members else "")
     return in_language(fill_prompt(
         "prompt_auto_rumor.txt",
-        faction=player_line()[1],
+        faction=faction,
         memories="\n".join(f"[{label}] {memory_line(memory)}" for label, memory in enumerate(memories, 1)),
         rumors="\n".join(f"- {text}" for text in told) or "None.",
     ))

@@ -13,7 +13,7 @@ const TASK_HINTS = {
   chat: "The reply of an NPC when you talk to it.",
   radiant: "A conversation between your characters who stand together, or between nearby NPCs about a rumor, on the radiant chat timer.",
   profile: "The bio of an NPC, or one part of it, written after a few chats with it, or when you ask for it.",
-  synthesis: "A rumor about an event, when you stop chatting or press Generate Rumor, and a rumor about a story that comes back in your conversations, on the radiant rumor timer.",
+  synthesis: "A rumor about an event, when you stop chatting or press Generate Rumor, and a rumor about news of the world that comes up in your conversations, on the radiant rumor timer.",
   memory: "A short summary of each conversation, written when you stop chatting for the Conversation timeout on the Settings page.",
   action: "The reply of an NPC when you start a chat line with !, such as a trade or a threat, and the pick of the kind of request when the line names none.",
   rephrase: "Your character's own words for each chat line that you send, when Characterised player dialogue is on.",

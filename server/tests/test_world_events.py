@@ -291,6 +291,15 @@ class AutoRumorTest(WorldEventsTestCase):
         self.assertIn("MEMORIES:\n[1] (Day 1, 00:00; Bar, Squin) Lord Longen sold water.", text)
         self.assertIn("RUMORS ALREADY TOLD:\n- They say Beep freed the slaves of Rebirth.", text)
 
+    def test_the_prompt_names_each_member_of_the_players_faction_in_the_memories_once(self):
+        for day in (1, 2):
+            campaign_db.join_thread(self.memory(day), [("h:1", "speaker", True), ("h:2", "overheard", True)], at(day))
+        for npc_id, name in (("h:1", "Beep"), ("h:2", "Izumi")):
+            campaign_db.upsert_profile(npc_id, {"Name": name})
+        with tempfile.TemporaryDirectory() as empty, mock.patch.object(prompts, "USER_PROMPTS_DIR", empty), mock.patch.object(rumors, "load_settings", return_value={"language": "English"}):
+            text = rumors.auto_prompt(campaign_db.rumor_pool(rumors.AUTO_POOL))
+        self.assertIn("The player's faction: Nameless. Its members in the memories: Beep and Izumi. Nothing that", text)
+
     def test_a_reply_cites_the_memories_by_their_labels(self):
         memories = [{"id": 12}, {"id": 15}, {"id": 19}]
         self.assertEqual(rumors.auto_reply({"rumor": '"Word is that Longen sells water."', "memories": [3, "1", "[3]", 7]}, memories), ("Word is that Longen sells water.", [19, 12]))

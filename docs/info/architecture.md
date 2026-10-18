@@ -117,11 +117,13 @@ The `rumor` table holds the text, the game time of its event, the instruction, a
 
 At most once in each period of the Radiant rumor timer (`radiant_rumor_minutes`, default 30 real minutes), the LLM can spin one rumor from the memories that no rumor used. The rumor is an auto event (see [Events](#events)).
 
+The rumor tells only news of the world that a speaker told in a conversation. It never tells what the speakers did in the conversation, because those deeds are mostly everyday trades and plans. It never tells what the player's faction did, because a kill or a capture of the squad gets the rumor of its event.
+
 `memory_loop` runs a pass when the timer passed, the chat is quiet, no memory or event rumor waits, and the pool holds a memory that no pass read. The pass runs in the thread of the memories, so its call overlaps no other call.
 
 - The pool holds each memory whose `thread.rumor_passes` is less than 6 (`RUMOR_PASSES`). A pass reads the newest 40 (`campaign_db.rumor_pool`).
 - After a valid reply, a cited memory goes to 6, a memory that was read and not cited gets +1, and an older memory in the pool goes to 6 (`count_rumor_pass`). So dull memories leave, and a theme can build over several passes.
-- The prompt (`prompt_auto_rumor.txt`) holds the player's faction, the memories with labels 1 to N, and the newest 30 rumors. The reply is `{"rumor": "...", "memories": [1, 2]}`. The empty rumor is the default.
+- The prompt (`prompt_auto_rumor.txt`) holds the player's faction, the memories with labels 1 to N, and the newest 30 rumors. The faction line names each member of the player's faction in the memories (`thread_member.in_player_faction`), because a memory names a character but not its faction. The reply is `{"rumor": "...", "memories": [1, 2]}`. The empty rumor is the default.
 - `campaign_db.add_auto_event` stores the event and its rumor, and sets the cited threads to 6, in one transaction. Nothing is written when the active campaign changed or a cited thread left the pool during the call.
 - The event takes the newest game time of its threads, so the cull deletes it, and the auto rumors do not hold the 3 newest places for good.
 

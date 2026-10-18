@@ -36,7 +36,7 @@ const PROMPT_INFO = {
   "prompt_action_memory.txt": { group: "Action dialogue", title: "Deal memory", blurb: "Takes the place of the conversation memory for a conversation in which a deal was carried out or an offer was declined, so that the memory keeps each deal." },
   "prompt_profile_generation.txt": { group: "NPC profiles", title: "NPC bio", blurb: "Writes the bio of an NPC, or one part of it: after a few chats with it, or with Generate Bio in the Dialogue Library or in the editor. It builds on the current personality, backstory, and speech, on the dialogue so far, and on your instructions." },
   "prompt_world_synthesis.txt": { group: "Rumors", title: "Event rumors", blurb: "Turns an event into a rumor that NPCs can mention, when you stop chatting or press Generate Rumor." },
-  "prompt_auto_rumor.txt": { group: "Rumors", title: "Auto rumors", blurb: "On the radiant rumor timer, picks the one story in your recent conversations that the wasteland would retell, such as a theme that comes back or a deal that changes the world, and writes it as a rumor. Most of the time it finds none." },
+  "prompt_auto_rumor.txt": { group: "Rumors", title: "Auto rumors", blurb: "On the radiant rumor timer, picks the one piece of news about the world in your recent conversations that the wasteland would retell, such as a danger, the plans of a faction, or the fate of a known figure, and writes it as a rumor. What your squad does is never this news. Most of the time it finds none." },
 };
 const GROUPS = [...new Set(Object.values(PROMPT_INFO).map((info) => info.group)), OTHER];
 const titleOf = (prompt) => PROMPT_INFO[prompt.name]?.title ?? prompt.name;
