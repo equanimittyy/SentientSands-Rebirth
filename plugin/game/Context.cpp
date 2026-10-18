@@ -327,12 +327,19 @@ static std::string FactionID(Faction *faction) {
 
 // A captive keeps its own faction, so the cage or the slave owner names the
 // captor
-static std::string CaptorID(const hand &captor) {
+static Faction *CaptorFaction(Character *npc) {
+  hand captor;
+  if (npc->inSomething == IN_PRISON)
+    captor = npc->inWhat;
+  else if (npc->isSlave() != NOT_SLAVE && npc->isChainedMode())
+    captor = npc->getMySlaveOwner();
+  else
+    return nullptr;
   RootObjectBase *object = captor.getRootObjectBase();
   if (!object || (uintptr_t)object < 0x1000)
-    return "";
+    return nullptr;
   Faction *faction = object->getFaction() ? object->getFaction() : object->owner;
-  return faction && (uintptr_t)faction > 0x1000 ? FactionID(faction) : "";
+  return faction && (uintptr_t)faction > 0x1000 ? faction : nullptr;
 }
 
 std::string EventParty(Character *npc) {
@@ -756,25 +763,24 @@ std::string GetIdentityFaction(Character *npc) {
 
 static std::string StateFields(Character *npc) {
   std::string state = "normal";
-  std::string captor;
+  Faction *captor = nullptr;
   if (npc->isDead()) {
     state = "dead";
   } else if (npc->isUnconcious()) {
     state = "unconscious";
   } else if (npc->inSomething == IN_PRISON) {
     state = "imprisoned";
-    captor = CaptorID(npc->inWhat);
+    captor = CaptorFaction(npc);
   } else if (npc->isSlave() != NOT_SLAVE) {
-    bool chained = npc->isChainedMode();
-    state = chained ? "enslaved" : "escaped-slave";
-    if (chained)
-      captor = CaptorID(npc->getMySlaveOwner());
+    state = npc->isChainedMode() ? "enslaved" : "escaped-slave";
+    captor = CaptorFaction(npc);
   }
   bool needsFirstAid, needsRepair;
   TreatmentNeeds(npc, needsFirstAid, needsRepair);
   Inventory *inv = npc->getInventory();
   return "\"character_state\": \"" + state + "\", \"captor\": \"" +
-         EscapeJSON(captor) + "\", \"health\": \"" + GetHealthStatus(npc) +
+         EscapeJSON(captor ? FactionID(captor) : std::string()) +
+         "\", \"health\": \"" + GetHealthStatus(npc) +
          "\", \"slave\": " + JsonBool(npc->isSlave() != 0) +
          ", \"bounty\": " + ToString(npc->crimes.getTotalBounty()) +
          ", \"has_first_aid\": " +

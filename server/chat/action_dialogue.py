@@ -126,7 +126,7 @@ def plain_chat(category, npc, speaker):
 
 def fellow_captives(npc, speaker):
     """One faction holds both the speaker and the NPC, in a cage or in shackles. The plugin sends a captor only for a
-    captive (CaptorID in plugin/game/Context.cpp)."""
+    captive (CaptorFaction in plugin/game/Context.cpp)."""
     return bool(speaker.get("captor")) and speaker.get("captor") == npc.get("captor")
 
 
