@@ -123,3 +123,11 @@ The script writes `dist/SentientSandsRebirth.zip`. The web app banner and the st
 The script runs on any OS. It needs Python 3 with `pip`, and internet access to python.org and PyPI. Downloaded runtimes are cached in `dist/cache/`.
 
 Each release must ship the same runtime and packages unless a commit changes them. `PYTHON_VERSION` in `scripts/package_release.py` sets the embedded runtime, and `server/requirements.txt` pins every package, the transitive ones included. Some pinned packages ship a separate wheel for each Python version, so change `PYTHON_VERSION` and the pins in the same commit, and run the script once to confirm that pip finds a wheel for each pin.
+
+### Releases
+
+Each release has the git tag `v<version>` on the commit that it was built from. The version is the mod version in the header of `mod/SentientSandsRebirth.mod`. The schema is the `SCHEMA_VERSION` of the campaign databases of the release (`server/store/campaign_db.py`).
+
+| Version | Commit | Date | Schema |
+|---|---|---|---|
+| 1 | `fe436218d0864c5e04439e753f5c2fb9fef0f826` | 2026-10-17 | 22 |
