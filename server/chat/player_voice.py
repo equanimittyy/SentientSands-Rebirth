@@ -17,8 +17,8 @@ _ACTIONS = re.compile(r"\*[^*]*\*")
 _NUMBER = re.compile(r"\d[\d,]*")
 _MARK = re.compile(r"^![A-Za-z]* *")
 _VERBS = {"talk": "says", "whisper": "whispers", "yell": "yells"}
-# The barter window sends this line for a blank Send (SendBarterLine in plugin/ui/BarterWindow.cpp). Its rewrite took a
-# deal from the last line of the NPC, which then answered that deal instead of the table.
+# The barter window sends this line for a blank Send (SendBarterLine in plugin/ui/BarterWindow.cpp). The player did not
+# write it, so it has no gist to reword.
 BLANK_DEAL = "How about this deal?"
 
 
