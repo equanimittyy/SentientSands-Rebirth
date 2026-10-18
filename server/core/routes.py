@@ -294,7 +294,7 @@ def settings_endpoint():
             logging.info(f"SETTINGS: Conversation timeout set to {val} minutes")
         except: pass
 
-    for key in ("retrieval_slots", "memory_slots", "retrieval_cooldown_turns", "prune_profile_days", "barter_profit_target"):
+    for key in ("retrieval_slots", "memory_slots", "retrieval_cooldown_turns", "prune_profile_days", "barter_profit_target", "barter_relation_offset"):
         value = data.get(key)
         if value is not None:
             try:

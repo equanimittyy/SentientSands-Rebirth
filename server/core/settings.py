@@ -32,7 +32,8 @@ INI_KEY_MAP = {
     "retrieval_slots": "RetrievalSlots",
     "memory_slots": "MemorySlots",
     "retrieval_cooldown_turns": "RetrievalCooldownTurns",
-    "barter_profit_target": "BarterProfitTarget",
+    "barter_profit_target": "BarterProfitTargetPercent",
+    "barter_relation_offset": "BarterRelationOffsetPercent",
     "characterised_dialogue": "CharacterisedDialogue"
 }
 
@@ -81,7 +82,8 @@ SETTINGS_DEFAULTS = {
     "retrieval_slots": 3,
     "memory_slots": 3,
     "retrieval_cooldown_turns": 1,
-    "barter_profit_target": 70,
+    "barter_profit_target": 400,
+    "barter_relation_offset": 50,
     "characterised_dialogue": False
 }
 
@@ -108,6 +110,11 @@ def load_settings():
                             settings[k] = [x.strip() for x in val.split(",") if x.strip()]
                         else:
                             settings[k] = val
+                # Each save wrote every key, so a 70 under the old key is the old default, and the new key lets a later choice of 70 stand
+                legacy = config['Settings'].get("BarterProfitTarget")
+                if legacy and legacy != "70" and INI_KEY_MAP["barter_profit_target"] not in config['Settings']:
+                    try: settings["barter_profit_target"] = int(legacy)
+                    except: pass
         except Exception as e:
             logging.error(f"SETTINGS: Cannot read the INI: {e}")
             
@@ -151,6 +158,7 @@ def settings_page_values(settings):
         "memory_slots": settings["memory_slots"],
         "retrieval_cooldown_turns": settings["retrieval_cooldown_turns"],
         "barter_profit_target": settings["barter_profit_target"],
+        "barter_relation_offset": settings["barter_relation_offset"],
         "characterised_dialogue": settings["characterised_dialogue"]
     }
 

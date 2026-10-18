@@ -39,10 +39,9 @@ CHARITY_CATS = 50
 GIFT_WORTH = 500
 GIFT_MOST = 10
 RELEASE_BRIBE = 500
-# Percent points of what the NPC gives. It only guides the model: no check enforces it, so the character decides each
-# deal.
-PROFIT_OFFSETS = {-2: 20, -1: 10, 0: 0, 1: -20, 2: -30}
-NON_TRADER_PROFIT = 10
+# The profit only guides the model: no check enforces it, so the character decides each deal.
+PROFIT_STEPS = {-2: 2, -1: 1, 0: 0, 1: -2, 2: -3}
+NON_TRADER_STEPS = 1
 # (least profit share, lean bonus, words), the biggest share first. The model refused profits when the lean held only the
 # relation.
 PROFIT_LEANS = ((0.5, 4, "a big profit"), (0.25, 3, "a good profit"), (0.0, 2, "a fair profit"))
@@ -218,8 +217,9 @@ def price_of(label, *holdings):
 
 
 def profit_share(npc, relation):
-    points = load_settings()["barter_profit_target"] + PROFIT_OFFSETS[action_dialogue.relation_bonus(relation)]
-    return max(0, points + (0 if action_dialogue.is_trader(npc) else NON_TRADER_PROFIT)) / 100
+    settings = load_settings()
+    steps = PROFIT_STEPS[action_dialogue.relation_bonus(relation)] + (0 if action_dialogue.is_trader(npc) else NON_TRADER_STEPS)
+    return max(0, settings["barter_profit_target"] + steps * settings["barter_relation_offset"]) / 100
 
 
 def worth(parts, npc, speaker, side, markup=1):

@@ -17,7 +17,7 @@ GUARD = {**NPC, "squad_jobs": ["MAN_THE_GATE"]}
 
 # A fixed profit target, because the INI of a dev install and the default can change
 def setUpModule():
-    patcher = mock.patch.object(offers, "load_settings", lambda: {**SETTINGS_DEFAULTS, "barter_profit_target": 10})
+    patcher = mock.patch.object(offers, "load_settings", lambda: {**SETTINGS_DEFAULTS, "barter_profit_target": 10, "barter_relation_offset": 10})
     patcher.start()
     unittest.addModuleCleanup(patcher.stop)
 
@@ -216,8 +216,13 @@ class BarterTest(unittest.TestCase):
         self.assertEqual([offers.profit_share(NPC, relation) for relation in (-60, 0, 60)], [0.4, 0.2, 0])
 
     def test_the_profit_target_setting_moves_each_relation_band_down_to_zero(self):
-        with mock.patch.object(offers, "load_settings", lambda: {**SETTINGS_DEFAULTS, "barter_profit_target": 25}):
+        with mock.patch.object(offers, "load_settings", lambda: {**SETTINGS_DEFAULTS, "barter_profit_target": 25, "barter_relation_offset": 10}):
             self.assertEqual([offers.profit_share(SHOP, relation) for relation in (-60, 0, 25, 60)], [0.45, 0.25, 0.05, 0])
+
+    def test_the_relation_offset_setting_sizes_each_step(self):
+        with mock.patch.object(offers, "load_settings", lambda: SETTINGS_DEFAULTS):
+            self.assertEqual([offers.profit_share(SHOP, relation) for relation in (-60, -25, 0, 25, 60)], [5.0, 4.5, 4.0, 3.0, 2.5])
+            self.assertEqual(offers.profit_share(NPC, 0), 4.5)
 
     def test_the_stock_sets_the_price_at_its_highest(self):
         self.assertEqual(offers.price_of("First Aid Kit", offers.goods(SHOP, "BARTER")), 132)
