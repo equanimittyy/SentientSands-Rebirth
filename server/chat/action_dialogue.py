@@ -117,7 +117,7 @@ def plain_chat(category, npc, speaker):
         if not fellow_captives(npc, speaker):
             if speaker_state in ("imprisoned", "enslaved"):
                 return f"{{player}} is {speaker_state}, so you cannot {verb} {{player}}."
-            if npc_state in ("imprisoned", "enslaved"):
+            if npc_state in ("imprisoned", "enslaved") and not captive_of(npc, speaker):
                 return f"You are {npc_state}, so you cannot {verb} {{player}}."
         if current_job.is_leader(npc):
             return f"You lead {npc.get('faction') or 'your faction'} and will not leave it."
@@ -130,10 +130,17 @@ def fellow_captives(npc, speaker):
     return bool(speaker.get("captor")) and speaker.get("captor") == npc.get("captor")
 
 
+def captive_of(npc, speaker):
+    """The faction of the speaker holds the NPC, in a cage or in shackles. A captive cannot leave its captor, but the
+    captor can take it into the squad, and the plugin frees it at the join (DoJoinParty in plugin/game/GameActions.cpp)."""
+    return bool(npc.get("captor")) and npc.get("captor") == speaker.get("factionID")
+
+
 def runs_as(category, npc, speaker):
     """The category that a line of the category runs as. A fellow captive joins instead of following, because a hired
-    follower stays out of the player's control, so the player could not lead it out."""
-    return "RECRUIT" if category == "FOLLOW" and fellow_captives(npc, speaker) else category
+    follower stays out of the player's control, so the player could not lead it out. A captive of the speaker's faction
+    joins too, because the player does not hire a captive that the player holds."""
+    return "RECRUIT" if category == "FOLLOW" and (fellow_captives(npc, speaker) or captive_of(npc, speaker)) else category
 
 
 def kits(npc, speaker):
@@ -184,6 +191,7 @@ def lean(category, npc, speaker, relation, overheard=(), mode="talk"):
         captive = fellow_captives(npc, speaker)
         pairs += [(npc.get("character_state") == "escaped-slave", "You escaped slavery."),
                   (2 * captive, "{player} is a fellow captive, and like most captives, you want to escape."),
+                  (2 * captive_of(npc, speaker), "{player}'s faction holds you captive, and joining the squad sets you free."),
                   # Outweighs the best relation and the captive bonus together, so a plan said aloud always leans to a refusal
                   (-6 * (captive and mode != "whisper"), "{player} says it out loud, where your captors can hear, so you refuse and deny any plan to escape."),
                   (-bool(npc.get("unique")), "You are no common drifter."),

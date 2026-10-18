@@ -125,10 +125,22 @@ class PlainChatTest(unittest.TestCase):
         self.assertEqual(self.chat("RECRUIT", {"character_state": "enslaved", "captor": ""}, {"character_state": "enslaved", "captor": ""}),
                          "{player} is enslaved, so you cannot join {player}.")
 
+    def test_a_captive_of_the_speaker_faction_can_join_or_follow(self):
+        speaker = {"character_state": "normal", "factionID": "204-gamedata.base"}
+        for npc in ({"character_state": "enslaved", "slave": True, "captor": "204-gamedata.base"},
+                    {"character_state": "imprisoned", "captor": "204-gamedata.base"}):
+            for category in ("RECRUIT", "FOLLOW"):
+                self.assertIsNone(self.chat(category, npc, speaker))
+        self.assertEqual(self.chat("RECRUIT", {"character_state": "enslaved", "slave": True, "captor": "17-gamedata.base"}, speaker),
+                         "You are enslaved, so you cannot join {player}.")
+        self.assertEqual(self.chat("RECRUIT", {"character_state": "enslaved", "slave": True, "captor": ""}, {"character_state": "normal", "factionID": ""}),
+                         "You are enslaved, so you cannot join {player}.")
+
     def test_a_fellow_captive_joins_instead_of_following(self):
         shackled = {"character_state": "enslaved", "captor": "17-gamedata.base"}
         self.assertEqual(ad.runs_as("FOLLOW", shackled, shackled), "RECRUIT")
         self.assertEqual(ad.runs_as("FOLLOW", {**shackled, "captor": "5-gamedata.base"}, shackled), "FOLLOW")
+        self.assertEqual(ad.runs_as("FOLLOW", {**shackled, "captor": "204-gamedata.base"}, {"factionID": "204-gamedata.base"}), "RECRUIT")
         self.assertEqual(ad.runs_as("FOLLOW", {}, {}), "FOLLOW")
         self.assertEqual(ad.runs_as("BARTER", shackled, shackled), "BARTER")
         self.assertIsNone(ad.runs_as(None, shackled, shackled))
@@ -186,6 +198,12 @@ class LeanTest(unittest.TestCase):
         shackled = {"character_state": "enslaved", "captor": "17-gamedata.base"}
         self.assertEqual(ad.lean("RECRUIT", shackled, shackled, 0, (), "whisper"), [(2, "{player} is a fellow captive, and like most captives, you want to escape.")])
         self.assertEqual(score("RECRUIT", {**shackled, "captor": "5-gamedata.base"}, shackled, 0), 0)
+
+    def test_a_captive_of_the_speaker_faction_joins_more_readily(self):
+        caged = {"character_state": "imprisoned", "captor": "204-gamedata.base"}
+        self.assertEqual(ad.lean("RECRUIT", caged, {"factionID": "204-gamedata.base"}, 0), [(2, "{player}'s faction holds you captive, and joining the squad sets you free.")])
+        self.assertEqual(score("RECRUIT", caged, {"factionID": "204-gamedata.base"}, -60), 0)
+        self.assertEqual(score("RECRUIT", caged, {"factionID": "17-gamedata.base"}, 0), 0)
 
     def test_a_fellow_captive_that_hears_no_whisper_fears_the_captors(self):
         shackled = {"character_state": "enslaved", "captor": "17-gamedata.base"}
