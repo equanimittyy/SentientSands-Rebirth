@@ -577,14 +577,14 @@ When Characterised player dialogue is on (`characterised_dialogue` on the Settin
 
 ## Line pacing
 
-The server paces the lines of every conversation (`say` and `think` in `server/chat/routes.py`). The reply of `/chat` and `/radiant` holds no text. A server thread sends the actions as `NPC_ACTION`, then each line as `NPC_SAY: Name|key: line`, or a line of the player as `PLAYER_SAY: Name: line`. A conversation shows one bubble at a time:
+The server paces the lines of every conversation (`say` and `think` in `server/chat/routes.py`). The reply of `/chat` and `/radiant` holds no text. A server thread sends the actions as `NPC_ACTION`, then each line as `NPC_SAY: Name|key: line`, or a line of the player as `PLAYER_SAY: Name: line`. A conversation shows a line and the "..." of the next speaker:
 
 1. A line shows for `DialogueSpeed` (5 s by default). The plugin reads `DialogueSpeed` from the INI at start, the server sends it on each change, and the plugin gives each line that bubble life (`g_speechBubbleLife`).
-2. When the line has gone, the next speaker shows "..." (`NPC_THINK: Name|key: ...`) while the LLM call for its line runs.
-3. The line replaces the "..." when the call returns, but at least 0.2 s after the "..." (`THINK_MIN`).
+2. As soon as the line shows, the next speaker shows "..." (`NPC_THINK: Name|key: ...`), so the player sees who speaks next.
+3. The line of the next speaker replaces its "..." when the line before it has gone and the LLM call for it has returned, but at least 0.2 s after the "..." (`THINK_MIN`).
 
 - Only the bubbles wait, so each LLM call starts as soon as it can. A radiant conversation and the later replies of a yell write each line as soon as the call before it returns (`write_ahead`).
-- A "..." shows only after the line before it has gone, because a bubble that showed while the line of the player was up ended that line in the game (see [kenshi_gotchas.md](kenshi_gotchas.md#speech-bubbles)).
+- The "..." of the NPC that answers also shows while the line of the player is up. A "..." that came with the "{name} is thinking..." status once ended the line of the player (see [kenshi_gotchas.md](kenshi_gotchas.md#speech-bubbles)).
 - A "..." stays until the line of its speaker, because a call can take longer than `DialogueSpeed` (`THINKING_LIFE` in `plugin/game/GameActions.cpp`). When the line does not come, the server sends an empty line (`hush`), and the plugin ends the bubble.
 - The key is a number that the plugin gives a character for the game session (`HandleKey` in `plugin/game/Context.cpp`). Each character of a request carries its key, and the server sends it back unchanged. The plugin finds the character of a line by its key, and by its name only when the key finds no character.
 - The key stands for the full handle, because characters of other squads can have the same `serial` ([kenshi_internals.md](kenshi_internals.md#character-identity)). A squad change gives the character a new handle, and `RekeyCharacter` gives the key that handle (see [Characters](#characters)).
@@ -600,7 +600,7 @@ The line of the player waits its turn on the queue of replies as a line of an NP
 1. When the player sends the line, the plugin names the speaker with a `PLAYER_SAY` that holds no words (`SendChatLine` in `plugin/ui/ChatWindow.cpp`), and no bubble shows.
 2. With [Characterised dialogue](#characterised-dialogue), the server queues the "..." of the speaker, which shows while the rewrite runs.
 3. The server queues the line as `PLAYER_SAY` (`player_says` in `chat`): at once, or with Characterised dialogue after the rewrite. A line that starts with `/` and a line of only a mark show no bubble.
-4. Just before the chat call, the server queues the "..." of the NPC that answers and the "{name} is thinking..." status, so they show when the line of the speaker has gone.
+4. Just before the chat call, the server queues the "..." of the NPC that answers and the "{name} is thinking..." status, so they show right after the line of the speaker.
 5. The reply replaces the "...". A chat call that gives no reply ends the "...".
 
 - `!end`, DISMISS, and a yell that no one can answer stop before the chat call, so no "..." shows over an NPC that does not answer.

@@ -36,10 +36,17 @@ class LinePacingTest(unittest.TestCase):
         routes.say(["Erkom: Hello."], player=True)
         self.assertEqual(self.sleeps, [0.0])
 
-    def test_the_thinking_of_an_npc_waits_until_the_line_of_the_player_has_gone(self):
+    def test_the_thinking_of_an_npc_shows_at_once_while_the_line_of_the_player_is_up(self):
         routes.say(["Erkom: Got anything to trade?"], player=True)
         routes.think("Tiras|20")
         self.assertEqual(self.sent[-1], "NPC_THINK: Tiras|20: ...")
+        self.assertEqual(self.sleeps, [0.0])
+
+    def test_a_quick_line_after_its_thinking_waits_until_the_line_before_it_has_gone(self):
+        routes.say(["Erkom: Got anything to trade?"], player=True)
+        routes.think("Tiras|20")
+        routes.say(["Tiras|20: What you need."])
+        self.assertEqual(self.sent[-1], "NPC_SAY: Tiras|20: What you need.")
         self.assertGreater(self.sleeps[-1], 4.9)
 
     def test_a_line_shows_at_least_the_least_thinking_time_after_its_thinking(self):

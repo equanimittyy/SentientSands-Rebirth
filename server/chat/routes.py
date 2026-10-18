@@ -121,10 +121,9 @@ def say(lines, actions=(), player=False):
         _last_line = time.monotonic()
 
 def think(label):
-    """Shows "..." over the speaker of label once the line before it has gone, because a bubble that shows while the line
-    of the player is up ends that line in the game. The "..." stays until the line of the speaker or hush."""
+    """Shows "..." over the speaker of label at once, also while the line before it is up, so the player sees who speaks
+    next. The "..." stays until the line of the speaker or hush."""
     global _last_think
-    time.sleep(max(0.0, _last_line + load_settings()["dialogue_speed_seconds"] - time.monotonic()))
     send_to_pipe(f"NPC_THINK: {label}: ...")
     _last_think = time.monotonic()
 
