@@ -36,7 +36,7 @@ def _numbers(text):
     return {number.replace(",", "") for number in _NUMBER.findall(text)}
 
 
-def rewrite(line, name, profile, listener, mode, last_line, until=None):
+def rewrite(line, name, profile, listener, mode, until=None):
     """The line in the words of the speaker, or the line itself when it needs no call, the call fails, or the rewrite
     loses a number of the line, because a lost price breaks a trade."""
     blank = state.LOCALIZATION_CONFIG.get(load_settings()["language"], {}).get(BLANK_DEAL, BLANK_DEAL)
@@ -48,7 +48,6 @@ def rewrite(line, name, profile, listener, mode, last_line, until=None):
         race=profile.get("Race") or "Unknown",
         persona=describe_persona(profile),
         addressee=f"{name} {_VERBS.get(mode, 'says')} it to {listener}.",
-        last_line=f"LAST LINE OF THE TALK: {last_line}" if last_line else "",
         line=line,
         # Only with actions, because Gemma 4 put asterisks around the reworded words when the prompt named them
         actions="Keep each part in asterisks as it is." if _ACTIONS.search(line) else "",

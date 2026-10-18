@@ -35,9 +35,9 @@ class RewriteTest(unittest.TestCase):
         patcher.start()
         self.addCleanup(patcher.stop)
 
-    def rewrite(self, line, reply, profile=PROFILE, last_line=""):
+    def rewrite(self, line, reply, profile=PROFILE):
         with mock.patch.object(player_voice, "call_llm", return_value=reply) as call:
-            result = player_voice.rewrite(line, "Beep", profile, "Ruka", "whisper", last_line, until=99)
+            result = player_voice.rewrite(line, "Beep", profile, "Ruka", "whisper", until=99)
         return result, call
 
     def test_returns_the_cleaned_rewrite(self):
@@ -45,16 +45,12 @@ class RewriteTest(unittest.TestCase):
         self.assertEqual(self.rewrite("Can you help me?", "Beep: Need a hand.")[0], "Need a hand.")
 
     def test_prompt_holds_the_speaker_the_listener_and_the_line(self):
-        _, call = self.rewrite("Can you help me?", "Need a hand.", last_line="Ruka: What do you want?")
+        _, call = self.rewrite("Can you help me?", "Need a hand.")
         task, messages, until = call.call_args.args
         self.assertEqual((task, until), ("rephrase", 99))
         prompt = messages[0]["content"]
-        for part in ("Blunt and proud.", "Short, hard words.", "Shek", "Beep whispers it to Ruka.", "LAST LINE OF THE TALK: Ruka: What do you want?", "GIST: Can you help me?"):
+        for part in ("Blunt and proud.", "Short, hard words.", "Shek", "Beep whispers it to Ruka.", "GIST: Can you help me?"):
             self.assertIn(part, prompt)
-
-    def test_prompt_without_a_last_line_has_no_label(self):
-        _, call = self.rewrite("Hello", "Hey.")
-        self.assertNotIn("LAST LINE", call.call_args.args[1][0]["content"])
 
     def test_prompt_names_asterisks_only_for_a_line_with_actions(self):
         _, call = self.rewrite("Got anything to trade?", "Got stuff?")

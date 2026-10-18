@@ -487,9 +487,8 @@ def chat():
         return reply()
     raw_line = player_message = text if kind else player_message
     if covered:
-        last_line = next((line for line, _, thread in reversed(campaign_db.dialogue(primary_id)) if thread == current_thread), "") if current_thread else ""
         listener = "themself" if self_talk else "everyone" if mode == "yell" and primary_id == speaker_id else primary_npc
-        player_message = player_voice.rewrite(raw_line, player_name, get_character_data(player_name, speaker), listener, mode, last_line, until)
+        player_message = player_voice.rewrite(raw_line, player_name, get_character_data(player_name, speaker), listener, mode, until)
         player_says(player_message)
     if kind == "end":
         end_thread()
