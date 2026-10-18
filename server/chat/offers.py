@@ -43,9 +43,9 @@ RELEASE_BRIBE = 500
 # deal.
 PROFIT_OFFSETS = {-2: 20, -1: 10, 0: 0, 1: -20, 2: -30}
 NON_TRADER_PROFIT = 10
-# (least profit share, lean bonus), the biggest share first. The model refused profits when the lean held only the
+# (least profit share, lean bonus, words), the biggest share first. The model refused profits when the lean held only the
 # relation.
-PROFIT_LEANS = ((0.5, 4), (0.25, 3), (0.0, 2))
+PROFIT_LEANS = ((0.5, 4, "a big profit"), (0.25, 3, "a good profit"), (0.0, 2, "a fair profit"))
 # The model agreed to a profit below the one that it wants when that profit moved the lean by nothing
 SMALL_PROFIT_LEAN = -1
 LOSS_LEAN = -2
@@ -607,8 +607,9 @@ def profit_lean(received, handed, gap):
     full prices, and the reason by the gap at the prices of the price guide. A gift hands over nothing, so it is a big
     profit."""
     share = max(received - handed, 0) / handed if handed else math.inf
-    bonus = next(bonus for least, bonus in PROFIT_LEANS if share >= least)
-    return bonus, f"The deal on the table beats your desired profit by about {math.floor(gap + 1e-6):,} cats." if gap >= 1 else "The deal on the table meets your desired profit."
+    bonus, kind = next((bonus, kind) for least, bonus, kind in PROFIT_LEANS if share >= least)
+    verdict = f"beats your desired profit by about {math.floor(gap + 1e-6):,} cats" if gap >= 1 else "meets your desired profit"
+    return bonus, f"The deal on the table is {kind}: it {verdict}."
 
 
 def on_table(deal, npc, speaker, squad, player_name, relation=None):
@@ -636,8 +637,8 @@ def on_table(deal, npc, speaker, squad, player_name, relation=None):
     elif offer and gap + 1e-6 >= 0:
         lean.append(profit_lean(received, handed, gap))
     elif offer:
-        missed = f"The deal on the table misses your desired profit by about {math.ceil(-gap - 1e-6):,} cats"
-        lean.append((SMALL_PROFIT_LEAN, f"{missed}.") if received + 1e-6 >= handed else (LOSS_LEAN, f"{missed}, and you lose on it."))
+        missed = f"misses your desired profit by about {math.ceil(-gap - 1e-6):,} cats."
+        lean.append((SMALL_PROFIT_LEAN, f"The deal on the table is a suboptimal profit: it {missed}") if received + 1e-6 >= handed else (LOSS_LEAN, f"The deal on the table is a loss: it {missed}"))
     else:
         why = next((words.format(player=player_name) + reason[len(start):] for start, words in TABLE_REASONS.items() if reason.startswith(start)), reason)
         lines.append(f"You cannot agree to it as it is, because {why}.")
