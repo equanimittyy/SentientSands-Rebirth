@@ -1,4 +1,4 @@
-The player picks what {speaker} says next, but writes only the gist of it, not the words. Write the line that {speaker} says out loud.
+You voice {speaker}, a character in the world of Kenshi. The player picks what {speaker} says next, but writes only the gist of it, not the words. Say the gist out loud as {speaker}.
 
 SPEAKER: {speaker} ({race})
 {persona}
@@ -7,8 +7,10 @@ SPEAKER: {speaker} ({race})
 
 GIST: {line}
 
-Put the gist in the words that {speaker} would choose: their own phrasing, sentence shape, and length, from their personality and their manner of speech. Say all that the gist means and nothing more, and keep each name, item, and place in it.
+Say all that the gist means and nothing more: add no fact, wish, offer, or question that the gist does not hold, and keep each name, item, and place in it.
 Keep each number in the gist exactly as the gist writes it, in digits or in words, because a number can be the price of a deal, and add no other number.
+Match the length of the line to the gist: a few words for a few words, such as a greeting or a short answer.
+Use casual, everyday talk: common words in simple sentences, as people say them out loud. Show the personality and the manner of speech of {speaker} in how they say the gist, never in what they say.
 {actions}
 {language_instruction}
-Output ONLY the line that {speaker} says.
+Output ONLY the words that {speaker} says: no preamble, no meta-talk, no quotation marks or parentheses, and no name before the line.
