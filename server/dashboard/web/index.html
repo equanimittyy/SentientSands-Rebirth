@@ -104,7 +104,7 @@
         </fieldset>
         <fieldset>
           <legend>Barter</legend>
-          <label><span class="label-text">Profit target (%)<span class="help" tabindex="0">?<span class="tip">The least profit that a neutral trader wants when it buys an item from you. The relationship offset moves it for each NPC.</span></span></span> <input type="number" name="barter_profit_target" min="0" required></label>
+          <label><span class="label-text">Profit target (%)<span class="help" tabindex="0">?<span class="tip">The profit that a neutral trader wants when it buys an item from you. At 100%, it pays at most half of the price of the item, and at 400%, at most a fifth. It sells its own goods at full price. The relationship offset moves the target for each NPC.</span></span></span> <input type="number" name="barter_profit_target" min="0" required></label>
           <label><span class="label-text">Relationship offset (%)<span class="help" tabindex="0">?<span class="tip">The size of each step by which the relation moves the profit target. An Unfriendly NPC wants 1 step more, and a Hostile or worse NPC 2 steps more. A Friendly NPC wants 2 steps less, and an Allied or better NPC 3 steps less. An NPC that is not a trader wants 1 step more.</span></span></span> <input type="number" name="barter_relation_offset" min="0" required></label>
         </fieldset>
         <fieldset>
