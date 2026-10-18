@@ -2,7 +2,7 @@
 [b][i]A RE_Kenshi AI dialogue mod for Kenshi[/i][/b]
 [b][i]Released under GNU General Public License v3.0 (GPLv3)[/i][/b]
 
-[i]I got fed up with modifying other people's versions of Sentient Sands, so I just made my own, properly designed version instead.[/i]
+[i]I got fed up with modifying other people's versions of Sentient Sands and trying to keep up with updates, so I just made my own version instead. It features a proper redesign of the backend and prompt optimisations.[/i]
 
 [hr][/hr]
 
