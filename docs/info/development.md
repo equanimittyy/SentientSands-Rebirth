@@ -131,3 +131,4 @@ Each release has the git tag `v<version>` on the commit that it was built from. 
 | Version | Commit | Date | Schema |
 |---|---|---|---|
 | 1 | `fe436218d0864c5e04439e753f5c2fb9fef0f826` | 2026-10-17 | 22 |
+| 2 | `2222549dc35a8534624b736c72592065622ddd4a` | 2026-10-18 | 22 |
