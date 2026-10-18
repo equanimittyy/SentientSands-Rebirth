@@ -487,6 +487,8 @@ static void DoSay(GameWorld *world, const QueuedAction &act, Character *npc) {
   float duration = life * (speed < 1.0f ? 1.0f : speed);
   npc->dialogue->speechTextTimer = duration;
   npc->dialogue->speechTextTimer_forced = duration;
+  if (act.type == ACT_SAY && npc->isPlayerCharacter())
+    WatchPlayerBubble(npc);
 }
 
 static void DoAttack(GameWorld *world, Character *npc, Character *target) {

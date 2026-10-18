@@ -736,6 +736,7 @@ static void playerUpdate_hook(PlayerInterface *thisptr) {
   if (world) {
     ProcessMessageQueue(world);
     ExecuteQueuedActions(world);
+    LogPlayerBubble(world);
     WatchOffer();
     WatchHires(world);
     WatchActions(world);
