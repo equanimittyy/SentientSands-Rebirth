@@ -571,32 +571,38 @@ When Characterised player dialogue is on (`characterised_dialogue` on the Settin
 - The prompt names the parts in asterisks only when the line has one (`actions`), because Gemma 4 put asterisks around the reworded words of a line without actions when the prompt named them.
 - The rewrite is cleaned as a chat reply (`reply_text.spoken`). A call with no reply, and a rewrite that leaves out a number of the raw line, give the raw line, because a lost price breaks a trade. The check compares the digits without thousands separators, so "two hundred" for "200" also gives the raw line.
 - The NPC hears the rewrite, and the chat thread, the overheard copies, the later lines of a yell, and the memory hold it. The code that matches words reads the raw line: the names of a yell (`radiant.named`), the lore search, the directions, and the price guide. The rewrite adds words of the speaker's manner, such as "by the Holy Flame", that would find lore that the player did not ask for, and it can change an item word, such as "water" to "drink".
-- The bubble of the speaker shows the rewrite, so the raw words of a line that the NPC hears never show (see [Chat lines](#chat-lines)). A line that stops before the rewrite shows the raw line, without its mark, from `reply` in `chat` (`player_voice.bubble`, which matches `WithoutActionMark`). Without it, the "..." would stay for the whole bubble life.
+- The bubble of the speaker shows the rewrite, so the raw words of a line that the NPC hears never show (see [Chat lines](#chat-lines)). A line that stops before the rewrite shows the raw line, without its mark, from `reply` in `chat` (`player_voice.bubble`). Without it, the "..." over the speaker would stay for a minute.
 
 ## Line pacing
 
-The server paces the lines of every conversation (`say` in `server/chat/routes.py`). The reply of `/chat` and `/radiant` holds no text. A server thread sends the actions as `NPC_ACTION`, then each line as `NPC_SAY: Name|key: line`, or a line of the player as `PLAYER_SAY: Name: line`, at least `DialogueSpeed` (5 s by default) after the line before it.
+The server paces the lines of every conversation (`say` and `think` in `server/chat/routes.py`). The reply of `/chat` and `/radiant` holds no text. A server thread sends the actions as `NPC_ACTION`, then each line as `NPC_SAY: Name|key: line`, or a line of the player as `PLAYER_SAY: Name: line`. A conversation shows one bubble at a time:
 
+1. A line shows for `DialogueSpeed` (5 s by default). The plugin reads `DialogueSpeed` from the INI at start, the server sends it on each change, and the plugin gives each line that bubble life (`g_speechBubbleLife`).
+2. When the line has gone, the next speaker shows "..." (`NPC_THINK: Name|key: ...`) while the LLM call for its line runs.
+3. The line replaces the "..." when the call returns, but at least 0.2 s after the "..." (`THINK_MIN`).
+
+- Only the bubbles wait, so each LLM call starts as soon as it can. A radiant conversation and the later replies of a yell write each line as soon as the call before it returns (`write_ahead`).
+- A "..." shows only after the line before it has gone, because a bubble that showed while the line of the player was up ended that line in the game (see [kenshi_gotchas.md](kenshi_gotchas.md#speech-bubbles)).
+- A "..." stays until the line of its speaker, because a call can take longer than `DialogueSpeed` (`THINKING_LIFE` in `plugin/game/GameActions.cpp`). When the line does not come, the server sends an empty line (`hush`), and the plugin ends the bubble.
 - The key is a number that the plugin gives a character for the game session (`HandleKey` in `plugin/game/Context.cpp`). Each character of a request carries its key, and the server sends it back unchanged. The plugin finds the character of a line by its key, and by its name only when the key finds no character.
 - The key stands for the full handle, because characters of other squads can have the same `serial` ([kenshi_internals.md](kenshi_internals.md#character-identity)). A squad change gives the character a new handle, and `RekeyCharacter` gives the key that handle (see [Characters](#characters)).
 - One conversation plays at a time, and chat replies queue (`reply_loop`). A radiant conversation holds the stage (`_STAGE`) to its last line, and so does a yell (see [Yells](#yells)).
-- In a radiant conversation, the speaker of each line shows `...` for the last 40% of the delay before the line (`THINK_SHARE`), so the player sees who speaks next. When the call for a line takes longer than the rest of the delay, the `...` shows when the call returns.
 - The actions go first, so an AI state change cannot clear a bubble that is already up.
 - A line that finds no character, or a character with no dialogue object, logs an error and shows no bubble (`ProcessMessage` in `plugin/main.cpp`, `DoSay` in `plugin/game/GameActions.cpp`).
 - The plugin shows at most two bubbles: the newest line or `...`, and the line before it. A bubble on a third character ends the oldest bubble (`KeepTwoBubbles` in `plugin/game/GameActions.cpp`), so the participants of a radiant conversation do not all talk at once.
 
 ### Chat lines
 
-The line of the player waits its turn on the queue of replies as a line of an NPC does (`play_lines` with `player`), so it shows at least `DialogueSpeed` after the line before it, and the reply shows at least `DialogueSpeed` after it. Only the bubbles wait: the LLM calls of the line start at once. The bubbles of a chat line come in this order:
+The line of the player waits its turn on the queue of replies as a line of an NPC does (`play_lines` with `player`). The bubbles of a chat line come in this order:
 
-1. When the player sends the line, the plugin shows "..." over the speaker (`SendChatLine` in `plugin/ui/ChatWindow.cpp`). A line that starts with `/` and a line of only a mark show no bubble.
-2. The server queues the line as `PLAYER_SAY` (`player_says` in `chat`): at once, or with [Characterised dialogue](#characterised-dialogue) after the rewrite. When its turn comes, the bubble of the speaker changes from "..." to the line.
-3. Just before the chat call, the server queues the "{name} is thinking..." status and the "..." of the NPC that answers, so they show right after the line of the speaker.
-4. The reply plays as usual.
+1. When the player sends the line, the plugin names the speaker with a `PLAYER_SAY` that holds no words (`SendChatLine` in `plugin/ui/ChatWindow.cpp`), and no bubble shows.
+2. With [Characterised dialogue](#characterised-dialogue), the server queues the "..." of the speaker, which shows while the rewrite runs.
+3. The server queues the line as `PLAYER_SAY` (`player_says` in `chat`): at once, or with Characterised dialogue after the rewrite. A line that starts with `/` and a line of only a mark show no bubble.
+4. Just before the chat call, the server queues the "..." of the NPC that answers and the "{name} is thinking..." status, so they show when the line of the speaker has gone.
+5. The reply replaces the "...". A chat call that gives no reply ends the "...".
 
 - `!end`, DISMISS, and a yell that no one can answer stop before the chat call, so no "..." shows over an NPC that does not answer.
-- The "..." of the speaker still names the speaker, so `TakePlayerSpeaker` sets the squad member that the actions of the reply fall back to (`plugin/main.cpp`).
-- The "..." and the line of the speaker share one bubble, so with the "..." of the NPC no third bubble ends one of them (`KeepTwoBubbles` in `plugin/game/GameActions.cpp`).
+- The message at Send names the speaker, also for a line that shows no bubble, so `TakePlayerSpeaker` sets the squad member that the actions of the reply fall back to (`plugin/main.cpp`).
 - A line of the player waits for the end of a radiant conversation that holds the stage, as a reply does.
 
 ## LLM routing

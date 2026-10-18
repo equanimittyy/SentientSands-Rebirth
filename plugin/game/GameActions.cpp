@@ -182,21 +182,25 @@ static GameData *GearGrade(GameWorld *world, GameData *gd) {
 
 static hand g_newestBubble;
 static hand g_previousBubble;
+// A call can outlast a bubble life, so a "..." waits for its line. This only
+// ends one whose line never came, past the default 55 s deadline of a call
+static const float THINKING_LIFE = 60.0f;
+
+static void EndBubble(Character *c) {
+  if (c && c->dialogue && (uintptr_t)c->dialogue > 0x1000 &&
+      c->dialogue->speechTextTimer > 0.0f) {
+    // clearSpeechBox is private, so the engine hides the bubble when this
+    // timer runs out on its next update
+    c->dialogue->speechTextTimer = 0.001f;
+    c->dialogue->speechTextTimer_forced = 0.001f;
+  }
+}
 
 static void KeepTwoBubbles(const hand &speaker) {
   if (speaker == g_newestBubble)
     return;
-  Character *dropped =
-      g_previousBubble.isValid() && !(speaker == g_previousBubble)
-          ? g_previousBubble.getCharacter()
-          : nullptr;
-  if (dropped && dropped->dialogue && (uintptr_t)dropped->dialogue > 0x1000 &&
-      dropped->dialogue->speechTextTimer > 0.0f) {
-    // clearSpeechBox is private, so the engine hides the bubble when this
-    // timer runs out on its next update
-    dropped->dialogue->speechTextTimer = 0.001f;
-    dropped->dialogue->speechTextTimer_forced = 0.001f;
-  }
+  if (g_previousBubble.isValid() && !(speaker == g_previousBubble))
+    EndBubble(g_previousBubble.getCharacter());
   g_previousBubble = g_newestBubble;
   g_newestBubble = speaker;
 }
@@ -461,6 +465,10 @@ static void PaidShort(GameWorld *world, Character *npc) {
 static void DoSay(GameWorld *world, const QueuedAction &act, Character *npc) {
   Log(LOG_DEBUG, "ACTION: SAY [" + npc->getName() + "]: " + act.message +
                      (npc->isPlayerCharacter() ? " (PC)" : " (NPC)"));
+  if (act.message.empty()) {
+    EndBubble(npc);
+    return;
+  }
   KeepTwoBubbles(act.actor);
   if (!g_shortPayers.empty())
     g_shortPayers.erase(HandleKey(npc));
@@ -475,7 +483,8 @@ static void DoSay(GameWorld *world, const QueuedAction &act, Character *npc) {
   // Scaled by game speed, else bubbles vanish too fast at high speeds.
   // Both timers are set so the engine honors the duration.
   float speed = world->getFrameSpeedMultiplier();
-  float duration = g_speechBubbleLife * (speed < 1.0f ? 1.0f : speed);
+  float life = act.type == ACT_THINK ? THINKING_LIFE : g_speechBubbleLife;
+  float duration = life * (speed < 1.0f ? 1.0f : speed);
   npc->dialogue->speechTextTimer = duration;
   npc->dialogue->speechTextTimer_forced = duration;
 }
@@ -850,6 +859,7 @@ static void RunAction(GameWorld *world, const QueuedAction &act,
                       Character *npc, Character *target) {
   switch (act.type) {
   case ACT_SAY:
+  case ACT_THINK:
     DoSay(world, act, npc);
     break;
   case ACT_ATTACK:

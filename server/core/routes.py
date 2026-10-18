@@ -307,16 +307,8 @@ def settings_endpoint():
         try:
             val = int(diag_speed)
             changes["dialogue_speed_seconds"] = val
-            logging.info(f"SETTINGS: Dialogue speed set to {val} seconds")
-        except: pass
-
-    bubble_life = data.get("bubble_life")
-    if bubble_life is not None:
-        try:
-            val = float(bubble_life)
-            changes["bubble_life"] = val
             send_to_pipe(f"SET_CONFIG: g_speechBubbleLife: {val}")
-            logging.info(f"SETTINGS: Bubble life set to {val} seconds")
+            logging.info(f"SETTINGS: Dialogue speed set to {val} seconds")
         except: pass
 
     if changes:

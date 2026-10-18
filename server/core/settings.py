@@ -22,7 +22,6 @@ INI_KEY_MAP = {
     "yell_radius": "YellRadius",
     "enable_welcome": "EnableWelcomePopup",
     "dialogue_speed_seconds": "DialogueSpeed",
-    "bubble_life": "SpeechBubbleLife",
     "language": "Language",
     "chat_hotkey": "ChatHotkey",
     "open_web_panel_on_start": "OpenWebPanelOnStart",
@@ -72,7 +71,6 @@ SETTINGS_DEFAULTS = {
     "yell_radius": 200,
     "enable_welcome": True,
     "dialogue_speed_seconds": 5,
-    "bubble_life": 10.0,
     "language": "English",
     "chat_hotkey": "\\",
     "open_web_panel_on_start": True,
@@ -136,7 +134,6 @@ def settings_page_values(settings):
         "npc_radiant_chance": settings["npc_radiant_chance"],
         "radiant_rumor_minutes": settings["radiant_rumor_minutes"],
         "dialogue_speed": settings["dialogue_speed_seconds"],
-        "bubble_life": settings["bubble_life"],
         "radii": {
             "whisper": settings["whisper_radius"],
             "talk": settings["talk_radius"],
@@ -169,7 +166,7 @@ def push_settings_to_plugin():
         ("g_chatHotkey", settings["chat_hotkey"]),
         ("g_enableWelcome", "1" if settings["enable_welcome"] else "0"),
         ("g_logLevel", settings["log_level"]),
-        ("g_speechBubbleLife", settings["bubble_life"]),
+        ("g_speechBubbleLife", settings["dialogue_speed_seconds"]),
     ):
         send_to_pipe(f"SET_CONFIG: {var}: {value}")
     logging.debug("PIPE: Sent the settings to the plugin.")

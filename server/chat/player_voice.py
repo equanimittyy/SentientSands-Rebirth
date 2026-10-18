@@ -23,8 +23,8 @@ BLANK_DEAL = "How about this deal?"
 
 
 def bubble(message):
-    """The words that the plugin shows in the bubble of the speaker (IsActionMark and WithoutActionMark in
-    plugin/ui/ChatWindow.cpp)."""
+    """The words of the bubble of the speaker, without the action mark that IsActionMark in plugin/ui/ChatWindow.cpp
+    finds."""
     if message.startswith("/"):
         return ""
     second = message[1:2]

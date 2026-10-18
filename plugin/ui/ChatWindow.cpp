@@ -138,14 +138,6 @@ static bool IsActionMark(const std::string &text) {
   return text[1] == ' ' && text.find_first_not_of(' ', 1) != std::string::npos;
 }
 
-static std::string WithoutActionMark(const std::string &text) {
-  size_t end = 1;
-  while (end < text.size() && IsAsciiLetter(text[end]))
-    end++;
-  size_t start = text.find_first_not_of(' ', end);
-  return start == std::string::npos ? std::string() : text.substr(start);
-}
-
 static void SettleActionDialogue(ChatTask *t, const std::string &response) {
   bool open = JsonTrue(response, "action_dialogue");
   bool offered = JsonTrue(response, "offer");
@@ -348,14 +340,8 @@ bool SendChatLine(const std::string &npcName, unsigned int targetKey,
   unsigned int addresseeKey = unheard ? HandleKey(speaker) : targetKey;
 
   // Names the speaker, so its bubble and the NPC's actions go to that squad
-  // member. A line of only a mark, such as !end, shows no bubble but still
-  // names the speaker. The server sends the words when their turn comes, as it
-  // paces every line, and with Characterised player dialogue rewrites them
-  std::string bubble = marked ? WithoutActionMark(text) : text;
-  if (said && !bubble.empty())
-    bubble = "...";
-  QueueMessage("PLAYER_SAY: " + (speaker ? playerName + ": " : std::string()) +
-               bubble);
+  // member. The server sends the bubbles, as it paces every line
+  QueueMessage("PLAYER_SAY: " + (speaker ? playerName + ": " : std::string()));
 
   std::string primaryId = addresseeName + "|" + KeyText(addresseeKey);
   std::string npcsJson = "\"" + EscapeJSON(primaryId) + "\"";

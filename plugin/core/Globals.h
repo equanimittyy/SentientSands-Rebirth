@@ -62,7 +62,8 @@ enum ActionType {
   ACT_FIRST_AID,
   ACT_ADD_CATS,
   ACT_SELL_ITEM,
-  ACT_BUY_ITEM
+  ACT_BUY_ITEM,
+  ACT_THINK
 };
 
 extern CRITICAL_SECTION g_eventMutex;

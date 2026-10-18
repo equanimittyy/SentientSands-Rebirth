@@ -11,6 +11,10 @@ Add a gotcha when a call or a pattern crashes the game, gives wrong data, or bre
 
 - A handle `serial` does not name one character (see [kenshi_internals.md](kenshi_internals.md#character-identity)). The plugin found characters by their `serial`, so a chat with a squad member sent the context of a stranger with the same `serial`, the lines of the squad member showed over the stranger, and the server renamed the stranger after the squad member. A `serial` with the template is not unique either, because two squads of one origin can hold members with the same `serial` and template. The plugin now finds a character by a key for its full handle (`HandleKey` in `plugin/game/Context.cpp`), and the `npc_id` of a generic character is its full handle, which the plugin re-keys at each squad change (see [architecture.md](architecture.md#characters)).
 
+## Speech bubbles
+
+- The bubble of the player's speaker ended as soon as the NPC that the speaker talks to showed its "..." bubble and the game showed the "{name} is thinking..." message (`showPlayerAMessage`). The two came in the same frame, so it is not known which one ends the bubble. The server now sends the "..." and the message only after the line of the player has gone (`think` in `server/chat/routes.py`, see [architecture.md](architecture.md#line-pacing)).
+
 ## Exceptions
 
 - The plugin builds with `/EHsc`, the default of the project, so `catch (...)` catches only a C++ exception and never an access violation from a bad game pointer. The plugin had many such blocks around game reads, which caught nothing and hid no crash. The only one left is around each queued action (`ExecuteQueuedActions` in `plugin/game/GameActions.cpp`), for a C++ exception such as one from Ogre when the game creates an item.

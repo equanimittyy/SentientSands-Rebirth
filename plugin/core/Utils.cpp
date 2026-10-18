@@ -382,7 +382,7 @@ void LoadPluginConfig() {
       IniInt(ini, "EnableRadiantConversations", g_enableRadiant) != 0;
   g_enableWelcome = IniInt(ini, "EnableWelcomePopup", g_enableWelcome) != 0;
   g_speechBubbleLife = (float)atof(
-      IniString(ini, "SpeechBubbleLife", ToString(g_speechBubbleLife)).c_str());
+      IniString(ini, "DialogueSpeed", ToString(g_speechBubbleLife)).c_str());
   g_openWebPanelOnStart =
       IniInt(ini, "OpenWebPanelOnStart", g_openWebPanelOnStart) != 0;
   std::string logLevel = IniString(ini, "LogLevel", "INFO");

@@ -539,7 +539,9 @@ static void ProcessMessage(GameWorld *world, const std::string &msg) {
   }
   bool playerSay = TakePrefix(msg, "PLAYER_SAY: ", text);
   bool npcSay = !playerSay && TakePrefix(msg, "NPC_SAY: ", text);
-  if (!playerSay && !npcSay && !TakePrefix(msg, "NPC_ACTION: ", text))
+  bool thinks = !playerSay && !npcSay && TakePrefix(msg, "NPC_THINK: ", text);
+  if (!playerSay && !npcSay && !thinks &&
+      !TakePrefix(msg, "NPC_ACTION: ", text))
     return;
   g_lastRadiantTick = GetTickCount();
 
@@ -556,7 +558,8 @@ static void ProcessMessage(GameWorld *world, const std::string &msg) {
     // A line that runs an action still shows its bubble
     bubble = NpcBubble(text, npcSay);
   }
-  if (bubble.empty())
+  // An empty NPC line still goes, because it ends the bubble of its speaker
+  if (bubble.empty() && !npcSay)
     return;
   Character *c = anchor.isValid() ? anchor.getCharacter() : NULL;
   if (!c) {
@@ -564,7 +567,7 @@ static void ProcessMessage(GameWorld *world, const std::string &msg) {
     return;
   }
   Log(LOG_DEBUG, "QUEUE: Queuing SAY for " + c->getName() + ": " + bubble);
-  QueueAction(ACT_SAY, anchor, hand(), bubble);
+  QueueAction(thinks ? ACT_THINK : ACT_SAY, anchor, hand(), bubble);
 }
 
 // Kenshi engine writes must happen on the main thread, inside hooks.

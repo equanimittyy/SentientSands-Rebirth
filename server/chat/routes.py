@@ -28,7 +28,8 @@ _REPLIES = queue.Queue()
 # A radiant conversation holds it from its call to its last line, so a chat reply waits for it and a second one cannot start
 _STAGE = threading.Lock()
 _last_line = 0.0
-THINK_SHARE = 0.4
+_last_think = 0.0
+THINK_MIN = 0.2
 
 @bp.route('/radiant', methods=['POST'])
 def radiant_conversation():
@@ -104,43 +105,79 @@ def radiant_conversation():
         if not playing:
             _STAGE.release()
 
-def say(lines, actions=(), think=False, player=False):
-    """Sends the actions, then each line at least the dialogue delay after the line before it, also when that line ended an
-    earlier conversation. The plugin shows a line when it arrives, so the server alone paces every conversation, also the
-    lines of the player, which are "Name: text" with player. A pause of the game does not stop the delay. The actions go
-    first, so an AI state change cannot clear a bubble that is already up. With think, the speaker of each line shows "..."
-    for the last THINK_SHARE of the delay before it."""
+def say(lines, actions=(), player=False):
+    """Sends the actions, then each line once the line before it has shown for the dialogue delay, also when that line ended
+    an earlier conversation, and at least THINK_MIN after the "..." before it. The plugin shows a line when it arrives, for
+    the dialogue delay, so the server alone paces every conversation, also the lines of the player, which are "Name: text"
+    with player. A pause of the game does not stop the delay. The actions go first, so an AI state change cannot clear a
+    bubble that is already up."""
     global _last_line
     for action in actions:
         send_to_pipe(f"NPC_ACTION: {action}")
     delay = load_settings()["dialogue_speed_seconds"]
     for line in lines:
-        due = _last_line + delay
-        if think:
-            time.sleep(max(0.0, due - THINK_SHARE * delay - time.monotonic()))
-            send_to_pipe(f"NPC_SAY: {line.split(':', 1)[0]}: ...")
-            due = max(due, time.monotonic() + THINK_SHARE * delay)
-        time.sleep(max(0.0, due - time.monotonic()))
+        time.sleep(max(0.0, max(_last_line + delay, _last_think + THINK_MIN) - time.monotonic()))
         send_to_pipe(f"{'PLAYER_SAY' if player else 'NPC_SAY'}: {line}")
         _last_line = time.monotonic()
 
-def play_radiant(conversation):
-    """Writes each line with its own call, which holds the persona of its speaker alone, and shows it, so the next call
-    runs while the line is up. The prompt grows only at the end of THE TALK SO FAR, so each call reuses the provider's
-    cache of the call before it up to the newest line. A call without a line ends the talk, and the lines so far count."""
-    names, spoken = conversation["names"], []
-    try:
-        for index, (speaker, _) in enumerate(conversation["order"]):
-            label = f"{names[speaker]}|{speaker}"
-            text = write_line(conversation, spoken, index)
+def think(label):
+    """Shows "..." over the speaker of label once the line before it has gone, because a bubble that shows while the line
+    of the player is up ends that line in the game. The "..." stays until the line of the speaker or hush."""
+    global _last_think
+    time.sleep(max(0.0, _last_line + load_settings()["dialogue_speed_seconds"] - time.monotonic()))
+    send_to_pipe(f"NPC_THINK: {label}: ...")
+    _last_think = time.monotonic()
+
+def hush(label):
+    """Ends the "..." of a speaker whose line does not come: the plugin ends a bubble at an empty line."""
+    send_to_pipe(f"NPC_SAY: {label}: ")
+
+def write_ahead(write, indexes):
+    """Runs write(index) for each index in a thread, each call as soon as the one before it returns, because only the
+    bubbles wait for the dialogue delay. Returns the queue of the lines, which ends at the first line that write does not
+    give."""
+    lines = queue.Queue()
+    def writer():
+        for index in indexes:
+            try:
+                text = write(index)
+            except Exception as e:
+                # Else the reader waits forever on the stage, and no later reply plays
+                logging.error(f"CHAT: Cannot write a line of a conversation: {e}")
+                text = ""
+            lines.put(text)
             if not text:
-                logging.warning(f"RADIANT: The LLM wrote no line for {names[speaker]}, so the talk ends.")
-                break
-            # The same npc_id can name another character in another campaign
+                return
+    threading.Thread(target=writer, daemon=True).start()
+    return lines
+
+def play_radiant(conversation):
+    """Writes each line with its own call, which holds the persona of its speaker alone, ahead of the bubbles, and shows
+    it. The prompt grows only at the end of THE TALK SO FAR, so each call reuses the provider's cache of the call before it
+    up to the newest line. A call without a line ends the talk, and the lines so far count."""
+    names, order, written, spoken = conversation["names"], conversation["order"], [], []
+    def write(index):
+        # The same npc_id can name another character in another campaign
+        if state.ACTIVE_CAMPAIGN != conversation["campaign"]:
+            return ""
+        text = write_line(conversation, written, index)
+        written.append((order[index][0], text))
+        return text
+    try:
+        lines = write_ahead(write, range(len(order)))
+        for speaker, _ in order:
+            label = f"{names[speaker]}|{speaker}"
+            think(label)
+            text = lines.get()
             if state.ACTIVE_CAMPAIGN != conversation["campaign"]:
+                hush(label)
                 logging.info("RADIANT: The active campaign changed, so the talk ends, and nobody remembers it.")
                 return
-            say([f"{label}: {text}"], think=True)
+            if not text:
+                hush(label)
+                logging.warning(f"RADIANT: The LLM wrote no line for {names[speaker]}, so the talk ends.")
+                break
+            say([f"{label}: {text}"])
             spoken.append((speaker, text))
         if spoken:
             remember_radiant(conversation, spoken)
@@ -158,22 +195,36 @@ def write_line(conversation, spoken, index):
     prompt = conversation["frame"] + "\n\n" + fill_prompt("prompt_radiant_line.txt", talk=radiant.talk(spoken, names), speaker=f"{names[speaker]}|{speaker}", persona=conversation["personas"][speaker], turn=radiant.turn(index, order, names))
     return reply_text.spoken(call_llm("radiant", [{"role": "system", "content": conversation["system"]}, {"role": "user", "content": prompt}]) or "", *radiant.voices(names, speaker))
 
-def play_yell(yell):
-    """The replies of a yell after the first one, each written as a radiant line while the line before it shows. It runs in
-    reply_loop, which holds the stage, so no other reply plays between them. Each line joins the chat thread when it is
-    said, so a quick next yell already sees it."""
-    names, ids, spoken = yell["names"], yell["ids"], yell["spoken"]
-    for index in range(len(spoken), len(yell["order"])):
-        speaker, addressee = yell["order"][index]
-        text = write_line(yell, spoken, index)
-        if not text:
-            logging.warning(f"CHAT: The LLM wrote no line for {names[speaker]}, so the yell ends.")
-            return
+def write_yell(yell):
+    """Starts the calls of the replies of a yell after the first one, each written as a radiant line. Returns the queue of
+    the lines."""
+    order, written = yell["order"], yell["spoken"]
+    def write(index):
         if state.ACTIVE_CAMPAIGN != yell["campaign"]:
+            return ""
+        text = write_line(yell, written, index)
+        written.append((order[index][0], text))
+        return text
+    return write_ahead(write, range(2, len(order)))
+
+def play_yell(yell, lines):
+    """Shows the replies of a yell after the first one, from the queue of write_yell. It runs in reply_loop, which holds
+    the stage, so no other reply plays between them. Each line joins the chat thread when it is said, so a quick next yell
+    already sees it."""
+    names, ids = yell["names"], yell["ids"]
+    for speaker, addressee in yell["order"][2:]:
+        label = f"{names[speaker]}|{speaker}"
+        think(label)
+        text = lines.get()
+        if state.ACTIVE_CAMPAIGN != yell["campaign"]:
+            hush(label)
             logging.info("CHAT: The active campaign changed, so the yell ends.")
             return
-        say([f"{names[speaker]}|{speaker}: {text}"], think=True)
-        spoken.append((speaker, text))
+        if not text:
+            hush(label)
+            logging.warning(f"CHAT: The LLM wrote no line for {names[speaker]}, so the yell ends.")
+            return
+        say([f"{label}: {text}"])
         speaker_id = ids[speaker]
         if speaker_id in yell["copies"]:
             campaign_db.join_thread(yell["thread"], [(speaker_id, "speaker", yell["in_squad"].get(speaker_id, False))], campaign_db.game_time(yell["time_prefix"]), exchange=False)
@@ -197,17 +248,20 @@ def remember_radiant(conversation, spoken):
     state.LAST_RADIANT = time.monotonic()
     logging.info("RADIANT: " + " | ".join(f'{names[key]}: "{text}"' for key, text in spoken))
 
-def play_lines(lines, actions=(), after=(), then=None, player=False):
+def play_lines(lines, actions=(), after=(), then=None, player=False, thinker=None):
     """Queues a chat reply, or with player the line of the player, which plays after every reply before it and after a
-    radiant conversation that holds the stage. The pipe messages of after go out after the last line, so the popup of an
-    offer opens when the NPC has spoken. then runs after them on the stage, so the next reply waits for it."""
-    _REPLIES.put((lines, actions, after, then, player))
+    radiant conversation that holds the stage. thinker, the label of a speaker, shows its "..." first. The pipe messages
+    of after go out after the last line, so the popup of an offer opens when the NPC has spoken. then runs after them on
+    the stage, so the next reply waits for it."""
+    _REPLIES.put((lines, actions, after, then, player, thinker))
 
 def reply_loop():
     while True:
-        lines, actions, after, then, player = _REPLIES.get()
+        lines, actions, after, then, player, thinker = _REPLIES.get()
         try:
             with _STAGE:
+                if thinker:
+                    think(thinker)
                 say(lines, actions, player=player)
                 for message in after:
                     send_to_pipe(message)
@@ -362,7 +416,7 @@ def chat():
         covered = ""
 
     def reply(*texts, actions=(), action_open=False, after=(), then=None):
-        # Else the "..." over the speaker stays for the whole bubble life
+        # Else the "..." over the speaker stays
         player_says(covered)
         # After the lines, so the barter window shows them once they are said
         turn = [f"CMD: BARTER_TURN: {int(action_open)}\n{chat_window.thread_lines(primary_id, thread_id) if thread_id else ''}"] if window else []
@@ -382,10 +436,11 @@ def chat():
         
     player_message = data.get('message', '')
     characterised = load_settings()["characterised_dialogue"]
-    # The plugin shows "..." over the speaker until the server sends these words
     covered = player_voice.bubble(player_message)
     if not characterised:
         player_says(covered)
+    elif covered:
+        play_lines([], thinker=f"{player_name}|{speaker_key}")
     
     if player_message.startswith('/'):
         cmd_parts = player_message[1:].split(' ', 1)
@@ -675,11 +730,12 @@ def chat():
 
     # Queued, so they follow the line of the speaker, which can wait its turn. Only the server knows which NPC answers a yell.
     thinking = state.LOCALIZATION_CONFIG.get(load_settings()["language"], {}).get("{name} is thinking...", "{name} is thinking...")
-    play_lines([], after=[f"NOTIFY: {thinking.replace('{name}', primary_npc)}", f"NPC_SAY: {voice()}: ..."])
+    play_lines([], after=[f"NOTIFY: {thinking.replace('{name}', primary_npc)}"], thinker=voice())
     content = call_llm("action" if category else "chat", messages, until)
     state.restart_quiet_clock()
     if not content:
         logging.error("CHAT: No reply from the LLM.")
+        play_lines([], then=lambda: hush(voice()))
         if category:
             end_thread()
     
@@ -802,7 +858,8 @@ def chat():
                 "copies": {npc_id: char_datas[npc_id] for npc_id, _, _ in copies}, "in_squad": in_squad, "thread": thread_id,
                 "time_prefix": time_prefix, "campaign": state.ACTIVE_CAMPAIGN,
             }
-            more = lambda: play_yell(yell_talk)
+            yell_lines = write_yell(yell_talk)
+            more = lambda: play_yell(yell_talk, yell_lines)
 
         logging.info(f'CHAT: {mode_tag}{player_name} to {primary_npc}{f" [{category}]" if category else ""}: "{player_message}" | {primary_npc}: "{content}" ({time.monotonic() - started:.1f} s)')
         if outcome == "unkept":
