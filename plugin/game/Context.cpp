@@ -1212,6 +1212,11 @@ bool InPlayerFaction(Character *c) {
   return faction && faction->isThePlayer();
 }
 
+bool HeldByPlayer(Character *c) {
+  Faction *captor = CaptorFaction(c);
+  return captor && captor->isThePlayer();
+}
+
 std::string GameReport() {
   Character *first = FirstPlayerCharacter();
   std::string player = first ? GetDetailedContext(first, "player") : "{}";

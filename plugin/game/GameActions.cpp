@@ -16,6 +16,7 @@
 #include <kenshi/Platoon.h>
 #include <kenshi/PlayerInterface.h>
 #include <kenshi/RootObjectFactory.h>
+#include <kenshi/StateBroadcastData.h>
 #include <kenshi/Town.h>
 #include <kenshi/util/hand.h>
 #include <set>
@@ -242,7 +243,14 @@ static void UnlockPrisoner(GameWorld *world, Character *target) {
                     : NULL;
   if (rescuer && target->dialogue && (uintptr_t)target->dialogue > 0x1000)
     target->dialogue->sendEvent(rescuer, EV_UNLOCK_MY_CAGE_OR_SHACKLES);
-  world->showPlayerAMessage("You have been freed!", true);
+}
+
+// An unlock leaves the slave state, so slavers would hunt the recruit
+static void FreeCaptive(GameWorld *world, Character *npc) {
+  UnlockPrisoner(world, npc);
+  StateBroadcastData *broadcast = npc->getStateBroadcast();
+  if (npc->isSlave() != NOT_SLAVE && broadcast)
+    broadcast->setSlaveState(NOT_SLAVE);
 }
 
 // The unpaused time after which a watcher stops waiting for the game: a jailer
@@ -278,6 +286,7 @@ static void WatchReleases(GameWorld *world, DWORD step) {
     Log(LOG_INFO, "ACTION: The release task left " + target->getName() +
                       " locked up, so the plugin unlocks it");
     UnlockPrisoner(world, target);
+    world->showPlayerAMessage("You have been freed!", true);
     g_releases.erase(g_releases.begin() + i);
   }
 }
@@ -521,7 +530,11 @@ static void DoJoinParty(GameWorld *world, const QueuedAction &act,
   Blackboard *board = BoardOf(npc);
   if (board && board->hasContractJob())
     board->endContractJob();
+  bool held = HeldByPlayer(npc);
   world->player->recruit(npc, false);
+  // A fellow captive stays locked up, because it joins to escape with the player
+  if (held)
+    FreeCaptive(world, npc);
   world->playNotification("ui_cat_change");
   world->showPlayerAMessage_withLog(npc->getName() + " joined your squad.",
                                     true);

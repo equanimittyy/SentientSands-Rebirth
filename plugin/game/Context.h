@@ -51,5 +51,6 @@ Blackboard *BoardOf(Character *c);
 GameData *BodyguardPackage();
 int MoneyOf(Character *c);
 bool InPlayerFaction(Character *c);
+bool HeldByPlayer(Character *c);
 std::string GameReport();
 std::string GameTimeFields();
