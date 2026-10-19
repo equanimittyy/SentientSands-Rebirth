@@ -15,7 +15,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 DB_NAME = "campaign.db"
-SCHEMA_VERSION = 22
+SCHEMA_VERSION = 23
 DIALOGUE_BLOCK = 20
 # A memory that this many passes read and did not cite leaves the auto rumor pool, so dull memories do not fill each prompt
 RUMOR_PASSES = 6
@@ -25,6 +25,10 @@ PROVISIONAL = "Interactions"
 JOURNAL_PAGE = 20
 JOURNAL_LABEL = 40
 
+CAPTIVE_TABLE = """CREATE TABLE captive (
+  npc_id    TEXT PRIMARY KEY,
+  game_time INTEGER NOT NULL
+)"""
 SCHEMA = f"""
 CREATE TABLE meta (
   key   TEXT PRIMARY KEY,
@@ -123,6 +127,7 @@ CREATE TABLE hire (
   hours  INTEGER NOT NULL,
   fee    INTEGER NOT NULL
 );
+{CAPTIVE_TABLE};
 INSERT INTO meta (key, value) VALUES ('schema_version', '{SCHEMA_VERSION}');
 """
 
@@ -149,10 +154,24 @@ def open_campaign(folder, seed):
         if not os.path.exists(path):
             create(folder, seed())
             return
-        if read_meta(folder).get("schema_version") != str(SCHEMA_VERSION):
+        version = read_meta(folder).get("schema_version")
+        if version == "22":
+            _migrate_from_22(path)
+        elif version != str(SCHEMA_VERSION):
             _db_path = None
             _closed_reason = f"The campaign {os.path.basename(folder)} was made by an earlier version of SSR, which this version cannot open. Start a new campaign."
             raise CampaignUnavailable(_closed_reason)
+
+
+def _migrate_from_22(path):
+    """Schema 22, of releases 1 and 2, has no captive table. A script that fails leaves its transaction open, so the close
+    rolls back the whole migration."""
+    conn = sqlite3.connect(path)
+    try:
+        conn.executescript(f"BEGIN; {CAPTIVE_TABLE}; UPDATE meta SET value = '{SCHEMA_VERSION}' WHERE key = 'schema_version'; COMMIT;")
+    finally:
+        conn.close()
+    logging.info(f"CAMPAIGN: Migrated {path} from schema 22 to {SCHEMA_VERSION}.")
 
 
 def close_campaign():
@@ -627,6 +646,22 @@ def end_hire(npc_id):
         conn.execute("DELETE FROM hire WHERE npc_id = ?", (npc_id,))
 
 
+def start_captive(npc_id, game_time):
+    with _connect(write=True) as conn:
+        conn.execute("INSERT OR REPLACE INTO captive (npc_id, game_time) VALUES (?, ?)", (npc_id, game_time))
+
+
+def captive_since(npc_id, game_time):
+    """The game time from which the player's faction holds the captive. A captive with no start, or with a start after
+    game_time because an earlier save was loaded, starts at game_time."""
+    with _connect(write=True) as conn:
+        row = conn.execute("SELECT game_time FROM captive WHERE npc_id = ?", (npc_id,)).fetchone()
+        if row and row[0] <= game_time:
+            return row[0]
+        conn.execute("INSERT OR REPLACE INTO captive (npc_id, game_time) VALUES (?, ?)", (npc_id, game_time))
+        return game_time
+
+
 def add_event(kind, doers, victim, game_time):
     """Stores the event of a known figure that the doers, (npc_id, name) pairs, killed or captured. kind is "kill"
     or "capture", and victim holds the npc_id, name, and faction. A doer that already captured the victim gets no second
@@ -736,7 +771,7 @@ def rekey(old_id, new_id, game_time):
 
 def cull_after(day, hour, minute):
     """Undoes the re-keys after the given game time, newest first. Then deletes the characters first stored after it, the
-    dialogue, events, rumors, thread members, and memories dated after it, clears the uses of memories after it, and
+    dialogue, events, rumors, thread members, captives, and memories dated after it, clears the uses of memories after it, and
     recounts the chat exchanges of each thread that it cuts. Returns the count per table of the characters, the dialogue,
     the events, and the rumors."""
     now = day * 1440 + hour * 60 + minute
@@ -750,6 +785,7 @@ def cull_after(day, hour, minute):
         touched = {thread_id for (thread_id,) in conn.execute("SELECT id FROM thread WHERE game_time > ?", (now,))}
         culled = {table: conn.execute(f"DELETE FROM {table} WHERE game_time > ?", (now,)).rowcount for table in ("dialogue", "rumor", "event", "character")}
         conn.execute("DELETE FROM thread_member WHERE game_time > ?", (now,))
+        conn.execute("DELETE FROM captive WHERE game_time > ?", (now,))
         conn.execute("UPDATE thread SET used_at = NULL WHERE used_at > ?", (now,))
         # The memory told of culled exchanges, and it replaced every line, so nothing from before the cut is left to keep
         conn.execute("DELETE FROM thread WHERE memory IS NOT NULL AND game_time > ?", (now,))

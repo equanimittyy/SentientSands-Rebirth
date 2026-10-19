@@ -531,7 +531,18 @@ Each category has its own gates, hard limits, and lean. A line that fails a gate
 - The release gives the NPC the `RELEASE_PRISONER` order (`DoRelease` in `plugin/game/GameActions.cpp`). When the speaker is still locked up after 30 s of unpaused game time, `WatchReleases` unlocks it, because the package of a jailer can keep it at its desk. `UnlockPrisoner` unlocks the door of the cage and the shackles, and it sends the speaker the game event `EV_UNLOCK_MY_CAGE_OR_SHACKLES`, as Lucius64's KenshiExtensionPlugin does, so the game lets the speaker out and the plugin writes no prison state. LIBERATE has no breakout, because `BREAKOUT_PRISONER` moved no NPC toward the cage ([kenshi_internals.md](kenshi_internals.md#orders-and-contracts)). The guard says its accept line while the speaker is still in the cage, so the lines of `liberate_accept` promise the release and do not send the speaker away.
 - RECRUIT: Neither the speaker nor the NPC may be `imprisoned` or `enslaved`, and the NPC must not lead its faction, because the faction would lose its leader in the world. Fellow captives pass the first gate: one faction holds both, each in a cage or in shackles (`captor`, `action_dialogue.fellow_captives`), so that they can escape together. A fellow captive accepts with a line of `recruit_captive_accept`, which keeps the escape quiet. A captive of the speaker's faction passes the NPC side of the first gate: the NPC's `captor` is the speaker's `factionID` (`action_dialogue.captive_of`), because a captive cannot leave its captor, but the captor can take it into the squad.
 - The NPC of RECRUIT or FOLLOW agrees with `[AGREE]`, bargains, or refuses with `[REFUSE]`. Only these two categories have a refusal tag, because only they end on a refusal, and without the tag code cannot tell a refusal from a reply that still bargains. The refusal shows "X has refused your invitation to join Y." for RECRUIT, where Y is the faction of the speaker, and "X refused to follow you." for FOLLOW.
-- The lean of RECRUIT adds +1 for an `escaped-slave` NPC, +2 for a fellow captive, +2 for a captive of the speaker's faction, -6 for a fellow captive whose line is not a whisper, -1 for a unique NPC, -2 for a guard, and -2 for a trader. The -6 outweighs the best relation and the captive bonus together, so a plan that the captors can hear always leans to a refusal.
+- The lean of RECRUIT adds +1 for an `escaped-slave` NPC, +2 for a fellow captive, -6 for a fellow captive whose line is not a whisper, -1 for a unique NPC, -2 for a guard, and -2 for a trader. The -6 outweighs the best relation and the captive bonus together, so a plan that the captors can hear always leans to a refusal.
+- The lean of a captive of the speaker's faction adds +1 for the freedom that the join gives, because this reason is the only place where the NPC learns that the speaker is its captor. It also adds a bonus for the fight and one for the days held (`fight_pair`, `captivity_pair`), because a captive that fights worse than its captor obeys more readily, and a new captive defies its captors until a long captivity wears its will down. The relation still counts.
+
+| Bonus | Melee attack plus melee defence of the speaker, minus the NPC's | Whole game days held |
+|---|---|---|
+| -2 | -40 or less | 0 to 2 |
+| -1 | -39 to -15 | 3 to 4 |
+| 0 | -14 to 14 | 5 to 8 |
+| +1 | 15 to 39 | 9 to 13 |
+| +2 | 40 or more | 14 or more |
+
+- The `captive` table keeps the game time at which each captivity started (`world_events.days_held`). An `imprisonment` game event with attackers of the player's squad starts it (`campaign_db.start_captive`). A load imprisons each prisoner again with no attackers, so it keeps the start. A captive with no capture in the game events, such as a slave in shackles, which no hook sees, starts at the first RECRUIT line to it. A start after the game time of a line, from a load of an earlier save, restarts at that line (`campaign_db.captive_since`).
 - FOLLOW: FOLLOW takes the gates, the hard limits, and the lean of RECRUIT, and an NPC that is not a mercenary takes -1 more, because it is wary to follow for no reason. A FOLLOW line to a fellow captive runs as RECRUIT (`runs_as`), because a hired follower stays out of the player's control, so the player could not lead it out. A FOLLOW line to a captive of the speaker's faction also runs as RECRUIT, because the player does not hire a captive that the player holds.
 - A mercenary of FOLLOW gets `prompt_action_follow_mercenary.txt`, and any other NPC gets `prompt_action_follow.txt`, because one request that called each follow the work of a hired guard made other NPCs refuse "hired guard work" and write a fee of 0 cats. A mercenary charges at least the daily rate of its faction times the hours of the hire divided by 24 (`MERCENARY_RATES`): 2,000 cats for the Mercenary Guild, the Tech Hunters, and the Vagrants, and 2,500 cats for Black Dog. The rates come from the `Bodyguard` contracts of the hire dialogues `mercenary shop`, `bodyguard for hire`, `Thug2`, and `Black dog random extortion`. The Cannibal Hunters sell only an outpost guard contract, in which the hired squad does not follow, so they are not mercenaries.
 - DISMISS: A block stops DISMISS of an NPC that is not a temporary follower. The NPC never refuses, so DISMISS has no lean and no offer, and the player gets no part of the fee back.
@@ -638,7 +649,7 @@ Each LLM call names a task: `chat`, `radiant`, `profile`, `synthesis`, `memory`,
 
 A new campaign is a copy of a world template (see [World templates](#world-templates)) and does not depend on it afterwards. Only the Campaigns page creates and switches campaigns.
 
-- `open_campaign` builds a missing `campaign.db` from SSR Vanilla through `campaign.db.tmp`. It refuses an earlier schema version.
+- `open_campaign` builds a missing `campaign.db` from SSR Vanilla through `campaign.db.tmp`. It migrates schema 22, of releases 1 and 2, to 23, which adds the `captive` table, in one transaction (`_migrate_from_22`). It refuses any other earlier schema version.
 - With no current campaign, or a deleted `campaign.db`, each operation fails with the reason, and a route answers 409.
 
 ### Campaign canon
@@ -809,7 +820,7 @@ The server deletes a provisional profile that took part in no chat thread, and w
 | `POST /api/campaign/rumors`, `.../rumors/delete` | Save or delete a rumor |
 | `POST /api/campaign/events/add`, `.../events/delete` | Add a custom event, or delete an event |
 | `POST /api/campaign/memories`, `.../memories/delete` | Edit or delete a memory (see [Conversation memories](#conversation-memories)) |
-| `POST /api/campaign/cull` | Undo the re-keys, and delete the characters, dialogue, events, rumors, thread members, and memories dated after the current game time, except custom events and their rumors (see [Characters](#characters)). It refuses without a game report (see [Game state](#game-state)). |
+| `POST /api/campaign/cull` | Undo the re-keys, and delete the characters, dialogue, events, rumors, thread members, captives, and memories dated after the current game time, except custom events and their rumors (see [Characters](#characters)). It refuses without a game report (see [Game state](#game-state)). |
 
 - A refused campaign gives status 409. Each edit names the campaign that the page loaded, and the server refuses it for another campaign.
 - A record edit carries the `updated_at` that the page loaded, and the server refuses it when the row changed after that.

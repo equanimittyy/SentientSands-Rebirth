@@ -1,5 +1,5 @@
-"""Which known figures the player's squad killed or captured, from the game events, and the re-key of a character's records
-when a squad change gives it a new npc_id.
+"""Which known figures the player's squad killed or captured, from the game events, the days that the player's faction has
+held each captive, and the re-key of a character's records when a squad change gives it a new npc_id.
 
 The plugin keeps no state, so its hooks stay light: it sends the attacks of the player's faction, and the knockouts,
 wake-ups, deaths, and imprisonments of everyone. The server keeps the game events of each character in memory and replays them
@@ -37,6 +37,9 @@ def take(game_events):
         ended = _attribute(game_event, at)
         if ended:
             try:
+                # A load imprisons each prisoner again with no attackers, so it does not restart the clock
+                if game_event["kind"] == "imprisonment":
+                    campaign_db.start_captive(game_event["party"]["id"], at)
                 _store(game_event["kind"], game_event["party"], ended, at)
             except campaign_db.CampaignUnavailable:
                 pass  # The event is lost, but the report must still update the player's context
@@ -104,6 +107,13 @@ def fought_recently(npc_ids, ctx):
                 if game_event["kind"] == "knockout" and game_event.get("id") in npc_ids:
                     return True
     return False
+
+
+def days_held(npc_id, ctx):
+    """The whole game days since the player's squad captured the captive, or None without a game time. A captive with no
+    capture in the game events, such as a slave in shackles, which no hook sees, starts its clock at the first call."""
+    now = _minutes(ctx)
+    return None if now is None else (now - campaign_db.captive_since(npc_id, now)) // 1440
 
 
 def _rewind(at):

@@ -164,6 +164,23 @@ class AttributionTest(WorldEventsTestCase):
         self.assertEqual(self.events(), [])
 
 
+class CaptivityTest(WorldEventsTestCase):
+    def test_a_capture_by_the_squad_starts_the_clock_and_a_load_keeps_it(self):
+        world_events.take([attack(BEEP, KING, at(1, 10)), knockout(KING, at(1, 10, 1)), imprisonment(KING, at(1, 12))])
+        world_events.take([imprisonment(KING, at(3, 8))])
+        self.assertEqual(world_events.days_held(KING["id"], when(at(9, 11))), 7)
+        world_events.take([attack(BEEP, KING, at(10)), knockout(KING, at(10, 0, 1)), imprisonment(KING, at(10, 2))])
+        self.assertEqual(world_events.days_held(KING["id"], when(at(11, 3))), 1)
+
+    def test_a_captive_with_no_capture_starts_at_the_first_count(self):
+        world_events.take([imprisonment(TINFIST, at(1, 10))])
+        self.assertEqual(world_events.days_held(TINFIST["id"], when(at(4))), 0)
+        self.assertEqual(world_events.days_held(TINFIST["id"], when(at(6))), 2)
+
+    def test_no_game_time_counts_no_days(self):
+        self.assertIsNone(world_events.days_held(KING["id"], {}))
+
+
 class EventTest(WorldEventsTestCase):
     def test_no_event_for_a_generic_character(self):
         self.kill([BEEP], bandit(1), at(1, 10))

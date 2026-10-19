@@ -174,10 +174,11 @@ def relation_bonus(relation):
     return 0
 
 
-def lean(category, npc, speaker, relation, overheard=(), mode="talk"):
+def lean(category, npc, speaker, relation, overheard=(), mode="talk", days_held=None):
     """The (bonus, reason) pairs of the game state for the deal of the category, each bonus + or -. A reason names the
     speaker as {player}. overheard is the nearby list of the chat request, the characters near the speaker, and mode is
-    its chat mode."""
+    its chat mode. days_held is the whole game days that the speaker's faction has held the NPC captive
+    (world_events.days_held), or None."""
     if category == "THREATEN":
         return threat_lean(npc, speaker, overheard)
     bonus = relation_bonus(relation)
@@ -191,14 +192,45 @@ def lean(category, npc, speaker, relation, overheard=(), mode="talk"):
         captive = fellow_captives(npc, speaker)
         pairs += [(npc.get("character_state") == "escaped-slave", "You escaped slavery."),
                   (2 * captive, "{player} is a fellow captive, and like most captives, you want to escape."),
-                  (2 * captive_of(npc, speaker), "{player}'s faction holds you captive, and joining the squad sets you free."),
                   # Outweighs the best relation and the captive bonus together, so a plan said aloud always leans to a refusal
                   (-6 * (captive and mode != "whisper"), "{player} says it out loud, where your captors can hear, so you refuse and deny any plan to escape."),
                   (-bool(npc.get("unique")), "You are no common drifter."),
                   (-2 * is_guard(npc), "You are a guard."),
                   (-2 * is_trader(npc), "You have a trade to run."),
                   (-(category == "FOLLOW" and not mercenary_rate(npc)), "You have no reason to follow {player}.")]
+        if captive_of(npc, speaker):
+            pairs += [(1, "{player}'s faction holds you captive, and joining the squad sets you free."), fight_pair(npc, speaker)]
+            if days_held is not None:
+                pairs.append(captivity_pair(days_held))
     return [(int(bonus), reason) for bonus, reason in pairs if bonus]
+
+
+def fight_pair(npc, speaker):
+    """A captive that fights worse than its captor obeys more readily."""
+    gap = melee(speaker) - melee(npc)
+    if gap >= 40:
+        return 2, "{player} fights far better than you, and you dare not defy {player}."
+    if gap >= 15:
+        return 1, "{player} fights better than you."
+    if gap <= -40:
+        return -2, "You fight far better than {player}, and you do not fear {player}."
+    if gap <= -15:
+        return -1, "You fight better than {player}."
+    return 0, None
+
+
+def captivity_pair(days):
+    """A new captive defies its captors, and a long captivity wears its will down."""
+    if days >= 14:
+        return 2, f"{{player}}'s faction took you captive {days} days ago, and your will to resist is broken."
+    if days >= 9:
+        return 1, f"{{player}}'s faction took you captive {days} days ago, and your will to resist wears thin."
+    if days >= 5:
+        return 0, None
+    if days >= 3:
+        return -1, f"{{player}}'s faction took you captive only {days} days ago, and you still defy your captors."
+    when = f"{days} day{'s' if days > 1 else ''} ago" if days else "today"
+    return -2, f"{{player}}'s faction took you captive {when}, and your anger is fresh."
 
 
 def gave_charity_today(npc):
@@ -206,11 +238,12 @@ def gave_charity_today(npc):
     return charity_day is not None and charity_day == npc.get("day")
 
 
-def threat_lean(npc, speaker, overheard):
-    def melee(ctx):
-        stats = ctx.get("stats") or {}
-        return stats.get("melee_attack", 0) + stats.get("melee_defence", 0)
+def melee(ctx):
+    stats = ctx.get("stats") or {}
+    return stats.get("melee_attack", 0) + stats.get("melee_defence", 0)
 
+
+def threat_lean(npc, speaker, overheard):
     def sign(n):
         return (n > 0) - (n < 0)
 

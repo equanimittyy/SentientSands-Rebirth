@@ -89,6 +89,18 @@ class OpenTest(CampaignTestCase):
         with self.assertRaisesRegex(campaign_db.CampaignUnavailable, "Start a new campaign"):
             campaign_db.list_characters()
 
+    def test_schema_22_gains_the_captive_table(self):
+        campaign_db.open_campaign(self.folder, lambda: SEED)
+        conn = sqlite3.connect(os.path.join(self.folder, campaign_db.DB_NAME))
+        with conn:
+            conn.execute("DROP TABLE captive")
+            conn.execute("UPDATE meta SET value = '22' WHERE key = 'schema_version'")
+        conn.close()
+        campaign_db.open_campaign(self.folder, mock.Mock(side_effect=AssertionError("seed read again")))
+        self.assertEqual(campaign_db.read_meta(self.folder)["schema_version"], str(campaign_db.SCHEMA_VERSION))
+        self.assertEqual(campaign_db.captive_since(GENERIC_ID, 60), 60)
+        self.assertEqual(len(campaign_db.list_characters()), 1)
+
     def test_a_missing_database_fails_instead_of_being_created(self):
         campaign_db.open_campaign(self.folder, lambda: SEED)
         os.remove(os.path.join(self.folder, campaign_db.DB_NAME))
@@ -237,6 +249,13 @@ class CharacterTest(CampaignTestCase):
         self.assertEqual(campaign_db.hire(GENERIC_ID), (48, 4000))
         campaign_db.end_hire(GENERIC_ID)
         self.assertIsNone(campaign_db.hire(GENERIC_ID))
+
+    def test_a_captive_keeps_its_start_until_a_load_goes_back_before_it(self):
+        self.assertEqual(campaign_db.captive_since(GENERIC_ID, 3000), 3000)
+        self.assertEqual(campaign_db.captive_since(GENERIC_ID, 5000), 3000)
+        campaign_db.start_captive(GENERIC_ID, 4000)
+        self.assertEqual(campaign_db.captive_since(GENERIC_ID, 5000), 4000)
+        self.assertEqual(campaign_db.captive_since(GENERIC_ID, 3500), 3500)
 
     def test_toggle_favorite(self):
         campaign_db.upsert_profile(GENERIC_ID, BEEP)
@@ -534,6 +553,13 @@ class CullAndRumorTest(CampaignTestCase):
         self.assertEqual(campaign_db.get_character(GENERIC_ID)["ConversationHistory"], ["[Day 2, 09:59] early", "untimed"])
         self.assertEqual([at for _, at, _ in campaign_db.events()], [2 * 1440 + 600])
         self.assertEqual([rumor["text"] for rumor in campaign_db.rumors()], ["old"])
+
+    def test_cull_deletes_the_later_captives(self):
+        campaign_db.start_captive(GENERIC_ID, 2 * 1440)
+        campaign_db.start_captive(BEEP_ID, 3 * 1440)
+        campaign_db.cull_after(2, 10, 0)
+        self.assertEqual(campaign_db.captive_since(GENERIC_ID, 5 * 1440), 2 * 1440)
+        self.assertEqual(campaign_db.captive_since(BEEP_ID, 5 * 1440), 5 * 1440)
 
     def test_an_event_has_one_rumor_with_its_game_time(self):
         event_id = self.figure(1440)

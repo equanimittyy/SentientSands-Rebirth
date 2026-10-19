@@ -199,11 +199,28 @@ class LeanTest(unittest.TestCase):
         self.assertEqual(ad.lean("RECRUIT", shackled, shackled, 0, (), "whisper"), [(2, "{player} is a fellow captive, and like most captives, you want to escape.")])
         self.assertEqual(score("RECRUIT", {**shackled, "captor": "5-gamedata.base"}, shackled, 0), 0)
 
-    def test_a_captive_of_the_speaker_faction_joins_more_readily(self):
+    def test_a_captive_of_the_speaker_faction_leans_by_fight_and_days_held(self):
+        captor = {"factionID": "204-gamedata.base"}
         caged = {"character_state": "imprisoned", "captor": "204-gamedata.base"}
-        self.assertEqual(ad.lean("RECRUIT", caged, {"factionID": "204-gamedata.base"}, 0), [(2, "{player}'s faction holds you captive, and joining the squad sets you free.")])
-        self.assertEqual(score("RECRUIT", caged, {"factionID": "204-gamedata.base"}, -60), 0)
-        self.assertEqual(score("RECRUIT", caged, {"factionID": "17-gamedata.base"}, 0), 0)
+        self.assertEqual(ad.lean("RECRUIT", caged, captor, 0, days_held=0), [(1, "{player}'s faction holds you captive, and joining the squad sets you free."),
+                                                                            (-2, "{player}'s faction took you captive today, and your anger is fresh.")])
+        self.assertEqual(ad.lean_text(score("RECRUIT", caged, captor, -60, (), "talk", 0)), ad.REFUSED_LEAN)
+        weak = {**caged, "stats": {"melee_attack": 10, "melee_defence": 10}}
+        strong = {**captor, "stats": {"melee_attack": 40, "melee_defence": 20}}
+        self.assertEqual(score("RECRUIT", weak, strong, -60, (), "talk", 14), 3)
+        self.assertEqual(score("RECRUIT", caged, captor, 0), 1)
+        self.assertEqual(score("RECRUIT", caged, {"factionID": "17-gamedata.base"}, 0, (), "talk", 14), 0)
+
+    def test_the_fight_steps_of_a_captive(self):
+        speaker = {"stats": {"melee_attack": 50}}
+        gaps = (40, 39, 15, 14, -14, -15, -39, -40)
+        self.assertEqual([ad.fight_pair({"stats": {"melee_attack": 50 - gap}}, speaker)[0] for gap in gaps], [2, 1, 1, 0, 0, -1, -1, -2])
+
+    def test_the_days_held_steps_of_a_captive(self):
+        self.assertEqual([ad.captivity_pair(days)[0] for days in (0, 1, 2, 3, 4, 5, 8, 9, 13, 14, 40)], [-2, -2, -2, -1, -1, 0, 0, 1, 1, 2, 2])
+        self.assertEqual(ad.captivity_pair(1)[1], "{player}'s faction took you captive 1 day ago, and your anger is fresh.")
+        self.assertEqual(ad.captivity_pair(2)[1], "{player}'s faction took you captive 2 days ago, and your anger is fresh.")
+        self.assertEqual(ad.captivity_pair(3)[1], "{player}'s faction took you captive only 3 days ago, and you still defy your captors.")
 
     def test_a_fellow_captive_that_hears_no_whisper_fears_the_captors(self):
         shackled = {"character_state": "enslaved", "captor": "17-gamedata.base"}
