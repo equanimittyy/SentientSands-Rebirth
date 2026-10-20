@@ -10,6 +10,7 @@
 #include <kenshi/GameWorld.h>
 #include <kenshi/Inventory.h>
 #include <kenshi/Item.h>
+#include <kenshi/Kenshi.h>
 #include <kenshi/MedicalSystem.h>
 #include <kenshi/Platoon.h>
 #include <kenshi/PlayerInterface.h>
@@ -23,6 +24,7 @@
 #define WeatherRegion WeatherRegion_WeatherH
 #include <kenshi/Weather.h>
 #undef WeatherRegion
+#include <kenshi/WorldEventStateQuery.h>
 #include <kenshi/util/hand.h>
 #include <algorithm>
 #include <cctype>
@@ -1102,6 +1104,82 @@ std::string ChangedTowns() {
   return json + "]";
 }
 
+// KenshiLib declares neither the class nor its getter, so the layout and the
+// getter addresses come from Lucius64's KenshiExtensionPlugin.
+class UniqueNPCManager {
+public:
+  struct UniqueCharacterState {
+    GameData *characterTemplate;
+    hand handle;
+    WorldStateEnum state;
+    bool playerInvolvement;
+  };
+  ogre_unordered_map<GameData *, UniqueCharacterState>::type
+      uniqueCharacterStates;
+};
+
+typedef UniqueNPCManager *(*UniqueNPCManagerGetter)();
+
+static const struct {
+  KenshiLib::BinaryVersion::KenshiPlatform platform;
+  const char *version;
+  uintptr_t rva;
+} UNIQUE_NPC_MANAGER_GETTERS[] = {
+    {KenshiLib::BinaryVersion::STEAM, "1.0.65", 0x354500},
+    {KenshiLib::BinaryVersion::GOG, "1.0.65", 0x3540b0},
+    {KenshiLib::BinaryVersion::STEAM, "1.0.68", 0x354560},
+    {KenshiLib::BinaryVersion::GOG, "1.0.68", 0x353f00},
+};
+
+static UniqueNPCManager *UniqueNPCs() {
+  static UniqueNPCManagerGetter getter = nullptr;
+  static bool resolved = false;
+  if (!resolved) {
+    resolved = true;
+    KenshiLib::BinaryVersion version = KenshiLib::GetKenshiVersion();
+    for (size_t i = 0; i < sizeof(UNIQUE_NPC_MANAGER_GETTERS) /
+                               sizeof(UNIQUE_NPC_MANAGER_GETTERS[0]);
+         ++i) {
+      if (UNIQUE_NPC_MANAGER_GETTERS[i].platform == version.GetPlatform() &&
+          version.GetVersion() == UNIQUE_NPC_MANAGER_GETTERS[i].version)
+        getter = (UniqueNPCManagerGetter)(
+            (uintptr_t)GetModuleHandleA(nullptr) +
+            UNIQUE_NPC_MANAGER_GETTERS[i].rva);
+    }
+    if (!getter)
+      Log(LOG_WARN, "SYSTEM: No address of the unique NPC states for " +
+                           version.GetPlatformStr() + " " +
+                           version.GetVersion() +
+                           ", so the faction lore keeps every leader alive");
+  }
+  return getter ? getter() : nullptr;
+}
+
+// The id is the string ID of the template, which the npc_id of a canon
+// character holds. Without the states it gives null, because an empty list
+// would mean that every unique NPC lives.
+std::string UniqueStates() {
+  UniqueNPCManager *manager = UniqueNPCs();
+  if (!manager)
+    return "null";
+  std::string json = "[";
+  ogre_unordered_map<GameData *,
+                     UniqueNPCManager::UniqueCharacterState>::type &states =
+      manager->uniqueCharacterStates;
+  for (auto it = states.begin(); it != states.end(); ++it) {
+    WorldStateEnum state = it->second.state;
+    if (!it->first || (state != DEAD && state != IMPRISONED))
+      continue;
+    if (json.size() > 1)
+      json += ",";
+    json += "{\"id\": \"" + EscapeJSON(it->first->stringID) +
+            "\", \"name\": \"" + EscapeJSON(it->first->name) +
+            "\", \"state\": \"" + (state == DEAD ? "dead" : "imprisoned") +
+            "\"}";
+  }
+  return json + "]";
+}
+
 static std::string NameWords(const std::string &text) {
   std::string words;
   for (size_t i = 0; i < text.size(); ++i) {
@@ -1221,7 +1299,8 @@ std::string GameReport() {
   Character *first = FirstPlayerCharacter();
   std::string player = first ? GetDetailedContext(first, "player") : "{}";
   return "{\"player\": " + player + ", \"events\": " + TakeGameEvents() +
-         ", \"changed_towns\": " + ChangedTowns() + "}";
+         ", \"changed_towns\": " + ChangedTowns() +
+         ", \"unique_states\": " + UniqueStates() + "}";
 }
 
 // Leading commas, so the empty result without a world leaves the object valid

@@ -144,6 +144,16 @@ A world state can swap the data of a town for an override with another owner or 
 - A town that falls to ruins keeps its owner as the former owner, and a new owner of a ruin changes nothing (see [Links](#links)).
 - The game decides which world states hold, so the overrides of a mod work too.
 
+### Dead and imprisoned unique NPCs
+
+The game keeps the state of each unique NPC that it spawned: alive, dead, or imprisoned. The faction records describe the start of a game, so the server lays the deaths and the imprisonments of the leaders and the nobles over them (`server/chat/rulers.py`).
+
+- Each chat, radiant conversation, and report carries `unique_states` (`UniqueStates` in `plugin/game/Context.cpp`): the string ID, the name, and the state (`dead` or `imprisoned`) of each unique NPC that is not alive. The server keeps only the latest list, because a load can undo a death.
+- The plugin reads the states from a class of the game that KenshiLib does not declare (see [Kenshi internals](kenshi_internals.md#unique-npc-states)). On a game version without a known address, it sends `null` and logs a warning, because an empty list would mean that every unique NPC lives.
+- `rulers.current` gives a faction whose `leader` or `nobles` names such an NPC a `dead` or an `imprisoned` field, for example "leader: Tinfist; imprisoned: Tinfist". The `leader` and the `nobles` stay, so the links of the record hold.
+- The fields reach the lore hits and the current and origin factions of the NPC in the system message (`describe_faction`). Each NPC that knows the faction knows the state, as for a changed town.
+- A name matches by its name words: the game name of the NPC, or the `Name` of its canon character record, whose `npc_id` is `u:` and the string ID. A value that names two NPCs, such as "Dimak and Buzan", is split at "and" when it matches no one as a whole.
+
 ## Web app
 
 The server serves `server/dashboard/web/` at `/` and `/web/<file>`: plain HTML, CSS, and JavaScript modules with no build step and no CDN, so the web app works offline.

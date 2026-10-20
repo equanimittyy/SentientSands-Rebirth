@@ -71,6 +71,20 @@ A probe of these hooks in several played sessions showed these facts. The plugin
 - `getCurrentTownLocation` also gives animal dens, such as `Bog Dog Den 9`.
 - A mod can split one animal into several races: `Wolf_Headgear.mod` gives Bonedogs the races `Bonedog (white)`, `Bonedog (yellow)`, and `Bonedog (darkbrown)` besides `Bonedog`. The name of each of these Bonedogs stays `Bonedog`.
 
+## Unique NPC states
+
+The game keeps a `UniqueNPCManager` singleton with the state of each unique NPC that it spawned. The world states test this state (`WorldEventStateQuery::uniqueNPCsAre`).
+
+- The singleton holds a map from the template `GameData` of each unique NPC to its state: the template (null while the NPC is not spawned), a `hand` of the character, a `WorldStateEnum` (`DEAD`, `ALIVE`, or `IMPRISONED`), and a flag for the involvement of the player.
+- KenshiLib declares neither the class nor its getter. The layout and the getter addresses come from Lucius64's KenshiExtensionPlugin, which reads and writes the map in game. SSR has not yet read it in the game.
+
+| Platform | Version | RVA of the getter |
+|---|---|---|
+| Steam | 1.0.65 | `0x354500` |
+| GOG | 1.0.65 | `0x3540b0` |
+| Steam | 1.0.68 | `0x354560` |
+| GOG | 1.0.68 | `0x353f00` |
+
 ## Squads
 
 `PlayerInterface::getCurrentPlatoon` gives the squad that the player selected. A squad member is in that squad when its `Character::getPlatoon` is the `getActivePlatoon` of that squad.

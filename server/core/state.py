@@ -10,6 +10,8 @@ ACTIVE_CAMPAIGN = "Default"
 LIVE_CONTEXTS = {}
 PLAYER_CONTEXT = {}
 CHANGED_TOWNS = []
+# None until the game sends the states, and while the plugin cannot read them on the game version
+UNIQUE_STATES = None
 # The scene stays fixed for a whole conversation, so the prompt cache can serve it; a chat with another NPC or as another squad member, a new name or faction of the NPC, or a first exchange with it starts a new one
 CONVERSATION_SCENE = {}
 # {"key": (npc_id of the NPC, mode), "id": thread ID, "replied": time.monotonic() of the last reply}

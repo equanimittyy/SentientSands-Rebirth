@@ -1,6 +1,6 @@
 import logging
 
-from chat import prompt_store, retrieval, scene_text, towns
+from chat import prompt_store, retrieval, rulers, scene_text, towns
 from chat.characters import is_skeleton, reported_sex
 from core import state
 from core.game import is_player_faction
@@ -11,7 +11,8 @@ from store import campaign_db
 PROMPT_RUMORS = 3
 
 def describe_faction(name, faction_id=None):
-    return faction_text(name, campaign_db.find_faction(faction_id, name) if name and name != "Unknown" else None)
+    faction = campaign_db.find_faction(faction_id, name) if name and name != "Unknown" else None
+    return faction_text(name, rulers.current(faction, rulers.fallen()) if faction else None)
 
 def faction_text(name, faction):
     if not name or name == "Unknown":

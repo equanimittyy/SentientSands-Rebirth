@@ -3,7 +3,7 @@ message of a chat and for the test search of the web app, so the test search fin
 
 import math
 
-from chat import chat_prompt, knowledge, retrieval, towns
+from chat import chat_prompt, knowledge, retrieval, rulers, towns
 from chat.prompts import PROMPT_RUMORS, find_named
 from core import world_events
 from core.settings import load_settings
@@ -16,7 +16,8 @@ def campaign_lore():
     stored = campaign_db.character_knowledge()
     characters = [{"npc_id": npc_id, "profile": profile, **stored[npc_id]} for (npc_id,), profile, origin, _ in campaign_db.list_records("character") if origin != "game"]
     entities = [(category, ext_id, towns.current(data) if category == "locations" else data) for (category, ext_id), data, *_ in campaign_db.list_records("entity")]
-    return retrieval.lore_records(entities, campaign_db.list_factions(), campaign_db.history(), characters)
+    fallen = rulers.fallen()
+    return retrieval.lore_records(entities, [rulers.current(faction, fallen) for faction in campaign_db.list_factions()], campaign_db.history(), characters)
 
 
 def in_system_message(lore, npc_id, profile, faction_id, speaker_race, known, town, zone):

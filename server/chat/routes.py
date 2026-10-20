@@ -37,7 +37,7 @@ def radiant_conversation():
     data = request.json
     if not data: return jsonify({"status": "error"}), 400
     center = context_dict(data.get('player_context'))
-    take_report(center, data.get('events'), data.get('changed_towns'))
+    take_report(center, data.get('events'), data.get('changed_towns'), data.get('unique_states'))
     rumor_texts = [rumor["text"] for rumor in campaign_db.rumors()[-PROMPT_RUMORS:]]
     if state.PENDING_OFFER:
         logging.info("RADIANT: An offer waits for the player's answer, so nobody talks.")
@@ -387,7 +387,7 @@ def chat():
     if not data: return jsonify({"text": "Error: No JSON data provided"}), 400
 
     speaker = context_dict(data.get('speaker'))
-    take_report(speaker, data.get('events'), data.get('changed_towns'))
+    take_report(speaker, data.get('events'), data.get('changed_towns'), data.get('unique_states'))
     
     raw_npc = data.get('npc', 'Someone')
     raw_npcs = data.get('npcs', [])

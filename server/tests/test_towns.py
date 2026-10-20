@@ -96,8 +96,8 @@ class ReportTest(unittest.TestCase):
     def test_a_new_list_is_logged_once(self):
         towns = [{"name": "Brink", "owner": "Reavers", "owner_id": REAVERS, "type": 2}]
         with self.assertLogs(level="DEBUG") as logs:
-            game.take_report(None, [], towns)
-            game.take_report(None, [], towns)
+            game.take_report(None, [], towns, [])
+            game.take_report(None, [], towns, [])
         self.assertEqual([record.getMessage() for record in logs.records if record.getMessage().startswith("TOWNS")], [f"TOWNS: Brink: owner Reavers ({REAVERS}), type 2"])
 
 

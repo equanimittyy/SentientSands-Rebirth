@@ -782,7 +782,8 @@ static void playerUpdate_hook(PlayerInterface *thisptr) {
                     ", \"player_context\": " +
                     GetDetailedContext(center, "player") +
                     ", \"events\": " + TakeGameEvents() +
-                    ", \"changed_towns\": " + ChangedTowns() + "}",
+                    ", \"changed_towns\": " + ChangedTowns() +
+                    ", \"unique_states\": " + UniqueStates() + "}",
                 "RADIANT_DONE", "");
           }
         }

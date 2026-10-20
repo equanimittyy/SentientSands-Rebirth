@@ -84,10 +84,11 @@ def relation_text(rel):
     elif rel >= 25: label = "FRIENDLY"
     return f"{label} ({rel:+} pts)"
 
-def take_report(player, events, towns):
-    """Keeps the player's context and the changed towns, and takes the events that the game events of a request from the
-    plugin carries. The plugin sends the context only with a request, so the player's context is the one of the latest
-    request. A load of an older save can undo a change of a town, so only the latest list counts."""
+def take_report(player, events, towns, uniques):
+    """Keeps the player's context, the changed towns, and the unique NPCs that are not alive, and takes the events that
+    the game events of a request from the plugin carries. The plugin sends the context only with a request, so the
+    player's context is the one of the latest request. A load of an older save can undo a change of a town or a death,
+    so only the latest lists count."""
     if player:
         state.PLAYER_CONTEXT = player
         note_faction(player, is_player=True)
@@ -96,6 +97,10 @@ def take_report(player, events, towns):
         listed = "; ".join(f"{town.get('name')}: owner {town.get('owner') or 'none'} ({town.get('owner_id')}), type {town.get('type')}" for town in towns)
         logging.debug(f"TOWNS: {listed or 'No changed town.'}")
     state.CHANGED_TOWNS = towns
+    if uniques != state.UNIQUE_STATES:
+        listed = "The game sent none." if uniques is None else "; ".join(f"{unique['name']} ({unique['id']}): {unique['state']}" for unique in uniques)
+        logging.debug(f"UNIQUES: {listed or 'No unique NPC is dead or imprisoned.'}")
+    state.UNIQUE_STATES = uniques
     world_events.take(events)
 
 def report_from_game(timeout=5):
