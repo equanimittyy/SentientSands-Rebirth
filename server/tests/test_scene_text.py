@@ -107,7 +107,7 @@ class SentenceTest(unittest.TestCase):
         self.assertEqual(scene_text.equipment_text("You", items[4:]), "")
 
     def test_strength_compares_the_player_with_the_npc(self):
-        self.assertEqual([scene_text.strength_text("Stick", {"melee_attack": 50, "melee_defence": 20}, {"melee_defence": v}) for v in (19, 20, 40, 60, 80)], [step.format(name="Stick") for _, step in scene_text.STRENGTH_GAP])
+        self.assertEqual([scene_text.strength_text("Stick", {"melee_attack": 50, "melee_defence": 20}, {"melee_defence": v}) for v in (19, 20, 40, 60, 80)], [scene_text.STRENGTH[step].format(name="Stick") for step in (-2, -1, 0, 1, 2)])
         self.assertEqual(scene_text.strength_text("Stick", {"melee_attack": 50}, {"strength": 90}), "")
 
     def test_limbs(self):

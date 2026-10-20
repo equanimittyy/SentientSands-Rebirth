@@ -211,10 +211,11 @@ class LeanTest(unittest.TestCase):
         self.assertEqual(score("RECRUIT", caged, captor, 0), 1)
         self.assertEqual(score("RECRUIT", caged, {"factionID": "17-gamedata.base"}, 0, (), "talk", 14), 0)
 
-    def test_the_fight_steps_of_a_captive(self):
-        speaker = {"stats": {"melee_attack": 50}}
-        gaps = (40, 39, 15, 14, -14, -15, -39, -40)
-        self.assertEqual([ad.fight_pair({"stats": {"melee_attack": 50 - gap}}, speaker)[0] for gap in gaps], [2, 1, 1, 0, 0, -1, -1, -2])
+    def test_the_fight_bonus_takes_the_strength_step_of_the_chat_prompt(self):
+        speaker = {"stats": {"melee_attack": 50, "melee_defence": 10}}
+        gaps = (30, 29, 10, 9, -10, -11, -30, -31)
+        self.assertEqual([ad.fight_bonus({"stats": {"melee_defence": 50 - gap}}, speaker) for gap in gaps], [2, 1, 1, 0, 0, -1, -1, -2])
+        self.assertEqual(ad.fight_bonus({}, speaker), 0)
 
     def test_the_days_held_steps_of_a_captive(self):
         self.assertEqual([ad.captivity_pair(days)[0] for days in (0, 1, 2, 3, 4, 5, 8, 9, 13, 14, 40)], [-2, -2, -2, -1, -1, 0, 0, 1, 1, 2, 2])
@@ -240,8 +241,10 @@ class LeanTest(unittest.TestCase):
         strong = {"stats": {"melee_attack": 40, "melee_defence": 40}, "faction": "Nameless", "name": "Zaps", "squad": ["Zaps", "Zip"]}
         npc = {"stats": {"melee_attack": 10, "melee_defence": 10}, "faction": "Dust Bandits", "health": "Injured",
                "nearby": [{"name": "Zip", "faction": "Nameless"}, {"name": "Bandit", "faction": "Dust Bandits"}]}
-        self.assertEqual(score("THREATEN", npc, strong, 0), 3)
-        self.assertEqual(score("THREATEN", {**npc, "is_leader": True}, strong, 0), 2)
+        self.assertEqual(score("THREATEN", npc, strong, 0), 4)
+        self.assertEqual(score("THREATEN", {**npc, "stats": {"melee_attack": 25}}, strong, 0), 3)
+        self.assertEqual(score("THREATEN", {**npc, "stats": {"melee_attack": 35}}, strong, 0), 2)
+        self.assertEqual(score("THREATEN", {**npc, "is_leader": True}, strong, 0), 3)
 
     def test_the_thought_gives_the_band_and_its_reasons(self):
         lean = ad.lean("RECRUIT", {"character_state": "escaped-slave", **GUARD}, {}, -30)

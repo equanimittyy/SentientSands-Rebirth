@@ -39,14 +39,15 @@ COMBAT = [
     (80, "You are a formidable fighter."),
     (None, "Few in the world can match you in a fight."),
 ]
-# The fight skill of the person before the NPC minus the fight skill of the NPC
-STRENGTH_GAP = [
-    (-30, "{name} looks much weaker than you."),
-    (-10, "{name} looks weaker than you."),
-    (10, "{name} looks about as strong as you."),
-    (30, "{name} looks stronger than you."),
-    (None, "{name} looks much stronger than you."),
-]
+# The fight skill of the person before the NPC minus the fight skill of the NPC, as a step from -2 to 2
+STRENGTH_GAP = [(-30, -2), (-10, -1), (10, 0), (30, 1), (None, 2)]
+STRENGTH = {
+    -2: "{name} looks much weaker than you.",
+    -1: "{name} looks weaker than you.",
+    0: "{name} looks about as strong as you.",
+    1: "{name} looks stronger than you.",
+    2: "{name} looks much stronger than you.",
+}
 MONEY = [
     (50, "You are nearly penniless."),
     (1000, "You have a little money."),
@@ -236,11 +237,15 @@ def combat_text(stats):
     return _scale(skill, COMBAT) if skill is not None else ""
 
 
-def strength_text(name, stats, other_stats):
+def strength_step(stats, other_stats):
+    """The step of STRENGTH_GAP, or None without the fight skill of both."""
     own, other = _fight_skill(stats), _fight_skill(other_stats)
-    if own is None or other is None:
-        return ""
-    return _scale(other - own, STRENGTH_GAP).format(name=name)
+    return None if own is None or other is None else _scale(other - own, STRENGTH_GAP)
+
+
+def strength_text(name, stats, other_stats):
+    step = strength_step(stats, other_stats)
+    return "" if step is None else STRENGTH[step].format(name=name)
 
 
 def equipment_text(subject, items):

@@ -9,7 +9,7 @@ import json
 import random
 import re
 
-from chat import current_job
+from chat import current_job, scene_text
 from core import state
 from core.paths import DEFAULTS_DIR
 
@@ -34,6 +34,8 @@ LEAN_BANDS = ((2, "You are inclined to agree."), (-1, "You could go either way."
 REFUSED_LEAN = "You are inclined to refuse."
 RELATION_REASONS = {2: "You like {player}'s group a lot.", 1: "You like {player}'s group.", -1: "You dislike {player}'s group.",
                     -2: "You hate {player}'s group."}
+FIGHT_REASONS = {2: "{player} fights far better than you, and you dare not defy {player}.", 1: "{player} fights better than you.",
+                 -1: "You fight better than {player}.", -2: "You fight far better than {player}, and you do not fear {player}."}
 END_LINES_PATH = f"{DEFAULTS_DIR}/action_end_lines.json"
 KITS = (("first aid kit", "needs_first_aid", "has_first_aid"), ("repair kit", "needs_repair", "has_repair_kit"))
 _WORD = re.compile(r"[^\W\d_]+")
@@ -199,24 +201,17 @@ def lean(category, npc, speaker, relation, overheard=(), mode="talk", days_held=
                   (-2 * is_trader(npc), "You have a trade to run."),
                   (-(category == "FOLLOW" and not mercenary_rate(npc)), "You have no reason to follow {player}.")]
         if captive_of(npc, speaker):
-            pairs += [(1, "{player}'s faction holds you captive, and joining the squad sets you free."), fight_pair(npc, speaker)]
+            fight = fight_bonus(npc, speaker)
+            pairs += [(1, "{player}'s faction holds you captive, and joining the squad sets you free."), (fight, FIGHT_REASONS.get(fight))]
             if days_held is not None:
                 pairs.append(captivity_pair(days_held))
     return [(int(bonus), reason) for bonus, reason in pairs if bonus]
 
 
-def fight_pair(npc, speaker):
-    """A captive that fights worse than its captor obeys more readily."""
-    gap = melee(speaker) - melee(npc)
-    if gap >= 40:
-        return 2, "{player} fights far better than you, and you dare not defy {player}."
-    if gap >= 15:
-        return 1, "{player} fights better than you."
-    if gap <= -40:
-        return -2, "You fight far better than {player}, and you do not fear {player}."
-    if gap <= -15:
-        return -1, "You fight better than {player}."
-    return 0, None
+def fight_bonus(npc, speaker):
+    """How much stronger the speaker looks in the chat prompt (scene_text.strength_step), from -2 to 2, so a reason never
+    contradicts that line."""
+    return scene_text.strength_step(npc.get("stats") or {}, speaker.get("stats") or {}) or 0
 
 
 def captivity_pair(days):
@@ -238,19 +233,14 @@ def gave_charity_today(npc):
     return charity_day is not None and charity_day == npc.get("day")
 
 
-def melee(ctx):
-    stats = ctx.get("stats") or {}
-    return stats.get("melee_attack", 0) + stats.get("melee_defence", 0)
-
-
 def threat_lean(npc, speaker, overheard):
     def sign(n):
         return (n > 0) - (n < 0)
 
     squad, own = sides(npc, speaker, overheard)
-    fight, numbers = sign(melee(speaker) - melee(npc)), sign(squad - own)
+    fight, numbers = fight_bonus(npc, speaker), sign(squad - own)
     leader = current_job.is_leader(npc)
-    pairs = [(fight, "{player} fights better than you." if fight > 0 else "You fight better than {player}."),
+    pairs = [(fight, FIGHT_REASONS.get(fight)),
              (numbers, "{player}'s side outnumbers yours here." if numbers > 0 else "Your side outnumbers {player}'s here."),
              (npc.get("health") in ("Injured", "Crippled"), "You are hurt."),
              (-(speaker.get("health") in ("Injured", "Crippled")), "{player} is hurt."),
