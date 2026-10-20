@@ -15,6 +15,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 DB_NAME = "campaign.db"
+BACKUP_22 = "campaign_ssr2_backup.db"
 SCHEMA_VERSION = 23
 DIALOGUE_BLOCK = 20
 # A memory that this many passes read and did not cite leaves the auto rumor pool, so dull memories do not fill each prompt
@@ -154,24 +155,35 @@ def open_campaign(folder, seed):
         if not os.path.exists(path):
             create(folder, seed())
             return
-        version = read_meta(folder).get("schema_version")
-        if version == "22":
-            _migrate_from_22(path)
-        elif version != str(SCHEMA_VERSION):
+        name, meta = os.path.basename(folder), read_meta(folder)
+        if meta.get("schema_version") == "22":
+            try:
+                _migrate_from_22(path)
+            except (OSError, sqlite3.Error) as e:
+                _db_path = None
+                _closed_reason = f"SSR cannot update the campaign {name} for this version: {e}. Restart SSR to try again."
+                raise CampaignUnavailable(_closed_reason) from e
+        elif meta.get("schema_version") != str(SCHEMA_VERSION):
             _db_path = None
-            _closed_reason = f"The campaign {os.path.basename(folder)} was made by an earlier version of SSR, which this version cannot open. Start a new campaign."
+            _closed_reason = f"The campaign {name} was made by an earlier version of SSR, which this version cannot open. Start a new campaign."
             raise CampaignUnavailable(_closed_reason)
 
 
 def _migrate_from_22(path):
-    """Schema 22, of releases 1 and 2, has no captive table. A script that fails leaves its transaction open, so the close
-    rolls back the whole migration."""
+    """Schema 22 has no captive table. The copy first keeps the campaign for a player who goes back to SSR 2. A script that
+    fails leaves its transaction open, so the close rolls back the whole migration."""
+    backup = os.path.join(os.path.dirname(path), BACKUP_22)
     conn = sqlite3.connect(path)
     try:
+        copy = sqlite3.connect(backup)
+        try:
+            conn.backup(copy)
+        finally:
+            copy.close()
         conn.executescript(f"BEGIN; {CAPTIVE_TABLE}; UPDATE meta SET value = '{SCHEMA_VERSION}' WHERE key = 'schema_version'; COMMIT;")
     finally:
         conn.close()
-    logging.info(f"CAMPAIGN: Migrated {path} from schema 22 to {SCHEMA_VERSION}.")
+    logging.info(f"CAMPAIGN: Copied {path} to {BACKUP_22}, then migrated it from schema 22 to {SCHEMA_VERSION}.")
 
 
 def close_campaign():

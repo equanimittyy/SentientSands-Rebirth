@@ -649,7 +649,9 @@ Each LLM call names a task: `chat`, `radiant`, `profile`, `synthesis`, `memory`,
 
 A new campaign is a copy of a world template (see [World templates](#world-templates)) and does not depend on it afterwards. Only the Campaigns page creates and switches campaigns.
 
-- `open_campaign` builds a missing `campaign.db` from SSR Vanilla through `campaign.db.tmp`. It migrates schema 22, of releases 1 and 2, to 23, which adds the `captive` table, in one transaction (`_migrate_from_22`). It refuses any other earlier schema version.
+- `open_campaign` builds a missing `campaign.db` from SSR Vanilla through `campaign.db.tmp`.
+- `open_campaign` migrates schema 22, of releases 1 and 2, to 23, which adds the `captive` table (`_migrate_from_22`). It first copies the database to `campaign_ssr2_backup.db` in the campaign folder with the SQLite backup API, so a player who goes back to SSR 2 keeps the campaign. Then one transaction changes the schema. A failed copy or migration leaves schema 22 and closes the campaign with the error.
+- `open_campaign` refuses any other schema version.
 - With no current campaign, or a deleted `campaign.db`, each operation fails with the reason, and a route answers 409.
 
 ### Campaign canon

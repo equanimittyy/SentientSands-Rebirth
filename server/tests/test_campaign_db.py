@@ -78,28 +78,43 @@ class OpenTest(CampaignTestCase):
         campaign_db.open_campaign(self.folder, mock.Mock(side_effect=AssertionError("seed read again")))
         self.assertEqual(campaign_db.overview(), "Kenshi is a world of rust.")
 
-    def test_an_earlier_schema_version_is_refused_and_closes_the_campaign(self):
-        campaign_db.open_campaign(self.folder, lambda: SEED)
+    def write_meta(self, sql):
         conn = sqlite3.connect(os.path.join(self.folder, campaign_db.DB_NAME))
         with conn:
-            conn.execute("UPDATE meta SET value = '1' WHERE key = 'schema_version'")
+            conn.executescript(sql)
         conn.close()
+
+    def test_an_earlier_schema_version_is_refused_and_closes_the_campaign(self):
+        campaign_db.open_campaign(self.folder, lambda: SEED)
+        self.write_meta("UPDATE meta SET value = '1' WHERE key = 'schema_version'")
         with self.assertRaises(campaign_db.CampaignUnavailable):
             campaign_db.open_campaign(self.folder, lambda: SEED)
         with self.assertRaisesRegex(campaign_db.CampaignUnavailable, "Start a new campaign"):
             campaign_db.list_characters()
 
-    def test_schema_22_gains_the_captive_table(self):
+    SCHEMA_22 = "DROP TABLE captive; UPDATE meta SET value = '22' WHERE key = 'schema_version'"
+
+    def test_schema_22_gains_the_captive_table_after_a_backup(self):
         campaign_db.open_campaign(self.folder, lambda: SEED)
-        conn = sqlite3.connect(os.path.join(self.folder, campaign_db.DB_NAME))
-        with conn:
-            conn.execute("DROP TABLE captive")
-            conn.execute("UPDATE meta SET value = '22' WHERE key = 'schema_version'")
-        conn.close()
+        self.write_meta(self.SCHEMA_22)
         campaign_db.open_campaign(self.folder, mock.Mock(side_effect=AssertionError("seed read again")))
         self.assertEqual(campaign_db.read_meta(self.folder)["schema_version"], str(campaign_db.SCHEMA_VERSION))
         self.assertEqual(campaign_db.captive_since(GENERIC_ID, 60), 60)
         self.assertEqual(len(campaign_db.list_characters()), 1)
+        backup = sqlite3.connect(os.path.join(self.folder, campaign_db.BACKUP_22))
+        self.assertEqual(backup.execute("SELECT value FROM meta WHERE key = 'schema_version'").fetchone(), ("22",))
+        self.assertIsNone(backup.execute("SELECT 1 FROM sqlite_master WHERE name = 'captive'").fetchone())
+        backup.close()
+
+    def test_a_failed_backup_leaves_schema_22_and_closes_the_campaign(self):
+        campaign_db.open_campaign(self.folder, lambda: SEED)
+        self.write_meta(self.SCHEMA_22)
+        os.mkdir(os.path.join(self.folder, campaign_db.BACKUP_22))
+        with self.assertRaisesRegex(campaign_db.CampaignUnavailable, "cannot update the campaign .* Restart SSR to try again"):
+            campaign_db.open_campaign(self.folder, lambda: SEED)
+        self.assertEqual(campaign_db.read_meta(self.folder)["schema_version"], "22")
+        with self.assertRaises(campaign_db.CampaignUnavailable):
+            campaign_db.list_characters()
 
     def test_a_missing_database_fails_instead_of_being_created(self):
         campaign_db.open_campaign(self.folder, lambda: SEED)
