@@ -65,6 +65,8 @@ def switch_campaign(name):
         save_settings({"current_campaign": name})
         state.LIVE_CONTEXTS.clear()
         state.SEEN_FACTIONS.clear()
+        state.SEEN_OUTPOSTS.clear()
+        state.PLAYER_TOWNS = None
         state.CONVERSATION_SCENE.clear()
         state.CURRENT_THREAD.clear()
         state.RECENT_HITS.clear()

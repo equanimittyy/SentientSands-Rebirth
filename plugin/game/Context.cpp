@@ -911,13 +911,29 @@ static std::string MedicalJson(MedicalSystem *med) {
          LimbFields("right_leg", med->rightLeg) + "}}";
 }
 
+static bool IsPlayerTown(TownBase *town) {
+  Faction *owner = ((RootObjectBase *)town)->getFaction();
+  return owner && owner->isThePlayer();
+}
+
+// Every outpost is "Your Outpost" until the player renames it, so only the
+// handle tells two apart
+static std::string TownKey(TownBase *town) {
+  const hand &h = ((RootObjectBase *)town)->getHandle();
+  return "t:" + ToString(h.index) + "-" + ToString(h.serial) + "-" +
+         ToString(h.container) + "-" + ToString(h.containerSerial);
+}
+
 static std::string EnvironmentJson(Character *npc) {
   std::string json = "{\"indoors\": " + JsonBool(npc->isIndoors().isValid()) +
                      ", \"in_town\": " +
                      JsonBool(npc->amInsideTownWalls() != 0);
   TownBase *town = npc->getCurrentTownLocation();
-  if (town)
+  if (town) {
     json += ", \"town_name\": \"" + EscapeJSON(town->getName()) + "\"";
+    if (IsPlayerTown(town))
+      json += ", \"player_town\": \"" + TownKey(town) + "\"";
+  }
   std::string zone = ZoneName();
   if (!zone.empty())
     json += ", \"zone_name\": \"" + EscapeJSON(zone) + "\"";
@@ -1305,12 +1321,32 @@ bool HeldByPlayer(Character *c) {
   return captor && captor->isThePlayer();
 }
 
+// null without a town list, because an empty list makes the server delete the
+// record of every outpost
+std::string PlayerTowns() {
+  SharedKing *shared = ppSharedKing ? *ppSharedKing : nullptr;
+  if (!shared || !shared->townList)
+    return "null";
+  std::string json = "[";
+  lektor<RootObject *> &towns = shared->townList->getAllTowns();
+  for (uint32_t i = 0; i < towns.size(); ++i) {
+    TownBase *town = (TownBase *)towns[i];
+    if (!town || !IsPlayerTown(town))
+      continue;
+    if (json.size() > 1)
+      json += ",";
+    json += "\"" + TownKey(town) + "\"";
+  }
+  return json + "]";
+}
+
 std::string GameReport() {
   Character *first = FirstPlayerCharacter();
   std::string player = first ? GetDetailedContext(first, "player") : "{}";
   return "{\"player\": " + player + ", \"events\": " + TakeGameEvents() +
          ", \"changed_towns\": " + ChangedTowns() +
-         ", \"unique_states\": " + UniqueStates() + "}";
+         ", \"unique_states\": " + UniqueStates() +
+         ", \"player_towns\": " + PlayerTowns() + "}";
 }
 
 // Leading commas, so the empty result without a world leaves the object valid

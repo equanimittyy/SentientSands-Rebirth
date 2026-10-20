@@ -30,6 +30,9 @@ PENDING_OFFER = None
 CHARITY_DAYS = {}
 WRITE_REQUESTS = 0
 SEEN_FACTIONS = set()
+# {town key: (name, zone, owner)} of each outpost record that matches the game
+SEEN_OUTPOSTS = {}
+PLAYER_TOWNS = None
 GAME_REPORTED = threading.Event()
 NAMES_CONFIG = {}
 LOCALIZATION_CONFIG = {}

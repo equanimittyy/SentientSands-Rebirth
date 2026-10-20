@@ -60,9 +60,9 @@ The plugin reads the game state only when a request needs it. Do not post it on 
 
 | Request | Game state that it carries |
 |---|---|
-| `/chat` | The contexts of the target and of the squad member who speaks, the game events, the changed towns, and the towns that the line names (see [Directions](#directions)) |
-| `/radiant` | The participants, the NPCs near the center, the context of the center, the game events, and the changed towns |
-| `/cull`, `/report` | A report: the player's context, the game events, and the changed towns (`GameReport`). `/report` goes when 50 events wait, when the oldest event waited 60 s, when a `rekey` event waits, or on `REPORT` from the pipe. |
+| `/chat` | The contexts of the target and of the squad member who speaks, the game events, the changed towns, the player's towns, and the towns that the line names (see [Directions](#directions)) |
+| `/radiant` | The participants, the NPCs near the center, the context of the center, the game events, the changed towns, and the player's towns |
+| `/cull`, `/report` | A report: the player's context, the game events, the changed towns, and the player's towns (`GameReport`). `/report` goes when 50 events wait, when the oldest event waited 60 s, when a `rekey` event waits, or on `REPORT` from the pipe. |
 | `/squad_rename` | The context of a renamed member of the player's faction (see [Names](#names)) |
 
 - The server keeps the player's context of the latest request (`take_report`). It can be old, so a value that must be current comes with its own request.
@@ -143,6 +143,17 @@ A world state can swap the data of a town for an override with another owner or 
 - A sentence such as "Brink is now a town held by Reavers." leads the description. It gives no time, because the plugin sees only that a change holds.
 - A town that falls to ruins keeps its owner as the former owner, and a new owner of a ruin changes nothing (see [Links](#links)).
 - The game decides which world states hold, so the overrides of a mod work too.
+
+### Player outposts
+
+The location records describe the start of a game, so an outpost that the player builds has no record. The server records each outpost of the player, so that the radiant place topic of an outpost has its record (see [Radiant conversations](#radiant-conversations)).
+
+- The `environment` of a context carries `player_town` when the player's faction holds the town: the town key, which is `t:` and the handle of the town (`TownKey` in `plugin/game/Context.cpp`). Every outpost is "Your Outpost" until the player renames it, so only the handle tells two outposts apart.
+- When a context shows a town of the player, the server adds a location record keyed by the town key (`note_outpost` in `server/core/game.py`). The record has the type `outpost`, the zone around the camera (see [Current Location](#current-location)), the player's faction as the owner, and an empty description, which the player can write in the web app.
+- At each later sight, the server sets the name, the zone, and the owner of the record from the game, so a rename in game keeps the description.
+- Each chat, radiant conversation, and report carries `player_towns`, the town keys of all the towns of the player's faction (`PlayerTowns`). The server deletes the record of each outpost that the list does not hold (`forget_outposts`). Without a town list, the plugin sends `null`, which keeps every record.
+- The place lookup takes the record of the town key before a record with the same name (`find_location` in `server/chat/prompts.py`).
+- An empty description keeps a record out of the search and the chat scene (see [Lore records](#lore-records)), so only the radiant place topic reads the record of a new outpost.
 
 ### Dead and imprisoned unique NPCs
 

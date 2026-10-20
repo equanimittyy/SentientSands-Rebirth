@@ -46,8 +46,10 @@ def find_named(records, name):
 def find_race(race):
     return find_named((entry for (category, _), entry, *_ in campaign_db.list_records("entity") if category == "races"), race)
 
-def find_location(town):
-    location = find_named((entry for (category, _), entry, *_ in campaign_db.list_records("entity") if category == "locations"), town)
+def find_location(town, key=None):
+    """key is the town key of an outpost of the player, whose name another outpost can share."""
+    locations = {ext_id: entry for (category, ext_id), entry, *_ in campaign_db.list_records("entity") if category == "locations"}
+    location = locations.get(key) or find_named(locations.values(), town)
     return towns.current(location) if location else None
 
 def describe_race(race):
@@ -149,7 +151,7 @@ def scene_values(player, player_name, self_talk=False, place=()):
     race_entry = find_race(race)
     player_faction = campaign_db.player_faction()
     environment = player.get("environment") or {}
-    location = find_location(environment["town_name"]) if environment.get("town_name") else None
+    location = find_location(environment["town_name"], environment.get("player_town")) if environment.get("town_name") else None
     # The record of a changed town opens with its change sentence
     change = None if any(record["kind"] == "location" for record in place) else (location or {}).get("change")
     lines = [" ".join(part for part in (scene_text.location_text(environment), change) if part)]

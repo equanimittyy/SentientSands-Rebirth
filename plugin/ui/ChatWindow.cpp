@@ -395,6 +395,7 @@ bool SendChatLine(const std::string &npcName, unsigned int targetKey,
       ", \"events\": " + TakeGameEvents() +
       ", \"changed_towns\": " + ChangedTowns() +
       ", \"unique_states\": " + UniqueStates() +
+      ", \"player_towns\": " + PlayerTowns() +
       ", \"named_towns\": " + NamedTowns(text, addressee ? addressee : speaker) +
       (barterJson.empty() ? "" : ", \"barter\": " + barterJson) + "}";
 

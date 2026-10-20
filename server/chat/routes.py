@@ -37,7 +37,7 @@ def radiant_conversation():
     data = request.json
     if not data: return jsonify({"status": "error"}), 400
     center = context_dict(data.get('player_context'))
-    take_report(center, data.get('events'), data.get('changed_towns'), data.get('unique_states'))
+    take_report(center, data.get('events'), data.get('changed_towns'), data.get('unique_states'), data.get('player_towns'))
     rumor_texts = [rumor["text"] for rumor in campaign_db.rumors()[-PROMPT_RUMORS:]]
     if state.PENDING_OFFER:
         logging.info("RADIANT: An offer waits for the player's answer, so nobody talks.")
@@ -66,7 +66,7 @@ def radiant_conversation():
     if npc_talk:
         topic = random.choice(rumor_texts)
     else:
-        location = find_location(environment["town_name"]) if environment.get("town_name") else None
+        location = find_location(environment["town_name"], environment.get("player_town")) if environment.get("town_name") else None
         topic, memory_id = radiant.topic(campaign_db.shared_memories(npc_ids), environment, rumor_texts, location=location)
     if not topic:
         logging.info("RADIANT: No topic, so nobody talks.")
@@ -387,7 +387,7 @@ def chat():
     if not data: return jsonify({"text": "Error: No JSON data provided"}), 400
 
     speaker = context_dict(data.get('speaker'))
-    take_report(speaker, data.get('events'), data.get('changed_towns'), data.get('unique_states'))
+    take_report(speaker, data.get('events'), data.get('changed_towns'), data.get('unique_states'), data.get('player_towns'))
     
     raw_npc = data.get('npc', 'Someone')
     raw_npcs = data.get('npcs', [])

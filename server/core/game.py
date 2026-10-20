@@ -45,6 +45,37 @@ def note_faction(ctx, is_player=False):
     except Exception as e:
         logging.warning(f"CAMPAIGN: Cannot record the faction {name}: {e}")
 
+def note_outpost(ctx):
+    """Records each town of the player's faction that a character stands in, so the radiant place topic has a record of it."""
+    environment = ctx.get("environment") or {}
+    key, name = environment.get("player_town"), environment.get("town_name")
+    seen = (name, environment.get("zone_name") or "", ctx.get("faction"))
+    if not key or not name or state.SEEN_OUTPOSTS.get(key) == seen:
+        return
+    try:
+        change = campaign_db.note_outpost(key, *seen)
+        if change:
+            logging.info(f"CAMPAIGN: {change.capitalize()} the record of the outpost {name} ({key}) in {seen[1] or 'an unknown zone'}.")
+        state.SEEN_OUTPOSTS[key] = seen
+    except campaign_db.CampaignUnavailable:
+        pass
+    except Exception as e:
+        logging.warning(f"CAMPAIGN: Cannot record the outpost {name}: {e}")
+
+def forget_outposts(keys):
+    """Deletes the record of each outpost that the game no longer lists. A plugin without the list sends None, which keeps
+    every record."""
+    if keys is None or keys == state.PLAYER_TOWNS:
+        return
+    try:
+        for name in campaign_db.forget_outposts(keys):
+            logging.info(f"CAMPAIGN: Deleted the record of the outpost {name}, because the game no longer has it.")
+        state.PLAYER_TOWNS = keys
+    except campaign_db.CampaignUnavailable:
+        pass
+    except Exception as e:
+        logging.warning(f"CAMPAIGN: Cannot delete the records of lost outposts: {e}")
+
 def adopt_canon(node):
     """Gives each NPC whose template is a canon character the npc_id of that character, and marks it unique, so it uses the
     canon profile and never gets a rolled name. Whether a template is unique depends on the mod list: UWE makes the Yabuta
@@ -84,14 +115,16 @@ def relation_text(rel):
     elif rel >= 25: label = "FRIENDLY"
     return f"{label} ({rel:+} pts)"
 
-def take_report(player, events, towns, uniques):
-    """Keeps the player's context, the changed towns, and the unique NPCs that are not alive, and takes the events that
-    the game events of a request from the plugin carries. The plugin sends the context only with a request, so the
-    player's context is the one of the latest request. A load of an older save can undo a change of a town or a death,
-    so only the latest lists count."""
+def take_report(player, events, towns, uniques, player_towns=None):
+    """Keeps the player's context, the changed towns, and the unique NPCs that are not alive, takes the events that the
+    game events of a request from the plugin carries, and keeps the records of the player's outposts in step. The plugin
+    sends the context only with a request, so the player's context is the one of the latest request. A load of an older
+    save can undo a change of a town or a death, so only the latest lists count."""
     if player:
         state.PLAYER_CONTEXT = player
         note_faction(player, is_player=True)
+        note_outpost(player)
+    forget_outposts(player_towns)
     towns = towns or []
     if towns != state.CHANGED_TOWNS:
         listed = "; ".join(f"{town.get('name')}: owner {town.get('owner') or 'none'} ({town.get('owner_id')}), type {town.get('type')}" for town in towns)

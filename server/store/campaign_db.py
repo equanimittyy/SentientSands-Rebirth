@@ -946,6 +946,34 @@ def note_faction(faction_id, name, is_player=False):
             conn.execute("UPDATE faction SET is_player = 0, updated_at = ? WHERE is_player = 1 AND faction_id != ?", (_now(), faction_id))
 
 
+def note_outpost(key, name, zone, owner):
+    """Adds the location record of a town of the player's faction, keyed by its town key, or brings the name, the zone,
+    and the owner of its record up to the game, so a rename in game keeps the description. Returns "added", "updated",
+    or None."""
+    fields = {"type": "outpost", **({"zone": [zone]} if zone else {}), **({"owner": [owner]} if owner else {})}
+    with _connect(write=True) as conn:
+        row = conn.execute("SELECT data FROM entity WHERE category = 'locations' AND ext_id = ?", (key,)).fetchone()
+        if row is None:
+            conn.execute("INSERT INTO entity (category, ext_id, data, updated_at) VALUES ('locations', ?, ?, ?)",
+                         (key, json.dumps({"name": name, "aliases": [], "fields": fields, "description": ""}), _now()))
+            return "added"
+        data = json.loads(row[0])
+        if data.get("name") == name and all(data.get("fields", {}).get(field) == value for field, value in fields.items()):
+            return None
+        data = {**data, "name": name, "fields": {**data.get("fields", {}), **fields}}
+        conn.execute("UPDATE entity SET data = ?, updated_at = ? WHERE category = 'locations' AND ext_id = ?", (json.dumps(data), _now(), key))
+        return "updated"
+
+
+def forget_outposts(keys):
+    """Deletes the record of each outpost whose town key the game no longer lists, and returns their names."""
+    with _connect(write=True) as conn:
+        rows = conn.execute("SELECT ext_id, data FROM entity WHERE category = 'locations' AND ext_id LIKE 't:%'").fetchall()
+        gone = [(ext_id, json.loads(data).get("name", "")) for ext_id, data in rows if ext_id not in keys]
+        conn.executemany("DELETE FROM entity WHERE category = 'locations' AND ext_id = ?", [(ext_id,) for ext_id, _ in gone])
+    return [name for _, name in gone]
+
+
 def add_faction(faction_id, values):
     """Raises DuplicateRecord if the campaign already holds faction_id."""
     with _connect(write=True) as conn:
