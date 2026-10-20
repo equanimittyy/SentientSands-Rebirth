@@ -19,6 +19,11 @@ bool HasRoomFor(Character *c, GameData *data, int count);
 void SectionItems(Inventory *inv, std::vector<Item *> &out);
 Building *BuildingOf(Character *npc);
 std::string GetHealthStatus(Character *npc);
+struct GearGradeLevel {
+  const char *name;
+  int level;
+};
+extern const GearGradeLevel GEAR_GRADES[6];
 std::string ItemLabel(Item *item);
 std::string ItemsJson(const std::vector<Item *> &items);
 std::string GetDetailedContext(Character *npc, const std::string &type = "npc");

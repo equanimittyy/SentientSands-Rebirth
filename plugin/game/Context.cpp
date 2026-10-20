@@ -522,8 +522,22 @@ void SectionItems(Inventory *inv, std::vector<Item *> &out) {
   }
 }
 
+// The levels of the armour grades on the wiki, which crossbows and robotic limbs
+// share; the game showed 40 as Standard and 60 as High on armour
+const GearGradeLevel GEAR_GRADES[6] = {
+    {"Prototype", 5}, {"Shoddy", 20},     {"Standard", 40},
+    {"High", 60},     {"Specialist", 80}, {"Masterwork", 95}};
+
+static const char *GradeAtLevel(int level) {
+  const char *grade = GEAR_GRADES[0].name;
+  for (size_t g = 1; g < sizeof(GEAR_GRADES) / sizeof(GEAR_GRADES[0]); ++g)
+    if (level >= GEAR_GRADES[g].level)
+      grade = GEAR_GRADES[g].name;
+  return grade;
+}
+
 // Two items with one name can differ in grade and price, so the name of a
-// weapon or an armour holds its grade, and a deal names the right one
+// graded item holds its grade, and a deal names the right one
 std::string ItemLabel(Item *item) {
   std::string name = item->getName();
   if (item->objectType == WEAPON && item->materialData) {
@@ -538,13 +552,9 @@ std::string ItemLabel(Item *item) {
       return name + " (" + grade + ")";
     return name + " (" + maker + ", " + grade + ")";
   }
-  if (item->objectType == ARMOUR) {
-    static const char *GRADES[] = {"Prototype", "Shoddy",     "Standard",
-                                   "High",      "Specialist", "Masterwork"};
-    int level = item->getLevel();
-    if (level >= 0 && level <= 100 && level % 20 == 0)
-      return name + " (" + GRADES[level / 20] + ")";
-  }
+  if (item->objectType == ARMOUR || item->objectType == CROSSBOW ||
+      item->objectType == LIMB_REPLACEMENT)
+    return name + " (" + GradeAtLevel(item->getLevel()) + ")";
   return name;
 }
 

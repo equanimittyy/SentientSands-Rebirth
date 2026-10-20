@@ -195,7 +195,7 @@ def goods(npc, category):
 
 def held(items, name):
     """(name, count) of the items that carry the name, whatever its case, or (None, 0). The model can leave out the grade
-    of a weapon or an armour, so a name without one finds the item when only one grade of it is held."""
+    of an item, so a name without one finds the item when only one grade of it is held."""
     counts = {}
     for item in items:
         if item.get("name"):

@@ -313,14 +313,6 @@ struct WeaponGrade {
   GameData *maker;
 };
 
-// The levels of the armour grades on the wiki, which crossbows and robotic limbs
-// share; the game showed 40 as Standard and 60 as High on armour
-static const struct {
-  const char *name;
-  int level;
-} GEAR_GRADES[] = {{"Prototype", 5}, {"Shoddy", 20},     {"Standard", 40},
-                     {"High", 60},     {"Specialist", 80}, {"Masterwork", 95}};
-
 static bool ByLevel(const WeaponGrade &a, const WeaponGrade &b) {
   return a.level < b.level;
 }
