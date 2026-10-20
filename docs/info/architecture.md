@@ -139,7 +139,7 @@ The Events window of the SSR HUB mirrors Campaign Canon > Events through `/event
 A world state can swap the data of a town for an override with another owner or type. The location records describe the start of a game, so the server lays the changes over them (`server/chat/towns.py`).
 
 - Each chat, radiant conversation, and report carries `changed_towns` (`ChangedTowns`): each town whose `getGameData` is not its `getOriginalGameData`, with its owner, owner game ID, and type. The server keeps only the latest list, because a load can undo a change.
-- `towns.current` lays the change over the location record of that name, so it reaches the knowledge, the lore hits, and the radiant place topic (see [Own records](#own-records)).
+- `towns.current` lays the change over the location record of that name, so it reaches the knowledge, the lore hits, the place records of the chat scene, and the radiant place topic (see [Own records](#own-records)).
 - A sentence such as "Brink is now a town held by Reavers." leads the description. It gives no time, because the plugin sees only that a change holds.
 - A town that falls to ruins keeps its owner as the former owner, and a new owner of a ruin changes nothing (see [Links](#links)).
 - The game decides which world states hold, so the overrides of a mod work too.
@@ -200,7 +200,7 @@ A chat request is ordered for the provider's prompt cache, which reuses only an 
 
 - The action rules come last in the system message, because a chat thread can go from plain chat to an action dialogue and from one category to another. A change then keeps the cache of the rest of the system message, but the history after it is read again.
 - Only earlier threads decide whether the NPC has met the speaker, so the first-meeting sentence of the scene stays for the whole conversation, and the second turn keeps the cache.
-- The scene is a snapshot for the whole conversation (`CONVERSATION_SCENE`). A conversation ends when the player chats with another NPC, speaks as another squad member, switches the campaign, when the NPC's name or faction changes, or when the other speakers of the current chat thread change.
+- The scene is a snapshot for the whole conversation (`CONVERSATION_SCENE`). A conversation ends when the player chats with another NPC, speaks as another squad member, switches the campaign, when the NPC's name or faction changes, when the other speakers of the current chat thread change, or when the NPC moves to another town or region, because the search skips the place records of the scene by the current place (see [Order of the lore](#order-of-the-lore)).
 - `server/chat/scene_text.py` writes the scene as second-person prose, because a model reads a sentence more reliably than a number. The relation bounds match the relation labels of the Dialogue Library.
 - The history is a block window (`chat_prompt.history_window`) that moves by 20 lines, so its start stays cacheable. `history_turns` makes only the NPC's own lines assistant turns.
 - An overheard line is stored as `(Overheard) Speaker to Target: ...`, because without the target a listener took "you" as itself. An animal never overhears, and neither does a dead or knocked-out NPC (`chat_prompt.overhearers`). An NPC that plays dead is awake, so it overhears.
@@ -250,6 +250,7 @@ An FTS5 table holds one row per record (name, aliases, fields, text) with the `p
 - Name matches come first. Content hits follow by place, each group by score (`place_order`): the current location (`town_name`), the current region (`zone_name`, see [Current Location](#current-location)), its locations, the neighbouring regions (either side names the other in `neighbours`), then the others.
 - The place order adds no entry, because the model talks about the text that it gets.
 - A record that the system message holds is skipped (`background.in_system_message`).
+- The chat scene holds the records of the current location and the current region that the NPC knows (`background.scene_place`), so a line about "this town" or "around here" needs no name. The search skips them. The region leaves out its `neighbours`, because few lines ask for a direction, and the directions line gives them when a line does (see [Directions](#directions)). An animal gets no place records.
 - An entry's text and each text field end at the last sentence end before 700 characters (`clipped`), so a long character personality is cut like the text. A list field is not cut.
 
 ### Directions

@@ -260,6 +260,12 @@ def clipped(text):
     return head[:ends[-1]] if ends else head
 
 
+def clipped_record(record):
+    """A character's personality is a free-text field, so it can run as long as a description."""
+    fields = {key: clipped(value) if isinstance(value, str) else value for key, value in record["fields"].items()}
+    return {**record, "description": clipped(record["description"]), "fields": fields}
+
+
 def held(turns, cooldown):
     """The keys of the hits of the last cooldown turns, where turns holds the set of the keys of each turn, oldest first."""
     return set().union(*turns[-cooldown:]) if cooldown > 0 else set()

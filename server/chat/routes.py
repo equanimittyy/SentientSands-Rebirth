@@ -658,16 +658,21 @@ def chat():
     met = speaker_id in spoken
     current_members = campaign_db.thread_members([current_thread]).get(current_thread, []) if current_thread else []
     partners = tuple(npc_id for npc_id, _, role, _ in current_members if role == "speaker" and npc_id not in (primary_id, speaker_id))
-    conversation = (speaker.get("npc_id"), primary_id or primary_npc, primary_npc, live.get("faction"), met, partners)
+    environment = ctx_dict.get("environment") or {}
+    town, zone = environment.get("town_name"), environment.get("zone_name")
+    lore = None if animal else background.campaign_lore()
+    # The search skips the place records of the scene by the current place, so a move to another place needs a new scene
+    conversation = (speaker.get("npc_id"), primary_id or primary_npc, primary_npc, live.get("faction"), met, partners, town, zone)
     scene = state.CONVERSATION_SCENE.get(conversation)
     if scene is None:
         others = [npc_id for npc_id in spoken if npc_id != speaker_id]
         names = campaign_db.names_of(others)
         squad = set(state.PLAYER_CONTEXT.get("squad") or [])
         player = speaker or state.PLAYER_CONTEXT
+        place = [] if animal else background.scene_place(lore, background.known_keys(lore, primary_id, primary_data, live.get("factionID"), town, zone), town, zone)
         scene = fill_prompt(
             "prompt_chat_scene.txt",
-            **scene_values(player, player_name, self_talk),
+            **scene_values(player, player_name, self_talk, place),
             npc=npc_scene(ctx_dict or primary_data, primary_data, player_name, met, [names[i] for i in others if i not in partners and names.get(i) in squad],
                           [names[i] for i in partners if names.get(i) in squad], player.get("stats") or {}, self_talk),
         )
@@ -683,18 +688,16 @@ def chat():
     last = state.LAST_NAMED.get(pair, {})
     # An animal replies only in actions
     if not animal:
-        environment = ctx_dict.get("environment") or {}
-        lore = background.campaign_lore()
         named_towns = data.get("named_towns") or []
         follow_up = not named_towns and not background.names_record(raw_line, lore)
         found_memories, found_rumors, found_entries, _ = background.search(
             raw_line, lore, primary_id, primary_data, live.get("factionID"), (speaker or state.PLAYER_CONTEXT).get("race"),
-            environment.get("town_name"), environment.get("zone_name"), retrieval.held(recent_turns, cooldown), last.get("hits") if follow_up else None,
+            town, zone, retrieval.held(recent_turns, cooldown), last.get("hits") if follow_up else None,
         )
         towns = background.town_directions(named_towns)
-        directions = background.directions(raw_line, found_entries, lore, environment.get("town_name"), environment.get("zone_name"), {**last.get("towns", {}), **towns})
+        directions = background.directions(raw_line, found_entries, lore, town, zone, {**last.get("towns", {}), **towns})
         if named_towns:
-            unknown = background.unknown_towns(named_towns, lore, background.known_keys(lore, primary_id, primary_data, live.get("factionID"), environment.get("town_name"), environment.get("zone_name")))
+            unknown = background.unknown_towns(named_towns, lore, background.known_keys(lore, primary_id, primary_data, live.get("factionID"), town, zone))
     background_block = chat_prompt.background_block(
         [hit["record"]["memory"] for hit in found_memories], [hit["record"]["rumor"] for hit in found_rumors], [hit["record"] for hit in found_entries if not hit["travels"]], primary_id, player_name,
         [hit["record"] for hit in found_entries if hit["travels"]], state.PLAYER_CONTEXT.get("day"), directions, last.get("unknown", []) if follow_up else unknown,

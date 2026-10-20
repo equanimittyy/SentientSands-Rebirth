@@ -6,7 +6,8 @@ from unittest import mock
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
 
-from chat import background
+from chat import background, prompts
+from core import state
 from store import campaign_db
 
 STICK, JORGE, ABEL, IZUMI = "h:10", "h:14", "h:15", "h:11"
@@ -201,6 +202,27 @@ class KnowledgeTest(unittest.TestCase):
         campaign_db.join_thread(None, [("h:1", "overheard", False)], None, "Wilderness, Vain")
         self.assertEqual(self.travels("Where is Fang Hollow?", "h:1"), [("Fang Hollow", True)])
 
+    def test_the_search_skips_the_place_that_the_scene_holds(self):
+        def found(town):
+            return [hit["record"]["name"] for hit in background.search("Is Fang Hollow safe?", background.campaign_lore(), "h:1", self.HOLY, town=town, zone="Vain")[2]]
+
+        self.assertEqual(found(None), ["Fang Hollow"])
+        self.assertEqual(found("Fang Hollow"), [])
+
+    def test_the_scene_lists_the_place_without_its_neighbours(self):
+        vain = lore_record("region", "Vain", {"hazards": ["acid rain"], "neighbours": {"Dreg": "north"}})
+        self.assertEqual(prompts.scene_values({"environment": {"zone_name": "Vain"}}, "Izumi", place=[vain])["location"],
+                         "You are in Vain.\nWhat you know of this place:\n- Vain (region; hazards: acid rain): Vain")
+
+    def test_the_scene_gives_the_change_of_a_town_once(self):
+        player = {"environment": {"town_name": "Fang Hollow", "zone_name": "Vain"}}
+        with mock.patch.object(state, "CHANGED_TOWNS", [{"name": "Fang Hollow", "owner": "", "owner_id": "", "type": 4}]):
+            alone = prompts.scene_values(player, "Izumi")["location"]
+            fang_hollow = next(record for record in background.campaign_lore() if record["name"] == "Fang Hollow")
+            with_record = prompts.scene_values(player, "Izumi", place=[fang_hollow])["location"]
+        self.assertEqual(alone, "You are in Fang Hollow, in Vain. Fang Hollow is now ruins. It was a place before.")
+        self.assertEqual(with_record.count("Fang Hollow is now ruins."), 1)
+
     def test_the_travels_are_the_places_of_past_chats_away_from_home_newest_first(self):
         for location in ("Bar, Fang Hollow", "Wilderness, Vain", "Shack, The Barren", "Wilderness, The Barren", ""):
             campaign_db.join_thread(None, [("h:1", "overheard", False), ("h:2", "overheard", False)], None, location)
@@ -225,6 +247,22 @@ class PlaceTest(unittest.TestCase):
 
 def lore_record(kind, name, fields):
     return {"key": (kind, name), "kind": kind, "name": name, "aliases": [], "fields": fields, "description": name}
+
+
+class ScenePlaceTest(unittest.TestCase):
+    GULF = lore_record("region", "Okran's Gulf", {})
+    STACK = lore_record("location", "Stack", {"zone": ["Okran's Gulf"]})
+    LORE = [lore_record("region", "Border Zone", {"neighbours": {"Okran's Gulf": "north"}}), GULF, STACK]
+
+    def place(self, known, lore=LORE):
+        return [record["name"] for record in background.scene_place(lore, {key: False for key in known}, "Stack", None)]
+
+    def test_the_place_is_the_town_and_its_region(self):
+        self.assertEqual(self.place([self.GULF["key"], self.STACK["key"]]), ["Stack", "Okran's Gulf"])
+
+    def test_a_record_that_the_npc_cannot_know_or_without_text_stays_out(self):
+        self.assertEqual(self.place([self.GULF["key"]]), ["Okran's Gulf"])
+        self.assertEqual(self.place([self.GULF["key"], self.STACK["key"]], [dict(self.GULF, description=" "), self.STACK]), ["Stack"])
 
 
 class DirectionsTest(unittest.TestCase):

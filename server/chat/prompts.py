@@ -1,6 +1,6 @@
 import logging
 
-from chat import prompt_store, scene_text, towns
+from chat import prompt_store, retrieval, scene_text, towns
 from chat.characters import is_skeleton, reported_sex
 from core import state
 from core.game import is_player_faction
@@ -65,6 +65,10 @@ def npc_scene(context, profile, player_name, met, companions, partners, player_s
                                major=major, in_player_faction=in_player_faction, feels_hunger=not is_skeleton(profile.get("Race", "")),
                                faction_description=faction_description, companions=companions, partners=partners, player_stats=player_stats,
                                self_talk=self_talk)
+
+def _place_record(record):
+    """The neighbours stay out: few lines need a direction, and the directions line of a turn gives them when one does."""
+    return retrieval.clipped_record({**record, "fields": {key: value for key, value in record["fields"].items() if key != "neighbours"}})
 
 def load_prompt_component(filename):
     text = prompt_store.load(filename, PROMPTS_DIR, USER_PROMPTS_DIR)
@@ -137,15 +141,21 @@ def build_system_prompt(reply_rules=True):
     )
     return prompt.strip()
 
-def scene_values(player, player_name, self_talk=False):
+def scene_values(player, player_name, self_talk=False, place=()):
+    """place holds the lore records of background.scene_place."""
     rumors = [(rumor["game_time"], rumor["text"]) for rumor in campaign_db.rumors()[-PROMPT_RUMORS:]]
     race = player.get("race", "Unknown")
     race_entry = find_race(race)
     player_faction = campaign_db.player_faction()
     environment = player.get("environment") or {}
     location = find_location(environment["town_name"]) if environment.get("town_name") else None
+    # The record of a changed town opens with its change sentence
+    change = None if any(record["kind"] == "location" for record in place) else (location or {}).get("change")
+    lines = [" ".join(part for part in (scene_text.location_text(environment), change) if part)]
+    if place:
+        lines += ["What you know of this place:", *(f"- {describe_record(_place_record(record), record['kind'])}" for record in place)]
     return {
-        "location": " ".join(part for part in (scene_text.location_text(environment), (location or {}).get("change")) if part),
+        "location": "\n".join(lines),
         "rumors": scene_text.rumors_text(rumors, state.PLAYER_CONTEXT.get("day")),
         # The NPC section already describes an NPC that talks to itself
         "player": "" if self_talk else scene_text.player_text(

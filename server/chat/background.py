@@ -19,16 +19,25 @@ def campaign_lore():
     return retrieval.lore_records(entities, campaign_db.list_factions(), campaign_db.history(), characters)
 
 
-def in_system_message(lore, npc_id, profile, faction_id, speaker_race):
+def in_system_message(lore, npc_id, profile, faction_id, speaker_race, known, town, zone):
     """The keys of the lore records that the system message of a chat with the NPC holds: its own character record, its
-    current and origin faction and its race (describe_npc), the race of the speaker, and the player's faction
-    (scene_values)."""
+    current and origin faction and its race (describe_npc), the race of the speaker, the player's faction, and the
+    current place (scene_values)."""
     factions = [campaign_db.player_faction()]
     for name, game_id in ((profile.get("Faction"), faction_id), (profile.get("OriginFaction"), None)):
         if name and name != "Unknown":
             factions.append(campaign_db.find_faction(game_id, name))
     races = {race["key"] for race in (_race(lore, profile.get("Race")), _race(lore, speaker_race)) if race}
-    return {("characters", npc_id)} | {("factions", faction["faction_id"]) for faction in factions if faction} | races
+    place = {record["key"] for record in scene_place(lore, known, town, zone)}
+    return {("characters", npc_id)} | {("factions", faction["faction_id"]) for faction in factions if faction} | races | place
+
+
+def scene_place(lore, known, town, zone):
+    """The records of the current location and the current region that the NPC knows (known_keys), for the chat scene,
+    so that a line about "this town" or "around here" needs no name. A record without text stays out, as in the search."""
+    current, regions, _ = retrieval.place(lore, town, zone)
+    by_key = {record["key"]: record for record in lore if record["description"].strip()}
+    return [by_key[key] for key in [*current, *regions] if key in by_key and key in known]
 
 
 def identity(lore, npc_id, profile, faction_id):
@@ -162,7 +171,7 @@ def search(message, lore, npc_id=None, profile=None, faction_id=None, speaker_ra
         lore_names = [name for hit in lore_hits if "name" in hit for name in (hit["record"]["name"], *hit["record"]["aliases"])]
         memory_hits = retrieval.find_texts(message, records, profile.get("Name", ""), lore_names)
         rumor_hits = retrieval.find_texts(message, rumor_records(npc_id), profile.get("Name", ""), lore_names)
-        skip = in_system_message(lore, npc_id, profile, faction_id, speaker_race)
+        skip = in_system_message(lore, npc_id, profile, faction_id, speaker_race, keys, town, zone)
     if carried and not any("name" in hit for hits in (memory_hits, rumor_hits, lore_hits) for hit in hits):
         memory_hits, rumor_hits, lore_hits = (_carried_first(old, new) for old, new in zip(carried, (memory_hits, rumor_hits, lore_hits)))
     settings = load_settings()

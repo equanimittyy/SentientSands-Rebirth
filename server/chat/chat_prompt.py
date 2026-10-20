@@ -144,12 +144,6 @@ def memory_heading(memory, npc_id):
     return _dated(memory, scene_text.memory_header(*_members_seen_by(memory["members"], npc_id)))
 
 
-def _clipped_record(record):
-    """A character's personality is a free-text field, so it can run as long as a description."""
-    fields = {key: retrieval.clipped(value) if isinstance(value, str) else value for key, value in record["fields"].items()}
-    return {**record, "description": retrieval.clipped(record["description"]), "fields": fields}
-
-
 def background_block(memories, rumors, entries, npc_id, speaker, travels=(), today=None, directions=None, unknown=()):
     """The memories of memories_of, the rumors of campaign_db.rumors, and the lore records of retrieval.lore_records that
     the player's message found, for the last user message. travels holds the found records that the NPC knows only from
@@ -172,7 +166,7 @@ def background_block(memories, rumors, entries, npc_id, speaker, travels=(), tod
     for heading, records, extra in ((f"Lore that {speaker}'s words may touch on:", entries, compass), ("You learned the following in your travels:", travels, [])):
         if records or extra:
             parts.append(heading)
-            parts += [f"- {describe_record(_clipped_record(entry), entry['kind'])}" for entry in records] + extra
+            parts += [f"- {describe_record(retrieval.clipped_record(entry), entry['kind'])}" for entry in records] + extra
     # A search finds words, not meaning, and a model tends to use all the text that it gets
     found = [kind for kind, hits in (("these memories", memories), ("these rumours", rumors), ("this lore", lore)) if hits]
     if found == ["this lore"]:
