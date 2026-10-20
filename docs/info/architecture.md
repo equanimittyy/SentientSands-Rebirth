@@ -154,7 +154,7 @@ The game keeps the state of each unique NPC that it spawned: alive, dead, or imp
 - The fields reach the lore hits and the current and origin factions of the NPC in the system message (`describe_faction`). Each NPC that knows the faction knows the state, as for a changed town.
 - A name matches by its name words: the game name of the NPC, or the `Name` of its canon character record, whose `npc_id` is `u:` and the string ID. A value that names two NPCs, such as "Dimak and Buzan", is split at "and" when it matches no one as a whole.
 - The canon character record of such an NPC gets a `state` field (see [Lore records](#lore-records)).
-- Campaign Canon shows the state of each unique character in the Dead and Imprisoned rows (`rulers.game_state`). A generic character shows Unknown, because the game keeps no state of it, and so does each character while the server holds no states.
+- Campaign Canon shows the state of each unique character in the Dead and Imprisoned rows (`rulers.game_state`). A generic character has no such rows, because the game keeps no state of it. The rows show Unknown while the server holds no states.
 
 ## Web app
 
