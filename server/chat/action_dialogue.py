@@ -38,6 +38,8 @@ RELATION_REASONS = {2: "You like {player}'s group a lot.", 1: "You like {player}
 FIGHT_REASONS = {2: "{player} fights far better than you, and you dare not defy {player}.", 1: "{player} fights better than you.",
                  -1: "You fight better than {player}.", -2: "You fight far better than {player}, and you do not fear {player}."}
 FOOD_BONUS = {"starving": 2, "very hungry": 1, "hungry": 1}
+# The Savage Hive lost its hives, and the machines of the Mechanical Hive have no Queen
+QUEEN_HIVES = {"Western Hive", "Midland Hive", "Northern Hive", "Southern Hive"}
 END_LINES_PATH = f"{DEFAULTS_DIR}/action_end_lines.json"
 KITS = (("first aid kit", "needs_first_aid", "has_first_aid"), ("repair kit", "needs_repair", "has_repair_kit"))
 _WORD = re.compile(r"[^\W\d_]+")
@@ -212,19 +214,26 @@ def lean(category, npc, speaker, relation, overheard=(), mode="talk", days_held=
 
 
 def people_pairs(npc, speaker):
-    """The ways of specific people, from the vanilla dialogue: a Shek idolizes the strong and trusts its kin, the Holy Nation
-    serves only a man of its own race, a hungry NPC follows food, and a mercenary weighs the cats of the speaker's faction."""
+    """The ways of specific people, from the vanilla dialogue and the race and faction records of SSR Vanilla."""
     shek, holy, fight = is_shek(npc), npc.get("faction") == "Holy Nation", fight_bonus(npc, speaker)
+    escaped = npc.get("character_state") == speaker.get("character_state") == "escaped-slave"
     return [(shek * fight, "The Shek idolize the strong." if fight > 0 else "The Shek do not serve the weak."),
             (shek and is_shek(speaker), "{player} is Shek, your kin."),
             (-2 * (holy and speaker.get("race") != npc.get("race")), "{player} is not of your race, and you serve only Okran's children."),
             (-(holy and speaker.get("gender") == "female"), "{player} is a woman, and you will not serve a woman."),
+            (-2 * (is_hiver(npc) and npc.get("faction") in QUEEN_HIVES), "You are bound to your Queen and live for the Hive."),
+            (escaped, "{player} escaped slavery too."),
+            (-2 * (npc.get("faction") == "Anti-Slavers" and captive_of(npc, speaker)), "You fight slavery, and {player}'s faction holds you like a slaver."),
             hunger_pair(npc, speaker),
             wealth_pair(npc, speaker)]
 
 
 def is_shek(ctx):
     return str(ctx.get("race", "")).lower().startswith("shek")
+
+
+def is_hiver(ctx):
+    return str(ctx.get("race", "")).lower().startswith("hive")
 
 
 def hunger_pair(npc, speaker):

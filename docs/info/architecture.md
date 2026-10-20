@@ -544,7 +544,7 @@ Each category has its own gates, hard limits, and lean. A line that fails a gate
 | +1 | 10 to 29 | 9 to 13 |
 | +2 | 30 or more | 14 or more |
 
-- The lean of RECRUIT adds the ways of specific people (`people_pairs`), except between fellow captives, because two captives that plan an escape do not weigh these things. Each rule covers a whole race, faction, or kind of NPC, and follows the vanilla dialogue: "Because the Shek idolize the strong...", the Shek call each other kin, and the Holy Nation scorns women, Shek, and skeletons ("Okran hates liars. And skeletons. And loose women.").
+- The lean of RECRUIT adds the ways of specific people (`people_pairs`), except between fellow captives, because two captives that plan an escape do not weigh these things. Each rule covers a whole race, faction, or kind of NPC, and follows the vanilla dialogue: "Because the Shek idolize the strong...", the Shek call each other kin, and the Holy Nation scorns women, Shek, and skeletons ("Okran hates liars. And skeletons. And loose women."). The race and faction records of SSR Vanilla give the rest: "those still bound to a Queen live for the Hive", and the Anti-Slavers fight slavery.
 
 | People | Check | Bonus |
 |---|---|---|
@@ -555,6 +555,9 @@ Each category has its own gates, hard limits, and lean. A line that fails a gate
 | A member of the Holy Nation | The speaker is not of the NPC's race | -2 |
 | A member of the Holy Nation | The speaker is a woman | -1 |
 | A mercenary (`MERCENARY_RATES`) | The cats of the speaker's faction: 20,000 or more, 10,000 or more, or less than 1,000 | +2, +1, or -1 |
+| A Hiver of the Western, Midland, Northern, or Southern Hive (`QUEEN_HIVES`) | Always: a Hiver bound to a Queen does not leave the Hive. The Savage Hive and the Mechanical Hive have no Queen. | -2 |
+| An `escaped-slave` NPC | The speaker is an `escaped-slave` too | +1 |
+| A member of the Anti-Slavers | The speaker's faction holds the NPC captive | -2 |
 
 - The `captive` table keeps the game time at which each captivity started (`world_events.days_held`). An `imprisonment` game event with attackers of the player's squad starts it (`campaign_db.start_captive`). A load imprisons each prisoner again with no attackers, so it keeps the start. A captive with no capture in the game events, such as a slave in shackles, which no hook sees, starts at the first RECRUIT line to it. A start after the game time of a line, from a load of an earlier save, restarts at that line (`campaign_db.captive_since`).
 - FOLLOW: FOLLOW takes the gates, the hard limits, and the lean of RECRUIT except the ways of specific people, and an NPC that is not a mercenary takes -1 more, because it is wary to follow for no reason. A FOLLOW line to a fellow captive runs as RECRUIT (`runs_as`), because a hired follower stays out of the player's control, so the player could not lead it out. A FOLLOW line to a captive of the speaker's faction also runs as RECRUIT, because the player does not hire a captive that the player holds.

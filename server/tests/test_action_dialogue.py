@@ -200,7 +200,7 @@ class LeanTest(unittest.TestCase):
         shackled = {"character_state": "enslaved", "captor": "17-gamedata.base"}
         self.assertEqual(ad.lean("RECRUIT", shackled, shackled, 0, (), "whisper"), [(2, "{player} is a fellow captive, and like most captives, you want to escape.")])
         self.assertEqual(score("RECRUIT", {**shackled, "captor": "5-gamedata.base"}, shackled, 0, (), "whisper"), 2)
-        self.assertEqual(score("RECRUIT", {"character_state": "escaped-slave", "captor": "17-gamedata.base"}, {**shackled, "character_state": "escaped-slave"}, 0), 1)
+        self.assertEqual(score("RECRUIT", {"character_state": "escaped-slave", "captor": "17-gamedata.base"}, {**shackled, "character_state": "escaped-slave"}, 0), 2)
 
     def test_a_captive_of_the_speaker_faction_leans_by_fight_and_days_held(self):
         captor = {"factionID": "204-gamedata.base"}
@@ -262,6 +262,24 @@ class LeanTest(unittest.TestCase):
                          [(-2, "{player} is not of your race, and you serve only Okran's children."), (-1, "{player} is a woman, and you will not serve a woman.")])
         self.assertEqual(score("RECRUIT", paladin, {"race": "Greenlander", "gender": "male"}, 0), 0)
         self.assertEqual(score("RECRUIT", {**paladin, "faction": "Holy Nation Outlaws"}, {"race": "Shek", "gender": "female"}, 0), 0)
+
+    def test_a_hiver_bound_to_a_queen_lives_for_the_hive(self):
+        drone = {"race": "Hive Worker Drone", "faction": "Western Hive"}
+        self.assertEqual(ad.lean("RECRUIT", drone, {}, 0), [(-2, "You are bound to your Queen and live for the Hive.")])
+        for faction in ("Savage Hive", "Mechanical Hive", "Drifters"):
+            self.assertEqual(score("RECRUIT", {**drone, "faction": faction}, {}, 0), 0)
+        self.assertEqual(score("RECRUIT", {"race": "Greenlander", "faction": "Western Hive"}, {}, 0), 0)
+
+    def test_an_escaped_slave_trusts_an_escaped_slave(self):
+        escaped = {"character_state": "escaped-slave"}
+        self.assertEqual(ad.lean("RECRUIT", escaped, escaped, 0), [(1, "You escaped slavery."), (1, "{player} escaped slavery too.")])
+        self.assertEqual(score("RECRUIT", escaped, {"character_state": "normal"}, 0), 1)
+
+    def test_an_anti_slaver_does_not_serve_its_captor(self):
+        captor = {"factionID": "204-gamedata.base"}
+        caged = {"character_state": "imprisoned", "captor": "204-gamedata.base", "faction": "Anti-Slavers"}
+        self.assertIn((-2, "You fight slavery, and {player}'s faction holds you like a slaver."), ad.lean("RECRUIT", caged, captor, 0))
+        self.assertEqual(score("RECRUIT", {"faction": "Anti-Slavers"}, captor, 0), 0)
 
     def test_fellow_captives_ignore_the_ways_of_specific_people(self):
         shackled = {"character_state": "enslaved", "captor": "17-gamedata.base"}
