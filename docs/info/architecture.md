@@ -249,7 +249,7 @@ An FTS5 table holds one row per record (name, aliases, fields, text) with the `p
 - Name matches come first. Content hits follow by place, each group by score (`place_order`): the current location (`town_name`), the current region (`zone_name`, see [Current Location](#current-location)), its locations, the neighbouring regions (either side names the other in `neighbours`), then the others.
 - The place order adds no entry, because the model talks about the text that it gets.
 - A record that the system message holds is skipped (`background.in_system_message`).
-- An entry's text ends at its last sentence end before 700 characters (`clipped`). The fields are not cut.
+- An entry's text and each text field end at the last sentence end before 700 characters (`clipped`), so a long character personality is cut like the text. A list field is not cut.
 
 ### Directions
 

@@ -237,6 +237,10 @@ class BackgroundBlockTest(unittest.TestCase):
             "This lore may have nothing to do with what Izumi means, and you may know less than it says. Use it only where it fits your reply, and never recite it or turn the talk towards it.)",
         ]))
 
+    def test_a_long_personality_is_clipped_like_the_text(self):
+        esata = {"kind": "character", "name": "Esata", "aliases": [], "fields": {"race": "Shek", "personality": "Proud. " * 120}, "description": "Rules the Shek."}
+        self.assertEqual(chat_prompt.background_block([], [], [esata], self.ABEL, "Izumi").splitlines()[1], f"- Esata (character; race: Shek; personality: {'Proud. ' * 99}Proud.): Rules the Shek.")
+
     def test_a_memory_gives_its_header_from_the_view_of_the_npc(self):
         self.assertEqual(chat_prompt.background_block([self.MEMORY], [], [], self.ABEL, "Izumi"), "\n".join([
             "(Background, not said aloud. Memories that Izumi's words may touch on:",
