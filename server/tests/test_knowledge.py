@@ -216,11 +216,11 @@ class SecretTest(unittest.TestCase):
 
 
 class CharacterRecordTest(unittest.TestCase):
-    def test_a_character_record_holds_its_race_faction_and_backstory_without_unknown(self):
+    def test_a_character_record_holds_its_race_faction_personality_and_backstory_without_unknown(self):
         profile = {"Name": "Tinfist", "Race": "Skeleton", "Faction": "Anti-Slavers", "OriginFaction": "Unknown", "Backstory": "Leader of the Anti-Slavers.", "Personality": "Stern."}
         [found] = retrieval.lore_records([], [], [], [{"npc_id": "u:1", "profile": profile, "knowledge": "global", "known_by": []}])
         self.assertEqual((found["key"], found["kind"], found["name"], found["fields"], found["description"], found["origin_faction"], knowledge.tier(found)),
-                         (("characters", "u:1"), "character", "Tinfist", {"race": "Skeleton", "faction": "Anti-Slavers"}, "Leader of the Anti-Slavers.", "", "global"))
+                         (("characters", "u:1"), "character", "Tinfist", {"race": "Skeleton", "faction": "Anti-Slavers", "personality": "Stern."}, "Leader of the Anti-Slavers.", "", "global"))
 
 
 if __name__ == "__main__":

@@ -225,6 +225,7 @@ The last user message holds the lore entries, memories, and rumors that the play
 | Character | `Name`, `Alias` of the profile | `race` and `faction` of the profile | `Backstory` | `campaign_db.list_records("character")` |
 
 - A record with an empty text is no hit, but a link or a `known_by` can still name it.
+- A character record also holds the `Sex` and the `Personality` of the profile as its `sex` and `personality` fields, so the lore line tells the model the sex and the nature of the character. The search skips these fields, because "female" would find every female character and "proud" every proud one. The `SpeechQuirks` stay out, because they are written for the model that speaks as the character.
 - A character is a record only when it is canon (`origin` `seed` or `campaign`), because a rolled backstory is invented.
 - The index is built in memory for each line, so an edit reaches the next line. The search uses SQLite FTS5 ([development.md](development.md#probes)).
 

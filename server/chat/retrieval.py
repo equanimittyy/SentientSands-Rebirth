@@ -50,12 +50,12 @@ def _record(key, kind, data):
 
 
 def _character(character):
-    """The Personality and the Speech stay out: they describe the character for an LLM that speaks as it."""
+    """The SpeechQuirks stay out: they describe the character for an LLM that speaks as it."""
     profile = character["profile"]
     given = {key: value for key, value in profile.items() if value and value != "Unknown"}
     record = _record(("characters", character["npc_id"]), "character", {
         **character, "name": profile.get("Name", ""), "aliases": [given["Alias"]] if "Alias" in given else [],
-        "fields": {field: given[key] for field, key in (("race", "Race"), ("faction", "Faction")) if key in given}, "description": profile.get("Backstory"),
+        "fields": {field: given[key] for field, key in (("race", "Race"), ("sex", "Sex"), ("faction", "Faction"), ("personality", "Personality")) if key in given}, "description": profile.get("Backstory"),
     })
     return {**record, "origin_faction": given.get("OriginFaction", "")}
 
@@ -101,8 +101,10 @@ def _values(fields):
 
 
 def _searched_fields(fields):
-    """The neighbours stay out: "Is the Border Zone dangerous?", asked in Vain, would find Vain by its neighbour."""
-    return {key: value for key, value in fields.items() if key != "neighbours"}
+    """The neighbours stay out: "Is the Border Zone dangerous?", asked in Vain, would find Vain by its neighbour. The sex and
+    the personality stay out: "Any female guards?" would find every female character, and "Any proud fighters?" every
+    proud one."""
+    return {key: value for key, value in fields.items() if key not in ("neighbours", "sex", "personality")}
 
 
 def find_lore(message, records, town=None, zone=None):
