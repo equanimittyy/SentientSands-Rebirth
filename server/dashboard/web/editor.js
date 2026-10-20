@@ -8,7 +8,7 @@ const PROFILE_LABELS = { SpeechQuirks: "Speech" };
 const CHOICE_KEYS = ["Race", "Sex", "Faction"];
 const PROFILE_HELP = {
   Name: "The name of the character. The game shows this name.",
-  Alias: "Another name that people know the character by, such as a nickname.",
+  Alias: "Other names that people know the character by, such as a nickname. Separate names with commas.",
   Race: "The race of the character.",
   Sex: "The sex of the character.",
   Faction: "The faction that SSR tells the LLM the character belongs to.",

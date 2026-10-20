@@ -4,7 +4,7 @@ keeps the state of each unique NPC that it spawned, and each request of the plug
 over them for the lore. Each NPC that knows a record knows the state, because the plugin sees only that a state holds,
 not when or where its news went."""
 
-from chat.retrieval import name_words
+from chat.retrieval import aliases_of, name_words
 from core import state
 from store import campaign_db
 
@@ -25,14 +25,15 @@ def game_state(npc_id):
 
 
 def fallen():
-    """The state of each unique NPC that is not alive, by the name words of its game name and of the Name of its canon
-    record, because a template author or a player can name the character otherwise than the game does."""
+    """The state of each unique NPC that is not alive, by the name words of its game name and of the Name and the aliases
+    of its canon record, because a template author or a player can name the character otherwise than the game does."""
     if not state.UNIQUE_STATES:
         return {}
-    names = campaign_db.names_of(character_states())
+    profiles = campaign_db.profiles_of(character_states())
     found = {}
     for unique in state.UNIQUE_STATES:
-        for name in (unique["name"], names.get(f"u:{unique['id']}")):
+        profile = profiles.get(f"u:{unique['id']}", {})
+        for name in (unique["name"], profile.get("Name"), *aliases_of(profile)):
             if name:
                 found[name_words(name)] = unique["state"]
     return found

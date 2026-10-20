@@ -57,11 +57,16 @@ def _character(character):
     if character.get("state"):
         given["State"] = character["state"]
     record = _record(("characters", character["npc_id"]), "character", {
-        **character, "name": profile.get("Name", ""), "aliases": [given["Alias"]] if "Alias" in given else [],
+        **character, "name": profile.get("Name", ""), "aliases": aliases_of(given),
         "fields": {field: given[key] for field, key in (("race", "Race"), ("sex", "Sex"), ("faction", "Faction"), ("state", "State"), ("personality", "Personality")) if key in given},
         "description": profile.get("Backstory"),
     })
     return {**record, "origin_faction": given.get("OriginFaction", "")}
+
+
+def aliases_of(profile):
+    """The Alias of a profile holds one or more names, separated by commas."""
+    return [alias.strip() for alias in (profile.get("Alias") or "").split(",") if alias.strip()]
 
 
 def words(text):

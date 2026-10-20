@@ -622,6 +622,14 @@ def names_of(npc_ids):
     return {npc_id: name for npc_id, name in rows if name}
 
 
+def profiles_of(npc_ids):
+    """The profile of each stored character among npc_ids."""
+    npc_ids = list(npc_ids)
+    with _connect() as conn:
+        rows = conn.execute(f"SELECT npc_id, profile FROM character WHERE npc_id IN ({', '.join('?' * len(npc_ids))})", npc_ids).fetchall()
+    return {npc_id: json.loads(profile) for npc_id, profile in rows}
+
+
 def list_characters():
     """A thread member counts as having dialogue, and a speaker as taking part, because a memory replaces the lines of its thread."""
     with _connect() as conn:

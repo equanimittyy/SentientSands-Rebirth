@@ -90,7 +90,7 @@ def current_job_line(profile):
 
 def alias_line(profile):
     """The whole prompt line, because an NPC without an Alias gets no line at all."""
-    return f"ALIAS (another name that people know this character by): {profile['Alias']}" if profile.get("Alias") else ""
+    return f"ALIAS (other names that people know this character by): {profile['Alias']}" if profile.get("Alias") else ""
 
 def building_of(ctx):
     """The building that the character is in, or None outdoors. The plugin sends Unknown outdoors."""

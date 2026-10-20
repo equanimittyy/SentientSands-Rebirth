@@ -56,6 +56,11 @@ class FallenTest(unittest.TestCase):
         state.UNIQUE_STATES = [PHOENIX_DEAD]
         self.assertEqual(self.faction("The Holy Nation")["fields"], {"leader": "Holy Lord Phoenix", "dead": ["Holy Lord Phoenix"]})
 
+    def test_an_alias_of_the_canon_record_matches_a_ruler(self):
+        campaign_db.upsert_profile("u:17225-Dialogue.mod", {"Alias": "Phoenix, Holy Lord Phoenix LXII"})
+        state.UNIQUE_STATES = [PHOENIX_DEAD]
+        self.assertEqual(rulers.current({"name": "The Holy Nation", "fields": {"leader": "Holy Lord Phoenix LXII"}}, rulers.fallen())["fields"]["dead"], ["Holy Lord Phoenix LXII"])
+
     def test_the_game_name_matches_a_ruler_without_a_canon_record(self):
         state.UNIQUE_STATES = [{"id": "4-x.mod", "name": "Lady Tsugi", "state": "imprisoned"}]
         self.assertEqual(self.faction("Western Nobles")["fields"]["imprisoned"], ["Lady Tsugi"])

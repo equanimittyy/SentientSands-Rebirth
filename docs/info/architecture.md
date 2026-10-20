@@ -152,7 +152,7 @@ The game keeps the state of each unique NPC that it spawned: alive, dead, or imp
 - The plugin reads the states from a class of the game that KenshiLib does not declare (see [Kenshi internals](kenshi_internals.md#unique-npc-states)). On a game version without a known address, it sends `null` and logs a warning, because an empty list would mean that every unique NPC lives.
 - `rulers.current` gives a faction whose `leader` or `nobles` names such an NPC a `dead` or an `imprisoned` field, for example "leader: Tinfist; imprisoned: Tinfist". The `leader` and the `nobles` stay, so the links of the record hold.
 - The fields reach the lore hits and the current and origin factions of the NPC in the system message (`describe_faction`). Each NPC that knows the faction knows the state, as for a changed town.
-- A name matches by its name words: the game name of the NPC, or the `Name` of its canon character record, whose `npc_id` is `u:` and the string ID. A value that names two NPCs, such as "Dimak and Buzan", is split at "and" when it matches no one as a whole.
+- A name matches by its name words: the game name of the NPC, or the `Name` or an alias of its canon character record, whose `npc_id` is `u:` and the string ID. A value that names two NPCs, such as "Dimak and Buzan", is split at "and" when it matches no one as a whole.
 - The canon character record of such an NPC gets a `state` field (see [Lore records](#lore-records)).
 - Campaign Canon shows the state of each unique character in the Dead and Imprisoned rows (`rulers.game_state`). A generic character has no such rows, because the game keeps no state of it. The rows show Unknown while the server holds no states.
 
@@ -234,7 +234,7 @@ The last user message holds the lore entries, memories, and rumors that the play
 | Race, location, region | `name`, `aliases` | the values of `fields`, except `neighbours` | `description` | `campaign_db.list_records("entity")` |
 | Faction | `name`, `aliases` | the values of `fields` | `description` | `campaign_db.list_factions()` |
 | History entry | `title` | none | `text` | `campaign_db.history()` |
-| Character | `Name`, `Alias` of the profile | `race` and `faction` of the profile | `Backstory` | `campaign_db.list_records("character")` |
+| Character | `Name`, and each name of the `Alias` of the profile, which separates names with commas | `race` and `faction` of the profile | `Backstory` | `campaign_db.list_records("character")` |
 
 - A record with an empty text is no hit, but a link or a `known_by` can still name it.
 - A field with an empty value is left out of each lore line (`describe_record`), because the editor saves a fact row that the author left empty.

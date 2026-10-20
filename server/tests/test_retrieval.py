@@ -56,6 +56,11 @@ class LoreRecordsTest(unittest.TestCase):
         self.assertEqual(records[0]["aliases"], ["Esata"])
         self.assertEqual([(hit["record"]["name"], hit["name"]) for hit in retrieval.find_lore("Who is Esata?", records)[0]], [("Esata the Stone Golem", "Esata")])
 
+    def test_an_alias_can_hold_several_names(self):
+        records = retrieval.lore_records([], [], [], [{"npc_id": "u:1", "profile": {"Name": "Holy Lord Phoenix", "Alias": "Phoenix, Phoenix LXII", "Backstory": "Rules the Holy Nation."}}])
+        self.assertEqual(records[0]["aliases"], ["Phoenix", "Phoenix LXII"])
+        self.assertEqual([hit["name"] for hit in retrieval.find_lore("Who is Phoenix LXII?", records)[0]], ["Phoenix LXII"])
+
     def test_the_sex_the_state_and_the_personality_of_a_character_are_fields_that_do_not_search(self):
         records = retrieval.lore_records([], [], [], [{"npc_id": "h:1", "state": "imprisoned", "profile": {"Name": "Esata the Stone Golem", "Race": "Shek", "Sex": "Female", "Personality": "Fiery and proud.", "Backstory": "Rules the Shek."}}])
         self.assertEqual(records[0]["fields"], {"race": "Shek", "sex": "Female", "state": "imprisoned", "personality": "Fiery and proud."})
