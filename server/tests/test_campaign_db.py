@@ -10,7 +10,7 @@ from unittest import mock
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
 
 from core.version import MOD_VERSION
-from store import campaign_db
+from store import campaign_db, migrations
 
 BEEP_ID = "u:19576-Dialogue.mod"
 GENERIC_ID = "h:2717040896"
@@ -110,7 +110,7 @@ class OpenTest(CampaignTestCase):
         self.assertEqual(campaign_db.read_meta(self.folder)["ssr_version"], str(MOD_VERSION))
         self.assertEqual(campaign_db.captive_since(GENERIC_ID, 60), 60)
         self.assertEqual(len(campaign_db.list_characters()), 1)
-        backup = sqlite3.connect(os.path.join(self.folder, campaign_db.BACKUP_22))
+        backup = sqlite3.connect(os.path.join(self.folder, migrations.backup_name(22)))
         self.assertEqual(backup.execute("SELECT value FROM meta WHERE key = 'schema_version'").fetchone(), ("22",))
         self.assertIsNone(backup.execute("SELECT 1 FROM sqlite_master WHERE name = 'captive'").fetchone())
         backup.close()
@@ -138,10 +138,16 @@ class OpenTest(CampaignTestCase):
         campaign_db.open_campaign(self.folder, lambda: SEED)
         self.assertEqual(self.leader(), "Holy Lord Phoenix LXII")
 
+    def test_the_steps_lead_from_each_old_schema_to_the_current_one(self):
+        for schema in migrations.STEPS:
+            while schema in migrations.STEPS:
+                schema += 1
+            self.assertEqual(schema, campaign_db.SCHEMA_VERSION)
+
     def test_a_failed_backup_leaves_schema_22_and_closes_the_campaign(self):
         campaign_db.open_campaign(self.folder, lambda: SEED)
         self.write_meta(self.SCHEMA_22)
-        os.mkdir(os.path.join(self.folder, campaign_db.BACKUP_22))
+        os.mkdir(os.path.join(self.folder, migrations.backup_name(22)))
         with self.assertRaisesRegex(campaign_db.CampaignUnavailable, "cannot update the campaign .* Restart SSR to try again"):
             campaign_db.open_campaign(self.folder, lambda: SEED)
         self.assertEqual(campaign_db.read_meta(self.folder)["schema_version"], "22")

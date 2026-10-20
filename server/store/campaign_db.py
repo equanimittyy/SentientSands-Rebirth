@@ -15,9 +15,9 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from core.version import MOD_VERSION
+from store import migrations
 
 DB_NAME = "campaign.db"
-BACKUP_22 = "campaign_ssr2_backup.db"
 SCHEMA_VERSION = 23
 DIALOGUE_BLOCK = 20
 # A memory that this many passes read and did not cite leaves the auto rumor pool, so dull memories do not fill each prompt
@@ -28,14 +28,6 @@ PROVISIONAL = "Interactions"
 JOURNAL_PAGE = 20
 JOURNAL_LABEL = 40
 
-CAPTIVE_TABLE = """CREATE TABLE captive (
-  npc_id    TEXT PRIMARY KEY,
-  game_time INTEGER NOT NULL
-)"""
-# SSR 1 and 2 seeded a leader name that neither the game nor his character record uses, so his death never reached the
-# faction.
-PHOENIX_LEADER = """UPDATE faction SET fields = json_set(fields, '$.leader', 'Holy Lord Phoenix')
-WHERE faction_id = '1083-gamedata.base' AND json_extract(fields, '$.leader') = 'Holy Lord Phoenix LXII'"""
 SCHEMA = f"""
 CREATE TABLE meta (
   key   TEXT PRIMARY KEY,
@@ -134,7 +126,10 @@ CREATE TABLE hire (
   hours  INTEGER NOT NULL,
   fee    INTEGER NOT NULL
 );
-{CAPTIVE_TABLE};
+CREATE TABLE captive (
+  npc_id    TEXT PRIMARY KEY,
+  game_time INTEGER NOT NULL
+);
 INSERT INTO meta (key, value) VALUES ('schema_version', '{SCHEMA_VERSION}');
 -- A version that cannot open the campaign names this version, the one that can
 INSERT INTO meta (key, value) VALUES ('ssr_version', '{MOD_VERSION}');
@@ -164,14 +159,15 @@ def open_campaign(folder, seed):
             create(folder, seed())
             return
         name, meta = os.path.basename(folder), read_meta(folder)
-        if meta.get("schema_version") == "22":
+        schema = meta.get("schema_version", "")
+        if schema.isdigit() and int(schema) in migrations.STEPS:
             try:
-                _migrate_from_22(path)
+                migrations.migrate(path, int(schema))
             except (OSError, sqlite3.Error) as e:
                 _db_path = None
                 _closed_reason = f"SSR cannot update the campaign {name} for this version: {e}. Restart SSR to try again."
                 raise CampaignUnavailable(_closed_reason) from e
-        elif meta.get("schema_version") != str(SCHEMA_VERSION):
+        elif schema != str(SCHEMA_VERSION):
             _db_path = None
             made_by = meta.get("ssr_version")
             if made_by:
@@ -179,25 +175,6 @@ def open_campaign(folder, seed):
             else:
                 _closed_reason = f"The campaign {name} was made by an earlier version of SSR, which this version cannot open. Start a new campaign."
             raise CampaignUnavailable(_closed_reason)
-
-
-def _migrate_from_22(path):
-    """Schema 22 has no captive table and can hold the old Phoenix leader name. The copy first keeps the campaign for a
-    player who goes back to SSR 2. A script that fails leaves its transaction open, so the close rolls back the whole
-    migration."""
-    backup = os.path.join(os.path.dirname(path), BACKUP_22)
-    conn = sqlite3.connect(path)
-    try:
-        copy = sqlite3.connect(backup)
-        try:
-            conn.backup(copy)
-        finally:
-            copy.close()
-        conn.executescript(f"BEGIN; {CAPTIVE_TABLE}; {PHOENIX_LEADER}; UPDATE meta SET value = '{SCHEMA_VERSION}' WHERE key = 'schema_version'; "
-                           f"INSERT INTO meta (key, value) VALUES ('ssr_version', '{MOD_VERSION}'); COMMIT;")
-    finally:
-        conn.close()
-    logging.info(f"CAMPAIGN: Copied {path} to {BACKUP_22}, then migrated it from schema 22 to {SCHEMA_VERSION}.")
 
 
 def close_campaign():
