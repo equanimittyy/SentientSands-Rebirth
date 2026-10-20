@@ -14,7 +14,8 @@ from store.world_template import DIRECTIONS
 def campaign_lore():
     """A character that the server added in play is no record: its rolled backstory is invented."""
     stored = campaign_db.character_knowledge()
-    characters = [{"npc_id": npc_id, "profile": profile, **stored[npc_id]} for (npc_id,), profile, origin, _ in campaign_db.list_records("character") if origin != "game"]
+    states = rulers.character_states()
+    characters = [{"npc_id": npc_id, "profile": profile, "state": states.get(npc_id), **stored[npc_id]} for (npc_id,), profile, origin, _ in campaign_db.list_records("character") if origin != "game"]
     entities = [(category, ext_id, towns.current(data) if category == "locations" else data) for (category, ext_id), data, *_ in campaign_db.list_records("entity")]
     fallen = rulers.fallen()
     return retrieval.lore_records(entities, [rulers.current(faction, fallen) for faction in campaign_db.list_factions()], campaign_db.history(), characters)

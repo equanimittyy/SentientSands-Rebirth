@@ -146,13 +146,15 @@ A world state can swap the data of a town for an override with another owner or 
 
 ### Dead and imprisoned unique NPCs
 
-The game keeps the state of each unique NPC that it spawned: alive, dead, or imprisoned. The faction records describe the start of a game, so the server lays the deaths and the imprisonments of the leaders and the nobles over them (`server/chat/rulers.py`).
+The game keeps the state of each unique NPC that it spawned: alive, dead, or imprisoned. The faction and character records describe the start of a game, so the server lays the deaths and the imprisonments over the factions of the leaders and the nobles and over the canon character records (`server/chat/rulers.py`).
 
 - Each chat, radiant conversation, and report carries `unique_states` (`UniqueStates` in `plugin/game/Context.cpp`): the string ID, the name, and the state (`dead` or `imprisoned`) of each unique NPC that is not alive. The server keeps only the latest list, because a load can undo a death.
 - The plugin reads the states from a class of the game that KenshiLib does not declare (see [Kenshi internals](kenshi_internals.md#unique-npc-states)). On a game version without a known address, it sends `null` and logs a warning, because an empty list would mean that every unique NPC lives.
 - `rulers.current` gives a faction whose `leader` or `nobles` names such an NPC a `dead` or an `imprisoned` field, for example "leader: Tinfist; imprisoned: Tinfist". The `leader` and the `nobles` stay, so the links of the record hold.
 - The fields reach the lore hits and the current and origin factions of the NPC in the system message (`describe_faction`). Each NPC that knows the faction knows the state, as for a changed town.
 - A name matches by its name words: the game name of the NPC, or the `Name` of its canon character record, whose `npc_id` is `u:` and the string ID. A value that names two NPCs, such as "Dimak and Buzan", is split at "and" when it matches no one as a whole.
+- The canon character record of such an NPC gets a `state` field (see [Lore records](#lore-records)).
+- Campaign Canon shows the state of each unique character in the Dead and Imprisoned rows (`rulers.game_state`). A generic character shows Unknown, because the game keeps no state of it, and so does each character while the server holds no states.
 
 ## Web app
 
@@ -237,6 +239,7 @@ The last user message holds the lore entries, memories, and rumors that the play
 - A record with an empty text is no hit, but a link or a `known_by` can still name it.
 - A field with an empty value is left out of each lore line (`describe_record`), because the editor saves a fact row that the author left empty.
 - A character record also holds the `Sex` and the `Personality` of the profile as its `sex` and `personality` fields, so the lore line tells the model the sex and the nature of the character. The search skips these fields, because "female" would find every female character and "proud" every proud one. The `SpeechQuirks` stay out, because they are written for the model that speaks as the character.
+- A character that the game holds dead or imprisoned also gets a `state` field (see [Dead and imprisoned unique NPCs](#dead-and-imprisoned-unique-npcs)). The search skips it, because "Who is dead?" would find every dead character.
 - A character is a record only when it is canon (`origin` `seed` or `campaign`), because a rolled backstory is invented.
 - The index is built in memory for each line, so an edit reaches the next line. The search uses SQLite FTS5 ([development.md](development.md#probes)).
 

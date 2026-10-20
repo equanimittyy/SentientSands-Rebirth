@@ -1,7 +1,7 @@
 """The leaders and the nobles that the game holds dead or imprisoned, such as Tinfist in a cage of the Holy Nation. The game
 keeps the state of each unique NPC that it spawned, and each request of the plugin lists those that are not alive
-(state.UNIQUE_STATES). The faction records describe the start of a game, so the server lays the states over them for
-the lore. Each NPC that knows a faction knows the state of its rulers, because the plugin sees only that a state holds,
+(state.UNIQUE_STATES). The faction and the character records describe the start of a game, so the server lays the states
+over them for the lore. Each NPC that knows a record knows the state, because the plugin sees only that a state holds,
 not when or where its news went."""
 
 from chat.retrieval import name_words
@@ -14,6 +14,14 @@ RULER_FIELDS = ("leader", "nobles")
 def character_states():
     """The state of each unique NPC that is not alive, by the npc_id that its canon record would have."""
     return {f"u:{unique['id']}": unique["state"] for unique in state.UNIQUE_STATES or []}
+
+
+def game_state(npc_id):
+    """dead, imprisoned, or alive for a unique character, for Campaign Canon. None for a generic character, which the game
+    keeps no state of, and while the game has sent no states."""
+    if state.UNIQUE_STATES is None or not npc_id.startswith("u:"):
+        return None
+    return character_states().get(npc_id, "alive")
 
 
 def fallen():

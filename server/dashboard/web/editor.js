@@ -239,6 +239,7 @@ const isCanon = (record) => record.kind !== "character" || source === "template"
 const isProvisional = (record) => source === "campaign" && record.kind === "character" && PROVISIONAL in (record.data?.profile ?? {});
 // Mirrors GetNpcId in plugin/game/Context.cpp: the game's unique flag gives the u: prefix, as the events read it.
 const isUnique = (record) => record.kind === "character" && Boolean(record.id?.startsWith("u:"));
+const inGameState = (record, wanted) => record.state ? (record.state === wanted ? "Yes" : "No") : "Unknown";
 
 function inPlayerFaction(record) {
   if (record.kind === "faction") return Boolean(record.is_player);
@@ -438,6 +439,8 @@ function characterForm(form, path, record) {
       field("Original Faction", el("span", {}, form.details.OriginFaction || "Unknown"), null, "The faction that the character comes from."),
       source === "campaign" ? field("Animal", el("span", {}, { 1: "Yes", 0: "No" }[form.details.Animal] ?? "Unknown"), null, "Whether the character counts as an animal, such as a goat or a Fishman. An animal never answers with words.") : null,
       source === "campaign" ? field("Unique", el("span", {}, record.id ? (isUnique(record) ? "Yes" : "No") : "Unknown"), null, "Whether the game marks the character as unique, such as Tinfist.") : null,
+      source === "campaign" ? field("Dead", el("span", {}, inGameState(record, "dead")), null, "Whether the character is dead in your game. It shows for a unique character while the game runs.") : null,
+      source === "campaign" ? field("Imprisoned", el("span", {}, inGameState(record, "imprisoned")), null, "Whether the character is a prisoner in your game. It shows for a unique character while the game runs.") : null,
       isProvisional(record) ? field("Chats", el("span", {}, chatCount(form.details[PROVISIONAL])), null, "How many times you talked to the character. At Chats before a bio on the Settings page, the LLM writes its full bio.") : null,
       source === "campaign" ? field("Current Job", el("span", {}, form.details.CurrentJob || "Unknown"), null, "What the character does in the game, for example Guarding a building. It updates each time the character talks.") : null,
       source === "campaign" ? field("Current Location", el("span", {}, form.details.CurrentLocation || "Unknown"), null, "Where the character was when you last talked to it, for example Bar, The Hub, or Wilderness, Vain.") : null,

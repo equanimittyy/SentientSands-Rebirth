@@ -33,7 +33,8 @@ KINDS = {"races": "race", "locations": "location", "regions": "region"}
 
 def lore_records(entities, factions, history, characters=()):
     """entities are (category, ext_id, data) triples, factions are dicts with a faction_id, history holds the entries of
-    the history, and characters are dicts with an npc_id, a profile, and the knowledge keys. A record has a key that is
+    the history, and characters are dicts with an npc_id, a profile, the knowledge keys, and the state of a character
+    that the game holds dead or imprisoned (rulers.character_states). A record has a key that is
     unique in the campaign. A record without text stays, because a link or a known_by can name it, but it is no hit."""
     records = [_record((category, ext_id), KINDS[category], data) for category, ext_id, data in entities]
     records += [_record(("factions", faction["faction_id"]), "faction", faction) for faction in factions]
@@ -53,9 +54,12 @@ def _character(character):
     """The SpeechQuirks stay out: they describe the character for an LLM that speaks as it."""
     profile = character["profile"]
     given = {key: value for key, value in profile.items() if value and value != "Unknown"}
+    if character.get("state"):
+        given["State"] = character["state"]
     record = _record(("characters", character["npc_id"]), "character", {
         **character, "name": profile.get("Name", ""), "aliases": [given["Alias"]] if "Alias" in given else [],
-        "fields": {field: given[key] for field, key in (("race", "Race"), ("sex", "Sex"), ("faction", "Faction"), ("personality", "Personality")) if key in given}, "description": profile.get("Backstory"),
+        "fields": {field: given[key] for field, key in (("race", "Race"), ("sex", "Sex"), ("faction", "Faction"), ("state", "State"), ("personality", "Personality")) if key in given},
+        "description": profile.get("Backstory"),
     })
     return {**record, "origin_faction": given.get("OriginFaction", "")}
 
@@ -101,10 +105,10 @@ def _values(fields):
 
 
 def _searched_fields(fields):
-    """The neighbours stay out: "Is the Border Zone dangerous?", asked in Vain, would find Vain by its neighbour. The sex and
-    the personality stay out: "Any female guards?" would find every female character, and "Any proud fighters?" every
-    proud one."""
-    return {key: value for key, value in fields.items() if key not in ("neighbours", "sex", "personality")}
+    """The neighbours stay out: "Is the Border Zone dangerous?", asked in Vain, would find Vain by its neighbour. The sex,
+    the state, and the personality stay out: "Any female guards?" would find every female character, "Who is dead?"
+    every dead one, and "Any proud fighters?" every proud one."""
+    return {key: value for key, value in fields.items() if key not in ("neighbours", "sex", "state", "personality")}
 
 
 def find_lore(message, records, town=None, zone=None):

@@ -60,9 +60,28 @@ class FallenTest(unittest.TestCase):
         state.UNIQUE_STATES = [{"id": "4-x.mod", "name": "Lady Tsugi", "state": "imprisoned"}]
         self.assertEqual(self.faction("Western Nobles")["fields"]["imprisoned"], ["Lady Tsugi"])
 
+    def test_the_canon_record_of_a_dead_character_tells_the_state(self):
+        state.UNIQUE_STATES = [PHOENIX_DEAD]
+        self.assertEqual(self.faction("Holy Lord Phoenix")["fields"], {"faction": "The Holy Nation", "state": "dead"})
+
     def test_the_faction_of_the_npc_in_the_system_message_tells_the_state(self):
         state.UNIQUE_STATES = [PHOENIX_DEAD]
         self.assertEqual(prompts.describe_faction("The Holy Nation", HOLY_NATION), "The Holy Nation (leader: Holy Lord Phoenix; dead: Holy Lord Phoenix): Zealots of Okran.")
+
+
+class GameStateTest(unittest.TestCase):
+    def tearDown(self):
+        state.UNIQUE_STATES = None
+
+    def test_a_unique_character_is_alive_unless_the_game_lists_it(self):
+        state.UNIQUE_STATES = [PHOENIX_DEAD]
+        self.assertEqual((rulers.game_state("u:17225-Dialogue.mod"), rulers.game_state("u:59030-Dialogue.mod")), ("dead", "alive"))
+
+    def test_the_state_is_unknown_for_a_generic_character_or_without_states(self):
+        state.UNIQUE_STATES = []
+        self.assertIsNone(rulers.game_state("h:10"))
+        state.UNIQUE_STATES = None
+        self.assertIsNone(rulers.game_state("u:59030-Dialogue.mod"))
 
 
 class ReportTest(unittest.TestCase):

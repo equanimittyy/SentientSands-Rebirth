@@ -5,7 +5,7 @@ import os
 import requests
 from flask import Blueprint, Response, current_app, jsonify, request
 
-from chat import background, chat_prompt, knowledge, llm, llm_config, llm_router, prompt_store, retrieval, scene_text
+from chat import background, chat_prompt, knowledge, llm, llm_config, llm_router, prompt_store, retrieval, rulers, scene_text
 from chat.bio import recorded_history
 from chat.characters import send_rename
 from chat.llm import default_llm_config, send_completion
@@ -213,7 +213,7 @@ def get_campaign_canon():
             ],
             "characters": [
                 {"id": npc_id, "data": {"game_id": npc_id.removeprefix("u:"), "profile": profile, **known[npc_id]}, "origin": origin, "updated_at": updated_at, "current_faction": state.LIVE_CONTEXTS.get(npc_id, {}).get("faction"), "status": state.LIVE_CONTEXTS.get(npc_id, {}).get("health"),
-                 "visited": visited.get(npc_id, []), **({"events": squad_events[npc_id]} if npc_id in squad_events else {})}
+                 "state": rulers.game_state(npc_id), "visited": visited.get(npc_id, []), **({"events": squad_events[npc_id]} if npc_id in squad_events else {})}
                 for (npc_id,), profile, origin, updated_at in characters
             ],
             "entities": [
