@@ -78,7 +78,7 @@ struct QueuedAction {
   GameData *itemData;
   GameData *itemModel; // The grade of a weapon
   GameData *itemMaker; // The manufacturer of a weapon
-  int itemLevel;       // The grade of an armour or a crossbow, or the level of a weapon grade
+  int itemLevel;       // The grade of an armour, a crossbow, or a robotic limb, or the level of a weapon grade
   QueuedAction()
       : taskValue(0), itemData(NULL), itemModel(NULL), itemMaker(NULL),
         itemLevel(0) {}

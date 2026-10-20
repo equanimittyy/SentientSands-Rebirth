@@ -313,8 +313,8 @@ struct WeaponGrade {
   GameData *maker;
 };
 
-// The levels of the armour grades on the wiki, which crossbows share; the game
-// showed 40 as Standard and 60 as High on armour
+// The levels of the armour grades on the wiki, which crossbows and robotic limbs
+// share; the game showed 40 as Standard and 60 as High on armour
 static const struct {
   const char *name;
   int level;
@@ -400,7 +400,8 @@ static void FindCheatItems(GameWorld *world) {
     for (size_t g = 0; g < grades.size(); ++g)
       AddCheatItem(it->first + " (" + grades[g].model->name + ")", data,
                    grades[g].model, grades[g].maker, grades[g].level);
-    if (data->type == ARMOUR || data->type == CROSSBOW)
+    if (data->type == ARMOUR || data->type == CROSSBOW ||
+        data->type == LIMB_REPLACEMENT)
       for (size_t g = 0; g < sizeof(GEAR_GRADES) / sizeof(GEAR_GRADES[0]); ++g)
         AddCheatItem(it->first + " (" + GEAR_GRADES[g].name + ")", data, NULL,
                      NULL, GEAR_GRADES[g].level);
