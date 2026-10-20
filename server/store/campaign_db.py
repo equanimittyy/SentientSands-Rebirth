@@ -14,6 +14,8 @@ from contextlib import contextmanager
 from datetime import datetime, timezone
 from pathlib import Path
 
+from core.version import MOD_VERSION
+
 DB_NAME = "campaign.db"
 BACKUP_22 = "campaign_ssr2_backup.db"
 SCHEMA_VERSION = 23
@@ -130,6 +132,8 @@ CREATE TABLE hire (
 );
 {CAPTIVE_TABLE};
 INSERT INTO meta (key, value) VALUES ('schema_version', '{SCHEMA_VERSION}');
+-- A version that cannot open the campaign names this version, the one that can
+INSERT INTO meta (key, value) VALUES ('ssr_version', '{MOD_VERSION}');
 """
 
 _GAME_TIME = re.compile(r"\[Day (\d+)(?:, (\d+):(\d+))?\]")
@@ -165,7 +169,11 @@ def open_campaign(folder, seed):
                 raise CampaignUnavailable(_closed_reason) from e
         elif meta.get("schema_version") != str(SCHEMA_VERSION):
             _db_path = None
-            _closed_reason = f"The campaign {name} was made by an earlier version of SSR, which this version cannot open. Start a new campaign."
+            made_by = meta.get("ssr_version")
+            if made_by:
+                _closed_reason = f"The campaign {name} was made by SSR {made_by}, which this version (SSR {MOD_VERSION}) cannot open. Open it with SSR {made_by}, or start a new campaign."
+            else:
+                _closed_reason = f"The campaign {name} was made by an earlier version of SSR, which this version cannot open. Start a new campaign."
             raise CampaignUnavailable(_closed_reason)
 
 
@@ -180,7 +188,8 @@ def _migrate_from_22(path):
             conn.backup(copy)
         finally:
             copy.close()
-        conn.executescript(f"BEGIN; {CAPTIVE_TABLE}; UPDATE meta SET value = '{SCHEMA_VERSION}' WHERE key = 'schema_version'; COMMIT;")
+        conn.executescript(f"BEGIN; {CAPTIVE_TABLE}; UPDATE meta SET value = '{SCHEMA_VERSION}' WHERE key = 'schema_version'; "
+                           f"INSERT INTO meta (key, value) VALUES ('ssr_version', '{MOD_VERSION}'); COMMIT;")
     finally:
         conn.close()
     logging.info(f"CAMPAIGN: Copied {path} to {BACKUP_22}, then migrated it from schema 22 to {SCHEMA_VERSION}.")

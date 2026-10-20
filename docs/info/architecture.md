@@ -651,7 +651,7 @@ A new campaign is a copy of a world template (see [World templates](#world-templ
 
 - `open_campaign` builds a missing `campaign.db` from SSR Vanilla through `campaign.db.tmp`.
 - `open_campaign` migrates schema 22, of releases 1 and 2, to 23, which adds the `captive` table (`_migrate_from_22`). It first copies the database to `campaign_ssr2_backup.db` in the campaign folder with the SQLite backup API, so a player who goes back to SSR 2 keeps the campaign. Then one transaction changes the schema. A failed copy or migration leaves schema 22 and closes the campaign with the error.
-- `open_campaign` refuses any other schema version.
+- Each database holds the mod version that created or last migrated it in the `ssr_version` meta row. `open_campaign` refuses any other schema version, and the reason names the SSR version of that row, because only that version is sure to open the campaign. A database with no `ssr_version` row predates the releases, so the reason says to start a new campaign.
 - With no current campaign, or a deleted `campaign.db`, each operation fails with the reason, and a route answers 409.
 
 ### Campaign canon

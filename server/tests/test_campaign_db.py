@@ -9,6 +9,7 @@ from unittest import mock
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
 
+from core.version import MOD_VERSION
 from store import campaign_db
 
 BEEP_ID = "u:19576-Dialogue.mod"
@@ -86,19 +87,27 @@ class OpenTest(CampaignTestCase):
 
     def test_an_earlier_schema_version_is_refused_and_closes_the_campaign(self):
         campaign_db.open_campaign(self.folder, lambda: SEED)
-        self.write_meta("UPDATE meta SET value = '1' WHERE key = 'schema_version'")
+        self.write_meta("UPDATE meta SET value = '1' WHERE key = 'schema_version'; DELETE FROM meta WHERE key = 'ssr_version'")
         with self.assertRaises(campaign_db.CampaignUnavailable):
             campaign_db.open_campaign(self.folder, lambda: SEED)
-        with self.assertRaisesRegex(campaign_db.CampaignUnavailable, "Start a new campaign"):
+        with self.assertRaisesRegex(campaign_db.CampaignUnavailable, "earlier version of SSR, which this version cannot open. Start a new campaign"):
             campaign_db.list_characters()
 
-    SCHEMA_22 = "DROP TABLE captive; UPDATE meta SET value = '22' WHERE key = 'schema_version'"
+    def test_a_refused_campaign_names_the_version_that_made_it(self):
+        campaign_db.open_campaign(self.folder, lambda: SEED)
+        self.assertEqual(campaign_db.read_meta(self.folder)["ssr_version"], str(MOD_VERSION))
+        self.write_meta("UPDATE meta SET value = '99' WHERE key = 'schema_version'; UPDATE meta SET value = '7' WHERE key = 'ssr_version'")
+        with self.assertRaisesRegex(campaign_db.CampaignUnavailable, rf"made by SSR 7, which this version \(SSR {MOD_VERSION}\) cannot open. Open it with SSR 7, or start a new campaign"):
+            campaign_db.open_campaign(self.folder, lambda: SEED)
+
+    SCHEMA_22 = "DROP TABLE captive; DELETE FROM meta WHERE key = 'ssr_version'; UPDATE meta SET value = '22' WHERE key = 'schema_version'"
 
     def test_schema_22_gains_the_captive_table_after_a_backup(self):
         campaign_db.open_campaign(self.folder, lambda: SEED)
         self.write_meta(self.SCHEMA_22)
         campaign_db.open_campaign(self.folder, mock.Mock(side_effect=AssertionError("seed read again")))
         self.assertEqual(campaign_db.read_meta(self.folder)["schema_version"], str(campaign_db.SCHEMA_VERSION))
+        self.assertEqual(campaign_db.read_meta(self.folder)["ssr_version"], str(MOD_VERSION))
         self.assertEqual(campaign_db.captive_since(GENERIC_ID, 60), 60)
         self.assertEqual(len(campaign_db.list_characters()), 1)
         backup = sqlite3.connect(os.path.join(self.folder, campaign_db.BACKUP_22))
