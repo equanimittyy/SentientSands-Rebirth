@@ -32,6 +32,10 @@ CAPTIVE_TABLE = """CREATE TABLE captive (
   npc_id    TEXT PRIMARY KEY,
   game_time INTEGER NOT NULL
 )"""
+# SSR 1 and 2 seeded a leader name that neither the game nor his character record uses, so his death never reached the
+# faction.
+PHOENIX_LEADER = """UPDATE faction SET fields = json_set(fields, '$.leader', 'Holy Lord Phoenix')
+WHERE faction_id = '1083-gamedata.base' AND json_extract(fields, '$.leader') = 'Holy Lord Phoenix LXII'"""
 SCHEMA = f"""
 CREATE TABLE meta (
   key   TEXT PRIMARY KEY,
@@ -178,8 +182,9 @@ def open_campaign(folder, seed):
 
 
 def _migrate_from_22(path):
-    """Schema 22 has no captive table. The copy first keeps the campaign for a player who goes back to SSR 2. A script that
-    fails leaves its transaction open, so the close rolls back the whole migration."""
+    """Schema 22 has no captive table and can hold the old Phoenix leader name. The copy first keeps the campaign for a
+    player who goes back to SSR 2. A script that fails leaves its transaction open, so the close rolls back the whole
+    migration."""
     backup = os.path.join(os.path.dirname(path), BACKUP_22)
     conn = sqlite3.connect(path)
     try:
@@ -188,7 +193,7 @@ def _migrate_from_22(path):
             conn.backup(copy)
         finally:
             copy.close()
-        conn.executescript(f"BEGIN; {CAPTIVE_TABLE}; UPDATE meta SET value = '{SCHEMA_VERSION}' WHERE key = 'schema_version'; "
+        conn.executescript(f"BEGIN; {CAPTIVE_TABLE}; {PHOENIX_LEADER}; UPDATE meta SET value = '{SCHEMA_VERSION}' WHERE key = 'schema_version'; "
                            f"INSERT INTO meta (key, value) VALUES ('ssr_version', '{MOD_VERSION}'); COMMIT;")
     finally:
         conn.close()

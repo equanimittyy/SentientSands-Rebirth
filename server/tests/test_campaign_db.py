@@ -115,6 +115,29 @@ class OpenTest(CampaignTestCase):
         self.assertIsNone(backup.execute("SELECT 1 FROM sqlite_master WHERE name = 'captive'").fetchone())
         backup.close()
 
+    PHOENIX_LXII = "UPDATE faction SET fields = json_set(fields, '$.leader', 'Holy Lord Phoenix LXII') WHERE faction_id = '1083-gamedata.base'"
+
+    def leader(self):
+        return campaign_db.find_faction("1083-gamedata.base")["fields"]["leader"]
+
+    def test_schema_22_renames_the_seeded_phoenix_leader(self):
+        campaign_db.open_campaign(self.folder, lambda: SEED)
+        self.write_meta(f"{self.PHOENIX_LXII}; {self.SCHEMA_22}")
+        campaign_db.open_campaign(self.folder, lambda: SEED)
+        self.assertEqual(self.leader(), "Holy Lord Phoenix")
+
+    def test_schema_22_keeps_a_phoenix_leader_that_the_player_changed(self):
+        campaign_db.open_campaign(self.folder, lambda: SEED)
+        self.write_meta(self.SCHEMA_22)
+        campaign_db.open_campaign(self.folder, lambda: SEED)
+        self.assertEqual(self.leader(), "Phoenix")
+
+    def test_schema_23_keeps_the_old_phoenix_leader(self):
+        campaign_db.open_campaign(self.folder, lambda: SEED)
+        self.write_meta(self.PHOENIX_LXII)
+        campaign_db.open_campaign(self.folder, lambda: SEED)
+        self.assertEqual(self.leader(), "Holy Lord Phoenix LXII")
+
     def test_a_failed_backup_leaves_schema_22_and_closes_the_campaign(self):
         campaign_db.open_campaign(self.folder, lambda: SEED)
         self.write_meta(self.SCHEMA_22)
