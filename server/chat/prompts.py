@@ -16,7 +16,7 @@ def describe_faction(name, faction_id=None):
 def faction_text(name, faction):
     if not name or name == "Unknown":
         return "Unknown Faction (Remnant or Drifter)"
-    if not faction or not (faction.get("description") or faction.get("fields") or faction.get("major")):
+    if not faction or not (faction.get("description") or _facts(faction) or faction.get("major")):
         return f"{name}: A minor or specialized group in the wasteland."
     return describe_record(faction)
 
@@ -25,9 +25,13 @@ def describe_origin(origin, current):
     return "Same as the current faction." if origin == current else origin
 
 def describe_record(record, kind=None):
-    details = "; ".join([*([kind] if kind else []), *(f"{key}: {_fact_text(value)}" for key, value in record.get("fields", {}).items())])
+    details = "; ".join([*([kind] if kind else []), *(f"{key}: {text}" for key, text in _facts(record))])
     text = f"{record['name']} ({details})" if details else record["name"]
     return f"{text}: {record['description']}" if record.get("description") else text
+
+def _facts(record):
+    """The editor saves a fact row that the author left empty, and "leader: " tells the model nothing."""
+    return [(key, text) for key, text in ((key, _fact_text(value)) for key, value in record.get("fields", {}).items()) if text.strip()]
 
 def _fact_text(value):
     if isinstance(value, dict):

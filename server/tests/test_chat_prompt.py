@@ -344,6 +344,13 @@ class DescribeRecordTest(unittest.TestCase):
         vain = {"name": "Vain", "fields": {"hazards": ["acid rain"], "neighbours": {"Stenn Desert": "south", "Okran's Gulf": "east"}}, "description": "Hive lands."}
         self.assertEqual(prompts.describe_record(vain, "region"), "Vain (region; hazards: acid rain; neighbours: Stenn Desert to the south, Okran's Gulf to the east): Hive lands.")
 
+    def test_an_empty_fact_is_left_out(self):
+        nobles = {"name": "Western Nobles", "fields": {"leader": " ", "bases": [], "enemies": ["Reavers"]}, "description": "Lords."}
+        self.assertEqual(prompts.describe_record(nobles, "faction"), "Western Nobles (faction; enemies: Reavers): Lords.")
+
+    def test_a_faction_with_only_empty_facts_is_a_minor_group(self):
+        self.assertEqual(prompts.faction_text("Fishmen", {"name": "Fishmen", "fields": {"leader": ""}, "description": ""}), "Fishmen: A minor or specialized group in the wasteland.")
+
 
 if __name__ == "__main__":
     unittest.main()
