@@ -180,9 +180,13 @@ def _conversation(partners, listeners, overheard):
     return f"{talk}{heard}"
 
 
+def hunger_state(food_level):
+    return _scale(_number(food_level, 300), HUNGER)
+
+
 def hunger_text(subject, food_level):
     verb = "are" if subject == "You" else "look"
-    return f"{subject} {verb} {_scale(_number(food_level, 300), HUNGER)}."
+    return f"{subject} {verb} {hunger_state(food_level)}."
 
 
 def state_text(subject, state):

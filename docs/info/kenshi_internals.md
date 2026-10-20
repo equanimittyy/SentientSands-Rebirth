@@ -75,6 +75,14 @@ A probe of these hooks in several played sessions showed these facts. The plugin
 
 `PlayerInterface::getCurrentPlatoon` gives the squad that the player selected. A squad member is in that squad when its `Character::getPlatoon` is the `getActivePlatoon` of that squad.
 
+## Recruitment
+
+The game data files and forum posts, not a game test, show these facts.
+
+- The limits of the player faction are in `GlobalConstants` (`MAX_FACTION_SIZE`, `MAX_SQUAD_SIZE`, and `MAX_SQUADS`, through the global `con`). The constants record of the game data sets them, and a mod that loads later can change them. Vanilla sets 30 characters in the faction (`gamedata.base`), 20 characters in a squad (`rebirth.mod`), and 10 squads (`gamedata.base`). Animals count toward the faction limit.
+- A vanilla recruit line adds the NPC to the squad with the dialogue effect `DA_JOIN_SQUAD_WITH_EDIT` or `DA_JOIN_SQUAD_FAST`. Most recruit dialogues have the condition `DC_IS_RECRUITABLE`, which fails at the faction limit, so the recruit line does not show. About 25 vanilla join dialogues, for example "Escaped thug" and "captured - meets imprisoner and submits", and almost all the dialogues of the Recruitable Prisoners mod do not have that condition.
+- No game test has shown whether `PlayerInterface::recruit` or a join effect refuses a recruit at the limit.
+
 ## Stats
 
 `CharStats::getStatRef` gives the writable base level of a stat. A level that the plugin set stayed after a save and a load.

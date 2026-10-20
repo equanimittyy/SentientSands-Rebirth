@@ -137,7 +137,7 @@ class TextTest(unittest.TestCase):
         shackled = {"character_state": "enslaved", "captor": "17-gamedata.base"}
         recruit, _ = check("RECRUIT", "[AGREE]")
         self.assertEqual(offers.accept_end(recruit, shackled, shackled), "recruit_captive_accept")
-        self.assertEqual(offers.accept_end(recruit, {**shackled, "captor": "5-gamedata.base"}, shackled), "recruit_accept")
+        self.assertEqual(offers.accept_end(recruit, {**shackled, "captor": "5-gamedata.base"}, shackled), "recruit_captive_accept")
         self.assertEqual(offers.accept_end(recruit, NPC, SPEAKER), "recruit_accept")
         handover, _ = check("THREATEN", "[GIVE: 2 Bread]")
         self.assertEqual(offers.accept_end(handover, shackled, shackled), "threaten_accept")

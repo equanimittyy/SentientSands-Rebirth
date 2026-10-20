@@ -114,15 +114,16 @@ class PlainChatTest(unittest.TestCase):
             self.assertEqual(self.chat(category, {"squad_jobs": ["SIT_ON_THRONE"], "faction": "Holy Nation"}), "You lead Holy Nation and will not leave it.")
             self.assertIsNone(self.chat(category))
 
-    def test_a_captive_of_the_same_faction_can_join_or_follow(self):
+    def test_two_captives_can_join_or_follow(self):
         caged = {"character_state": "imprisoned", "captor": "17-gamedata.base"}
         shackled = {"character_state": "enslaved", "captor": "17-gamedata.base"}
         for category in ("RECRUIT", "FOLLOW"):
             self.assertIsNone(self.chat(category, caged, shackled))
             self.assertEqual(self.chat(category, {**caged, "is_leader": True, "faction": "Slave Traders"}, shackled),
                              "You lead Slave Traders and will not leave it.")
-        self.assertEqual(self.chat("RECRUIT", {**caged, "captor": "5-gamedata.base"}, shackled), "{player} is enslaved, so you cannot join {player}.")
-        self.assertEqual(self.chat("RECRUIT", {"character_state": "enslaved", "captor": ""}, {"character_state": "enslaved", "captor": ""}),
+        self.assertIsNone(self.chat("RECRUIT", {**caged, "captor": "5-gamedata.base"}, shackled))
+        self.assertIsNone(self.chat("RECRUIT", {"character_state": "enslaved", "captor": ""}, {"character_state": "enslaved", "captor": ""}))
+        self.assertEqual(self.chat("RECRUIT", {"character_state": "escaped-slave", "captor": "17-gamedata.base"}, shackled),
                          "{player} is enslaved, so you cannot join {player}.")
 
     def test_a_captive_of_the_speaker_faction_can_join_or_follow(self):
@@ -139,7 +140,8 @@ class PlainChatTest(unittest.TestCase):
     def test_a_fellow_captive_joins_instead_of_following(self):
         shackled = {"character_state": "enslaved", "captor": "17-gamedata.base"}
         self.assertEqual(ad.runs_as("FOLLOW", shackled, shackled), "RECRUIT")
-        self.assertEqual(ad.runs_as("FOLLOW", {**shackled, "captor": "5-gamedata.base"}, shackled), "FOLLOW")
+        self.assertEqual(ad.runs_as("FOLLOW", {**shackled, "captor": "5-gamedata.base"}, shackled), "RECRUIT")
+        self.assertEqual(ad.runs_as("FOLLOW", {"character_state": "normal"}, shackled), "FOLLOW")
         self.assertEqual(ad.runs_as("FOLLOW", {**shackled, "captor": "204-gamedata.base"}, {"factionID": "204-gamedata.base"}), "RECRUIT")
         self.assertEqual(ad.runs_as("FOLLOW", {}, {}), "FOLLOW")
         self.assertEqual(ad.runs_as("BARTER", shackled, shackled), "BARTER")
@@ -197,7 +199,8 @@ class LeanTest(unittest.TestCase):
     def test_a_fellow_captive_joins_more_readily(self):
         shackled = {"character_state": "enslaved", "captor": "17-gamedata.base"}
         self.assertEqual(ad.lean("RECRUIT", shackled, shackled, 0, (), "whisper"), [(2, "{player} is a fellow captive, and like most captives, you want to escape.")])
-        self.assertEqual(score("RECRUIT", {**shackled, "captor": "5-gamedata.base"}, shackled, 0), 0)
+        self.assertEqual(score("RECRUIT", {**shackled, "captor": "5-gamedata.base"}, shackled, 0, (), "whisper"), 2)
+        self.assertEqual(score("RECRUIT", {"character_state": "escaped-slave", "captor": "17-gamedata.base"}, {**shackled, "character_state": "escaped-slave"}, 0), 1)
 
     def test_a_captive_of_the_speaker_faction_leans_by_fight_and_days_held(self):
         captor = {"factionID": "204-gamedata.base"}
@@ -236,6 +239,40 @@ class LeanTest(unittest.TestCase):
         self.assertEqual(score("FOLLOW", {}, {}, 0), -1)
         self.assertEqual(score("FOLLOW", {"faction": "Tech Hunters"}, {}, 0), 0)
         self.assertEqual(ad.thought(ad.lean("FOLLOW", {}, {}, 0), "Zaps"), "You could go either way.\n- Reasons to refuse: You have no reason to follow Zaps.")
+
+    def test_a_shek_idolizes_the_strong_and_trusts_its_kin(self):
+        shek = {"race": "Shek", "stats": {"melee_attack": 10}}
+        strong = {"race": "Greenlander", "stats": {"melee_attack": 50}}
+        self.assertEqual(ad.lean("RECRUIT", shek, strong, 0), [(2, "The Shek idolize the strong.")])
+        self.assertEqual(ad.lean("RECRUIT", {**shek, "stats": {"melee_attack": 50}}, {"race": "Shek", "stats": {"melee_attack": 10}}, 0),
+                         [(-2, "The Shek do not serve the weak."), (1, "{player} is Shek, your kin.")])
+        self.assertEqual(score("RECRUIT", {**shek, "race": "Greenlander"}, strong, 0), 0)
+        self.assertEqual(score("FOLLOW", {**shek, "faction": "Tech Hunters"}, strong, 0), 0)
+
+    def test_a_hungry_npc_follows_the_food_of_the_speaker(self):
+        fed = {"inventory": [{"name": "Dried Meat", "kind": "food"}]}
+        self.assertEqual(ad.lean("RECRUIT", {"medical": {"hunger": 50}}, fed, 0), [(2, "You are starving, and {player} carries food.")])
+        self.assertEqual([score("RECRUIT", {"medical": {"hunger": level}}, fed, 0) for level in (150, 220, 300)], [1, 1, 0])
+        self.assertEqual(score("RECRUIT", {"medical": {"hunger": 50}}, {"inventory": [{"kind": "weapon"}]}, 0), 0)
+        self.assertEqual(score("RECRUIT", {"medical": {"hunger": 50}, "race": "Skeleton"}, fed, 0), 0)
+
+    def test_the_holy_nation_serves_only_a_man_of_its_race(self):
+        paladin = {"faction": "Holy Nation", "race": "Greenlander"}
+        self.assertEqual(ad.lean("RECRUIT", paladin, {"race": "Shek", "gender": "female"}, 0),
+                         [(-2, "{player} is not of your race, and you serve only Okran's children."), (-1, "{player} is a woman, and you will not serve a woman.")])
+        self.assertEqual(score("RECRUIT", paladin, {"race": "Greenlander", "gender": "male"}, 0), 0)
+        self.assertEqual(score("RECRUIT", {**paladin, "faction": "Holy Nation Outlaws"}, {"race": "Shek", "gender": "female"}, 0), 0)
+
+    def test_fellow_captives_ignore_the_ways_of_specific_people(self):
+        shackled = {"character_state": "enslaved", "captor": "17-gamedata.base"}
+        npc = {**shackled, "race": "Shek", "faction": "Mercenary Guild", "medical": {"hunger": 50}, "stats": {"melee_attack": 50}}
+        speaker = {**shackled, "race": "Shek", "money": 0, "stats": {"melee_attack": 10}, "inventory": [{"kind": "food"}]}
+        self.assertEqual(ad.lean("RECRUIT", npc, speaker, 0, (), "whisper"), [(2, "{player} is a fellow captive, and like most captives, you want to escape.")])
+
+    def test_a_mercenary_weighs_the_cats_of_the_speaker(self):
+        merc = {"faction": "Mercenary Guild"}
+        self.assertEqual([score("RECRUIT", merc, {"money": cats}, 0) for cats in (20000, 19999, 10000, 9999, 1000, 999)], [2, 1, 1, 0, 0, -1])
+        self.assertEqual(score("RECRUIT", {"faction": "Dust Bandits"}, {"money": 0}, 0), 0)
 
     def test_a_threat_counts_strength_and_numbers(self):
         strong = {"stats": {"melee_attack": 40, "melee_defence": 40}, "faction": "Nameless", "name": "Zaps", "squad": ["Zaps", "Zip"]}

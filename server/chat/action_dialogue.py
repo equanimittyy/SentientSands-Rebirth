@@ -10,6 +10,7 @@ import random
 import re
 
 from chat import current_job, scene_text
+from chat.characters import is_skeleton
 from core import state
 from core.paths import DEFAULTS_DIR
 
@@ -36,6 +37,7 @@ RELATION_REASONS = {2: "You like {player}'s group a lot.", 1: "You like {player}
                     -2: "You hate {player}'s group."}
 FIGHT_REASONS = {2: "{player} fights far better than you, and you dare not defy {player}.", 1: "{player} fights better than you.",
                  -1: "You fight better than {player}.", -2: "You fight far better than {player}, and you do not fear {player}."}
+FOOD_BONUS = {"starving": 2, "very hungry": 1, "hungry": 1}
 END_LINES_PATH = f"{DEFAULTS_DIR}/action_end_lines.json"
 KITS = (("first aid kit", "needs_first_aid", "has_first_aid"), ("repair kit", "needs_repair", "has_repair_kit"))
 _WORD = re.compile(r"[^\W\d_]+")
@@ -127,9 +129,8 @@ def plain_chat(category, npc, speaker):
 
 
 def fellow_captives(npc, speaker):
-    """One faction holds both the speaker and the NPC, in a cage or in shackles. The plugin sends a captor only for a
-    captive (CaptorFaction in plugin/game/Context.cpp)."""
-    return bool(speaker.get("captor")) and speaker.get("captor") == npc.get("captor")
+    """Both the speaker and the NPC are held, in a cage or in shackles, by any faction. An escaped slave is not held."""
+    return all(ctx.get("character_state") in ("imprisoned", "enslaved") for ctx in (npc, speaker))
 
 
 def captive_of(npc, speaker):
@@ -200,12 +201,53 @@ def lean(category, npc, speaker, relation, overheard=(), mode="talk", days_held=
                   (-2 * is_guard(npc), "You are a guard."),
                   (-2 * is_trader(npc), "You have a trade to run."),
                   (-(category == "FOLLOW" and not mercenary_rate(npc)), "You have no reason to follow {player}.")]
+        if category == "RECRUIT" and not captive:
+            pairs += people_pairs(npc, speaker)
         if captive_of(npc, speaker):
             fight = fight_bonus(npc, speaker)
             pairs += [(1, "{player}'s faction holds you captive, and joining the squad sets you free."), (fight, FIGHT_REASONS.get(fight))]
             if days_held is not None:
                 pairs.append(captivity_pair(days_held))
     return [(int(bonus), reason) for bonus, reason in pairs if bonus]
+
+
+def people_pairs(npc, speaker):
+    """The ways of specific people, from the vanilla dialogue: a Shek idolizes the strong and trusts its kin, the Holy Nation
+    serves only a man of its own race, a hungry NPC follows food, and a mercenary weighs the cats of the speaker's faction."""
+    shek, holy, fight = is_shek(npc), npc.get("faction") == "Holy Nation", fight_bonus(npc, speaker)
+    return [(shek * fight, "The Shek idolize the strong." if fight > 0 else "The Shek do not serve the weak."),
+            (shek and is_shek(speaker), "{player} is Shek, your kin."),
+            (-2 * (holy and speaker.get("race") != npc.get("race")), "{player} is not of your race, and you serve only Okran's children."),
+            (-(holy and speaker.get("gender") == "female"), "{player} is a woman, and you will not serve a woman."),
+            hunger_pair(npc, speaker),
+            wealth_pair(npc, speaker)]
+
+
+def is_shek(ctx):
+    return str(ctx.get("race", "")).lower().startswith("shek")
+
+
+def hunger_pair(npc, speaker):
+    """The hunger state of the chat prompt (scene_text.hunger_state), so a reason never contradicts that line."""
+    level = (npc.get("medical") or {}).get("hunger")
+    food = any(item.get("kind") == "food" for item in speaker.get("inventory") or [])
+    if level is None or is_skeleton(npc.get("race", "")) or not food:
+        return 0, None
+    hunger = scene_text.hunger_state(level)
+    return FOOD_BONUS.get(hunger, 0), f"You are {hunger}, and {{player}} carries food."
+
+
+def wealth_pair(npc, speaker):
+    if not mercenary_rate(npc):
+        return 0, None
+    cats = int(speaker.get("money") or 0)
+    if cats >= 20000:
+        return 2, "{player}'s faction is rich enough to pay you well."
+    if cats >= 10000:
+        return 1, "{player}'s faction can pay you."
+    if cats < 1000:
+        return -1, "{player}'s faction has few cats to pay you."
+    return 0, None
 
 
 def fight_bonus(npc, speaker):
