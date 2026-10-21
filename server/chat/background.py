@@ -34,12 +34,16 @@ def in_system_message(lore, npc_id, profile, faction_id, speaker_race, known, to
     return {("characters", npc_id)} | {("factions", faction["faction_id"]) for faction in factions if faction} | races | place
 
 
-def scene_place(lore, known, town, zone):
+def scene_place(lore, known, town, zone, outpost=None):
     """The records of the current location and the current region that the NPC knows (known_keys), for the chat scene,
-    so that a line about "this town" or "around here" needs no name. A record without text stays out, as in the search."""
+    so that a line about "this town" or "around here" needs no name. A record without text comes too, because its fields
+    say what the place is, such as a new outpost. outpost is the town key of an outpost of the player, whose name another
+    outpost can share."""
     current, regions, _ = retrieval.place(lore, town, zone)
-    by_key = {record["key"]: record for record in lore if record["description"].strip()}
-    return [by_key[key] for key in [*current, *regions] if key in by_key and key in known]
+    if outpost:
+        current = [key for key in current if key == ("locations", outpost)]
+    by_key = {record["key"]: record for record in lore}
+    return [by_key[key] for key in [*current, *regions] if key in known]
 
 
 def identity(lore, npc_id, profile, faction_id):

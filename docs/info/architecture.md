@@ -154,7 +154,7 @@ The location records describe the start of a game, so an outpost that the player
 - For a town that has a record, the server sets the name, the zone, and the owner from the game, so a rename in game keeps the description.
 - The server deletes the record of each outpost that the list does not hold. Without a town list, the plugin sends `null`, which keeps every record.
 - The `environment` of a context carries `player_town`, the town key, when the player's faction holds the town. The place lookup takes the record of that key before a record with the same name (`find_location` in `server/chat/prompts.py`).
-- An empty description keeps a record out of the search and the chat scene (see [Lore records](#lore-records)), so only the radiant place topic reads the record of a new outpost.
+- An empty description keeps a record out of the search (see [Lore records](#lore-records)). The chat scene of an NPC that knows the outpost still holds its record, so the type, the zone, and the owner reach the model. The scene takes the record of the town key, because another outpost can share the name.
 
 ### Dead and imprisoned unique NPCs
 
@@ -275,7 +275,7 @@ An FTS5 table holds one row per record (name, aliases, fields, text) with the `p
 - Name matches come first. Content hits follow by place, each group by score (`place_order`): the current location (`town_name`), the current region (`zone_name`, see [Current Location](#current-location)), its locations, the neighbouring regions (either side names the other in `neighbours`), then the others.
 - The place order adds no entry, because the model talks about the text that it gets.
 - A record that the system message holds is skipped (`background.in_system_message`).
-- The chat scene holds the records of the current location and the current region that the NPC knows (`background.scene_place`), so a line about "this town" or "around here" needs no name. The search skips them. The region leaves out its `neighbours`, because few lines ask for a direction, and the directions line gives them when a line does (see [Directions](#directions)). An animal gets no place records.
+- The chat scene holds the records of the current location and the current region that the NPC knows (`background.scene_place`), so a line about "this town" or "around here" needs no name. A record without text comes too, because its fields say what the place is, such as a new outpost. The search skips them. The region leaves out its `neighbours`, because few lines ask for a direction, and the directions line gives them when a line does (see [Directions](#directions)). An animal gets no place records.
 - An entry's text and each text field end at the last sentence end before 700 characters (`clipped`), so a long character personality is cut like the text. A list field is not cut.
 
 ### Directions

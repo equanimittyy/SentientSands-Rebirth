@@ -669,7 +669,7 @@ def chat():
         names = campaign_db.names_of(others)
         squad = set(state.PLAYER_CONTEXT.get("squad") or [])
         player = speaker or state.PLAYER_CONTEXT
-        place = [] if animal else background.scene_place(lore, background.known_keys(lore, primary_id, primary_data, live.get("factionID"), town, zone), town, zone)
+        place = [] if animal else background.scene_place(lore, background.known_keys(lore, primary_id, primary_data, live.get("factionID"), town, zone), town, zone, environment.get("player_town"))
         scene = fill_prompt(
             "prompt_chat_scene.txt",
             **scene_values(player, player_name, self_talk, place),

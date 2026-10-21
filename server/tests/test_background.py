@@ -260,9 +260,16 @@ class ScenePlaceTest(unittest.TestCase):
     def test_the_place_is_the_town_and_its_region(self):
         self.assertEqual(self.place([self.GULF["key"], self.STACK["key"]]), ["Stack", "Okran's Gulf"])
 
-    def test_a_record_that_the_npc_cannot_know_or_without_text_stays_out(self):
+    def test_a_record_that_the_npc_cannot_know_stays_out(self):
         self.assertEqual(self.place([self.GULF["key"]]), ["Okran's Gulf"])
-        self.assertEqual(self.place([self.GULF["key"], self.STACK["key"]], [dict(self.GULF, description=" "), self.STACK]), ["Stack"])
+
+    def test_a_record_without_text_still_comes(self):
+        self.assertEqual(self.place([self.GULF["key"], self.STACK["key"]], [dict(self.GULF, description=""), self.STACK]), ["Stack", "Okran's Gulf"])
+
+    def test_an_outpost_is_its_own_record_among_outposts_of_one_name(self):
+        outposts = [dict(lore_record("location", "Your Outpost", {"type": ["outpost"]}), key=("locations", key), description="") for key in ("t:1", "t:2")]
+        found = background.scene_place([self.GULF, *outposts], {record["key"]: False for record in outposts}, "Your Outpost", None, "t:2")
+        self.assertEqual([record["key"] for record in found], [("locations", "t:2")])
 
 
 class DirectionsTest(unittest.TestCase):
