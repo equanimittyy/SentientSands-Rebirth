@@ -612,11 +612,23 @@ def profit_lean(received, handed, gap):
     return bonus, f"The deal on the table is {kind}: it {verdict}."
 
 
+def shortfall(deal, missed):
+    """(lines, reason) of a deal on the table that misses the desired profit by missed cats: the cats that meet that profit,
+    and the change that the NPC wants, in the words of the kind of deal. With only the size of the gap, the model offered to
+    pay more cats than the player asked."""
+    pays, wants = int(deal.get("give_cats") or 0), int(deal.get("take_cats") or 0)
+    if pays >= missed:
+        return [f"At your desired profit, you pay at most {pays - missed:,} cats for this deal."], f"{{player}} asks for {missed:,} cats more than you'd like to pay."
+    if pays or wants:
+        return [f"At your desired profit, you want at least {wants - pays + missed:,} cats for this deal."], f"{{player}} offers {missed:,} cats less than you'd like to get."
+    return [], f"You'd like at least {missed:,} cats more from {{player}}, in cats or in goods."
+
+
 def on_table(deal, npc, speaker, squad, player_name, relation=None):
     """(offer, reason, lines, lean) of the deal on the table of the barter window: the checked offer that [AGREE] takes, or
     None and the reason, the lines that describe the deal in the turn message, and the (bonus, reason) pairs that the
-    profit or the loss adds to the lean. A reason names in cats how far the deal misses or beats the desired profit, so the
-    model does no sums."""
+    profit or the loss adds to the lean. A reason names in cats how far the deal beats the desired profit, or the change
+    that a missed one needs, and a line names the cats that meet a missed one, so the model does no sums."""
     parts = table_parts(deal)
     if not parts:
         return None, "the table is empty", ["Nothing is on the table yet."], []
@@ -637,8 +649,11 @@ def on_table(deal, npc, speaker, squad, player_name, relation=None):
     elif offer and gap + 1e-6 >= 0:
         lean.append(profit_lean(received, handed, gap))
     elif offer:
-        missed = f"misses your desired profit by about {math.ceil(-gap - 1e-6):,} cats."
-        lean.append((SMALL_PROFIT_LEAN, f"The deal on the table is a suboptimal profit: it {missed}") if received + 1e-6 >= handed else (LOSS_LEAN, f"The deal on the table is a loss: it {missed}"))
+        missed, profit = math.ceil(-gap - 1e-6), round(received - handed)
+        target, change = shortfall(deal, missed)
+        lines += target
+        kind = f"a suboptimal profit of {profit:,} cats" if received + 1e-6 >= handed else f"a loss of {-profit:,} cats"
+        lean.append((SMALL_PROFIT_LEAN if received + 1e-6 >= handed else LOSS_LEAN, f"The deal on the table is {kind}. {change}"))
     else:
         why = next((words.format(player=player_name) + reason[len(start):] for start, words in TABLE_REASONS.items() if reason.startswith(start)), reason)
         lines.append(f"You cannot agree to it as it is, because {why}.")

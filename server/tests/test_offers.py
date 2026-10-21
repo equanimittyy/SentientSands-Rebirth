@@ -326,12 +326,13 @@ class BarterWindowTest(unittest.TestCase):
     def test_the_gap_prices_each_side_as_the_price_guide_does(self):
         self.assertEqual(offers.price_guide("Katana, Bread", SHOP, {"inventory": offers.pooled(SQUAD)}, "Zaps"),
                          ["You have 1 Katana (Ancient, Refitted Blade): you sell each for at least 3,000 cats.", "Zaps has 4 Bread: you pay at most 45 cats each."])
-        self.assertEqual(offers.on_table({**TABLE, "take_cats": 2908}, SHOP, BUYER, SQUAD, "Zaps")[3], [(-1, "The deal on the table is a suboptimal profit: it misses your desired profit by about 2 cats.")])
+        self.assertEqual(offers.on_table({**TABLE, "take_cats": 2908}, SHOP, BUYER, SQUAD, "Zaps")[3], [(-1, "The deal on the table is a suboptimal profit of 8 cats. {player} offers 2 cats less than you'd like to get.")])
 
     def test_a_profit_below_the_one_that_the_npc_wants_leans_it_to_refuse(self):
-        offer, _, _, lean = offers.on_table(PURCHASE, SHOP, BUYER, SQUAD, "Zaps")
+        offer, _, lines, lean = offers.on_table(PURCHASE, SHOP, BUYER, SQUAD, "Zaps")
         self.assertIsNotNone(offer)
-        self.assertEqual(lean, [(-1, "The deal on the table is a suboptimal profit: it misses your desired profit by about 5 cats.")])
+        self.assertEqual(lines[1], "At your desired profit, you pay at most 90 cats for this deal.")
+        self.assertEqual(lean, [(-1, "The deal on the table is a suboptimal profit of 5 cats. {player} asks for 5 cats more than you'd like to pay.")])
         self.assertEqual(offers.on_table(PURCHASE, SHOP, BUYER, SQUAD, "Zaps", relation=30)[3], [(2, "The deal on the table is a fair profit: it beats your desired profit by about 5 cats.")])
 
     def test_a_bigger_profit_on_the_table_leans_harder_to_agree(self):
@@ -348,11 +349,18 @@ class BarterWindowTest(unittest.TestCase):
         self.assertIn("YOUR THOUGHT: You are inclined to agree.", offers.facts("BARTER", SHOP, BUYER, "Zaps", hated + big, relation=-60))
 
     def test_a_deal_below_the_price_of_the_npc_leans_it_to_refuse_at_any_relation(self):
-        for relation, missed in ((60, 100), (None, 110), (-25, 117)):
+        for relation, missed, least in ((60, 100, "2,900"), (None, 110, "2,910"), (-25, 117, "2,917")):
             offer, _, lines, lean = offers.on_table({**TABLE, "take_cats": 2800}, SHOP, BUYER, SQUAD, "Zaps", relation=relation)
             self.assertIsNotNone(offer)
-            self.assertEqual(lean, [(-2, f"The deal on the table is a loss: it misses your desired profit by about {missed} cats.")])
+            self.assertEqual(lines[1], f"At your desired profit, you want at least {least} cats for this deal.")
+            self.assertEqual(lean, [(-2, f"The deal on the table is a loss of 100 cats. {{player}} offers {missed} cats less than you'd like to get.")])
         self.assertIn("- On the table, Zaps gives 2,800 cats", offers.facts("BARTER", SHOP, BUYER, "Zaps", [], table=lines))
+
+    def test_a_swap_of_items_misses_the_profit_without_a_line_of_cats(self):
+        swap = {"take": [{"holder": "3", "name": "Dirty Loincloth", "count": 1}], "give": [{"name": "First Aid Kit", "count": 1}]}
+        _, _, lines, lean = offers.on_table(swap, SHOP, BUYER, SQUAD, "Zaps")
+        self.assertEqual(lines, ["On the table, Zaps gives a Dirty Loincloth, and they want a First Aid Kit from you."])
+        self.assertEqual(lean, [(-2, "The deal on the table is a loss of 32 cats. You'd like at least 42 cats more from {player}, in cats or in goods.")])
 
     def test_a_table_that_breaks_a_hard_limit_cannot_be_agreed(self):
         offer, reason, lines, lean = offers.on_table({**TABLE, "take": [{"holder": "3", "name": "Bread", "count": 2}]}, SHOP, BUYER, SQUAD, "Zaps")
