@@ -95,15 +95,15 @@ class OutpostTest(unittest.TestCase):
         campaign_db.open_campaign(self._tmp.name, lambda: SEED)
 
     def tearDown(self):
-        state.SEEN_OUTPOSTS.clear()
-        state.PLAYER_TOWNS = None
+        state.SEEN_OUTPOSTS = None
+        state.SEEN_FACTIONS.clear()
         state.PLAYER_CONTEXT = {}
         campaign_db.close_campaign()
         self._tmp.cleanup()
 
-    def stand_in(self, key, town, zone="Border Zone", player_towns=None):
-        environment = {"town_name": town, "zone_name": zone, **({"player_town": key} if key else {})}
-        game.take_report({"faction": "Nameless", "environment": environment}, [], [], [], player_towns)
+    def report(self, *towns, listed=True):
+        player = {"faction": "Nameless", "factionID": "204-gamedata.base"}
+        game.take_report(player, [], [], [], [{"key": key, "name": name, "zone": zone} for key, name, zone in towns] if listed else None)
 
     def outposts(self):
         return {ext_id: data for (category, ext_id), data, *_ in campaign_db.list_records("entity") if category == "locations" and ext_id.startswith("t:")}
@@ -112,33 +112,31 @@ class OutpostTest(unittest.TestCase):
         key, data, _, updated_at = next(record for record in campaign_db.list_records("entity") if record[0] == ("locations", ext_id))
         campaign_db.save_record("entity", key, {**data, "description": text}, updated_at)
 
-    def test_a_town_of_the_player_gets_an_empty_location_record(self):
-        self.stand_in("t:1", "Your Outpost")
+    def test_a_listed_town_of_the_player_gets_an_empty_location_record(self):
+        self.report(("t:1", "Your Outpost", "Border Zone"))
         self.assertEqual(self.outposts(), {"t:1": {"name": "Your Outpost", "aliases": [], "fields": {"type": "outpost", "zone": ["Border Zone"], "owner": ["Nameless"]}, "description": ""}})
 
     def test_two_outposts_of_one_name_in_one_zone_keep_two_records(self):
-        self.stand_in("t:1", "Your Outpost")
-        self.stand_in("t:2", "Your Outpost")
+        self.report(("t:1", "Your Outpost", "Border Zone"), ("t:2", "Your Outpost", "Border Zone"))
         self.describe("t:2", "The second one.")
         self.assertEqual(list(self.outposts()), ["t:1", "t:2"])
         self.assertEqual(prompts.find_location("Your Outpost", "t:2")["description"], "The second one.")
 
     def test_a_rename_in_game_keeps_the_description(self):
-        self.stand_in("t:1", "Your Outpost")
+        self.report(("t:1", "Your Outpost", "Border Zone"))
         self.describe("t:1", "Walls of scrap.")
-        self.stand_in("t:1", "Sandhold")
+        self.report(("t:1", "Sandhold", "Border Zone"))
         self.assertEqual((self.outposts()["t:1"]["name"], self.outposts()["t:1"]["description"]), ("Sandhold", "Walls of scrap."))
 
     def test_an_outpost_that_the_game_no_longer_lists_loses_its_record(self):
-        self.stand_in("t:1", "Your Outpost", player_towns=["t:1"])
-        self.stand_in("t:2", "Your Outpost", player_towns=["t:1", "t:2"])
-        self.stand_in(None, "Squin", player_towns=["t:2"])
+        self.report(("t:1", "Your Outpost", "Border Zone"), ("t:2", "Your Outpost", "Border Zone"))
+        self.report(("t:2", "Your Outpost", "Border Zone"))
         self.assertEqual(list(self.outposts()), ["t:2"])
         self.assertIn("brink", [ext_id for (category, ext_id), *_ in campaign_db.list_records("entity") if category == "locations"])
 
     def test_a_plugin_without_the_list_keeps_every_record(self):
-        self.stand_in("t:1", "Your Outpost")
-        self.stand_in(None, "Squin", player_towns=None)
+        self.report(("t:1", "Your Outpost", "Border Zone"))
+        self.report(listed=False)
         self.assertEqual(list(self.outposts()), ["t:1"])
 
 

@@ -148,11 +148,12 @@ A world state can swap the data of a town for an override with another owner or 
 
 The location records describe the start of a game, so an outpost that the player builds has no record. The server records each outpost of the player, so that the radiant place topic of an outpost has its record (see [Radiant conversations](#radiant-conversations)).
 
-- The `environment` of a context carries `player_town` when the player's faction holds the town: the town key, which is `t:` and the handle of the town (`TownKey` in `plugin/game/Context.cpp`). Every outpost is "Your Outpost" until the player renames it, so only the handle tells two outposts apart.
-- When a context shows a town of the player, the server adds a location record keyed by the town key (`note_outpost` in `server/core/game.py`). The record has the type `outpost`, the zone around the camera (see [Current Location](#current-location)), the player's faction as the owner, and an empty description, which the player can write in the web app.
-- At each later sight, the server sets the name, the zone, and the owner of the record from the game, so a rename in game keeps the description.
-- Each chat, radiant conversation, and report carries `player_towns`, the town keys of all the towns of the player's faction (`PlayerTowns`). The server deletes the record of each outpost that the list does not hold (`forget_outposts`). Without a town list, the plugin sends `null`, which keeps every record.
-- The place lookup takes the record of the town key before a record with the same name (`find_location` in `server/chat/prompts.py`).
+- Each chat, radiant conversation, and report carries `player_towns`: the town key, the name, and the zone of each town of the player's faction (`PlayerTowns` in `plugin/game/Context.cpp`). The town key is `t:` and the handle of the town (`TownKey`). Every outpost is "Your Outpost" until the player renames it, so only the handle tells two outposts apart. The zone comes from the zone object of the town (`TownBase::getBiome`), not from the camera.
+- The server keeps the records in step with each new list (`sync_outposts` in `server/core/game.py`), so no character has to stand in an outpost. The report at a load records each outpost of the save.
+- The server adds a location record keyed by the town key for each listed town that has none. The record has the type `outpost`, the zone, the player's faction as the owner, and an empty description, which the player can write in the web app.
+- For a town that has a record, the server sets the name, the zone, and the owner from the game, so a rename in game keeps the description.
+- The server deletes the record of each outpost that the list does not hold. Without a town list, the plugin sends `null`, which keeps every record.
+- The `environment` of a context carries `player_town`, the town key, when the player's faction holds the town. The place lookup takes the record of that key before a record with the same name (`find_location` in `server/chat/prompts.py`).
 - An empty description keeps a record out of the search and the chat scene (see [Lore records](#lore-records)), so only the radiant place topic reads the record of a new outpost.
 
 ### Dead and imprisoned unique NPCs

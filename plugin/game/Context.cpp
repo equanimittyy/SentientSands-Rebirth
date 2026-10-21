@@ -354,14 +354,12 @@ std::string EventParty(Character *npc) {
          (faction && faction->isThePlayer() ? "true" : "false") + "}";
 }
 
-// The zone around the camera, for example Vain: the game gives no zone for each
-// character, and a chat happens near the camera. KenshiLib does not map slot
-// 0x10 of the zone object, so only a pointer that is a zone record is followed.
-static std::string ZoneName() {
+// KenshiLib does not map slot 0x10 of the zone object, so only a pointer that
+// is a zone record is followed.
+static std::string ZoneOf(AreaBiomeGroup *biome) {
   static std::set<GameData *> zones;
   GameWorld *world = ppWorld ? *ppWorld : NULL;
-  WeatherSystem *weather = WeatherSystem::getInstance();
-  if (!world || !weather || !weather->ActiveRegion)
+  if (!world || !biome)
     return "";
 
   if (zones.empty()) {
@@ -372,8 +370,15 @@ static std::string ZoneName() {
         zones.insert(list[i]);
     }
   }
-  GameData *zone = *(GameData **)((char *)weather->ActiveRegion + 0x10);
+  GameData *zone = *(GameData **)((char *)biome + 0x10);
   return zones.count(zone) ? zone->name : "";
+}
+
+// The zone around the camera, for example Vain: the game gives no zone for each
+// character, and a chat happens near the camera
+static std::string ZoneName() {
+  WeatherSystem *weather = WeatherSystem::getInstance();
+  return weather ? ZoneOf(weather->ActiveRegion) : "";
 }
 
 #define ROLE_TASK(task) {task, #task}
@@ -1335,7 +1340,9 @@ std::string PlayerTowns() {
       continue;
     if (json.size() > 1)
       json += ",";
-    json += "\"" + TownKey(town) + "\"";
+    json += "{\"key\": \"" + TownKey(town) + "\", \"name\": \"" +
+            EscapeJSON(town->getName()) + "\", \"zone\": \"" +
+            EscapeJSON(ZoneOf(town->getBiome())) + "\"}";
   }
   return json + "]";
 }
