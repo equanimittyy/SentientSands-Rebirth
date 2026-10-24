@@ -26,7 +26,8 @@ struct GearGradeLevel {
 extern const GearGradeLevel GEAR_GRADES[6];
 std::string ItemLabel(Item *item);
 std::string ItemsJson(const std::vector<Item *> &items);
-std::string GetDetailedContext(Character *npc, const std::string &type = "npc");
+std::string GetDetailedContext(Character *npc, const std::string &type = "npc",
+                               Character *speaker = nullptr);
 void TreatmentNeeds(Character *patient, bool &firstAid, bool &repair);
 std::string GetIdentityFaction(Character *npc);
 std::string GetNpcId(Character *npc);

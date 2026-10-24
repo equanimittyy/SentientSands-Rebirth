@@ -134,6 +134,17 @@ class SentenceTest(unittest.TestCase):
         self.assertEqual(text, "The person before you:\nThe individual before you is Drifter. They are imprisoned and cannot move freely. Their right arm is gone. They are unconscious.")
         self.assertEqual(scene_text.state_text("They", "escaped-slave"), "They escaped slavery, and they are hunted.")
 
+    def test_the_player_in_a_fight(self):
+        text = scene_text.player_text("Drifter", "Unknown", "male", "", {}, False, "Unknown", "", [], in_combat=True)
+        self.assertEqual(text, "The person before you:\nThe individual before you is Drifter. They are in a fight right now.")
+
+    def test_the_npc_in_a_fight_knows_its_side_from_the_speaker(self):
+        def text(**context):
+            return scene_text.npc_text(context, {}, "Drifter", "Nameless", met=True, major=False, in_player_faction=False, feels_hunger=True)
+        self.assertIn("You are in a fight right now. You are on the opposite side of the fight from Drifter.", text(in_combat=True, combat_side="against"))
+        self.assertIn("You are on the same side of the fight as Drifter.", text(in_combat=False, combat_side="with"))
+        self.assertNotIn("fight", text(in_combat=False, combat_side=""))
+
     def test_the_npc_from_its_profile_repeats_neither_faction_nor_current_job(self):
         profile = {"Relation": -12, "Faction": "The Holy Nation", "CurrentJob": "Patrolling the town", "ConversationHistory": ["x"]}
         text = scene_text.npc_text(profile, profile, "Drifter", "Nameless", met=True, major=True, in_player_faction=False, feels_hunger=True)

@@ -375,7 +375,7 @@ bool SendChatLine(const std::string &npcName, unsigned int targetKey,
 
   std::string detailedContext = "{}";
   if (addressee) {
-    detailedContext = GetDetailedContext(addressee);
+    detailedContext = GetDetailedContext(addressee, "npc", speaker);
     LogFactionList();
     LogNpcRole(addressee);
   }

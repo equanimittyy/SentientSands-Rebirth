@@ -354,6 +354,42 @@ static bool Attacks(const std::vector<Character *> &side,
   return false;
 }
 
+// Unlike SquadKeys, an animal counts, because a wild animal attacks
+static void SquadOf(Character *member, std::vector<Character *> &out) {
+  ActivePlatoon *active = member->getPlatoon();
+  if (!active || (uintptr_t)active < 0x1000) {
+    out.push_back(member);
+    return;
+  }
+  for (uint32_t i = 0; i < active->things.size(); ++i) {
+    RootObject *thing = active->things[i];
+    if (thing && (uintptr_t)thing > 0x1000 &&
+        thing->getDataType() == CHARACTER)
+      out.push_back((Character *)thing);
+  }
+}
+
+static bool CommonFoe(const std::vector<Character *> &side,
+                      const std::vector<Character *> &allies) {
+  for (size_t i = 0; i < side.size(); ++i) {
+    std::vector<Character *> foe(1, side[i]->getAttackTarget().getCharacter());
+    if (foe[0] && (Attacks(foe, allies) || Attacks(allies, foe)))
+      return true;
+  }
+  return false;
+}
+
+std::string CombatSide(Character *npc, Character *speaker) {
+  std::vector<Character *> npcs, players;
+  SquadOf(npc, npcs);
+  SquadOf(speaker, players);
+  if (Attacks(npcs, players) || Attacks(players, npcs))
+    return "against";
+  if (CommonFoe(npcs, players) || CommonFoe(players, npcs))
+    return "with";
+  return "";
+}
+
 static void StartFight(Character *npc, Character *speaker) {
   Fight fight;
   fight.quiet = 0;

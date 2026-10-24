@@ -662,7 +662,8 @@ def chat():
     town, zone = environment.get("town_name"), environment.get("zone_name")
     lore = None if animal else background.campaign_lore()
     # The search skips the place records of the scene by the current place, so a move to another place needs a new scene
-    conversation = (speaker.get("npc_id"), primary_id or primary_npc, primary_npc, live.get("faction"), met, partners, town, zone)
+    conversation = (speaker.get("npc_id"), primary_id or primary_npc, primary_npc, live.get("faction"), met, partners, town, zone,
+                    ctx_dict.get("in_combat"), ctx_dict.get("combat_side"), speaker.get("in_combat"))
     scene = state.CONVERSATION_SCENE.get(conversation)
     if scene is None:
         others = [npc_id for npc_id in spoken if npc_id != speaker_id]

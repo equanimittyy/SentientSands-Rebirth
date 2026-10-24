@@ -65,6 +65,10 @@ STATES = {
     "unconscious": "{You} are unconscious.",
     "dead": "{You} are dead.",
 }
+COMBAT_SIDES = {
+    "against": "You are on the opposite side of the fight from {name}.",
+    "with": "You are on the same side of the fight as {name}.",
+}
 
 # Keyed by Kenshi's memory-tag enum values, worded from the tag names only
 SHORT_TERM_MEMORIES = {
@@ -191,6 +195,10 @@ def hunger_text(subject, food_level):
 
 def state_text(subject, state):
     return STATES.get(state, "").format(You=subject, you=subject.lower())
+
+
+def fight_text(subject, in_combat):
+    return f"{subject} are in a fight right now." if in_combat else ""
 
 
 def blood_text(subject, medical):
@@ -320,13 +328,14 @@ def rumors_text(rumors, today):
     return _section("Rumours:", sentences)
 
 
-def player_text(name, race, sex, race_description, medical, feels_hunger, faction, faction_description, items, building=None, state="normal"):
+def player_text(name, race, sex, race_description, medical, feels_hunger, faction, faction_description, items, building=None, state="normal", in_combat=False):
     """building is None outdoors."""
     who = person(race, sex)
     return _section("The person before you:", [
         f"The individual before you is {name}, {who}." if who else f"The individual before you is {name}.",
         _sentence(race_description) if race_description else "",
         state_text("They", state),
+        fight_text("They", in_combat),
         health_text("They", medical) if medical else "",
         state_text("They", "unconscious") if medical.get("is_unconscious") and state != "unconscious" else "",
         hunger_text("They", medical["hunger"]) if feels_hunger and "hunger" in medical else "",
@@ -351,6 +360,8 @@ def npc_text(context, profile, player_name, player_faction, *, met, major, in_pl
     sentences = [
         "You are talking to yourself." if self_talk else relation_text(player_name, player_faction, profile.get("Relation", 0), met, companions, partners),
         state_text("You", state),
+        fight_text("You", context.get("in_combat")),
+        COMBAT_SIDES.get(context.get("combat_side"), "").format(name=player_name),
     ]
     if _known(faction) and faction != old_faction:
         sentences.append(f"You belonged to {old_faction}, but now you belong to {faction}." if _known(old_faction) else f"You now belong to {faction}.")

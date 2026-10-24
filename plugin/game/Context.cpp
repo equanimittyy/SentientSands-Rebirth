@@ -1,4 +1,5 @@
 #include "Context.h"
+#include "GameActions.h"
 #include "../core/Globals.h"
 #include "../core/Utils.h"
 #include <kenshi/Building/Building.h>
@@ -805,7 +806,9 @@ static std::string StateFields(Character *npc) {
          ", \"has_repair_kit\": " +
          JsonBool(inv && inv->hasItemFunction(ITEM_ROBOTREPAIR)) +
          ", \"needs_first_aid\": " + JsonBool(needsFirstAid) +
-         ", \"needs_repair\": " + JsonBool(needsRepair);
+         ", \"needs_repair\": " + JsonBool(needsRepair) +
+         ", \"in_combat\": " +
+         JsonBool(npc->getAttackTarget().getCharacter() != nullptr);
 }
 
 static std::string ContextName(Character *npc) {
@@ -955,7 +958,8 @@ static std::string TagList(Character *npc, Character *other, int count) {
   return "[" + list + "]";
 }
 
-std::string GetDetailedContext(Character *npc, const std::string &type) {
+std::string GetDetailedContext(Character *npc, const std::string &type,
+                               Character *speaker) {
   GameWorld *world = ppWorld ? *ppWorld : nullptr;
   if (!npc || (uintptr_t)npc < 0x1000 || !world)
     return "{}";
@@ -997,6 +1001,9 @@ std::string GetDetailedContext(Character *npc, const std::string &type) {
   } else {
     json += ", \"inventory\": []";
   }
+
+  if (speaker && speaker != npc)
+    json += ", \"combat_side\": \"" + CombatSide(npc, speaker) + "\"";
 
   Character *first = FirstPlayerCharacter();
   json += ", \"memories\": ";

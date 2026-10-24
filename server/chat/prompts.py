@@ -169,5 +169,6 @@ def scene_values(player, player_name, self_talk=False, place=()):
             player.get("inventory") or [],
             building_of(player),
             player.get("character_state", "normal"),
+            player.get("in_combat", False),
         ),
     }
