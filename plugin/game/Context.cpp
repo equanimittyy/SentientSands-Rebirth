@@ -1005,13 +1005,13 @@ std::string GetDetailedContext(Character *npc, const std::string &type,
   if (speaker && speaker != npc)
     json += ", \"combat_side\": \"" + CombatSide(npc, speaker) + "\"";
 
-  Character *first = FirstPlayerCharacter();
+  Character *other = speaker ? speaker : FirstPlayerCharacter();
   json += ", \"memories\": ";
-  if (first)
+  if (other)
     json += "{\"short_term\": " +
-            TagList<CharacterPerceptionTags_ShortTerm>(npc, first, 8) +
+            TagList<CharacterPerceptionTags_ShortTerm>(npc, other, 8) +
             ", \"long_term\": " +
-            TagList<CharacterPerceptionTags_LongTerm>(npc, first, 17) + "}";
+            TagList<CharacterPerceptionTags_LongTerm>(npc, other, 17) + "}";
   else
     json += "{}";
   return json + "}";
