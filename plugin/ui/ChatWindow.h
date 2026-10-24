@@ -14,7 +14,7 @@ void CreateChatUI(Character *npc);
 bool SendChatLine(const std::string &npcName, unsigned int targetKey,
                   Character *speaker, const std::string &text,
                   const std::string &mode, const std::string &offerAnswer,
-                  const std::string &barterJson = "");
+                  const std::string &barterJson = "", bool anyone = false);
 void SetOfferPending(const std::string &npcName);
 std::string CurrentChatMode();
 void SetChatHistory(const std::string &data);

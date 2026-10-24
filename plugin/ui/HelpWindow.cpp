@@ -47,14 +47,17 @@ static const HelpTopic HELP_TOPICS[] = {
              "Settings tab of the web app."},
       {"Target", "To talk to one of your characters, press the button on the "
                  "right until it shows that character."},
+      {"Anyone", "To talk to all the NPCs near you, press the button on the "
+                 "right until it shows Anyone. The NPCs within the range of "
+                 "Whisper, Talk, or Yell hear the line, and up to 3 of them "
+                 "can answer."},
       {"Speaker", "You speak as the squad member that you select. To change "
                   "the speaker, select another member, or press the button on "
                   "the left. To make a character talk to itself, press the "
                   "buttons until both show that character."},
       {"Whisper", "Only the NPC hears it."},
       {"Talk", "The NPCs within the Talk range hear it."},
-      {"Yell", "The NPCs within the Yell range hear it, and up to 3 of them "
-               "can answer."},
+      {"Yell", "The NPCs within the Yell range hear it."},
       {"Send", "Type your line and press Enter. The NPC replies in a speech "
                "bubble."},
       {NULL,

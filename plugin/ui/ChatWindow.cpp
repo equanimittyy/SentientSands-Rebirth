@@ -65,6 +65,7 @@ static size_t g_chatSpeakerIndex = 0;
 static unsigned int g_lastSpeakerKey = 0;
 static MyGUI::Button *g_chatTargetBtn = nullptr;
 static std::vector<hand> g_chatTargets;
+// Equals g_chatTargets.size() while Anyone shows, so read it by ShownTarget
 static size_t g_chatTargetIndex = 0;
 // A shown target does not set it, so a target that the player never spoke to
 // does not replace the last conversation
@@ -233,6 +234,15 @@ static Character *CurrentChatSpeaker() {
              : nullptr;
 }
 
+static bool AnyoneShown() {
+  return g_chatTargetIndex == g_chatTargets.size();
+}
+
+static Character *ShownTarget() {
+  return AnyoneShown() ? nullptr
+                       : g_chatTargets[g_chatTargetIndex].getCharacter();
+}
+
 static void OnChatSendClick(MyGUI::Widget *sender) {
   if (!g_chatInput)
     return;
@@ -269,7 +279,7 @@ static void OnChatSendClick(MyGUI::Widget *sender) {
   }
 
   if (SendChatLine(g_chatTargetNameStr, g_chatTargetKey, speaker, text, mode,
-                   "") &&
+                   "", "", AnyoneShown()) &&
       target && target->getHandle() == g_switchedNpc)
     EndVanillaDialogue(target);
 }
@@ -277,7 +287,7 @@ static void OnChatSendClick(MyGUI::Widget *sender) {
 bool SendChatLine(const std::string &npcName, unsigned int targetKey,
                   Character *speaker, const std::string &text,
                   const std::string &mode, const std::string &offerAnswer,
-                  const std::string &barterJson) {
+                  const std::string &barterJson, bool anyone) {
   GameWorld *world = *ppWorld;
   std::string playerName = speaker ? speaker->getName() : "Drifter";
   Character *targetNpc = KeyedCharacter(targetKey);
@@ -293,18 +303,22 @@ bool SendChatLine(const std::string &npcName, unsigned int targetKey,
     return RefuseLine("{name} is unconscious.", downName, offerAnswer);
   }
   bool marked = IsActionMark(text);
+  if (anyone && marked) {
+    CloseChatUI();
+    return RefuseLine("Pick one person for a deal.", npcName, offerAnswer);
+  }
   float dist = speaker && targetNpc
                    ? speaker->getPosition().distance(targetNpc->getPosition())
                    : 0.0f;
-  float range = mode == "whisper" ? g_whisperRadius : g_proximityRadius;
-  bool beyondRange = said && dist >= range;
   EnterCriticalSection(&g_msgMutex);
   std::string pendingName = g_actionPendingName;
   std::string offerName = g_offerPendingName;
   bool actionLine =
       marked || (g_actionNpcKey != 0 && targetKey == g_actionNpcKey);
-  // A plain yell goes to each NPC in Yell range, not only to its target
-  bool tooFar = beyondRange && (mode != "yell" || actionLine);
+  float range = mode == "whisper"                ? g_whisperRadius
+                : mode == "yell" && !actionLine ? g_yellRadius
+                                                : g_proximityRadius;
+  bool tooFar = said && dist >= range;
   // A second line could bring a second offer, so an action dialogue line
   // holds every chat until its reply arrives
   if (!tooFar && pendingName.empty() && offerName.empty() && actionLine)
@@ -326,18 +340,12 @@ bool SendChatLine(const std::string &npcName, unsigned int targetKey,
                       ToString((int)range));
     return RefuseLine("{name} is too far away.", npcName, offerAnswer);
   }
-  // The server reads a yell at the speaker as a yell at everyone in range, so
-  // a target beyond Yell range does not answer
-  bool unheard = mode == "yell" && said && dist >= g_yellRadius;
-  if (unheard) {
-    Log(LOG_INFO, "CHAT: " + npcName + " is " + ToString((int)dist) +
-                      " from " + playerName + ", beyond the Yell range of " +
-                      ToString((int)g_yellRadius));
-    NotifyChatStatus("{name} is too far away.", npcName);
-  }
-  Character *addressee = unheard ? speaker : targetNpc;
-  std::string addresseeName = unheard ? playerName : npcName;
-  unsigned int addresseeKey = unheard ? HandleKey(speaker) : targetKey;
+  // The server picks the NPCs that answer a line to Anyone, so the line names
+  // the speaker
+  Character *addressee = anyone ? speaker : targetNpc;
+  std::string addresseeName = anyone ? playerName : npcName;
+  unsigned int addresseeKey =
+      anyone && speaker ? HandleKey(speaker) : targetKey;
 
   // Names the speaker, so its bubble and the NPC's actions go to that squad
   // member. The server sends the bubbles, as it paces every line
@@ -380,7 +388,7 @@ bool SendChatLine(const std::string &npcName, unsigned int targetKey,
     LogNpcRole(addressee);
   }
   // The offer of the reply comes from this context, so its items are noted now
-  if (actionLine && !unheard)
+  if (actionLine)
     NoteNpcItems(targetNpc);
   std::string speakerContext =
       speaker ? GetDetailedContext(speaker, "player") : "{}";
@@ -389,7 +397,8 @@ bool SendChatLine(const std::string &npcName, unsigned int targetKey,
       "{\"npc\": \"" + EscapeJSON(addresseeName) + "\", \"npcs\": [" +
       npcsJson + "], \"nearby\": [" + nearbyFullJson + "], \"message\": \"" +
       EscapeJSON(text) + "\", \"player\": \"" + EscapeJSON(playerName) +
-      "\", \"mode\": \"" + mode + "\", \"context\": " + detailedContext +
+      "\", \"mode\": \"" + mode + "\"" + (anyone ? ", \"anyone\": true" : "") +
+      ", \"context\": " + detailedContext +
       ", \"speaker\": " + speakerContext + ", \"speaker_key\": \"" +
       (speaker ? ToString(HandleKey(speaker)) : std::string()) + "\"" +
       ", \"events\": " + TakeGameEvents() +
@@ -427,13 +436,18 @@ static void SetChatThreadHeader(const std::string &text) {
   g_chatThreadHeader->setCaption(PlainText(text));
 }
 
+// A line to Anyone has no target, so its thread shows the copy of the speaker
 static void RequestChatHistory() {
+  g_chatBarterBtn->setVisible(false);
+  g_chatHistoryText->setOnlyText("");
   SetChatThreadHeader(T("Loading the conversation..."));
-  Character *target = KeyedCharacter(g_chatTargetKey);
+  Character *owner =
+      AnyoneShown() ? CurrentChatSpeaker() : KeyedCharacter(g_chatTargetKey);
   PostForGameThread(L"/chat_thread",
                     "{\"npc_id\":\"" +
-                        EscapeJSON(target ? GetNpcId(target) : std::string()) +
-                        "\"}",
+                        EscapeJSON(owner ? GetNpcId(owner) : std::string()) +
+                        "\"" + (AnyoneShown() ? ", \"anyone\": true" : "") +
+                        "}",
                     "CHAT_HISTORY", ToString(++g_chatHistoryRequest));
 }
 
@@ -470,6 +484,8 @@ static void ShowChatSpeaker() {
 static void OnChatSpeakerClick(MyGUI::Widget *sender) {
   g_chatSpeakerIndex = (g_chatSpeakerIndex + 1) % g_chatSpeakers.size();
   ShowChatSpeaker();
+  if (AnyoneShown())
+    RequestChatHistory();
 }
 
 // By the character, because a hand from the selection did not equal the hand
@@ -478,9 +494,8 @@ void SelectChatSpeaker(const hand &member) {
   Character *character = member.getCharacter();
   Character *speaker =
       g_chatWindow ? CurrentChatSpeaker() : KeyedCharacter(g_lastSpeakerKey);
-  Character *target = g_chatWindow
-                          ? g_chatTargets[g_chatTargetIndex].getCharacter()
-                          : KeyedCharacter(g_lastTargetKey);
+  Character *target =
+      g_chatWindow ? ShownTarget() : KeyedCharacter(g_lastTargetKey);
   g_lastSpeakerKey = HandleKey(character);
   // Two squad members talk in turns, so a selection of the target makes the
   // last speaker the target
@@ -493,13 +508,14 @@ void SelectChatSpeaker(const hand &member) {
       }
     }
   }
-  if (!g_chatWindow ||
-      character == g_chatTargets[g_chatTargetIndex].getCharacter())
+  if (!g_chatWindow || character == ShownTarget())
     return;
   for (size_t i = 0; i < g_chatSpeakers.size(); ++i) {
     if (g_chatSpeakers[i].getCharacter() == character) {
       g_chatSpeakerIndex = i;
       ShowChatSpeaker();
+      if (AnyoneShown())
+        RequestChatHistory();
       return;
     }
   }
@@ -518,9 +534,12 @@ static void FillChatSpeakers(unsigned int preferredKey) {
 }
 
 static void ShowChatTarget() {
-  Character *target = g_chatTargets[g_chatTargetIndex].getCharacter();
-  g_talkTargetHand = g_chatTargets[g_chatTargetIndex];
-  g_chatTargetNameStr = target ? target->getName() : "?";
+  Character *target = ShownTarget();
+  g_talkTargetHand =
+      AnyoneShown() ? hand() : g_chatTargets[g_chatTargetIndex];
+  g_chatTargetNameStr = AnyoneShown() ? T("Anyone")
+                        : target      ? target->getName()
+                                      : "?";
   g_chatTargetKey = target ? HandleKey(target) : 0;
   g_chatWindow->setCaption(PlainText(T("Talking to: ") + g_chatTargetNameStr));
   g_chatTargetBtn->setCaption(PlainText(g_chatTargetNameStr));
@@ -530,14 +549,11 @@ static void ShowChatTarget() {
   g_chatSpeakerBtn->setVisible(!g_chatSpeakers.empty());
   if (!g_chatSpeakers.empty())
     ShowChatSpeaker();
-
-  g_chatBarterBtn->setVisible(false);
-  g_chatHistoryText->setOnlyText("");
   RequestChatHistory();
 }
 
 static void OnChatTargetClick(MyGUI::Widget *sender) {
-  g_chatTargetIndex = (g_chatTargetIndex + 1) % g_chatTargets.size();
+  g_chatTargetIndex = (g_chatTargetIndex + 1) % (g_chatTargets.size() + 1);
   ShowChatTarget();
 }
 
@@ -621,6 +637,14 @@ static void FillChatTargets(GameWorld *world, Character *npc) {
   }
 }
 
+static bool NpcNearSquad() {
+  std::vector<Character *> squad, npcs;
+  GetCurrentSquad(squad);
+  for (size_t i = 0; npcs.empty() && i < squad.size(); ++i)
+    GetRadiantNpcs(squad[i], npcs);
+  return !npcs.empty();
+}
+
 void SelectChatTarget(Character *npc) {
   if (!g_chatWindow)
     return;
@@ -650,12 +674,14 @@ void CreateChatUI(Character *npc) {
     if (g_chatTargets[i].getCharacter() == last)
       g_chatTargetIndex = i;
   }
+  if (!npc && !last && NpcNearSquad())
+    g_chatTargetIndex = g_chatTargets.size();
   g_chatSpeakers.clear();
   g_chatJustOpened = true;
   BuildChatWindow();
   ShowChatTarget();
   // A talk to itself opens only when the player chose it or no one else is near
-  if (!g_chatSpeakers.empty() && g_chatTargets.size() > 1 &&
+  if (!AnyoneShown() && !g_chatSpeakers.empty() && g_chatTargets.size() > 1 &&
       g_chatTargets[g_chatTargetIndex].getCharacter() != last &&
       g_chatSpeakers[g_chatSpeakerIndex] == g_chatTargets[g_chatTargetIndex]) {
     if (g_chatSpeakers.size() > 1) {

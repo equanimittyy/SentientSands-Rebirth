@@ -453,14 +453,19 @@ An NPC radiant conversation takes the place of a talk of the player's characters
 
 ## Chat target
 
-The chat key opens the chat window on the NPC that the player has selected. When no NPC is selected, the window opens on the last character that the player sent a line to, an NPC or a squad member (`CreateChatUI` in `plugin/ui/ChatWindow.cpp`). A target that the window only showed does not replace that character. When no NPC is selected or remembered and no other player character stands within Talk range of the squad, the window opens on a talk to itself (see [Talking to itself](#talking-to-itself)), so the chat key always opens the window. Rejected: the last NPC that the player selected, because a click on an NPC that the player never spoke to replaced the conversation.
+The chat key opens the chat window on the NPC that the player has selected. When no NPC is selected, the window opens on the last character that the player sent a line to, an NPC or a squad member (`CreateChatUI` in `plugin/ui/ChatWindow.cpp`). A target that the window only showed does not replace that character. Rejected: the last NPC that the player selected, because a click on an NPC that the player never spoke to replaced the conversation.
+
+- The target button shows the NPC, then each player character within Talk range of the squad, and last Anyone (`FillChatTargets` and `OnChatTargetClick`). Only a line to Anyone can get more than one reply (see [Lines to Anyone](#lines-to-anyone)).
+- When no NPC is selected or remembered, the window opens on Anyone if a character outside the player's faction that can talk stands within `YellRadius` of a squad member (`NpcNearSquad`). A line to Anyone leaves no remembered character, so the next open follows the same rule.
+- When no such character stands near and no other player character stands within Talk range of the squad, the window opens on a talk to itself (see [Talking to itself](#talking-to-itself)), so the chat key always opens the window.
 
 ## Chat range
 
-The plugin sends a chat line only when the target stands within range of the speaker: `WhisperRadius` for a whisper, else `TalkRadius` (`SendChatLine` in `plugin/ui/ChatWindow.cpp`). Otherwise the chat window shows "{name} is too far away.", the plugin log names the distance and the range, and the line goes nowhere.
+The plugin sends a line to one target only when the target stands within the range of the mode from the speaker: `WhisperRadius`, `TalkRadius`, or `YellRadius` (`SendChatLine` in `plugin/ui/ChatWindow.cpp`). Otherwise the chat window shows "{name} is too far away.", the plugin log names the distance and the range, and the line goes nowhere.
 
-- A plain yell is the exception, because it goes to each NPC within `YellRadius`, not only to the target (see [Yells](#yells)). A plain yell at a target beyond `YellRadius` goes out as a yell at the speaker, so only the NPCs in range can answer, and the chat window shows "{name} is too far away.".
-- An action dialogue in Yell mode needs the target within `TalkRadius`, because its offer belongs to one NPC.
+- An action dialogue in Yell mode needs the target within `TalkRadius`.
+- A line to Anyone has no target, so it skips the check. The plugin sends it with `"anyone": true` and the speaker as the addressee: `npc`, `context`, and the first entry of `npcs` name the speaker. The server picks the NPCs that answer from `nearby` (see [Lines to Anyone](#lines-to-anyone)).
+- The plugin refuses an action dialogue to Anyone with "Pick one person for a deal.", because an offer belongs to one NPC.
 - A test command, a line that starts with `/`, skips the check, because no character says it.
 
 ## Lines to Anyone
@@ -771,7 +776,7 @@ Above the input, the chat window shows a header line with the type and the title
 - `POST /chat_thread` (`server/chat/chat_window.py`) returns the thread while the target is a speaker of `CURRENT_THREAD` and its last reply is within the Conversation timeout. So the panel shows the thread that a line to the target stays in, and an NPC that only overheard the thread gets a clear panel. It does not compare the mode or the speaker, because a change of either ends the thread only at the next line, and each line closes the chat window.
 - The reply holds the type (`Chat` or the action category), the title (the speakers and the start place, as on Dialogue & Memories), the mode, and the copy of the thread lines of the NPC. The reply of an action dialogue also holds its speaker and `stock`, for the Barter window (see [Barter window](#barter-window)).
 - With Anyone as the target, the request holds `anyone` and the `npc_id` of the speaker. The server then returns only a thread of lines to Anyone, with the copy of the speaker (see [Lines to Anyone](#lines-to-anyone)).
-- The window asks at each open and at each switch of the target, by a selection or by the target button, and drops a reply that a newer request made stale (`ShowChatTarget`). So a switch to another NPC clears the panel, and a switch back to the NPC of the open thread shows the thread again. A thread that ends while the window is open shows until the next request.
+- The window asks at each open and at each switch of the target, by a selection or by the target button, and drops a reply that a newer request made stale (`RequestChatHistory`). With Anyone as the target, it also asks at each switch of the speaker, because the thread comes from the copy of the speaker. So a switch to another NPC clears the panel, and a switch back to the NPC of the open thread shows the thread again. A thread that ends while the window is open shows until the next request.
 - The panel adds its height above the input, so the input rows keep their size and the window grows upward.
 
 ### Conversation memories
