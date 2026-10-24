@@ -303,9 +303,11 @@ bool SendChatLine(const std::string &npcName, unsigned int targetKey,
     return RefuseLine("{name} is unconscious.", downName, offerAnswer);
   }
   bool marked = IsActionMark(text);
-  if (anyone && marked) {
+  // A line to Anyone names the speaker, so a test command would act on it
+  if (anyone && (marked || !said)) {
     CloseChatUI();
-    return RefuseLine("Pick one person for a deal.", npcName, offerAnswer);
+    return RefuseLine("Pick one person for a deal or a command.", npcName,
+                      offerAnswer);
   }
   float dist = speaker && targetNpc
                    ? speaker->getPosition().distance(targetNpc->getPosition())

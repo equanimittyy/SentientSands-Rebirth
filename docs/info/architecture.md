@@ -465,7 +465,7 @@ The plugin sends a line to one target only when the target stands within the ran
 
 - An action dialogue in Yell mode needs the target within `TalkRadius`.
 - A line to Anyone has no target, so it skips the check. The plugin sends it with `"anyone": true` and the speaker as the addressee: `npc`, `context`, and the first entry of `npcs` name the speaker. The server picks the NPCs that answer from `nearby` (see [Lines to Anyone](#lines-to-anyone)).
-- The plugin refuses an action dialogue to Anyone with "Pick one person for a deal.", because an offer belongs to one NPC.
+- The plugin refuses an action dialogue and a test command to Anyone with "Pick one person for a deal or a command.", because an offer belongs to one NPC, and a test command would act on the speaker.
 - A test command, a line that starts with `/`, skips the check, because no character says it.
 
 ## Lines to Anyone
