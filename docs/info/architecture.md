@@ -644,10 +644,12 @@ A QUEST line goes to plain chat with the reason as the NPC's thought (`plain_cha
 |---|---|
 | The NPC is not a leader (`current_job.is_leader`), a guard (`is_guard`), or a trader (`is_trader`) | "You have no work to give." |
 | The NPC or the speaker is `imprisoned` | "You are locked in a cage, so you cannot give work." or "{player} is locked in a cage, so {player} cannot take work." |
+| The NPC answers for no job, and its faction already gave a job that is open or done | "{player}'s group already does a job for {giver} of your faction, and only {giver} pays for it, so you have no work for {player} now." |
 | The NPC answers for no job and has no job to give | "You have no work for {player} now." |
 
-- The NPC answers for its own open or done job, or, as a guard or the leader of a faction, for the oldest faction job that a member of that faction gave (`quests.held`). Generic guards look alike and have rolled names, so the player could not find the one guard that gave the job.
+- The NPC answers only for its own open or done job (`quests.held`), so only the giver pays a job.
 - An NPC that answers for a job gives no new job, so each giver holds at most one job.
+- A faction gives one job at a time. While the player faction holds an open or done job from a member of a faction, no member of that faction gives a new job (`quests.faction_held`, `campaign_db.add_quest`). For a giver without a faction, only the limit of one job for each giver holds.
 - A leader can give a figure job and a faction job. When both pass their gates, code picks one at random (`quests.roll`).
 - The new job of the first QUEST line stays in `CURRENT_THREAD` (`action`), so each turn of the action dialogue names the same job. A new chat thread rolls again.
 
@@ -658,7 +660,7 @@ The enemies of a giver are the faction records that the `enemies` field of its f
 - Figure: The relation of the giver's faction with the player faction (`relation` of the context) must be 60 or more, the band of the relation bonus +2 (`relation_bonus`). The targets are the `leader` and the `nobles` of each enemy, found by the name words of the canon character records, as `rulers.fallen` matches a name. A value that names two people, such as "Dimak and Buzan", is split at "and".
 - A figure drops out when it has no canon record, when the game holds it dead or imprisoned (`rulers.character_states`), when its live context is in the player faction, or when another job names it, so one kill never pays two jobs.
 - The figure job is done at a `kill` or a `capture` event of the target after the accept, with a squad member as a doer (`world_events._store`). Either event counts, so the player chooses how to do the job. A capture into a cage of the player faction counts too.
-- The figure job fails when the game holds the target or the giver dead or imprisoned, and no such event came. Code checks this after the events of each request (`quests.check`), so an event and a state in one request mark the job done. A game event that a failed request lost ([Game events](#game-events)) therefore fails the job. A faction job and a goods job never fail.
+- The figure job fails when the game holds the target dead or imprisoned, and no such event came. Code checks this after the events of each request (`quests.check`), so an event and a state in one request mark the job done. A game event that a failed request lost ([Game events](#game-events)) therefore fails the job.
 - Faction: The target is an enemy faction, and the count is 3 to 8. Each `death` game event after the accept counts when `world_events._attribute` gives it an attacker of the player faction. It counts toward only the oldest open faction job against the `factionID` of its party (`campaign_db.count_quest_kill`), and a kill that does a figure job counts toward no faction job, so one kill never pays two jobs.
 - Goods: The class of a trader comes from the `kind` of its goods (`offers.goods`, `ItemKind` in `plugin/game/Context.cpp`). The class needs at least half of the item stacks, because a general store sells a few items of each class (`quests.trader_materials`). A trader without a class gives no job.
 
@@ -674,7 +676,8 @@ The enemies of a giver are the faction records that the `enemies` field of its f
 - The materials follow the crafting chains of the vanilla game data: Raw Iron makes Iron Plates and Armour Plating, and Iron Plates make Steel bars; Animal Skin makes Leather; Cotton makes Fabrics; Copper makes Electrical Components and goes into the robotics bench; Hemp makes Hashish and the Advanced First Aid Kit. Kenshi has no item named hide or cloth, so Animal Skin takes the place of hide, and both Cotton, the raw form, and Fabrics take the place of cloth.
 - `ELECTRONICS` holds the items of the vendor list `Hi tech junk` that `ItemKind` gives the kind `goods`: CPU Unit, Electrical Components, Generator Core, Motor, Power Core, and Robotics Components.
 - Code picks one material of the class that the goods of the trader do not hold, because the player could buy it from the trader and sell it back at the reward. A class with no such material gives no job. The count is 3 to 8.
-- A trader keeps its handle across a town reload ([kenshi_internals.md](kenshi_internals.md#character-identity)), so only the giver pays a goods job.
+- A trader keeps its handle across a town reload ([kenshi_internals.md](kenshi_internals.md#character-identity)), so the player finds the giver of a goods job again.
+- A job of each kind fails at a `death` game event of its giver (`quests.giver_died`), and when the game holds a unique giver dead or imprisoned (`quests.check`), also after the job is done, because only the giver pays it.
 
 | Job | Reward |
 |---|---|
@@ -690,7 +693,7 @@ The enemies of a giver are the faction records that the `enemies` field of its f
 
 1. The player sends `!q` and a line to a giver. The gates run.
 2. A marked line to an NPC that owes a reward makes no LLM call (`quests.payable`): the job is done, or the speaker carries the whole count of a goods job. The NPC says a line of `quest_reward` from `server/data/defaults/action_end_lines.json` with the `[QUEST]` tag, and the popup of the reward opens (`CMD: OFFER:`, `offers.quest_offer`). Code sets the reward, and the NPC never refuses it, so a call could only fail or misstate it, as for a dismissal.
-3. For each other line, the turn message starts with `JOB FACTS` (`quests.facts`), in place of the facts and the lean of a deal: the job, how far it is, who pays the reward, and that the reward is fixed. For example: "You want Zaps's group to kill 5 members of the Dust Bandits.", "Zaps's group has killed 2 of the 5 so far.", or "Zaps carries the 5 Raw Iron that you asked for."
+3. For each other line, the turn message starts with `JOB FACTS` (`quests.facts`), in place of the facts and the lean of a deal: the job, how far it is, and that the reward is fixed. For example: "You want Zaps's group to kill 5 members of the Dust Bandits.", "Zaps's group has killed 2 of the 5 so far.", or "Zaps carries the 5 Raw Iron that you asked for."
 4. The system message ends with `prompt_action_quest.txt` for a new job, and with `prompt_action_quest_report.txt` for a job that the NPC answers for. Each tells the NPC to tell the job or the progress in its own words, and to keep the target, the count, and the reward of the facts.
 5. The reply to each marked QUEST line about a new job carries the popup of the job. A line without the mark carries no popup. An `[END]` next to the popup does not close the action dialogue, as for an offer.
 6. Accept of a new job stores it at the game time of the answer (`campaign_db.add_quest`), writes the deal line, says a line of `quest_accept`, and ends the chat thread.
@@ -1027,7 +1030,7 @@ The Quests tab shows the jobs in place of the search, the page buttons, New Entr
 
 | Line | Text |
 |---|---|
-| Giver | "Giver: Sergeant Rook of the United Cities, last seen at Bar, Heng." The place is the `CurrentLocation` of the giver's profile. A faction job adds "Any guard of the United Cities pays the reward." |
+| Giver | "Giver: Sergeant Rook of the United Cities, last seen at Bar, Heng." The place is the `CurrentLocation` of the giver's profile. |
 | Reward | "Reward: 2,500 cats." |
 | Progress | "Progress: 2 of 5 killed.", "Progress: Not done yet." for a figure job, or "Progress: Done. Go back to Sergeant Rook for the reward." A goods job reads "Progress: Bring 5 Raw Iron to Harvag." |
 

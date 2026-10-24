@@ -562,9 +562,11 @@ def chat():
     job = None
     if category == "QUEST":
         roles = action_dialogue.giver_roles(ctx_dict)
-        job = quests.held(ctx_dict, roles) or (action or {}).get("job") or quests.roll(ctx_dict, primary_npc, roles, offers.goods(ctx_dict, "BARTER"))
+        job = quests.held(ctx_dict) or (action or {}).get("job") or quests.roll(ctx_dict, primary_npc, roles, offers.goods(ctx_dict, "BARTER"))
         if not job:
-            chat_reason = f"You have no work for {player_name} now."
+            taken = quests.faction_held(ctx_dict)
+            chat_reason = (f"{player_name}'s group already does a job for {taken['giver_name']} of your faction, and only {taken['giver_name']} pays for it, so you have no work for {player_name} now."
+                           if taken else f"You have no work for {player_name} now.")
             logging.info(f"ACTION: The line of {player_name} to {primary_npc} goes to plain chat: {chat_reason}")
             category = None
     npc_party = (primary_id, primary_npc, context, npc_in_faction)
@@ -676,7 +678,7 @@ def chat():
     town, zone = environment.get("town_name"), environment.get("zone_name")
     lore = None if animal else background.campaign_lore()
     carried = speaker.get("carrying") or {}
-    job_scene = "" if self_talk else quests.scene_text(quests.held(ctx_dict, action_dialogue.giver_roles(ctx_dict)), ctx_dict, speaker, player_name)
+    job_scene = "" if self_talk else quests.scene_text(quests.held(ctx_dict), speaker, player_name)
     # The search skips the place records of the scene by the current place, so a move to another place needs a new scene
     conversation = (speaker.get("npc_id"), primary_id or primary_npc, primary_npc, live.get("faction"), met, partners, town, zone,
                     ctx_dict.get("in_combat"), ctx_dict.get("combat_side"), speaker.get("in_combat"), carried.get("npc_id"), carried.get("state"), job_scene)
@@ -722,7 +724,7 @@ def chat():
     campaign_db.use_memories([memory["id"] for memory in starting] + [hit["record"]["memory"]["id"] for hit in found_memories], campaign_db.game_time(time_prefix))
     # The NPC never refuses a job, so QUEST has no lean
     if category == "QUEST":
-        background_block = quests.facts(job, ctx_dict, speaker, player_name) + "\n\n" + background_block
+        background_block = quests.facts(job, speaker, player_name) + "\n\n" + background_block
     elif category:
         relation = primary_data.get("Relation")
         days_held = world_events.days_held(primary_id, ctx_dict) if category == "RECRUIT" and action_dialogue.captive_of(ctx_dict, speaker) else None

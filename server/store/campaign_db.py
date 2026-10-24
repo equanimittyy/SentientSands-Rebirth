@@ -915,11 +915,12 @@ def quest(quest_id):
 
 
 def add_quest(job, at):
-    """Stores a job that the player took at the game time at, unless its giver holds a job already, or another job names its
-    figure, so one kill never pays two jobs. Returns its ID, or None with no write."""
+    """Stores a job that the player took at the game time at, unless its giver or the faction of its giver holds a job
+    already (quests.faction_held), or another job names its figure, so one kill never pays two jobs. Returns its ID, or None
+    with no write."""
     with _connect(write=True) as conn:
-        if conn.execute("SELECT 1 FROM quest WHERE state IN ('open', 'done') AND (giver = ? OR (kind = 'figure' AND ? = 'figure' AND target = ?))",
-                        (job["giver"], job["kind"], job["target"])).fetchone():
+        if conn.execute("SELECT 1 FROM quest WHERE state IN ('open', 'done') AND (giver = ? OR (giver_faction != '' AND giver_faction = ?)"
+                        " OR (kind = 'figure' AND ? = 'figure' AND target = ?))", (job["giver"], job["giver_faction"], job["kind"], job["target"])).fetchone():
             return None
         return conn.execute(
             "INSERT INTO quest (giver, giver_name, giver_faction, kind, target, count, reward, accepted_at, changed_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",

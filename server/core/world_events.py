@@ -1,6 +1,6 @@
 """Which known figures the player's squad killed or captured, from the game events, the days that the player's faction has
 held each captive, the re-key of a character's records when a squad change gives it a new npc_id, and the kills that count
-toward the jobs of the squad (chat/quests.py).
+toward the jobs of the squad and the deaths of givers that fail them (chat/quests.py).
 
 The plugin keeps no state, so its hooks stay light: it sends the attacks of the player's faction, and the knockouts,
 wake-ups, deaths, and imprisonments of everyone. The server keeps the game events of each character in memory and replays them
@@ -45,6 +45,11 @@ def take(game_events, ctx=None):
         if at is None:
             continue
         ended = _attribute(game_event, at)
+        if game_event.get("kind") == "death":
+            try:
+                notes += quests.giver_died(canon_id(game_event["party"]), at)
+            except campaign_db.CampaignUnavailable:
+                pass
         if ended:
             try:
                 # A load imprisons each prisoner again with no attackers, so it does not restart the clock

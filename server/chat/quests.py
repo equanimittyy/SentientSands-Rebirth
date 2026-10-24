@@ -44,6 +44,8 @@ def roll(npc, name, roles, goods):
     """A new job of the NPC, or None. name is the Name of the NPC, roles holds leader, guard, and trader
     (action_dialogue.giver_roles), and goods holds the goods of a trader (offers.goods). A leader can give a figure job and a
     faction job, so code picks one of the kinds that pass their gates at random."""
+    if faction_held(npc):
+        return None
     kinds = {"figure", "faction"} if "leader" in roles else set()
     if "guard" in roles:
         kinds.add("faction")
@@ -56,15 +58,15 @@ def roll(npc, name, roles, goods):
     return {**random.choice(jobs), "giver": npc["npc_id"], "giver_name": name, "giver_faction": npc.get("factionID") or ""}
 
 
-def held(npc, roles):
-    """The open or done job that the NPC answers for, or None: its own job, else for a guard or the leader of a faction the
-    oldest faction job that a member of that faction gave, because generic guards look alike and have rolled names, so the
-    player could not find the one guard that gave the job."""
-    jobs = campaign_db.quests()
-    own = next((job for job in jobs if job["giver"] == npc.get("npc_id")), None)
-    if own or not roles & {"guard", "leader"} or not npc.get("factionID"):
-        return own
-    return next((job for job in reversed(jobs) if job["kind"] == "faction" and job["giver_faction"] == npc["factionID"]), None)
+def held(npc):
+    """The open or done job that the NPC gave, or None. Only the giver answers for a job and pays it."""
+    return next((job for job in campaign_db.quests() if job["giver"] == npc.get("npc_id")), None)
+
+
+def faction_held(npc):
+    """The open or done job that the player faction holds from the faction of the NPC, or None. A faction gives one job at
+    a time."""
+    return next((job for job in campaign_db.quests() if npc.get("factionID") and job["giver_faction"] == npc["factionID"]), None)
 
 
 def enemies(npc):
@@ -175,7 +177,7 @@ def payable(job, speaker):
     return job["state"] == "done"
 
 
-def progress(job, npc, speaker, player):
+def progress(job, speaker, player):
     """The sentences of the job and of how far it is, from the view of the NPC, so the model tells them and invents none."""
     goods = job["kind"] == "goods"
     if "id" not in job:
@@ -187,28 +189,25 @@ def progress(job, npc, speaker, player):
         lines.append(f"{player} carries the {job['count']} {job['target_name']} that you asked for." if has >= job["count"]
                      else f"{player} carries only {has} of the {job['count']} {job['target_name']}." if has else f"{player} carries none of the {job['count']} {job['target_name']}.")
     else:
-        giver = "You" if job["giver"] == npc.get("npc_id") else f"{job['giver_name']} of your faction"
-        lines = [f"{giver} gave {player}'s group a job: {job_text(job)}, for {job['reward']:,} cats."]
+        lines = [f"You gave {player}'s group a job: {job_text(job)}, for {job['reward']:,} cats."]
         if job["state"] == "done":
             lines.append(f"{player}'s group has done the job, so you owe it the {job['reward']:,} cats.")
         elif job["kind"] == "faction":
             lines.append(f"{player}'s group has killed {job['kills']} of the {job['count']} so far.")
         else:
             lines.append(f"{player}'s group has not killed or captured {job['target_name']} yet.")
-    if job["kind"] == "faction":
-        lines.append(f"{player}'s group can collect the reward from you or from any guard of your faction.")
     return lines
 
 
-def facts(job, npc, speaker, player):
+def facts(job, speaker, player):
     """The JOB FACTS of the turn message."""
-    lines = [*progress(job, npc, speaker, player), "The reward is fixed."]
+    lines = [*progress(job, speaker, player), "The reward is fixed."]
     return "JOB FACTS:\n" + "\n".join(f"- {line}" for line in lines)
 
 
-def scene_text(job, npc, speaker, player):
+def scene_text(job, speaker, player):
     """The sentences of the chat scene of an NPC that answers for a job (held), so a plain chat line can talk about it."""
-    return " ".join(progress(job, npc, speaker, player)) if job else ""
+    return " ".join(progress(job, speaker, player)) if job else ""
 
 
 def accept(job, at):
@@ -250,21 +249,37 @@ def figure_event(victim_id, at):
     return [_done(campaign_db.quest(quest_id)) for quest_id in campaign_db.finish_figure_quests(victim_id, at)]
 
 
+def giver_died(victim_id, at):
+    """The game messages of a death at the game time at, which fails each job that the dead character gave, because only the
+    giver pays a job."""
+    notes = []
+    for job in campaign_db.quests():
+        if job["giver"] == victim_id:
+            notes += _fail(job, job["giver_name"], "dead", at)
+    return notes
+
+
 def check(now):
-    """Fails each open figure job whose target or giver the game holds dead or imprisoned, at the game time now. It runs after
-    the events of the request, so an event and a state in one request mark the job done, and a game event that a failed
-    request lost fails the job. Returns the game messages."""
+    """Fails each job whose giver the game holds dead or imprisoned, and each open figure job whose target it holds dead or
+    imprisoned, at the game time now. It runs after the events of the request, so an event and a state in one request mark
+    the job done, and a game event that a failed request lost fails the job. Returns the game messages."""
     if not now:
         return []
     fallen, notes = rulers.character_states(), []
-    for job in campaign_db.quests(("open",)):
-        if job["kind"] != "figure":
-            continue
-        npc_id, name = next(((npc_id, name) for npc_id, name in ((job["target"], job["target_name"]), (job["giver"], job["giver_name"])) if npc_id in fallen), (None, None))
-        if npc_id and campaign_db.set_quest_state(job["id"], "failed", now, "open"):
-            logging.info(f"QUEST: The job {job['id']} of {job['giver_name']} failed, because {name} is {fallen[npc_id]}.")
-            notes.append(f"Job failed: {name} is {fallen[npc_id]}.")
+    for job in campaign_db.quests():
+        target = [(job["target"], job["target_name"])] if job["kind"] == "figure" and job["state"] == "open" else []
+        npc_id, name = next(((npc_id, name) for npc_id, name in (*target, (job["giver"], job["giver_name"])) if npc_id in fallen), (None, None))
+        if npc_id:
+            notes += _fail(job, name, fallen[npc_id], now)
     return notes
+
+
+def _fail(job, name, fate, at):
+    """The game message of the failure of the job, or none when the job left its state meanwhile."""
+    if not campaign_db.set_quest_state(job["id"], "failed", at, job["state"]):
+        return []
+    logging.info(f"QUEST: The job {job['id']} of {job['giver_name']} failed, because {name} is {fate}.")
+    return [f"Job failed: {name} is {fate}."]
 
 
 def _done(job):
@@ -280,8 +295,6 @@ def entry(job):
 def details(job):
     faction = the(job["giver_faction_name"]) if job["giver_faction_name"] else ""
     lines = [f"Giver: {job['giver_name']}{f' of {faction}' if faction else ''}{', last seen at ' + job['giver_location'] if job['giver_location'] else ''}."]
-    if job["kind"] == "faction" and faction:
-        lines.append(f"Any guard of {faction} pays the reward.")
     lines.append(f"Reward: {job['reward']:,} cats.")
     if job["state"] == "done":
         lines.append(f"Progress: Done. Go back to {job['giver_name']} for the reward.")
