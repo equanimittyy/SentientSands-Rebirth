@@ -76,12 +76,17 @@ def knockout_block(npc, speaker, npc_name, speaker_name):
     return None
 
 
-def mark_chat(npc, in_player_faction):
-    """The reason that each marked line to the NPC goes to plain chat, before any classify call, or None."""
+def mark_chat(npc, speaker, in_player_faction):
+    """The reason that each marked line to the NPC, and each line of an open action dialogue, goes to plain chat, before
+    any classify call, or None. A fight stops a deal that started before it."""
     if npc.get("animal"):
         return "You are an animal and make no deals."
     if in_player_faction:
         return "You are in {player}'s faction, so you make no deals with {player}."
+    if npc.get("in_combat"):
+        return "You are in a fight, so you make no deals right now."
+    if speaker.get("in_combat"):
+        return "{player} is in a fight, so you make no deals with {player} right now."
     return None
 
 

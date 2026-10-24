@@ -53,9 +53,14 @@ class BlockTest(unittest.TestCase):
         self.assertIsNone(ad.knockout_block({}, {}, "Bandit", "Beep"))
 
     def test_a_marked_line_to_an_animal_or_a_member_of_the_player_faction_is_plain_chat(self):
-        self.assertEqual(ad.mark_chat({"animal": True}, False), "You are an animal and make no deals.")
-        self.assertIn("{player}'s faction", ad.mark_chat({}, True))
-        self.assertIsNone(ad.mark_chat({}, False))
+        self.assertEqual(ad.mark_chat({"animal": True}, {}, False), "You are an animal and make no deals.")
+        self.assertIn("{player}'s faction", ad.mark_chat({}, {}, True))
+        self.assertIsNone(ad.mark_chat({}, {}, False))
+
+    def test_a_fight_of_the_npc_or_the_speaker_sends_every_deal_to_plain_chat(self):
+        self.assertEqual(ad.mark_chat({"in_combat": True}, {}, False), "You are in a fight, so you make no deals right now.")
+        self.assertEqual(ad.mark_chat({}, {"in_combat": True}, False), "{player} is in a fight, so you make no deals with {player} right now.")
+        self.assertIsNone(ad.mark_chat({"in_combat": False}, {"in_combat": False}, False))
 
     def test_only_a_dismissal_of_no_hired_follower_is_blocked(self):
         self.assertEqual(ad.gate_block("DISMISS", {}, {}, "Bandit"), "Bandit is not a hired follower.")

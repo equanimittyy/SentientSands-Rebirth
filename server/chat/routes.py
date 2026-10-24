@@ -516,8 +516,8 @@ def chat():
     npc_in_faction = bool(ctx_dict.get("in_player_faction") or is_player_faction(ctx_dict.get("faction"), ctx_dict.get("factionID")))
     blocked = action_dialogue.knockout_block(ctx_dict, speaker, primary_npc, player_name)
     chat_reason = None
-    if kind in ("category", "classify") and not blocked:
-        chat_reason = action_dialogue.mark_chat(ctx_dict, npc_in_faction)
+    if (kind in ("category", "classify") or (not kind and action)) and not blocked:
+        chat_reason = action_dialogue.mark_chat(ctx_dict, speaker, npc_in_faction)
     if kind == "category" and not blocked and not chat_reason:
         blocked = action_dialogue.gate_block(category, ctx_dict, speaker, primary_npc)
         chat_reason = action_dialogue.plain_chat(category, ctx_dict, speaker)
