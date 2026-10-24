@@ -144,8 +144,8 @@ def build_system_prompt(reply_rules=True):
     )
     return prompt.strip()
 
-def scene_values(player, player_name, self_talk=False, place=()):
-    """place holds the lore records of background.scene_place."""
+def scene_values(player, player_name, self_talk=False, place=(), npc=None):
+    """place holds the lore records of background.scene_place, and npc the live context of the NPC."""
     rumors = [(rumor["game_time"], rumor["text"]) for rumor in campaign_db.rumors()[-PROMPT_RUMORS:]]
     race = player.get("race", "Unknown")
     race_entry = find_race(race)
@@ -170,5 +170,6 @@ def scene_values(player, player_name, self_talk=False, place=()):
             building_of(player),
             player.get("character_state", "normal"),
             player.get("in_combat", False),
+            scene_text.carry_text(player.get("carrying"), npc or {}),
         ),
     }

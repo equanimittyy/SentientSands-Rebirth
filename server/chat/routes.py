@@ -661,9 +661,10 @@ def chat():
     environment = ctx_dict.get("environment") or {}
     town, zone = environment.get("town_name"), environment.get("zone_name")
     lore = None if animal else background.campaign_lore()
+    carried = speaker.get("carrying") or {}
     # The search skips the place records of the scene by the current place, so a move to another place needs a new scene
     conversation = (speaker.get("npc_id"), primary_id or primary_npc, primary_npc, live.get("faction"), met, partners, town, zone,
-                    ctx_dict.get("in_combat"), ctx_dict.get("combat_side"), speaker.get("in_combat"))
+                    ctx_dict.get("in_combat"), ctx_dict.get("combat_side"), speaker.get("in_combat"), carried.get("npc_id"), carried.get("state"))
     scene = state.CONVERSATION_SCENE.get(conversation)
     if scene is None:
         others = [npc_id for npc_id in spoken if npc_id != speaker_id]
@@ -673,7 +674,7 @@ def chat():
         place = [] if animal else background.scene_place(lore, background.known_keys(lore, primary_id, primary_data, live.get("factionID"), town, zone), town, zone, environment.get("player_town"))
         scene = fill_prompt(
             "prompt_chat_scene.txt",
-            **scene_values(player, player_name, self_talk, place),
+            **scene_values(player, player_name, self_talk, place, ctx_dict),
             npc=npc_scene(ctx_dict or primary_data, primary_data, player_name, met, [names[i] for i in others if i not in partners and names.get(i) in squad],
                           [names[i] for i in partners if names.get(i) in squad], player.get("stats") or {}, self_talk),
         )

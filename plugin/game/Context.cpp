@@ -822,6 +822,24 @@ static std::string ContextName(Character *npc) {
   return name;
 }
 
+static std::string CarriedJson(Character *npc) {
+  Character *carried = npc->getCarryingObject().getCharacter();
+  if (!carried || (uintptr_t)carried < 0x1000)
+    return "{}";
+  Faction *faction = CharacterFaction(carried);
+  std::string state = carried->isDead()        ? "dead"
+                      : carried->isUnconcious() ? "unconscious"
+                                                : "awake";
+  return "{\"name\": \"" + EscapeJSON(ContextName(carried)) +
+         "\", \"npc_id\": \"" + EscapeJSON(GetNpcId(carried)) +
+         "\", \"faction\": \"" + EscapeJSON(FactionName(faction)) +
+         "\", \"factionID\": \"" + EscapeJSON(FactionID(faction)) +
+         "\", \"in_player_faction\": " +
+         JsonBool(faction && faction->isThePlayer()) + ", \"animal\": " +
+         JsonBool(carried->isAnimal() != nullptr) + ", \"state\": \"" + state +
+         "\"}";
+}
+
 static std::string JobNames(Character *npc) {
   std::string jobs;
   for (int i = 0; i < npc->getPermajobCount(); ++i) {
@@ -976,6 +994,8 @@ std::string GetDetailedContext(Character *npc, const std::string &type,
       ", \"money\": " + ToString(MoneyOf(npc));
   if (player && world->player)
     json += ", \"squad\": " + SquadNames(world);
+  if (player)
+    json += ", \"carrying\": " + CarriedJson(npc);
   CharStats *stats = npc->getStats();
   if (stats)
     json += ", \"stats\": {\"melee_attack\": " +

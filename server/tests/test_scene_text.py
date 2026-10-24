@@ -138,6 +138,21 @@ class SentenceTest(unittest.TestCase):
         text = scene_text.player_text("Drifter", "Unknown", "male", "", {}, False, "Unknown", "", [], in_combat=True)
         self.assertEqual(text, "The person before you:\nThe individual before you is Drifter. They are in a fight right now.")
 
+    def test_the_player_carrying_someone_names_whom_the_npc_sees(self):
+        npc = {"npc_id": "u:ruka", "factionID": "holy"}
+        ruka = {"name": "Ruka", "npc_id": "u:ruka", "faction": "The Holy Nation", "factionID": "holy", "state": "awake"}
+        paladin = dict(ruka, name="Paladin", npc_id="g:1", state="unconscious")
+        self.assertEqual(scene_text.carry_text({}, npc), "")
+        self.assertEqual(scene_text.carry_text(ruka, npc), "They are carrying you.")
+        self.assertEqual(scene_text.carry_text(paladin, npc), "They are carrying Paladin, a member of your faction, who is unconscious.")
+        self.assertEqual(scene_text.carry_text(paladin, {}), "They are carrying Paladin, a member of The Holy Nation, who is unconscious.")
+        beep = {"name": "Beep", "npc_id": "g:2", "faction": "Nameless", "factionID": "player", "in_player_faction": True, "state": "dead"}
+        self.assertEqual(scene_text.carry_text(beep, npc), "They are carrying Beep, a member of their own faction, who is dead.")
+        bonedog = {"name": "Bonedog", "npc_id": "g:3", "faction": "Bonedogs", "factionID": "dogs", "animal": True, "state": "dead"}
+        self.assertEqual(scene_text.carry_text(bonedog, npc), "They are carrying Bonedog, who is dead.")
+        text = scene_text.player_text("Drifter", "Unknown", "male", "", {}, False, "Unknown", "", [], carry=scene_text.carry_text(ruka, npc))
+        self.assertEqual(text, "The person before you:\nThe individual before you is Drifter. They are carrying you.")
+
     def test_the_npc_in_a_fight_knows_its_side_from_the_speaker(self):
         def text(**context):
             return scene_text.npc_text(context, {}, "Drifter", "Nameless", met=True, major=False, in_player_faction=False, feels_hunger=True)

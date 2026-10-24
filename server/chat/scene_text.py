@@ -201,6 +201,25 @@ def fight_text(subject, in_combat):
     return f"{subject} are in a fight right now." if in_combat else ""
 
 
+def carry_text(carried, npc):
+    """carried is the character that the person before the NPC carries, and npc the live context of the NPC."""
+    if not carried:
+        return ""
+    if carried.get("npc_id") and carried["npc_id"] == npc.get("npc_id"):
+        return "They are carrying you."
+    faction = carried.get("faction")
+    if carried.get("factionID") and carried["factionID"] == npc.get("factionID"):
+        member = "a member of your faction"
+    elif carried.get("in_player_faction"):
+        member = "a member of their own faction"
+    elif _known(faction) and faction != "Neutral" and not carried.get("animal"):
+        member = f"a member of {faction}"
+    else:
+        member = ""
+    state = {"dead": "who is dead", "unconscious": "who is unconscious"}.get(carried.get("state"), "")
+    return f"They are carrying {', '.join(part for part in (carried.get('name'), member, state) if part)}."
+
+
 def blood_text(subject, medical):
     max_blood = _number(medical.get("max_blood"), 100)
     share = _number(medical.get("blood"), 100) / max_blood if max_blood > 0 else 1.0
@@ -328,14 +347,15 @@ def rumors_text(rumors, today):
     return _section("Rumours:", sentences)
 
 
-def player_text(name, race, sex, race_description, medical, feels_hunger, faction, faction_description, items, building=None, state="normal", in_combat=False):
-    """building is None outdoors."""
+def player_text(name, race, sex, race_description, medical, feels_hunger, faction, faction_description, items, building=None, state="normal", in_combat=False, carry=""):
+    """building is None outdoors, and carry is the sentence of carry_text."""
     who = person(race, sex)
     return _section("The person before you:", [
         f"The individual before you is {name}, {who}." if who else f"The individual before you is {name}.",
         _sentence(race_description) if race_description else "",
         state_text("They", state),
         fight_text("They", in_combat),
+        carry,
         health_text("They", medical) if medical else "",
         state_text("They", "unconscious") if medical.get("is_unconscious") and state != "unconscious" else "",
         hunger_text("They", medical["hunger"]) if feels_hunger and "hunger" in medical else "",
