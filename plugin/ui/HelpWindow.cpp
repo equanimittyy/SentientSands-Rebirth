@@ -16,7 +16,7 @@ struct HelpLine {
   const char *text;
 };
 
-static const int HELP_LINE_MAX = 12;
+static const int HELP_LINE_MAX = 13;
 
 struct HelpTopic {
   const char *title;
@@ -80,6 +80,7 @@ static const HelpTopic HELP_TOPICS[] = {
       {"!r", "Ask the NPC to join your squad for good."},
       {"!f", "Ask the NPC to come along, or hire it for a while."},
       {"!d", "Tell a hired follower to leave."},
+      {"!q", "Ask for a job, or report on a job."},
       {"!end", "Ends the deal."},
       {"Offer", "When the NPC makes an offer, a popup opens. Press Accept to "
                 "carry out the deal, or press Decline and type your reply."},
@@ -116,7 +117,8 @@ static const HelpTopic HELP_TOPICS[] = {
       {"Dialogue Library", "The NPCs that you talked to, with their profiles "
                            "and conversation logs."},
       {"Events", "The kills, captures, and rumors of the campaign."},
-      {"Journal", "Your own notes on the campaign."},
+      {"Journal", "Your own notes on the campaign, and the jobs of your "
+                  "squad."},
       {"Cull Future Data", "Makes NPCs forget what happened after the current "
                            "game time."},
       {"Open Web App", "Opens the web app in a new browser tab."},
@@ -150,15 +152,19 @@ static const HelpTopic HELP_TOPICS[] = {
       {NULL, "NPCs mention the 3 newest rumors, and recall an older one when "
              "your line touches it."}}},
     {"The Journal",
-     {{NULL,
-       "The Journal holds your own notes on the campaign. NPCs never read it."},
+     {{NULL, "The Journal holds your own notes on the campaign and the jobs of "
+             "your squad. NPCs never read your notes."},
+      {"Entries and Quests",
+       "Switch between your notes and the jobs that your squad took."},
       {"New Entry", "Adds an entry at the current game time."},
       {"Title and text",
        "Type your note. The window saves a changed entry when you leave it."},
       {"Save", "Saves the entry now."},
       {"Search", "Finds the entries whose title or text holds your words."},
       {"< and >", "Go to the previous or the next page."},
-      {"Delete", "Deletes the selected entry. The delete is irreversible."}}},
+      {"Delete", "Deletes the selected entry. The delete is irreversible."},
+      {"Abandon", "Gives up the selected job, so its giver can give you a new "
+                  "one. The giving up is irreversible."}}},
     {"Campaigns",
      {{NULL, "A campaign holds the memories, rumors, and world events of one "
              "playthrough. SSR creates the campaign Default on the first "

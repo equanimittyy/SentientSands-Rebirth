@@ -690,12 +690,14 @@ static void DoGiveItem(GameWorld *world, const QueuedAction &act,
   }
 }
 
-// Charity (ADD_CATS) costs the NPC nothing, so its cats come from no purse
+// Charity and the reward of a job (ADD_CATS) cost the NPC nothing, so their
+// cats come from no purse
 static void DoGiveCats(GameWorld *world, const QueuedAction &act,
                        Character *npc) {
   bool fromNpc = act.type == ACT_GIVE_CATS;
   Character *payee = FirstPlayerCharacter();
-  if (!payee || act.taskValue < 1 || (fromNpc && HeldBack(npc, "GIVE_CATS")))
+  if (!payee || act.taskValue < 1 ||
+      HeldBack(npc, fromNpc ? "GIVE_CATS" : "ADD_CATS"))
     return;
   payee->takeMoney(-act.taskValue);
   // A player-faction NPC shares the purse, so the transfer would be a no-op

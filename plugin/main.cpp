@@ -103,7 +103,7 @@ static bool g_welcomeShown = false;
 static std::string LeadingCategoryTag(const std::string &text) {
   static const char *TAGS[] = {"[THREATEN]", "[BARTER]",  "[HEAL]",
                                "[LIBERATE]", "[RECRUIT]", "[FOLLOW]",
-                               "[DISMISS]"};
+                               "[DISMISS]",  "[QUEST]"};
   for (size_t i = 0; i < sizeof(TAGS) / sizeof(TAGS[0]); ++i) {
     std::string tag = TAGS[i];
     if (text.compare(0, tag.size(), tag) == 0)
@@ -211,6 +211,10 @@ static void HandleCommand(const std::string &message) {
     FinishJournalSave(data);
   } else if (command == "JOURNAL_DELETED") {
     FinishJournalDelete(data);
+  } else if (command == "POPULATE_QUESTS") {
+    PopulateQuestsUI(data);
+  } else if (command == "QUEST_ABANDONED") {
+    FinishQuestAbandon(data);
   } else if (command == "OFFER") {
     ShowOfferUI(data);
   } else if (command == "OFFER_GONE") {

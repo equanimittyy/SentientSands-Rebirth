@@ -351,6 +351,7 @@ std::string EventParty(Character *npc) {
          EscapeJSON(npc->data ? npc->data->stringID : std::string()) +
          "\", \"name\": \"" + EscapeJSON(npc->getName()) +
          "\", \"faction\": \"" + EscapeJSON(FactionName(faction)) +
+         "\", \"factionID\": \"" + EscapeJSON(FactionID(faction)) +
          "\", \"player\": " +
          (faction && faction->isThePlayer() ? "true" : "false") + "}";
 }

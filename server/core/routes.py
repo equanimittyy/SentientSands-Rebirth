@@ -3,6 +3,7 @@ import logging
 
 from flask import Blueprint, jsonify, request
 
+from chat import quests
 from chat.bio import recorded_history
 from chat.characters import get_character_data, reported_sex, sync_name
 from core import log_setup, state, world_events
@@ -145,6 +146,22 @@ def delete_journal_entry():
     if refused: return refused
     if campaign_db.delete_journal_entry(data.get("id")):
         logging.info(f"JOURNAL: Deleted the entry {data.get('id')}")
+    return jsonify({"status": "ok"})
+
+@bp.route('/quests', methods=['POST'])
+def list_quests():
+    """The open and done jobs for the Quests tab of the Journal window, newest first by the accept. The tab sends the campaign
+    back with Abandon, because the same ID can name another job in another campaign."""
+    return jsonify({"status": "ok", "campaign": state.ACTIVE_CAMPAIGN, "quests": [quests.entry(job) for job in campaign_db.quests()]})
+
+@bp.route('/quests/abandon', methods=['POST'])
+def abandon_quest():
+    """Deletes the job with its kills, so its giver can give a new job."""
+    data = request.get_json(silent=True) or {}
+    refused = campaign_write(data)
+    if refused: return refused
+    if campaign_db.delete_quest(data.get("id")):
+        logging.info(f"QUEST: Abandoned the job {data.get('id')}")
     return jsonify({"status": "ok"})
 
 @bp.route('/report', methods=['POST'])

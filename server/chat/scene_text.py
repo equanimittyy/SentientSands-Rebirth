@@ -366,10 +366,11 @@ def player_text(name, race, sex, race_description, medical, feels_hunger, factio
     ])
 
 
-def npc_text(context, profile, player_name, player_faction, *, met, major, in_player_faction, feels_hunger, faction_description="", companions=(), partners=(), player_stats=None, self_talk=False):
+def npc_text(context, profile, player_name, player_faction, *, met, major, in_player_faction, feels_hunger, faction_description="", companions=(), partners=(), player_stats=None, self_talk=False, job=""):
     """context is the live context of the NPC, or its profile when the game has sent none. companions and partners are the
     names of relation_text, and player_stats the stats of the squad member who talks. With self_talk the NPC is that squad
-    member, so each sentence that sets the squad member apart from the NPC goes."""
+    member, so each sentence that sets the squad member apart from the NPC goes. job holds the sentences of the job that the
+    NPC answers for (quests.scene_text)."""
     faction = context.get("faction") or context.get("Faction") or ""
     old_faction = profile.get("Faction")
     task = context.get("job") or ""
@@ -393,6 +394,7 @@ def npc_text(context, profile, player_name, player_faction, *, met, major, in_pl
         sentences.append("You are a trader.")
     if current_job.is_leader(context) and _known(faction):
         sentences.append(f"You lead {faction}.")
+    sentences.append(job)
     if in_player_faction:
         if not self_talk:
             sentences.append(f"You travel in {player_name}'s squad, and {player_name} leads it.")

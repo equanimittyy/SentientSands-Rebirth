@@ -470,5 +470,45 @@ class FactsTest(unittest.TestCase):
         self.assertNotIn("DEAL FACTS", offers.facts("FOLLOW", NPC, SPEAKER, "Zaps", []))
 
 
+class QuestOfferTest(unittest.TestCase):
+    NEW = {"kind": "faction", "target": "200-gamedata.base", "target_name": "Dust Bandits", "count": 5, "reward": 2500}
+    FIGURE = {"kind": "figure", "target": "u:tinfist", "target_name": "Tinfist", "count": 1, "reward": 20000, "about": "leader of the Anti-Slavers"}
+    DONE = {**NEW, "id": 1, "state": "done"}
+    GOODS = {"id": 3, "state": "open", "kind": "goods", "target": "Raw Iron", "target_name": "Raw Iron", "count": 5, "reward": 1500}
+
+    def test_the_popup_names_the_job_or_the_reward(self):
+        self.assertEqual(offers.popup_text(offers.quest_offer(self.NEW, False), "Sergeant Rook", "Zaps"), "Sergeant Rook offers a job: kill 5 members of the Dust Bandits. Reward: 2,500 cats.")
+        self.assertEqual(offers.popup_text(offers.quest_offer(self.FIGURE, False), "Holy Lord Phoenix", "Zaps"),
+                         "Holy Lord Phoenix offers a job: kill or capture Tinfist, leader of the Anti-Slavers. Reward: 20,000 cats.")
+        self.assertEqual(offers.popup_text(offers.quest_offer(self.DONE, False), "Sergeant Rook", "Zaps"), "Sergeant Rook pays 2,500 cats for the job.")
+        self.assertEqual(offers.popup_text(offers.quest_offer(self.GOODS, False), "Harvag", "Zaps"), "Harvag offers 1,500 cats for 5 Raw Iron.")
+
+    def test_the_memory_lines_are_deal_lines_and_the_npc_says_a_line_of_its_end(self):
+        lines = {
+            "(Zaps accepted: Sergeant Rook gives Zaps's group a job: kill 5 members of the Dust Bandits, for 2,500 cats.)": offers.accepted_line(offers.quest_offer(self.NEW, False), "Sergeant Rook", "Zaps"),
+            "(Zaps declined: Sergeant Rook offered a job: kill 5 members of the Dust Bandits, for 2,500 cats.)": offers.declined_line(offers.quest_offer(self.NEW, False), "Sergeant Rook", "Zaps"),
+            "(Zaps accepted: Sergeant Rook pays 2,500 cats for the job.)": offers.accepted_line(offers.quest_offer(self.DONE, False), "Sergeant Rook", "Zaps"),
+            "(Zaps declined: Harvag offered 1,500 cats for 5 Raw Iron.)": offers.declined_line(offers.quest_offer(self.GOODS, False), "Harvag", "Zaps"),
+        }
+        for expected, line in lines.items():
+            self.assertEqual(line, expected)
+            self.assertTrue(offers.DEAL_LINE.search(f"[Day 1, 10:00] {line}"), line)
+        self.assertEqual(offers.accept_end(offers.quest_offer(self.NEW, False), NPC, SPEAKER), "quest_accept")
+        self.assertEqual(offers.accept_end(offers.quest_offer(self.GOODS, False), NPC, SPEAKER), "quest_paid")
+
+    def test_a_new_job_runs_no_action_and_a_reward_creates_its_cats(self):
+        self.assertEqual((offers.actions(offers.quest_offer(self.NEW, False)), offers.checks(offers.quest_offer(self.NEW, False))), ([], []))
+        self.assertEqual((offers.actions(offers.quest_offer(self.DONE, True)), offers.checks(offers.quest_offer(self.DONE, True))), (["[ACTION: ADD_CATS: 2500]"], []))
+
+    def test_a_hand_over_of_goods_goes_into_the_stock_of_a_shop_and_else_needs_room(self):
+        shop, carried = offers.quest_offer(self.GOODS, True), offers.quest_offer(self.GOODS, False)
+        self.assertEqual(offers.actions(shop), ["[ACTION: BUY_ITEM: Raw Iron: 5]", "[ACTION: ADD_CATS: 1500]"])
+        self.assertEqual(offers.checks(shop), ["CHECK: ITEM player 5 Raw Iron"])
+        self.assertEqual(offers.actions(carried), ["[ACTION: TAKE_ITEM: Raw Iron: 5]", "[ACTION: ADD_CATS: 1500]"])
+        self.assertEqual(offers.checks(carried), ["CHECK: ITEM player 5 Raw Iron", "CHECK: ROOM player 5 Raw Iron"])
+        self.assertEqual(offers.command(7, carried, "Harvag", 20, 1, "Harvag offers 1,500 cats for 5 Raw Iron.").split("\n"),
+                         ["CMD: OFFER: 7", "20 1", "Harvag", "Harvag offers 1,500 cats for 5 Raw Iron.", "CHECK: ITEM player 5 Raw Iron", "CHECK: ROOM player 5 Raw Iron"])
+
+
 if __name__ == "__main__":
     unittest.main()

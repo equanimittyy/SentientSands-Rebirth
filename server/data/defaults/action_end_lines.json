@@ -118,5 +118,29 @@
         "No refunds, mind.",
         "Shame. I was starting to like you lot.",
         "You know where to find me."
+    ],
+    "quest_accept": [
+        "Good. Don't come back empty-handed.",
+        "Then get to it.",
+        "Come back when it's done.",
+        "Don't keep me waiting.",
+        "Right. Get going.",
+        "Do it right, and you get paid.",
+        "Off you go, then.",
+        "I'll be here when it's done.",
+        "Don't screw this up.",
+        "Good luck. You'll need it."
+    ],
+    "quest_paid": [
+        "As promised. Here.",
+        "Good work. Here's your pay.",
+        "Take it. You earned it.",
+        "That's the deal. We're square.",
+        "Here. Don't spend it all at once.",
+        "Nice work. Here's your cut.",
+        "Your money. Count it if you like.",
+        "Done and paid.",
+        "Fair's fair. Take it.",
+        "Come back if you want more work."
     ]
 }

@@ -1,0 +1,2 @@
+REQUEST: {speaker} asks you for work.
+JOB: You have a job for {speaker}, and JOB FACTS name it. Tell the job in your own words, and keep the target, the count, and the reward exactly as JOB FACTS give them.

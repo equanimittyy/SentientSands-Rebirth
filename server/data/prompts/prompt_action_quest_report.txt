@@ -1,0 +1,2 @@
+REQUEST: {speaker} talks to you about the job that JOB FACTS name, which {speaker}'s group took.
+JOB: JOB FACTS also tell how far the job is. Tell where it stands in your own words, and keep the target, the count, and the reward exactly as JOB FACTS give them.

@@ -1,5 +1,6 @@
 """Which known figures the player's squad killed or captured, from the game events, the days that the player's faction has
-held each captive, and the re-key of a character's records when a squad change gives it a new npc_id.
+held each captive, the re-key of a character's records when a squad change gives it a new npc_id, and the kills that count
+toward the jobs of the squad (chat/quests.py).
 
 The plugin keeps no state, so its hooks stay light: it sends the attacks of the player's faction, and the knockouts,
 wake-ups, deaths, and imprisonments of everyone. The server keeps the game events of each character in memory and replays them
@@ -8,6 +9,7 @@ at a death or an imprisonment. Kenshi gives no last hit, so each attacker counts
 import logging
 import threading
 
+from chat import quests
 from core import state
 from store import campaign_db
 
@@ -24,8 +26,16 @@ _newest = None
 _campaign = None
 
 
-def take(game_events):
-    """Reads the game events of a report in their order, and stores the events that they make."""
+def take(game_events, ctx=None):
+    """Reads the game events of a report in their order, stores the events that they make, and counts the jobs by them. The
+    game time of ctx, the context of the request, rewinds the jobs before the events and checks them after the events.
+    Returns the game messages of the jobs."""
+    now = _minutes(ctx or {})
+    notes = []
+    try:
+        quests.rewind(now)
+    except campaign_db.CampaignUnavailable:
+        pass
     for game_event in game_events or []:
         logging.debug(f"GAME EVENT: {game_event}")
         at = _minutes(game_event)
@@ -40,9 +50,18 @@ def take(game_events):
                 # A load imprisons each prisoner again with no attackers, so it does not restart the clock
                 if game_event["kind"] == "imprisonment":
                     campaign_db.start_captive(game_event["party"]["id"], at)
-                _store(game_event["kind"], game_event["party"], ended, at)
+                done = _store(game_event["kind"], game_event["party"], ended, at)
+                # One kill never pays two jobs
+                if game_event["kind"] == "death" and not done:
+                    done = quests.count_death(game_event["party"], at)
+                notes += done
             except campaign_db.CampaignUnavailable:
                 pass  # The event is lost, but the report must still update the player's context
+    try:
+        notes += quests.check(now)
+    except campaign_db.CampaignUnavailable:
+        pass
+    return notes
 
 
 def _rekey(old_id, new_id, at):
@@ -159,9 +178,10 @@ def canon_id(party):
 
 
 def _store(kind, victim, attackers, at):
+    """Returns the game messages of the jobs that the event does."""
     victim_id = canon_id(victim)
     if victim.get("player") or not victim_id.startswith("u:"):
-        return
+        return []
     event_kind = "kill" if kind == "death" else "capture"
     doers = campaign_db.add_event(
         event_kind,
@@ -169,8 +189,10 @@ def _store(kind, victim, attackers, at):
         {"npc_id": victim_id, "name": victim.get("name", ""), "faction": victim.get("faction", "")},
         at,
     )
-    if doers:
-        logging.debug(f"EVENTS: {', '.join(name for _, name in doers)} {'killed' if event_kind == 'kill' else 'captured'} {victim.get('name', '')} ({victim_id}) at {campaign_db.game_time_text(at)}")
+    if not doers:
+        return []
+    logging.debug(f"EVENTS: {', '.join(name for _, name in doers)} {'killed' if event_kind == 'kill' else 'captured'} {victim.get('name', '')} ({victim_id}) at {campaign_db.game_time_text(at)}")
+    return quests.figure_event(victim_id, at)
 
 
 def events():

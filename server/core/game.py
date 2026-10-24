@@ -110,9 +110,10 @@ def relation_text(rel):
 
 def take_report(player, events, towns, uniques, player_towns=None):
     """Keeps the player's context, the changed towns, and the unique NPCs that are not alive, takes the events that the
-    game events of a request from the plugin carries, and keeps the records of the player's outposts in step. The plugin
-    sends the context only with a request, so the player's context is the one of the latest request. A load of an older
-    save can undo a change of a town or a death, so only the latest lists count."""
+    game events of a request from the plugin carries, shows the game messages of the jobs that they change, and keeps the
+    records of the player's outposts in step. The plugin sends the context only with a request, so the player's context is
+    the one of the latest request. A load of an older save can undo a change of a town or a death, so only the latest lists
+    count."""
     if player:
         state.PLAYER_CONTEXT = player
         note_faction(player, is_player=True)
@@ -126,7 +127,8 @@ def take_report(player, events, towns, uniques, player_towns=None):
         listed = "The game sent none." if uniques is None else "; ".join(f"{unique['name']} ({unique['id']}): {unique['state']}" for unique in uniques)
         logging.debug(f"UNIQUES: {listed or 'No unique NPC is dead or imprisoned.'}")
     state.UNIQUE_STATES = uniques
-    world_events.take(events)
+    for note in world_events.take(events, player):
+        send_to_pipe(f"NOTIFY: {note}")
 
 def report_from_game(timeout=5):
     """Asks the game for a report and waits for it. False when no report comes, for example from the main menu."""

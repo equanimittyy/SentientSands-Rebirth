@@ -34,9 +34,30 @@ static std::string g_journalSavedTitle;
 static std::string g_journalSavedText;
 static std::string g_journalDeleteId;
 
+static MyGUI::Button *g_journalEntriesBtn = nullptr;
+static MyGUI::Button *g_journalQuestsBtn = nullptr;
+static std::vector<MyGUI::Widget *> g_journalEntryWidgets;
+static std::vector<MyGUI::Widget *> g_journalQuestWidgets;
+static MyGUI::ListBox *g_questList = nullptr;
+static MyGUI::EditBox *g_questDetails = nullptr;
+static MyGUI::TextBox *g_questStatus = nullptr;
+static MyGUI::Window *g_questAbandonWindow = nullptr;
+static std::vector<std::string> g_questIds;
+static std::vector<std::string> g_questGivers;
+static std::vector<std::string> g_questTexts;
+static int g_questListRequest = 0;
+static std::string g_questCampaign;
+static std::string g_questSelectedId;
+static std::string g_questAbandonId;
+
 static void SetJournalStatus(const std::string &text) {
   if (g_journalStatus)
     g_journalStatus->setCaption(PlainText(text));
+}
+
+static void SetQuestStatus(const std::string &text) {
+  if (g_questStatus)
+    g_questStatus->setCaption(PlainText(text));
 }
 
 static void ShowJournalEntry(const std::string &time, const std::string &title,
@@ -267,13 +288,137 @@ void FinishJournalDelete(const std::string &data) {
   RequestJournalPage(g_journalPage);
 }
 
+static void RequestQuests() {
+  PostForGameThread(L"/quests", "{}", "POPULATE_QUESTS",
+                    ToString(++g_questListRequest));
+}
+
+void PopulateQuestsUI(const std::string &data) {
+  std::string tag, reply;
+  if (!g_questList || !SplitTaggedReply(data, tag, reply) ||
+      atoi(tag.c_str()) != g_questListRequest)
+    return;
+  if (GetJsonValue(reply, "status") != "ok") {
+    SetQuestStatus(FailureText("Load failed: ", reply));
+    return;
+  }
+  g_questCampaign = GetJsonValue(reply, "campaign");
+  std::vector<std::string> quests =
+      JsonArrayItems(GetJsonValue(reply, "quests"));
+  g_questList->removeAllItems();
+  g_questIds.clear();
+  g_questGivers.clear();
+  g_questTexts.clear();
+  std::string shown = quests.empty()
+                          ? T("No jobs yet. Ask a leader, a guard, or a trader "
+                              "for work with !q.")
+                          : T("Select a job.");
+  bool selected = false;
+  for (size_t i = 0; i < quests.size(); i++) {
+    g_questIds.push_back(GetJsonValue(quests[i], "id"));
+    g_questGivers.push_back(GetJsonValue(quests[i], "giver"));
+    g_questTexts.push_back(GetJsonValue(quests[i], "details"));
+    g_questList->addItem(PlainText(GetJsonValue(quests[i], "label")));
+    if (g_questIds.back() == g_questSelectedId) {
+      g_questList->setIndexSelected(i);
+      shown = g_questTexts.back();
+      selected = true;
+    }
+  }
+  if (!selected)
+    g_questSelectedId.clear();
+  ShowFromTop(g_questDetails, shown);
+}
+
+static void OnQuestSelect(MyGUI::ListBox *sender, size_t index) {
+  if (index == MyGUI::ITEM_NONE || index >= g_questIds.size())
+    return;
+  g_questSelectedId = g_questIds[index];
+  ShowFromTop(g_questDetails, g_questTexts[index]);
+  SetQuestStatus("");
+}
+
+static void CloseQuestAbandonUI() { DestroyWindow(g_questAbandonWindow); }
+
+static void OnQuestAbandonConfirmClick(MyGUI::Widget *sender) {
+  CloseQuestAbandonUI();
+  SetQuestStatus("");
+  PostForGameThread(L"/quests/abandon",
+                    "{\"campaign\":\"" + EscapeJSON(g_questCampaign) +
+                        "\",\"id\":\"" + EscapeJSON(g_questAbandonId) + "\"}",
+                    "QUEST_ABANDONED", g_questAbandonId);
+}
+
+static void OnQuestAbandonCancelClick(MyGUI::Widget *sender) {
+  CloseQuestAbandonUI();
+}
+
+static CloseAction g_questAbandonClose = {CloseQuestAbandonUI};
+
+static void OnQuestAbandonClick(MyGUI::Widget *sender) {
+  CloseQuestAbandonUI();
+  if (g_questSelectedId.empty())
+    return;
+  // The player can select another job while the popup is open
+  g_questAbandonId = g_questSelectedId;
+  std::string giver;
+  MyGUI::UString label;
+  for (size_t i = 0; i < g_questIds.size(); i++)
+    if (g_questIds[i] == g_questAbandonId) {
+      giver = g_questGivers[i];
+      label = g_questList->getItemNameAt(i);
+    }
+  const MyGUI::UString lines[] = {
+      PlainText(Fill(T("Give up the job for {name}?"), "{name}", giver)), label,
+      Utf8ToWide(T("Abandon takes effect immediately and is irreversible."))};
+  OpenConfirm(g_questAbandonWindow, "SentientSands_QuestAbandon",
+              T("Abandon the job"), lines, T("Abandon"),
+              OnQuestAbandonConfirmClick, OnQuestAbandonCancelClick,
+              g_questAbandonClose);
+}
+
+void FinishQuestAbandon(const std::string &data) {
+  std::string id, reply;
+  if (!g_journalWindow || !SplitTaggedReply(data, id, reply))
+    return;
+  if (GetJsonValue(reply, "status") != "ok") {
+    SetQuestStatus(FailureText("Abandon failed: ", reply));
+    return;
+  }
+  SetQuestStatus(T("Abandoned."));
+  RequestQuests();
+}
+
+static void ShowJournalTab(bool quests) {
+  for (size_t i = 0; i < g_journalEntryWidgets.size(); i++)
+    g_journalEntryWidgets[i]->setVisible(!quests);
+  for (size_t i = 0; i < g_journalQuestWidgets.size(); i++)
+    g_journalQuestWidgets[i]->setVisible(quests);
+  g_journalEntriesBtn->setStateSelected(!quests);
+  g_journalQuestsBtn->setStateSelected(quests);
+}
+
+static void OnJournalEntriesClick(MyGUI::Widget *sender) {
+  ShowJournalTab(false);
+  RequestJournalPage(g_journalPage);
+}
+
+static void OnJournalQuestsClick(MyGUI::Widget *sender) {
+  SaveJournalIfChanged();
+  ShowJournalTab(true);
+  SetQuestStatus("");
+  RequestQuests();
+}
+
 static void CloseJournalUI() {
   CloseJournalDeleteUI();
+  CloseQuestAbandonUI();
   if (!g_journalWindow)
     return;
   SaveJournalIfChanged();
   g_journalListRequest++;
   g_journalEntryRequest++;
+  g_questListRequest++;
   DestroyWindow(g_journalWindow);
   g_journalSearch = nullptr;
   g_journalList = nullptr;
@@ -287,6 +432,17 @@ static void CloseJournalUI() {
   g_journalIds.clear();
   g_journalSelectedId.clear();
   g_journalEntryId.clear();
+  g_journalEntriesBtn = nullptr;
+  g_journalQuestsBtn = nullptr;
+  g_journalEntryWidgets.clear();
+  g_journalQuestWidgets.clear();
+  g_questList = nullptr;
+  g_questDetails = nullptr;
+  g_questStatus = nullptr;
+  g_questIds.clear();
+  g_questGivers.clear();
+  g_questTexts.clear();
+  g_questSelectedId.clear();
 }
 
 static CloseAction g_journalClose = {CloseJournalUI};
@@ -300,18 +456,30 @@ void CreateJournalUI() {
   if (!client)
     return;
 
-  AddRowLabel(client, T("Search"), 0.02f, 0.02f, 0.07f,
-              "SentientSands_JournalSearchLabel");
+  g_journalEntriesBtn =
+      AddButton(client, T("Entries"), 0.02f, 0.02f, 0.135f, 0.06f,
+                MyGUI::Align::Left | MyGUI::Align::Top,
+                "SentientSands_JournalEntriesBtn", OnJournalEntriesClick);
+  g_journalQuestsBtn =
+      AddButton(client, T("Quests"), 0.165f, 0.02f, 0.135f, 0.06f,
+                MyGUI::Align::Left | MyGUI::Align::Top,
+                "SentientSands_JournalQuestsBtn", OnJournalQuestsClick);
+
+  std::vector<MyGUI::Widget *> &entries = g_journalEntryWidgets;
+  entries.push_back(AddRowLabel(client, T("Search"), 0.02f, 0.10f, 0.07f,
+                                "SentientSands_JournalSearchLabel"));
   g_journalSearch =
-      AddRowBox(client, 0.09f, 0.02f, 0.21f, "SentientSands_JournalSearch");
+      AddRowBox(client, 0.09f, 0.10f, 0.21f, "SentientSands_JournalSearch");
   g_journalSearch->eventEditTextChange +=
       MyGUI::newDelegate(OnJournalSearchChange);
+  entries.push_back(g_journalSearch);
 
   g_journalList = client->createWidgetReal<MyGUI::ListBox>(
-      "Kenshi_ListBox", 0.02f, 0.10f, 0.28f, 0.66f,
+      "Kenshi_ListBox", 0.02f, 0.18f, 0.28f, 0.58f,
       MyGUI::Align::Left | MyGUI::Align::VStretch, "SentientSands_JournalList");
   g_journalList->eventListSelectAccept += MyGUI::newDelegate(OnJournalSelect);
   g_journalList->eventListChangePosition += MyGUI::newDelegate(OnJournalSelect);
+  entries.push_back(g_journalList);
 
   g_journalPrevBtn = AddRowButton(client, "<", 0.02f, 0.78f, 0.05f,
                                   "SentientSands_JournalPrevBtn",
@@ -322,25 +490,54 @@ void CreateJournalUI() {
   g_journalNextBtn = AddRowButton(client, ">", 0.25f, 0.78f, 0.05f,
                                   "SentientSands_JournalNextBtn",
                                   OnJournalNextClick);
-  AddRowButton(client, "New Entry", 0.02f, 0.88f, 0.135f,
-               "SentientSands_JournalNewBtn", OnJournalNewClick);
-  AddRowButton(client, "Delete", 0.165f, 0.88f, 0.135f,
-               "SentientSands_JournalDeleteBtn", OnJournalDeleteClick);
+  entries.push_back(g_journalPrevBtn);
+  entries.push_back(g_journalPageText);
+  entries.push_back(g_journalNextBtn);
+  entries.push_back(AddRowButton(client, "New Entry", 0.02f, 0.88f, 0.135f,
+                                 "SentientSands_JournalNewBtn",
+                                 OnJournalNewClick));
+  entries.push_back(AddRowButton(client, "Delete", 0.165f, 0.88f, 0.135f,
+                                 "SentientSands_JournalDeleteBtn",
+                                 OnJournalDeleteClick));
 
   g_journalTime =
       AddRowLabel(client, "", 0.32f, 0.02f, 0.66f, "SentientSands_JournalTime");
   g_journalTime->setTextColour(MyGUI::Colour(1.0f, 0.9f, 0.5f));
-  AddRowLabel(client, T("Title"), 0.32f, 0.10f, 0.06f,
-              "SentientSands_JournalTitleLabel");
+  entries.push_back(g_journalTime);
+  entries.push_back(AddRowLabel(client, T("Title"), 0.32f, 0.10f, 0.06f,
+                                "SentientSands_JournalTitleLabel"));
   g_journalTitle =
       AddRowBox(client, 0.38f, 0.10f, 0.60f, "SentientSands_JournalTitle");
   g_journalText = AddWordWrapBox(client, 0.32f, 0.18f, 0.66f, 0.68f,
                                  "SentientSands_JournalText");
   g_journalStatus = AddRowLabel(client, "", 0.32f, 0.89f, 0.50f,
                                 "SentientSands_JournalStatus");
-  AddRowButton(client, "Save", 0.84f, 0.88f, 0.14f,
-               "SentientSands_JournalSaveBtn", OnJournalSaveClick);
+  entries.push_back(g_journalTitle);
+  entries.push_back(g_journalText);
+  entries.push_back(g_journalStatus);
+  entries.push_back(AddRowButton(client, "Save", 0.84f, 0.88f, 0.14f,
+                                 "SentientSands_JournalSaveBtn",
+                                 OnJournalSaveClick));
 
+  std::vector<MyGUI::Widget *> &quests = g_journalQuestWidgets;
+  g_questList = client->createWidgetReal<MyGUI::ListBox>(
+      "Kenshi_ListBox", 0.02f, 0.10f, 0.28f, 0.76f,
+      MyGUI::Align::Left | MyGUI::Align::VStretch, "SentientSands_QuestList");
+  g_questList->eventListSelectAccept += MyGUI::newDelegate(OnQuestSelect);
+  g_questList->eventListChangePosition += MyGUI::newDelegate(OnQuestSelect);
+  quests.push_back(g_questList);
+  quests.push_back(AddRowButton(client, "Abandon", 0.02f, 0.88f, 0.135f,
+                                "SentientSands_QuestAbandonBtn",
+                                OnQuestAbandonClick));
+  g_questDetails = AddTextView(client, 0.32f, 0.10f, 0.66f, 0.76f,
+                               MyGUI::Align::Top | MyGUI::Align::HStretch,
+                               "SentientSands_QuestDetails");
+  g_questStatus = AddRowLabel(client, "", 0.32f, 0.89f, 0.50f,
+                              "SentientSands_QuestStatus");
+  quests.push_back(g_questDetails);
+  quests.push_back(g_questStatus);
+
+  ShowJournalTab(false);
   ShowJournalEntry("", "", "");
   SetJournalStatus(T("Select an entry, or press New Entry."));
   RequestJournalPage(1);

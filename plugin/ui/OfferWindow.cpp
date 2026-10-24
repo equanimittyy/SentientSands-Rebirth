@@ -77,9 +77,11 @@ static void CloseOfferUI() {
   g_offerBoxes.clear();
 }
 
+// The server dates a job by the game time of its accept
 static std::string AnswerJson(const std::string &answer) {
   return "{\"id\": \"" + EscapeJSON(g_offer.id) + "\", \"answer\": \"" +
-         answer + "\", \"npc\": \"" + EscapeJSON(g_offer.npcName) + "\"}";
+         answer + "\", \"npc\": \"" + EscapeJSON(g_offer.npcName) + "\"" +
+         GameTimeFields() + "}";
 }
 
 static void ForgetOffer() {

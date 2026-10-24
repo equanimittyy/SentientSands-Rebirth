@@ -81,7 +81,7 @@ The hooks in `plugin/main.cpp` buffer the game events (`QueueGameEvent`). The se
 | `imprisonment` | `setPrisonMode_hook` with `on` | Each call |
 | `rekey` | `addActiveObject_hook`, `addCharacterAt_hook` | A squad change gave a character that already had a handle a new `npc_id`; holds `old` and `new` (see [Characters](#characters)) |
 
-- A party (`EventParty`) holds `id` (the `npc_id`), `template_id`, the name, the faction, and `player`.
+- A party (`EventParty`) holds `id` (the `npc_id`), `template_id`, the name, the faction, `factionID`, and `player`. A faction job counts a death by `factionID`, because the faction records are keyed by the game ID (see [Quests](#quests)).
 - Each event holds the game time of its hook, read under `g_eventMutex`, so a step back of the game time means a load.
 - `attackingYou_hook` runs many times a second, so it checks the faction first and dedupes by handle serials without building a string.
 - A request takes the events out of the buffer (`TakeGameEvents`), so each event goes once, and a failed request loses them. The buffer holds 100 events.
@@ -94,6 +94,7 @@ The hooks in `plugin/main.cpp` buffer the game events (`QueueGameEvent`). The se
 - While a `knockout` mark is set, all attackers count, because a capture in Kenshi is a knockout, a carry, and a cell ([kenshi_internals.md](kenshi_internals.md#deaths-and-captures)). An `up` that is not carried clears the mark. A carried `up` changes nothing.
 - Else each attacker whose last attack is in the 3 game hours before counts. Kenshi gives no last hit.
 - An event with a game time before the newest event is a load, and drops the kept events after that time. The server skips events at Day 0, 00:00, because the clock reads that until it holds a real time.
+- The kills and the captures count toward the jobs of the squad, and `take` returns their game messages, which `take_report` sends as `NOTIFY:` (see [Quests](#quests)).
 
 The `event` table holds one row for each event, with the game time and, as JSON in `data`, the kind (`kill`, `capture`, `custom`, or `auto`) and its facts.
 
@@ -224,7 +225,7 @@ A chat request is ordered for the provider's prompt cache, which reuses only an 
 
 - The action rules come last in the system message, because a chat thread can go from plain chat to an action dialogue and from one category to another. A change then keeps the cache of the rest of the system message, but the history after it is read again.
 - Only earlier threads decide whether the NPC has met the speaker, so the first-meeting sentence of the scene stays for the whole conversation, and the second turn keeps the cache.
-- The scene is a snapshot for the whole conversation (`CONVERSATION_SCENE`). A conversation ends when the player chats with another NPC, speaks as another squad member, switches the campaign, when the NPC's name or faction changes, when the other speakers of the current chat thread change, when the NPC or the speaker starts or stops a fight, when the NPC changes its side in a fight, when the speaker picks up or puts down a character, when the character that the speaker carries wakes up or dies, or when the NPC moves to another town or region, because the search skips the place records of the scene by the current place (see [Order of the lore](#order-of-the-lore)).
+- The scene is a snapshot for the whole conversation (`CONVERSATION_SCENE`). A conversation ends when the player chats with another NPC, speaks as another squad member, switches the campaign, when the NPC's name or faction changes, when the other speakers of the current chat thread change, when the NPC or the speaker starts or stops a fight, when the NPC changes its side in a fight, when the speaker picks up or puts down a character, when the character that the speaker carries wakes up or dies, when the job that the NPC answers for or its progress changes (see [Quests](#quests)), or when the NPC moves to another town or region, because the search skips the place records of the scene by the current place (see [Order of the lore](#order-of-the-lore)).
 - `server/chat/scene_text.py` writes the scene as second-person prose, because a model reads a sentence more reliably than a number. The relation bounds match the relation labels of the Dialogue Library.
 - Each context has `in_combat`, which is true while the character has an attack target (`StateFields` in `plugin/game/Context.cpp`). The context of the NPC in a chat line also has `combat_side` (`CombatSide` in `plugin/game/GameActions.cpp`): `against` when a member of one squad attacks a member of the other squad, `with` when the two squads fight a common foe, and empty in all other cases. A squad includes its animals here, because a wild animal attacks. The scene states both facts in plain words (`scene_text.fight_text`, `COMBAT_SIDES`).
 - The context of the speaker has `carrying` (`CarriedJson` in `plugin/game/Context.cpp`): the name, the `npc_id`, the faction, and the state (`awake`, `unconscious`, or `dead`) of the character that the speaker carries, or `{}`. The scene says whom the speaker carries (`scene_text.carry_text`). It says "you" when the speaker carries the NPC, and "a member of your faction" when the carried character is of the faction of the NPC, so the model does not have to compare the two factions.
@@ -511,15 +512,15 @@ A chat line that starts with `!` marks its chat thread as an action dialogue. Th
 - The plugin stops each line of a knocked-out speaker or NPC before the request (`SendChatLine` in `plugin/ui/ChatWindow.cpp`), because the speaker's bubble and the NPC's "..." show before the reply. A test command still goes, because it shows no bubble.
 - A line of a deal that the story allows but code rules out goes to plain chat instead, with the reason as the NPC's thought in the turn message: a marked line to an animal or to a member of the player faction (`mark_chat`), a marked line or a line of an open action dialogue while the NPC or the speaker is in a fight (`mark_chat`, `in_combat`), and a line that fails a gate of its category (`plain_chat`), for example a threat from a cage. A fight thus also ends an action dialogue that started before it.
 - The plugin sends `slave`, `captor`, `bounty`, `has_first_aid`, `has_repair_kit`, `needs_first_aid`, and `needs_repair` in each context (`GetDetailedContext` in `plugin/game/Context.cpp`), because a slave in a cage reads as `imprisoned`, the player can recruit a captive of the player faction, the bribe of a LIBERATE release adds the bounty, and HEAL needs a kit that fits a wound of the speaker.
-- `CURRENT_THREAD` holds the category and the speaker of the action dialogue (`action`). A line without a mark keeps the category. A marked line that goes to plain chat ends the action dialogue but not the chat thread, because an action dialogue holds one category at a time, and a later mark starts the next one in the same chat thread. A line of another squad member starts a new chat thread (`thread_of`). The ending tag `[END]`, `!end`, a failure, and an error of the action call end the chat thread.
-- The system message ends with `prompt_action_rules.txt` (see [Prompts](#prompts)). It holds the file of the category (`prompt_action_<category>.txt`), or a variant that code picks from the game state (`prompt_action_barter_table.txt` for the barter window, and `prompt_action_follow_mercenary.txt` for a mercenary): the request, the shape of the deal tag with one example, and the tags that end the category. The model writes no category tag, because code adds it to the bubble.
+- `CURRENT_THREAD` holds the category and the speaker of the action dialogue (`action`), and the new job of a QUEST (see [Quests](#quests)). A line without a mark keeps the category. A marked line that goes to plain chat ends the action dialogue but not the chat thread, because an action dialogue holds one category at a time, and a later mark starts the next one in the same chat thread. A line of another squad member starts a new chat thread (`thread_of`). The ending tag `[END]`, `!end`, a failure, and an error of the action call end the chat thread.
+- The system message ends with `prompt_action_rules.txt` (see [Prompts](#prompts)). It holds the file of the category (`prompt_action_<category>.txt`), or a variant that code picks from the game state (`prompt_action_barter_table.txt` for the barter window, `prompt_action_follow_mercenary.txt` for a mercenary, and `prompt_action_quest_report.txt` for a job that the NPC answers for): the request, the shape of the deal tag with one example, and the tags that end the category. The model writes no category tag, because code adds it to the bubble.
 - The turn message of an action call starts with the facts of the hard limits, for example the cats of the NPC, and the lean as a thought of the NPC in one of three bands, with the facts of the lean as reasons to agree and to refuse (`offers.facts`, `action_dialogue.lean`, `action_dialogue.thought`), because both change each turn.
 - The lean adds up the bonuses of the facts of the category. A sum of +2 or more reads "You are inclined to agree.", -1 to +1 reads "You could go either way.", and -2 or less reads "You are inclined to refuse.", because a small model follows a plain band better than a number. BARTER, HEAL, LIBERATE, RECRUIT, and FOLLOW count the NPC's `Relation`: +2 at 60 or more, +1 from 25 to 59, -1 from -59 to -25, and -2 at -60 or less (`relation_bonus`). [Categories](#categories) holds the other facts of each lean.
 - The action call keeps the judgment of plain chat, so each reply can change the NPC's `Relation`, and a threat can cost relation.
 - The server sends each system message through the pipe as `NOTIFY:`: a block, a failure, the refusal of RECRUIT or FOLLOW, and "X made an offer it can't keep. (LLM hallucinated an offer it can't make)".
 - A short deal tag names the deal: `[AGREE]` or `[AGREE: 800 cats]` for RECRUIT, HEAL, and LIBERATE, `[AGREE: 2 days, 500 cats]` for FOLLOW, `[GIVE: 200 cats, 1 Katana]` for the handover of THREATEN, and `[DEAL: 1 Katana for 4600 cats]` for BARTER. `offers.read` turns the tag into the parts of the deal and adds the part that the category fixes, such as `JOIN_PARTY`, because the model left out longer tags that named each part. `offers.check` (`server/chat/offers.py`) checks the parts that the category allows, the cats and the items of each side, and the daily rate of a mercenary. The server drops and logs an offer that breaks a limit, and the action dialogue goes on. No prompt gives the cats of the player faction, because an NPC that saw them asked for all of them. It builds every plugin action from the checked offer, never from the tag.
 - The server holds a valid offer in `state.PENDING_OFFER` and sends `CMD: OFFER:` after the last line of the reply (`play_lines`). The command holds, one to a line, the offer ID, the keys of the NPC and the speaker, the name of the NPC, the text of the popup ("X offers A for B.", with no "for B" when the player gives nothing, `offers.popup_text`), a `CHECK:` line for the cats and each item that a side gives, and a `CHECK: ROOM` line for each item that the NPC must carry (`offers.checks`). A trade adds `RESTOCK: stock` or `RESTOCK: inventory`, where Accept puts a copy of an item that the NPC lost. Only a trade restocks, because the player pays for each copy, and a handover of THREATEN or charity costs the player nothing.
-- `/offer` takes the answer. `accept` sends the actions and the preset line of the category, and ends the chat thread. `decline` keeps the action dialogue, and the plugin sends the player's reply as the next line. `cancel`, after a save load, a knockout, or a death, and `failed`, when a side no longer holds its part, end the chat thread. An answer to an offer that the server no longer holds, for example after a restart, ends the chat thread too.
+- `/offer` takes the answer, with the game time of the answer (`GameTimeFields`), which dates a job (see [Quests](#quests)). `accept` sends the actions and the preset line of the category, and ends the chat thread. `decline` keeps the action dialogue, and the plugin sends the player's reply as the next line. `cancel`, after a save load, a knockout, or a death, and `failed`, when a side no longer holds its part, end the chat thread. An answer to an offer that the server no longer holds, for example after a restart, ends the chat thread too.
 - While an offer waits, `/chat` takes no line and shows "Answer X's offer first.", `/radiant` starts no conversation, and the chat never counts as quiet, so the chat thread keeps its memory until the answer.
 - Some ends run at once, with no offer: `[ATTACK]` in THREATEN sends `ATTACK` and the preset line `threaten_attack`, a HEAL offer with no fee sends the treatment and `heal_start`, and DISMISS sends `END_HIRE` and `dismiss_end` with no LLM call. `[REFUSE]` ends RECRUIT and FOLLOW.
 - Each line and action of a chat reply starts with `Name|key>speaker key:`, so each action acts on the squad member that spoke the line. The plugin sends the key of the speaker as `speaker_key`, and `ATTACK`, the release, `HIRE`, `FIRST_AID`, and the item actions act on the squad member of the key after `>` (`TakeSpeaker` and `QueueTagAction` in `plugin/main.cpp`). `GIVE_CATS`, `TAKE_CATS`, and the fee of `JOIN_PARTY` keep the first character, because the cats belong to the whole player faction.
@@ -531,7 +532,7 @@ A chat line that starts with `!` marks its chat thread as an action dialogue. Th
 - The plugin also runs `RAID_TOWN` and `TRAVEL_TO_TARGET_TOWN`, which give the NPC the task of that name toward the town that the tag names (`DoSetTask` in `plugin/game/GameActions.cpp`). No deal sends them, and only the test commands `/raid` and `/travel` reach them, but they stay for a later action. `DoSetTask` gives the task both as a job (`addJob`) and as a goal (`addGoal`), and no in-game test shows which call moves the NPC.
 - `GIVE_ITEM`, `SELL_ITEM`, `TAKE_ITEM`, and `BUY_ITEM` move only the count of the deal and split a bigger stack (`MoveItems` in `plugin/game/GameActions.cpp`), and they take an item with the exact name before an item whose name holds it (`FindNamedItem`).
 - An item that the player's character cannot fit, from a deal or a spawn, drops at its feet (`GiveOrDrop`). `GiveOrDrop` calls `giveItem` with `dropOnFail` only after a call without it fails, because what `giveItem` returns after a drop is unknown. An item that the NPC cannot fit goes back to the player, and the game shows "X can't carry all that.".
-- A `TAKE_CATS`, `TAKE_ITEM`, or `BUY_ITEM` that moves less than the deal holds back the NPC's side: `GIVE_ITEM`, `SELL_ITEM`, `GIVE_CATS`, `HIRE`, `FIRST_AID`, and the release, until the NPC's next line (`HeldBack` in `plugin/game/GameActions.cpp`). The hold lasts across frames, because each action is its own pipe message. `JOIN_PARTY` carries the fee of a recruit, so a fee that the player cannot pay stops the recruit and takes no cats (`DoJoinParty`). The fee goes to no purse, because the recruit's purse becomes the player's.
+- A `TAKE_CATS`, `TAKE_ITEM`, or `BUY_ITEM` that moves less than the deal holds back the NPC's side: `GIVE_ITEM`, `SELL_ITEM`, `GIVE_CATS`, `ADD_CATS`, `HIRE`, `FIRST_AID`, and the release, until the NPC's next line (`HeldBack` in `plugin/game/GameActions.cpp`). So a hand-over of goods that falls short pays no reward of a job. The hold lasts across frames, because each action is its own pipe message. `JOIN_PARTY` carries the fee of a recruit, so a fee that the player cannot pay stops the recruit and takes no cats (`DoJoinParty`). The fee goes to no purse, because the recruit's purse becomes the player's.
 - The name of each item in a context holds the maker and the grade of a weapon, or the grade of an armour, a crossbow, or a robotic limb (`ItemLabel` in `plugin/game/Context.cpp`), so a deal names the right one of two items with one name and different prices. An armour, a crossbow, or a robotic limb takes the best grade whose level in `GEAR_GRADES` is at most the level of the item, and Prototype below all of them, so each level names a grade. A name without the grade finds the item when only one grade of it is held (`offers.held`).
 - The context of an NPC in a shop holds `stock`, the items of all the furniture of the building (`GetShopItems`), because the trade window of a shop shows them as its stock. A trader in a shop trades only the stock and keeps what it carries (`offers.sells_stock`), so it never sells the clothes and gear that it wears. Any trader in a shop counts, not only one whose Current Job is `Running a shop`, because a barman's Current Job can read `Trading`. A trader away from a shop, and any other NPC, trades what it carries. A sale from the stock is `SELL_ITEM`, which takes the item only from the furniture (`FindStockItem` in `plugin/game/GameActions.cpp`), because `GIVE_ITEM` takes an item that the NPC carries first. `GIVE_ITEM` takes an item from the furniture when the NPC carries none. A purchase into the stock is `BUY_ITEM`, which puts the item into the first furniture of the building with room (`Stock`), so the trader sells it again and needs no `ROOM` line.
 - A trade weighs the worth of each side (`offers.worth`): what the NPC receives against what it gives, each item at its full price. The worth only guides the model, and no check enforces it. Code does the sums, so the turn message gives no worth and no percent: the price of each item that the NPC buys drops by the profit that it wants (`offers.profit_share`), and the barter window names in cats how far the table misses or beats that profit. The NPC's stock sets the price of an item, at its highest, and an item that the stock lacks takes the highest price in the speaker's inventory (`offers.price_of`).
@@ -557,6 +558,7 @@ Each category has its own gates, hard limits, and lean. A line that fails a gate
 | `r`, `recruit` | RECRUIT | Asks the NPC to join the squad for good |
 | `f`, `follow` | FOLLOW | Asks the NPC to follow the squad for a time |
 | `d`, `dismiss` | DISMISS | Ends the hire of a temporary follower |
+| `q`, `quest` | QUEST | Asks for a job, or reports on a job (see [Quests](#quests)) |
 
 - A guard is an NPC whose Current Job is `Guarding the town`, `Guarding a building`, `Patrolling the town`, `Keeping the peace`, or `Working as a slaver`, or whose squad jobs hold the jailer task `FIND_CAGE_AND_PUT_DEADGUY_IN` (`action_dialogue.is_guard`). The jailer task counts because the captain of a bounty desk stands at a shopkeeper node, so its Current Job reads `Running a shop`. A trader is an NPC whose Current Job is `Trading`, `Running a shop`, or `Travelling as a trader` (`is_trader`).
 - THREATEN: A threat from an `imprisoned` speaker goes to plain chat, but a chained slave can threaten. The NPC gives in with `[GIVE: ...]`, only from the cats and the items that it carries, fights with `[ATTACK]`, or refuses, and the action dialogue goes on. The lean counts no relation (`threat_lean`): -2 to +2 by how much stronger or weaker the speaker looks than the NPC in the chat prompt (`fight_bonus`, `scene_text.strength_step`), +1 or -1 when the player faction near the NPC outnumbers the NPC's faction near it or has fewer members there, +1 when the NPC is `Injured` or `Crippled`, -1 when the speaker is, and -1 when the NPC leads its faction or is unique. The `nearby` list of the NPC leaves out the first squad character, so `sides` adds it when it speaks or stands near the speaker.
@@ -599,6 +601,7 @@ Each category has its own gates, hard limits, and lean. A line that fails a gate
 - FOLLOW: FOLLOW takes the gates, the hard limits, and the lean of RECRUIT except the ways of specific people, and an NPC that is not a mercenary takes -1 more, because it is wary to follow for no reason. A FOLLOW line to a fellow captive runs as RECRUIT (`runs_as`), because a hired follower stays out of the player's control, so the player could not lead it out. A FOLLOW line to a captive of the speaker's faction also runs as RECRUIT, because the player does not hire a captive that the player holds.
 - A mercenary of FOLLOW gets `prompt_action_follow_mercenary.txt`, and any other NPC gets `prompt_action_follow.txt`, because one request that called each follow the work of a hired guard made other NPCs refuse "hired guard work" and write a fee of 0 cats. A mercenary charges at least the daily rate of its faction times the hours of the hire divided by 24 (`MERCENARY_RATES`): 2,000 cats for the Mercenary Guild, the Tech Hunters, and the Vagrants, and 2,500 cats for Black Dog. The rates come from the `Bodyguard` contracts of the hire dialogues `mercenary shop`, `bodyguard for hire`, `Thug2`, and `Black dog random extortion`. The Cannibal Hunters sell only an outpost guard contract, in which the hired squad does not follow, so they are not mercenaries.
 - DISMISS: A block stops DISMISS of an NPC that is not a temporary follower. The NPC never refuses, so DISMISS has no lean and no offer, and the player gets no part of the fee back.
+- QUEST: The NPC must be a leader, a guard, or a trader (`action_dialogue.giver_roles`), and neither the NPC nor the speaker may be `imprisoned`. The NPC never refuses a job, so QUEST has no deal tag and no lean (see [Quests](#quests)).
 
 ### Barter window
 
@@ -621,6 +624,115 @@ The Barter window lets the player build the deal of a BARTER action dialogue fro
 - Accept is on only while the window holds the offer and its deal is the deal that the NPC agreed to, because the NPC agreed only to the deal that it saw. Accept runs the checks and the answer of the popup (`AcceptOffer` in `plugin/ui/OfferWindow.cpp`). A send of the window and Close decline a held offer, so the deal line of the decline reaches the NPC.
 - An offer that waits in the popup when the window opens stays in the popup, because the model wrote it. A send of the window declines it (`OfferHeldFor`).
 - The hotkey of the chat window does nothing while the window is open.
+
+### Quests
+
+In a QUEST action dialogue, a leader, a guard, or a trader gives the player a job. Code picks the job, and the NPC tells it in its own words (`server/chat/quests.py`). A popup lets the player take the job. Code tracks the job from the game events, and the Quests tab of the Journal window lists each open job (see [Journal](#journal)). The player goes back to the giver for the reward.
+
+| Job | Giver | The player | Done when |
+|---|---|---|---|
+| Figure | A leader, only at a good relation | Kills or captures the leader or a noble of an enemy faction | A `kill` or a `capture` event of the target names a squad member |
+| Faction | A leader or a guard | Kills a number of members of an enemy faction | The squad killed that number |
+| Goods | A trader | Brings a number of one raw material that fits the goods of the trader | The speaker hands the items to the trader |
+
+- Code picks the target, the count, and the reward of each job, with no LLM call, because a model names targets and prices that the game does not hold.
+- A job belongs to the player faction. Any squad member can take it, work on it, and collect the reward.
+
+A QUEST line goes to plain chat with the reason as the NPC's thought (`plain_chat` and `chat` in `server/chat/routes.py`) in these cases:
+
+| Case | Thought |
+|---|---|
+| The NPC is not a leader (`current_job.is_leader`), a guard (`is_guard`), or a trader (`is_trader`) | "You have no work to give." |
+| The NPC or the speaker is `imprisoned` | "You are locked in a cage, so you cannot give work." or "{player} is locked in a cage, so {player} cannot take work." |
+| The NPC answers for no job and has no job to give | "You have no work for {player} now." |
+
+- The NPC answers for its own open or done job, or, as a guard or the leader of a faction, for the oldest faction job that a member of that faction gave (`quests.held`). Generic guards look alike and have rolled names, so the player could not find the one guard that gave the job.
+- An NPC that answers for a job gives no new job, so each giver holds at most one job.
+- A leader can give a figure job and a faction job. When both pass their gates, code picks one at random (`quests.roll`).
+- The new job of the first QUEST line stays in `CURRENT_THREAD` (`action`), so each turn of the action dialogue names the same job. A new chat thread rolls again.
+
+#### Jobs
+
+The enemies of a giver are the faction records that the `enemies` field of its faction record names, by an exact name or an alias (`quests.enemies`). The player faction and the faction of the giver drop out.
+
+- Figure: The relation of the giver's faction with the player faction (`relation` of the context) must be 60 or more, the band of the relation bonus +2 (`relation_bonus`). The targets are the `leader` and the `nobles` of each enemy, found by the name words of the canon character records, as `rulers.fallen` matches a name. A value that names two people, such as "Dimak and Buzan", is split at "and".
+- A figure drops out when it has no canon record, when the game holds it dead or imprisoned (`rulers.character_states`), when its live context is in the player faction, or when another job names it, so one kill never pays two jobs.
+- The figure job is done at a `kill` or a `capture` event of the target after the accept, with a squad member as a doer (`world_events._store`). Either event counts, so the player chooses how to do the job. A capture into a cage of the player faction counts too.
+- The figure job fails when the game holds the target or the giver dead or imprisoned, and no such event came. Code checks this after the events of each request (`quests.check`), so an event and a state in one request mark the job done. A game event that a failed request lost ([Game events](#game-events)) therefore fails the job. A faction job and a goods job never fail.
+- Faction: The target is an enemy faction, and the count is 3 to 8. Each `death` game event after the accept counts when `world_events._attribute` gives it an attacker of the player faction. It counts toward only the oldest open faction job against the `factionID` of its party (`campaign_db.count_quest_kill`), and a kill that does a figure job counts toward no faction job, so one kill never pays two jobs.
+- Goods: The class of a trader comes from the `kind` of its goods (`offers.goods`, `ItemKind` in `plugin/game/Context.cpp`). The class needs at least half of the item stacks, because a general store sells a few items of each class (`quests.trader_materials`). A trader without a class gives no job.
+
+| Class | Kinds of the goods | Materials |
+|---|---|---|
+| Food | `food` | Raw Meat, Wheatstraw, Greenfruit, Cactus, Riceweed |
+| Weapons | `weapon`, `crossbow`, `ammo` | Raw Iron |
+| Armour | `armour` | Raw Iron, Animal Skin, Cotton, Fabrics |
+| Electronics | `limb`, `repair`, and the `goods` items in `ELECTRONICS` | Copper |
+| Drugs | `drug` | Hemp |
+| Medical | `medical` | Hemp |
+
+- The materials follow the crafting chains of the vanilla game data: Raw Iron makes Iron Plates and Armour Plating, and Iron Plates make Steel bars; Animal Skin makes Leather; Cotton makes Fabrics; Copper makes Electrical Components and goes into the robotics bench; Hemp makes Hashish and the Advanced First Aid Kit. Kenshi has no item named hide or cloth, so Animal Skin takes the place of hide, and both Cotton, the raw form, and Fabrics take the place of cloth.
+- `ELECTRONICS` holds the items of the vendor list `Hi tech junk` that `ItemKind` gives the kind `goods`: CPU Unit, Electrical Components, Generator Core, Motor, Power Core, and Robotics Components.
+- Code picks one material of the class that the goods of the trader do not hold, because the player could buy it from the trader and sell it back at the reward. A class with no such material gives no job. The count is 3 to 8.
+- A trader keeps its handle across a town reload ([kenshi_internals.md](kenshi_internals.md#character-identity)), so only the giver pays a goods job.
+
+| Job | Reward |
+|---|---|
+| Figure | 20,000 cats for a leader, 10,000 cats for a noble |
+| Faction | 500 cats for each kill |
+| Goods | Twice the value of the material in the vanilla game data for each item: Raw Iron 150, Copper 300, Animal Skin 400, Fabrics 300, Hemp 100, Cotton 50, Raw Meat 100, Greenfruit 60, Wheatstraw 40, Cactus 30, Riceweed 25 |
+
+- The reward is fixed. The turn message says so, and the NPC cannot bargain it.
+- The plugin creates the cats with `ADD_CATS`, as for charity, because a giver can carry fewer cats than the reward.
+
+#### Flow
+
+1. The player sends `!q` and a line to a giver. The gates run.
+2. The turn message starts with `JOB FACTS` (`quests.facts`), in place of the facts and the lean of a deal: the job, how far it is, who pays the reward, and that the reward is fixed. For example: "You want Zaps's group to kill 5 members of the Dust Bandits.", "Zaps's group has killed 2 of the 5 so far.", or "Zaps carries the 5 Raw Iron that you asked for."
+3. The system message ends with `prompt_action_quest.txt` for a new job, and with `prompt_action_quest_report.txt` for a job that the NPC answers for. Each tells the NPC to tell the job or the progress in its own words, and to keep the target, the count, and the reward of the facts.
+4. The reply to each marked QUEST line carries the popup (`CMD: OFFER:`, `offers.quest_offer`): a new job, the reward of a done job, or the hand-over of a goods job when the speaker carries the whole count (`quests.offered`). A line without the mark carries no popup. An `[END]` next to the popup does not close the action dialogue, as for an offer.
+5. Accept of a new job stores it at the game time of the answer (`campaign_db.add_quest`), writes the deal line, says a line of `quest_accept` from `server/data/defaults/action_end_lines.json`, and ends the chat thread.
+6. Each counted death and each change of state shows a game message (`NOTIFY:`): "Job for Sergeant Rook: 3 of 5 members of the Dust Bandits killed.", "Job done: go back to Sergeant Rook for the reward.", or "Job failed: Tinfist is dead."
+7. Accept of a reward sends `ADD_CATS`, marks the job paid, writes the deal line, says a line of `quest_paid`, and ends the chat thread. An accept of a job that changed while the popup waited, for example by Abandon, pays nothing, and shows "X's offer no longer stands.".
+
+| Popup | Text |
+|---|---|
+| A new job | "Sergeant Rook offers a job: kill 5 members of the Dust Bandits. Reward: 2,500 cats." |
+| A new figure job | "Holy Lord Phoenix offers a job: kill or capture Tinfist, leader of the Anti-Slavers. Reward: 20,000 cats." |
+| A reward | "Sergeant Rook pays 2,500 cats for the job." |
+| A goods reward | "Harvag offers 1,500 cats for 5 Raw Iron." |
+
+- A goods job has no done state before the hand-over. The popup holds a `CHECK:` line for the items (`offers.checks`). The hand-over is `BUY_ITEM` for a trader in a shop, so the items go into the stock, and `TAKE_ITEM` with a `CHECK: ROOM` line for any other trader, as in a trade.
+- The chat scene of an NPC that answers for a job names the job and its progress (`quests.scene_text`), so a plain chat line can talk about it. The text is a part of the key of the scene, so a change of the progress starts a new scene.
+
+#### Storage and loads
+
+| Table | Columns |
+|---|---|
+| `quest` | `id` (`AUTOINCREMENT`), `giver` (`npc_id`), `giver_name`, `giver_faction` (game ID), `kind` (`figure`, `faction`, or `goods`), `target` (an `npc_id`, a faction game ID, or an item name), `count`, `reward`, `state` (`open`, `done`, `failed`, or `paid`), `accepted_at`, `changed_at` |
+| `quest_kill` | `quest_id`, `game_time` |
+
+- `id` is `AUTOINCREMENT`, because the Quests tab keeps the ID of the selected job, and a late Abandon must never reach a new job.
+- A read of a job gives the current name of the giver and of the target from their records (`campaign_db.quests`), so a rename reaches the job.
+- `quest_kill` keeps the game time of each counted death, so a load can undo the deaths after it.
+- A `rekey` event changes `giver` as it changes the other rows (`campaign_db.rekey`).
+
+The jobs live in the campaign, not in the save, so a load of an earlier save must undo the later changes. Without this, a player who loads a save from before a paid reward loses the cats and keeps the paid job.
+
+- Each request that carries a game time runs `quests.rewind` before it counts its events (`world_events.take`), when that time is before the newest `accepted_at`, `changed_at`, or `quest_kill.game_time`. A request that rewinds nothing writes nothing, because a write makes the web app reload its pages.
+- The rewind deletes each job accepted after the time and each death after it. It sets each job whose `changed_at` is after the time back to `open`, and then counts each open job again: a faction job by its deaths, and a figure job by the `kill` and `capture` events of its target up to the time.
+- The cull runs the same rewind at its game time (`campaign_db.cull_after`).
+- A game time of Day 0, 00:00 runs no rewind, because the game clock reads that until it holds a real time.
+
+| Rejected | Reason |
+|---|---|
+| A generic NPC as the target | The game despawns patrolling squads. SSR removed its own bounties for this reason. |
+| A deal tag, such as `[AGREE]`, for the job | The NPC never refuses a job, so code sends the popup with no tag. |
+| A lean for the job | A giver with work gives it. Only the figure job has a gate, the relation. |
+| Enemies from the live relations of the game | It needs a plugin read of each pair of factions at each QUEST line. The faction records already hold the enemies, and the player can edit them on Campaign Canon. |
+| A reward from the purse of the giver | A giver can carry fewer cats than the reward. |
+| A reward that the NPC bargains | It needs a hard limit and a lean for each job. A fixed reward needs neither. |
+| A journal entry for each job | The journal is the notebook of the player. An entry that code writes at each change of its job would need its own rules for edits, deletes, and the cull. |
 
 ## Characterised dialogue
 
@@ -704,7 +816,7 @@ A new campaign is a copy of a world template (see [World templates](#world-templ
 
 - `open_campaign` builds a missing `campaign.db` from SSR Vanilla through `campaign.db.tmp`.
 - `open_campaign` migrates the schema of an earlier release (`server/store/migrations.py`). Each schema that a release shipped has one step to the next schema in `migrations.STEPS`, and a campaign runs every step from its own schema up. Before the steps, it copies the database to `campaign_ssr<release>_backup.db` in the campaign folder with the SQLite backup API, so a player who goes back to that release keeps the campaign. Then one transaction runs the steps. A failed copy or step leaves the old schema and closes the campaign with the error.
-- The step from schema 22, of releases 1 and 2, adds the `captive` table and renames the seeded Holy Nation leader "Holy Lord Phoenix LXII" to "Holy Lord Phoenix", the name of the game and of his character record, unless the player changed it. The SQL of a step stays as its release needed it, because a later schema change gets a step of its own.
+- The step from schema 22, of releases 1 and 2, adds the `captive` table and renames the seeded Holy Nation leader "Holy Lord Phoenix LXII" to "Holy Lord Phoenix", the name of the game and of his character record, unless the player changed it. The step from schema 23, of release 3, adds the `quest` and `quest_kill` tables (see [Quests](#quests)), so it changes no stored data. The SQL of a step stays as its release needed it, because a later schema change gets a step of its own.
 - Each database holds the mod version that created or last migrated it in the `ssr_version` meta row. `open_campaign` refuses any other schema version, and the reason names the SSR version of that row, because only that version is sure to open the campaign. A database with no `ssr_version` row predates the releases, so the reason says to start a new campaign.
 - With no current campaign, or a deleted `campaign.db`, each operation fails with the reason, and a route answers 409.
 
@@ -877,7 +989,7 @@ The server deletes a provisional profile that took part in no chat thread, and w
 | `POST /api/campaign/rumors`, `.../rumors/delete` | Save or delete a rumor |
 | `POST /api/campaign/events/add`, `.../events/delete` | Add a custom event, or delete an event |
 | `POST /api/campaign/memories`, `.../memories/delete` | Edit or delete a memory (see [Conversation memories](#conversation-memories)) |
-| `POST /api/campaign/cull` | Undo the re-keys, and delete the characters, dialogue, events, rumors, thread members, captives, and memories dated after the current game time, except custom events and their rumors (see [Characters](#characters)). It refuses without a game report (see [Game state](#game-state)). |
+| `POST /api/campaign/cull` | Undo the re-keys, delete the characters, dialogue, events, rumors, thread members, captives, and memories dated after the current game time, except custom events and their rumors (see [Characters](#characters)), and rewind the jobs (see [Quests](#quests)). It refuses without a game report (see [Game state](#game-state)). |
 
 - A refused campaign gives status 409. Each edit names the campaign that the page loaded, and the server refuses it for another campaign.
 - A record edit carries the `updated_at` that the page loaded, and the server refuses it when the row changed after that.
@@ -885,7 +997,7 @@ The server deletes a provisional profile that took part in no chat thread, and w
 
 ### Journal
 
-The Journal window of the SSR HUB is a notebook of the player (`plugin/ui/JournalWindow.cpp`). Each campaign has its own journal in the `journal` table: the title, the text, and the game time at which the player created each entry. No prompt reads the journal, and the cull keeps it.
+The Journal window of the SSR HUB is a notebook of the player (`plugin/ui/JournalWindow.cpp`). Two tab buttons at the top switch it between Entries, the notebook, and Quests, the jobs of the squad (see [Quests tab](#quests-tab)). The window opens on Entries. Each campaign has its own journal in the `journal` table: the title, the text, and the game time at which the player created each entry. No prompt reads the journal, and the cull keeps it.
 
 | Route | Behavior |
 |---|---|
@@ -903,9 +1015,31 @@ The Journal window of the SSR HUB is a notebook of the player (`plugin/ui/Journa
 
 The window:
 
-- It saves a changed entry before the player leaves it: at the select of another entry, a page change, New Entry, and the close of the window. Save saves at once.
+- It saves a changed entry before the player leaves it: at the select of another entry, a page change, New Entry, a switch to the Quests tab, and the close of the window. Save saves at once.
 - Each page request and each read takes a number, and the window drops a reply that a newer request made stale, because Search sends a request at each keystroke.
 - It escapes `#` in each label and loads the boxes with `setOnlyText`, because MyGUI reads `#` as a colour tag.
+
+#### Quests tab
+
+The Quests tab shows the jobs in place of the search, the page buttons, New Entry, and the boxes of an entry. It lists each job that is `open` or `done`, newest first by its accept, with the giver and the job as the label, for example "Sergeant Rook: Kill 5 members of the Dust Bandits". A read-only box shows the selected job (`quests.details`):
+
+| Line | Text |
+|---|---|
+| Giver | "Giver: Sergeant Rook of the United Cities, last seen at Bar, Heng." The place is the `CurrentLocation` of the giver's profile. A faction job adds "Any guard of the United Cities pays the reward." |
+| Reward | "Reward: 2,500 cats." |
+| Progress | "Progress: 2 of 5 killed.", "Progress: Not done yet." for a figure job, or "Progress: Done. Go back to Sergeant Rook for the reward." A goods job reads "Progress: Bring 5 Raw Iron to Harvag." |
+
+Abandon asks "Give up the job for Sergeant Rook?" in a popup, as Delete does for an entry. A confirm deletes the job and its deaths, so its giver can give a new job.
+
+| Route | Behavior |
+|---|---|
+| `POST /quests` | The `open` and `done` jobs with the text of their boxes, and the active campaign |
+| `POST /quests/abandon` | Delete a job and its deaths |
+
+- A paid or a failed job leaves the list. Its game message told the player.
+- Each switch to the Quests tab asks for the list again, and the tab drops a reply that a newer request made stale, as the Entries tab does.
+- Abandon sends back the campaign of the tab, and the server refuses it with status 409 after a campaign switch, because the same ID can name another job in another campaign.
+- The tab has its own status line, so a late reply of the Entries tab cannot overwrite it.
 
 ## World templates
 

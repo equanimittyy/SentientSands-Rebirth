@@ -23,6 +23,7 @@ CATEGORIES = [
     ("r", "recruit", "RECRUIT", "A request to join the squad for good, as a new member"),
     ("f", "follow", "FOLLOW", 'A request to come along or be hired for a while, such as "follow me"'),
     ("d", "dismiss", "DISMISS", "An order for a hired follower to leave"),
+    ("q", "quest", "QUEST", "A request for a job or for work, or a report on a job"),
 ]
 NONE_OF_THESE = "None of these"
 GUARD_JOBS = {"Guarding the town", "Guarding a building", "Patrolling the town", "Keeping the peace", "Working as a slaver"}
@@ -132,6 +133,13 @@ def plain_chat(category, npc, speaker):
                 return f"You are {npc_state}, so you cannot {verb} {{player}}."
         if current_job.is_leader(npc):
             return f"You lead {npc.get('faction') or 'your faction'} and will not leave it."
+    elif category == "QUEST":
+        if not giver_roles(npc):
+            return "You have no work to give."
+        if npc_state == "imprisoned":
+            return "You are locked in a cage, so you cannot give work."
+        if speaker_state == "imprisoned":
+            return "{player} is locked in a cage, so {player} cannot take work."
     return None
 
 
@@ -165,6 +173,11 @@ def is_guard(npc):
 
 def is_trader(npc):
     return current_job.current_job(npc, False, "") in TRADER_JOBS
+
+
+def giver_roles(npc):
+    """The roles of the NPC that give a QUEST job (chat/quests.py): leader, guard, and trader."""
+    return {role for role, holds in (("leader", current_job.is_leader(npc)), ("guard", is_guard(npc)), ("trader", is_trader(npc))) if holds}
 
 
 def mercenary_rate(npc):

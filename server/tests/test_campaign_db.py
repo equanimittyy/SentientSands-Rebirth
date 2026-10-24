@@ -41,6 +41,9 @@ SEED = {
 }
 
 
+QUEST = {"giver": "h:7", "giver_name": "Sergeant Rook", "giver_faction": "defaultEmpireFactionSID", "kind": "faction", "target": "200-gamedata.base", "count": 2, "reward": 1000}
+
+
 class CampaignTestCase(unittest.TestCase):
     def setUp(self):
         self._tmp = tempfile.TemporaryDirectory()
@@ -100,7 +103,8 @@ class OpenTest(CampaignTestCase):
         with self.assertRaisesRegex(campaign_db.CampaignUnavailable, rf"made by SSR 7, which this version \(SSR {MOD_VERSION}\) cannot open. Open it with SSR 7, or start a new campaign"):
             campaign_db.open_campaign(self.folder, lambda: SEED)
 
-    SCHEMA_22 = "DROP TABLE captive; DELETE FROM meta WHERE key = 'ssr_version'; UPDATE meta SET value = '22' WHERE key = 'schema_version'"
+    SCHEMA_23 = "DROP TABLE quest_kill; DROP TABLE quest; UPDATE meta SET value = '23' WHERE key = 'schema_version'"
+    SCHEMA_22 = f"{SCHEMA_23}; DROP TABLE captive; DELETE FROM meta WHERE key = 'ssr_version'; UPDATE meta SET value = '22' WHERE key = 'schema_version'"
 
     def test_schema_22_gains_the_captive_table_after_a_backup(self):
         campaign_db.open_campaign(self.folder, lambda: SEED)
@@ -134,9 +138,24 @@ class OpenTest(CampaignTestCase):
 
     def test_schema_23_keeps_the_old_phoenix_leader(self):
         campaign_db.open_campaign(self.folder, lambda: SEED)
-        self.write_meta(self.PHOENIX_LXII)
+        self.write_meta(f"{self.PHOENIX_LXII}; {self.SCHEMA_23}")
         campaign_db.open_campaign(self.folder, lambda: SEED)
         self.assertEqual(self.leader(), "Holy Lord Phoenix LXII")
+
+    def test_schema_23_gains_the_quest_tables_after_a_backup(self):
+        campaign_db.open_campaign(self.folder, lambda: SEED)
+        self.write_meta(self.SCHEMA_23)
+        campaign_db.open_campaign(self.folder, mock.Mock(side_effect=AssertionError("seed read again")))
+        self.assertEqual(campaign_db.read_meta(self.folder)["schema_version"], str(campaign_db.SCHEMA_VERSION))
+        quest_id = campaign_db.add_quest(QUEST, 60)
+        self.assertEqual([(job["id"], job["state"]) for job in campaign_db.quests()], [(quest_id, "open")])
+        campaign_db.count_quest_kill("200-gamedata.base", 61)
+        self.assertEqual(campaign_db.quest(quest_id)["kills"], 1)
+        self.assertTrue(campaign_db.delete_quest(quest_id))
+        backup = sqlite3.connect(os.path.join(self.folder, migrations.backup_name(23)))
+        self.assertEqual(backup.execute("SELECT value FROM meta WHERE key = 'schema_version'").fetchone(), ("23",))
+        self.assertIsNone(backup.execute("SELECT 1 FROM sqlite_master WHERE name = 'quest'").fetchone())
+        backup.close()
 
     def test_the_steps_lead_from_each_old_schema_to_the_current_one(self):
         for schema in migrations.STEPS:

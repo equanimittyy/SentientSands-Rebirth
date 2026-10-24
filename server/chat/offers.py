@@ -13,7 +13,7 @@ import itertools
 import math
 import re
 
-from chat import action_dialogue
+from chat import action_dialogue, quests
 from core import state
 from core.settings import load_settings
 
@@ -372,7 +372,31 @@ def deal_text(offer, voice, player):
     return f"gives {player} {goods}" if voice == "accepted" else goods
 
 
+def quest_offer(job, stock):
+    """The offer of a QUEST line: a new job, or the reward of a held job. The NPC never refuses a job and code knows it, so
+    the offer comes with no deal tag. The reward costs the NPC nothing, because a giver can carry fewer cats than the reward,
+    and a hand-over of goods goes into the stock of a trader in a shop (stock)."""
+    if "id" not in job:
+        return {"category": "QUEST", "job": job, "gives": [], "takes": []}
+    takes = [("ITEM", (job["count"], job["target"]))] if job["kind"] == "goods" else []
+    return {"category": "QUEST", "job": job, "gives": [("CATS", job["reward"])], "takes": takes, **({"stock": True} if stock and takes else {})}
+
+
+def quest_job(offer):
+    """The words of a new job, such as "a job: kill 5 members of the Dust Bandits", or None for a reward."""
+    return None if offer["gives"] else f"a job: {quests.job_text(offer['job'])}"
+
+
+def quest_pay(offer):
+    """The words of a reward, such as "2,500 cats for the job" or "1,500 cats for 5 Raw Iron"."""
+    return f"{offer['job']['reward']:,} cats for {goods_text(offer['takes']) or 'the job'}"
+
+
 def popup_text(offer, npc, player):
+    if offer["category"] == "QUEST":
+        if quest_job(offer):
+            return f"{npc} offers {quest_job(offer)}. Reward: {offer['job']['reward']:,} cats."
+        return f"{npc} {'offers' if offer['takes'] else 'pays'} {quest_pay(offer)}."
     paid = goods_text(offer["takes"])
     if not offer["gives"]:
         return f"{npc} accepts your gift of {paid}."
@@ -390,6 +414,10 @@ def renewal_text(npc, hours, fee):
 
 
 def accepted_line(offer, npc, player):
+    if offer["category"] == "QUEST":
+        if quest_job(offer):
+            return f"({player} accepted: {npc} gives {player}'s group {quest_job(offer)}, for {offer['job']['reward']:,} cats.)"
+        return f"({player} accepted: {npc} pays {quest_pay(offer)}.)"
     paid = goods_text(offer["takes"])
     if not offer["gives"]:
         return f"({player} accepted: {npc} takes {paid} as a gift.)"
@@ -401,10 +429,16 @@ def accept_end(offer, npc, speaker):
     its lines keep the escape quiet."""
     if offer["category"] == "RECRUIT" and action_dialogue.fellow_captives(npc, speaker):
         return "recruit_captive_accept"
+    if offer["category"] == "QUEST":
+        return "quest_accept" if quest_job(offer) else "quest_paid"
     return ACCEPT_LINES[offer["category"]]
 
 
 def declined_line(offer, npc, player):
+    if offer["category"] == "QUEST":
+        if quest_job(offer):
+            return f"({player} declined: {npc} offered {quest_job(offer)}, for {offer['job']['reward']:,} cats.)"
+        return f"({player} declined: {npc} offered {quest_pay(offer)}.)"
     paid = goods_text(offer["takes"])
     if not offer["gives"]:
         return f"({player} declined: {npc} asked for {paid} as a gift.)"
@@ -432,6 +466,9 @@ def _acts(offer):
     if offer.get("charity"):
         kind, value = offer["gives"][0]
         return [(None, f"[ACTION: ADD_CATS: {value}]" if kind == "CATS" else f"[ACTION: SPAWN_ITEM: {value[1]}]")]
+    if offer["category"] == "QUEST":
+        take = "BUY_ITEM" if offer.get("stock") else "TAKE_ITEM"
+        return [(None, f"[ACTION: {take}: {value[1]}: {value[0]}]") for _, value in offer["takes"]] + [(None, f"[ACTION: ADD_CATS: {value}]") for _, value in offer["gives"]]
     joins = any(kind == "JOIN_PARTY" for kind, _ in offer["gives"])
     fee = sum(value for kind, value in offer["takes"] if kind == "CATS")
     out = [(None, f"[ACTION: JOIN_PARTY: {fee}]")] if joins else []
@@ -467,7 +504,8 @@ def checks(offer):
     lines = []
     if offer.get("charity"):
         return lines
-    for side, parts in (("player", offer["takes"]), ("npc", offer["gives"])):
+    # The reward of a job comes from no purse (quest_offer)
+    for side, parts in (("player", offer["takes"]), ("npc", [] if offer["category"] == "QUEST" else offer["gives"])):
         total = sum(value for kind, value in parts if kind == "CATS")
         if total:
             lines.append(f"CHECK: CATS {side} {total}")

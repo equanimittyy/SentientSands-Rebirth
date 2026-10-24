@@ -56,7 +56,7 @@ def describe_race(race):
     entry = find_race(race)
     return describe_record(entry) if entry else f"{race}: The campaign has no entry for this race."
 
-def npc_scene(context, profile, player_name, met, companions, partners, player_stats, self_talk=False):
+def npc_scene(context, profile, player_name, met, companions, partners, player_stats, self_talk=False, job=""):
     faction = context.get("faction") or context.get("Faction", "Unknown")
     player_faction = state.PLAYER_CONTEXT.get("faction", "Nameless")
     in_player_faction = is_player_faction(faction, context.get("factionID"))
@@ -67,7 +67,7 @@ def npc_scene(context, profile, player_name, met, companions, partners, player_s
     return scene_text.npc_text(context, profile, player_name, player_faction, met=met,
                                major=major, in_player_faction=in_player_faction, feels_hunger=not is_skeleton(profile.get("Race", "")),
                                faction_description=faction_description, companions=companions, partners=partners, player_stats=player_stats,
-                               self_talk=self_talk)
+                               self_talk=self_talk, job=job)
 
 def _place_record(record):
     """The neighbours stay out: few lines need a direction, and the directions line of a turn gives them when one does."""

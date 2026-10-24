@@ -26,8 +26,26 @@ def _from_22(conn):
                  "WHERE faction_id = '1083-gamedata.base' AND json_extract(fields, '$.leader') = 'Holy Lord Phoenix LXII'")
 
 
+def _from_23(conn):
+    conn.execute("""CREATE TABLE quest (
+      id            INTEGER PRIMARY KEY AUTOINCREMENT,
+      giver         TEXT NOT NULL,
+      giver_name    TEXT NOT NULL,
+      giver_faction TEXT NOT NULL,
+      kind          TEXT NOT NULL,
+      target        TEXT NOT NULL,
+      count         INTEGER NOT NULL,
+      reward        INTEGER NOT NULL,
+      state         TEXT NOT NULL DEFAULT 'open',
+      accepted_at   INTEGER,
+      changed_at    INTEGER
+    )""")
+    conn.execute("CREATE TABLE quest_kill (quest_id INTEGER NOT NULL REFERENCES quest(id) ON DELETE CASCADE, game_time INTEGER NOT NULL)")
+
+
 STEPS = {
     22: Step(newest_release=2, run=_from_22),
+    23: Step(newest_release=3, run=_from_23),
 }
 
 

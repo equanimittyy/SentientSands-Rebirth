@@ -1,4 +1,4 @@
-"""The campaign's characters, dialogue, canon, events, rumors, and journal, in one SQLite file per campaign folder.
+"""The campaign's characters, dialogue, canon, events, rumors, journal, and jobs, in one SQLite file per campaign folder.
 
 Every write runs in one BEGIN IMMEDIATE transaction, and a profile write merges only the keys that the
 caller passes. Two requests that change one NPC during an LLM call therefore keep both changes.
@@ -18,7 +18,7 @@ from core.version import MOD_VERSION
 from store import migrations
 
 DB_NAME = "campaign.db"
-SCHEMA_VERSION = 23
+SCHEMA_VERSION = 24
 DIALOGUE_BLOCK = 20
 # A memory that this many passes read and did not cite leaves the auto rumor pool, so dull memories do not fill each prompt
 RUMOR_PASSES = 6
@@ -128,6 +128,24 @@ CREATE TABLE hire (
 );
 CREATE TABLE captive (
   npc_id    TEXT PRIMARY KEY,
+  game_time INTEGER NOT NULL
+);
+-- AUTOINCREMENT: the Quests tab keeps the ID of the selected job, so a late Abandon must never reach a new job
+CREATE TABLE quest (
+  id            INTEGER PRIMARY KEY AUTOINCREMENT,
+  giver         TEXT NOT NULL,
+  giver_name    TEXT NOT NULL,
+  giver_faction TEXT NOT NULL,
+  kind          TEXT NOT NULL,
+  target        TEXT NOT NULL,
+  count         INTEGER NOT NULL,
+  reward        INTEGER NOT NULL,
+  state         TEXT NOT NULL DEFAULT 'open',
+  accepted_at   INTEGER,
+  changed_at    INTEGER
+);
+CREATE TABLE quest_kill (
+  quest_id  INTEGER NOT NULL REFERENCES quest(id) ON DELETE CASCADE,
   game_time INTEGER NOT NULL
 );
 INSERT INTO meta (key, value) VALUES ('schema_version', '{SCHEMA_VERSION}');
@@ -782,9 +800,9 @@ def rekey(old_id, new_id, game_time):
 
 def cull_after(day, hour, minute):
     """Undoes the re-keys after the given game time, newest first. Then deletes the characters first stored after it, the
-    dialogue, events, rumors, thread members, captives, and memories dated after it, clears the uses of memories after it, and
-    recounts the chat exchanges of each thread that it cuts. Returns the count per table of the characters, the dialogue,
-    the events, and the rumors."""
+    dialogue, events, rumors, thread members, captives, and memories dated after it, clears the uses of memories after it,
+    recounts the chat exchanges of each thread that it cuts, and rewinds the jobs (rewind_quests). Returns the count per
+    table of the characters, the dialogue, the events, and the rumors."""
     now = day * 1440 + hour * 60 + minute
     with _connect(write=True) as conn:
         for old_id, new_id in conn.execute("SELECT old_id, new_id FROM rekey WHERE game_time > ? ORDER BY id DESC", (now,)).fetchall():
@@ -797,6 +815,7 @@ def cull_after(day, hour, minute):
         culled = {table: conn.execute(f"DELETE FROM {table} WHERE game_time > ?", (now,)).rowcount for table in ("dialogue", "rumor", "event", "character")}
         conn.execute("DELETE FROM thread_member WHERE game_time > ?", (now,))
         conn.execute("DELETE FROM captive WHERE game_time > ?", (now,))
+        _rewind_quests(conn, now)
         conn.execute("UPDATE thread SET used_at = NULL WHERE used_at > ?", (now,))
         # The memory told of culled exchanges, and it replaced every line, so nothing from before the cut is left to keep
         conn.execute("DELETE FROM thread WHERE memory IS NOT NULL AND game_time > ?", (now,))
@@ -859,6 +878,125 @@ def _journal_label(game_time, title, text):
     if len(name) > JOURNAL_LABEL:
         name = name[:JOURNAL_LABEL].rstrip() + "..."
     return name if game_time is None else f"Day {game_time // 1440}  {name}"
+
+
+_QUEST_COLUMNS = ("id", "giver", "giver_name", "giver_faction", "kind", "target", "count", "reward", "state", "accepted_at", "changed_at")
+
+
+def _quest_rows(conn, where, args):
+    """The jobs that match where, newest first by the accept, as dicts with the columns, the count of the kills, the current
+    name of the target, the name of the faction of the giver, and the CurrentLocation of the giver. The names follow a
+    rename, and a giver or a target without a record keeps the name or the key that the job stored."""
+    columns = [f"q.{column}" for column in _QUEST_COLUMNS]
+    columns[_QUEST_COLUMNS.index("giver_name")] = "COALESCE(json_extract(c.profile, '$.Name'), q.giver_name)"
+    rows = conn.execute(
+        f"SELECT {', '.join(columns)}, (SELECT COUNT(*) FROM quest_kill WHERE quest_id = q.id),"
+        " COALESCE(json_extract(t.profile, '$.Name'), f.name, q.target), COALESCE(g.name, NULLIF(q.giver_faction, '')),"
+        " json_extract(c.profile, '$.CurrentLocation') FROM quest q"
+        " LEFT JOIN character t ON q.kind = 'figure' AND t.npc_id = q.target"
+        " LEFT JOIN faction f ON q.kind = 'faction' AND f.faction_id = q.target"
+        " LEFT JOIN faction g ON g.faction_id = q.giver_faction"
+        f" LEFT JOIN character c ON c.npc_id = q.giver WHERE {where} ORDER BY q.accepted_at DESC, q.id DESC",
+        args,
+    ).fetchall()
+    return [dict(zip((*_QUEST_COLUMNS, "kills", "target_name", "giver_faction_name", "giver_location"), row)) for row in rows]
+
+
+def quests(states=("open", "done")):
+    with _connect() as conn:
+        return _quest_rows(conn, f"q.state IN ({', '.join('?' * len(states))})", states)
+
+
+def quest(quest_id):
+    """The job as quests gives it, or None."""
+    with _connect() as conn:
+        rows = _quest_rows(conn, "q.id = ?", (quest_id,))
+    return rows[0] if rows else None
+
+
+def add_quest(job, at):
+    """Stores a job that the player took at the game time at, unless its giver holds a job already, or another job names its
+    figure, so one kill never pays two jobs. Returns its ID, or None with no write."""
+    with _connect(write=True) as conn:
+        if conn.execute("SELECT 1 FROM quest WHERE state IN ('open', 'done') AND (giver = ? OR (kind = 'figure' AND ? = 'figure' AND target = ?))",
+                        (job["giver"], job["kind"], job["target"])).fetchone():
+            return None
+        return conn.execute(
+            "INSERT INTO quest (giver, giver_name, giver_faction, kind, target, count, reward, accepted_at, changed_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            (job["giver"], job["giver_name"], job["giver_faction"], job["kind"], job["target"], job["count"], job["reward"], at, at),
+        ).lastrowid
+
+
+def set_quest_state(quest_id, state, at, expected):
+    """Moves the job from the state expected to state at the game time at. Returns False, with no change, when the job is
+    gone or in another state, for example because the player abandoned it while its offer waited."""
+    with _connect(write=True) as conn:
+        return conn.execute("UPDATE quest SET state = ?, changed_at = ? WHERE id = ? AND state = ?", (state, at, quest_id, expected)).rowcount > 0
+
+
+def delete_quest(quest_id):
+    with _connect(write=True) as conn:
+        return conn.execute("DELETE FROM quest WHERE id = ?", (quest_id,)).rowcount > 0
+
+
+def count_quest_kill(faction_id, at):
+    """Counts the death of a member of the faction at the game time at toward the oldest open faction job against it that the
+    player took before the death, so one kill never pays two jobs, and marks the job done at its count. Returns the ID of
+    the job, or None."""
+    find = ("SELECT id FROM quest WHERE kind = 'faction' AND state = 'open' AND target = ? AND accepted_at < ? ORDER BY accepted_at, id LIMIT 1", (faction_id, at))
+    with _connect() as conn:
+        if not conn.execute(*find).fetchone():
+            return None
+    with _connect(write=True) as conn:
+        row = conn.execute(*find).fetchone()
+        if not row:
+            return None
+        conn.execute("INSERT INTO quest_kill (quest_id, game_time) VALUES (?, ?)", (row[0], at))
+        conn.execute("UPDATE quest SET state = 'done', changed_at = ?1 WHERE id = ?2 AND count <= (SELECT COUNT(*) FROM quest_kill WHERE quest_id = ?2)", (at, row[0]))
+        return row[0]
+
+
+def finish_figure_quests(target, at):
+    """Marks done each open figure job of the target that the player took before its kill or its capture at the game time at.
+    Returns their IDs."""
+    with _connect(write=True) as conn:
+        ids = [quest_id for (quest_id,) in conn.execute("SELECT id FROM quest WHERE kind = 'figure' AND state = 'open' AND target = ? AND accepted_at < ?", (target, at))]
+        conn.executemany("UPDATE quest SET state = 'done', changed_at = ? WHERE id = ?", [(at, quest_id) for quest_id in ids])
+    return ids
+
+
+def rewind_quests(at):
+    """Undoes what the jobs gained after the game time at, when anything of them is dated after it, because the jobs live in
+    the campaign, not in the save: without it, a player who loads a save from before a paid reward loses the cats and keeps
+    the paid job. Returns whether anything was dated after it."""
+    # A write makes the web app reload its pages, and a request that rewinds nothing comes with each chat line
+    with _connect() as conn:
+        newest = conn.execute("SELECT MAX(at) FROM (SELECT accepted_at AS at FROM quest UNION ALL SELECT changed_at FROM quest UNION ALL SELECT game_time FROM quest_kill)").fetchone()[0]
+    if newest is None or newest <= at:
+        return False
+    with _connect(write=True) as conn:
+        _rewind_quests(conn, at)
+    return True
+
+
+def _rewind_quests(conn, at):
+    """Deletes each job taken and each kill counted after the game time at, opens each job that changed its state after it
+    again, and counts each open job again: a faction job by its kills, and a figure job by the kill and capture events of its
+    target up to at."""
+    conn.execute("DELETE FROM quest WHERE accepted_at > ?", (at,))
+    conn.execute("DELETE FROM quest_kill WHERE game_time > ?", (at,))
+    conn.execute("UPDATE quest SET state = 'open', changed_at = accepted_at WHERE changed_at > ?", (at,))
+    for quest_id, kind, target, count, accepted_at in conn.execute("SELECT id, kind, target, count, accepted_at FROM quest WHERE state = 'open'").fetchall():
+        done = None
+        if kind == "faction":
+            done = conn.execute("SELECT game_time FROM quest_kill WHERE quest_id = ? ORDER BY game_time LIMIT 1 OFFSET ?", (quest_id, count - 1)).fetchone()
+        elif kind == "figure":
+            done = conn.execute(
+                "SELECT MIN(game_time) FROM event WHERE json_extract(data, '$.kind') IN ('kill', 'capture') AND json_extract(data, '$.victim.id') = ? AND game_time > ? AND game_time <= ?",
+                (target, accepted_at, at),
+            ).fetchone()
+        if done and done[0] is not None:
+            conn.execute("UPDATE quest SET state = 'done', changed_at = ? WHERE id = ?", (done[0], quest_id))
 
 
 def overview():
@@ -1119,6 +1257,7 @@ def _move_records(conn, old_id, new_id):
     conn.execute("UPDATE character SET npc_id = ? WHERE npc_id = ?", (new_id, old_id))
     conn.execute("UPDATE thread_member SET npc_id = ? WHERE npc_id = ?", (new_id, old_id))
     conn.execute("UPDATE dialogue SET speaker = ? WHERE speaker = ?", (new_id, old_id))
+    conn.execute("UPDATE quest SET giver = ? WHERE giver = ?", (new_id, old_id))
     conn.execute("UPDATE thread SET memory = replace(memory, ?1, ?2) WHERE instr(memory, ?1)", ("{" + old_id + "}", "{" + new_id + "}"))
     for event_id, data in conn.execute("SELECT id, data FROM event WHERE instr(data, ?)", (json.dumps(old_id),)).fetchall():
         event = json.loads(data)

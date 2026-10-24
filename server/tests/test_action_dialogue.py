@@ -21,6 +21,8 @@ class ParseTest(unittest.TestCase):
         self.assertEqual(ad.parse("! Hand me over all your money!"), ("classify", None, "Hand me over all your money!"))
         self.assertEqual(ad.parse("!t Hand me over your cats!"), ("category", "THREATEN", "Hand me over your cats!"))
         self.assertEqual(ad.parse("!b I'd like to trade"), ("category", "BARTER", "I'd like to trade"))
+        self.assertEqual(ad.parse("!q Got any work?"), ("category", "QUEST", "Got any work?"))
+        self.assertEqual(ad.parse("!quest The bandits are dead."), ("category", "QUEST", "The bandits are dead."))
         self.assertEqual(ad.parse("!barter"), ("failure", None, ""))
         self.assertEqual(ad.parse("!end Thanks"), ("end", None, "Thanks"))
         self.assertEqual(ad.parse("!o"), ("failure", None, ""))
@@ -75,6 +77,18 @@ class PlainChatTest(unittest.TestCase):
 
     def test_barter_never_goes_to_plain_chat(self):
         self.assertIsNone(self.chat("BARTER", {"character_state": "imprisoned"}, {"character_state": "imprisoned", "slave": True}))
+
+    def test_a_quest_needs_a_leader_a_guard_or_a_trader_and_no_cage(self):
+        self.assertEqual(self.chat("QUEST"), "You have no work to give.")
+        for npc in (GUARD, {"is_leader": True}, {"is_trader": True}):
+            self.assertIsNone(self.chat("QUEST", npc))
+        self.assertEqual(self.chat("QUEST", {**GUARD, "character_state": "imprisoned"}), "You are locked in a cage, so you cannot give work.")
+        self.assertEqual(self.chat("QUEST", GUARD, {"character_state": "imprisoned"}), "{player} is locked in a cage, so {player} cannot take work.")
+
+    def test_the_roles_of_a_giver(self):
+        self.assertEqual(ad.giver_roles({**GUARD, "is_leader": True}), {"leader", "guard"})
+        self.assertEqual(ad.giver_roles({"squad_jobs": ["STAND_AT_SHOPKEEPER_NODE"]}), {"trader"})
+        self.assertEqual(ad.giver_roles({"squad_jobs": ["RELAX_IN_TOWN_PACKAGE"]}), set())
 
     def test_a_threat_from_a_cage_is_not_taken_seriously(self):
         self.assertEqual(self.chat("THREATEN", speaker={"character_state": "imprisoned"}), "{player} is locked in a cage, so you do not take the threat seriously.")
@@ -155,7 +169,7 @@ class PlainChatTest(unittest.TestCase):
 
 class ClassifyTest(unittest.TestCase):
     def test_the_list_leaves_out_only_a_blocked_category(self):
-        self.assertEqual(ad.choices({}, {"character_state": "normal", "health": "Healthy"}, "Bandit"), ["THREATEN", "BARTER", "HEAL", "LIBERATE", "RECRUIT", "FOLLOW"])
+        self.assertEqual(ad.choices({}, {"character_state": "normal", "health": "Healthy"}, "Bandit"), ["THREATEN", "BARTER", "HEAL", "LIBERATE", "RECRUIT", "FOLLOW", "QUEST"])
 
     def test_the_list_is_numbered_and_ends_in_the_escape_hatch(self):
         self.assertEqual(ad.choice_list(["THREATEN", "BARTER", "HEAL"]), "1. A threat or demand\n2. A request to buy, sell, or swap items, a gift, or a plea for charity\n"
@@ -323,7 +337,7 @@ class ReplyTest(unittest.TestCase):
         with open(ad.END_LINES_PATH, encoding="utf-8") as f:
             lines = json.load(f)
         ends = ("end", "barter_accept", "threaten_accept", "threaten_attack", "heal_start", "liberate_accept", "recruit_accept", "recruit_captive_accept", "follow_accept",
-                "dismiss_end")
+                "dismiss_end", "quest_accept", "quest_paid")
         self.assertEqual({end: len(texts) for end, texts in lines.items()}, {end: 10 for end in ends})
         self.assertIn(ad.end_line("end"), lines["end"])
 

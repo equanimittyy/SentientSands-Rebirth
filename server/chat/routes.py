@@ -8,7 +8,7 @@ import time
 
 from flask import Blueprint, jsonify, request
 
-from chat import action_dialogue, background, chat_prompt, chat_window, offers, player_voice, radiant, reply_text, retrieval, rumors, scene_text
+from chat import action_dialogue, background, chat_prompt, chat_window, offers, player_voice, quests, radiant, reply_text, retrieval, rumors, scene_text
 from chat.bio import BIO_PARTS, generate_bio, recorded_history, write_bio
 from chat.characters import get_character_data, npc_name, should_save_profile
 from chat.llm import call_llm
@@ -317,6 +317,11 @@ def answer_offer():
             notify(f"{npc}'s offer no longer stands." if npc else "The offer no longer stands.")
         return jsonify({"status": "gone"})
     offer, npc, player = held["offer"], held["npc"], held["player"]
+    # The plugin sends the game time of the answer, because the player's context of the latest request can be old
+    if answer == "accept" and offer["category"] == "QUEST" and not quests.accept(offer["job"], campaign_db.game_time(get_current_time_prefix(data if "day" in data else None))):
+        end_thread()
+        notify(f"{npc}'s offer no longer stands.")
+        return jsonify({"status": "gone"})
     if answer == "accept":
         record_deal(held["thread"], offers.accepted_line(offer, npc, player), held["parties"], held["location"])
         terms = offers.hire_terms(offer)
@@ -554,6 +559,14 @@ def chat():
     if not kind and action and not chat_reason:
         category = action["category"]
     category = action_dialogue.runs_as(category, ctx_dict, speaker)
+    job = None
+    if category == "QUEST":
+        roles = action_dialogue.giver_roles(ctx_dict)
+        job = quests.held(ctx_dict, roles) or (action or {}).get("job") or quests.roll(ctx_dict, primary_npc, roles, offers.goods(ctx_dict, "BARTER"))
+        if not job:
+            chat_reason = f"You have no work for {player_name} now."
+            logging.info(f"ACTION: The line of {player_name} to {primary_npc} goes to plain chat: {chat_reason}")
+            category = None
     npc_party = (primary_id, primary_npc, context, npc_in_faction)
     speaker_party = (speaker_id, player_name, json.dumps(speaker), True)
     location = scene_text.location_name(speaker or state.PLAYER_CONTEXT)
@@ -632,6 +645,7 @@ def chat():
             # The request of the barter window names no offer tag, because only the player sets a deal that the window can accept
             request_prompt = ("prompt_action_barter_table.txt" if barter
                               else "prompt_action_follow_mercenary.txt" if category == "FOLLOW" and action_dialogue.mercenary_rate(ctx_dict)
+                              else "prompt_action_quest_report.txt" if category == "QUEST" and "id" in job
                               else f"prompt_action_{category.lower()}.txt")
             wanted = fill_prompt(request_prompt, speaker=player_name, **goods)
             action_rules = fill_prompt("prompt_action_rules.txt", request=wanted)
@@ -653,9 +667,10 @@ def chat():
     town, zone = environment.get("town_name"), environment.get("zone_name")
     lore = None if animal else background.campaign_lore()
     carried = speaker.get("carrying") or {}
+    job_scene = "" if self_talk else quests.scene_text(quests.held(ctx_dict, action_dialogue.giver_roles(ctx_dict)), ctx_dict, speaker, player_name)
     # The search skips the place records of the scene by the current place, so a move to another place needs a new scene
     conversation = (speaker.get("npc_id"), primary_id or primary_npc, primary_npc, live.get("faction"), met, partners, town, zone,
-                    ctx_dict.get("in_combat"), ctx_dict.get("combat_side"), speaker.get("in_combat"), carried.get("npc_id"), carried.get("state"))
+                    ctx_dict.get("in_combat"), ctx_dict.get("combat_side"), speaker.get("in_combat"), carried.get("npc_id"), carried.get("state"), job_scene)
     scene = state.CONVERSATION_SCENE.get(conversation)
     if scene is None:
         others = [npc_id for npc_id in spoken if npc_id != speaker_id]
@@ -667,7 +682,7 @@ def chat():
             "prompt_chat_scene.txt",
             **scene_values(player, player_name, self_talk, place, ctx_dict),
             npc=npc_scene(ctx_dict or primary_data, primary_data, player_name, met, [names[i] for i in others if i not in partners and names.get(i) in squad],
-                          [names[i] for i in partners if names.get(i) in squad], player.get("stats") or {}, self_talk),
+                          [names[i] for i in partners if names.get(i) in squad], player.get("stats") or {}, self_talk, job_scene),
         )
         state.CONVERSATION_SCENE.clear()
         state.CONVERSATION_SCENE[conversation] = scene
@@ -696,7 +711,10 @@ def chat():
         [hit["record"] for hit in found_entries if hit["travels"]], state.PLAYER_CONTEXT.get("day"), directions, last.get("unknown", []) if follow_up else unknown,
     )
     campaign_db.use_memories([memory["id"] for memory in starting] + [hit["record"]["memory"]["id"] for hit in found_memories], campaign_db.game_time(time_prefix))
-    if category:
+    # The NPC never refuses a job, so QUEST has no lean
+    if category == "QUEST":
+        background_block = quests.facts(job, ctx_dict, speaker, player_name) + "\n\n" + background_block
+    elif category:
         relation = primary_data.get("Relation")
         days_held = world_events.days_held(primary_id, ctx_dict) if category == "RECRUIT" and action_dialogue.captive_of(ctx_dict, speaker) else None
         lean = action_dialogue.lean(category, ctx_dict, speaker, relation, nearby, mode, days_held)
@@ -755,6 +773,10 @@ def chat():
                 outcome = "offer" if offer else "unkept"
             elif offers.read(content, category) is not None:
                 logging.info(f"ACTION: Ignored the offer of {primary_npc} in the barter window: {offers.offer_text(content, category)}")
+        elif category == "QUEST":
+            # kind is None for a line without a mark, which carries no popup
+            if kind and quests.offered(job, speaker):
+                offer, outcome = offers.quest_offer(job, offers.sells_stock(ctx_dict, "BARTER")), "offer"
         elif category and offers.read(content, category) is not None:
             offer, unkept = offers.check(category, offers.read(content, category), ctx_dict, speaker)
             if not offer:
@@ -764,7 +786,7 @@ def chat():
                 outcome = "free" if category == "HEAL" and not offer["takes"] else "offer"
         # A valid offer keeps the action dialogue open until the player answers it. An NPC that offers a deal leaves only on
         # the deal, and an accepted deal ends the thread anyway, so an [END] next to an offer or [AGREE] never closes it.
-        dealt = offers.agreed(content) or offers.read(content, category) is not None
+        dealt = offers.agreed(content) or offers.read(content, category) is not None or outcome == "offer"
         closing = bool(category) and (outcome in ("attack", "refused", "free") or (not dealt and action_dialogue.ended(content)))
         offered = offers.offer_text(content, category)
         if offered:
@@ -802,8 +824,10 @@ def chat():
             members = [(npc_id, "speaker" if npc_id in (primary_id, speaker_id) else "overheard", in_squad.get(npc_id, False)) for npc_id, _, _ in copies]
             thread_id = campaign_db.join_thread(current_thread, members, campaign_db.game_time(time_prefix), scene_text.location_name(speaker or state.PLAYER_CONTEXT),
                                                 kinds=(mode, category.lower()) if category else (mode,))
+            # A held job is read again at each turn, so only a new job stays, and each turn names the same one
             state.CURRENT_THREAD.update(key=thread_key, id=thread_id, replied=time.monotonic(),
-                                        action={"category": category, "speaker": speaker_id, "stock": offers.sells_stock(ctx_dict, category)} if category else None)
+                                        action={"category": category, "speaker": speaker_id, "stock": offers.sells_stock(ctx_dict, category),
+                                                "job": job if job and "id" not in job else None} if category else None)
             if closing:
                 state.CURRENT_THREAD.clear()
         for npc_id, name, new_lines in copies:
