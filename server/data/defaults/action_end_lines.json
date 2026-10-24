@@ -142,5 +142,17 @@
         "Done and paid.",
         "Fair's fair. Take it.",
         "Come back if you want more work."
+    ],
+    "quest_reward": [
+        "So it's done. Let's settle up.",
+        "Good. I keep my word.",
+        "You came through. I'll give you that.",
+        "That's what I asked for.",
+        "Not bad. Not bad at all.",
+        "Right. Let's square up.",
+        "Took you long enough. Let's settle this.",
+        "Your pay's ready when you are.",
+        "Well, well. You actually did it.",
+        "A deal's a deal."
     ]
 }

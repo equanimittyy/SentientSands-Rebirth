@@ -319,15 +319,14 @@ class TextTest(QuestTestCase):
         self.assertEqual(quests.progress(held, GUARD, carrying(), "Beep")[1], "Beep carries none of the 5 Raw Iron.")
         self.assertEqual(quests.progress(held, GUARD, carrying(2, 1), "Beep")[1], "Beep carries only 3 of the 5 Raw Iron.")
         self.assertEqual(quests.progress(held, GUARD, carrying(3, 2), "Beep")[1], "Beep carries the 5 Raw Iron that you asked for.")
-        self.assertFalse(quests.offered(held, carrying(4)))
-        self.assertTrue(quests.offered(held, carrying(5)))
+        self.assertFalse(quests.payable(held, carrying(4)))
+        self.assertTrue(quests.payable(held, carrying(5)))
 
-    def test_only_a_new_job_or_a_done_job_gets_the_popup(self):
+    def test_only_a_done_job_is_payable(self):
         quest_id = campaign_db.add_quest(job(), 600)
-        self.assertTrue(quests.offered(job(), SPEAKER))
-        self.assertFalse(quests.offered(campaign_db.quest(quest_id), SPEAKER))
+        self.assertFalse(quests.payable(campaign_db.quest(quest_id), SPEAKER))
         self.take(killed(bandit(1), 610) + killed(bandit(2), 611), 611)
-        self.assertTrue(quests.offered(campaign_db.quest(quest_id), SPEAKER))
+        self.assertTrue(quests.payable(campaign_db.quest(quest_id), SPEAKER))
         self.assertEqual(quests.progress(campaign_db.quest(quest_id), GUARD, SPEAKER, "Beep")[1], "Beep's group has done the job, so you owe it the 1,000 cats.")
 
     def test_the_quests_tab_shows_the_giver_the_reward_and_the_progress(self):

@@ -337,7 +337,7 @@ class ReplyTest(unittest.TestCase):
         with open(ad.END_LINES_PATH, encoding="utf-8") as f:
             lines = json.load(f)
         ends = ("end", "barter_accept", "threaten_accept", "threaten_attack", "heal_start", "liberate_accept", "recruit_accept", "recruit_captive_accept", "follow_accept",
-                "dismiss_end", "quest_accept", "quest_paid")
+                "dismiss_end", "quest_accept", "quest_paid", "quest_reward")
         self.assertEqual({end: len(texts) for end, texts in lines.items()}, {end: 10 for end in ends})
         self.assertIn(ad.end_line("end"), lines["end"])
 

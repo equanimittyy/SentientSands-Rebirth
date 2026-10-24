@@ -168,11 +168,8 @@ def carried(speaker, item):
     return sum(int(entry.get("count") or 1) for entry in speaker.get("inventory") or [] if str(entry.get("name", "")).lower() == item.lower())
 
 
-def offered(job, speaker):
-    """Whether a marked line gets the popup: a new job, the reward of a job that is done, or the hand-over of goods that the
-    speaker carries in full."""
-    if "id" not in job:
-        return True
+def payable(job, speaker):
+    """Whether the reward of a held job is due: the job is done, or the speaker carries the goods of a goods job in full."""
     if job["kind"] == "goods":
         return carried(speaker, job["target"]) >= job["count"]
     return job["state"] == "done"

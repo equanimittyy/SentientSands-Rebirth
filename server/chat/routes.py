@@ -570,6 +570,15 @@ def chat():
     npc_party = (primary_id, primary_npc, context, npc_in_faction)
     speaker_party = (speaker_id, player_name, json.dumps(speaker), True)
     location = scene_text.location_name(speaker or state.PLAYER_CONTEXT)
+    if category == "QUEST" and kind and "id" in job and quests.payable(job, speaker):
+        # Code sets the reward and the NPC never refuses it, so the reward needs no call, which could fail or misstate it
+        offer = offers.quest_offer(job, offers.sells_stock(ctx_dict, "BARTER"))
+        popup = offers.popup_text(offer, primary_npc, player_name)
+        offer_id = offers.hold(offer, npc=primary_npc, player=player_name, voice=voice(), thread=current_thread, parties=[npc_party, speaker_party],
+                               location=location, npc_id=primary_id, day=ctx_dict.get("day"), accept=offers.accept_end(offer, ctx_dict, speaker))
+        state.PENDING_OFFER["command"] = offers.command(offer_id, offer, primary_npc, target_key, speaker_key, popup)
+        logging.info(f"ACTION: {popup}")
+        return reply(f"[QUEST] {action_dialogue.end_line('quest_reward')}", after=[state.PENDING_OFFER["command"]], action_open=bool(action))
     if category == "DISMISS":
         # The NPC never refuses, so a dismissal needs no call
         end_thread()
@@ -775,7 +784,7 @@ def chat():
                 logging.info(f"ACTION: Ignored the offer of {primary_npc} in the barter window: {offers.offer_text(content, category)}")
         elif category == "QUEST":
             # kind is None for a line without a mark, which carries no popup
-            if kind and quests.offered(job, speaker):
+            if kind and "id" not in job:
                 offer, outcome = offers.quest_offer(job, offers.sells_stock(ctx_dict, "BARTER")), "offer"
         elif category and offers.read(content, category) is not None:
             offer, unkept = offers.check(category, offers.read(content, category), ctx_dict, speaker)
