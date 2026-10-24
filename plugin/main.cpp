@@ -468,6 +468,9 @@ static void QueueTagAction(const std::string &tag, const hand &npc,
   } else if (Has(tag, "ADD_CATS:")) {
     QueueAction(ACT_ADD_CATS, npc, hand(), "",
                 atoi(TagPayload(tag, "ADD_CATS:").c_str()));
+  } else if (Has(tag, "RAISE_RELATION:")) {
+    QueueAction(ACT_RAISE_RELATION, npc, hand(), "",
+                atoi(TagPayload(tag, "RAISE_RELATION:").c_str()));
   } else if (Has(tag, "TAKE_CATS:")) {
     QueueAction(ACT_TAKE_CATS, npc, hand(), "",
                 atoi(TagPayload(tag, "TAKE_CATS:").c_str()));

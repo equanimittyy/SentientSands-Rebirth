@@ -8,6 +8,8 @@
 #include <kenshi/Building/Building.h>
 #include <kenshi/Character.h>
 #include <kenshi/Dialogue.h>
+#include <kenshi/Faction.h>
+#include <kenshi/FactionRelations.h>
 #include <kenshi/GameData.h>
 #include <kenshi/GameWorld.h>
 #include <kenshi/Gear.h>
@@ -707,6 +709,29 @@ static void DoGiveCats(GameWorld *world, const QueuedAction &act,
       "Gained " + ToString(act.taskValue) + " cats.", true);
 }
 
+// From the side of the NPC's faction, as the Cheats window sets a relation. No
+// game test has shown whether the game mirrors it, so the log gives both sides
+static void DoRaiseRelation(GameWorld *world, const QueuedAction &act,
+                            Character *npc) {
+  Faction *faction = CharacterFaction(npc);
+  Faction *player = world->player ? world->player->getFaction() : nullptr;
+  if (!faction || !faction->relations || !player || faction == player)
+    return;
+  float raised = faction->relations->getFactionRelation(player) + act.taskValue;
+  faction->relations->setRelation(player, raised > 100.0f ? 100.0f : raised);
+  Log(LOG_INFO,
+      "ACTION: Raised the relation of " + faction->getName() + " by " +
+          ToString(act.taskValue) + "; it now reads " +
+          ToString((int)faction->relations->getFactionRelation(player)) +
+          ", and the player faction reads " +
+          (player->relations
+               ? ToString((int)player->relations->getFactionRelation(faction))
+               : std::string("?")));
+  world->showPlayerAMessage_withLog("Relation with " + faction->getName() +
+                                        " +" + ToString(act.taskValue) + ".",
+                                    true);
+}
+
 static void DoTakeCats(GameWorld *world, const QueuedAction &act,
                        Character *npc) {
   Character *payer = FirstPlayerCharacter();
@@ -939,6 +964,9 @@ static void RunAction(GameWorld *world, const QueuedAction &act,
     break;
   case ACT_TAKE_CATS:
     DoTakeCats(world, act, npc);
+    break;
+  case ACT_RAISE_RELATION:
+    DoRaiseRelation(world, act, npc);
     break;
   case ACT_RELEASE:
     if (target)

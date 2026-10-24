@@ -684,6 +684,7 @@ The enemies of a giver are the faction records that the `enemies` field of its f
 
 - The reward is fixed. The turn message says so, and the NPC cannot bargain it.
 - The plugin creates the cats with `ADD_CATS`, as for charity, because a giver can carry fewer cats than the reward.
+- The reward of a figure job also raises the relation of the paying NPC's faction with the player faction by 5, and the reward of a faction job by 2 (`RAISE_RELATION`, `quests.RELATION_RAISES`). The plugin sets the relation from the side of the NPC's faction, as the Cheats window does (`DoRaiseRelation` in `plugin/game/GameActions.cpp`). No game test has shown whether the game mirrors the change to the side of the player faction, so the log gives both sides.
 
 #### Flow
 
@@ -693,7 +694,7 @@ The enemies of a giver are the faction records that the `enemies` field of its f
 4. The reply to each marked QUEST line carries the popup (`CMD: OFFER:`, `offers.quest_offer`): a new job, the reward of a done job, or the hand-over of a goods job when the speaker carries the whole count (`quests.offered`). A line without the mark carries no popup. An `[END]` next to the popup does not close the action dialogue, as for an offer.
 5. Accept of a new job stores it at the game time of the answer (`campaign_db.add_quest`), writes the deal line, says a line of `quest_accept` from `server/data/defaults/action_end_lines.json`, and ends the chat thread.
 6. Each counted death and each change of state shows a game message (`NOTIFY:`): "Job for Sergeant Rook: 3 of 5 members of the Dust Bandits killed.", "Job done: go back to Sergeant Rook for the reward.", or "Job failed: Tinfist is dead."
-7. Accept of a reward sends `ADD_CATS`, marks the job paid, writes the deal line, says a line of `quest_paid`, and ends the chat thread. An accept of a job that changed while the popup waited, for example by Abandon, pays nothing, and shows "X's offer no longer stands.".
+7. Accept of a reward sends `ADD_CATS`, and `RAISE_RELATION` for a figure or a faction job, marks the job paid, writes the deal line, says a line of `quest_paid`, and ends the chat thread. An accept of a job that changed while the popup waited, for example by Abandon, pays nothing, and shows "X's offer no longer stands.".
 
 | Popup | Text |
 |---|---|

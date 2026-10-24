@@ -496,9 +496,12 @@ class QuestOfferTest(unittest.TestCase):
         self.assertEqual(offers.accept_end(offers.quest_offer(self.NEW, False), NPC, SPEAKER), "quest_accept")
         self.assertEqual(offers.accept_end(offers.quest_offer(self.GOODS, False), NPC, SPEAKER), "quest_paid")
 
-    def test_a_new_job_runs_no_action_and_a_reward_creates_its_cats(self):
+    def test_a_new_job_runs_no_action_and_a_reward_creates_its_cats_and_raises_the_faction_relation(self):
         self.assertEqual((offers.actions(offers.quest_offer(self.NEW, False)), offers.checks(offers.quest_offer(self.NEW, False))), ([], []))
-        self.assertEqual((offers.actions(offers.quest_offer(self.DONE, True)), offers.checks(offers.quest_offer(self.DONE, True))), (["[ACTION: ADD_CATS: 2500]"], []))
+        self.assertEqual((offers.actions(offers.quest_offer(self.DONE, True)), offers.checks(offers.quest_offer(self.DONE, True))),
+                         (["[ACTION: ADD_CATS: 2500]", "[ACTION: RAISE_RELATION: 2]"], []))
+        figure = {**self.FIGURE, "id": 2, "state": "done"}
+        self.assertEqual(offers.actions(offers.quest_offer(figure, False)), ["[ACTION: ADD_CATS: 20000]", "[ACTION: RAISE_RELATION: 5]"])
 
     def test_a_hand_over_of_goods_goes_into_the_stock_of_a_shop_and_else_needs_room(self):
         shop, carried = offers.quest_offer(self.GOODS, True), offers.quest_offer(self.GOODS, False)

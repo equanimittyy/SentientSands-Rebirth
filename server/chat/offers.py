@@ -468,7 +468,9 @@ def _acts(offer):
         return [(None, f"[ACTION: ADD_CATS: {value}]" if kind == "CATS" else f"[ACTION: SPAWN_ITEM: {value[1]}]")]
     if offer["category"] == "QUEST":
         take = "BUY_ITEM" if offer.get("stock") else "TAKE_ITEM"
-        return [(None, f"[ACTION: {take}: {value[1]}: {value[0]}]") for _, value in offer["takes"]] + [(None, f"[ACTION: ADD_CATS: {value}]") for _, value in offer["gives"]]
+        raised = quests.RELATION_RAISES.get(offer["job"]["kind"]) if offer["gives"] else None
+        return ([(None, f"[ACTION: {take}: {value[1]}: {value[0]}]") for _, value in offer["takes"]] + [(None, f"[ACTION: ADD_CATS: {value}]") for _, value in offer["gives"]]
+                + ([(None, f"[ACTION: RAISE_RELATION: {raised}]")] if raised else []))
     joins = any(kind == "JOIN_PARTY" for kind, _ in offer["gives"])
     fee = sum(value for kind, value in offer["takes"] if kind == "CATS")
     out = [(None, f"[ACTION: JOIN_PARTY: {fee}]")] if joins else []
