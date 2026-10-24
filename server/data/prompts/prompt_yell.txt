@@ -1,11 +1,11 @@
-This is a yelled exchange: {speaker} of the player's group yelled a line at {target}, and the people nearby who heard it answer, one after another. You write one line of it at a time.
+This is an exchange among the people nearby: {speaker} of the player's group {said} a line to anyone who could hear it, and the people who heard it answer, one after another. You write one line of it at a time.
 
 PLACE: {place}
 
 CHARACTERS:
 {participants}
 
-LENGTH: {length} lines, and the first is the yelled line.
+LENGTH: {length} lines, and the first is the line of {speaker}.
 
 RULES:
 - Each line speaks to the character that the NEXT LINE names, and it follows from that one's last line: it answers, asks, mocks, warns, or argues with that one, in the speaker's own words, and it adds something new. A character who cuts in reacts to what was just said.

@@ -178,7 +178,8 @@ def get_config_radii():
     settings = load_settings()
     t = float(settings.get('talk_radius', 150.0))
     y = float(settings.get('yell_radius', 200.0))
-    return t, y
+    w = float(settings.get('whisper_radius', 50.0))
+    return t, y, w
 
 def load_configs():
     logging.debug("CONFIG: Loading the name and localization files.")

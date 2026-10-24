@@ -10,7 +10,7 @@ from flask import Blueprint, jsonify, request
 
 from chat import action_dialogue, background, chat_prompt, chat_window, offers, player_voice, radiant, reply_text, retrieval, rumors, scene_text
 from chat.bio import BIO_PARTS, generate_bio, recorded_history, write_bio
-from chat.characters import animal_flag, get_character_data, npc_name, should_save_profile
+from chat.characters import get_character_data, npc_name, should_save_profile
 from chat.llm import call_llm
 from chat.llm_config import DEFAULT_DEADLINE
 from chat.memory import quiet_seconds
@@ -194,44 +194,44 @@ def write_line(conversation, spoken, index):
     prompt = conversation["frame"] + "\n\n" + fill_prompt("prompt_radiant_line.txt", talk=radiant.talk(spoken, names), speaker=f"{names[speaker]}|{speaker}", persona=conversation["personas"][speaker], turn=radiant.turn(index, order, names))
     return reply_text.spoken(call_llm("radiant", [{"role": "system", "content": conversation["system"]}, {"role": "user", "content": prompt}]) or "", *radiant.voices(names, speaker))
 
-def write_yell(yell):
-    """Starts the calls of the replies of a yell after the first one, each written as a radiant line. Returns the queue of
-    the lines."""
-    order, written = yell["order"], yell["spoken"]
+def write_crowd(talk):
+    """Starts the calls of the replies of a line to Anyone after the first one, each written as a radiant line. Returns the
+    queue of the lines."""
+    order, written = talk["order"], talk["spoken"]
     def write(index):
-        if state.ACTIVE_CAMPAIGN != yell["campaign"]:
+        if state.ACTIVE_CAMPAIGN != talk["campaign"]:
             return ""
-        text = write_line(yell, written, index)
+        text = write_line(talk, written, index)
         written.append((order[index][0], text))
         return text
     return write_ahead(write, range(2, len(order)))
 
-def play_yell(yell, lines):
-    """Shows the replies of a yell after the first one, from the queue of write_yell. It runs in reply_loop, which holds
-    the stage, so no other reply plays between them. Each line joins the chat thread when it is said, so a quick next yell
-    already sees it."""
-    names, ids = yell["names"], yell["ids"]
-    for speaker, addressee in yell["order"][2:]:
+def play_crowd(talk, lines):
+    """Shows the replies of a line to Anyone after the first one, from the queue of write_crowd. It runs in reply_loop,
+    which holds the stage, so no other reply plays between them. Each line joins the chat thread when it is said, so a
+    quick next line to Anyone already sees it."""
+    names, ids = talk["names"], talk["ids"]
+    for speaker, addressee in talk["order"][2:]:
         label = f"{names[speaker]}|{speaker}"
         think(label)
         text = lines.get()
-        if state.ACTIVE_CAMPAIGN != yell["campaign"]:
+        if state.ACTIVE_CAMPAIGN != talk["campaign"]:
             hush(label)
-            logging.info("CHAT: The active campaign changed, so the yell ends.")
+            logging.info("CHAT: The active campaign changed, so the replies end.")
             return
         if not text:
             hush(label)
-            logging.warning(f"CHAT: The LLM wrote no line for {names[speaker]}, so the yell ends.")
+            logging.warning(f"CHAT: The LLM wrote no line for {names[speaker]}, so the replies end.")
             return
         say([f"{label}: {text}"])
         speaker_id = ids[speaker]
-        if speaker_id in yell["copies"]:
-            campaign_db.join_thread(yell["thread"], [(speaker_id, "speaker", yell["in_squad"].get(speaker_id, False))], campaign_db.game_time(yell["time_prefix"]), exchange=False)
-        for npc_id, profile in yell["copies"].items():
-            line = chat_prompt.heard_line(yell["time_prefix"], npc_id, (speaker_id, names[speaker]), (ids[addressee], names[addressee]), text)
-            campaign_db.append_dialogue(npc_id, [(line, speaker_id)], profile, yell["thread"])
+        if speaker_id in talk["copies"]:
+            campaign_db.join_thread(talk["thread"], [(speaker_id, "speaker", talk["in_squad"].get(speaker_id, False))], campaign_db.game_time(talk["time_prefix"]), exchange=False)
+        for npc_id, profile in talk["copies"].items():
+            line = chat_prompt.heard_line(talk["time_prefix"], npc_id, (speaker_id, names[speaker]), (ids[addressee], names[addressee]), text)
+            campaign_db.append_dialogue(npc_id, [(line, speaker_id)], profile, talk["thread"])
         with state.THREAD_LOCK:
-            if state.CURRENT_THREAD.get("id") == yell["thread"]:
+            if state.CURRENT_THREAD.get("id") == talk["thread"]:
                 state.CURRENT_THREAD["replied"] = time.monotonic()
         state.restart_quiet_clock()
         logging.info(f'CHAT: {names[speaker]} to {names[addressee]}: "{text}"')
@@ -365,7 +365,8 @@ def hire_end():
 @bp.route('/chat_thread', methods=['POST'])
 def chat_thread():
     """The open chat thread with the NPC for the chat window."""
-    thread = chat_window.open_thread((request.get_json(silent=True) or {}).get("npc_id"), quiet_seconds())
+    data = request.get_json(silent=True) or {}
+    thread = chat_window.open_thread(data.get("npc_id"), quiet_seconds(), bool(data.get("anyone")))
     return jsonify({"status": "ok", "open": thread is not None, **(thread or {})})
 
 def merge_live_context(ctx):
@@ -425,6 +426,7 @@ def chat():
     
     player_name = data.get('player', 'Drifter')
     mode = data.get('mode', 'talk')
+    anyone = bool(data.get('anyone'))
     
     nearby = data.get('nearby', [])
 
@@ -498,11 +500,12 @@ def chat():
     if speaker_id:
         merge_live_context(speaker)
         npc_name(speaker)
-    # A yell at the speaker itself is a yell at everyone
-    self_talk = bool(speaker_id) and speaker_id == primary_id and mode != "yell"
+    # The plugin sends a line to Anyone with the speaker as its target
+    self_talk = bool(speaker_id) and speaker_id == primary_id and not anyone
     # Not the speaker, so the squad members that take turns with the NPC share one thread and one memory. Talk with itself
-    # stays apart, or the memory would take the words of the NPC to itself as words to a squad member.
-    thread_key = (primary_id, mode, "self") if self_talk else (primary_id, mode)
+    # stays apart, or the memory would take the words of the NPC to itself as words to a squad member. All lines to Anyone
+    # in a mode share one thread, so the NPCs that answered one are favoured at the next.
+    thread_key = (None, mode) if anyone else (primary_id, mode, "self") if self_talk else (primary_id, mode)
     with state.THREAD_LOCK:
         current_thread, action = thread_of(thread_key, speaker_id)
         state.restart_quiet_clock()
@@ -541,7 +544,7 @@ def chat():
         return reply()
     raw_line = player_message = text if kind else player_message
     if covered:
-        listener = "themself" if self_talk else "everyone" if mode == "yell" and primary_id == speaker_id else primary_npc
+        listener = "themself" if self_talk else "everyone" if anyone else primary_npc
         player_message = player_voice.rewrite(raw_line, player_name, get_character_data(player_name, speaker), listener, mode, until)
         player_says(player_message)
     if kind == "end":
@@ -562,16 +565,9 @@ def chat():
         logging.info(f"ACTION: {player_name} dismissed {primary_npc}.")
         return reply(action_dialogue.end_line("dismiss_end"), actions=["[ACTION: END_HIRE]"])
 
-    yell = mode == "yell" and not category
-    if yell:
-        # One thread for all plain yells, so the NPCs that answered one yell are the ones already speaking at the next
-        thread_key = (None, mode)
-        with state.THREAD_LOCK:
-            current_thread, _ = thread_of(thread_key, speaker_id)
-
-    talk_radius, yell_radius = get_config_radii()
-    # A whisper is one-on-one: nobody overhears
-    radius = {"talk": talk_radius, "yell": yell_radius}.get(mode)
+    talk_radius, yell_radius, whisper_radius = get_config_radii()
+    # A whisper to one NPC is one-on-one: nobody overhears
+    radius = {"talk": talk_radius, "yell": yell_radius, "whisper": whisper_radius if anyone else None}.get(mode)
 
     # Keyed by npc_id, because NPCs near the player can share a name, for example two Dust Bandits
     listeners = {primary_id: (primary_npc, context)}
@@ -584,28 +580,23 @@ def chat():
 
     target = (primary_id, primary_npc)
     order = None
-    if yell and primary_id and speaker_id and (npc_in_faction or not animal_flag(ctx_dict)):
-        crowd = {target_key: ctx_dict, **{str(n["id"]): n for n in heard if radiant.can_answer(n)}}
-        # Only the player's speaker talks for the squad, so a yell at the speaker or at a squad member gets only the replies of bystanders
-        answering = [key for key in crowd if key != target_key or not npc_in_faction]
-        if not answering:
-            logging.info(f"CHAT: No one outside the squad can answer the yell of {player_name}.")
+    if anyone:
+        crowd = {str(n["id"]): n for n in heard if radiant.can_answer(n)}
+        if not crowd:
+            logging.info(f"CHAT: No one near {player_name} can answer the line to Anyone.")
+            notify("No one nearby can answer.")
             return reply()
         speaking = chat_window.thread_speakers(current_thread) if current_thread else set()
         aliases = {key: (listeners[npc["npc_id"]][0], npc.get("name")) for key, npc in crowd.items()}
-        favoured = {target_key} | radiant.named(raw_line, aliases) | {key for key, npc in crowd.items() if npc["npc_id"] in speaking}
-        order = radiant.yell_turns(answering, favoured, speaker_key, target_key)
-        if primary_id == speaker_id:
-            # A yell at everyone counts as spoken only to the NPCs that answer it, so a bystander that stays quiet overhears it
-            target = None
-            answerers = {crowd[key]["npc_id"] for key, _ in order[1:]}
+        favoured = radiant.named(raw_line, aliases) | {key for key, npc in crowd.items() if npc["npc_id"] in speaking}
+        order = radiant.crowd_turns(list(crowd), favoured, speaker_key)
+        # The line counts as spoken only to the NPCs that answer it, so a bystander that stays quiet overhears it
+        target = None
+        answerers = {crowd[key]["npc_id"] for key, _ in order[1:]}
         first = order[1][0]
-        if first != target_key:
-            ctx_dict, raw_npc, target_key = crowd[first], crowd[first]["name"], first
-            primary_id = ctx_dict["npc_id"]
-            primary_npc = listeners[primary_id][0]
-            # The reason judges the target, so it does not hold for another NPC
-            chat_reason = None
+        ctx_dict, raw_npc, target_key = crowd[first], crowd[first]["name"], first
+        primary_id = ctx_dict["npc_id"]
+        primary_npc = listeners[primary_id][0]
 
     char_datas = {}
     for npc_id, (name, local_context) in listeners.items():
@@ -733,10 +724,10 @@ def chat():
     notes = chat_prompt.overheard_notes(campaign_db.thread_members({thread_id for _, _, thread_id in history if thread_id}), primary_id)
     messages = chat_prompt.chat_messages(system, chat_prompt.history_turns(chat_prompt.with_notes(history, notes), primary_id), turn)
 
-    # Queued, so they follow the line of the speaker, which can wait its turn. Only the server knows which NPC answers a yell.
+    # Queued, so they follow the line of the speaker, which can wait its turn. Only the server knows which NPC answers a line to Anyone.
     thinking = state.LOCALIZATION_CONFIG.get(load_settings()["language"], {}).get("{name} is thinking...", "{name} is thinking...")
     # An NPC that talks to itself is the speaker, so its "..." would replace its own line at once
-    play_lines([], after=[] if yell else [f"NOTIFY: {thinking.replace('{name}', primary_npc)}"], thinker=None if self_talk else voice())
+    play_lines([], after=[] if anyone else [f"NOTIFY: {thinking.replace('{name}', primary_npc)}"], thinker=None if self_talk else voice())
     content = call_llm("action" if category else "chat", messages, until)
     state.restart_quiet_clock()
     if not content:
@@ -850,23 +841,23 @@ def chat():
 
         more = None
         if order and len(order) > 2 and thread_id:
-            yell_names = {speaker_key: player_name, **{key: listeners[npc["npc_id"]][0] for key, npc in crowd.items()}}
-            yell_ids = {speaker_key: speaker_id, **{key: npc["npc_id"] for key, npc in crowd.items()}}
+            crowd_names = {speaker_key: player_name, **{key: listeners[npc["npc_id"]][0] for key, npc in crowd.items()}}
+            crowd_ids = {speaker_key: speaker_id, **{key: npc["npc_id"] for key, npc in crowd.items()}}
             contexts = {speaker_key: speaker, **crowd}
             descriptions = [
-                f"{describe_npc(f'{yell_names[key]}|{key}', char_datas[yell_ids[key]], yell_ids[key], persona=False)}\nHEALTH: {contexts[key].get('health') or 'Unknown'}"
-                for key in dict.fromkeys(key for pair in order for key in pair)
+                f"{describe_npc(f'{crowd_names[key]}|{key}', char_datas[crowd_ids[key]], crowd_ids[key], persona=False)}\nHEALTH: {contexts[key].get('health') or 'Unknown'}"
+                for key in dict.fromkeys(key for pair in order for key in pair if key)
             ]
-            frame = fill_prompt("prompt_yell.txt", speaker=player_name, target=target[1] if target else "everyone", length=len(order), participants="\n\n".join(descriptions),
-                                place=scene_text.location_text((speaker or state.PLAYER_CONTEXT).get("environment") or {}, "They"))
-            yell_talk = {
-                "system": build_system_prompt(reply_rules=False), "frame": frame, "order": order, "names": yell_names, "ids": yell_ids,
-                "personas": {key: describe_persona(char_datas[yell_ids[key]]) for key, _ in order[2:]}, "spoken": [(speaker_key, player_message), (target_key, content)],
+            frame = fill_prompt("prompt_yell.txt", speaker=player_name, said={"whisper": "whispered", "yell": "yelled"}.get(mode, "said"), length=len(order),
+                                participants="\n\n".join(descriptions), place=scene_text.location_text((speaker or state.PLAYER_CONTEXT).get("environment") or {}, "They"))
+            crowd_talk = {
+                "system": build_system_prompt(reply_rules=False), "frame": frame, "order": order, "names": crowd_names, "ids": crowd_ids,
+                "personas": {key: describe_persona(char_datas[crowd_ids[key]]) for key, _ in order[2:]}, "spoken": [(speaker_key, player_message), (target_key, content)],
                 "copies": {npc_id: char_datas[npc_id] for npc_id, _, _ in copies}, "in_squad": in_squad, "thread": thread_id,
                 "time_prefix": time_prefix, "campaign": state.ACTIVE_CAMPAIGN,
             }
-            yell_lines = write_yell(yell_talk)
-            more = lambda: play_yell(yell_talk, yell_lines)
+            crowd_lines = write_crowd(crowd_talk)
+            more = lambda: play_crowd(crowd_talk, crowd_lines)
 
         logging.info(f'CHAT: {mode_tag}{player_name} to {primary_npc}{f" [{category}]" if category else ""}: "{player_message}" | {primary_npc}: "{content}" ({time.monotonic() - started:.1f} s)')
         if outcome == "unkept":

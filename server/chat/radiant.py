@@ -1,5 +1,5 @@
 """The topic and the lines of a radiant conversation, a talk between the player's characters, or between NPCs near them,
-in which one LLM call writes each line. The replies of a yell after the first one are written the same way."""
+in which one LLM call writes each line. The replies of a line to Anyone after the first one are written the same way."""
 
 import random
 import re
@@ -14,7 +14,7 @@ LENGTHS = (
 )
 REPLY_SHARE = 0.5
 SPEAKERS = (2, 5)
-YELL_REPLIES = ((1, 2, 3), (50, 30, 20))
+CROWD_REPLIES = ((1, 2, 3), (50, 30, 20))
 FAVOURED_SHARE = 0.75
 _SILENT = ("Dead", "Unconscious", "Playing Dead")
 _BONDS = ((10, "know each other well"), (3, "know each other"), (1, "have talked a little"), (0, "have never talked"))
@@ -53,13 +53,13 @@ def turns(keys, count, rng=random):
     return order
 
 
-def yell_turns(keys, favoured, player, target, rng=random):
-    """The (speaker, addressee) of each line of a yell: the player's line to the target, then 1 to 3 replies of the NPCs of
-    keys, mostly 1. The first reply speaks to the player. Then, as in turns, the one addressed answers, or another NPC cuts
-    in and speaks to the last speaker or to the player. Each pick takes an NPC of favoured at FAVOURED_SHARE, so a crowd
-    does not drown out the NPC that the player meant."""
-    count = rng.choices(*YELL_REPLIES)[0] if len(keys) > 1 else 1
-    order = [(player, target)]
+def crowd_turns(keys, favoured, player, rng=random):
+    """The (speaker, addressee) of each line of the exchange that a line to Anyone starts: the player's line, with no
+    addressee (None), then 1 to 3 replies of the NPCs of keys, mostly 1. The first reply speaks to the player. Then, as in turns, the one addressed
+    answers, or another NPC cuts in and speaks to the last speaker or to the player. Each pick takes an NPC of favoured at
+    FAVOURED_SHARE, so a crowd does not drown out the NPC that the player meant."""
+    count = rng.choices(*CROWD_REPLIES)[0] if len(keys) > 1 else 1
+    order = [(player, None)]
     speaker, addressee = _pick(keys, favoured, rng), player
     for index in range(count):
         if index:
@@ -79,7 +79,7 @@ def _pick(keys, favoured, rng):
 
 
 def can_answer(npc):
-    """Whether a bystander of a yell can answer it: an NPC outside the player's faction that is awake."""
+    """Whether an NPC can answer a line to Anyone: an NPC outside the player's faction that is awake."""
     return not npc.get("in_player_faction") and npc.get("health") not in _SILENT
 
 

@@ -67,9 +67,12 @@ class OpenThreadTest(unittest.TestCase):
         self.assertEqual(chat_window.open_thread(STICK, QUIET)["lines"], "[Day 3, 14:05] Stick: Hello.\n[Day 3, 14:05] Jorge: Hm.")
         self.assertEqual(chat_window.open_thread(JORGE, QUIET)["title"], "Stick and Jorge | The Hub")
         self.assertIsNone(chat_window.open_thread(IZUMI, QUIET))
-        state.CURRENT_THREAD["key"] = (None, "yell")
+        self.assertIsNone(chat_window.open_thread(STICK, QUIET, anyone=True))
+        state.CURRENT_THREAD["key"] = (None, "talk")
         self.assertIsNotNone(chat_window.open_thread(JORGE, QUIET))
+        self.assertIsNotNone(chat_window.open_thread(STICK, QUIET, anyone=True))
         self.assertIsNone(chat_window.open_thread(IZUMI, QUIET))
+        self.assertIsNone(chat_window.open_thread(IZUMI, QUIET, anyone=True))
 
     def test_no_thread_is_open_for_another_npc_after_the_timeout_or_after_an_end(self):
         self.chat(None, STICK, "Stick: Hello.")
@@ -98,13 +101,14 @@ class StaysInTest(unittest.TestCase):
         self.assertFalse(chat_window.stays_in(self.live, (RUKA, "talk")))
         self.assertFalse(chat_window.stays_in(self.live, (STICK, "whisper")))
 
-    def test_talk_with_itself_and_the_yell_thread_stay_apart(self):
+    def test_talk_with_itself_and_the_thread_of_lines_to_anyone_stay_apart(self):
         self.assertFalse(chat_window.stays_in(self.live, (STICK, "talk", "self")))
         self.live["key"] = (STICK, "talk", "self")
         self.assertFalse(chat_window.stays_in(self.live, (STICK, "talk")))
-        self.live["key"] = (None, "yell")
-        self.assertTrue(chat_window.stays_in(self.live, (None, "yell")))
-        self.assertFalse(chat_window.stays_in(self.live, (JORGE, "yell")))
+        self.live["key"] = (None, "talk")
+        self.assertTrue(chat_window.stays_in(self.live, (None, "talk")))
+        self.assertFalse(chat_window.stays_in(self.live, (None, "yell")))
+        self.assertFalse(chat_window.stays_in(self.live, (JORGE, "talk")))
 
 
 if __name__ == "__main__":
