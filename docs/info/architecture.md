@@ -684,7 +684,7 @@ The enemies of a giver are the faction records that the `enemies` field of its f
 
 - The reward is fixed. The turn message says so, and the NPC cannot bargain it.
 - The plugin creates the cats with `ADD_CATS`, as for charity, because a giver can carry fewer cats than the reward.
-- The reward of a figure job also raises the relation of the paying NPC's faction with the player faction by 5, and the reward of a faction job by 2 (`RAISE_RELATION`, `quests.RELATION_RAISES`). The plugin sets the relation from the side of the NPC's faction, as the Cheats window does (`DoRaiseRelation` in `plugin/game/GameActions.cpp`). No game test has shown whether the game mirrors the change to the side of the player faction, so the log gives both sides.
+- The reward of a figure job also raises the relation of the paying NPC's faction with the player faction by 30, and the reward of a faction job by 2 (`RAISE_RELATION`, `quests.RELATION_RAISES`). The plugin sets the relation from the side of the NPC's faction, as the Cheats window does (`DoRaiseRelation` in `plugin/game/GameActions.cpp`). No game test has shown whether the game mirrors the change to the side of the player faction, so the log gives both sides.
 
 #### Flow
 

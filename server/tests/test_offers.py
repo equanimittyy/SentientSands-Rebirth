@@ -501,7 +501,7 @@ class QuestOfferTest(unittest.TestCase):
         self.assertEqual((offers.actions(offers.quest_offer(self.DONE, True)), offers.checks(offers.quest_offer(self.DONE, True))),
                          (["[ACTION: ADD_CATS: 2500]", "[ACTION: RAISE_RELATION: 2]"], []))
         figure = {**self.FIGURE, "id": 2, "state": "done"}
-        self.assertEqual(offers.actions(offers.quest_offer(figure, False)), ["[ACTION: ADD_CATS: 20000]", "[ACTION: RAISE_RELATION: 5]"])
+        self.assertEqual(offers.actions(offers.quest_offer(figure, False)), ["[ACTION: ADD_CATS: 20000]", "[ACTION: RAISE_RELATION: 30]"])
 
     def test_a_hand_over_of_goods_goes_into_the_stock_of_a_shop_and_else_needs_room(self):
         shop, carried = offers.quest_offer(self.GOODS, True), offers.quest_offer(self.GOODS, False)

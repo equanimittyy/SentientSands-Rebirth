@@ -21,7 +21,7 @@ FIGURE_RELATION = 60
 RULER_REWARDS = {"leader": 20000, "nobles": 10000}
 COUNTS = (3, 8)
 KILL_REWARD = 500
-RELATION_RAISES = {"figure": 5, "faction": 2}
+RELATION_RAISES = {"figure": 30, "faction": 2}
 # The value of each material in the vanilla game data
 MATERIAL_VALUES = {"Raw Iron": 150, "Copper": 300, "Animal Skin": 400, "Fabrics": 300, "Hemp": 100, "Cotton": 50, "Raw Meat": 100,
                    "Greenfruit": 60, "Wheatstraw": 40, "Cactus": 30, "Riceweed": 25}
