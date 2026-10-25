@@ -156,7 +156,7 @@ def list_quests():
 
 @bp.route('/quests/abandon', methods=['POST'])
 def abandon_quest():
-    """Deletes the job with its kills, so its giver can give a new job."""
+    """Deletes the job with its defeats, so its giver can give a new job."""
     data = request.get_json(silent=True) or {}
     refused = campaign_write(data)
     if refused: return refused

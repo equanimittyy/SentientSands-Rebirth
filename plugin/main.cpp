@@ -635,7 +635,7 @@ static void setProneState_hook(Character *npc, ProneState p) {
       QueueGameEvent("up", id + ", \"carried\": " +
                                (npc->isBeingCarried() ? "true" : "false"));
     else
-      QueueGameEvent("knockout", id);
+      QueueGameEvent("knockout", id + ", \"party\": " + EventParty(npc));
   }
   if (setProneState_orig)
     setProneState_orig(npc, p);

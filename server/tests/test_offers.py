@@ -477,7 +477,7 @@ class QuestOfferTest(unittest.TestCase):
     GOODS = {"id": 3, "state": "open", "kind": "goods", "target": "Raw Iron", "target_name": "Raw Iron", "count": 5, "reward": 1500}
 
     def test_the_popup_names_the_job_or_the_reward(self):
-        self.assertEqual(offers.popup_text(offers.quest_offer(self.NEW, False), "Sergeant Rook", "Zaps"), "Sergeant Rook offers a job: kill 5 members of the Dust Bandits. Reward: 2,500 cats.")
+        self.assertEqual(offers.popup_text(offers.quest_offer(self.NEW, False), "Sergeant Rook", "Zaps"), "Sergeant Rook offers a job: defeat 5 members of the Dust Bandits. Reward: 2,500 cats.")
         self.assertEqual(offers.popup_text(offers.quest_offer(self.FIGURE, False), "Holy Lord Phoenix", "Zaps"),
                          "Holy Lord Phoenix offers a job: kill or capture Tinfist, leader of the Anti-Slavers. Reward: 20,000 cats.")
         self.assertEqual(offers.popup_text(offers.quest_offer(self.DONE, False), "Sergeant Rook", "Zaps"), "Sergeant Rook pays 2,500 cats for the job.")
@@ -485,8 +485,8 @@ class QuestOfferTest(unittest.TestCase):
 
     def test_the_memory_lines_are_deal_lines_and_the_npc_says_a_line_of_its_end(self):
         lines = {
-            "(Zaps accepted: Sergeant Rook gives Zaps's group a job: kill 5 members of the Dust Bandits, for 2,500 cats.)": offers.accepted_line(offers.quest_offer(self.NEW, False), "Sergeant Rook", "Zaps"),
-            "(Zaps declined: Sergeant Rook offered a job: kill 5 members of the Dust Bandits, for 2,500 cats.)": offers.declined_line(offers.quest_offer(self.NEW, False), "Sergeant Rook", "Zaps"),
+            "(Zaps accepted: Sergeant Rook gives Zaps's group a job: defeat 5 members of the Dust Bandits, for 2,500 cats.)": offers.accepted_line(offers.quest_offer(self.NEW, False), "Sergeant Rook", "Zaps"),
+            "(Zaps declined: Sergeant Rook offered a job: defeat 5 members of the Dust Bandits, for 2,500 cats.)": offers.declined_line(offers.quest_offer(self.NEW, False), "Sergeant Rook", "Zaps"),
             "(Zaps accepted: Sergeant Rook pays 2,500 cats for the job.)": offers.accepted_line(offers.quest_offer(self.DONE, False), "Sergeant Rook", "Zaps"),
             "(Zaps declined: Harvag offered 1,500 cats for 5 Raw Iron.)": offers.declined_line(offers.quest_offer(self.GOODS, False), "Harvag", "Zaps"),
         }

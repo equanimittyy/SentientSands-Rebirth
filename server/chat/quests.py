@@ -20,7 +20,8 @@ from store import campaign_db
 FIGURE_RELATION = 60
 RULER_REWARDS = {"leader": 20000, "nobles": 10000}
 COUNTS = (3, 8)
-KILL_REWARD = 500
+DEFEAT_COUNTS = (10, 20)
+DEFEAT_REWARD = 100
 RELATION_RAISES = {"figure": 30, "faction": 2}
 # The value of each material in the vanilla game data
 MATERIAL_VALUES = {"Raw Iron": 150, "Copper": 300, "Animal Skin": 400, "Fabrics": 300, "Hemp": 100, "Cotton": 50, "Raw Meat": 100,
@@ -110,8 +111,8 @@ def faction_job(npc):
     targets = enemies(npc)
     if not targets:
         return None
-    faction, count = random.choice(targets), random.randint(*COUNTS)
-    return {"kind": "faction", "target": faction["faction_id"], "target_name": faction["name"], "count": count, "reward": count * KILL_REWARD}
+    faction, count = random.choice(targets), random.randint(*DEFEAT_COUNTS)
+    return {"kind": "faction", "target": faction["faction_id"], "target_name": faction["name"], "count": count, "reward": count * DEFEAT_REWARD}
 
 
 def goods_job(goods):
@@ -122,7 +123,7 @@ def goods_job(goods):
     if not materials:
         return None
     material, count = random.choice(materials), random.randint(*COUNTS)
-    return {"kind": "goods", "target": material, "target_name": material, "count": count, "reward": count * 2 * MATERIAL_VALUES[material]}
+    return {"kind": "goods", "target": material, "target_name": material, "count": count, "reward": count * MATERIAL_VALUES[material] * 3 // 2}
 
 
 def trader_materials(goods):
@@ -158,11 +159,11 @@ def the(faction):
 
 
 def job_text(job):
-    """What the job asks for, such as "kill 5 members of the Dust Bandits"."""
+    """What the job asks for, such as "defeat 12 members of the Dust Bandits"."""
     if job["kind"] == "figure":
         return f"kill or capture {job['target_name']}" + (f", {job['about']}" if job.get("about") else "")
     if job["kind"] == "faction":
-        return f"kill {job['count']} members of {the(job['target_name'])}"
+        return f"defeat {job['count']} members of {the(job['target_name'])}"
     return f"bring {job['count']} {job['target_name']}"
 
 
@@ -193,9 +194,11 @@ def progress(job, speaker, player):
         if job["state"] == "done":
             lines.append(f"{player}'s group has done the job, so you owe it the {job['reward']:,} cats.")
         elif job["kind"] == "faction":
-            lines.append(f"{player}'s group has killed {job['kills']} of the {job['count']} so far.")
+            lines.append(f"{player}'s group has defeated {job['defeats']} of the {job['count']} so far.")
         else:
             lines.append(f"{player}'s group has not killed or captured {job['target_name']} yet.")
+    if job["kind"] == "faction" and job.get("state") != "done":
+        lines.append("A knockout counts as a defeat, the same as a kill.")
     return lines
 
 
@@ -239,16 +242,16 @@ def rewind(now):
         logging.info(f"QUEST: The game time went back to {campaign_db.game_time_text(now)}, so the jobs lost what they gained after it.")
 
 
-def count_death(party, at):
-    """The game messages of a death of a character that the squad killed at the game time at, which counts toward a faction
-    job against its faction."""
-    quest_id = campaign_db.count_quest_kill(party.get("factionID"), at) if party.get("factionID") else None
+def count_defeat(party, at):
+    """The game messages of a knockout or a death of a character that the squad defeated at the game time at, which counts
+    toward a faction job against its faction."""
+    quest_id = campaign_db.count_quest_defeat(party.get("factionID"), at) if party.get("factionID") else None
     job = campaign_db.quest(quest_id) if quest_id else None
     if not job:
         return []
     if job["state"] == "done":
         return [_done(job)]
-    return [f"Job for {job['giver_name']}: {job['kills']} of {job['count']} members of {the(job['target_name'])} killed."]
+    return [f"Job for {job['giver_name']}: {job['defeats']} of {job['count']} members of {the(job['target_name'])} defeated."]
 
 
 def figure_event(victim_id, at):
@@ -310,7 +313,7 @@ def details(job):
     elif job["kind"] == "goods":
         lines.append(f"Progress: Bring {job['count']} {job['target_name']} to {job['giver_name']}.")
     elif job["kind"] == "faction":
-        lines.append(f"Progress: {job['kills']} of {job['count']} killed.")
+        lines.append(f"Progress: {job['defeats']} of {job['count']} defeated.")
     else:
         lines.append("Progress: Not done yet.")
     return "\n".join(lines)

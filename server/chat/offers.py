@@ -383,7 +383,7 @@ def quest_offer(job, stock):
 
 
 def quest_job(offer):
-    """The words of a new job, such as "a job: kill 5 members of the Dust Bandits", or None for a reward."""
+    """The words of a new job, such as "a job: defeat 12 members of the Dust Bandits", or None for a reward."""
     return None if offer["gives"] else f"a job: {quests.job_text(offer['job'])}"
 
 

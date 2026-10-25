@@ -144,7 +144,7 @@ CREATE TABLE quest (
   accepted_at   INTEGER,
   changed_at    INTEGER
 );
-CREATE TABLE quest_kill (
+CREATE TABLE quest_defeat (
   quest_id  INTEGER NOT NULL REFERENCES quest(id) ON DELETE CASCADE,
   game_time INTEGER NOT NULL
 );
@@ -884,13 +884,13 @@ _QUEST_COLUMNS = ("id", "giver", "giver_name", "giver_faction", "kind", "target"
 
 
 def _quest_rows(conn, where, args):
-    """The jobs that match where, newest first by the accept, as dicts with the columns, the count of the kills, the current
+    """The jobs that match where, newest first by the accept, as dicts with the columns, the count of the defeats, the current
     name of the target, the name of the faction of the giver, and the CurrentLocation of the giver. The names follow a
     rename, and a giver or a target without a record keeps the name or the key that the job stored."""
     columns = [f"q.{column}" for column in _QUEST_COLUMNS]
     columns[_QUEST_COLUMNS.index("giver_name")] = "COALESCE(json_extract(c.profile, '$.Name'), q.giver_name)"
     rows = conn.execute(
-        f"SELECT {', '.join(columns)}, (SELECT COUNT(*) FROM quest_kill WHERE quest_id = q.id),"
+        f"SELECT {', '.join(columns)}, (SELECT COUNT(*) FROM quest_defeat WHERE quest_id = q.id),"
         " COALESCE(json_extract(t.profile, '$.Name'), f.name, q.target), COALESCE(g.name, NULLIF(q.giver_faction, '')),"
         " json_extract(c.profile, '$.CurrentLocation') FROM quest q"
         " LEFT JOIN character t ON q.kind = 'figure' AND t.npc_id = q.target"
@@ -899,7 +899,7 @@ def _quest_rows(conn, where, args):
         f" LEFT JOIN character c ON c.npc_id = q.giver WHERE {where} ORDER BY q.accepted_at DESC, q.id DESC",
         args,
     ).fetchall()
-    return [dict(zip((*_QUEST_COLUMNS, "kills", "target_name", "giver_faction_name", "giver_location"), row)) for row in rows]
+    return [dict(zip((*_QUEST_COLUMNS, "defeats", "target_name", "giver_faction_name", "giver_location"), row)) for row in rows]
 
 
 def quests(states=("open", "done")):
@@ -940,10 +940,10 @@ def delete_quest(quest_id):
         return conn.execute("DELETE FROM quest WHERE id = ?", (quest_id,)).rowcount > 0
 
 
-def count_quest_kill(faction_id, at):
-    """Counts the death of a member of the faction at the game time at toward the oldest open faction job against it that the
-    player took before the death, so one kill never pays two jobs, and marks the job done at its count. Returns the ID of
-    the job, or None."""
+def count_quest_defeat(faction_id, at):
+    """Counts the defeat of a member of the faction at the game time at toward the oldest open faction job against it that
+    the player took before the defeat, so one defeat never pays two jobs, and marks the job done at its count. Returns the
+    ID of the job, or None."""
     find = ("SELECT id FROM quest WHERE kind = 'faction' AND state = 'open' AND target = ? AND accepted_at < ? ORDER BY accepted_at, id LIMIT 1", (faction_id, at))
     with _connect() as conn:
         if not conn.execute(*find).fetchone():
@@ -952,8 +952,8 @@ def count_quest_kill(faction_id, at):
         row = conn.execute(*find).fetchone()
         if not row:
             return None
-        conn.execute("INSERT INTO quest_kill (quest_id, game_time) VALUES (?, ?)", (row[0], at))
-        conn.execute("UPDATE quest SET state = 'done', changed_at = ?1 WHERE id = ?2 AND count <= (SELECT COUNT(*) FROM quest_kill WHERE quest_id = ?2)", (at, row[0]))
+        conn.execute("INSERT INTO quest_defeat (quest_id, game_time) VALUES (?, ?)", (row[0], at))
+        conn.execute("UPDATE quest SET state = 'done', changed_at = ?1 WHERE id = ?2 AND count <= (SELECT COUNT(*) FROM quest_defeat WHERE quest_id = ?2)", (at, row[0]))
         return row[0]
 
 
@@ -972,7 +972,7 @@ def rewind_quests(at):
     the paid job. Returns whether anything was dated after it."""
     # A write makes the web app reload its pages, and a request that rewinds nothing comes with each chat line
     with _connect() as conn:
-        newest = conn.execute("SELECT MAX(at) FROM (SELECT accepted_at AS at FROM quest UNION ALL SELECT changed_at FROM quest UNION ALL SELECT game_time FROM quest_kill)").fetchone()[0]
+        newest = conn.execute("SELECT MAX(at) FROM (SELECT accepted_at AS at FROM quest UNION ALL SELECT changed_at FROM quest UNION ALL SELECT game_time FROM quest_defeat)").fetchone()[0]
     if newest is None or newest <= at:
         return False
     with _connect(write=True) as conn:
@@ -981,16 +981,16 @@ def rewind_quests(at):
 
 
 def _rewind_quests(conn, at):
-    """Deletes each job taken and each kill counted after the game time at, opens each job that changed its state after it
-    again, and counts each open job again: a faction job by its kills, and a figure job by the kill and capture events of its
-    target up to at."""
+    """Deletes each job taken and each defeat counted after the game time at, opens each job that changed its state after
+    it again, and counts each open job again: a faction job by its defeats, and a figure job by the kill and capture events
+    of its target up to at."""
     conn.execute("DELETE FROM quest WHERE accepted_at > ?", (at,))
-    conn.execute("DELETE FROM quest_kill WHERE game_time > ?", (at,))
+    conn.execute("DELETE FROM quest_defeat WHERE game_time > ?", (at,))
     conn.execute("UPDATE quest SET state = 'open', changed_at = accepted_at WHERE changed_at > ?", (at,))
     for quest_id, kind, target, count, accepted_at in conn.execute("SELECT id, kind, target, count, accepted_at FROM quest WHERE state = 'open'").fetchall():
         done = None
         if kind == "faction":
-            done = conn.execute("SELECT game_time FROM quest_kill WHERE quest_id = ? ORDER BY game_time LIMIT 1 OFFSET ?", (quest_id, count - 1)).fetchone()
+            done = conn.execute("SELECT game_time FROM quest_defeat WHERE quest_id = ? ORDER BY game_time LIMIT 1 OFFSET ?", (quest_id, count - 1)).fetchone()
         elif kind == "figure":
             done = conn.execute(
                 "SELECT MIN(game_time) FROM event WHERE json_extract(data, '$.kind') IN ('kill', 'capture') AND json_extract(data, '$.victim.id') = ? AND game_time > ? AND game_time <= ?",

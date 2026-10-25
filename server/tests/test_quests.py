@@ -61,6 +61,14 @@ def killed(victim, minutes, attacker=BEEP):
     return [attack(attacker, victim, minutes), {"kind": "death", "party": victim, **when(minutes)}]
 
 
+def knockout(victim, minutes):
+    return {"kind": "knockout", "id": victim["id"], "party": victim, **when(minutes)}
+
+
+def up(victim, minutes, carried=False):
+    return {"kind": "up", "id": victim["id"], "carried": carried, **when(minutes)}
+
+
 def captured(victim, minutes):
     return [attack(BEEP, victim, minutes), {"kind": "imprisonment", "party": victim, **when(minutes)}]
 
@@ -95,7 +103,7 @@ class QuestTestCase(unittest.TestCase):
         return world_events.take(events, when(now))
 
     def states(self):
-        return [(job["id"], job["state"], job["kills"]) for job in campaign_db.quests(("open", "done", "failed", "paid"))]
+        return [(job["id"], job["state"], job["defeats"]) for job in campaign_db.quests(("open", "done", "failed", "paid"))]
 
 
 class RollTest(QuestTestCase):
@@ -112,9 +120,10 @@ class RollTest(QuestTestCase):
             self.assertEqual(quests.roll({**LEADER, "relation": 59}, "Emperor Tengu", {"leader"}, [])["kind"], "faction")
 
     def test_a_guard_gives_a_faction_job_and_an_npc_without_a_role_gives_none(self):
-        with mock.patch.object(quests.random, "choice", first), mock.patch.object(quests.random, "randint", return_value=5):
+        with mock.patch.object(quests.random, "choice", first), mock.patch.object(quests.random, "randint", return_value=12) as randint:
             made = quests.roll(GUARD, "Sergeant Rook", {"guard"}, [])
-        self.assertEqual((made["kind"], made["target"], made["target_name"], made["count"], made["reward"]), ("faction", BANDITS, "Dust Bandits", 5, 2500))
+        randint.assert_called_once_with(10, 20)
+        self.assertEqual((made["kind"], made["target"], made["target_name"], made["count"], made["reward"]), ("faction", BANDITS, "Dust Bandits", 12, 1200))
         self.assertIsNone(quests.roll(GUARD, "Sergeant Rook", set(), []))
 
     def test_the_enemies_come_from_the_faction_record_by_name_or_alias(self):
@@ -144,11 +153,11 @@ class RollTest(QuestTestCase):
         campaign_db.add_quest(job("figure", "u:nagata", 1, 10000, giver="u:another", giver_faction=OTHER), 60)
         self.assertIsNone(quests.figure_job(LEADER))
 
-    def test_a_trader_brings_a_material_of_its_class_for_twice_its_value(self):
+    def test_a_trader_brings_a_material_of_its_class_for_one_and_a_half_times_its_value(self):
         goods = [{"name": "Katana", "kind": "weapon"}, {"name": "Bolts", "kind": "ammo"}, {"name": "Bread", "kind": "food"}]
         with mock.patch.object(quests.random, "randint", return_value=5):
             made = quests.roll(GUARD, "Harvag", {"trader"}, goods)
-        self.assertEqual((made["kind"], made["target"], made["count"], made["reward"]), ("goods", "Raw Iron", 5, 1500))
+        self.assertEqual((made["kind"], made["target"], made["count"], made["reward"]), ("goods", "Raw Iron", 5, 1125))
 
     def test_the_class_needs_half_of_the_item_stacks(self):
         food, weapon, armour, drug = ({"name": name, "kind": kind} for name, kind in (("Bread", "food"), ("Katana", "weapon"), ("Rags", "armour"), ("Sake", "drug")))
@@ -205,7 +214,7 @@ class CountTest(QuestTestCase):
     def test_each_kill_after_the_accept_counts_until_the_job_is_done(self):
         quest_id = campaign_db.add_quest(job(), 600)
         self.assertEqual(self.take(killed(bandit(1), 599), 605), [])
-        self.assertEqual(self.take(killed(bandit(2), 610), 610), ["Job for Sergeant Rook: 1 of 2 members of the Dust Bandits killed."])
+        self.assertEqual(self.take(killed(bandit(2), 610), 610), ["Job for Sergeant Rook: 1 of 2 members of the Dust Bandits defeated."])
         self.assertEqual(self.take(killed(bandit(3), 620), 620), ["Job done: go back to Sergeant Rook for the reward."])
         self.assertEqual(self.take(killed(bandit(4), 630), 630), [])
         self.assertEqual(self.states(), [(quest_id, "done", 2)])
@@ -214,7 +223,26 @@ class CountTest(QuestTestCase):
         campaign_db.add_quest(job(), 600)
         self.assertEqual(self.take(killed(bandit(1), 610, OUTSIDER), 610), [])
         self.assertEqual(self.take([{"kind": "death", "party": bandit(2), **when(611)}], 611), [])
-        self.assertEqual(campaign_db.quests()[0]["kills"], 0)
+        self.assertEqual(self.take([attack(OUTSIDER, bandit(3), 612), knockout(bandit(3), 612)], 612), [])
+        self.assertEqual(campaign_db.quests()[0]["defeats"], 0)
+
+    def test_a_knockout_by_the_squad_counts_as_a_defeat_and_its_death_adds_nothing(self):
+        quest_id = campaign_db.add_quest(job(count=3), 600)
+        self.assertEqual(self.take([attack(BEEP, bandit(1), 610), knockout(bandit(1), 610)], 610), ["Job for Sergeant Rook: 1 of 3 members of the Dust Bandits defeated."])
+        self.assertEqual(self.take(killed(bandit(1), 615), 615), [])
+        self.assertEqual(self.states(), [(quest_id, "open", 1)])
+
+    def test_a_knockout_after_a_wake_up_counts_again(self):
+        quest_id = campaign_db.add_quest(job(), 600)
+        self.take([attack(BEEP, bandit(1), 610), knockout(bandit(1), 610), up(bandit(1), 620), attack(BEEP, bandit(1), 625), knockout(bandit(1), 625)], 625)
+        self.assertEqual(self.states(), [(quest_id, "done", 2)])
+
+    def test_the_knockout_at_a_drop_or_a_load_of_a_character_that_is_already_down_counts_nothing(self):
+        quest_id = campaign_db.add_quest(job(count=3), 600)
+        self.take([attack(BEEP, bandit(1), 610), knockout(bandit(1), 610), up(bandit(1), 612, carried=True), knockout(bandit(1), 615)], 615)
+        self.assertEqual(self.states(), [(quest_id, "open", 1)])
+        self.take([knockout(bandit(1), 611)], 611)
+        self.assertEqual(self.states(), [(quest_id, "open", 1)])
 
     def test_a_kill_counts_only_toward_the_oldest_open_job_against_the_faction(self):
         older = campaign_db.add_quest(job(giver="h:7"), 600)
@@ -236,7 +264,7 @@ class CountTest(QuestTestCase):
         campaign_db.add_quest(job("figure", "u:tinfist", 1, 20000, giver="u:tengu", giver_name="Emperor Tengu"), 600)
         faction_job = campaign_db.add_quest(job(target="58229-Dialogue.mod", giver_faction=OTHER), 600)
         self.take(killed(TINFIST, 610), 610)
-        self.assertEqual(campaign_db.quest(faction_job)["kills"], 0)
+        self.assertEqual(campaign_db.quest(faction_job)["defeats"], 0)
 
     def test_the_figure_job_fails_when_the_game_holds_its_target_dead_or_imprisoned_and_its_giver_dead(self):
         target = campaign_db.add_quest(job("figure", "u:tinfist", 1, 20000, giver="u:tengu", giver_name="Emperor Tengu"), 600)
@@ -278,7 +306,7 @@ class CountTest(QuestTestCase):
 
 
 class RewindTest(QuestTestCase):
-    def test_a_load_undoes_the_jobs_the_kills_and_the_changes_after_its_game_time(self):
+    def test_a_load_undoes_the_jobs_the_defeats_and_the_changes_after_its_game_time(self):
         kept = campaign_db.add_quest(job(giver="h:7"), 600)
         self.take(killed(bandit(1), 610) + killed(bandit(2), 620), 620)
         campaign_db.set_quest_state(kept, "paid", 630, "done")
@@ -327,8 +355,8 @@ class RewindTest(QuestTestCase):
 class TextTest(QuestTestCase):
     def test_a_new_job_names_what_the_npc_wants_and_the_fixed_reward(self):
         new = {**job(count=5, reward=2500), "target_name": "Dust Bandits"}
-        self.assertEqual(quests.facts(new, SPEAKER, "Beep"), "JOB FACTS:\n- You want Beep's group to kill 5 members of the Dust Bandits.\n- You pay 2,500 cats when it is done.\n"
-                         "- The reward is fixed.")
+        self.assertEqual(quests.facts(new, SPEAKER, "Beep"), "JOB FACTS:\n- You want Beep's group to defeat 5 members of the Dust Bandits.\n- You pay 2,500 cats when it is done.\n"
+                         "- A knockout counts as a defeat, the same as a kill.\n- The reward is fixed.")
         figure = {**job("figure", "u:tinfist", 1, 20000), "target_name": "Tinfist", "about": "leader of the Anti-Slavers"}
         self.assertEqual(quests.progress(figure, SPEAKER, "Beep"), ["You want Beep's group to kill or capture Tinfist, leader of the Anti-Slavers.", "You pay 20,000 cats when it is done."])
         goods = {**job("goods", "Raw Iron", 5, 1500), "target_name": "Raw Iron"}
@@ -336,19 +364,20 @@ class TextTest(QuestTestCase):
 
     def test_another_member_of_the_faction_heard_who_gave_the_job_and_where_the_giver_is(self):
         quest_id = campaign_db.add_quest(job(count=5, reward=2500), 600)
-        self.assertEqual(quests.heard_text(campaign_db.quest(quest_id), "Beep"), "You heard that Sergeant Rook of your faction gave Beep's group a job: kill 5 members of the Dust Bandits. "
+        self.assertEqual(quests.heard_text(campaign_db.quest(quest_id), "Beep"), "You heard that Sergeant Rook of your faction gave Beep's group a job: defeat 5 members of the Dust Bandits. "
                          "Only Sergeant Rook pays for that job, so you have no other work for Beep now.")
         campaign_db.upsert_profile("h:7", {"Name": "Sergeant Rook", "CurrentLocation": "Bar, Heng"})
         self.assertEqual(quests.heard_text(campaign_db.quest(quest_id), "Beep").split(". ")[0],
-                         "You heard that Sergeant Rook of your faction gave Beep's group a job: kill 5 members of the Dust Bandits, and that Sergeant Rook is at Bar, Heng")
+                         "You heard that Sergeant Rook of your faction gave Beep's group a job: defeat 5 members of the Dust Bandits, and that Sergeant Rook is at Bar, Heng")
 
     def test_a_held_job_tells_who_gave_it_and_how_far_it_is(self):
         quest_id = campaign_db.add_quest(job(count=5, reward=2500), 600)
         self.take(killed(bandit(1), 610) + killed(bandit(2), 611), 611)
-        self.assertEqual(quests.progress(campaign_db.quest(quest_id), SPEAKER, "Beep")[:2],
-                         ["You gave Beep's group a job: kill 5 members of the Dust Bandits, for 2,500 cats.", "Beep's group has killed 2 of the 5 so far."])
+        self.assertEqual(quests.progress(campaign_db.quest(quest_id), SPEAKER, "Beep"),
+                         ["You gave Beep's group a job: defeat 5 members of the Dust Bandits, for 2,500 cats.", "Beep's group has defeated 2 of the 5 so far.",
+                          "A knockout counts as a defeat, the same as a kill."])
         self.assertEqual(quests.scene_text(campaign_db.quest(quest_id), SPEAKER, "Beep").split(". ")[0],
-                         "You gave Beep's group a job: kill 5 members of the Dust Bandits, for 2,500 cats")
+                         "You gave Beep's group a job: defeat 5 members of the Dust Bandits, for 2,500 cats")
         self.assertEqual(quests.scene_text(None, SPEAKER, "Beep"), "")
 
     def test_a_goods_job_counts_what_the_speaker_carries(self):
@@ -373,8 +402,8 @@ class TextTest(QuestTestCase):
         quest_id = campaign_db.add_quest(job(count=5, reward=2500), 600)
         self.take(killed(bandit(1), 610) + killed(bandit(2), 611), 611)
         self.assertEqual(quests.entry(campaign_db.quest(quest_id)), {
-            "id": str(quest_id), "giver": "Sergeant Rook", "label": "Sergeant Rook: Kill 5 members of the Dust Bandits",
-            "details": "Giver: Sergeant Rook of the United Cities, last seen at Bar, Heng.\nReward: 2,500 cats.\nProgress: 2 of 5 killed.",
+            "id": str(quest_id), "giver": "Sergeant Rook", "label": "Sergeant Rook: Defeat 5 members of the Dust Bandits",
+            "details": "Giver: Sergeant Rook of the United Cities, last seen at Bar, Heng.\nReward: 2,500 cats.\nProgress: 2 of 5 defeated.",
         })
 
     def test_the_progress_of_each_kind_and_state(self):
@@ -404,14 +433,14 @@ class StoreTest(QuestTestCase):
         campaign_db.set_quest_state(older, "done", 720, "open")
         self.assertEqual([(job["id"], job["state"]) for job in campaign_db.quests()], [(newer, "open"), (older, "done")])
 
-    def test_abandon_deletes_the_job_with_its_kills_so_the_giver_can_give_a_new_job(self):
+    def test_abandon_deletes_the_job_with_its_defeats_so_the_giver_can_give_a_new_job(self):
         quest_id = campaign_db.add_quest(job(), 600)
         self.take(killed(bandit(1), 610), 610)
         self.assertTrue(campaign_db.delete_quest(quest_id))
         self.assertFalse(campaign_db.delete_quest(quest_id))
         new = campaign_db.add_quest(job(), 620)
         self.assertNotEqual(new, quest_id)
-        self.assertEqual(campaign_db.quest(new)["kills"], 0)
+        self.assertEqual(campaign_db.quest(new)["defeats"], 0)
 
     def test_a_rekey_moves_the_job_of_the_giver(self):
         quest_id = campaign_db.add_quest(job(giver="h:7"), 600)

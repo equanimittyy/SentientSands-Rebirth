@@ -40,7 +40,7 @@ def _from_23(conn):
       accepted_at   INTEGER,
       changed_at    INTEGER
     )""")
-    conn.execute("CREATE TABLE quest_kill (quest_id INTEGER NOT NULL REFERENCES quest(id) ON DELETE CASCADE, game_time INTEGER NOT NULL)")
+    conn.execute("CREATE TABLE quest_defeat (quest_id INTEGER NOT NULL REFERENCES quest(id) ON DELETE CASCADE, game_time INTEGER NOT NULL)")
 
 
 STEPS = {

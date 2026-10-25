@@ -75,13 +75,13 @@ The hooks in `plugin/main.cpp` buffer the game events (`QueueGameEvent`). The se
 | Kind | Hook | Added when |
 |---|---|---|
 | `attack` | `attackingYou_hook` | The attacker is in the player's faction, once for each attacker and target in a report |
-| `knockout` | `setProneState_hook` with `PS_KO` | The character was not knocked out before |
+| `knockout` | `setProneState_hook` with `PS_KO` | The character was not knocked out before; holds the party of the character |
 | `up` | `setProneState_hook`, other state | The character was knocked out before; holds `isBeingCarried` |
 | `death` | `declareDead_hook` | Each call |
 | `imprisonment` | `setPrisonMode_hook` with `on` | Each call |
 | `rekey` | `addActiveObject_hook`, `addCharacterAt_hook` | A squad change gave a character that already had a handle a new `npc_id`; holds `old` and `new` (see [Characters](#characters)) |
 
-- A party (`EventParty`) holds `id` (the `npc_id`), `template_id`, the name, the faction, `factionID`, and `player`. A faction job counts a death by `factionID`, because the faction records are keyed by the game ID (see [Quests](#quests)).
+- A party (`EventParty`) holds `id` (the `npc_id`), `template_id`, the name, the faction, `factionID`, and `player`. A faction job counts a knockout or a death by `factionID`, because the faction records are keyed by the game ID (see [Quests](#quests)).
 - Each event holds the game time of its hook, read under `g_eventMutex`, so a step back of the game time means a load.
 - `attackingYou_hook` runs many times a second, so it checks the faction first and dedupes by handle serials without building a string.
 - A request takes the events out of the buffer (`TakeGameEvents`), so each event goes once, and a failed request loses them. The buffer holds 100 events.
@@ -94,7 +94,7 @@ The hooks in `plugin/main.cpp` buffer the game events (`QueueGameEvent`). The se
 - While a `knockout` mark is set, all attackers count, because a capture in Kenshi is a knockout, a carry, and a cell ([kenshi_internals.md](kenshi_internals.md#deaths-and-captures)). An `up` that is not carried clears the mark. A carried `up` changes nothing.
 - Else each attacker whose last attack is in the 3 game hours before counts. Kenshi gives no last hit.
 - An event with a game time before the newest event is a load, and drops the kept events after that time. The server skips events at Day 0, 00:00, because the clock reads that until it holds a real time.
-- The kills and the captures count toward the jobs of the squad, and `take` returns their game messages, which `take_report` sends as `NOTIFY:` (see [Quests](#quests)).
+- A `knockout` takes its attackers in the same way, for the jobs only. The knockouts, the kills, and the captures count toward the jobs of the squad, and `take` returns their game messages, which `take_report` sends as `NOTIFY:` (see [Quests](#quests)).
 
 The `event` table holds one row for each event, with the game time and, as JSON in `data`, the kind (`kill`, `capture`, `custom`, or `auto`) and its facts.
 
@@ -632,7 +632,7 @@ In a QUEST action dialogue, a leader, a guard, or a trader gives the player a jo
 | Job | Giver | The player | Done when |
 |---|---|---|---|
 | Figure | A leader, only at a good relation | Kills or captures the leader or a noble of an enemy faction | A `kill` or a `capture` event of the target names a squad member |
-| Faction | A leader or a guard | Kills a number of members of an enemy faction | The squad killed that number |
+| Faction | A leader or a guard | Defeats a number of members of an enemy faction: knocks them out or kills them | The squad defeated that number |
 | Goods | A trader | Brings a number of one raw material that fits the goods of the trader | The speaker hands the items to the trader |
 
 - Code picks the target, the count, and the reward of each job, with no LLM call, because a model names targets and prices that the game does not hold.
@@ -646,7 +646,7 @@ A QUEST line goes to plain chat with the reason as the NPC's thought (`plain_cha
 | The NPC is `imprisoned` and answers for a job | "You are locked in a cage, so you pay {player}'s group for your job only after {player} gets you out of the cage." |
 | The NPC is `imprisoned` and is a giver | "You are locked in a cage, so you give {player} work only after {player} gets you out of the cage." |
 | The speaker is `imprisoned` | "{player} is locked in a cage, so {player} cannot take work." |
-| The NPC answers for no job, and its faction already gave a job that is open or done | "You heard that Sergeant Rook of your faction gave Beep's group a job: kill 5 members of the Dust Bandits, and that Sergeant Rook is at Bar, Heng. Only Sergeant Rook pays for that job, so you have no other work for Beep now." (`quests.heard_text`). The place is the `CurrentLocation` of the giver's profile, and the thought leaves it out when the profile has none. |
+| The NPC answers for no job, and its faction already gave a job that is open or done | "You heard that Sergeant Rook of your faction gave Beep's group a job: defeat 12 members of the Dust Bandits, and that Sergeant Rook is at Bar, Heng. Only Sergeant Rook pays for that job, so you have no other work for Beep now." (`quests.heard_text`). The place is the `CurrentLocation` of the giver's profile, and the thought leaves it out when the profile has none. |
 | The NPC answers for no job and has no job to give | "You have no work for {player} now." |
 
 - The NPC answers only for its own open or done job (`quests.held`), so only the giver pays a job.
@@ -663,7 +663,8 @@ The enemies of a giver are the faction records that the `enemies` field of its f
 - A figure drops out when it has no canon record, when the game holds it dead or imprisoned (`rulers.character_states`), when its live context is in the player faction, or when another job names it, so one kill never pays two jobs.
 - The figure job is done at a `kill` or a `capture` event of the target after the accept, with a squad member as a doer (`world_events._store`). Either event counts, so the player chooses how to do the job. A capture into a cage of the player faction counts too.
 - The figure job fails when the game holds the target dead or imprisoned, and no such event came. Code checks this after the events of each request (`quests.check`), so an event and a state in one request mark the job done. A game event that a failed request lost ([Game events](#game-events)) therefore fails the job.
-- Faction: The target is an enemy faction, and the count is 3 to 8. Each `death` game event after the accept counts when `world_events._attribute` gives it an attacker of the player faction. It counts toward only the oldest open faction job against the `factionID` of its party (`campaign_db.count_quest_kill`), and a kill that does a figure job counts toward no faction job, so one kill never pays two jobs.
+- Faction: The target is an enemy faction, and the count is 10 to 20. A defeat is a `knockout` game event after the accept, or a `death` of a character that was not knocked out, when `world_events._attribute` gives it an attacker of the player faction. The death of a knocked-out character counts nothing, because its knockout counted. A knockout of a character that is already knocked out counts nothing, because a load sends the knockout again, and a carried character that its carrier puts down goes back to `PS_KO`, which the hook sends as a new `knockout` ([kenshi_internals.md](kenshi_internals.md#deaths-and-captures)). A character that wakes up and goes down again counts again.
+- A defeat counts toward only the oldest open faction job against the `factionID` of its party (`campaign_db.count_quest_defeat`), and a kill that does a figure job counts toward no faction job, so one kill never pays two jobs. A knockout of a figure still counts toward a faction job.
 - Goods: The class of a trader comes from the `kind` of its goods (`offers.goods`, `ItemKind` in `plugin/game/Context.cpp`). The class needs at least half of the item stacks, because a general store sells a few items of each class (`quests.trader_materials`). A trader without a class gives no job.
 
 | Class | Kinds of the goods | Materials |
@@ -684,8 +685,8 @@ The enemies of a giver are the faction records that the `enemies` field of its f
 | Job | Reward |
 |---|---|
 | Figure | 20,000 cats for a leader, 10,000 cats for a noble |
-| Faction | 500 cats for each kill |
-| Goods | Twice the value of the material in the vanilla game data for each item: Raw Iron 150, Copper 300, Animal Skin 400, Fabrics 300, Hemp 100, Cotton 50, Raw Meat 100, Greenfruit 60, Wheatstraw 40, Cactus 30, Riceweed 25 |
+| Faction | 100 cats for each defeat |
+| Goods | One and a half times the value of the material in the vanilla game data for each item, rounded down for the whole job: Raw Iron 150, Copper 300, Animal Skin 400, Fabrics 300, Hemp 100, Cotton 50, Raw Meat 100, Greenfruit 60, Wheatstraw 40, Cactus 30, Riceweed 25 |
 
 - The reward is fixed. The turn message says so, and the NPC cannot bargain it.
 - The plugin creates the cats with `ADD_CATS`, as for charity, because a giver can carry fewer cats than the reward.
@@ -695,19 +696,19 @@ The enemies of a giver are the faction records that the `enemies` field of its f
 
 1. The player sends `!q` and a line to a giver. The gates run.
 2. A marked line to an NPC that owes a reward makes no LLM call (`quests.payable`): the job is done, or the speaker carries the whole count of a goods job. The NPC says a line of `quest_reward` from `server/data/defaults/action_end_lines.json` with the `[QUEST]` tag, and the popup of the reward opens (`CMD: OFFER:`, `offers.quest_offer`). Code sets the reward, and the NPC never refuses it, so a call could only fail or misstate it, as for a dismissal.
-3. For each other line, the turn message starts with `JOB FACTS` (`quests.facts`), in place of the facts and the lean of a deal: the job, how far it is, and that the reward is fixed. For example: "You want Zaps's group to kill 5 members of the Dust Bandits.", "Zaps's group has killed 2 of the 5 so far.", or "Zaps carries the 5 Raw Iron that you asked for."
+3. For each other line, the turn message starts with `JOB FACTS` (`quests.facts`), in place of the facts and the lean of a deal: the job, how far it is, and that the reward is fixed. For example: "You want Zaps's group to defeat 12 members of the Dust Bandits.", "Zaps's group has defeated 2 of the 12 so far.", or "Zaps carries the 5 Raw Iron that you asked for." A faction job that is not done adds "A knockout counts as a defeat, the same as a kill.", so the NPC does not ask for kills only.
 4. The system message ends with `prompt_action_quest.txt` for a new job, and with `prompt_action_quest_report.txt` for a job that the NPC answers for. Each tells the NPC to tell the job or the progress in its own words, and to keep the target, the count, and the reward of the facts.
 5. The reply to each marked QUEST line about a new job carries the popup of the job. A line without the mark carries no popup. An `[END]` next to the popup does not close the action dialogue, as for an offer.
 6. Accept of a new job stores it at the game time of the answer (`campaign_db.add_quest`), writes the deal line, says a line of `quest_accept`, and ends the chat thread.
-7. Each counted death and each change of state shows a game message (`NOTIFY:`): "Job for Sergeant Rook: 3 of 5 members of the Dust Bandits killed.", "Job done: go back to Sergeant Rook for the reward.", or "Job failed: Tinfist is dead."
+7. Each counted defeat and each change of state shows a game message (`NOTIFY:`): "Job for Sergeant Rook: 3 of 12 members of the Dust Bandits defeated.", "Job done: go back to Sergeant Rook for the reward.", or "Job failed: Tinfist is dead."
 8. Accept of a reward sends `ADD_CATS`, and `RAISE_RELATION` for a figure or a faction job, marks the job paid, writes the deal line, says a line of `quest_paid`, and ends the chat thread. An accept of a job that changed while the popup waited, for example by Abandon, pays nothing, and shows "X's offer no longer stands.".
 
 | Popup | Text |
 |---|---|
-| A new job | "Sergeant Rook offers a job: kill 5 members of the Dust Bandits. Reward: 2,500 cats." |
+| A new job | "Sergeant Rook offers a job: defeat 12 members of the Dust Bandits. Reward: 1,200 cats." |
 | A new figure job | "Holy Lord Phoenix offers a job: kill or capture Tinfist, leader of the Anti-Slavers. Reward: 20,000 cats." |
-| A reward | "Sergeant Rook pays 2,500 cats for the job." |
-| A goods reward | "Harvag offers 1,500 cats for 5 Raw Iron." |
+| A reward | "Sergeant Rook pays 1,200 cats for the job." |
+| A goods reward | "Harvag offers 1,125 cats for 5 Raw Iron." |
 
 - A goods job has no done state before the hand-over. The popup holds a `CHECK:` line for the items (`offers.checks`). The hand-over is `BUY_ITEM` for a trader in a shop, so the items go into the stock, and `TAKE_ITEM` with a `CHECK: ROOM` line for any other trader, as in a trade.
 - The chat scene of an NPC that answers for a job names the job and its progress (`quests.scene_text`), so a plain chat line can talk about it. The text is a part of the key of the scene, so a change of the progress starts a new scene.
@@ -717,17 +718,17 @@ The enemies of a giver are the faction records that the `enemies` field of its f
 | Table | Columns |
 |---|---|
 | `quest` | `id` (`AUTOINCREMENT`), `giver` (`npc_id`), `giver_name`, `giver_faction` (game ID), `kind` (`figure`, `faction`, or `goods`), `target` (an `npc_id`, a faction game ID, or an item name), `count`, `reward`, `state` (`open`, `done`, `failed`, or `paid`), `accepted_at`, `changed_at` |
-| `quest_kill` | `quest_id`, `game_time` |
+| `quest_defeat` | `quest_id`, `game_time` |
 
 - `id` is `AUTOINCREMENT`, because the Quests tab keeps the ID of the selected job, and a late Abandon must never reach a new job.
 - A read of a job gives the current name of the giver and of the target from their records (`campaign_db.quests`), so a rename reaches the job.
-- `quest_kill` keeps the game time of each counted death, so a load can undo the deaths after it.
+- `quest_defeat` keeps the game time of each counted defeat, so a load can undo the defeats after it.
 - A `rekey` event changes `giver` as it changes the other rows (`campaign_db.rekey`).
 
 The jobs live in the campaign, not in the save, so a load of an earlier save must undo the later changes. Without this, a player who loads a save from before a paid reward loses the cats and keeps the paid job.
 
-- Each request that carries a game time runs `quests.rewind` before it counts its events (`world_events.take`), when that time is before the newest `accepted_at`, `changed_at`, or `quest_kill.game_time`. A request that rewinds nothing writes nothing, because a write makes the web app reload its pages.
-- The rewind deletes each job accepted after the time and each death after it. It sets each job whose `changed_at` is after the time back to `open`, and then counts each open job again: a faction job by its deaths, and a figure job by the `kill` and `capture` events of its target up to the time.
+- Each request that carries a game time runs `quests.rewind` before it counts its events (`world_events.take`), when that time is before the newest `accepted_at`, `changed_at`, or `quest_defeat.game_time`. A request that rewinds nothing writes nothing, because a write makes the web app reload its pages.
+- The rewind deletes each job accepted after the time and each defeat after it. It sets each job whose `changed_at` is after the time back to `open`, and then counts each open job again: a faction job by its defeats, and a figure job by the `kill` and `capture` events of its target up to the time.
 - The cull runs the same rewind at its game time (`campaign_db.cull_after`).
 - A game time of Day 0, 00:00 runs no rewind, because the game clock reads that until it holds a real time.
 
@@ -823,7 +824,7 @@ A new campaign is a copy of a world template (see [World templates](#world-templ
 
 - `open_campaign` builds a missing `campaign.db` from SSR Vanilla through `campaign.db.tmp`.
 - `open_campaign` migrates the schema of an earlier release (`server/store/migrations.py`). Each schema that a release shipped has one step to the next schema in `migrations.STEPS`, and a campaign runs every step from its own schema up. Before the steps, it copies the database to `campaign_ssr<release>_backup.db` in the campaign folder with the SQLite backup API, so a player who goes back to that release keeps the campaign. Then one transaction runs the steps. A failed copy or step leaves the old schema and closes the campaign with the error.
-- The step from schema 22, of releases 1 and 2, adds the `captive` table and renames the seeded Holy Nation leader "Holy Lord Phoenix LXII" to "Holy Lord Phoenix", the name of the game and of his character record, unless the player changed it. The step from schema 23, of release 3, adds the `quest` and `quest_kill` tables (see [Quests](#quests)), so it changes no stored data. The SQL of a step stays as its release needed it, because a later schema change gets a step of its own.
+- The step from schema 22, of releases 1 and 2, adds the `captive` table and renames the seeded Holy Nation leader "Holy Lord Phoenix LXII" to "Holy Lord Phoenix", the name of the game and of his character record, unless the player changed it. The step from schema 23, of release 3, adds the `quest` and `quest_defeat` tables (see [Quests](#quests)), so it changes no stored data. The SQL of a step stays as its release needed it, because a later schema change gets a step of its own.
 - Each database holds the mod version that created or last migrated it in the `ssr_version` meta row. `open_campaign` refuses any other schema version, and the reason names the SSR version of that row, because only that version is sure to open the campaign. A database with no `ssr_version` row predates the releases, so the reason says to start a new campaign.
 - With no current campaign, or a deleted `campaign.db`, each operation fails with the reason, and a route answers 409.
 
@@ -1028,20 +1029,20 @@ The window:
 
 #### Quests tab
 
-The Quests tab shows the jobs in place of the search, the page buttons, New Entry, and the boxes of an entry. It lists each job that is `open` or `done`, newest first by its accept, with the giver and the job as the label, for example "Sergeant Rook: Kill 5 members of the Dust Bandits". A read-only box shows the selected job (`quests.details`):
+The Quests tab shows the jobs in place of the search, the page buttons, New Entry, and the boxes of an entry. It lists each job that is `open` or `done`, newest first by its accept, with the giver and the job as the label, for example "Sergeant Rook: Defeat 12 members of the Dust Bandits". A read-only box shows the selected job (`quests.details`):
 
 | Line | Text |
 |---|---|
 | Giver | "Giver: Sergeant Rook of the United Cities, last seen at Bar, Heng." The place is the `CurrentLocation` of the giver's profile. |
-| Reward | "Reward: 2,500 cats." |
-| Progress | "Progress: 2 of 5 killed.", "Progress: Not done yet." for a figure job, or "Progress: Done. Go back to Sergeant Rook for the reward." A goods job reads "Progress: Bring 5 Raw Iron to Harvag." |
+| Reward | "Reward: 1,200 cats." |
+| Progress | "Progress: 2 of 12 defeated.", "Progress: Not done yet." for a figure job, or "Progress: Done. Go back to Sergeant Rook for the reward." A goods job reads "Progress: Bring 5 Raw Iron to Harvag." |
 
-Abandon asks "Give up the job for Sergeant Rook?" in a popup, as Delete does for an entry. A confirm deletes the job and its deaths, so its giver can give a new job.
+Abandon asks "Give up the job for Sergeant Rook?" in a popup, as Delete does for an entry. A confirm deletes the job and its defeats, so its giver can give a new job.
 
 | Route | Behavior |
 |---|---|
 | `POST /quests` | The `open` and `done` jobs with the text of their boxes, and the active campaign |
-| `POST /quests/abandon` | Delete a job and its deaths |
+| `POST /quests/abandon` | Delete a job and its defeats |
 
 - A paid or a failed job leaves the list. Its game message told the player.
 - Each switch to the Quests tab asks for the list again, and the tab drops a reply that a newer request made stale, as the Entries tab does.

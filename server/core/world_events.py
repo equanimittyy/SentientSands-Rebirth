@@ -1,6 +1,6 @@
 """Which known figures the player's squad killed or captured, from the game events, the days that the player's faction has
-held each captive, the re-key of a character's records when a squad change gives it a new npc_id, and the kills that count
-toward the jobs of the squad and the deaths of givers that fail them (chat/quests.py).
+held each captive, the re-key of a character's records when a squad change gives it a new npc_id, and the defeats that
+count toward the jobs of the squad and the deaths of givers that fail them (chat/quests.py).
 
 The plugin keeps no state, so its hooks stay light: it sends the attacks of the player's faction, and the knockouts,
 wake-ups, deaths, and imprisonments of everyone. The server keeps the game events of each character in memory and replays them
@@ -44,21 +44,26 @@ def take(game_events, ctx=None):
             continue
         if at is None:
             continue
-        ended = _attribute(game_event, at)
+        attackers, down = _attribute(game_event, at)
         if game_event.get("kind") == "death":
             try:
                 notes += quests.giver_died(canon_id(game_event["party"]), at)
             except campaign_db.CampaignUnavailable:
                 pass
-        if ended:
+        if attackers:
             try:
+                if game_event["kind"] == "knockout":
+                    # A drop of a carried character and a load send a knockout of a character that is already down
+                    if not down:
+                        notes += quests.count_defeat(game_event.get("party") or {}, at)
+                    continue
                 # A load imprisons each prisoner again with no attackers, so it does not restart the clock
                 if game_event["kind"] == "imprisonment":
                     campaign_db.start_captive(game_event["party"]["id"], at)
-                done = _store(game_event["kind"], game_event["party"], ended, at)
-                # One kill never pays two jobs
-                if game_event["kind"] == "death" and not done:
-                    done = quests.count_death(game_event["party"], at)
+                done = _store(game_event["kind"], game_event["party"], attackers, at)
+                # One kill never pays two jobs, and the knockout of a character that dies down already counted its defeat
+                if game_event["kind"] == "death" and not done and not down:
+                    done = quests.count_defeat(game_event["party"], at)
                 notes += done
             except campaign_db.CampaignUnavailable:
                 pass  # The event is lost, but the report must still update the player's context
@@ -89,7 +94,8 @@ def _minutes(event):
 
 
 def _attribute(game_event, at):
-    """Adds the game event to the history of its character. Returns the attackers of a death or an imprisonment, else None."""
+    """Adds the game event to the history of its character. Returns the attackers of a knockout, a death, or an imprisonment,
+    and whether the character already lay knocked out before it."""
     global _newest, _campaign
     kind = game_event.get("kind")
     if kind == "attack":
@@ -99,7 +105,7 @@ def _attribute(game_event, at):
     else:
         key = game_event.get("id")
     if not key or kind not in ("attack", "knockout", "up", *ENDS):
-        return None
+        return [], False
     with _lock:
         if _campaign != state.ACTIVE_CAMPAIGN:
             _histories.clear()
@@ -110,7 +116,7 @@ def _attribute(game_event, at):
         _newest = at
         history = _histories.setdefault(key, [])
         history.append((at, game_event))
-        return _attackers(history) if kind in ENDS else None
+        return _attackers(history) if kind in ("knockout", *ENDS) else ([], False)
 
 
 def fought_recently(npc_ids, ctx):
@@ -153,7 +159,8 @@ def _rewind(at):
 
 
 def _attackers(history):
-    """The attackers of the death or imprisonment at the end of history, from the game events since the one before it."""
+    """The attackers of the event at the end of history, from the game events since the death or the imprisonment before
+    it, and whether the character lay knocked out at that event."""
     end = history[-1][0]
     start = len(history) - 1
     while start > 0 and history[start - 1][1]["kind"] not in ENDS:
@@ -170,7 +177,7 @@ def _attackers(history):
         elif game_event["kind"] == "up" and not game_event.get("carried"):
             marked = False
             attackers = {key: (attacker, at) for key, (attacker, _) in attackers.items()}
-    return [attacker for attacker, at in attackers.values() if marked or end - at <= ATTACK_WINDOW_MINUTES]
+    return [attacker for attacker, at in attackers.values() if marked or end - at <= ATTACK_WINDOW_MINUTES], marked
 
 
 def canon_id(party):
