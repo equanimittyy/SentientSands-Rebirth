@@ -22,7 +22,7 @@ RULER_REWARDS = {"leader": 20000, "nobles": 10000}
 COUNTS = (3, 8)
 DEFEAT_COUNTS = (10, 20)
 DEFEAT_REWARD = 100
-RELATION_RAISES = {"figure": 30, "faction": 2}
+RELATION_RAISES = {"figure": 30, "faction": 3, "goods": 1}
 # The value of each material in the vanilla game data
 MATERIAL_VALUES = {"Raw Iron": 150, "Copper": 300, "Animal Skin": 400, "Fabrics": 300, "Hemp": 100, "Cotton": 50, "Raw Meat": 100,
                    "Greenfruit": 60, "Wheatstraw": 40, "Cactus": 30, "Riceweed": 25}
@@ -123,7 +123,7 @@ def goods_job(goods):
     if not materials:
         return None
     material, count = random.choice(materials), random.randint(*COUNTS)
-    return {"kind": "goods", "target": material, "target_name": material, "count": count, "reward": count * MATERIAL_VALUES[material] * 3 // 2}
+    return {"kind": "goods", "target": material, "target_name": material, "count": count, "reward": count * MATERIAL_VALUES[material] * 6 // 5}
 
 
 def trader_materials(goods):

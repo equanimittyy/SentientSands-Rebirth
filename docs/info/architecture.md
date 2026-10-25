@@ -686,11 +686,11 @@ The enemies of a giver are the faction records that the `enemies` field of its f
 |---|---|
 | Figure | 20,000 cats for a leader, 10,000 cats for a noble |
 | Faction | 100 cats for each defeat |
-| Goods | One and a half times the value of the material in the vanilla game data for each item, rounded down for the whole job: Raw Iron 150, Copper 300, Animal Skin 400, Fabrics 300, Hemp 100, Cotton 50, Raw Meat 100, Greenfruit 60, Wheatstraw 40, Cactus 30, Riceweed 25 |
+| Goods | 1.2 times the value of the material in the vanilla game data for each item: Raw Iron 150, Copper 300, Animal Skin 400, Fabrics 300, Hemp 100, Cotton 50, Raw Meat 100, Greenfruit 60, Wheatstraw 40, Cactus 30, Riceweed 25 |
 
 - The reward is fixed. The turn message says so, and the NPC cannot bargain it.
 - The plugin creates the cats with `ADD_CATS`, as for charity, because a giver can carry fewer cats than the reward.
-- The reward of a figure job also raises the relation of the paying NPC's faction with the player faction by 30, and the reward of a faction job by 2 (`RAISE_RELATION`, `quests.RELATION_RAISES`). The plugin sets the relation from the side of the NPC's faction, as the Cheats window does (`DoRaiseRelation` in `plugin/game/GameActions.cpp`). No game test has shown whether the game mirrors the change to the side of the player faction, so the log gives both sides.
+- The reward also raises the relation of the paying NPC's faction with the player faction: by 30 for a figure job, by 3 for a faction job, and by 1 for a goods job (`RAISE_RELATION`, `quests.RELATION_RAISES`). A giver without a faction raises no relation. The plugin sets the relation from the side of the NPC's faction, as the Cheats window does (`DoRaiseRelation` in `plugin/game/GameActions.cpp`). No game test has shown whether the game mirrors the change to the side of the player faction, so the log gives both sides.
 
 #### Flow
 
@@ -701,14 +701,14 @@ The enemies of a giver are the faction records that the `enemies` field of its f
 5. The reply to each marked QUEST line about a new job carries the popup of the job. A line without the mark carries no popup. An `[END]` next to the popup does not close the action dialogue, as for an offer.
 6. Accept of a new job stores it at the game time of the answer (`campaign_db.add_quest`), writes the deal line, says a line of `quest_accept`, and ends the chat thread.
 7. Each counted defeat and each change of state shows a game message (`NOTIFY:`): "Job for Sergeant Rook: 3 of 12 members of the Dust Bandits defeated.", "Job done: go back to Sergeant Rook for the reward.", or "Job failed: Tinfist is dead."
-8. Accept of a reward sends `ADD_CATS`, and `RAISE_RELATION` for a figure or a faction job, marks the job paid, writes the deal line, says a line of `quest_paid`, and ends the chat thread. An accept of a job that changed while the popup waited, for example by Abandon, pays nothing, and shows "X's offer no longer stands.".
+8. Accept of a reward sends `ADD_CATS` and `RAISE_RELATION`, marks the job paid, writes the deal line, says a line of `quest_paid`, and ends the chat thread. An accept of a job that changed while the popup waited, for example by Abandon, pays nothing, and shows "X's offer no longer stands.".
 
 | Popup | Text |
 |---|---|
 | A new job | "Sergeant Rook offers a job: defeat 12 members of the Dust Bandits. Reward: 1,200 cats." |
 | A new figure job | "Holy Lord Phoenix offers a job: kill or capture Tinfist, leader of the Anti-Slavers. Reward: 20,000 cats." |
 | A reward | "Sergeant Rook pays 1,200 cats for the job." |
-| A goods reward | "Harvag offers 1,125 cats for 5 Raw Iron." |
+| A goods reward | "Harvag offers 900 cats for 5 Raw Iron." |
 
 - A goods job has no done state before the hand-over. The popup holds a `CHECK:` line for the items (`offers.checks`). The hand-over is `BUY_ITEM` for a trader in a shop, so the items go into the stock, and `TAKE_ITEM` with a `CHECK: ROOM` line for any other trader, as in a trade.
 - The chat scene of an NPC that answers for a job names the job and its progress (`quests.scene_text`), so a plain chat line can talk about it. The text is a part of the key of the scene, so a change of the progress starts a new scene.

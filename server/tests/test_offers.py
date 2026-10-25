@@ -499,15 +499,15 @@ class QuestOfferTest(unittest.TestCase):
     def test_a_new_job_runs_no_action_and_a_reward_creates_its_cats_and_raises_the_faction_relation(self):
         self.assertEqual((offers.actions(offers.quest_offer(self.NEW, False)), offers.checks(offers.quest_offer(self.NEW, False))), ([], []))
         self.assertEqual((offers.actions(offers.quest_offer(self.DONE, True)), offers.checks(offers.quest_offer(self.DONE, True))),
-                         (["[ACTION: ADD_CATS: 2500]", "[ACTION: RAISE_RELATION: 2]"], []))
+                         (["[ACTION: ADD_CATS: 2500]", "[ACTION: RAISE_RELATION: 3]"], []))
         figure = {**self.FIGURE, "id": 2, "state": "done"}
         self.assertEqual(offers.actions(offers.quest_offer(figure, False)), ["[ACTION: ADD_CATS: 20000]", "[ACTION: RAISE_RELATION: 30]"])
 
     def test_a_hand_over_of_goods_goes_into_the_stock_of_a_shop_and_else_needs_room(self):
         shop, carried = offers.quest_offer(self.GOODS, True), offers.quest_offer(self.GOODS, False)
-        self.assertEqual(offers.actions(shop), ["[ACTION: BUY_ITEM: Raw Iron: 5]", "[ACTION: ADD_CATS: 1500]"])
+        self.assertEqual(offers.actions(shop), ["[ACTION: BUY_ITEM: Raw Iron: 5]", "[ACTION: ADD_CATS: 1500]", "[ACTION: RAISE_RELATION: 1]"])
         self.assertEqual(offers.checks(shop), ["CHECK: ITEM player 5 Raw Iron"])
-        self.assertEqual(offers.actions(carried), ["[ACTION: TAKE_ITEM: Raw Iron: 5]", "[ACTION: ADD_CATS: 1500]"])
+        self.assertEqual(offers.actions(carried), ["[ACTION: TAKE_ITEM: Raw Iron: 5]", "[ACTION: ADD_CATS: 1500]", "[ACTION: RAISE_RELATION: 1]"])
         self.assertEqual(offers.checks(carried), ["CHECK: ITEM player 5 Raw Iron", "CHECK: ROOM player 5 Raw Iron"])
         self.assertEqual(offers.command(7, carried, "Harvag", 20, 1, "Harvag offers 1,500 cats for 5 Raw Iron.").split("\n"),
                          ["CMD: OFFER: 7", "20 1", "Harvag", "Harvag offers 1,500 cats for 5 Raw Iron.", "CHECK: ITEM player 5 Raw Iron", "CHECK: ROOM player 5 Raw Iron"])

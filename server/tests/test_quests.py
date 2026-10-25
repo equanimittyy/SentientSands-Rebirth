@@ -153,11 +153,11 @@ class RollTest(QuestTestCase):
         campaign_db.add_quest(job("figure", "u:nagata", 1, 10000, giver="u:another", giver_faction=OTHER), 60)
         self.assertIsNone(quests.figure_job(LEADER))
 
-    def test_a_trader_brings_a_material_of_its_class_for_one_and_a_half_times_its_value(self):
+    def test_a_trader_brings_a_material_of_its_class_for_1_2_times_its_value(self):
         goods = [{"name": "Katana", "kind": "weapon"}, {"name": "Bolts", "kind": "ammo"}, {"name": "Bread", "kind": "food"}]
         with mock.patch.object(quests.random, "randint", return_value=5):
             made = quests.roll(GUARD, "Harvag", {"trader"}, goods)
-        self.assertEqual((made["kind"], made["target"], made["count"], made["reward"]), ("goods", "Raw Iron", 5, 1125))
+        self.assertEqual((made["kind"], made["target"], made["count"], made["reward"]), ("goods", "Raw Iron", 5, 900))
 
     def test_the_class_needs_half_of_the_item_stacks(self):
         food, weapon, armour, drug = ({"name": name, "kind": kind} for name, kind in (("Bread", "food"), ("Katana", "weapon"), ("Rags", "armour"), ("Sake", "drug")))
