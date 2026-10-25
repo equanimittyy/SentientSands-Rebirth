@@ -268,17 +268,18 @@ def giver_died(victim_id, at):
 
 
 def check(now):
-    """Fails each job whose giver the game holds dead or imprisoned, and each open figure job whose target it holds dead or
-    imprisoned, at the game time now. It runs after the events of the request, so an event and a state in one request mark
-    the job done, and a game event that a failed request lost fails the job. Returns the game messages."""
+    """Fails each job whose giver the game holds dead, and each open figure job whose target it holds dead or imprisoned, at
+    the game time now. A giver in a cage keeps its job, because the player can get it out and then collect. It runs after
+    the events of the request, so an event and a state in one request mark the job done, and a game event that a failed
+    request lost fails the job. Returns the game messages."""
     if not now:
         return []
     fallen, notes = rulers.character_states(), []
     for job in campaign_db.quests():
-        target = [(job["target"], job["target_name"])] if job["kind"] == "figure" and job["state"] == "open" else []
-        npc_id, name = next(((npc_id, name) for npc_id, name in (*target, (job["giver"], job["giver_name"])) if npc_id in fallen), (None, None))
-        if npc_id:
-            notes += _fail(job, name, fallen[npc_id], now)
+        if job["kind"] == "figure" and job["state"] == "open" and job["target"] in fallen:
+            notes += _fail(job, job["target_name"], fallen[job["target"]], now)
+        elif fallen.get(job["giver"]) == "dead":
+            notes += _fail(job, job["giver_name"], "dead", now)
     return notes
 
 

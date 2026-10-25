@@ -2,6 +2,7 @@ import json
 import os
 import sys
 import unittest
+from unittest import mock
 
 ROOT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..")
 sys.path.insert(0, os.path.join(ROOT, "server"))
@@ -82,7 +83,12 @@ class PlainChatTest(unittest.TestCase):
         self.assertEqual(self.chat("QUEST"), "You have no work to give.")
         for npc in (GUARD, {"is_leader": True}, {"is_trader": True}):
             self.assertIsNone(self.chat("QUEST", npc))
-        self.assertEqual(self.chat("QUEST", {**GUARD, "character_state": "imprisoned"}), "You are locked in a cage, so you cannot give work.")
+        caged = {"character_state": "imprisoned"}
+        with mock.patch.object(ad.quests, "held", return_value=None):
+            self.assertEqual(self.chat("QUEST", {**GUARD, **caged}), "You are locked in a cage, so you give {player} work only after {player} gets you out of the cage.")
+            self.assertEqual(self.chat("QUEST", caged), "You have no work to give.")
+        with mock.patch.object(ad.quests, "held", return_value={"id": 1}):
+            self.assertEqual(self.chat("QUEST", caged), "You are locked in a cage, so you pay {player}'s group for your job only after {player} gets you out of the cage.")
         self.assertEqual(self.chat("QUEST", GUARD, {"character_state": "imprisoned"}), "{player} is locked in a cage, so {player} cannot take work.")
 
     def test_the_roles_of_a_giver(self):

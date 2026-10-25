@@ -238,13 +238,19 @@ class CountTest(QuestTestCase):
         self.take(killed(TINFIST, 610), 610)
         self.assertEqual(campaign_db.quest(faction_job)["kills"], 0)
 
-    def test_the_figure_job_fails_when_the_game_holds_its_target_or_its_giver_dead_or_imprisoned(self):
+    def test_the_figure_job_fails_when_the_game_holds_its_target_dead_or_imprisoned_and_its_giver_dead(self):
         target = campaign_db.add_quest(job("figure", "u:tinfist", 1, 20000, giver="u:tengu", giver_name="Emperor Tengu"), 600)
         giver = campaign_db.add_quest(job("figure", "u:dust-king", 1, 20000, giver="u:esata", giver_name="Esata", giver_faction=OTHER), 600)
-        state.UNIQUE_STATES = [{"id": "tinfist", "name": "Tinfist", "state": "dead"}, {"id": "esata", "name": "Esata", "state": "imprisoned"}]
-        self.assertEqual(self.take([], 610), ["Job failed: Esata is imprisoned.", "Job failed: Tinfist is dead."])
+        state.UNIQUE_STATES = [{"id": "tinfist", "name": "Tinfist", "state": "imprisoned"}, {"id": "esata", "name": "Esata", "state": "dead"}]
+        self.assertEqual(self.take([], 610), ["Job failed: Esata is dead.", "Job failed: Tinfist is imprisoned."])
         self.assertEqual(self.states(), [(giver, "failed", 0), (target, "failed", 0)])
         self.assertEqual(self.take([], 620), [])
+
+    def test_a_giver_in_a_cage_keeps_its_job(self):
+        quest_id = campaign_db.add_quest(job(giver="u:tengu", giver_name="Emperor Tengu"), 600)
+        state.UNIQUE_STATES = [{"id": "tengu", "name": "Emperor Tengu", "state": "imprisoned"}]
+        self.assertEqual(self.take([], 610), [])
+        self.assertEqual(self.states(), [(quest_id, "open", 0)])
 
     def test_a_kill_and_a_dead_state_in_one_request_do_the_job(self):
         quest_id = campaign_db.add_quest(job("figure", "u:tinfist", 1, 20000, giver="u:tengu", giver_name="Emperor Tengu"), 600)

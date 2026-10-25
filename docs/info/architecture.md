@@ -643,7 +643,9 @@ A QUEST line goes to plain chat with the reason as the NPC's thought (`plain_cha
 | Case | Thought |
 |---|---|
 | The NPC is not a leader (`current_job.is_leader`), a guard (`is_guard`), or a trader (`is_trader`) | "You have no work to give." |
-| The NPC or the speaker is `imprisoned` | "You are locked in a cage, so you cannot give work." or "{player} is locked in a cage, so {player} cannot take work." |
+| The NPC is `imprisoned` and answers for a job | "You are locked in a cage, so you pay {player}'s group for your job only after {player} gets you out of the cage." |
+| The NPC is `imprisoned` and is a giver | "You are locked in a cage, so you give {player} work only after {player} gets you out of the cage." |
+| The speaker is `imprisoned` | "{player} is locked in a cage, so {player} cannot take work." |
 | The NPC answers for no job, and its faction already gave a job that is open or done | "You heard that Sergeant Rook of your faction gave Beep's group a job: kill 5 members of the Dust Bandits, and that Sergeant Rook is at Bar, Heng. Only Sergeant Rook pays for that job, so you have no other work for Beep now." (`quests.heard_text`). The place is the `CurrentLocation` of the giver's profile, and the thought leaves it out when the profile has none. |
 | The NPC answers for no job and has no job to give | "You have no work for {player} now." |
 
@@ -677,7 +679,7 @@ The enemies of a giver are the faction records that the `enemies` field of its f
 - `ELECTRONICS` holds the items of the vendor list `Hi tech junk` that `ItemKind` gives the kind `goods`: CPU Unit, Electrical Components, Generator Core, Motor, Power Core, and Robotics Components.
 - Code picks one material of the class that the goods of the trader do not hold, because the player could buy it from the trader and sell it back at the reward. A class with no such material gives no job. The count is 3 to 8.
 - A trader keeps its handle across a town reload ([kenshi_internals.md](kenshi_internals.md#character-identity)), so the player finds the giver of a goods job again.
-- A job of each kind fails at a `death` game event of its giver (`quests.giver_died`), and when the game holds a unique giver dead or imprisoned (`quests.check`), also after the job is done, because only the giver pays it.
+- A job of each kind fails at a `death` game event of its giver (`quests.giver_died`), and when the game holds a unique giver dead (`quests.check`), also after the job is done, because only the giver pays it. A giver in a cage keeps its job, and it pays only after the player gets it out.
 
 | Job | Reward |
 |---|---|

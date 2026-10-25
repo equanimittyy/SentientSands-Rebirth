@@ -9,7 +9,7 @@ import json
 import random
 import re
 
-from chat import current_job, scene_text
+from chat import current_job, quests, scene_text
 from chat.characters import is_skeleton
 from core import state
 from core.paths import DEFAULTS_DIR
@@ -134,10 +134,13 @@ def plain_chat(category, npc, speaker):
         if current_job.is_leader(npc):
             return f"You lead {npc.get('faction') or 'your faction'} and will not leave it."
     elif category == "QUEST":
+        if npc_state == "imprisoned":
+            if quests.held(npc):
+                return "You are locked in a cage, so you pay {player}'s group for your job only after {player} gets you out of the cage."
+            if giver_roles(npc):
+                return "You are locked in a cage, so you give {player} work only after {player} gets you out of the cage."
         if not giver_roles(npc):
             return "You have no work to give."
-        if npc_state == "imprisoned":
-            return "You are locked in a cage, so you cannot give work."
         if speaker_state == "imprisoned":
             return "{player} is locked in a cage, so {player} cannot take work."
     return None
