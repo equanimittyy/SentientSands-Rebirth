@@ -197,8 +197,6 @@ def progress(job, speaker, player):
             lines.append(f"{player}'s group has defeated {job['defeats']} of the {job['count']} so far.")
         else:
             lines.append(f"{player}'s group has not killed or captured {job['target_name']} yet.")
-    if job["kind"] == "faction" and job.get("state") != "done":
-        lines.append("A knockout counts as a defeat, the same as a kill.")
     return lines
 
 

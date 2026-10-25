@@ -356,7 +356,7 @@ class TextTest(QuestTestCase):
     def test_a_new_job_names_what_the_npc_wants_and_the_fixed_reward(self):
         new = {**job(count=5, reward=2500), "target_name": "Dust Bandits"}
         self.assertEqual(quests.facts(new, SPEAKER, "Beep"), "JOB FACTS:\n- You want Beep's group to defeat 5 members of the Dust Bandits.\n- You pay 2,500 cats when it is done.\n"
-                         "- A knockout counts as a defeat, the same as a kill.\n- The reward is fixed.")
+                         "- The reward is fixed.")
         figure = {**job("figure", "u:tinfist", 1, 20000), "target_name": "Tinfist", "about": "leader of the Anti-Slavers"}
         self.assertEqual(quests.progress(figure, SPEAKER, "Beep"), ["You want Beep's group to kill or capture Tinfist, leader of the Anti-Slavers.", "You pay 20,000 cats when it is done."])
         goods = {**job("goods", "Raw Iron", 5, 1500), "target_name": "Raw Iron"}
@@ -374,8 +374,7 @@ class TextTest(QuestTestCase):
         quest_id = campaign_db.add_quest(job(count=5, reward=2500), 600)
         self.take(killed(bandit(1), 610) + killed(bandit(2), 611), 611)
         self.assertEqual(quests.progress(campaign_db.quest(quest_id), SPEAKER, "Beep"),
-                         ["You gave Beep's group a job: defeat 5 members of the Dust Bandits, for 2,500 cats.", "Beep's group has defeated 2 of the 5 so far.",
-                          "A knockout counts as a defeat, the same as a kill."])
+                         ["You gave Beep's group a job: defeat 5 members of the Dust Bandits, for 2,500 cats.", "Beep's group has defeated 2 of the 5 so far."])
         self.assertEqual(quests.scene_text(campaign_db.quest(quest_id), SPEAKER, "Beep").split(". ")[0],
                          "You gave Beep's group a job: defeat 5 members of the Dust Bandits, for 2,500 cats")
         self.assertEqual(quests.scene_text(None, SPEAKER, "Beep"), "")
