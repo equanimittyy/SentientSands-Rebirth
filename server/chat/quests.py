@@ -199,6 +199,14 @@ def progress(job, speaker, player):
     return lines
 
 
+def heard_text(job, player):
+    """The thought of a member of the giver's faction while the faction's job is held, so the NPC sends the player to the
+    giver."""
+    where = f", and that {job['giver_name']} is at {job['giver_location']}" if job["giver_location"] else ""
+    return (f"You heard that {job['giver_name']} of your faction gave {player}'s group a job: {job_text(job)}{where}. Only {job['giver_name']} pays for that job, "
+            f"so you have no other work for {player} now.")
+
+
 def facts(job, speaker, player):
     """The JOB FACTS of the turn message."""
     lines = [*progress(job, speaker, player), "The reward is fixed."]

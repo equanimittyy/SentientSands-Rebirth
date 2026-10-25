@@ -328,6 +328,14 @@ class TextTest(QuestTestCase):
         goods = {**job("goods", "Raw Iron", 5, 1500), "target_name": "Raw Iron"}
         self.assertEqual(quests.progress(goods, SPEAKER, "Beep"), ["You want Beep to bring you 5 Raw Iron.", "You pay 1,500 cats for them."])
 
+    def test_another_member_of_the_faction_heard_who_gave_the_job_and_where_the_giver_is(self):
+        quest_id = campaign_db.add_quest(job(count=5, reward=2500), 600)
+        self.assertEqual(quests.heard_text(campaign_db.quest(quest_id), "Beep"), "You heard that Sergeant Rook of your faction gave Beep's group a job: kill 5 members of the Dust Bandits. "
+                         "Only Sergeant Rook pays for that job, so you have no other work for Beep now.")
+        campaign_db.upsert_profile("h:7", {"Name": "Sergeant Rook", "CurrentLocation": "Bar, Heng"})
+        self.assertEqual(quests.heard_text(campaign_db.quest(quest_id), "Beep").split(". ")[0],
+                         "You heard that Sergeant Rook of your faction gave Beep's group a job: kill 5 members of the Dust Bandits, and that Sergeant Rook is at Bar, Heng")
+
     def test_a_held_job_tells_who_gave_it_and_how_far_it_is(self):
         quest_id = campaign_db.add_quest(job(count=5, reward=2500), 600)
         self.take(killed(bandit(1), 610) + killed(bandit(2), 611), 611)

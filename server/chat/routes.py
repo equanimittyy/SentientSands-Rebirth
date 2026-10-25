@@ -565,8 +565,7 @@ def chat():
         job = quests.held(ctx_dict) or (action or {}).get("job") or quests.roll(ctx_dict, primary_npc, roles, offers.goods(ctx_dict, "BARTER"))
         if not job:
             taken = quests.faction_held(ctx_dict)
-            chat_reason = (f"{player_name}'s group already does a job for {taken['giver_name']} of your faction, and only {taken['giver_name']} pays for it, so you have no work for {player_name} now."
-                           if taken else f"You have no work for {player_name} now.")
+            chat_reason = quests.heard_text(taken, player_name) if taken else f"You have no work for {player_name} now."
             logging.info(f"ACTION: The line of {player_name} to {primary_npc} goes to plain chat: {chat_reason}")
             category = None
     npc_party = (primary_id, primary_npc, context, npc_in_faction)

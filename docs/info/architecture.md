@@ -644,7 +644,7 @@ A QUEST line goes to plain chat with the reason as the NPC's thought (`plain_cha
 |---|---|
 | The NPC is not a leader (`current_job.is_leader`), a guard (`is_guard`), or a trader (`is_trader`) | "You have no work to give." |
 | The NPC or the speaker is `imprisoned` | "You are locked in a cage, so you cannot give work." or "{player} is locked in a cage, so {player} cannot take work." |
-| The NPC answers for no job, and its faction already gave a job that is open or done | "{player}'s group already does a job for {giver} of your faction, and only {giver} pays for it, so you have no work for {player} now." |
+| The NPC answers for no job, and its faction already gave a job that is open or done | "You heard that Sergeant Rook of your faction gave Beep's group a job: kill 5 members of the Dust Bandits, and that Sergeant Rook is at Bar, Heng. Only Sergeant Rook pays for that job, so you have no other work for Beep now." (`quests.heard_text`). The place is the `CurrentLocation` of the giver's profile, and the thought leaves it out when the profile has none. |
 | The NPC answers for no job and has no job to give | "You have no work for {player} now." |
 
 - The NPC answers only for its own open or done job (`quests.held`), so only the giver pays a job.
