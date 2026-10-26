@@ -52,8 +52,8 @@ TRADER_CLASSES = (
     ({"drug"}, ("Hemp",)),
     ({"medical"}, ("Hemp",)),
 )
-# A class needs this many item stacks, so one stray item, such as a first aid kit in a bar, gives no class
-CLASS_STACKS = 2
+# A class needs this many items, so one stray item, such as a first aid kit in a bar, gives no class
+CLASS_ITEMS = 3
 # The items of the vendor list Hi tech junk that ItemKind gives the kind goods
 ELECTRONICS = {"CPU Unit", "Electrical Components", "Generator Core", "Motor", "Power Core", "Robotics Components"}
 
@@ -165,11 +165,12 @@ def goods_job(goods):
 
 
 def trader_materials(goods):
-    """The materials of each class of which the goods hold at least CLASS_STACKS item stacks, the class with the most stacks
-    first, and a tie in the order of TRADER_CLASSES."""
-    kinds = ["electronics" if item.get("kind") == "goods" and item.get("name") in ELECTRONICS else item.get("kind") for item in goods]
-    counts = [(sum(kind in wanted for kind in kinds), materials) for wanted, materials in TRADER_CLASSES]
-    return [materials for count, materials in sorted(counts, key=lambda pair: -pair[0]) if count >= CLASS_STACKS]
+    """The materials of each class of which the goods hold at least CLASS_ITEMS items, the class with the most items first,
+    and a tie in the order of TRADER_CLASSES. Items count, not stacks, because food stacks and a weapon does not, so by
+    stacks a few weapons that the player sold to a barman outrank the food of the bar."""
+    items = [("electronics" if item.get("kind") == "goods" and item.get("name") in ELECTRONICS else item.get("kind"), int(item.get("count") or 1)) for item in goods]
+    counts = [(sum(count for kind, count in items if kind in wanted), materials) for wanted, materials in TRADER_CLASSES]
+    return [materials for count, materials in sorted(counts, key=lambda pair: -pair[0]) if count >= CLASS_ITEMS]
 
 
 def _canon():

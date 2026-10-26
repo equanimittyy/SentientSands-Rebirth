@@ -181,40 +181,47 @@ class RollTest(QuestTestCase):
         self.assertIsNone(quests.figure_job(LEADER))
 
     def test_a_trader_brings_a_material_of_its_class_for_1_2_times_its_value(self):
-        goods = [{"name": "Katana", "kind": "weapon"}, {"name": "Bolts", "kind": "ammo"}, {"name": "Bread", "kind": "food"}]
+        goods = [{"name": "Katana", "kind": "weapon"}, {"name": "Bolts", "kind": "ammo", "count": 20}, {"name": "Bread", "kind": "food"}]
         with mock.patch.object(quests.random, "randint", return_value=5):
             made = quests.roll(GUARD, "Harvag", {"trader"}, goods)
         self.assertEqual((made["kind"], made["target"], made["count"], made["reward"]), ("goods", "Raw Iron", 5, 900))
 
-    def test_each_class_with_2_item_stacks_counts_ranked_by_its_stacks(self):
+    def test_each_class_with_3_items_counts_ranked_by_its_items(self):
         food, weapon, armour, drug = ({"name": name, "kind": kind} for name, kind in (("Bread", "food"), ("Katana", "weapon"), ("Rags", "armour"), ("Sake", "drug")))
         water, blueprint = {"name": "Water", "kind": "goods"}, {"name": "Katana blueprint", "kind": "blueprint"}
         food_materials, armour_materials = ("Raw Meat", "Wheatstraw", "Greenfruit", "Cactus", "Riceweed"), ("Raw Iron", "Animal Skin", "Cotton", "Fabrics")
-        self.assertEqual(quests.trader_materials([food, food, weapon]), [food_materials])
-        self.assertEqual(quests.trader_materials([food, food, armour, armour, armour]), [armour_materials, food_materials])
-        self.assertEqual(quests.trader_materials([armour, armour, weapon, weapon, blueprint, blueprint, blueprint]), [("Raw Iron",), armour_materials])
-        self.assertEqual(quests.trader_materials([food, food, drug, water, water, water, weapon]), [food_materials])
-        self.assertEqual(quests.trader_materials([food, weapon, armour, drug]), [])
-        self.assertIsNone(quests.goods_job([food, weapon, armour, drug]))
+        self.assertEqual(quests.trader_materials([food, food, food, weapon, weapon]), [food_materials])
+        self.assertEqual(quests.trader_materials([food, food, food, armour, armour, armour, armour]), [armour_materials, food_materials])
+        self.assertEqual(quests.trader_materials([armour] * 3 + [weapon] * 3 + [blueprint] * 4), [("Raw Iron",), armour_materials])
+        self.assertEqual(quests.trader_materials([food, food, food, drug, water, water, water, weapon]), [food_materials])
+        self.assertEqual(quests.trader_materials([food, food, weapon, weapon, armour, armour, drug, drug]), [])
+        self.assertIsNone(quests.goods_job([food, food, weapon, weapon, armour, armour, drug, drug]))
         self.assertEqual(quests.trader_materials([]), [])
 
+    def test_the_items_of_a_stack_count_one_by_one(self):
+        bread = {"name": "Bread", "kind": "food", "count": 20}
+        weapons = [{"name": name, "kind": "weapon", "count": 1} for name in ("Katana", "Wakizashi", "Sabre")]
+        self.assertEqual(quests.trader_materials([bread] + weapons), [("Raw Meat", "Wheatstraw", "Greenfruit", "Cactus", "Riceweed"), ("Raw Iron",)])
+        self.assertEqual(quests.trader_materials([{"name": "Bread", "kind": "food", "count": 3}]), [("Raw Meat", "Wheatstraw", "Greenfruit", "Cactus", "Riceweed")])
+        self.assertEqual(quests.trader_materials([{"name": "Bread", "kind": "food", "count": 2}]), [])
+
     def test_the_hi_tech_junk_counts_as_electronics_by_its_name(self):
-        junk = [{"name": "CPU Unit", "kind": "goods"}, {"name": "Motor", "kind": "goods"}, {"name": "Rock", "kind": "goods"}]
+        junk = [{"name": name, "kind": "goods"} for name in ("CPU Unit", "Motor", "Power Core", "Rock")]
         self.assertEqual(quests.trader_materials(junk), [("Copper",)])
         self.assertEqual(quests.trader_materials(junk[1:] + [{"name": "Stone", "kind": "goods"}]), [])
 
     def test_a_material_that_the_goods_hold_drops_out(self):
-        goods = [{"name": "Katana", "kind": "weapon"}, {"name": "Raw Iron", "kind": "goods"}, {"name": "Bolts", "kind": "ammo"}]
+        goods = [{"name": "Katana", "kind": "weapon"}, {"name": "Raw Iron", "kind": "goods"}, {"name": "Bolts", "kind": "ammo", "count": 20}]
         self.assertIsNone(quests.goods_job(goods))
-        armour = [{"name": "Rags", "kind": "armour"}, {"name": "Leather Shirt", "kind": "armour"}, {"name": "raw iron", "kind": "goods"}]
+        armour = [{"name": name, "kind": "armour"} for name in ("Rags", "Leather Shirt", "Hat")] + [{"name": "raw iron", "kind": "goods"}]
         with mock.patch.object(quests.random, "choice", first):
             self.assertEqual(quests.goods_job(armour)["target"], "Animal Skin")
 
     def test_a_class_whose_materials_the_goods_all_hold_gives_way_to_the_next(self):
-        armour = [{"name": name, "kind": "armour"} for name in ("Rags", "Leather Shirt", "Hat")]
+        armour = [{"name": name, "kind": "armour"} for name in ("Rags", "Leather Shirt", "Hat", "Boots")]
         held = [{"name": name, "kind": "goods"} for name in ("Raw Iron", "Animal Skin", "Cotton", "Fabrics")]
         with mock.patch.object(quests.random, "choice", first):
-            self.assertEqual(quests.goods_job(armour + held + [{"name": "Bread", "kind": "food"}, {"name": "Dried Meat", "kind": "food"}])["target"], "Raw Meat")
+            self.assertEqual(quests.goods_job(armour + held + [{"name": "Bread", "kind": "food", "count": 3}])["target"], "Raw Meat")
 
 
 class HeldTest(QuestTestCase):
