@@ -186,10 +186,15 @@ class RollTest(QuestTestCase):
             made = quests.roll(GUARD, "Harvag", {"trader"}, goods)
         self.assertEqual((made["kind"], made["target"], made["count"], made["reward"]), ("goods", "Raw Iron", 5, 900))
 
-    def test_the_class_needs_half_of_the_item_stacks(self):
+    def test_the_class_with_the_most_item_stacks_needs_more_than_a_third_of_them(self):
         food, weapon, armour, drug = ({"name": name, "kind": kind} for name, kind in (("Bread", "food"), ("Katana", "weapon"), ("Rags", "armour"), ("Sake", "drug")))
+        water, blueprint = {"name": "Water", "kind": "goods"}, {"name": "Katana blueprint", "kind": "blueprint"}
         self.assertEqual(quests.trader_materials([food, food, weapon]), ("Raw Meat", "Wheatstraw", "Greenfruit", "Cactus", "Riceweed"))
         self.assertEqual(quests.trader_materials([food, weapon]), quests.trader_materials([food]))
+        self.assertEqual(quests.trader_materials([food, food, armour, armour, armour]), ("Raw Iron", "Animal Skin", "Cotton", "Fabrics"))
+        self.assertEqual(quests.trader_materials([armour, armour, weapon, blueprint, blueprint]), ("Raw Iron", "Animal Skin", "Cotton", "Fabrics"))
+        self.assertEqual(quests.trader_materials([food, food, drug, water, weapon]), quests.trader_materials([food]))
+        self.assertEqual(quests.trader_materials([food, weapon, armour]), ())
         self.assertEqual(quests.trader_materials([food, weapon, armour, drug]), ())
         self.assertIsNone(quests.goods_job([food, weapon, armour, drug]))
         self.assertEqual(quests.trader_materials([]), ())

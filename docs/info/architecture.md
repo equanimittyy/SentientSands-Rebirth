@@ -677,7 +677,7 @@ The enemies of a giver are the faction records that the `enemies` field of its f
 | Medium | Swamp Raptor, Crab, Boneyard Wolf, Gorillo | 5 to 10 |
 | Strong | Beak Thing, Black Gorillo | 3 to 6 |
 
-- Goods: The class of a trader comes from the `kind` of its goods (`offers.goods`, `ItemKind` in `plugin/game/Context.cpp`). The class needs at least half of the item stacks, because a general store sells a few items of each class (`quests.trader_materials`). A trader without a class gives no job.
+- Goods: The class of a trader comes from the `kind` of its goods (`offers.goods`, `ItemKind` in `plugin/game/Context.cpp`). The class with the most item stacks gives the materials when it holds more than a third of the item stacks (`quests.trader_materials`). A shop of two classes, such as weapons and armour, or a bar that also sells crossbows, water, and wanted posters, holds less than half of either class. A general store sells a few items of each class, so it has no class. A trader without a class gives no job.
 
 | Class | Kinds of the goods | Materials |
 |---|---|---|

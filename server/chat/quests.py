@@ -162,10 +162,12 @@ def goods_job(goods):
 
 
 def trader_materials(goods):
-    """The materials of the class that holds at least half of the item stacks of the goods, because a general store sells a
-    few items of each class. A trader without a class has none."""
+    """The materials of the class that holds the most item stacks of the goods, when it holds more than a third of them. A
+    shop of two classes, such as weapons and armour, or a bar that also sells crossbows, water, and wanted posters, holds less
+    than half of either, and a general store sells a few items of each class. A trader without a class has none."""
     kinds = ["electronics" if item.get("kind") == "goods" and item.get("name") in ELECTRONICS else item.get("kind") for item in goods]
-    return next((materials for wanted, materials in TRADER_CLASSES if kinds and 2 * sum(kind in wanted for kind in kinds) >= len(kinds)), ())
+    count, materials = max(((sum(kind in wanted for kind in kinds), materials) for wanted, materials in TRADER_CLASSES), key=lambda pair: pair[0])
+    return materials if count and 3 * count > len(kinds) else ()
 
 
 def _canon():
