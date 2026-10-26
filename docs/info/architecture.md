@@ -798,7 +798,7 @@ The line of the player waits its turn on the queue of replies as a line of an NP
 1. When the player sends the line, the plugin names the speaker with a `PLAYER_SAY` that holds no words (`SendChatLine` in `plugin/ui/ChatWindow.cpp`), and no bubble shows.
 2. With [Characterised dialogue](#characterised-dialogue), the server queues the "..." of the speaker, which shows while the rewrite runs.
 3. The server queues the line as `PLAYER_SAY` (`player_says` in `chat`): at once, or with Characterised dialogue after the rewrite. A line that starts with `/` and a line of only a mark show no bubble.
-4. Just before the chat call, the server queues the "..." of the NPC that answers and, except for a line to Anyone, the "{name} is thinking..." status, so they show right after the line of the speaker.
+4. Just before the chat call, and before the preset line of a due job reward (see [Quests](#quests)), the server queues the "..." of the NPC that answers and, except for a line to Anyone, the "{name} is thinking..." status, so they show right after the line of the speaker.
 5. The reply replaces the "...". A chat call that gives no reply ends the "...".
 
 - `!end`, DISMISS, and a line to Anyone that no one can answer stop before the chat call, so no "..." shows over an NPC that does not answer.

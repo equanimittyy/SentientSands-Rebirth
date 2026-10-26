@@ -420,6 +420,12 @@ def chat():
             play_lines([f"{player_name}: {words}"], player=True)
         covered = ""
 
+    def show_thinking():
+        # Queued, so they follow the line of the speaker, which can wait its turn. Only the server knows which NPC answers a line to Anyone.
+        thinking = state.LOCALIZATION_CONFIG.get(load_settings()["language"], {}).get("{name} is thinking...", "{name} is thinking...")
+        # An NPC that talks to itself is the speaker, so its "..." would replace its own line at once
+        play_lines([], after=[] if anyone else [f"NOTIFY: {thinking.replace('{name}', primary_npc)}"], thinker=None if self_talk else voice())
+
     def reply(*texts, actions=(), action_open=False, after=(), then=None):
         # Else the "..." over the speaker stays
         player_says(covered)
@@ -579,6 +585,7 @@ def chat():
                                location=location, npc_id=primary_id, day=ctx_dict.get("day"), accept=offers.accept_end(offer, ctx_dict, speaker))
         state.PENDING_OFFER["command"] = offers.command(offer_id, offer, primary_npc, target_key, speaker_key, popup)
         logging.info(f"ACTION: {popup}")
+        show_thinking()
         return reply(f"[QUEST] {action_dialogue.end_line('quest_reward')}", after=[state.PENDING_OFFER["command"]], action_open=bool(action))
     if category == "DISMISS":
         # The NPC never refuses, so a dismissal needs no call
@@ -752,10 +759,7 @@ def chat():
     notes = chat_prompt.overheard_notes(campaign_db.thread_members({thread_id for _, _, thread_id in history if thread_id}), primary_id)
     messages = chat_prompt.chat_messages(system, chat_prompt.history_turns(chat_prompt.with_notes(history, notes), primary_id), turn)
 
-    # Queued, so they follow the line of the speaker, which can wait its turn. Only the server knows which NPC answers a line to Anyone.
-    thinking = state.LOCALIZATION_CONFIG.get(load_settings()["language"], {}).get("{name} is thinking...", "{name} is thinking...")
-    # An NPC that talks to itself is the speaker, so its "..." would replace its own line at once
-    play_lines([], after=[] if anyone else [f"NOTIFY: {thinking.replace('{name}', primary_npc)}"], thinker=None if self_talk else voice())
+    show_thinking()
     content = call_llm("action" if category else "chat", messages, until)
     state.restart_quiet_clock()
     if not content:
