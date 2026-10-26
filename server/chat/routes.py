@@ -579,7 +579,7 @@ def chat():
     location = scene_text.location_name(speaker or state.PLAYER_CONTEXT)
     if category == "QUEST" and kind and "id" in job and quests.payable(job, speaker):
         # Code sets the reward and the NPC never refuses it, so the reward needs no call, which could fail or misstate it
-        offer = offers.quest_offer(job, offers.sells_stock(ctx_dict, "BARTER"))
+        offer = offers.quest_offer(job, offers.sells_stock(ctx_dict, "BARTER"), speaker)
         popup = offers.popup_text(offer, primary_npc, player_name)
         offer_id = offers.hold(offer, npc=primary_npc, player=player_name, voice=voice(), thread=current_thread, parties=[npc_party, speaker_party],
                                location=location, npc_id=primary_id, day=ctx_dict.get("day"), accept=offers.accept_end(offer, ctx_dict, speaker))

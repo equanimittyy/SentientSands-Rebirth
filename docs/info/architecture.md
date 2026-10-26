@@ -691,6 +691,7 @@ The enemies of a giver are the faction records that the `enemies` field of its f
 - The materials follow the crafting chains of the vanilla game data: Raw Iron makes Iron Plates and Armour Plating, and Iron Plates make Steel bars; Animal Skin makes Leather; Cotton makes Fabrics; Copper makes Electrical Components and goes into the robotics bench; Hemp makes Hashish and the Advanced First Aid Kit. Kenshi has no item named hide or cloth, so Animal Skin takes the place of hide, and both Cotton, the raw form, and Fabrics take the place of cloth.
 - `ELECTRONICS` holds the items of the vendor list `Hi tech junk` that `ItemKind` gives the kind `goods`: CPU Unit, Electrical Components, Generator Core, Motor, Power Core, and Robotics Components.
 - Code picks one material of the top class that the goods of the trader do not hold, because the player could buy it from the trader and sell it back at the reward. A class with no such material gives way to the next class, and a trader whose classes have none gives no job. The count is 3 to 8.
+- Code finds a material in the goods of a trader and in the inventory of the speaker by the string ID of the item (`template_id` of each item, `ItemsJson` in `plugin/game/Context.cpp`, and `quests.MATERIALS`), not by its name, because a mod can rename an item: UWE names Copper "Raw Copper".
 - A trader keeps its handle across a town reload ([kenshi_internals.md](kenshi_internals.md#character-identity)), so the player finds the giver of a goods job again.
 - A job of each kind fails at a `death` game event of its giver (`quests.giver_died`), and when the game holds a unique giver dead (`quests.check`), also after the job is done, because only the giver pays it. A giver in a cage keeps its job, and it pays only after the player gets it out.
 
@@ -724,13 +725,14 @@ The enemies of a giver are the faction records that the `enemies` field of its f
 | A goods reward | "Harvag offers 900 cats for 5 Raw Iron." |
 
 - A goods job has no done state before the hand-over. The popup holds a `CHECK:` line for the items (`offers.checks`). The hand-over is `BUY_ITEM` for a trader in a shop, so the items go into the stock, and `TAKE_ITEM` with a `CHECK: ROOM` line for any other trader, as in a trade.
+- The popup and the hand-over name the items as the speaker carries them (`quests.carried`), for example "Raw Copper" for a Copper job with UWE, because the plugin finds an item by the name that the game shows.
 - The chat scene of an NPC that answers for a job names the job and its progress (`quests.scene_text`), so a plain chat line can talk about it. The text is a part of the key of the scene, so a change of the progress starts a new scene.
 
 #### Storage and loads
 
 | Table | Columns |
 |---|---|
-| `quest` | `id` (`AUTOINCREMENT`), `giver` (`npc_id`), `giver_name`, `giver_faction` (game ID), `kind` (`figure`, `faction`, `hunt`, or `goods`), `target` (an `npc_id`, a faction game ID, an animal name, or an item name), `count`, `reward`, `state` (`open`, `done`, `failed`, or `paid`), `accepted_at`, `changed_at` |
+| `quest` | `id` (`AUTOINCREMENT`), `giver` (`npc_id`), `giver_name`, `giver_faction` (game ID), `kind` (`figure`, `faction`, `hunt`, or `goods`), `target` (an `npc_id`, a faction game ID, an animal name, or a material name of `quests.MATERIALS`), `count`, `reward`, `state` (`open`, `done`, `failed`, or `paid`), `accepted_at`, `changed_at` |
 | `quest_defeat` | `quest_id`, `game_time` |
 
 - `id` is `AUTOINCREMENT`, because the Quests tab keeps the ID of the selected job, and a late Abandon must never reach a new job.

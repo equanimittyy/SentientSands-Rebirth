@@ -38,9 +38,12 @@ HUNT_ANIMALS = {
     "Black Gorillo": ("55670-rebirth.mod", "Black Gorillos", "strong"),
 }
 HUNT_TIERS = {"weak": ((10, 20), 100), "medium": ((5, 10), 200), "strong": ((3, 6), 500)}
-# The value of each material in the vanilla game data
-MATERIAL_VALUES = {"Raw Iron": 150, "Copper": 300, "Animal Skin": 400, "Fabrics": 300, "Hemp": 100, "Cotton": 50, "Raw Meat": 100,
-                   "Greenfruit": 60, "Wheatstraw": 40, "Cactus": 30, "Riceweed": 25}
+# The value of each material in the vanilla game data. Code matches an item by its string ID, because a mod can rename it:
+# UWE names Copper "Raw Copper".
+MATERIALS = {"Raw Iron": ("1866-gamedata.base", 150), "Copper": ("42158-gamedata.base", 300), "Animal Skin": ("42241-rebirth.mod", 400),
+             "Fabrics": ("584-gamedata.base", 300), "Hemp": ("1965-gamedata.base", 100), "Cotton": ("42178-rebirth.mod", 50),
+             "Raw Meat": ("42243-rebirth.mod", 100), "Greenfruit": ("42309-changes_otto.mod", 60), "Wheatstraw": ("1913-gamedata.base", 40),
+             "Cactus": ("42304-changes_otto.mod", 30), "Riceweed": ("42307-changes_otto.mod", 25)}
 # The kinds of the goods of each class of trader (ItemKind in plugin/game/Context.cpp), and the materials that its crafting
 # chains in the vanilla game data start from. Kenshi has no hide or cloth, so Animal Skin takes the place of hide, and both
 # Cotton and Fabrics take the place of cloth.
@@ -155,12 +158,12 @@ def region_animals(zone):
 def goods_job(goods):
     """A job to bring a material that the goods do not hold, of the first class of the trader that has one, because the
     player could buy a material that the trader holds and sell it back at the reward."""
-    held_names = {str(item.get("name", "")).lower() for item in goods}
+    held_ids = {item.get("template_id") for item in goods}
     for materials in trader_materials(goods):
-        missing = [material for material in materials if material.lower() not in held_names]
+        missing = [material for material in materials if MATERIALS[material][0] not in held_ids]
         if missing:
             material, count = random.choice(missing), random.randint(*COUNTS)
-            return {"kind": "goods", "target": material, "target_name": material, "count": count, "reward": count * MATERIAL_VALUES[material] * 6 // 5}
+            return {"kind": "goods", "target": material, "target_name": material, "count": count, "reward": count * MATERIALS[material][1] * 6 // 5}
     return None
 
 
@@ -209,14 +212,16 @@ def job_text(job):
     return f"bring {job['count']} {job['target_name']}"
 
 
-def carried(speaker, item):
-    return sum(int(entry.get("count") or 1) for entry in speaker.get("inventory") or [] if str(entry.get("name", "")).lower() == item.lower())
+def carried(speaker, material):
+    """(name, count) of the items of the material that the speaker carries, the name as the game shows it, or (None, 0)."""
+    items = [entry for entry in speaker.get("inventory") or [] if entry.get("template_id") == MATERIALS[material][0]]
+    return (items[0]["name"], sum(int(entry.get("count") or 1) for entry in items)) if items else (None, 0)
 
 
 def payable(job, speaker):
     """Whether the reward of a held job is due: the job is done, or the speaker carries the goods of a goods job in full."""
     if job["kind"] == "goods":
-        return carried(speaker, job["target"]) >= job["count"]
+        return carried(speaker, job["target"])[1] >= job["count"]
     return job["state"] == "done"
 
 
@@ -228,7 +233,7 @@ def progress(job, speaker, player):
                  f"You pay {job['reward']:,} cats for them." if goods else f"You pay {job['reward']:,} cats when it is done."]
     elif goods:
         lines = [f"You asked {player} to bring you {job['count']} {job['target_name']}, for {job['reward']:,} cats."]
-        has = carried(speaker, job["target"])
+        has = carried(speaker, job["target"])[1]
         lines.append(f"{player} carries the {job['count']} {job['target_name']} that you asked for." if has >= job["count"]
                      else f"{player} carries only {has} of the {job['count']} {job['target_name']}." if has else f"{player} carries none of the {job['count']} {job['target_name']}.")
     else:

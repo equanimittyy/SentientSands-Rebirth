@@ -648,6 +648,9 @@ std::string ItemsJson(const std::vector<Item *> &items) {
     if (json.size() > 1)
       json += ",";
     json += "{\"name\": \"" + EscapeJSON(ItemLabel(items[i])) +
+            "\", \"template_id\": \"" +
+            EscapeJSON(items[i]->data ? items[i]->data->stringID
+                                      : std::string()) +
             "\", \"count\": " + ToString((int)items[i]->quantity) +
             ", \"price\": " + ToString(price) + ", \"equipped\": " +
             (items[i]->isEquipped ? "true" : "false") + ", \"slot\": \"" +

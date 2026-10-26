@@ -8,6 +8,8 @@ Each record of the game data, for example a faction, a character template, or a 
 
 A change of the mod list is not tested, by decision. Because a string ID names the mod file that adds the record, only the removal of that mod is expected to change it.
 
+A mod can rename a record and keep its string ID. The game data files show that UWE names the item Copper (`42158-gamedata.base`) "Raw Copper", so a match by the item name failed with UWE. The plugin gives the string ID of each item as `template_id` (`ItemsJson` in `plugin/game/Context.cpp`).
+
 ## Character identity
 
 `hand::toString()` gives the handle of a character as `index-serial-container-containerSerial-type`. `container` and `containerSerial` name the squad of the character, and `index` is its place in that squad.

@@ -210,16 +210,19 @@ class RollTest(QuestTestCase):
         self.assertEqual(quests.trader_materials(junk), [("Copper",)])
         self.assertEqual(quests.trader_materials(junk[1:] + [{"name": "Stone", "kind": "goods"}]), [])
 
-    def test_a_material_that_the_goods_hold_drops_out(self):
-        goods = [{"name": "Katana", "kind": "weapon"}, {"name": "Raw Iron", "kind": "goods"}, {"name": "Bolts", "kind": "ammo", "count": 20}]
+    def test_a_material_that_the_goods_hold_drops_out_by_its_string_id(self):
+        raw_iron = {"name": "Raw Iron", "kind": "goods", "template_id": "1866-gamedata.base"}
+        goods = [{"name": "Katana", "kind": "weapon"}, raw_iron, {"name": "Bolts", "kind": "ammo", "count": 20}]
         self.assertIsNone(quests.goods_job(goods))
-        armour = [{"name": name, "kind": "armour"} for name in ("Rags", "Leather Shirt", "Hat")] + [{"name": "raw iron", "kind": "goods"}]
+        junk = [{"name": name, "kind": "goods"} for name in ("CPU Unit", "Motor", "Power Core")]
+        self.assertIsNone(quests.goods_job(junk + [{"name": "Raw Copper", "kind": "goods", "template_id": "42158-gamedata.base"}]))
+        armour = [{"name": name, "kind": "armour"} for name in ("Rags", "Leather Shirt", "Hat")] + [raw_iron]
         with mock.patch.object(quests.random, "choice", first):
             self.assertEqual(quests.goods_job(armour)["target"], "Animal Skin")
 
     def test_a_class_whose_materials_the_goods_all_hold_gives_way_to_the_next(self):
         armour = [{"name": name, "kind": "armour"} for name in ("Rags", "Leather Shirt", "Hat", "Boots")]
-        held = [{"name": name, "kind": "goods"} for name in ("Raw Iron", "Animal Skin", "Cotton", "Fabrics")]
+        held = [{"name": name, "kind": "goods", "template_id": quests.MATERIALS[name][0]} for name in ("Raw Iron", "Animal Skin", "Cotton", "Fabrics")]
         with mock.patch.object(quests.random, "choice", first):
             self.assertEqual(quests.goods_job(armour + held + [{"name": "Bread", "kind": "food", "count": 3}])["target"], "Raw Meat")
 
@@ -447,12 +450,19 @@ class TextTest(QuestTestCase):
     def test_a_goods_job_counts_what_the_speaker_carries(self):
         held = {**job("goods", "Raw Iron", 5, 1500), "id": 1, "state": "open", "target_name": "Raw Iron"}
         def carrying(*counts):
-            return {"inventory": [{"name": "Raw Iron", "count": count} for count in counts]}
+            return {"inventory": [{"name": "Raw Iron", "template_id": "1866-gamedata.base", "count": count} for count in counts]}
         self.assertEqual(quests.progress(held, carrying(), "Beep")[1], "Beep carries none of the 5 Raw Iron.")
         self.assertEqual(quests.progress(held, carrying(2, 1), "Beep")[1], "Beep carries only 3 of the 5 Raw Iron.")
         self.assertEqual(quests.progress(held, carrying(3, 2), "Beep")[1], "Beep carries the 5 Raw Iron that you asked for.")
         self.assertFalse(quests.payable(held, carrying(4)))
         self.assertTrue(quests.payable(held, carrying(5)))
+
+    def test_a_goods_job_counts_a_material_that_a_mod_renames(self):
+        copper = {**job("goods", "Copper", 8, 2880), "id": 1, "state": "open", "target_name": "Copper"}
+        speaker = {"inventory": [{"name": "Raw Copper", "template_id": "42158-gamedata.base", "count": 9}]}
+        self.assertEqual(quests.carried(speaker, "Copper"), ("Raw Copper", 9))
+        self.assertEqual(quests.progress(copper, speaker, "Beep")[1], "Beep carries the 8 Copper that you asked for.")
+        self.assertTrue(quests.payable(copper, speaker))
 
     def test_only_a_done_job_is_payable(self):
         quest_id = campaign_db.add_quest(job(), 600)

@@ -372,13 +372,14 @@ def deal_text(offer, voice, player):
     return f"gives {player} {goods}" if voice == "accepted" else goods
 
 
-def quest_offer(job, stock):
+def quest_offer(job, stock, speaker=None):
     """The offer of a QUEST line: a new job, or the reward of a held job. The NPC never refuses a job and code knows it, so
     the offer comes with no deal tag. The reward costs the NPC nothing, because a giver can carry fewer cats than the reward,
-    and a hand-over of goods goes into the stock of a trader in a shop (stock)."""
+    and a hand-over of goods goes into the stock of a trader in a shop (stock). The plugin finds an item by the name that
+    the game shows, so the hand-over names the goods as the speaker carries them."""
     if "id" not in job:
         return {"category": "QUEST", "job": job, "gives": [], "takes": []}
-    takes = [("ITEM", (job["count"], job["target"]))] if job["kind"] == "goods" else []
+    takes = [("ITEM", (job["count"], quests.carried(speaker, job["target"])[0]))] if job["kind"] == "goods" else []
     return {"category": "QUEST", "job": job, "gives": [("CATS", job["reward"])], "takes": takes, **({"stock": True} if stock and takes else {})}
 
 
