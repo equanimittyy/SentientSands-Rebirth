@@ -677,7 +677,7 @@ The enemies of a giver are the faction records that the `enemies` field of its f
 | Medium | Swamp Raptor, Crab, Boneyard Wolf, Gorillo | 5 to 10 |
 | Strong | Beak Thing, Black Gorillo | 3 to 6 |
 
-- Goods: The class of a trader comes from the `kind` of its goods (`offers.goods`, `ItemKind` in `plugin/game/Context.cpp`). The class with the most item stacks gives the materials when it holds more than a third of the item stacks (`quests.trader_materials`). A shop of two classes, such as weapons and armour, or a bar that also sells crossbows, water, and wanted posters, holds less than half of either class. A general store sells a few items of each class, so it has no class. A trader without a class gives no job.
+- Goods: The class of a trader comes from the `kind` of its goods (`offers.goods`, `ItemKind` in `plugin/game/Context.cpp`). Each class of which the goods hold at least 2 item stacks is a class of the trader, ranked by its stacks (`quests.trader_materials`, `CLASS_STACKS`). A tie keeps the order of the table. One stray item, such as a first aid kit in a bar, gives no class. A trader without a class gives no job.
 
 | Class | Kinds of the goods | Materials |
 |---|---|---|
@@ -690,7 +690,7 @@ The enemies of a giver are the faction records that the `enemies` field of its f
 
 - The materials follow the crafting chains of the vanilla game data: Raw Iron makes Iron Plates and Armour Plating, and Iron Plates make Steel bars; Animal Skin makes Leather; Cotton makes Fabrics; Copper makes Electrical Components and goes into the robotics bench; Hemp makes Hashish and the Advanced First Aid Kit. Kenshi has no item named hide or cloth, so Animal Skin takes the place of hide, and both Cotton, the raw form, and Fabrics take the place of cloth.
 - `ELECTRONICS` holds the items of the vendor list `Hi tech junk` that `ItemKind` gives the kind `goods`: CPU Unit, Electrical Components, Generator Core, Motor, Power Core, and Robotics Components.
-- Code picks one material of the class that the goods of the trader do not hold, because the player could buy it from the trader and sell it back at the reward. A class with no such material gives no job. The count is 3 to 8.
+- Code picks one material of the top class that the goods of the trader do not hold, because the player could buy it from the trader and sell it back at the reward. A class with no such material gives way to the next class, and a trader whose classes have none gives no job. The count is 3 to 8.
 - A trader keeps its handle across a town reload ([kenshi_internals.md](kenshi_internals.md#character-identity)), so the player finds the giver of a goods job again.
 - A job of each kind fails at a `death` game event of its giver (`quests.giver_died`), and when the game holds a unique giver dead (`quests.check`), also after the job is done, because only the giver pays it. A giver in a cage keeps its job, and it pays only after the player gets it out.
 

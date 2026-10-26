@@ -52,6 +52,8 @@ TRADER_CLASSES = (
     ({"drug"}, ("Hemp",)),
     ({"medical"}, ("Hemp",)),
 )
+# A class needs this many item stacks, so one stray item, such as a first aid kit in a bar, gives no class
+CLASS_STACKS = 2
 # The items of the vendor list Hi tech junk that ItemKind gives the kind goods
 ELECTRONICS = {"CPU Unit", "Electrical Components", "Generator Core", "Motor", "Power Core", "Robotics Components"}
 
@@ -151,23 +153,23 @@ def region_animals(zone):
 
 
 def goods_job(goods):
-    """A job to bring a material of the class of the trader that its goods do not hold, because the player could buy a
-    material that the trader holds and sell it back at the reward."""
+    """A job to bring a material that the goods do not hold, of the first class of the trader that has one, because the
+    player could buy a material that the trader holds and sell it back at the reward."""
     held_names = {str(item.get("name", "")).lower() for item in goods}
-    materials = [material for material in trader_materials(goods) if material.lower() not in held_names]
-    if not materials:
-        return None
-    material, count = random.choice(materials), random.randint(*COUNTS)
-    return {"kind": "goods", "target": material, "target_name": material, "count": count, "reward": count * MATERIAL_VALUES[material] * 6 // 5}
+    for materials in trader_materials(goods):
+        missing = [material for material in materials if material.lower() not in held_names]
+        if missing:
+            material, count = random.choice(missing), random.randint(*COUNTS)
+            return {"kind": "goods", "target": material, "target_name": material, "count": count, "reward": count * MATERIAL_VALUES[material] * 6 // 5}
+    return None
 
 
 def trader_materials(goods):
-    """The materials of the class that holds the most item stacks of the goods, when it holds more than a third of them. A
-    shop of two classes, such as weapons and armour, or a bar that also sells crossbows, water, and wanted posters, holds less
-    than half of either, and a general store sells a few items of each class. A trader without a class has none."""
+    """The materials of each class of which the goods hold at least CLASS_STACKS item stacks, the class with the most stacks
+    first, and a tie in the order of TRADER_CLASSES."""
     kinds = ["electronics" if item.get("kind") == "goods" and item.get("name") in ELECTRONICS else item.get("kind") for item in goods]
-    count, materials = max(((sum(kind in wanted for kind in kinds), materials) for wanted, materials in TRADER_CLASSES), key=lambda pair: pair[0])
-    return materials if count and 3 * count > len(kinds) else ()
+    counts = [(sum(kind in wanted for kind in kinds), materials) for wanted, materials in TRADER_CLASSES]
+    return [materials for count, materials in sorted(counts, key=lambda pair: -pair[0]) if count >= CLASS_STACKS]
 
 
 def _canon():

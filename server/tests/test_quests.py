@@ -186,30 +186,35 @@ class RollTest(QuestTestCase):
             made = quests.roll(GUARD, "Harvag", {"trader"}, goods)
         self.assertEqual((made["kind"], made["target"], made["count"], made["reward"]), ("goods", "Raw Iron", 5, 900))
 
-    def test_the_class_with_the_most_item_stacks_needs_more_than_a_third_of_them(self):
+    def test_each_class_with_2_item_stacks_counts_ranked_by_its_stacks(self):
         food, weapon, armour, drug = ({"name": name, "kind": kind} for name, kind in (("Bread", "food"), ("Katana", "weapon"), ("Rags", "armour"), ("Sake", "drug")))
         water, blueprint = {"name": "Water", "kind": "goods"}, {"name": "Katana blueprint", "kind": "blueprint"}
-        self.assertEqual(quests.trader_materials([food, food, weapon]), ("Raw Meat", "Wheatstraw", "Greenfruit", "Cactus", "Riceweed"))
-        self.assertEqual(quests.trader_materials([food, weapon]), quests.trader_materials([food]))
-        self.assertEqual(quests.trader_materials([food, food, armour, armour, armour]), ("Raw Iron", "Animal Skin", "Cotton", "Fabrics"))
-        self.assertEqual(quests.trader_materials([armour, armour, weapon, blueprint, blueprint]), ("Raw Iron", "Animal Skin", "Cotton", "Fabrics"))
-        self.assertEqual(quests.trader_materials([food, food, drug, water, weapon]), quests.trader_materials([food]))
-        self.assertEqual(quests.trader_materials([food, weapon, armour]), ())
-        self.assertEqual(quests.trader_materials([food, weapon, armour, drug]), ())
+        food_materials, armour_materials = ("Raw Meat", "Wheatstraw", "Greenfruit", "Cactus", "Riceweed"), ("Raw Iron", "Animal Skin", "Cotton", "Fabrics")
+        self.assertEqual(quests.trader_materials([food, food, weapon]), [food_materials])
+        self.assertEqual(quests.trader_materials([food, food, armour, armour, armour]), [armour_materials, food_materials])
+        self.assertEqual(quests.trader_materials([armour, armour, weapon, weapon, blueprint, blueprint, blueprint]), [("Raw Iron",), armour_materials])
+        self.assertEqual(quests.trader_materials([food, food, drug, water, water, water, weapon]), [food_materials])
+        self.assertEqual(quests.trader_materials([food, weapon, armour, drug]), [])
         self.assertIsNone(quests.goods_job([food, weapon, armour, drug]))
-        self.assertEqual(quests.trader_materials([]), ())
+        self.assertEqual(quests.trader_materials([]), [])
 
     def test_the_hi_tech_junk_counts_as_electronics_by_its_name(self):
         junk = [{"name": "CPU Unit", "kind": "goods"}, {"name": "Motor", "kind": "goods"}, {"name": "Rock", "kind": "goods"}]
-        self.assertEqual(quests.trader_materials(junk), ("Copper",))
-        self.assertEqual(quests.trader_materials(junk[1:] + [{"name": "Stone", "kind": "goods"}]), ())
+        self.assertEqual(quests.trader_materials(junk), [("Copper",)])
+        self.assertEqual(quests.trader_materials(junk[1:] + [{"name": "Stone", "kind": "goods"}]), [])
 
     def test_a_material_that_the_goods_hold_drops_out(self):
         goods = [{"name": "Katana", "kind": "weapon"}, {"name": "Raw Iron", "kind": "goods"}, {"name": "Bolts", "kind": "ammo"}]
         self.assertIsNone(quests.goods_job(goods))
-        armour = [{"name": "Rags", "kind": "armour"}, {"name": "raw iron", "kind": "goods"}]
+        armour = [{"name": "Rags", "kind": "armour"}, {"name": "Leather Shirt", "kind": "armour"}, {"name": "raw iron", "kind": "goods"}]
         with mock.patch.object(quests.random, "choice", first):
             self.assertEqual(quests.goods_job(armour)["target"], "Animal Skin")
+
+    def test_a_class_whose_materials_the_goods_all_hold_gives_way_to_the_next(self):
+        armour = [{"name": name, "kind": "armour"} for name in ("Rags", "Leather Shirt", "Hat")]
+        held = [{"name": name, "kind": "goods"} for name in ("Raw Iron", "Animal Skin", "Cotton", "Fabrics")]
+        with mock.patch.object(quests.random, "choice", first):
+            self.assertEqual(quests.goods_job(armour + held + [{"name": "Bread", "kind": "food"}, {"name": "Dried Meat", "kind": "food"}])["target"], "Raw Meat")
 
 
 class HeldTest(QuestTestCase):
