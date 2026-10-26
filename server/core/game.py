@@ -1,16 +1,9 @@
 import json
 import logging
-import threading
 
 from core import state, world_events
 from core.pipe import send_to_pipe
 from store import campaign_db
-
-# One fight sends its defeats in several reports, so the messages of the jobs wait for a quiet spell
-JOB_NOTE_QUIET_SECONDS = 10
-_job_notes_lock = threading.Lock()
-_job_notes = {}
-_job_notes_timer = None
 
 def context_dict(context):
     if isinstance(context, dict):
@@ -117,7 +110,7 @@ def relation_text(rel):
 
 def take_report(player, events, towns, uniques, player_towns=None):
     """Keeps the player's context, the changed towns, and the unique NPCs that are not alive, takes the events that the
-    game events of a request from the plugin carries, queues the game messages of the jobs that they change, and keeps the
+    game events of a request from the plugin carries, shows the game messages of the jobs that they change, and keeps the
     records of the player's outposts in step. The plugin sends the context only with a request, so the player's context is
     the one of the latest request. A load of an older save can undo a change of a town or a death, so only the latest lists
     count."""
@@ -134,26 +127,7 @@ def take_report(player, events, towns, uniques, player_towns=None):
         listed = "The game sent none." if uniques is None else "; ".join(f"{unique['name']} ({unique['id']}): {unique['state']}" for unique in uniques)
         logging.debug(f"UNIQUES: {listed or 'No unique NPC is dead or imprisoned.'}")
     state.UNIQUE_STATES = uniques
-    queue_job_notes(world_events.take(events, player))
-
-def queue_job_notes(notes):
-    """Keeps the latest game message of each job, and shows them when no new one comes for JOB_NOTE_QUIET_SECONDS."""
-    global _job_notes_timer
-    if not notes:
-        return
-    with _job_notes_lock:
-        _job_notes.update(notes)
-        if _job_notes_timer:
-            _job_notes_timer.cancel()
-        _job_notes_timer = threading.Timer(JOB_NOTE_QUIET_SECONDS, send_job_notes)
-        _job_notes_timer.daemon = True
-        _job_notes_timer.start()
-
-def send_job_notes():
-    with _job_notes_lock:
-        notes = list(_job_notes.values())
-        _job_notes.clear()
-    for note in notes:
+    for note in world_events.take(events, player):
         send_to_pipe(f"NOTIFY: {note}")
 
 def report_from_game(timeout=5):

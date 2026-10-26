@@ -7,7 +7,7 @@ from unittest import mock
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
 
 from chat import quests
-from core import game, state, world_events
+from core import state, world_events
 from store import campaign_db
 
 UC = "defaultEmpireFactionSID"
@@ -109,7 +109,7 @@ class QuestTestCase(unittest.TestCase):
         self._tmp.cleanup()
 
     def take(self, events, now):
-        return list(world_events.take(events, when(now)).values())
+        return world_events.take(events, when(now))
 
     def states(self):
         return [(job["id"], job["state"], job["defeats"]) for job in campaign_db.quests(("open", "done", "failed", "paid"))]
@@ -238,10 +238,10 @@ class HeldTest(QuestTestCase):
 
 
 class CountTest(QuestTestCase):
-    def test_each_kill_after_the_accept_counts_until_the_job_is_done(self):
+    def test_each_kill_after_the_accept_counts_and_only_the_one_that_does_the_job_shows_a_message(self):
         quest_id = campaign_db.add_quest(job(), 600)
         self.assertEqual(self.take(killed(bandit(1), 599), 605), [])
-        self.assertEqual(self.take(killed(bandit(2), 610), 610), ["Job for Sergeant Rook: 1 of 2 members of the Dust Bandits defeated."])
+        self.assertEqual(self.take(killed(bandit(2), 610), 610), [])
         self.assertEqual(self.take(killed(bandit(3), 620), 620), ["Job done: go back to Sergeant Rook for the reward."])
         self.assertEqual(self.take(killed(bandit(4), 630), 630), [])
         self.assertEqual(self.states(), [(quest_id, "done", 2)])
@@ -255,7 +255,7 @@ class CountTest(QuestTestCase):
 
     def test_a_knockout_by_the_squad_counts_as_a_defeat_and_its_death_adds_nothing(self):
         quest_id = campaign_db.add_quest(job(count=3), 600)
-        self.assertEqual(self.take([attack(BEEP, bandit(1), 610), knockout(bandit(1), 610)], 610), ["Job for Sergeant Rook: 1 of 3 members of the Dust Bandits defeated."])
+        self.assertEqual(self.take([attack(BEEP, bandit(1), 610), knockout(bandit(1), 610)], 610), [])
         self.assertEqual(self.take(killed(bandit(1), 615), 615), [])
         self.assertEqual(self.states(), [(quest_id, "open", 1)])
 
@@ -271,23 +271,6 @@ class CountTest(QuestTestCase):
         self.take([knockout(bandit(1), 611)], 611)
         self.assertEqual(self.states(), [(quest_id, "open", 1)])
 
-    def test_one_report_gives_only_the_latest_message_of_each_job(self):
-        campaign_db.add_quest(job(count=3), 600)
-        campaign_db.add_quest(job(giver="h:8", giver_name="Sergeant Kane", giver_faction=OTHER), 601)
-        self.assertEqual(self.take(killed(bandit(1), 610) + killed(bandit(2), 611) + killed(bandit(3), 612) + killed(bandit(4), 613), 613),
-                         ["Job done: go back to Sergeant Rook for the reward.", "Job for Sergeant Kane: 1 of 2 members of the Dust Bandits defeated."])
-
-    def test_the_messages_of_the_jobs_show_once_no_new_one_comes(self):
-        with mock.patch.object(game.threading, "Timer") as timer, mock.patch.object(game, "send_to_pipe") as sent:
-            game.queue_job_notes({1: "Job for Sergeant Rook: 1 of 3 members of the Dust Bandits defeated."})
-            game.queue_job_notes({1: "Job for Sergeant Rook: 2 of 3 members of the Dust Bandits defeated.", 2: "Job failed: Harvag is dead."})
-            game.queue_job_notes({})
-            self.assertEqual((timer.call_count, timer.return_value.cancel.call_count, sent.call_count), (2, 1, 0))
-            timer.call_args.args[1]()
-            timer.call_args.args[1]()
-        self.assertEqual([call.args[0] for call in sent.call_args_list],
-                         ["NOTIFY: Job for Sergeant Rook: 2 of 3 members of the Dust Bandits defeated.", "NOTIFY: Job failed: Harvag is dead."])
-
     def test_a_kill_counts_only_toward_the_oldest_open_job_against_the_faction(self):
         older = campaign_db.add_quest(job(giver="h:7"), 600)
         newer = campaign_db.add_quest(job(giver="h:8", giver_name="Sergeant Kane", giver_faction=OTHER), 601)
@@ -296,7 +279,7 @@ class CountTest(QuestTestCase):
 
     def test_only_the_basic_unit_of_the_animal_counts_toward_a_hunt_and_never_an_animal_of_the_squad(self):
         quest_id = campaign_db.add_quest(job("hunt", "Bonedog", 2, 200), 600)
-        self.assertEqual(self.take([attack(BEEP, bonedog(1), 610), knockout(bonedog(1), 610)], 610), ["Job for Sergeant Rook: 1 of 2 Bonedogs hunted."])
+        self.assertEqual(self.take([attack(BEEP, bonedog(1), 610), knockout(bonedog(1), 610)], 610), [])
         self.assertEqual(self.take(killed(bonedog(2, "5007973-Edit Dogs.mod"), 615), 615), [])
         self.assertEqual(self.take(killed({**bonedog(3), "factionID": PLAYER, "player": True}, 620), 620), [])
         self.assertEqual(self.take(killed(bonedog(4), 625), 625), ["Job done: go back to Sergeant Rook for the reward."])
