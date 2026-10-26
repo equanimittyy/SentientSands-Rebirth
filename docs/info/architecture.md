@@ -81,7 +81,7 @@ The hooks in `plugin/main.cpp` buffer the game events (`QueueGameEvent`). The se
 | `imprisonment` | `setPrisonMode_hook` with `on` | Each call |
 | `rekey` | `addActiveObject_hook`, `addCharacterAt_hook` | A squad change gave a character that already had a handle a new `npc_id`; holds `old` and `new` (see [Characters](#characters)) |
 
-- A party (`EventParty`) holds `id` (the `npc_id`), `template_id`, the name, the faction, `factionID`, and `player`. A faction job counts a knockout or a death by `factionID`, because the faction records are keyed by the game ID (see [Quests](#quests)).
+- A party (`EventParty`) holds `id` (the `npc_id`), `template_id`, the name, the faction, `factionID`, and `player`. A faction job counts a knockout or a death by `factionID`, because the faction records are keyed by the game ID, and a hunt job counts it by `template_id` (see [Quests](#quests)).
 - Each event holds the game time of its hook, read under `g_eventMutex`, so a step back of the game time means a load.
 - `attackingYou_hook` runs many times a second, so it checks the faction first and dedupes by handle serials without building a string.
 - A request takes the events out of the buffer (`TakeGameEvents`), so each event goes once, and a failed request loses them. The buffer holds 100 events.
@@ -633,6 +633,7 @@ In a QUEST action dialogue, a leader, a guard, or a trader gives the player a jo
 |---|---|---|---|
 | Figure | A leader, only at a good relation | Kills or captures the leader or a noble of an enemy faction | A `kill` or a `capture` event of the target names a squad member |
 | Faction | A leader or a guard | Defeats a number of members of an enemy faction: knocks them out or kills them | The squad defeated that number |
+| Hunt | A leader or a guard | Defeats a number of one hostile animal of the current region or a region next to it | The squad defeated that number |
 | Goods | A trader | Brings a number of one raw material that fits the goods of the trader | The speaker hands the items to the trader |
 
 - Code picks the target, the count, and the reward of each job, with no LLM call, because a model names targets and prices that the game does not hold.
@@ -652,7 +653,7 @@ A QUEST line goes to plain chat with the reason as the NPC's thought (`plain_cha
 - The NPC answers only for its own open or done job (`quests.held`), so only the giver pays a job.
 - An NPC that answers for a job gives no new job, so each giver holds at most one job.
 - A faction gives one job at a time. While the player faction holds an open or done job from a member of a faction, no member of that faction gives a new job (`quests.faction_held`, `campaign_db.add_quest`). For a giver without a faction, only the limit of one job for each giver holds.
-- A leader can give a figure job and a faction job. When both pass their gates, code picks one at random (`quests.roll`).
+- A leader can give a figure, a faction, or a hunt job, and a guard can give a faction or a hunt job. When more than one kind passes its gates, code picks one at random (`quests.roll`).
 - The new job of the first QUEST line stays in `CURRENT_THREAD` (`action`), so each turn of the action dialogue names the same job. A new chat thread rolls again.
 
 #### Jobs
@@ -665,6 +666,17 @@ The enemies of a giver are the faction records that the `enemies` field of its f
 - The figure job fails when the game holds the target dead or imprisoned, and no such event came. Code checks this after the events of each request (`quests.check`), so an event and a state in one request mark the job done. A game event that a failed request lost ([Game events](#game-events)) therefore fails the job.
 - Faction: The target is an enemy faction, and the count is 10 to 20. A defeat is a `knockout` game event after the accept, or a `death` of a character that was not knocked out, when `world_events._attribute` gives it an attacker of the player faction. The death of a knocked-out character counts nothing, because its knockout counted. A knockout of a character that is already knocked out counts nothing, because a load sends the knockout again, and a carried character that its carrier puts down goes back to `PS_KO`, which the hook sends as a new `knockout` ([kenshi_internals.md](kenshi_internals.md#deaths-and-captures)). A character that wakes up and goes down again counts again.
 - A defeat counts toward only the oldest open faction job against the `factionID` of its party (`campaign_db.count_quest_defeat`), and a kill that does a figure job counts toward no faction job, so one kill never pays two jobs. A knockout of a figure still counts toward a faction job.
+- Hunt: The target is an animal of `quests.HUNT_ANIMALS` that the `animals` field of the current region or of a region next to it names (`quests.region_animals`). The current region is the region record called the `zone_name` of the giver's environment, by its name or an alias, and a region is next to it when either region names the other in its `neighbours` (`retrieval.place`). Each animal counts once, so an animal of many regions is no likelier. Each region of the vanilla template has at least one of these animals in it or next to it.
+- The animals are the species whose wild squads in the vanilla game data have aggressive AI packages. Garru, Goat, Wild Bull, River Raptor, and Swamp Turtle are neutral or defensive. The Leviathan is mixed, the Iron Spider and the Cleanser Unit are machines, and no region names the Crimper.
+- Only the most basic unit of each animal counts: the `template_id` of the party must be the template of the animal in `HUNT_ANIMALS`. An Alpha, a Megaraptor, a Megacrab, or a named animal counts nothing. The faction of an animal does not tell its species, because an animal faction mixes species: Wildlife holds Goats and Leviathans next to Beak Things.
+- A defeat of an animal is the same as for a faction job. It counts toward the oldest open hunt job of its animal. It counts toward a faction job only when no hunt job takes it, so one defeat never pays two jobs. An animal of the player faction counts nothing, because the squad could knock it out again and again.
+
+| Tier | Animals | Count |
+|---|---|---|
+| Weak | Bonedog, Skimmer, Blood Spider, Skin Spider, Land Bat | 10 to 20 |
+| Medium | Swamp Raptor, Crab, Boneyard Wolf, Gorillo | 5 to 10 |
+| Strong | Beak Thing, Black Gorillo | 3 to 6 |
+
 - Goods: The class of a trader comes from the `kind` of its goods (`offers.goods`, `ItemKind` in `plugin/game/Context.cpp`). The class needs at least half of the item stacks, because a general store sells a few items of each class (`quests.trader_materials`). A trader without a class gives no job.
 
 | Class | Kinds of the goods | Materials |
@@ -686,11 +698,12 @@ The enemies of a giver are the faction records that the `enemies` field of its f
 |---|---|
 | Figure | 20,000 cats for a leader, 10,000 cats for a noble |
 | Faction | 100 cats for each defeat |
+| Hunt | 100 cats for each weak animal, 200 cats for each medium animal, and 500 cats for each strong animal |
 | Goods | 1.2 times the value of the material in the vanilla game data for each item: Raw Iron 150, Copper 300, Animal Skin 400, Fabrics 300, Hemp 100, Cotton 50, Raw Meat 100, Greenfruit 60, Wheatstraw 40, Cactus 30, Riceweed 25 |
 
 - The reward is fixed. The turn message says so, and the NPC cannot bargain it.
 - The plugin creates the cats with `ADD_CATS`, as for charity, because a giver can carry fewer cats than the reward.
-- The reward also raises the relation of the paying NPC's faction with the player faction: by 30 for a figure job, by 3 for a faction job, and by 1 for a goods job (`RAISE_RELATION`, `quests.RELATION_RAISES`). A giver without a faction raises no relation. The plugin sets the relation from the side of the NPC's faction, as the Cheats window does (`DoRaiseRelation` in `plugin/game/GameActions.cpp`). No game test has shown whether the game mirrors the change to the side of the player faction, so the log gives both sides.
+- The reward also raises the relation of the paying NPC's faction with the player faction: by 30 for a figure job, by 3 for a faction or a hunt job, and by 1 for a goods job (`RAISE_RELATION`, `quests.RELATION_RAISES`). A giver without a faction raises no relation. The plugin sets the relation from the side of the NPC's faction, as the Cheats window does (`DoRaiseRelation` in `plugin/game/GameActions.cpp`). No game test has shown whether the game mirrors the change to the side of the player faction, so the log gives both sides.
 
 #### Flow
 
@@ -717,7 +730,7 @@ The enemies of a giver are the faction records that the `enemies` field of its f
 
 | Table | Columns |
 |---|---|
-| `quest` | `id` (`AUTOINCREMENT`), `giver` (`npc_id`), `giver_name`, `giver_faction` (game ID), `kind` (`figure`, `faction`, or `goods`), `target` (an `npc_id`, a faction game ID, or an item name), `count`, `reward`, `state` (`open`, `done`, `failed`, or `paid`), `accepted_at`, `changed_at` |
+| `quest` | `id` (`AUTOINCREMENT`), `giver` (`npc_id`), `giver_name`, `giver_faction` (game ID), `kind` (`figure`, `faction`, `hunt`, or `goods`), `target` (an `npc_id`, a faction game ID, an animal name, or an item name), `count`, `reward`, `state` (`open`, `done`, `failed`, or `paid`), `accepted_at`, `changed_at` |
 | `quest_defeat` | `quest_id`, `game_time` |
 
 - `id` is `AUTOINCREMENT`, because the Quests tab keeps the ID of the selected job, and a late Abandon must never reach a new job.
@@ -728,7 +741,7 @@ The enemies of a giver are the faction records that the `enemies` field of its f
 The jobs live in the campaign, not in the save, so a load of an earlier save must undo the later changes. Without this, a player who loads a save from before a paid reward loses the cats and keeps the paid job.
 
 - Each request that carries a game time runs `quests.rewind` before it counts its events (`world_events.take`), when that time is before the newest `accepted_at`, `changed_at`, or `quest_defeat.game_time`. A request that rewinds nothing writes nothing, because a write makes the web app reload its pages.
-- The rewind deletes each job accepted after the time and each defeat after it. It sets each job whose `changed_at` is after the time back to `open`, and then counts each open job again: a faction job by its defeats, and a figure job by the `kill` and `capture` events of its target up to the time.
+- The rewind deletes each job accepted after the time and each defeat after it. It sets each job whose `changed_at` is after the time back to `open`, and then counts each open job again: a faction or a hunt job by its defeats, and a figure job by the `kill` and `capture` events of its target up to the time.
 - The cull runs the same rewind at its game time (`campaign_db.cull_after`).
 - A game time of Day 0, 00:00 runs no rewind, because the game clock reads that until it holds a real time.
 

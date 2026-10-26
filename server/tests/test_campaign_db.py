@@ -149,7 +149,7 @@ class OpenTest(CampaignTestCase):
         self.assertEqual(campaign_db.read_meta(self.folder)["schema_version"], str(campaign_db.SCHEMA_VERSION))
         quest_id = campaign_db.add_quest(QUEST, 60)
         self.assertEqual([(job["id"], job["state"]) for job in campaign_db.quests()], [(quest_id, "open")])
-        campaign_db.count_quest_defeat("200-gamedata.base", 61)
+        campaign_db.count_quest_defeat("faction", "200-gamedata.base", 61)
         self.assertEqual(campaign_db.quest(quest_id)["defeats"], 1)
         self.assertTrue(campaign_db.delete_quest(quest_id))
         backup = sqlite3.connect(os.path.join(self.folder, migrations.backup_name(23)))

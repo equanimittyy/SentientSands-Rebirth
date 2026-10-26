@@ -940,11 +940,11 @@ def delete_quest(quest_id):
         return conn.execute("DELETE FROM quest WHERE id = ?", (quest_id,)).rowcount > 0
 
 
-def count_quest_defeat(faction_id, at):
-    """Counts the defeat of a member of the faction at the game time at toward the oldest open faction job against it that
+def count_quest_defeat(kind, target, at):
+    """Counts a defeat at the game time at toward the oldest open job of the kind (faction or hunt) against the target that
     the player took before the defeat, so one defeat never pays two jobs, and marks the job done at its count. Returns the
     ID of the job, or None."""
-    find = ("SELECT id FROM quest WHERE kind = 'faction' AND state = 'open' AND target = ? AND accepted_at < ? ORDER BY accepted_at, id LIMIT 1", (faction_id, at))
+    find = ("SELECT id FROM quest WHERE kind = ? AND state = 'open' AND target = ? AND accepted_at < ? ORDER BY accepted_at, id LIMIT 1", (kind, target, at))
     with _connect() as conn:
         if not conn.execute(*find).fetchone():
             return None
@@ -982,14 +982,14 @@ def rewind_quests(at):
 
 def _rewind_quests(conn, at):
     """Deletes each job taken and each defeat counted after the game time at, opens each job that changed its state after
-    it again, and counts each open job again: a faction job by its defeats, and a figure job by the kill and capture events
-    of its target up to at."""
+    it again, and counts each open job again: a faction or a hunt job by its defeats, and a figure job by the kill and
+    capture events of its target up to at."""
     conn.execute("DELETE FROM quest WHERE accepted_at > ?", (at,))
     conn.execute("DELETE FROM quest_defeat WHERE game_time > ?", (at,))
     conn.execute("UPDATE quest SET state = 'open', changed_at = accepted_at WHERE changed_at > ?", (at,))
     for quest_id, kind, target, count, accepted_at in conn.execute("SELECT id, kind, target, count, accepted_at FROM quest WHERE state = 'open'").fetchall():
         done = None
-        if kind == "faction":
+        if kind in ("faction", "hunt"):
             done = conn.execute("SELECT game_time FROM quest_defeat WHERE quest_id = ? ORDER BY game_time LIMIT 1 OFFSET ?", (quest_id, count - 1)).fetchone()
         elif kind == "figure":
             done = conn.execute(

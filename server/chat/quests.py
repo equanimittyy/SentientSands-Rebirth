@@ -12,7 +12,7 @@ import logging
 import random
 
 from chat import rulers
-from chat.retrieval import aliases_of, name_words
+from chat.retrieval import aliases_of, lore_records, name_words, place
 from core import state
 from store import campaign_db
 
@@ -22,7 +22,22 @@ RULER_REWARDS = {"leader": 20000, "nobles": 10000}
 COUNTS = (3, 8)
 DEFEAT_COUNTS = (10, 20)
 DEFEAT_REWARD = 100
-RELATION_RAISES = {"figure": 30, "faction": 3, "goods": 1}
+RELATION_RAISES = {"figure": 30, "faction": 3, "hunt": 3, "goods": 1}
+# Keyed by the names in the region records. Only the vanilla template of the most basic unit counts, so an Alpha counts nothing.
+HUNT_ANIMALS = {
+    "Bonedog": ("3979-gamedata.base", "Bonedogs", "weak"),
+    "Skimmer": ("56087-rebirth.mod", "Skimmers", "weak"),
+    "Blood Spider": ("44882-rebirth.mod", "Blood Spiders", "weak"),
+    "Skin Spider": ("43877-rebirth.mod", "Skin Spiders", "weak"),
+    "Land Bat": ("97572-Newwworld.mod", "Land Bats", "weak"),
+    "Swamp Raptor": ("43326-rebirth.mod", "Swamp Raptors", "medium"),
+    "Crab": ("56088-Newwworld.mod", "Crabs", "medium"),
+    "Boneyard Wolf": ("62553-rebirth.mod", "Boneyard Wolves", "medium"),
+    "Gorillo": ("43895-rebirth.mod", "Gorillos", "medium"),
+    "Beak Thing": ("2859-gamedata.base", "Beak Things", "strong"),
+    "Black Gorillo": ("55670-rebirth.mod", "Black Gorillos", "strong"),
+}
+HUNT_TIERS = {"weak": ((10, 20), 100), "medium": ((5, 10), 200), "strong": ((3, 6), 500)}
 # The value of each material in the vanilla game data
 MATERIAL_VALUES = {"Raw Iron": 150, "Copper": 300, "Animal Skin": 400, "Fabrics": 300, "Hemp": 100, "Cotton": 50, "Raw Meat": 100,
                    "Greenfruit": 60, "Wheatstraw": 40, "Cactus": 30, "Riceweed": 25}
@@ -43,16 +58,16 @@ ELECTRONICS = {"CPU Unit", "Electrical Components", "Generator Core", "Motor", "
 
 def roll(npc, name, roles, goods):
     """A new job of the NPC, or None. name is the Name of the NPC, roles holds leader, guard, and trader
-    (action_dialogue.giver_roles), and goods holds the goods of a trader (offers.goods). A leader can give a figure job and a
-    faction job, so code picks one of the kinds that pass their gates at random."""
+    (action_dialogue.giver_roles), and goods holds the goods of a trader (offers.goods). A giver can give jobs of more than
+    one kind, so code picks one of the kinds that pass their gates at random."""
     if faction_held(npc):
         return None
-    kinds = {"figure", "faction"} if "leader" in roles else set()
+    kinds = {"figure", "faction", "hunt"} if "leader" in roles else set()
     if "guard" in roles:
-        kinds.add("faction")
+        kinds |= {"faction", "hunt"}
     if "trader" in roles:
         kinds.add("goods")
-    makers = {"figure": lambda: figure_job(npc), "faction": lambda: faction_job(npc), "goods": lambda: goods_job(goods)}
+    makers = {"figure": lambda: figure_job(npc), "faction": lambda: faction_job(npc), "hunt": lambda: hunt_job(npc), "goods": lambda: goods_job(goods)}
     jobs = [job for job in (makers[kind]() for kind in sorted(kinds)) if job]
     if not jobs:
         return None
@@ -115,6 +130,26 @@ def faction_job(npc):
     return {"kind": "faction", "target": faction["faction_id"], "target_name": faction["name"], "count": count, "reward": count * DEFEAT_REWARD}
 
 
+def hunt_job(npc):
+    """A job to hunt a hostile animal of the current region or of a region next to it, so the player hunts near the giver."""
+    animals = [animal for animal in region_animals((npc.get("environment") or {}).get("zone_name")) if animal in HUNT_ANIMALS]
+    if not animals:
+        return None
+    animal = random.choice(animals)
+    counts, reward = HUNT_TIERS[HUNT_ANIMALS[animal][2]]
+    count = random.randint(*counts)
+    return {"kind": "hunt", "target": animal, "target_name": animal, "count": count, "reward": count * reward}
+
+
+def region_animals(zone):
+    """The animals of the region record called zone and of the regions next to it, as retrieval.place finds them, each once,
+    so an animal of many regions is no likelier."""
+    regions = lore_records([(category, ext_id, data) for (category, ext_id), data, *_ in campaign_db.list_records("entity") if category == "regions"], [], [])
+    _, current, neighbours = place(regions, None, zone)
+    near = {*current, *neighbours}
+    return list(dict.fromkeys(animal for region in regions if region["key"] in near for animal in _values(region["fields"].get("animals"))))
+
+
 def goods_job(goods):
     """A job to bring a material of the class of the trader that its goods do not hold, because the player could buy a
     material that the trader holds and sell it back at the reward."""
@@ -164,6 +199,8 @@ def job_text(job):
         return f"kill or capture {job['target_name']}" + (f", {job['about']}" if job.get("about") else "")
     if job["kind"] == "faction":
         return f"defeat {job['count']} members of {the(job['target_name'])}"
+    if job["kind"] == "hunt":
+        return f"hunt {job['count']} {HUNT_ANIMALS[job['target']][1]}"
     return f"bring {job['count']} {job['target_name']}"
 
 
@@ -195,6 +232,8 @@ def progress(job, speaker, player):
             lines.append(f"{player}'s group has done the job, so you owe it the {job['reward']:,} cats.")
         elif job["kind"] == "faction":
             lines.append(f"{player}'s group has defeated {job['defeats']} of the {job['count']} so far.")
+        elif job["kind"] == "hunt":
+            lines.append(f"{player}'s group has hunted {job['defeats']} of the {job['count']} so far.")
         else:
             lines.append(f"{player}'s group has not killed or captured {job['target_name']} yet.")
     return lines
@@ -242,13 +281,20 @@ def rewind(now):
 
 def count_defeat(party, at):
     """The game messages by job ID of a knockout or a death of a character that the squad defeated at the game time at, which
-    counts toward a faction job against its faction."""
-    quest_id = campaign_db.count_quest_defeat(party.get("factionID"), at) if party.get("factionID") else None
+    counts toward a hunt job of its animal, or else toward a faction job against its faction, so one defeat never pays two
+    jobs."""
+    # An animal of the squad never counts, because the squad could knock it out again and again
+    animal = None if party.get("player") else next((name for name, (template, *_) in HUNT_ANIMALS.items() if template == party.get("template_id")), None)
+    quest_id = campaign_db.count_quest_defeat("hunt", animal, at) if animal else None
+    if not quest_id and party.get("factionID"):
+        quest_id = campaign_db.count_quest_defeat("faction", party["factionID"], at)
     job = campaign_db.quest(quest_id) if quest_id else None
     if not job:
         return {}
     if job["state"] == "done":
         return {quest_id: _done(job)}
+    if job["kind"] == "hunt":
+        return {quest_id: f"Job for {job['giver_name']}: {job['defeats']} of {job['count']} {HUNT_ANIMALS[job['target']][1]} hunted."}
     return {quest_id: f"Job for {job['giver_name']}: {job['defeats']} of {job['count']} members of {the(job['target_name'])} defeated."}
 
 
@@ -312,6 +358,8 @@ def details(job):
         lines.append(f"Progress: Bring {job['count']} {job['target_name']} to {job['giver_name']}.")
     elif job["kind"] == "faction":
         lines.append(f"Progress: {job['defeats']} of {job['count']} defeated.")
+    elif job["kind"] == "hunt":
+        lines.append(f"Progress: {job['defeats']} of {job['count']} hunted.")
     else:
         lines.append("Progress: Not done yet.")
     return "\n".join(lines)

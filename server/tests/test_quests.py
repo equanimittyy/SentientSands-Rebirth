@@ -34,7 +34,12 @@ SEED = {
     "history": [],
     "characters": [{"game_id": game_id, "profile": {"Name": name}} for game_id, name in
                    (("tinfist", "Tinfist"), ("dust-king", "Dust King"), ("dimak", "Dimak"), ("buzan", "Buzan"), ("nagata", "Lord Nagata"), ("tengu", "Emperor Tengu"))],
-    "entities": [],
+    "entities": [{"category": "regions", "id": region_id, "data": {"name": name, "aliases": [], "fields": fields, "description": ""}} for region_id, name, fields in (
+        ("vain", "Vain", {"animals": ["Beak Thing", "Bonedog", "Garru"], "neighbours": {"Border Zone": "east"}}),
+        ("border_zone", "Border Zone", {"animals": ["Skimmer", "Bonedog"]}),
+        ("spider_plains", "Spider Plains", {"animals": ["Skin Spider"], "neighbours": {"Vain": "north"}}),
+        ("the_swamp", "The Swamp", {"animals": ["Blood Spider"]}),
+    )],
 }
 
 LEADER = {"npc_id": "u:tengu", "faction": "United Cities", "factionID": UC, "relation": 60}
@@ -47,6 +52,10 @@ TINFIST = {"id": "h:3", "template_id": "tinfist", "name": "Tinfist", "faction": 
 
 def bandit(number):
     return {"id": f"h:{1000 + number}", "template_id": "", "name": "Dust Bandit", "faction": "Dust Bandits", "factionID": BANDITS, "player": False}
+
+
+def bonedog(number, template="3979-gamedata.base"):
+    return {"id": f"h:{2000 + number}", "template_id": template, "name": "Bonedog", "faction": "Wolves", "factionID": "56128-rebirth.mod", "player": False}
 
 
 def when(minutes):
@@ -125,6 +134,24 @@ class RollTest(QuestTestCase):
         randint.assert_called_once_with(10, 20)
         self.assertEqual((made["kind"], made["target"], made["target_name"], made["count"], made["reward"]), ("faction", BANDITS, "Dust Bandits", 12, 1200))
         self.assertIsNone(quests.roll(GUARD, "Sergeant Rook", set(), []))
+
+    def test_a_leader_or_a_guard_in_a_region_with_a_hostile_animal_gives_a_hunt(self):
+        vain = {"environment": {"zone_name": "Vain"}}
+        with mock.patch.object(quests.random, "choice", last):
+            self.assertEqual(quests.roll({**GUARD, **vain}, "Sergeant Rook", {"guard"}, [])["kind"], "hunt")
+            self.assertEqual(quests.roll({**LEADER, **vain}, "Emperor Tengu", {"leader"}, [])["kind"], "hunt")
+            self.assertIsNone(quests.roll({**GUARD, **vain}, "Harvag", {"trader"}, []))
+
+    def test_a_hunt_is_for_a_hostile_animal_of_the_current_or_a_next_region_at_the_reward_of_its_tier(self):
+        offered = []
+        with mock.patch.object(quests.random, "choice", lambda items: offered.append(items) or items[0]), mock.patch.object(quests.random, "randint", return_value=4) as randint:
+            made = quests.hunt_job({**GUARD, "environment": {"zone_name": "vain"}})
+        self.assertEqual(offered, [["Beak Thing", "Bonedog", "Skimmer", "Skin Spider"]])
+        randint.assert_called_once_with(3, 6)
+        self.assertEqual((made["kind"], made["target"], made["target_name"], made["count"], made["reward"]), ("hunt", "Beak Thing", "Beak Thing", 4, 2000))
+        self.assertEqual(quests.job_text(made), "hunt 4 Beak Things")
+        self.assertIsNone(quests.hunt_job(GUARD))
+        self.assertIsNone(quests.hunt_job({**GUARD, "environment": {"zone_name": "Dreg"}}))
 
     def test_the_enemies_come_from_the_faction_record_by_name_or_alias(self):
         self.assertEqual([record["name"] for record in quests.enemies(LEADER)], ["Dust Bandits", "Anti-Slavers", "Black Dragon Ninjas", "Northern Nobles"])
@@ -267,6 +294,20 @@ class CountTest(QuestTestCase):
         self.take(killed(bandit(1), 610) + killed(bandit(2), 611) + killed(bandit(3), 612), 612)
         self.assertEqual(self.states(), [(newer, "open", 1), (older, "done", 2)])
 
+    def test_only_the_basic_unit_of_the_animal_counts_toward_a_hunt_and_never_an_animal_of_the_squad(self):
+        quest_id = campaign_db.add_quest(job("hunt", "Bonedog", 2, 200), 600)
+        self.assertEqual(self.take([attack(BEEP, bonedog(1), 610), knockout(bonedog(1), 610)], 610), ["Job for Sergeant Rook: 1 of 2 Bonedogs hunted."])
+        self.assertEqual(self.take(killed(bonedog(2, "5007973-Edit Dogs.mod"), 615), 615), [])
+        self.assertEqual(self.take(killed({**bonedog(3), "factionID": PLAYER, "player": True}, 620), 620), [])
+        self.assertEqual(self.take(killed(bonedog(4), 625), 625), ["Job done: go back to Sergeant Rook for the reward."])
+        self.assertEqual(self.states(), [(quest_id, "done", 2)])
+
+    def test_a_defeat_that_counts_toward_a_hunt_counts_toward_no_faction_job(self):
+        hunt = campaign_db.add_quest(job("hunt", "Bonedog", 5, 500), 600)
+        wolves = campaign_db.add_quest(job(target="56128-rebirth.mod", giver="h:8", giver_faction=OTHER), 600)
+        self.take(killed(bonedog(1), 610) + killed(bonedog(2, "5007973-Edit Dogs.mod"), 611), 611)
+        self.assertEqual(self.states(), [(wolves, "open", 1), (hunt, "open", 1)])
+
     def test_a_kill_or_a_capture_of_the_figure_after_the_accept_does_the_job(self):
         killing = campaign_db.add_quest(job("figure", "u:tinfist", 1, 20000, giver="u:tengu", giver_name="Emperor Tengu"), 600)
         self.assertEqual(self.take(killed(TINFIST, 590), 605), [])
@@ -338,6 +379,13 @@ class RewindTest(QuestTestCase):
         self.take([], 625)
         self.assertEqual(self.states(), [(quest_id, "done", 2)])
         self.assertEqual(campaign_db.quest(quest_id)["changed_at"], 620)
+
+    def test_a_hunt_counts_its_defeats_again_up_to_the_load(self):
+        quest_id = campaign_db.add_quest(job("hunt", "Bonedog", 2, 200), 600)
+        self.take(killed(bonedog(1), 610) + killed(bonedog(2), 612), 612)
+        campaign_db.set_quest_state(quest_id, "paid", 630, "done")
+        self.take([], 620)
+        self.assertEqual(self.states(), [(quest_id, "done", 2)])
 
     def test_a_figure_job_counts_its_events_again_up_to_the_load(self):
         quest_id = campaign_db.add_quest(job("figure", "u:tinfist", 1, 20000, giver="u:tengu", giver_name="Emperor Tengu"), 600)
@@ -430,6 +478,11 @@ class TextTest(QuestTestCase):
         self.take(killed(TINFIST, 610), 610)
         self.assertEqual(quests.details(campaign_db.quest(figure)).splitlines()[-1], "Progress: Done. Go back to Emperor Tengu for the reward.")
         self.assertEqual(quests.entry(campaign_db.quest(figure))["label"], "Emperor Tengu: Kill or capture Tinfist")
+        hunt = campaign_db.add_quest(job("hunt", "Boneyard Wolf", 5, 1000, giver="h:8", giver_faction=OTHER), 600)
+        self.take(killed(bonedog(1, "62553-rebirth.mod"), 620), 620)
+        self.assertEqual(quests.details(campaign_db.quest(hunt)).splitlines()[-1], "Progress: 1 of 5 hunted.")
+        self.assertEqual(quests.progress(campaign_db.quest(hunt), SPEAKER, "Beep"),
+                         ["You gave Beep's group a job: hunt 5 Boneyard Wolves, for 1,000 cats.", "Beep's group has hunted 1 of the 5 so far."])
 
     def test_the_jobs_take_the_current_names(self):
         quest_id = campaign_db.add_quest(job("figure", "u:tinfist", 1, 20000, giver="u:tengu", giver_name="Tengu"), 600)
