@@ -241,30 +241,30 @@ def rewind(now):
 
 
 def count_defeat(party, at):
-    """The game messages of a knockout or a death of a character that the squad defeated at the game time at, which counts
-    toward a faction job against its faction."""
+    """The game messages by job ID of a knockout or a death of a character that the squad defeated at the game time at, which
+    counts toward a faction job against its faction."""
     quest_id = campaign_db.count_quest_defeat(party.get("factionID"), at) if party.get("factionID") else None
     job = campaign_db.quest(quest_id) if quest_id else None
     if not job:
-        return []
+        return {}
     if job["state"] == "done":
-        return [_done(job)]
-    return [f"Job for {job['giver_name']}: {job['defeats']} of {job['count']} members of {the(job['target_name'])} defeated."]
+        return {quest_id: _done(job)}
+    return {quest_id: f"Job for {job['giver_name']}: {job['defeats']} of {job['count']} members of {the(job['target_name'])} defeated."}
 
 
 def figure_event(victim_id, at):
-    """The game messages of a kill or a capture of a known figure at the game time at, with a squad member as a doer. Either
-    event does the job, so the player chooses how to do it."""
-    return [_done(campaign_db.quest(quest_id)) for quest_id in campaign_db.finish_figure_quests(victim_id, at)]
+    """The game messages by job ID of a kill or a capture of a known figure at the game time at, with a squad member as a
+    doer. Either event does the job, so the player chooses how to do it."""
+    return {quest_id: _done(campaign_db.quest(quest_id)) for quest_id in campaign_db.finish_figure_quests(victim_id, at)}
 
 
 def giver_died(victim_id, at):
-    """The game messages of a death at the game time at, which fails each job that the dead character gave, because only the
-    giver pays a job."""
-    notes = []
+    """The game messages by job ID of a death at the game time at, which fails each job that the dead character gave,
+    because only the giver pays a job."""
+    notes = {}
     for job in campaign_db.quests():
         if job["giver"] == victim_id:
-            notes += _fail(job, job["giver_name"], "dead", at)
+            notes.update(_fail(job, job["giver_name"], "dead", at))
     return notes
 
 
@@ -272,24 +272,24 @@ def check(now):
     """Fails each job whose giver the game holds dead, and each open figure job whose target it holds dead or imprisoned, at
     the game time now. A giver in a cage keeps its job, because the player can get it out and then collect. It runs after
     the events of the request, so an event and a state in one request mark the job done, and a game event that a failed
-    request lost fails the job. Returns the game messages."""
+    request lost fails the job. Returns the game messages by job ID."""
     if not now:
-        return []
-    fallen, notes = rulers.character_states(), []
+        return {}
+    fallen, notes = rulers.character_states(), {}
     for job in campaign_db.quests():
         if job["kind"] == "figure" and job["state"] == "open" and job["target"] in fallen:
-            notes += _fail(job, job["target_name"], fallen[job["target"]], now)
+            notes.update(_fail(job, job["target_name"], fallen[job["target"]], now))
         elif fallen.get(job["giver"]) == "dead":
-            notes += _fail(job, job["giver_name"], "dead", now)
+            notes.update(_fail(job, job["giver_name"], "dead", now))
     return notes
 
 
 def _fail(job, name, fate, at):
-    """The game message of the failure of the job, or none when the job left its state meanwhile."""
+    """The game message by job ID of the failure of the job, or none when the job left its state meanwhile."""
     if not campaign_db.set_quest_state(job["id"], "failed", at, job["state"]):
-        return []
+        return {}
     logging.info(f"QUEST: The job {job['id']} of {job['giver_name']} failed, because {name} is {fate}.")
-    return [f"Job failed: {name} is {fate}."]
+    return {job["id"]: f"Job failed: {name} is {fate}."}
 
 
 def _done(job):

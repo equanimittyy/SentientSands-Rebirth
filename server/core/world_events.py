@@ -29,9 +29,9 @@ _campaign = None
 def take(game_events, ctx=None):
     """Reads the game events of a report in their order, stores the events that they make, and counts the jobs by them. The
     game time of ctx, the context of the request, rewinds the jobs before the events and checks them after the events.
-    Returns the game messages of the jobs."""
+    Returns the latest game message of each job that changed, by job ID."""
     now = _minutes(ctx or {})
-    notes = []
+    notes = {}
     try:
         quests.rewind(now)
     except campaign_db.CampaignUnavailable:
@@ -47,7 +47,7 @@ def take(game_events, ctx=None):
         attackers, down = _attribute(game_event, at)
         if game_event.get("kind") == "death":
             try:
-                notes += quests.giver_died(canon_id(game_event["party"]), at)
+                notes.update(quests.giver_died(canon_id(game_event["party"]), at))
             except campaign_db.CampaignUnavailable:
                 pass
         if attackers:
@@ -55,7 +55,7 @@ def take(game_events, ctx=None):
                 if game_event["kind"] == "knockout":
                     # A drop of a carried character and a load send a knockout of a character that is already down
                     if not down:
-                        notes += quests.count_defeat(game_event.get("party") or {}, at)
+                        notes.update(quests.count_defeat(game_event.get("party") or {}, at))
                     continue
                 # A load imprisons each prisoner again with no attackers, so it does not restart the clock
                 if game_event["kind"] == "imprisonment":
@@ -64,11 +64,11 @@ def take(game_events, ctx=None):
                 # One kill never pays two jobs, and the knockout of a character that dies down already counted its defeat
                 if game_event["kind"] == "death" and not done and not down:
                     done = quests.count_defeat(game_event["party"], at)
-                notes += done
+                notes.update(done)
             except campaign_db.CampaignUnavailable:
                 pass  # The event is lost, but the report must still update the player's context
     try:
-        notes += quests.check(now)
+        notes.update(quests.check(now))
     except campaign_db.CampaignUnavailable:
         pass
     return notes
@@ -190,10 +190,10 @@ def canon_id(party):
 
 
 def _store(kind, victim, attackers, at):
-    """Returns the game messages of the jobs that the event does."""
+    """Returns the game messages by job ID of the jobs that the event does."""
     victim_id = canon_id(victim)
     if victim.get("player") or not victim_id.startswith("u:"):
-        return []
+        return {}
     event_kind = "kill" if kind == "death" else "capture"
     doers = campaign_db.add_event(
         event_kind,
@@ -202,7 +202,7 @@ def _store(kind, victim, attackers, at):
         at,
     )
     if not doers:
-        return []
+        return {}
     logging.debug(f"EVENTS: {', '.join(name for _, name in doers)} {'killed' if event_kind == 'kill' else 'captured'} {victim.get('name', '')} ({victim_id}) at {campaign_db.game_time_text(at)}")
     return quests.figure_event(victim_id, at)
 

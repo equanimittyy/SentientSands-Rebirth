@@ -7,7 +7,7 @@ from unittest import mock
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
 
 from chat import quests
-from core import state, world_events
+from core import game, state, world_events
 from store import campaign_db
 
 UC = "defaultEmpireFactionSID"
@@ -100,7 +100,7 @@ class QuestTestCase(unittest.TestCase):
         self._tmp.cleanup()
 
     def take(self, events, now):
-        return world_events.take(events, when(now))
+        return list(world_events.take(events, when(now)).values())
 
     def states(self):
         return [(job["id"], job["state"], job["defeats"]) for job in campaign_db.quests(("open", "done", "failed", "paid"))]
@@ -243,6 +243,23 @@ class CountTest(QuestTestCase):
         self.assertEqual(self.states(), [(quest_id, "open", 1)])
         self.take([knockout(bandit(1), 611)], 611)
         self.assertEqual(self.states(), [(quest_id, "open", 1)])
+
+    def test_one_report_gives_only_the_latest_message_of_each_job(self):
+        campaign_db.add_quest(job(count=3), 600)
+        campaign_db.add_quest(job(giver="h:8", giver_name="Sergeant Kane", giver_faction=OTHER), 601)
+        self.assertEqual(self.take(killed(bandit(1), 610) + killed(bandit(2), 611) + killed(bandit(3), 612) + killed(bandit(4), 613), 613),
+                         ["Job done: go back to Sergeant Rook for the reward.", "Job for Sergeant Kane: 1 of 2 members of the Dust Bandits defeated."])
+
+    def test_the_messages_of_the_jobs_show_once_no_new_one_comes(self):
+        with mock.patch.object(game.threading, "Timer") as timer, mock.patch.object(game, "send_to_pipe") as sent:
+            game.queue_job_notes({1: "Job for Sergeant Rook: 1 of 3 members of the Dust Bandits defeated."})
+            game.queue_job_notes({1: "Job for Sergeant Rook: 2 of 3 members of the Dust Bandits defeated.", 2: "Job failed: Harvag is dead."})
+            game.queue_job_notes({})
+            self.assertEqual((timer.call_count, timer.return_value.cancel.call_count, sent.call_count), (2, 1, 0))
+            timer.call_args.args[1]()
+            timer.call_args.args[1]()
+        self.assertEqual([call.args[0] for call in sent.call_args_list],
+                         ["NOTIFY: Job for Sergeant Rook: 2 of 3 members of the Dust Bandits defeated.", "NOTIFY: Job failed: Harvag is dead."])
 
     def test_a_kill_counts_only_toward_the_oldest_open_job_against_the_faction(self):
         older = campaign_db.add_quest(job(giver="h:7"), 600)

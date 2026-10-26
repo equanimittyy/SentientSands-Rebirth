@@ -94,7 +94,7 @@ The hooks in `plugin/main.cpp` buffer the game events (`QueueGameEvent`). The se
 - While a `knockout` mark is set, all attackers count, because a capture in Kenshi is a knockout, a carry, and a cell ([kenshi_internals.md](kenshi_internals.md#deaths-and-captures)). An `up` that is not carried clears the mark. A carried `up` changes nothing.
 - Else each attacker whose last attack is in the 3 game hours before counts. Kenshi gives no last hit.
 - An event with a game time before the newest event is a load, and drops the kept events after that time. The server skips events at Day 0, 00:00, because the clock reads that until it holds a real time.
-- A `knockout` takes its attackers in the same way, for the jobs only. The knockouts, the kills, and the captures count toward the jobs of the squad, and `take` returns their game messages, which `take_report` sends as `NOTIFY:` (see [Quests](#quests)).
+- A `knockout` takes its attackers in the same way, for the jobs only. The knockouts, the kills, and the captures count toward the jobs of the squad, and `take` returns the latest game message of each job, which `take_report` queues for `NOTIFY:` (see [Quests](#quests)).
 
 The `event` table holds one row for each event, with the game time and, as JSON in `data`, the kind (`kill`, `capture`, `custom`, or `auto`) and its facts.
 
@@ -700,7 +700,7 @@ The enemies of a giver are the faction records that the `enemies` field of its f
 4. The system message ends with `prompt_action_quest.txt` for a new job, and with `prompt_action_quest_report.txt` for a job that the NPC answers for. Each tells the NPC to tell the job or the progress in its own words, and to keep the target, the count, and the reward of the facts.
 5. The reply to each marked QUEST line about a new job carries the popup of the job. A line without the mark carries no popup. An `[END]` next to the popup does not close the action dialogue, as for an offer.
 6. Accept of a new job stores it at the game time of the answer (`campaign_db.add_quest`), writes the deal line, says a line of `quest_accept`, and ends the chat thread.
-7. Each counted defeat and each change of state shows a game message (`NOTIFY:`): "Job for Sergeant Rook: 3 of 12 members of the Dust Bandits defeated.", "Job done: go back to Sergeant Rook for the reward.", or "Job failed: Tinfist is dead."
+7. Each counted defeat and each change of state shows a game message (`NOTIFY:`): "Job for Sergeant Rook: 3 of 12 members of the Dust Bandits defeated.", "Job done: go back to Sergeant Rook for the reward.", or "Job failed: Tinfist is dead." The messages wait until no new message comes for 10 s, and then each job shows only its latest message (`queue_job_notes` in `server/core/game.py`), because one fight sends its defeats in several reports.
 8. Accept of a reward sends `ADD_CATS` and `RAISE_RELATION`, marks the job paid, writes the deal line, says a line of `quest_paid`, and ends the chat thread. An accept of a job that changed while the popup waited, for example by Abandon, pays nothing, and shows "X's offer no longer stands.".
 
 | Popup | Text |
